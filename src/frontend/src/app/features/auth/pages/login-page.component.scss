@@ -3,10 +3,7 @@
   overflow: hidden;
   display: flex;
   align-items: stretch;
-  background:
-    radial-gradient(circle at 16% 12%, rgba(147, 197, 253, 0.34), transparent 36%),
-    linear-gradient(145deg, #c7d3eb 0%, #d9e3f7 52%, #c3cee4 100%);
-
+  background: linear-gradient(155deg, #c2d0f6 0%, #cdd9f8 100%);
 }
 
 .auth-stage {
@@ -57,10 +54,10 @@
   position: relative;
   z-index: 2;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  background: linear-gradient(170deg, rgba(137, 168, 228, 0.97) 0%, rgba(144, 175, 235, 0.97) 100%);
-  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.22);
-  max-width: 28rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: #96b6f8;
+  box-shadow: 0 14px 36px rgba(15, 30, 100, 0.22);
+  max-width: 26rem;
   width: 100%;
   padding-bottom: 0.5rem;
   margin-left: clamp(1rem, 2vw, 2.4rem);
@@ -214,8 +211,8 @@
 :host ::ng-deep input.p-inputtext,
 :host ::ng-deep .p-password input {
   border-radius: 0.72rem;
-  border-color: rgba(255, 255, 255, 0.55);
-  background: rgba(240, 246, 255, 0.86);
+  border-color: rgba(200, 220, 255, 0.5);
+  background: #ffffff;
   color: #1e293b;
   padding: 0.83rem 0.9rem;
   transition: box-shadow 160ms ease, border-color 160ms ease;
@@ -235,167 +232,117 @@
 // ── Right visual panel ──────────────────────────────────────────
 // The panel is transparent; the page gradient shows through.
 // Inside: a large medium-blue arc circle + a smaller dark-blue
-// sphere, creating the concentric-arc look from the reference.
+// ── Right visual panel ──────────────────────────────────────────
 
 .visual-panel {
   position: relative;
   z-index: 1;
   min-height: 100vh;
-  background: transparent;
-  // overflow: visible so arcs can bleed left behind the auth-card
-}
-
-// Disc 1 — outermost, lightest blue (cornflower)
-.v-arc {
-  position: absolute;
-  width: 128vh;
-  height: 128vh;
-  border-radius: 50%;
-  background: #7ba7e8;
-  top: 50%;
-  left: 44%;
-  transform: translate(-50%, -50%);
-  z-index: 0;
-  box-shadow:
-    0 24px 60px rgba(10, 30, 100, 0.30),
-    0 6px 18px rgba(10, 30, 100, 0.18);
-}
-
-// Disc 2 — middle, royal blue
-.v-mid {
-  position: absolute;
-  width: 104vh;
-  height: 104vh;
-  border-radius: 50%;
-  background: #2f5ec4;
-  top: 50%;
-  left: 44%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  box-shadow:
-    0 20px 50px rgba(8, 20, 80, 0.35),
-    0 4px 14px rgba(8, 20, 80, 0.22);
-}
-
-// Disc 3 — innermost, deep navy blue — holds rings + illustration
-.v-blob {
-  position: absolute;
-  width: 82vh;
-  height: 82vh;
-  border-radius: 50%;
-  background: #1230a0;
-  top: 50%;
-  left: 44%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
   overflow: hidden;
-  box-shadow:
-    0 16px 40px rgba(5, 10, 60, 0.40),
-    0 3px 10px rgba(5, 10, 60, 0.25);
+  background: transparent; // page gradient shows through
 }
 
-// Subtle concentric rings inside the dark sphere
-.ring {
+// Base disc mixin — all three share these traits
+.v-disc {
   position: absolute;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.14);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  pointer-events: none;
+}
+
+// Disc 1 — outermost, lightest, most transparent
+.v-disc-one {
+  width: min(92%, 92vh);
+  height: min(92%, 92vh);
+  background: rgba(90, 130, 230, 0.22);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow:
+    0 30px 80px rgba(20, 40, 140, 0.18),
+    0 0 0 1px rgba(180, 210, 255, 0.18);
   z-index: 0;
 }
 
-.ring-one {
-  width: 80%;
-  height: 80%;
+// Disc 2 — middle shade & size
+.v-disc-two {
+  width: min(68%, 68vh);
+  height: min(68%, 68vh);
+  background: rgba(60, 100, 210, 0.32);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow:
+    0 24px 60px rgba(15, 30, 120, 0.28),
+    0 0 0 1px rgba(150, 190, 255, 0.22);
+  z-index: 1;
 }
 
-.ring-two {
-  width: 54%;
-  height: 54%;
-}
-
-.hero-png {
-  position: absolute;
-  width: 72%;
-  max-width: 24rem;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+// Disc 3 — innermost, darkest, most opaque
+.v-disc-three {
+  width: min(46%, 46vh);
+  height: min(46%, 46vh);
+  background: rgba(20, 50, 180, 0.52);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 18px 48px rgba(10, 20, 100, 0.42),
+    0 0 0 1px rgba(120, 170, 255, 0.28);
   z-index: 2;
 }
 
-// ── Scattered bubble decorations ────────────────────────────────
+// ── Page-level bubbles (scattered across full background) ────────
+.pg-bubble {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: rgba(90, 130, 215, 0.38);
+  z-index: 1;
+}
+
+.pg-ring {
+  background: transparent;
+  border: 2.5px solid rgba(80, 120, 200, 0.45);
+}
+
+// Top-left corner — small solid
+.pg-b1 { width: 2.2rem; height: 2.2rem; top: 4%;  left: 2%; }
+// Top-left — tiny dot
+.pg-b2 { width: 0.8rem; height: 0.8rem; top: 11%; left: 5%; }
+// Left-center — medium outlined ring
+.pg-b3 { width: 3.2rem; height: 3.2rem; top: 28%; left: 1.5%; }
+// Bottom-left — large outlined ring
+.pg-b4 { width: 2.8rem; height: 2.8rem; bottom: 5%; left: 3%; }
+// Below card bottom-right — small outlined ring
+.pg-b5 { width: 2.6rem; height: 2.6rem; bottom: 13%; left: 38%; }
+// Just above mid-left — tiny solid
+.pg-b6 { width: 1rem; height: 1rem; top: 44%; left: 8%; }
+
+// ── Panel-level bubbles (right side, around the discs) ────────────
 .bubble {
   position: absolute;
   border-radius: 50%;
   z-index: 5;
   pointer-events: none;
-  background: rgba(120, 165, 238, 0.52);
+  background: rgba(100, 148, 232, 0.45);
 }
 
 .bub-ring {
   background: transparent;
-  border: 2.5px solid rgba(108, 155, 232, 0.58);
+  border: 2.5px solid rgba(100, 148, 232, 0.52);
 }
 
-// Large solid — bottom-left of panel
-.bub-1 {
-  width: 3.8rem;
-  height: 3.8rem;
-  left: 3%;
-  bottom: 4%;
-}
-
-// Medium solid — left-center
-.bub-2 {
-  width: 1.9rem;
-  height: 1.9rem;
-  left: 13%;
-  top: 44%;
-}
-
-// Large outlined ring — upper-left
-.bub-3 {
-  width: 3rem;
-  height: 3rem;
-  left: 5%;
-  top: 17%;
-}
-
-// Tiny solid — top area
-.bub-4 {
-  width: 0.85rem;
-  height: 0.85rem;
-  left: 21%;
-  top: 9%;
-}
-
-// Small outlined ring — lower area
-.bub-5 {
-  width: 2.1rem;
-  height: 2.1rem;
-  left: 31%;
-  bottom: 9%;
-}
-
-// Small solid — upper right (on dark area)
-.bub-6 {
-  width: 1.5rem;
-  height: 1.5rem;
-  background: rgba(185, 214, 255, 0.55);
-  right: 11%;
-  top: 13%;
-}
-
-// Small outlined ring — mid-right
-.bub-7 {
-  width: 1.9rem;
-  height: 1.9rem;
-  right: 5%;
-  top: 54%;
-}
+// Upper area above outer disc
+.bub-1 { width: 2.8rem; height: 2.8rem; top: 6%;  left: 18%; }
+// Top-far-right — outlined ring
+.bub-2 { width: 3.2rem; height: 3.2rem; top: 8%;  right: 4%; }
+// Mid-right — solid
+.bub-3 { width: 2rem;   height: 2rem;   top: 50%; right: 3%; }
+// Bottom area — outlined ring
+.bub-4 { width: 2.4rem; height: 2.4rem; bottom: 12%; left: 30%; }
+// Bottom-right — small solid
+.bub-5 { width: 1.4rem; height: 1.4rem; bottom: 6%;  right: 8%; }
+// Center-left of panel — tiny dot
+.bub-6 { width: 1rem;   height: 1rem;   top: 68%; left: 5%; }
 
 @media (max-width: 1023px) {
   .auth-stage {
@@ -418,9 +365,7 @@
 
 @media (max-width: 640px) {
   .login-shell {
-    background:
-      radial-gradient(circle at 12% 8%, rgba(96, 165, 250, 0.2), transparent 34%),
-      linear-gradient(145deg, #c9d6f1 0%, #d8e2f6 50%, #cad4e9 100%);
+    background: linear-gradient(155deg, #c0cef5 0%, #cad6f8 100%);
   }
 
   .auth-header {
