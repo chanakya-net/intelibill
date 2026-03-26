@@ -17,7 +17,7 @@
 | Intelibill.Api.Unit.Tests | 14/14 | 0 | 5.0% |
 | Intelibill.Application.Unit.Tests | 23/23 | 0 | 77.3% |
 | Intelibill.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
-| **Total** | **39/39** | **0** | **9.9%** |
+| **Total** | **39/39** | **0** | **10.0%** |
 <!-- TEST_BREAKDOWN_END -->
 
 # intelibill
