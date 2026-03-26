@@ -1,0 +1,117 @@
+<section class="login-shell min-h-screen p-0">
+  <div class="auth-stage w-full h-screen">
+    <article class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] bg-white shadow-2xl shadow-blue-950/25">
+      <header class="auth-header">
+        <p class="auth-kicker">New Here</p>
+        <h2>Create Account</h2>
+        <p>Start your Intelibill workspace.</p>
+      </header>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 p-6 pt-6" [class.form-busy]="isSubmitting()">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="field-wrap space-y-1.5">
+            <label for="firstName">First Name</label>
+            <input id="firstName" type="text" pInputText formControlName="firstName" autocomplete="given-name" class="w-full" />
+          </div>
+
+          <div class="field-wrap space-y-1.5">
+            <label for="lastName">Last Name</label>
+            <input id="lastName" type="text" pInputText formControlName="lastName" autocomplete="family-name" class="w-full" />
+          </div>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="email">Email Address</label>
+          <input
+            id="email"
+            type="email"
+            pInputText
+            formControlName="email"
+            autocomplete="email"
+            class="w-full"
+            [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
+          />
+          <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">Enter a valid email address.</p>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="password">Password</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="new-password"
+          ></p-password>
+          <p class="field-error" *ngIf="form.controls.password.invalid && form.controls.password.touched">
+            Password must be between 8 and 100 characters.
+          </p>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="confirmPassword">Confirm Password</label>
+          <p-password
+            inputId="confirmPassword"
+            formControlName="confirmPassword"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="new-password"
+          ></p-password>
+          <p class="field-error" *ngIf="form.controls.confirmPassword.invalid && form.controls.confirmPassword.touched">
+            Please re-enter your password.
+          </p>
+          <p class="field-error" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
+            Passwords do not match.
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between pt-0.5 text-sm">
+          <div class="flex items-center gap-2">
+            <p-checkbox inputId="rememberMe" formControlName="rememberMe" [binary]="true"></p-checkbox>
+            <label for="rememberMe" class="text-slate-600">Remember me</label>
+          </div>
+          <a routerLink="/login" class="text-blue-700 font-medium">Back to login</a>
+        </div>
+
+        <p *ngIf="serverError()" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {{ serverError() }}
+        </p>
+
+        <button
+          pButton
+          type="submit"
+          [label]="isSubmitting() ? 'Creating account...' : 'Sign up'"
+          [disabled]="form.invalid || isSubmitting()"
+          class="auth-submit w-full"
+        ></button>
+      </form>
+
+      <div class="form-overlay" *ngIf="isSubmitting()">
+        <p-progressSpinner strokeWidth="4" styleClass="auth-spinner"></p-progressSpinner>
+      </div>
+    </article>
+
+    <aside class="visual-panel" aria-hidden="true">
+      <!-- Concentric arc (medium-blue outer circle) -->
+      <div class="v-arc"></div>
+      <!-- Dark-blue sphere with rings + illustration -->
+      <div class="v-blob">
+        <div class="ring ring-one"></div>
+        <div class="ring ring-two"></div>
+        <img src="/illustrations/auth-bud.svg" alt="" class="hero-png" />
+      </div>
+      <!-- Scattered bubble decorations -->
+      <div class="bubble bub-1"></div>
+      <div class="bubble bub-2"></div>
+      <div class="bubble bub-ring bub-3"></div>
+      <div class="bubble bub-4"></div>
+      <div class="bubble bub-ring bub-5"></div>
+      <div class="bubble bub-6"></div>
+      <div class="bubble bub-ring bub-7"></div>
+    </aside>
+  </div>
+</section>

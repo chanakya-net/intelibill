@@ -6,7 +6,7 @@ import { Router } from '@angular/router';
 import { catchError, finalize, map, Observable, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
-import { AuthResult, AuthSession, LoginWithEmailRequest, RefreshTokenRequest } from './auth.models';
+import { AuthResult, AuthSession, LoginWithEmailRequest, RefreshTokenRequest, RegisterWithEmailRequest } from './auth.models';
 import { AuthStorage } from './auth.storage';
 
 @Injectable({ providedIn: 'root' })
@@ -39,6 +39,34 @@ export class AuthService {
       map((result) => this.toSession(result, rememberMe)),
       tap((session) => {
         this.setSession(session);
+        if (rememberMe) {
+          this.storage.saveLastEmail(email);
+        } else {
+          this.storage.clearLastEmail();
+        }
+      })
+    );
+  }
+
+  registerWithEmail(
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    rememberMe: boolean
+  ): Observable<AuthSession> {
+    const payload: RegisterWithEmailRequest = {
+      firstName,
+      lastName,
+      email,
+      password,
+    };
+
+    return this.http.post<AuthResult>(AUTH_ENDPOINTS.registerWithEmail, payload).pipe(
+      map((result) => this.toSession(result, rememberMe)),
+      tap((session) => {
+        this.setSession(session);
+
         if (rememberMe) {
           this.storage.saveLastEmail(email);
         } else {

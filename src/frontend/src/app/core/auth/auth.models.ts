@@ -3,6 +3,13 @@ export interface LoginWithEmailRequest {
   readonly password: string;
 }
 
+export interface RegisterWithEmailRequest {
+  readonly email: string;
+  readonly password: string;
+  readonly firstName: string;
+  readonly lastName: string;
+}
+
 export interface RefreshTokenRequest {
   readonly refreshToken: string;
 }

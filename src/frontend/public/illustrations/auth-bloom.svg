@@ -1,0 +1,73 @@
+<svg width="900" height="760" viewBox="0 0 900 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="160" y1="90" x2="760" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F56DC"/>
+      <stop offset="1" stop-color="#1440B5"/>
+    </linearGradient>
+    <radialGradient id="softLight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(460 320) rotate(90) scale(260)">
+      <stop stop-color="#6EA2FF" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#6EA2FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="leafA" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#57C4BE"/>
+      <stop offset="1" stop-color="#2F8F9F"/>
+    </linearGradient>
+    <linearGradient id="leafB" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#89D4C7"/>
+      <stop offset="1" stop-color="#3A8797"/>
+    </linearGradient>
+    <linearGradient id="petal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFC9D3"/>
+      <stop offset="1" stop-color="#F7A7BA"/>
+    </linearGradient>
+    <filter id="shadow" x="120" y="140" width="660" height="520" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="22"/>
+      <feGaussianBlur stdDeviation="18"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0666 0 0 0 0 0.16 0 0 0 0 0.45 0 0 0 0.24 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <circle cx="450" cy="380" r="318" fill="url(#bgGrad)"/>
+  <circle cx="450" cy="380" r="318" fill="url(#softLight)"/>
+
+  <g filter="url(#shadow)">
+    <ellipse cx="452" cy="564" rx="232" ry="45" fill="#7797F0" opacity="0.42"/>
+
+    <path d="M270 538C308 470 335 414 392 362C421 336 448 338 466 353C483 367 486 396 468 431C445 474 404 513 346 550L270 538Z" fill="url(#leafA)"/>
+    <path d="M611 542C566 469 544 413 489 362C459 334 431 337 413 353C397 367 395 397 414 430C438 473 474 511 536 548L611 542Z" fill="url(#leafB)"/>
+
+    <path d="M438 535C462 468 474 417 525 374C551 352 581 357 595 377C608 396 607 426 587 455C561 493 520 525 466 552L438 535Z" fill="url(#petal)"/>
+    <path d="M478 540C462 471 458 416 407 372C381 349 351 354 336 373C322 391 321 421 341 452C368 493 409 525 464 551L478 540Z" fill="url(#petal)"/>
+
+    <ellipse cx="455" cy="553" rx="92" ry="26" fill="#A8B9FA"/>
+
+    <g transform="translate(315 360)">
+      <circle cx="0" cy="0" r="26" fill="#FFD591"/>
+      <circle cx="0" cy="0" r="10" fill="#F59E0B"/>
+      <path d="M0 -76C32 -58 47 -39 58 -6" stroke="#FFC38C" stroke-width="11" stroke-linecap="round"/>
+      <path d="M0 -76C-33 -58 -48 -39 -59 -6" stroke="#FFC38C" stroke-width="11" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(595 390)">
+      <circle cx="0" cy="0" r="22" fill="#FFD8A6"/>
+      <circle cx="0" cy="0" r="8" fill="#F59E0B"/>
+      <path d="M0 -56C26 -45 40 -30 51 -4" stroke="#FFC38C" stroke-width="9" stroke-linecap="round"/>
+      <path d="M0 -56C-26 -45 -40 -30 -51 -4" stroke="#FFC38C" stroke-width="9" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(396 300)">
+      <circle cx="0" cy="0" r="20" fill="#F9B5CF"/>
+      <circle cx="0" cy="-44" r="11" fill="#FFC2D5"/>
+      <circle cx="42" cy="0" r="11" fill="#FFC2D5"/>
+      <circle cx="0" cy="44" r="11" fill="#FFC2D5"/>
+      <circle cx="-42" cy="0" r="11" fill="#FFC2D5"/>
+      <circle cx="30" cy="-30" r="11" fill="#FFC2D5"/>
+      <circle cx="-30" cy="-30" r="11" fill="#FFC2D5"/>
+      <circle cx="30" cy="30" r="11" fill="#FFC2D5"/>
+      <circle cx="-30" cy="30" r="11" fill="#FFC2D5"/>
+      <circle cx="0" cy="0" r="7" fill="#FB7185"/>
+    </g>
+  </g>
+</svg>

@@ -17,6 +17,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { httpLoadingInterceptor } from './core/interceptors/http-loading.interceptor';
+import { RegisterEffects } from './features/auth/state/register.effects';
 
 const enterprisePreset = definePreset(Aura, {
   semantic: {
@@ -41,7 +43,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([httpLoadingInterceptor, authInterceptor])),
     providePrimeNG({
       ripple: true,
       theme: {
@@ -56,7 +58,7 @@ export const appConfig: ApplicationConfig = {
       },
     }),
     provideStore(rootReducers, { metaReducers }),
-    provideEffects(),
+    provideEffects(RegisterEffects),
     provideStoreDevtools({
       maxAge: 25,
       logOnly: !isDevMode(),

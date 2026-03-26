@@ -1,15 +1,413 @@
 .login-shell {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
   background:
-    radial-gradient(circle at 8% 12%, rgba(14, 165, 233, 0.2), transparent 42%),
-    radial-gradient(circle at 90% 22%, rgba(56, 189, 248, 0.22), transparent 38%),
-    linear-gradient(160deg, #ecfeff 0%, #f8fafc 42%, #f0f9ff 100%);
+    radial-gradient(circle at 16% 12%, rgba(147, 197, 253, 0.34), transparent 36%),
+    linear-gradient(145deg, #c7d3eb 0%, #d9e3f7 52%, #c3cee4 100%);
+
 }
 
-:host ::ng-deep .login-card .p-card-body {
-  padding: 0 1.25rem 1.25rem;
+.auth-stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(20rem, 30rem) 1fr;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  min-height: calc(100vh - 5rem);
+  border-radius: 2rem;
+  color: #f8fafc;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.22), transparent 36%),
+    linear-gradient(155deg, #8f72e9 0%, #7f68e0 52%, #6957ca 100%);
+}
+
+.hero-chip {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 1rem;
+  padding: 0.75rem 0.9rem;
+
+  p {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  span {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.95);
+  }
+}
+
+.auth-card {
+  align-self: center;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: linear-gradient(170deg, rgba(137, 168, 228, 0.97) 0%, rgba(144, 175, 235, 0.97) 100%);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.22);
+  max-width: 28rem;
+  width: 100%;
+  padding-bottom: 0.5rem;
+  margin-left: clamp(1rem, 2vw, 2.4rem);
+}
+
+.auth-header {
+  color: #f8fafc;
+  padding: 2rem 2rem 0.9rem;
+  text-align: center;
+  background: transparent;
+
+  h2 {
+    margin: 0;
+    font-size: 2.45rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #f8fafc;
+  }
+
+  .auth-kicker {
+    margin: 0 0 0.4rem;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: rgba(239, 246, 255, 0.92);
+  }
+}
+
+.field-wrap {
+  label {
+    display: block;
+    font-size: 0.76rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(243, 244, 246, 0.92);
+    font-weight: 700;
+  }
+}
+
+.login-form {
+  .field-wrap {
+    label {
+      display: none;
+    }
+  }
+}
+
+.field-error {
+  color: #fee2e2;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.auth-submit {
+  border-radius: 0.72rem;
+  background: linear-gradient(90deg, #174ab8 0%, #1e54c9 100%);
+  border: none;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 18px rgba(22, 67, 168, 0.28);
+}
+
+.social-title {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  font-size: 1.03rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.social-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.social-button {
+  border: none;
+  border-radius: 0.68rem;
+  background: rgba(229, 238, 255, 0.92);
+  color: #2462ca;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-weight: 500;
+}
+
+.social-icon {
+  width: 1.38rem;
+  height: 1.38rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.social-icon-fb {
+  background: #1877f2;
+  color: #ffffff;
+}
+
+.social-icon-google {
+  background: #ffffff;
+  color: #ea4335;
+}
+
+.signup-hint {
+  margin: 0.8rem 0 0.1rem;
+  text-align: center;
+  font-size: 1.05rem;
+  color: #020617;
+  font-weight: 700;
+
+  a {
+    color: #fbbf24;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+}
+
+.form-busy {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.form-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.18);
+  z-index: 10;
+}
+
+:host ::ng-deep .auth-spinner .p-progressspinner-circle {
+  animation: p-progress-spinner-dash 1.4s ease-in-out infinite,
+    p-progress-spinner-color 6s ease-in-out infinite;
+  stroke: #ffffff;
 }
 
 :host ::ng-deep .p-password,
 :host ::ng-deep .p-password input {
   width: 100%;
+}
+
+:host ::ng-deep input.p-inputtext,
+:host ::ng-deep .p-password input {
+  border-radius: 0.72rem;
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(240, 246, 255, 0.86);
+  color: #1e293b;
+  padding: 0.83rem 0.9rem;
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+:host ::ng-deep input.p-inputtext::placeholder,
+:host ::ng-deep .p-password input::placeholder {
+  color: #97a4bc;
+}
+
+:host ::ng-deep input.p-inputtext:enabled:focus,
+:host ::ng-deep .p-password input:enabled:focus {
+  border-color: #bfdbfe;
+  box-shadow: 0 0 0 0.18rem rgba(191, 219, 254, 0.42);
+}
+
+// ── Right visual panel ──────────────────────────────────────────
+// The panel is transparent; the page gradient shows through.
+// Inside: a large medium-blue arc circle + a smaller dark-blue
+// sphere, creating the concentric-arc look from the reference.
+
+.visual-panel {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  background: transparent;
+  // overflow: visible so arcs can bleed left behind the auth-card
+}
+
+// Medium-blue outer arc (larger circle, bleeds left)
+.v-arc {
+  position: absolute;
+  width: 125vh;
+  height: 125vh;
+  border-radius: 50%;
+  background: rgba(148, 182, 242, 0.48);
+  top: 50%;
+  left: 44%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+// Dark-blue inner sphere
+.v-blob {
+  position: absolute;
+  width: 95vh;
+  height: 95vh;
+  border-radius: 50%;
+  background: #1c48c2;
+  top: 50%;
+  left: 44%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  overflow: hidden;
+}
+
+// Subtle concentric rings inside the dark sphere
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ring-one {
+  width: 80%;
+  height: 80%;
+}
+
+.ring-two {
+  width: 54%;
+  height: 54%;
+}
+
+.hero-png {
+  position: absolute;
+  width: 60%;
+  max-width: 22rem;
+  bottom: 24%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+// ── Scattered bubble decorations ────────────────────────────────
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(120, 165, 238, 0.52);
+}
+
+.bub-ring {
+  background: transparent;
+  border: 2.5px solid rgba(108, 155, 232, 0.58);
+}
+
+// Large solid — bottom-left of panel
+.bub-1 {
+  width: 3.8rem;
+  height: 3.8rem;
+  left: 3%;
+  bottom: 4%;
+}
+
+// Medium solid — left-center
+.bub-2 {
+  width: 1.9rem;
+  height: 1.9rem;
+  left: 13%;
+  top: 44%;
+}
+
+// Large outlined ring — upper-left
+.bub-3 {
+  width: 3rem;
+  height: 3rem;
+  left: 5%;
+  top: 17%;
+}
+
+// Tiny solid — top area
+.bub-4 {
+  width: 0.85rem;
+  height: 0.85rem;
+  left: 21%;
+  top: 9%;
+}
+
+// Small outlined ring — lower area
+.bub-5 {
+  width: 2.1rem;
+  height: 2.1rem;
+  left: 31%;
+  bottom: 9%;
+}
+
+// Small solid — upper right (on dark area)
+.bub-6 {
+  width: 1.5rem;
+  height: 1.5rem;
+  background: rgba(185, 214, 255, 0.55);
+  right: 11%;
+  top: 13%;
+}
+
+// Small outlined ring — mid-right
+.bub-7 {
+  width: 1.9rem;
+  height: 1.9rem;
+  right: 5%;
+  top: 54%;
+}
+
+@media (max-width: 1023px) {
+  .auth-stage {
+    grid-template-columns: 1fr;
+    place-items: center;
+    padding: 1.5rem 1rem;
+    gap: 1rem;
+    min-height: 100vh;
+  }
+
+  .visual-panel {
+    display: none;
+  }
+
+  .auth-card {
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-shell {
+    background:
+      radial-gradient(circle at 12% 8%, rgba(96, 165, 250, 0.2), transparent 34%),
+      linear-gradient(145deg, #c9d6f1 0%, #d8e2f6 50%, #cad4e9 100%);
+  }
+
+  .auth-header {
+    h2 {
+      font-size: 1.95rem;
+    }
+  }
+
+  .signup-hint {
+    font-size: 1rem;
+  }
 }
