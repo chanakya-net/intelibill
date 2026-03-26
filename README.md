@@ -5,8 +5,8 @@
 | Overall Build Status | [![Backend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=overall%20build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
 | Build Pass Status | [![Backend Build](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
 | Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
-| Tests Run (Latest) | ![Tests Run](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/tests.json) |
-| Coverage (Latest) | ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/coverage.json) |
+| Tests Run (Latest) | ![Tests Run](.github/badges/tests.svg) |
+| Coverage (Latest) | ![Coverage](.github/badges/coverage.svg) |
 
 ### Latest Backend Test Breakdown
 
