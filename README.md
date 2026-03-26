@@ -8,6 +8,14 @@
 | Tests Run (Latest) | ![Tests Run](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/tests.json) |
 | Coverage (Latest) | ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/coverage.json) |
 
+### Latest Backend Test Breakdown
+
+<!-- TEST_BREAKDOWN_START -->
+| Project | Tests Passed | Failed | Coverage |
+|---|---:|---:|---:|
+| pending | pending | pending | pending |
+<!-- TEST_BREAKDOWN_END -->
+
 # inventory.ai
 
 AI-powered inventory management system.

@@ -38,7 +38,27 @@ jobs:
         run: dotnet build src/backend/InventoryAI.slnx --configuration Release --no-restore
 
       - name: Run backend tests
-        run: dotnet test src/backend/InventoryAI.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory TestResults --collect:"XPlat Code Coverage"
+        run: |
+          set -euo pipefail
+
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo 'No backend test projects found under tests/backend.'
+            exit 1
+          fi
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            project_results_dir="TestResults/${project_name}"
+
+            dotnet test "${project}" \
+              --configuration Release \
+              --no-build \
+              --verbosity normal \
+              --logger "trx;LogFileName=${project_name}.trx" \
+              --results-directory "${project_results_dir}" \
+              --collect:"XPlat Code Coverage"
+          done
 
       - name: Generate badge data
         run: |
@@ -46,14 +66,80 @@ jobs:
 
           mkdir -p .github/badges
 
-          trx_files=$(find TestResults -type f -name '*.trx' || true)
-          if [ -z "${trx_files}" ]; then
-            echo 'No TRX files found under TestResults.'
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo 'No backend test projects found under tests/backend.'
             exit 1
           fi
 
-          total_tests=$(grep -hPo 'total="\K[0-9]+' ${trx_files} | awk '{s+=$1} END{print s+0}')
-          passed_tests=$(grep -hPo 'passed="\K[0-9]+' ${trx_files} | awk '{s+=$1} END{print s+0}')
+          rows_file=.github/badges/tests-by-project-table.md
+          {
+            echo '| Project | Tests Passed | Failed | Coverage |'
+            echo '|---|---:|---:|---:|'
+          } > "${rows_file}"
+
+          total_tests=0
+          passed_tests=0
+          failed_tests=0
+          skipped_tests=0
+          lines_valid_total=0
+          lines_covered_total=0
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            trx_file="TestResults/${project_name}/${project_name}.trx"
+
+            if [ ! -f "${trx_file}" ]; then
+              echo "Expected TRX file not found for ${project_name}: ${trx_file}"
+              exit 1
+            fi
+
+            total=$(grep -oP 'Counters[^>]*total="\K[0-9]+' "${trx_file}" | head -1 || true)
+            passed=$(grep -oP 'Counters[^>]*passed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            failed=$(grep -oP 'Counters[^>]*failed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            skipped=$(grep -oP 'Counters[^>]*notExecuted="\K[0-9]+' "${trx_file}" | head -1 || true)
+
+            total=${total:-0}
+            passed=${passed:-0}
+            failed=${failed:-0}
+            skipped=${skipped:-0}
+
+            total_tests=$((total_tests + total))
+            passed_tests=$((passed_tests + passed))
+            failed_tests=$((failed_tests + failed))
+            skipped_tests=$((skipped_tests + skipped))
+
+            coverage_file=$(find "TestResults/${project_name}" -type f -name 'coverage.cobertura.xml' | head -1 || true)
+            project_coverage='0.0'
+
+            if [ -n "${coverage_file}" ]; then
+              lines_valid=$(grep -oP 'lines-valid="\K[0-9]+' "${coverage_file}" | head -1 || true)
+              lines_covered=$(grep -oP 'lines-covered="\K[0-9]+' "${coverage_file}" | head -1 || true)
+              lines_valid=${lines_valid:-0}
+              lines_covered=${lines_covered:-0}
+
+              if [ "${lines_valid}" -gt 0 ]; then
+                project_coverage=$(awk -v c="${lines_covered}" -v v="${lines_valid}" 'BEGIN { printf "%.1f", (c/v)*100 }')
+                lines_valid_total=$((lines_valid_total + lines_valid))
+                lines_covered_total=$((lines_covered_total + lines_covered))
+              else
+                line_rate=$(grep -oP 'line-rate="\K[0-9.]+(?=")' "${coverage_file}" | head -1 || true)
+                if [ -n "${line_rate}" ]; then
+                  project_coverage=$(awk -v r="${line_rate}" 'BEGIN { printf "%.1f", r*100 }')
+                fi
+              fi
+            fi
+
+            printf '| %s | %s/%s | %s | %s%% |\n' "${project_name}" "${passed}" "${total}" "${failed}" "${project_coverage}" >> "${rows_file}"
+          done
+
+          if [ "${lines_valid_total}" -gt 0 ]; then
+            coverage_pct=$(awk -v c="${lines_covered_total}" -v v="${lines_valid_total}" 'BEGIN { printf "%.1f", (c/v)*100 }')
+          else
+            coverage_pct='0.0'
+          fi
+
+          printf '| **Total** | **%s/%s** | **%s** | **%s%%** |\n' "${passed_tests}" "${total_tests}" "${failed_tests}" "${coverage_pct}" >> "${rows_file}"
 
           tests_color="red"
           if [ "${total_tests}" -eq 0 ]; then
@@ -72,21 +158,6 @@ jobs:
             "color": "${tests_color}"
           }
           JSON
-
-          coverage_files=$(find TestResults -type f -name 'coverage.cobertura.xml' || true)
-          if [ -n "${coverage_files}" ]; then
-            lines_valid=$(grep -hPo 'lines-valid="\K[0-9]+' ${coverage_files} | awk '{s+=$1} END{print s+0}')
-            lines_covered=$(grep -hPo 'lines-covered="\K[0-9]+' ${coverage_files} | awk '{s+=$1} END{print s+0}')
-          else
-            lines_valid=0
-            lines_covered=0
-          fi
-
-          if [ "${lines_valid}" -gt 0 ]; then
-            coverage_pct=$(awk -v c="${lines_covered}" -v v="${lines_valid}" 'BEGIN { printf "%.1f", (c/v)*100 }')
-          else
-            coverage_pct="0.0"
-          fi
 
           coverage_color="red"
           if awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 80) }'; then
@@ -108,17 +179,35 @@ jobs:
           }
           JSON
 
+          awk -v table_file="${rows_file}" '
+            $0=="<!-- TEST_BREAKDOWN_START -->" {
+              print;
+              while ((getline line < table_file) > 0) print line;
+              close(table_file);
+              in_block=1;
+              next;
+            }
+            $0=="<!-- TEST_BREAKDOWN_END -->" {
+              in_block=0;
+              print;
+              next;
+            }
+            !in_block { print; }
+          ' README.md > README.md.tmp
+
+          mv README.md.tmp README.md
+
       - name: Commit badge updates
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- .github/badges/tests.json .github/badges/coverage.json; then
+          if git diff --quiet -- .github/badges/tests.json .github/badges/coverage.json README.md; then
             echo 'No badge changes to commit.'
             exit 0
           fi
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/badges/tests.json .github/badges/coverage.json
+          git add .github/badges/tests.json .github/badges/coverage.json README.md
           git commit -m 'ci: update test and coverage badges'
           git push
