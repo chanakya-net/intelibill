@@ -13,7 +13,11 @@
 <!-- TEST_BREAKDOWN_START -->
 | Project | Tests Passed | Failed | Coverage |
 |---|---:|---:|---:|
-| pending | pending | pending | pending |
+| InventoryAI.Integration.Tests | 1/1 | 0 | 0.0% |
+| InventoryAI.Api.Unit.Tests | 14/14 | 0 | 0.0% |
+| InventoryAI.Application.Unit.Tests | 23/23 | 0 | 0.0% |
+| InventoryAI.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
+| **Total** | **39/39** | **0** | **0.0%** |
 <!-- TEST_BREAKDOWN_END -->
 
 # inventory.ai
