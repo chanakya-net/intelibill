@@ -14,10 +14,10 @@
 | Project | Tests Passed | Failed | Coverage |
 |---|---:|---:|---:|
 | InventoryAI.Integration.Tests | 1/1 | 0 | 0.0% |
-| InventoryAI.Api.Unit.Tests | 14/14 | 0 | 0.0% |
-| InventoryAI.Application.Unit.Tests | 23/23 | 0 | 0.0% |
+| InventoryAI.Api.Unit.Tests | 14/14 | 0 | 5.0% |
+| InventoryAI.Application.Unit.Tests | 23/23 | 0 | 77.3% |
 | InventoryAI.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
-| **Total** | **39/39** | **0** | **0.0%** |
+| **Total** | **39/39** | **0** | **9.9%** |
 <!-- TEST_BREAKDOWN_END -->
 
 # inventory.ai
