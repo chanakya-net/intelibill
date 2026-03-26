@@ -52,8 +52,7 @@ jobs:
             project_results_dir="TestResults/${project_name}"
 
             dotnet test "${project}" \
-              --configuration Release \
-              --no-build \
+              --configuration Debug \
               --verbosity normal \
               --logger "trx;LogFileName=${project_name}.trx" \
               --results-directory "${project_results_dir}" \
