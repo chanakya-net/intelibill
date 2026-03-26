@@ -33,7 +33,7 @@ AI-powered inventory management system.
 | Messaging / CQRS | Wolverine 5.24 |
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 (result pattern) |
-| Frontend | Angular PWA *(not yet started)* |
+| Frontend | Angular 21 (standalone), SSR + hydration, PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Bun |
 | Mobile | .NET MAUI *(not yet started)* |
 
 ## Repository Structure
@@ -50,7 +50,7 @@ intelibill/
 │   │   ├── Intelibill.Application/    # Handlers (Wolverine), validators, use cases
 │   │   ├── Intelibill.Infrastructure/ # EF Core, repositories, PostgreSQL
 │   │   └── Intelibill.Api/            # ASP.NET Core host, controllers, middleware
-│   ├── frontend/               # Angular PWA (scaffolding only)
+│   ├── frontend/               # Angular frontend app (Bun, SSR, PWA, NgRx)
 │   └── mobile/                 # .NET MAUI (scaffolding only)
 ├── tests/
 │   ├── backend/
@@ -89,6 +89,8 @@ See [src/backend/CLAUDE.md](src/backend/CLAUDE.md) for build commands and [.clau
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (10.0.105+)
 - PostgreSQL running locally
+- [Node.js](https://nodejs.org/) (Angular CLI runtime)
+- [Bun](https://bun.sh/) 1.3+
 
 ### Backend
 
@@ -117,7 +119,34 @@ API is available at `http://localhost:5202`. OpenAPI docs at `http://localhost:5
 
 ### Frontend
 
-*Not yet started.*
+```bash
+# From repo root
+cd src/frontend
+
+# Install dependencies
+bun install
+
+# Run development server
+bun run start
+
+# Build (browser + server bundles)
+bun run build
+
+# Run tests
+bun run test --watch=false
+
+# Serve built SSR app
+bun run serve:ssr:INVENTORY
+```
+
+Frontend stack highlights:
+
+- Standalone component architecture with lazy-loaded feature routes
+- Feature-first NgRx state architecture with root store wiring
+- Tailwind CSS + PrimeNG enterprise UI baseline
+- SSR-first rendering with hydration
+- PWA support with service worker + manifest
+- Responsive layout for mobile, tablet, and desktop
 
 ### Mobile
 

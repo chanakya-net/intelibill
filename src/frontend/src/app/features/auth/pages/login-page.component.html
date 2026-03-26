@@ -1,0 +1,87 @@
+<section class="login-shell min-h-screen px-4 py-10 sm:px-6 lg:px-8">
+  <div class="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+    <div class="space-y-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700">Inventory.ai Secure Access</p>
+      <h1 class="text-4xl font-extrabold leading-tight text-slate-900 sm:text-5xl">
+        Sign in to your operations cockpit
+      </h1>
+      <p class="max-w-xl text-base text-slate-700 sm:text-lg">
+        Monitor stock health, follow order movement, and keep fulfillment on track from one control surface.
+      </p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl border border-cyan-100 bg-white/75 p-4 shadow-sm backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Live Inventory</p>
+          <p class="mt-1 text-sm text-slate-600">Track replenishment and shortages in real time.</p>
+        </div>
+        <div class="rounded-2xl border border-sky-100 bg-white/75 p-4 shadow-sm backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Reliable Sessions</p>
+          <p class="mt-1 text-sm text-slate-600">Auto refresh keeps your workspace active securely.</p>
+        </div>
+      </div>
+    </div>
+
+    <p-card styleClass="login-card border-0 shadow-2xl shadow-cyan-900/10">
+      <ng-template pTemplate="header">
+        <div class="px-6 pt-6">
+          <h2 class="text-2xl font-bold text-slate-900">Welcome back</h2>
+          <p class="mt-1 text-sm text-slate-600">Use your email and password to continue.</p>
+        </div>
+      </ng-template>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 px-2 pb-2">
+        <div class="space-y-2">
+          <label for="email" class="text-sm font-semibold text-slate-700">Email</label>
+          <input
+            id="email"
+            type="email"
+            pInputText
+            formControlName="email"
+            autocomplete="email"
+            class="w-full"
+            [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
+          />
+          <p class="text-xs text-rose-600" *ngIf="form.controls.email.invalid && form.controls.email.touched">
+            Enter a valid email address.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <label for="password" class="text-sm font-semibold text-slate-700">Password</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="current-password"
+          ></p-password>
+          <p class="text-xs text-rose-600" *ngIf="form.controls.password.invalid && form.controls.password.touched">
+            Password is required.
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <div class="flex items-center gap-2">
+            <p-checkbox inputId="rememberMe" formControlName="rememberMe" [binary]="true"></p-checkbox>
+            <label for="rememberMe" class="text-sm text-slate-700">Remember me</label>
+          </div>
+        </div>
+
+        <p *ngIf="serverError()" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {{ serverError() }}
+        </p>
+
+        <button
+          pButton
+          type="submit"
+          [label]="isSubmitting() ? 'Signing in...' : 'Sign In'"
+          icon="pi pi-sign-in"
+          [loading]="isSubmitting()"
+          [disabled]="isSubmitting()"
+          class="w-full"
+        ></button>
+      </form>
+    </p-card>
+  </div>
+</section>

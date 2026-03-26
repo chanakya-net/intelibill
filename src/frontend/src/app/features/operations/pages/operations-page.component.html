@@ -1,0 +1,37 @@
+<section class="space-y-6 pb-20 md:pb-0">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Live Execution</p>
+      <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">Operations Queue</h2>
+    </div>
+    <p-button icon="pi pi-sync" label="Refresh" outlined="true"></p-button>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    @for (queue of queues; track queue.lane) {
+      <p-card styleClass="h-full rounded-2xl border border-slate-100 shadow-sm">
+        <ng-template #content>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <p class="text-base font-semibold text-slate-900">{{ queue.lane }}</p>
+              <p-tag [severity]="queue.severity" value="{{ queue.pending }} pending"></p-tag>
+            </div>
+            <p class="text-sm text-slate-600">{{ queue.owner }}</p>
+          </div>
+        </ng-template>
+      </p-card>
+    }
+  </div>
+
+  <p-card styleClass="rounded-2xl border border-slate-100 shadow-sm">
+    <ng-template #content>
+      <div class="rounded-xl bg-slate-900 p-5 text-slate-50">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">Architecture Notice</p>
+        <p class="mt-2 text-sm leading-6 text-slate-100">
+          Feature routes are lazy loaded and can register their own NgRx feature state independently. This keeps
+          each domain isolated while preserving a single root store.
+        </p>
+      </div>
+    </ng-template>
+  </p-card>
+</section>

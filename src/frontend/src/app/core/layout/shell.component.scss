@@ -1,0 +1,11 @@
+.app-shell {
+  background:
+    radial-gradient(circle at 10% 10%, rgba(14, 116, 144, 0.08), transparent 40%),
+    radial-gradient(circle at 90% 15%, rgba(59, 130, 246, 0.1), transparent 45%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%);
+}
+
+a.is-active {
+  background-color: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
