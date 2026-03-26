@@ -9,7 +9,7 @@ namespace InventoryAI.Infrastructure.Repositories;
 public abstract class RepositoryBase<TEntity>(ApplicationDbContext context) : IRepository<TEntity>
     where TEntity : BaseEntity
 {
-    protected readonly DbSet<TEntity> DbSet = context.Set<TEntity>();
+    protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();
 
     public async Task<TEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await DbSet.FindAsync([id], cancellationToken);
