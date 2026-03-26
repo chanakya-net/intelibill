@@ -1,0 +1,39 @@
+name: Backend PR CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - src/backend/**
+      - tests/backend/**
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test-backend:
+    name: Build and Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+
+      - name: Restore backend solution
+        run: dotnet restore src/backend/InventoryAI.slnx
+
+      - name: Build backend solution
+        run: dotnet build src/backend/InventoryAI.slnx --configuration Release --no-restore
+
+      - name: Run backend tests
+        run: dotnet test src/backend/InventoryAI.slnx --configuration Release --no-build --verbosity normal
