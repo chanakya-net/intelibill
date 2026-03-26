@@ -1,3 +1,13 @@
+# Build Status
+
+| Metric | Status |
+|---|---|
+| Overall Build Status | [![Backend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=overall%20build)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
+| Build Pass Status | [![Backend Build](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
+| Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
+| Tests Run (Latest) | ![Tests Run](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/tests.json) |
+| Coverage (Latest) | ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/coverage.json) |
+
 # inventory.ai
 
 AI-powered inventory management system.
