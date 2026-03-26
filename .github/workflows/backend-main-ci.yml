@@ -5,11 +5,14 @@ on:
     branches:
       - main
     paths:
+      - .github/workflows/backend-main-ci.yml
+      - .github/workflows/backend-pr-ci.yml
       - src/backend/**
       - tests/backend/**
       - Directory.Build.props
       - Directory.Packages.props
       - global.json
+  workflow_dispatch:
 
 permissions:
   contents: read
