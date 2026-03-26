@@ -189,31 +189,33 @@ jobs:
             local label_width=$((label_chars * 7 + 14))
             local message_width=$((message_chars * 7 + 14))
             local total_width=$((label_width + message_width))
+            local label_center=$((label_width / 2))
+            local message_center=$((label_width + (message_width / 2)))
 
-            cat > "${output}" <<SVG
-<svg xmlns="http://www.w3.org/2000/svg" width="${total_width}" height="20" role="img" aria-label="${label}: ${message}">
-  <linearGradient id="s" x2="0" y2="100%">
-    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
-    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
-    <stop offset=".9" stop-color="#000" stop-opacity=".3"/>
-    <stop offset="1" stop-color="#000" stop-opacity=".5"/>
-  </linearGradient>
-  <clipPath id="r">
-    <rect width="${total_width}" height="20" rx="3" fill="#fff"/>
-  </clipPath>
-  <g clip-path="url(#r)">
-    <rect width="${label_width}" height="20" fill="#555"/>
-    <rect x="${label_width}" width="${message_width}" height="20" fill="${color}"/>
-    <rect width="${total_width}" height="20" fill="url(#s)"/>
-  </g>
-  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
-    <text x="$((label_width / 2))" y="15" fill="#010101" fill-opacity=".3">${label}</text>
-    <text x="$((label_width / 2))" y="14">${label}</text>
-    <text x="$((label_width + (message_width / 2)))" y="15" fill="#010101" fill-opacity=".3">${message}</text>
-    <text x="$((label_width + (message_width / 2)))" y="14">${message}</text>
-  </g>
-</svg>
-SVG
+            {
+              printf '%s\n' "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${total_width}\" height=\"20\" role=\"img\" aria-label=\"${label}: ${message}\">"
+              printf '%s\n' '  <linearGradient id="s" x2="0" y2="100%">'
+              printf '%s\n' '    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>'
+              printf '%s\n' '    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>'
+              printf '%s\n' '    <stop offset=".9" stop-color="#000" stop-opacity=".3"/>'
+              printf '%s\n' '    <stop offset="1" stop-color="#000" stop-opacity=".5"/>'
+              printf '%s\n' '  </linearGradient>'
+              printf '%s\n' '  <clipPath id="r">'
+              printf '%s\n' "    <rect width=\"${total_width}\" height=\"20\" rx=\"3\" fill=\"#fff\"/>"
+              printf '%s\n' '  </clipPath>'
+              printf '%s\n' '  <g clip-path="url(#r)">'
+              printf '%s\n' "    <rect width=\"${label_width}\" height=\"20\" fill=\"#555\"/>"
+              printf '%s\n' "    <rect x=\"${label_width}\" width=\"${message_width}\" height=\"20\" fill=\"${color}\"/>"
+              printf '%s\n' "    <rect width=\"${total_width}\" height=\"20\" fill=\"url(#s)\"/>"
+              printf '%s\n' '  </g>'
+              printf '%s\n' '  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">'
+              printf '%s\n' "    <text x=\"${label_center}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">${label}</text>"
+              printf '%s\n' "    <text x=\"${label_center}\" y=\"14\">${label}</text>"
+              printf '%s\n' "    <text x=\"${message_center}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">${message}</text>"
+              printf '%s\n' "    <text x=\"${message_center}\" y=\"14\">${message}</text>"
+              printf '%s\n' '  </g>'
+              printf '%s\n' '</svg>'
+            } > "${output}"
           }
 
           to_hex_color() {
