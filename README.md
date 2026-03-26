@@ -2,25 +2,25 @@
 
 | Metric | Status |
 |---|---|
-| Overall Build Status | [![Backend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=overall%20build)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
-| Build Pass Status | [![Backend Build](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
-| Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/inventory.ai/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/inventory.ai/actions/workflows/backend-main-ci.yml) |
-| Tests Run (Latest) | ![Tests Run](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/tests.json) |
-| Coverage (Latest) | ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/inventory.ai/main/.github/badges/coverage.json) |
+| Overall Build Status | [![Backend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=overall%20build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
+| Build Pass Status | [![Backend Build](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
+| Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
+| Tests Run (Latest) | ![Tests Run](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/tests.json) |
+| Coverage (Latest) | ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/coverage.json) |
 
 ### Latest Backend Test Breakdown
 
 <!-- TEST_BREAKDOWN_START -->
 | Project | Tests Passed | Failed | Coverage |
 |---|---:|---:|---:|
-| InventoryAI.Integration.Tests | 1/1 | 0 | 0.0% |
-| InventoryAI.Api.Unit.Tests | 14/14 | 0 | 5.0% |
-| InventoryAI.Application.Unit.Tests | 23/23 | 0 | 77.3% |
-| InventoryAI.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
+| Intelibill.Integration.Tests | 1/1 | 0 | 0.0% |
+| Intelibill.Api.Unit.Tests | 14/14 | 0 | 5.0% |
+| Intelibill.Application.Unit.Tests | 23/23 | 0 | 77.3% |
+| Intelibill.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
 | **Total** | **39/39** | **0** | **9.9%** |
 <!-- TEST_BREAKDOWN_END -->
 
-# inventory.ai
+# intelibill
 
 AI-powered inventory management system.
 
@@ -39,26 +39,26 @@ AI-powered inventory management system.
 ## Repository Structure
 
 ```
-inventory.ai/
+intelibill/
 ├── .github/workflows/          # CI/CD pipelines (pending)
 ├── .claude/docs/               # Architecture & pattern docs for AI assistance
 ├── docs/                       # Project documentation
 ├── src/
 │   ├── backend/                # ASP.NET Core — Clean Architecture / Onion Design
-│   │   ├── InventoryAI.slnx
-│   │   ├── InventoryAI.Domain/         # Entities, value objects, domain interfaces
-│   │   ├── InventoryAI.Application/    # Handlers (Wolverine), validators, use cases
-│   │   ├── InventoryAI.Infrastructure/ # EF Core, repositories, PostgreSQL
-│   │   └── InventoryAI.Api/            # ASP.NET Core host, controllers, middleware
+│   │   ├── Intelibill.slnx
+│   │   ├── Intelibill.Domain/         # Entities, value objects, domain interfaces
+│   │   ├── Intelibill.Application/    # Handlers (Wolverine), validators, use cases
+│   │   ├── Intelibill.Infrastructure/ # EF Core, repositories, PostgreSQL
+│   │   └── Intelibill.Api/            # ASP.NET Core host, controllers, middleware
 │   ├── frontend/               # Angular PWA (scaffolding only)
 │   └── mobile/                 # .NET MAUI (scaffolding only)
 ├── tests/
 │   ├── backend/
 │   │   ├── unit/
-│   │   │   ├── InventoryAI.Domain.Unit.Tests/
-│   │   │   └── InventoryAI.Application.Unit.Tests/
+│   │   │   ├── Intelibill.Domain.Unit.Tests/
+│   │   │   └── Intelibill.Application.Unit.Tests/
 │   │   └── integration/
-│   │       └── InventoryAI.Integration.Tests/
+│   │       └── Intelibill.Integration.Tests/
 │   ├── frontend/
 │   └── mobile/
 ├── Directory.Build.props       # Shared MSBuild settings (all projects)
@@ -96,21 +96,21 @@ See [src/backend/CLAUDE.md](src/backend/CLAUDE.md) for build commands and [.clau
 # From repo root
 
 # Restore & build
-dotnet build src/backend/InventoryAI.slnx
+dotnet build src/backend/Intelibill.slnx
 
 # Configure local database (gitignored)
-# Edit src/backend/InventoryAI.Api/appsettings.Development.json
+# Edit src/backend/Intelibill.Api/appsettings.Development.json
 
 # Apply migrations
 dotnet ef database update \
-  --project src/backend/InventoryAI.Infrastructure \
-  --startup-project src/backend/InventoryAI.Api
+  --project src/backend/Intelibill.Infrastructure \
+  --startup-project src/backend/Intelibill.Api
 
 # Run
-dotnet run --project src/backend/InventoryAI.Api
+dotnet run --project src/backend/Intelibill.Api
 
 # Test
-dotnet test src/backend/InventoryAI.slnx
+dotnet test src/backend/Intelibill.slnx
 ```
 
 API is available at `http://localhost:5202`. OpenAPI docs at `http://localhost:5202/openapi/v1.json` (Development only).

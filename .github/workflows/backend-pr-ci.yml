@@ -32,10 +32,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore backend solution
-        run: dotnet restore src/backend/InventoryAI.slnx
+        run: dotnet restore src/backend/Intelibill.slnx
 
       - name: Build backend solution
-        run: dotnet build src/backend/InventoryAI.slnx --configuration Release --no-restore
+        run: dotnet build src/backend/Intelibill.slnx --configuration Release --no-restore
 
       - name: Run backend tests
-        run: dotnet test src/backend/InventoryAI.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test src/backend/Intelibill.slnx --configuration Release --no-build --verbosity normal

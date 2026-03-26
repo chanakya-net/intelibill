@@ -1,4 +1,4 @@
-# inventory.ai
+# intelibill
 
 AI-powered inventory management system. Backend is the only active layer; frontend (Angular PWA) and mobile (.NET MAUI) directories exist as scaffolding only.
 
@@ -21,10 +21,10 @@ Paths are relative to this file (`src/backend/`).
 
 | Path | Purpose |
 |---|---|
-| `InventoryAI.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
-| `InventoryAI.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
-| `InventoryAI.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
-| `InventoryAI.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
+| `Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
+| `Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
+| `Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
+| `Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
 | `../../tests/backend/unit/` | Domain and Application unit tests |
 | `../../tests/backend/integration/` | Integration tests referencing the API project |
 | `../../Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
@@ -33,40 +33,40 @@ Paths are relative to this file (`src/backend/`).
 
 ## Build & Test
 
-Commands run from the **repo root** unless noted. Solution file: `src/backend/InventoryAI.slnx`.
+Commands run from the **repo root** unless noted. Solution file: `src/backend/Intelibill.slnx`.
 
 ```bash
 # Build
-dotnet build src/backend/InventoryAI.slnx
+dotnet build src/backend/Intelibill.slnx
 
 # Run API (picks up appsettings.Development.json automatically)
-dotnet run --project src/backend/InventoryAI.Api
+dotnet run --project src/backend/Intelibill.Api
 
 # Test — full solution
-dotnet test src/backend/InventoryAI.slnx
+dotnet test src/backend/Intelibill.slnx
 
 # Test — individual projects
-dotnet test tests/backend/unit/InventoryAI.Domain.Unit.Tests
-dotnet test tests/backend/unit/InventoryAI.Application.Unit.Tests
-dotnet test tests/backend/integration/InventoryAI.Integration.Tests
+dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests
+dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests
+dotnet test tests/backend/integration/Intelibill.Integration.Tests
 
 # EF Core migrations
 dotnet ef migrations add <MigrationName> \
-  --project src/backend/InventoryAI.Infrastructure \
-  --startup-project src/backend/InventoryAI.Api
+  --project src/backend/Intelibill.Infrastructure \
+  --startup-project src/backend/Intelibill.Api
 
 dotnet ef database update \
-  --project src/backend/InventoryAI.Infrastructure \
-  --startup-project src/backend/InventoryAI.Api
+  --project src/backend/Intelibill.Infrastructure \
+  --startup-project src/backend/Intelibill.Api
 ```
 
 ## Configuration
 
 Database credentials use the Options Pattern bound to the `"Database"` config section.
-See `InventoryAI.Infrastructure/Options/DatabaseOptions.cs:7`.
+See `Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
 
-- `InventoryAI.Api/appsettings.json` — intentionally empty strings; safe to commit
-- `InventoryAI.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
+- `Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
+- `Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/intelibill_dev`)
 - Production — supply values via environment variables or secrets manager
 
 ## Adding NuGet Packages

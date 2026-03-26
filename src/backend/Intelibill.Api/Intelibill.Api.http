@@ -1,0 +1,6 @@
+@Intelibill.Api_HostAddress = http://localhost:5202
+
+GET {{Intelibill.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

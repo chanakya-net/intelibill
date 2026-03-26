@@ -1,17 +1,17 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: inventoryai_postgres
+    container_name: intelibill_postgres
     environment:
-      POSTGRES_DB: inventoryai_dev
-      POSTGRES_USER: inventoryai
-      POSTGRES_PASSWORD: inventoryai_dev_password
+      POSTGRES_DB: intelibill_dev
+      POSTGRES_USER: intelibill
+      POSTGRES_PASSWORD: intelibill_dev_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U inventoryai -d inventoryai_dev"]
+      test: ["CMD-SHELL", "pg_isready -U intelibill -d intelibill_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
