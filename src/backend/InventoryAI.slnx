@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="../../tests/backend/integration/InventoryAI.Integration.Tests/InventoryAI.Integration.Tests.csproj" />
+  <Project Path="../../tests/backend/unit/InventoryAI.Application.Unit.Tests/InventoryAI.Application.Unit.Tests.csproj" />
+  <Project Path="../../tests/backend/unit/InventoryAI.Domain.Unit.Tests/InventoryAI.Domain.Unit.Tests.csproj" />
+  <Project Path="InventoryAI.Api/InventoryAI.Api.csproj" />
+  <Project Path="InventoryAI.Application/InventoryAI.Application.csproj" />
+  <Project Path="InventoryAI.Domain/InventoryAI.Domain.csproj" />
+  <Project Path="InventoryAI.Infrastructure/InventoryAI.Infrastructure.csproj" />
+</Solution>
