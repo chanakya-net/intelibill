@@ -202,7 +202,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- .github/badges/frontend-tests.json .github/badges/frontend-coverage.json .github/badges/frontend-tests.svg .github/badges/frontend-coverage.svg README.md; then
+          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json .github/badges/frontend-coverage.json .github/badges/frontend-tests.svg .github/badges/frontend-coverage.svg README.md)" ]; then
             echo 'No frontend badge changes to commit.'
             exit 0
           fi
