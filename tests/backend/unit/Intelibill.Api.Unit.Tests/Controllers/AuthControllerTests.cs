@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Enums;
@@ -70,6 +71,22 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task RegisterWithPhone_WhenConflictError_ReturnsConflict()
+    {
+        ArrangeBusResponse<AuthResult>(Errors.Auth.PhoneAlreadyInUse);
+
+        var result = await _controller.RegisterWithPhone(
+            new RegisterWithPhoneRequest("+15551234567", "First", "Last"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+
+        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal(Errors.Auth.PhoneAlreadyInUse.Code, details.Title);
+    }
+
+    [Fact]
     public async Task LoginWithEmail_WhenSuccessful_ReturnsOk()
     {
         var authResult = CreateAuthResult();
@@ -97,6 +114,27 @@ public class AuthControllerTests
 
         var details = Assert.IsType<ProblemDetails>(objectResult.Value);
         Assert.Equal(Errors.Auth.UnsupportedProvider.Code, details.Title);
+    }
+
+    [Fact]
+    public async Task ExternalLogin_WhenSuccessful_ReturnsOkAndDispatchesCommand()
+    {
+        var authResult = CreateAuthResult();
+        ArrangeBusResponse<AuthResult>(authResult);
+        var request = new ExternalLoginRequest(ExternalAuthProvider.Google, "token", "First", "Last");
+
+        var result = await _controller.ExternalLogin(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(authResult, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+            Arg.Is<ExternalLoginCommand>(c =>
+                c.Provider == request.Provider &&
+                c.Token == request.Token &&
+                c.FirstName == request.FirstName &&
+                c.LastName == request.LastName),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -184,6 +222,35 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task LoginWithEmail_WhenInvalidCredentials_ReturnsUnauthorized()
+    {
+        ArrangeBusResponse<AuthResult>(Errors.Auth.InvalidCredentials);
+
+        var result = await _controller.LoginWithEmail(
+            new LoginWithEmailRequest("user@test.com", "Pass123!"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
+
+        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal(Errors.Auth.InvalidCredentials.Code, details.Title);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WhenUnexpectedError_ReturnsInternalServerError()
+    {
+        ArrangeBusResponse<AuthResult>(Error.Unexpected("Auth.Unexpected", "Unexpected failure"));
+
+        var result = await _controller.RefreshToken(
+            new RefreshTokenRequest("refresh-token"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
     public async Task RevokeToken_WhenSuccessful_ReturnsNoContent()
     {
         ArrangeBusResponse<bool>(true);
@@ -206,6 +273,19 @@ public class AuthControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task RevokeToken_WhenUnauthorizedError_ReturnsUnauthorized()
+    {
+        ArrangeBusResponse<bool>(Errors.Auth.InvalidRefreshToken);
+
+        var result = await _controller.RevokeToken(
+            new RevokeTokenRequest("refresh-token"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
     }
 
     [Fact]

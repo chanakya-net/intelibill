@@ -56,6 +56,35 @@
 
 AI-powered inventory management system.
 
+## Current Overview (March 2026)
+
+The backend is now running a multi-shop tenancy model with database-backed isolation primitives.
+
+- One user can belong to multiple shops through role-based membership (`Owner`, `Manager`, `Staff`).
+- Users can set a default shop and switch active shop.
+- Access tokens now include `active_shop_id` claim and are rotated when switching shops.
+- PostgreSQL migration includes shop tables and Row Level Security (RLS) policies for shop access boundaries.
+- API now includes shop management endpoints (`/api/shops/me`, `/api/shops`, `/api/shops/switch`, `/api/shops/default`).
+- Domain, application, API, and integration tests were expanded for tenancy behavior and auth scope validation.
+
+## Coverage Improvements (March 2026)
+
+Recent backend coverage work focused on API behavior, error mapping, and startup/pipeline execution.
+
+- Expanded Intelibill.Api.Unit.Tests for controller edge paths in auth and shops flows.
+- Added dedicated API unit tests for:
+  - ErrorOr to ProblemDetails/status mapping.
+  - Global exception middleware branch handling.
+  - App option validation behavior.
+- Expanded Intelibill.Integration.Tests with additional shop/auth handler scenarios.
+- Added WebApplicationFactory-based HTTP pipeline tests using an in-memory SQLite test host to cover:
+  - Development OpenAPI endpoint exposure.
+  - Authorization challenge behavior for protected endpoints.
+  - End-to-end register/login flow through the full API pipeline.
+- Integration test host notes:
+  - Replace the production DbContext registration and remove existing DbContext options configuration.
+  - Keep snake_case naming enabled for SQLite test schema compatibility with filtered indexes.
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -112,6 +141,23 @@ Domain  ←  Application  ←  Infrastructure  ←  Api
 | `Application` | Wolverine handlers, FluentValidation validators, ErrorOr error definitions |
 | `Infrastructure` | EF Core `DbContext`, repository implementations, PostgreSQL, options binding |
 | `Api` | ASP.NET Core host, controllers, global exception middleware, DI wiring |
+
+### Multi-Shop Tenancy Design
+
+- **Core entities**: `Shop`, `ShopMembership`, and user membership links.
+- **Auth context**: access token includes `active_shop_id` and auth response includes active shop + memberships.
+- **Selection rules**:
+  - single shop user gets automatic default selection
+  - multi-shop user can set default and switch active shop
+- **DB isolation foundation**:
+  - migration `20260327181741_AddShopIsolation`
+  - RLS enabled for `shops` and `shop_memberships`
+  - session context keys are set as `app.current_user_id` and `app.active_shop_id`
+
+### Key Backend Endpoints
+
+- Auth: `POST /api/auth/register/email`, `POST /api/auth/login/email`, `POST /api/auth/token/refresh`
+- Shops: `GET /api/shops/me`, `POST /api/shops`, `POST /api/shops/switch`, `POST /api/shops/default`
 
 See [src/backend/CLAUDE.md](src/backend/CLAUDE.md) for build commands and [.claude/docs/architectural_patterns.md](.claude/docs/architectural_patterns.md) for design patterns.
 

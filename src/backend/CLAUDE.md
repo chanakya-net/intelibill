@@ -1,6 +1,16 @@
 # intelibill
 
-AI-powered inventory management system. Backend is the only active layer; frontend (Angular PWA) and mobile (.NET MAUI) directories exist as scaffolding only.
+AI-powered inventory management system backend.
+
+## Current Backend Snapshot (March 2026)
+
+- Multi-shop tenancy support is implemented.
+- A user can have memberships across many shops with per-shop role (`Owner`, `Manager`, `Staff`).
+- Default shop and active shop switching are supported.
+- JWT now carries `active_shop_id`; switching shop returns a new scoped token.
+- PostgreSQL migration and RLS policies are in place for `shops` and `shop_memberships`.
+- Error mapping now includes `Forbidden -> 403`.
+- Test suite includes expanded domain, API, application, and integration coverage.
 
 ## Tech Stack
 
@@ -12,7 +22,7 @@ AI-powered inventory management system. Backend is the only active layer; fronte
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 (result pattern) |
 | Tests | xUnit 2.9 + coverlet |
-| Frontend | Angular PWA *(scaffolding only)* |
+| Frontend | Angular 21 (separate workspace under `src/frontend/`) |
 | Mobile | .NET MAUI *(scaffolding only)* |
 
 ## Key Directories
@@ -30,6 +40,44 @@ Paths are relative to this file (`src/backend/`).
 | `../../Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
 | `../../Directory.Packages.props` | Central Package Management — all NuGet versions are declared here |
 | `../../global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
+
+## Multi-Shop Architecture Notes
+
+### Domain
+
+- `Shop`
+- `ShopMembership`
+- `ShopRole` enum
+- `User` now tracks shop memberships
+
+### Application
+
+- Shop commands and query:
+  - create shop
+  - switch active shop
+  - set default shop
+  - get my shops
+- Auth responses include:
+  - `activeShopId`
+  - list of accessible shops
+
+### Infrastructure
+
+- Migration: `20260327181741_AddShopIsolation`
+- Tables: `shops`, `shop_memberships`
+- RLS policies:
+  - `shop_memberships_user_policy`
+  - `shops_membership_policy`
+- Session context interceptor sets:
+  - `app.current_user_id`
+  - `app.active_shop_id`
+
+### API Endpoints
+
+- `GET /api/shops/me`
+- `POST /api/shops`
+- `POST /api/shops/switch`
+- `POST /api/shops/default`
 
 ## Build & Test
 
@@ -60,13 +108,21 @@ dotnet ef database update \
   --startup-project src/backend/Intelibill.Api
 ```
 
+Current passing test snapshot:
+
+- `Intelibill.Domain.Unit.Tests`: 22
+- `Intelibill.Application.Unit.Tests`: 25
+- `Intelibill.Api.Unit.Tests`: 22
+- `Intelibill.Integration.Tests`: 2
+- Total: 71 passing
+
 ## Configuration
 
 Database credentials use the Options Pattern bound to the `"Database"` config section.
 See `Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
 
 - `Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
-- `Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/intelibill_dev`)
+- `Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
 - Production — supply values via environment variables or secrets manager
 
 ## Adding NuGet Packages

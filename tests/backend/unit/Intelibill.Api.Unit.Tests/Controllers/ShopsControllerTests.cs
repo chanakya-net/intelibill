@@ -89,6 +89,28 @@ public class ShopsControllerTests
     }
 
     [Fact]
+    public async Task CreateShop_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.CreateShop(new CreateShopRequest("Main Shop"), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateShop_WhenUserNotFound_ReturnsNotFound()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
+
+        var result = await _controller.CreateShop(new CreateShopRequest("Main Shop"), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
     public async Task SwitchActiveShop_WhenUserMissing_ReturnsUnauthorized()
     {
         SetUserClaims();
@@ -118,6 +140,18 @@ public class ShopsControllerTests
     }
 
     [Fact]
+    public async Task SwitchActiveShop_WhenMembershipMissing_ReturnsForbidden()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<AuthResult>(Errors.Shop.MembershipNotFound);
+
+        var result = await _controller.SwitchActiveShop(new SwitchActiveShopRequest(Guid.NewGuid()), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
     public async Task SetDefaultShop_WhenSuccessful_ReturnsOk()
     {
         var userId = Guid.NewGuid();
@@ -137,6 +171,16 @@ public class ShopsControllerTests
     }
 
     [Fact]
+    public async Task SetDefaultShop_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.SetDefaultShop(new SetDefaultShopRequest(Guid.NewGuid()), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
     public async Task SetDefaultShop_WhenMembershipMissing_ReturnsForbidden()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
@@ -146,6 +190,47 @@ public class ShopsControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetDefaultShop_WhenUserNotFound_ReturnsNotFound()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
+
+        var result = await _controller.SetDefaultShop(new SetDefaultShopRequest(Guid.NewGuid()), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMyShops_WhenUserNotFound_ReturnsNotFound()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<UserShopDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<UserShopDto>>>(Errors.Shop.UserNotFound));
+
+        var result = await _controller.GetMyShops(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMyShops_WhenUnexpectedError_ReturnsInternalServerError()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<UserShopDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<UserShopDto>>>(
+                Error.Unexpected("Shops.Unexpected", "Unexpected failure")));
+
+        var result = await _controller.GetMyShops(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
     }
 
     private void ArrangeBusResponse<T>(ErrorOr<T> response)
