@@ -32,7 +32,8 @@ public sealed class RefreshTokenCommandHandler(
         refreshTokenRepository.Update(existing);
 
         var user = existing.User;
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user);
+        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
         var newRefreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(newRefreshToken, cancellationToken);
@@ -43,6 +44,8 @@ public sealed class RefreshTokenCommandHandler(
             newRefreshToken.Token,
             accessTokenExpiry,
             newRefreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName));
+            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName),
+            activeShopId,
+            shops);
     }
 }

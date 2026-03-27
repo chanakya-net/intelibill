@@ -14,8 +14,9 @@ namespace Intelibill.Infrastructure.Services.Auth;
 internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
 {
     private readonly JwtOptions _jwt = options.Value;
+    private const string ActiveShopClaim = "active_shop_id";
 
-    public (string AccessToken, DateTimeOffset ExpiresAt) GenerateAccessToken(User user)
+    public (string AccessToken, DateTimeOffset ExpiresAt) GenerateAccessToken(User user, Guid? activeShopId = null)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwt.AccessTokenExpiryMinutes);
 
@@ -30,6 +31,9 @@ internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
 
         if (user.Email is not null)
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+
+        if (activeShopId is not null)
+            claims.Add(new Claim(ActiveShopClaim, activeShopId.Value.ToString()));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

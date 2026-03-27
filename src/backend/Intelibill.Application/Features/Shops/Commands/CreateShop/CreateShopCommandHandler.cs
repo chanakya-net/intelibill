@@ -3,36 +3,39 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
+namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
 
-namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
-
-public sealed class RegisterWithPhoneCommandHandler(
-    IValidator<RegisterWithPhoneCommand> validator,
+public sealed class CreateShopCommandHandler(
     IUserRepository userRepository,
+    IShopRepository shopRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(
-        RegisterWithPhoneCommand command,
-        CancellationToken cancellationToken)
+    public async Task<ErrorOr<AuthResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
+        if (string.IsNullOrWhiteSpace(command.Name))
+            return Errors.Shop.NameRequired;
 
-        if (await userRepository.ExistsByPhoneAsync(command.PhoneNumber, cancellationToken))
-            return Errors.Auth.PhoneAlreadyInUse;
+        var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
+        if (user is null)
+            return Errors.Shop.UserNotFound;
 
-        var user = User.CreateWithPhone(command.PhoneNumber, command.FirstName, command.LastName);
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        var isFirstShop = user.ShopMemberships.Count == 0;
+        var shop = Shop.Create(command.Name);
+        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
+        membership.MarkUsed();
 
-        await userRepository.AddAsync(user, cancellationToken);
+        shop.AddMembership(membership);
+        user.AddShopMembership(membership);
 
+        await shopRepository.AddAsync(shop, cancellationToken);
+
+        var (activeShopId, shops) = AuthShopSelection.Resolve(user, shop.Id);
         var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 

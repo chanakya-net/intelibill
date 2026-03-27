@@ -15,6 +15,9 @@ public sealed class User : BaseEntity
     private readonly List<UserExternalLogin> _externalLogins = [];
     public IReadOnlyList<UserExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
 
+    private readonly List<ShopMembership> _shopMemberships = [];
+    public IReadOnlyList<ShopMembership> ShopMemberships => _shopMemberships.AsReadOnly();
+
     private User() { }
 
     public static User CreateWithEmail(string email, string passwordHash, string firstName, string lastName)
@@ -56,6 +59,12 @@ public sealed class User : BaseEntity
     }
 
     public void AddExternalLogin(UserExternalLogin login) => _externalLogins.Add(login);
+
+    public void AddShopMembership(ShopMembership membership)
+    {
+        membership.AttachUser(this);
+        _shopMemberships.Add(membership);
+    }
 
     public void UpdatePassword(string passwordHash)
     {

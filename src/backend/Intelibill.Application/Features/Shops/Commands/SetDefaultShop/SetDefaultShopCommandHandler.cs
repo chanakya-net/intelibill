@@ -5,32 +5,30 @@ using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
+namespace Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 
-namespace Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
-
-public sealed class LoginWithEmailCommandHandler(
-    IValidator<LoginWithEmailCommand> validator,
+public sealed class SetDefaultShopCommandHandler(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
-    IPasswordHasher passwordHasher,
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(
-        LoginWithEmailCommand command,
-        CancellationToken cancellationToken)
+    public async Task<ErrorOr<AuthResult>> HandleAsync(SetDefaultShopCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
+        var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
+        if (user is null)
+            return Errors.Shop.UserNotFound;
 
-        var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
+        var targetMembership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
+        if (targetMembership is null)
+            return Errors.Shop.MembershipNotFound;
 
-        if (user is null || user.PasswordHash is null || !passwordHasher.Verify(command.Password, user.PasswordHash))
-            return Errors.Auth.InvalidCredentials;
+        foreach (var membership in user.ShopMemberships)
+            membership.SetDefault(membership.ShopId == command.ShopId);
 
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        targetMembership.MarkUsed();
+
+        var (activeShopId, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
         var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 

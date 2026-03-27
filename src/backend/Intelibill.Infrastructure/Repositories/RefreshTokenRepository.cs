@@ -11,6 +11,8 @@ internal sealed class RefreshTokenRepository(ApplicationDbContext context)
     public async Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(rt => rt.User)
+            .ThenInclude(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
             .FirstOrDefaultAsync(rt => rt.Token == token && !rt.IsRevoked && rt.ExpiresAt > DateTimeOffset.UtcNow, cancellationToken);
 
     public async Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)

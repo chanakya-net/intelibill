@@ -1,7 +1,9 @@
 using System.Text;
+using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware;
 using Intelibill.Api.Options;
 using Intelibill.Application;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
@@ -14,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
 
 builder.Services.AddCors(options =>
 {
@@ -83,3 +87,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;

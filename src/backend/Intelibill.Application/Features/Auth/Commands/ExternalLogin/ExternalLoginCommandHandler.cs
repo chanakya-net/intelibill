@@ -64,7 +64,8 @@ public sealed class ExternalLoginCommandHandler(
             user.AddExternalLogin(externalLogin);
         }
 
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user);
+        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
@@ -75,6 +76,8 @@ public sealed class ExternalLoginCommandHandler(
             refreshToken.Token,
             accessTokenExpiry,
             refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName));
+            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName),
+            activeShopId,
+            shops);
     }
 }

@@ -5,7 +5,9 @@ public sealed record AuthResult(
     string RefreshToken,
     DateTimeOffset AccessTokenExpiresAt,
     DateTimeOffset RefreshTokenExpiresAt,
-    UserDto User);
+    UserDto User,
+    Guid? ActiveShopId = null,
+    IReadOnlyList<UserShopDto>? Shops = null);
 
 public sealed record UserDto(
     Guid Id,
@@ -13,3 +15,10 @@ public sealed record UserDto(
     string? PhoneNumber,
     string FirstName,
     string LastName);
+
+public sealed record UserShopDto(
+    Guid ShopId,
+    string ShopName,
+    string Role,
+    bool IsDefault,
+    DateTimeOffset? LastUsedAt);

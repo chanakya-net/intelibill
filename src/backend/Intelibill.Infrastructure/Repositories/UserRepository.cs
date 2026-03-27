@@ -13,6 +13,8 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
         var normalized = email.ToLowerInvariant();
         return await DbSet
             .Include(u => u.ExternalLogins)
+            .Include(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
             .FirstOrDefaultAsync(u => u.Email == normalized, cancellationToken);
     }
 
@@ -26,9 +28,18 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
         CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(u => u.ExternalLogins)
+            .Include(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
             .FirstOrDefaultAsync(
                 u => u.ExternalLogins.Any(el => el.Provider == provider && el.ProviderKey == providerKey),
                 cancellationToken);
+
+    public async Task<User?> GetByIdWithDetailsAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(u => u.ExternalLogins)
+            .Include(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
     {

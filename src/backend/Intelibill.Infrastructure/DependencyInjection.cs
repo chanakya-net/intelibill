@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Data.Interceptors;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
@@ -26,10 +27,14 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
             var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var sessionInterceptor = sp.GetRequiredService<PostgresSessionContextInterceptor>();
             options.UseNpgsql(dbOptions.ToConnectionString(), npgsql =>
                 npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.FullName))
+                .AddInterceptors(sessionInterceptor)
                 .UseSnakeCaseNamingConvention();
         });
+
+        services.AddScoped<PostgresSessionContextInterceptor>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -44,6 +49,7 @@ public static class DependencyInjection
 
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 
