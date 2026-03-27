@@ -81,8 +81,7 @@ jobs:
           passed_tests=0
           failed_tests=0
           skipped_tests=0
-          lines_valid_total=0
-          lines_covered_total=0
+          coverage_reports=()
 
           for project in "${test_projects[@]}"; do
             project_name=$(basename "${project}" .csproj)
@@ -108,10 +107,12 @@ jobs:
             failed_tests=$((failed_tests + failed))
             skipped_tests=$((skipped_tests + skipped))
 
-            coverage_file=$(find "TestResults/${project_name}" -type f -name 'coverage.cobertura.xml' | head -1 || true)
+            coverage_file=$(find "TestResults/${project_name}" -type f -name 'coverage.cobertura.xml' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)
             project_coverage='0.0'
 
             if [ -n "${coverage_file}" ]; then
+              coverage_reports+=("${coverage_file}")
+
               lines_valid=$(grep -oP 'lines-valid="\K[0-9]+' "${coverage_file}" | head -1 || true)
               lines_covered=$(grep -oP 'lines-covered="\K[0-9]+' "${coverage_file}" | head -1 || true)
               lines_valid=${lines_valid:-0}
@@ -119,8 +120,6 @@ jobs:
 
               if [ "${lines_valid}" -gt 0 ]; then
                 project_coverage=$(awk -v c="${lines_covered}" -v v="${lines_valid}" 'BEGIN { printf "%.1f", (c/v)*100 }')
-                lines_valid_total=$((lines_valid_total + lines_valid))
-                lines_covered_total=$((lines_covered_total + lines_covered))
               else
                 line_rate=$(grep -oP 'line-rate="\K[0-9.]+(?=")' "${coverage_file}" | head -1 || true)
                 if [ -n "${line_rate}" ]; then
@@ -132,8 +131,23 @@ jobs:
             printf '| %s | %s/%s | %s | %s%% |\n' "${project_name}" "${passed}" "${total}" "${failed}" "${project_coverage}" >> "${rows_file}"
           done
 
-          if [ "${lines_valid_total}" -gt 0 ]; then
-            coverage_pct=$(awk -v c="${lines_covered_total}" -v v="${lines_valid_total}" 'BEGIN { printf "%.1f", (c/v)*100 }')
+          if [ ${#coverage_reports[@]} -gt 0 ]; then
+            mkdir -p .tools
+            if [ ! -x .tools/reportgenerator ]; then
+              dotnet tool install dotnet-reportgenerator-globaltool --tool-path .tools > /dev/null
+            fi
+
+            reports_arg=$(IFS=';'; echo "${coverage_reports[*]}")
+            rm -rf .tmp/coverage-merged
+
+            ./.tools/reportgenerator \
+              "-reports:${reports_arg}" \
+              "-targetdir:.tmp/coverage-merged" \
+              "-reporttypes:JsonSummary" > /dev/null
+
+            coverage_pct=$(grep -oP '"linecoverage"\s*:\s*\K[0-9.]+' .tmp/coverage-merged/Summary.json | head -1 || true)
+            coverage_pct=${coverage_pct:-0.0}
+            coverage_pct=$(awk -v p="${coverage_pct}" 'BEGIN { printf "%.1f", p }')
           else
             coverage_pct='0.0'
           fi
