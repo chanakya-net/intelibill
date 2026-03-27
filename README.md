@@ -11,24 +11,26 @@
 | Frontend Tests (Latest) | ![Frontend Tests](.github/badges/frontend-tests.svg) |
 | Frontend Coverage (Latest) | ![Frontend Coverage](.github/badges/frontend-coverage.svg) |
 
-### Latest Backend Test Breakdown
+## Test Results
+
+### Backend Test Cases
 
 <!-- TEST_BREAKDOWN_START -->
-| Project | Tests Passed | Failed | Coverage |
-|---|---:|---:|---:|
-| Intelibill.Integration.Tests | 1/1 | 0 | 0.0% |
-| Intelibill.Api.Unit.Tests | 14/14 | 0 | 5.0% |
-| Intelibill.Application.Unit.Tests | 23/23 | 0 | 77.3% |
-| Intelibill.Domain.Unit.Tests | 1/1 | 0 | 0.0% |
-| **Total** | **39/39** | **0** | **10.0%** |
+| Project | Test Type | Tests Passed | Failed | Status | Coverage |
+|---|---|---:|---:|:---:|---:|
+| Intelibill.Integration.Tests | Integration | 1/1 | 0 | ✓ | 0.0% |
+| Intelibill.Api.Unit.Tests | Unit | 14/14 | 0 | ✓ | 5.0% |
+| Intelibill.Application.Unit.Tests | Unit | 23/23 | 0 | ✓ | 77.3% |
+| Intelibill.Domain.Unit.Tests | Unit | 1/1 | 0 | ✓ | 0.0% |
+| **Total** | - | **39/39** | **0** | **✓ Passing** | **10.0%** |
 <!-- TEST_BREAKDOWN_END -->
 
-### Latest Frontend Test Breakdown
+### Frontend Test Cases
 
 <!-- FRONTEND_TEST_BREAKDOWN_START -->
-| Project | Tests | Coverage |
-|---|---|---:|
-| INVENTORY | pending | pending |
+| Project | Test Type | Tests | Status | Coverage |
+|---|---|---:|:---:|---:|
+| INVENTORY | Unit | pending | ⏳ Pending | pending |
 <!-- FRONTEND_TEST_BREAKDOWN_END -->
 
 # intelibill
