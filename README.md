@@ -30,7 +30,7 @@
 <!-- FRONTEND_TEST_BREAKDOWN_START -->
 | Project | Test Type | Tests | Status | Coverage |
 |---|---|---:|:---:|---:|
-| INVENTORY | Unit | pending | ⏳ Pending | pending |
+| INVENTORY | Unit | 0/0 passed | ✓ | 100.0% |
 <!-- FRONTEND_TEST_BREAKDOWN_END -->
 
 # intelibill
