@@ -1,5 +1,7 @@
 # Build Status
 
+## Backend Build Status
+
 | Metric | Status |
 |---|---|
 | Overall Build Status | [![Backend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=overall%20build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
@@ -7,6 +9,11 @@
 | Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
 | Tests Run (Latest) | ![Tests Run](.github/badges/tests.svg) |
 | Coverage (Latest) | ![Coverage](.github/badges/coverage.svg) |
+
+## Frontend Build Status
+
+| Metric | Status |
+|---|---|
 | Frontend Build Status | [![Frontend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/frontend-main-ci.yml?branch=main&label=frontend%20build)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
 | Frontend Tests (Latest) | ![Frontend Tests](.github/badges/frontend-tests.svg) |
 | Frontend Coverage (Latest) | ![Frontend Coverage](.github/badges/frontend-coverage.svg) |
