@@ -41,7 +41,7 @@
 | Intelibill.Api.Unit.Tests | 22/22 | 0 | 5.1% |
 | Intelibill.Application.Unit.Tests | 25/25 | 0 | 75.0% |
 | Intelibill.Domain.Unit.Tests | 22/22 | 0 | 94.3% |
-| **Total** | **71/71** | **0** | **15.3%** |
+| **Total** | **71/71** | **0** | **25.1%** |
 <!-- TEST_BREAKDOWN_END -->
 
 ### Frontend Test Cases
