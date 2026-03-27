@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="147" height="20" role="img" aria-label="tests: 71/71 passed">
+<svg xmlns="http://www.w3.org/2000/svg" width="161" height="20" role="img" aria-label="tests: 108/108 passed">
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
@@ -6,17 +6,17 @@
     <stop offset="1" stop-color="#000" stop-opacity=".5"/>
   </linearGradient>
   <clipPath id="r">
-    <rect width="147" height="20" rx="3" fill="#fff"/>
+    <rect width="161" height="20" rx="3" fill="#fff"/>
   </clipPath>
   <g clip-path="url(#r)">
     <rect width="49" height="20" fill="#555"/>
-    <rect x="49" width="98" height="20" fill="#4c1"/>
-    <rect width="147" height="20" fill="url(#s)"/>
+    <rect x="49" width="112" height="20" fill="#4c1"/>
+    <rect width="161" height="20" fill="url(#s)"/>
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
     <text x="24" y="15" fill="#010101" fill-opacity=".3">tests</text>
     <text x="24" y="14">tests</text>
-    <text x="98" y="15" fill="#010101" fill-opacity=".3">71/71 passed</text>
-    <text x="98" y="14">71/71 passed</text>
+    <text x="105" y="15" fill="#010101" fill-opacity=".3">108/108 passed</text>
+    <text x="105" y="14">108/108 passed</text>
   </g>
 </svg>
