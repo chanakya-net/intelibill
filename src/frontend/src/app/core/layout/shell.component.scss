@@ -1,3 +1,5 @@
+@use '../styles/button-mixins' as buttons;
+
 .app-shell {
   background:
     radial-gradient(circle at 12% 12%, rgba(251, 146, 60, 0.16), transparent 42%),
@@ -41,21 +43,14 @@ a.is-active {
   box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
 
   button {
+    @include buttons.button-menu-item;
     display: block;
     width: 100%;
-    border: none;
     border-radius: 0.65rem;
-    background: transparent;
-    color: #7c2d12;
     text-align: left;
     font-size: 0.86rem;
     font-weight: 600;
     padding: 0.6rem 0.65rem;
-    transition: background-color 140ms ease;
-
-    &:hover {
-      background: #ffedd5;
-    }
   }
 }
 

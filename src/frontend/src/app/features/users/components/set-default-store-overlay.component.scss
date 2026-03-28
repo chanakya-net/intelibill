@@ -1,3 +1,5 @@
+@use '../../../core/styles/button-mixins' as buttons;
+
 .profile-overlay {
   position: fixed;
   inset: 0;
@@ -53,6 +55,7 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
+  @include buttons.button-icon-close;
 }
 
 .overlay-kicker {
@@ -72,6 +75,7 @@
 }
 
 .shop-option {
+  @include buttons.button-menu-item;
   justify-content: flex-start;
   text-align: left;
   border-radius: 0.85rem;

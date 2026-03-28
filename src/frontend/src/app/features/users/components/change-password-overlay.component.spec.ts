@@ -34,6 +34,7 @@ describe('ChangePasswordOverlayComponent', () => {
     const component = setup();
     component.form.controls.currentPassword.setValue('');
     component.form.controls.newPassword.setValue('short');
+    component.form.controls.confirmNewPassword.setValue('short');
 
     component.onSubmit();
 
@@ -48,6 +49,7 @@ describe('ChangePasswordOverlayComponent', () => {
 
     component.form.controls.currentPassword.setValue('OldPass123!');
     component.form.controls.newPassword.setValue('NewPass123!');
+    component.form.controls.confirmNewPassword.setValue('NewPass123!');
 
     component.onSubmit();
 
@@ -66,8 +68,22 @@ describe('ChangePasswordOverlayComponent', () => {
 
     component.form.controls.currentPassword.setValue('WrongPass!');
     component.form.controls.newPassword.setValue('NewPass123!');
+    component.form.controls.confirmNewPassword.setValue('NewPass123!');
     component.onSubmit();
 
     expect(component.serverError()).toBe('Current password is incorrect.');
+  });
+
+  it('does not submit when retyped password does not match', () => {
+    const component = setup();
+
+    component.form.controls.currentPassword.setValue('OldPass123!');
+    component.form.controls.newPassword.setValue('NewPass123!');
+    component.form.controls.confirmNewPassword.setValue('Different123!');
+
+    component.onSubmit();
+
+    expect(component.form.hasError('passwordMismatch')).toBe(true);
+    expect(userAccountService.changeMyPassword).not.toHaveBeenCalled();
   });
 });

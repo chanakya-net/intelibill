@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
@@ -28,7 +28,8 @@ export class ChangePasswordOverlayComponent {
   readonly form = this.formBuilder.nonNullable.group({
     currentPassword: ['', [Validators.required]],
     newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-  });
+    confirmNewPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+  }, { validators: [passwordsMatchValidator] });
 
   onClose(): void {
     if (this.isSubmitting()) {
@@ -67,6 +68,17 @@ export class ChangePasswordOverlayComponent {
       },
     });
   }
+}
+
+function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
+  const newPassword = control.get('newPassword')?.value;
+  const confirmNewPassword = control.get('confirmNewPassword')?.value;
+
+  if (!newPassword || !confirmNewPassword) {
+    return null;
+  }
+
+  return newPassword === confirmNewPassword ? null : { passwordMismatch: true };
 }
 
 function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {

@@ -1,3 +1,6 @@
+@use '../../../core/styles/button-mixins' as buttons;
+@use '../../../core/styles/form-control-mixins' as controls;
+
 .create-shop-overlay {
   position: fixed;
   inset: 0;
@@ -56,16 +59,7 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  color: #c2410c;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
-
-  &:not(:disabled):hover {
-    transform: translateY(-1px);
-    background: #ffedd5;
-    box-shadow: 0 8px 16px rgba(194, 65, 12, 0.18);
-  }
+  @include buttons.button-icon-close;
 }
 
 .overlay-kicker {
@@ -119,20 +113,7 @@
 }
 
 .create-button {
-  border-radius: 0.75rem;
-  border: none;
-  background: linear-gradient(90deg, #ea580c 0%, #c2410c 100%);
-  color: #fff7ed;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  box-shadow: 0 12px 20px rgba(194, 65, 12, 0.28);
-  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
-
-  &:not(:disabled):hover {
-    transform: translateY(-1px);
-    box-shadow: 0 16px 24px rgba(194, 65, 12, 0.34);
-    filter: brightness(1.03);
-  }
+  @include buttons.button-primary(true);
 }
 
 .card-busy {
@@ -148,21 +129,15 @@
 }
 
 :host ::ng-deep input.p-inputtext {
-  border-radius: 0.72rem;
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: #0f172a;
-  padding: 0.82rem 0.9rem;
-  transition: box-shadow 160ms ease, border-color 160ms ease;
+  @include controls.text-input($transition: (box-shadow 160ms ease, border-color 160ms ease));
 }
 
 :host ::ng-deep input.p-inputtext::placeholder {
-  color: #64748b;
+  @include controls.text-input-placeholder;
 }
 
 :host ::ng-deep input.p-inputtext:enabled:focus {
-  border-color: #fb923c;
-  box-shadow: 0 0 0 0.18rem rgba(251, 146, 60, 0.35);
+  @include controls.text-input-focus;
 }
 
 :host ::ng-deep .create-shop-spinner .p-progressspinner-circle {
