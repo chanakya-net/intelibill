@@ -46,7 +46,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ../../TestResults/frontend
-          bun run test --watch=false --coverage 2>&1 | tee ../../TestResults/frontend/test-output.log
+          rm -rf coverage
+          CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../TestResults/frontend/test-output.log
+          # Strip ANSI escape codes so downstream parsing is deterministic.
+          sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../TestResults/frontend/test-output.log > ../../TestResults/frontend/test-output.clean.log
 
       - name: Generate frontend badge data
         working-directory: .
@@ -55,12 +58,28 @@ jobs:
 
           mkdir -p .github/badges
 
-          test_log='TestResults/frontend/test-output.log'
-          tests_passed=$(awk '/Tests[[:space:]]+[0-9]+[[:space:]]+passed/ { for (i=1; i<=NF; i++) if ($i=="Tests") { print $(i+1); exit } }' "${test_log}" || true)
-          tests_total=$(awk '/Tests[[:space:]]+[0-9]+[[:space:]]+passed[[:space:]]+\([0-9]+\)/ { if (match($0, /\([0-9]+\)/)) { value=substr($0, RSTART+1, RLENGTH-2); print value; exit } }' "${test_log}" || true)
+          test_log='TestResults/frontend/test-output.clean.log'
+          if [ ! -f "${test_log}" ]; then
+            test_log='TestResults/frontend/test-output.log'
+          fi
+
+          tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+          files_line=$(grep -E 'Test Files[[:space:]]+[0-9]+[[:space:]]+passed[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+
+          tests_passed=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+\([0-9][0-9]*\)[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
+          tests_total=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+[0-9][0-9]*[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
+          test_files_total=$(printf '%s\n' "${files_line}" | sed -n 's/.*Test Files[[:space:]]\+[0-9][0-9]*[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
 
           tests_passed=${tests_passed:-0}
           tests_total=${tests_total:-0}
+          test_files_total=${test_files_total:-0}
+
+          if [ "${test_files_total}" -gt 0 ] && [ "${tests_total}" -eq 0 ]; then
+            echo "Failed to parse tests summary from ${test_log} despite test files running."
+            echo "Last detected tests line: ${tests_line:-<none>}"
+            echo "Last detected test-files line: ${files_line:-<none>}"
+            exit 1
+          fi
 
           tests_color='red'
           if [ "${tests_total}" -eq 0 ]; then
@@ -76,17 +95,25 @@ jobs:
           coverage_file='src/frontend/coverage/INVENTORY/clover.xml'
           coverage_pct='0.0'
 
-          if [ -f "${coverage_file}" ]; then
-            metrics_line=$(grep -m1 '<metrics ' "${coverage_file}" || true)
-            statements=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*statements="\([0-9][0-9]*\)".*/\1/p')
-            covered=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*coveredstatements="\([0-9][0-9]*\)".*/\1/p')
-            statements=${statements:-0}
-            covered=${covered:-0}
-
-            if [ "${statements}" -gt 0 ]; then
-              coverage_pct=$(awk -v c="${covered}" -v s="${statements}" 'BEGIN { printf "%.1f", (c/s)*100 }')
-            fi
+          if [ ! -f "${coverage_file}" ]; then
+            echo "Expected coverage report not found: ${coverage_file}"
+            exit 1
           fi
+
+          metrics_line=$(grep -m1 '<metrics ' "${coverage_file}" || true)
+          statements=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*statements="\([0-9][0-9]*\)".*/\1/p')
+          covered=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*coveredstatements="\([0-9][0-9]*\)".*/\1/p')
+          statements=${statements:-0}
+          covered=${covered:-0}
+
+          if [ "${statements}" -gt 0 ]; then
+            coverage_pct=$(awk -v c="${covered}" -v s="${statements}" 'BEGIN { printf "%.1f", (c/s)*100 }')
+          else
+            echo "Coverage metrics are invalid in ${coverage_file} (statements=${statements}, covered=${covered})."
+            exit 1
+          fi
+
+          echo "Frontend CI parse summary: tests=${tests_message}, test_files_total=${test_files_total}, coverage_file=${coverage_file}, coverage=${coverage_pct}%"
 
           coverage_color='red'
           if awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 80) }'; then
