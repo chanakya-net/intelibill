@@ -37,11 +37,11 @@
 <!-- TEST_BREAKDOWN_START -->
 | Project | Tests Passed | Failed | Coverage |
 |---|---:|---:|---:|
-| Intelibill.Integration.Tests | 13/13 | 0 | 22.7% |
-| Intelibill.Api.Unit.Tests | 48/48 | 0 | 6.6% |
-| Intelibill.Application.Unit.Tests | 26/26 | 0 | 75.7% |
-| Intelibill.Domain.Unit.Tests | 23/23 | 0 | 94.8% |
-| **Total** | **110/110** | **0** | **35.1%** |
+| Intelibill.Integration.Tests | 13/13 | 0 | 21.9% |
+| Intelibill.Api.Unit.Tests | 54/54 | 0 | 7.4% |
+| Intelibill.Application.Unit.Tests | 34/34 | 0 | 75.5% |
+| Intelibill.Domain.Unit.Tests | 23/23 | 0 | 91.9% |
+| **Total** | **124/124** | **0** | **36.7%** |
 <!-- TEST_BREAKDOWN_END -->
 
 ### Frontend Test Cases
