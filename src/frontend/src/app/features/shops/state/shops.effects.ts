@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { EMPTY, catchError, map, of, switchMap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { ShopService } from '../services/shop.service';
@@ -44,6 +44,20 @@ export class ShopsEffects {
           )
         )
       )
+    )
+  );
+
+  readonly loadActiveShopDetailsAfterShopsLoad$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ShopsActions.loadShopsSucceeded),
+      switchMap(({ shops }) => {
+        const activeShop = shops.find((shop) => shop.isDefault) ?? shops[0];
+        if (!activeShop) {
+          return EMPTY;
+        }
+
+        return of(ShopsActions.loadShopDetailsRequested({ shopId: activeShop.shopId }));
+      })
     )
   );
 

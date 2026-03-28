@@ -5,9 +5,37 @@
         <div class="grid h-10 w-10 place-content-center rounded-xl bg-orange-700 text-sm font-bold tracking-widest text-orange-50">
           IV
         </div>
-        <div>
+        <div class="relative" #shopMenuRoot>
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-orange-700/75">Enterprise Suite</p>
-          <h1 class="text-lg font-bold text-stone-900">Intelibill</h1>
+          <div class="flex items-center gap-3">
+            <h1 class="text-lg font-bold leading-tight text-stone-900">Intelibill</h1>
+            <button
+              type="button"
+              class="active-shop-trigger"
+              *ngIf="activeShopLabel() as activeShopCaption"
+              [attr.aria-expanded]="isShopMenuOpen()"
+              aria-haspopup="menu"
+              aria-label="Switch active shop"
+              (click)="onToggleShopMenu()"
+            >
+              <span>{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down text-xs" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div class="shop-menu" *ngIf="isShopMenuOpen()" role="menu" aria-label="Available shops">
+            <button
+              type="button"
+              role="menuitem"
+              *ngFor="let shop of shops()"
+              class="shop-menu-item"
+              [class.is-current]="shop.shopId === activeShopId()"
+              (click)="onSelectShop(shop.shopId)"
+            >
+              {{ getShopDisplayLabel(shop) }}
+              <span *ngIf="shop.shopId === activeShopId()">Active</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -28,7 +56,7 @@
         </a>
       </nav>
 
-      <div class="relative flex items-center gap-2">
+      <div class="relative flex items-center gap-2" #profileMenuRoot>
         <p-tag severity="success" value="PWA Ready"></p-tag>
         <p-tag severity="info" value="SSR + Hydration"></p-tag>
 

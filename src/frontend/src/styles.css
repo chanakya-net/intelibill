@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+@import 'primeicons/primeicons.css';
+
+:root {
+  color-scheme: light;
+  --app-orange-50: #fff7ed;
+  --app-orange-100: #ffedd5;
+  --app-orange-200: #fed7aa;
+  --app-orange-400: #fb923c;
+  --app-orange-500: #f97316;
+  --app-orange-600: #ea580c;
+  --app-orange-700: #c2410c;
+  --app-orange-900: #7c2d12;
+  --app-button-primary-text: #fff7ed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  background-color: #fffaf5;
+  color: #0f172a;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
