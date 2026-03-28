@@ -1,13 +1,13 @@
 <div class="app-shell min-h-screen">
-  <header class="sticky top-0 z-30 border-b border-white/60 bg-white/90 backdrop-blur">
+  <header class="sticky top-0 z-30 border-b border-orange-200/70 bg-white/90 backdrop-blur">
     <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
       <div class="flex items-center gap-3">
-        <div class="grid h-10 w-10 place-content-center rounded-xl bg-slate-900 text-sm font-bold tracking-widest text-white">
+        <div class="grid h-10 w-10 place-content-center rounded-xl bg-orange-700 text-sm font-bold tracking-widest text-orange-50">
           IV
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Enterprise Suite</p>
-          <h1 class="text-lg font-bold text-slate-900">INVENTORY</h1>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-orange-700/75">Enterprise Suite</p>
+          <h1 class="text-lg font-bold text-stone-900">INVENTORY</h1>
         </div>
       </div>
 
@@ -15,14 +15,14 @@
         <a
           routerLink="/overview"
           routerLinkActive="is-active"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-orange-100/70 hover:text-orange-900"
         >
           Overview
         </a>
         <a
           routerLink="/operations"
           routerLinkActive="is-active"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-orange-100/70 hover:text-orange-900"
         >
           Operations
         </a>
@@ -50,19 +50,19 @@
     <router-outlet></router-outlet>
   </main>
 
-  <nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white px-3 py-2 md:hidden">
+  <nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-orange-200 bg-orange-50/90 px-3 py-2 md:hidden">
     <div class="grid grid-cols-2 gap-2">
       <a
         routerLink="/overview"
         routerLinkActive="is-active"
-        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-slate-600"
+        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-stone-700"
       >
         Overview
       </a>
       <a
         routerLink="/operations"
         routerLinkActive="is-active"
-        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-slate-600"
+        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-stone-700"
       >
         Operations
       </a>

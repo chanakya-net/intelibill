@@ -4,6 +4,13 @@
 
 :root {
 	color-scheme: light;
+	--app-orange-50: #fff7ed;
+	--app-orange-100: #ffedd5;
+	--app-orange-200: #fed7aa;
+	--app-orange-400: #fb923c;
+	--app-orange-500: #f97316;
+	--app-orange-700: #c2410c;
+	--app-orange-900: #7c2d12;
 }
 
 * {
@@ -15,7 +22,7 @@ body {
 	margin: 0;
 	min-height: 100%;
 	font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
-	background-color: #f8fafc;
+	background-color: #fffaf5;
 	color: #0f172a;
 }
 
