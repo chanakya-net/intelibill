@@ -16,6 +16,28 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
             .IsRequired()
             .HasMaxLength(160);
 
+        builder.Property(s => s.Address)
+            .IsRequired()
+            .HasMaxLength(320);
+
+        builder.Property(s => s.City)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        builder.Property(s => s.State)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        builder.Property(s => s.Pincode)
+            .IsRequired()
+            .HasMaxLength(16);
+
+        builder.Property(s => s.ContactPerson)
+            .HasMaxLength(120);
+
+        builder.Property(s => s.MobileNumber)
+            .HasMaxLength(32);
+
         builder.HasMany(s => s.Memberships)
             .WithOne(sm => sm.Shop)
             .HasForeignKey(sm => sm.ShopId)

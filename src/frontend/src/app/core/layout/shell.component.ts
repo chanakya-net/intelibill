@@ -33,4 +33,8 @@ export class ShellComponent {
       },
     });
   }
+
+  onCreateShopOverlayClose(): void {
+    this.onSignOut();
+  }
 }

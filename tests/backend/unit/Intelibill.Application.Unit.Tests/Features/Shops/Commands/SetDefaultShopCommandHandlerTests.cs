@@ -20,12 +20,12 @@ public class SetDefaultShopCommandHandlerTests
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
 
-        var firstShop = Shop.Create("First");
+        var firstShop = Shop.Create("First", "Address", "City", "State", "560001", null, null);
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
         firstShop.AddMembership(firstMembership);
         user.AddShopMembership(firstMembership);
 
-        var secondShop = Shop.Create("Second");
+        var secondShop = Shop.Create("Second", "Address", "City", "State", "560002", null, null);
         var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);

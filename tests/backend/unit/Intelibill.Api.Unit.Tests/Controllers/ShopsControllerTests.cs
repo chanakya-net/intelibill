@@ -62,7 +62,14 @@ public class ShopsControllerTests
     {
         var userId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var request = new CreateShopRequest("Main Shop");
+        var request = new CreateShopRequest(
+            "Main Shop",
+            "42 MG Road",
+            "Bengaluru",
+            "Karnataka",
+            "560001",
+            "Chandra",
+            "9876543210");
         var authResult = CreateAuthResult();
         ArrangeBusResponse<AuthResult>(authResult);
 
@@ -72,7 +79,15 @@ public class ShopsControllerTests
         Assert.Equal(authResult, ok.Value);
 
         await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
-            Arg.Is<CreateShopCommand>(c => c.UserId == userId && c.Name == request.Name),
+            Arg.Is<CreateShopCommand>(c =>
+                c.UserId == userId
+                && c.Name == request.Name
+                && c.Address == request.Address
+                && c.City == request.City
+                && c.State == request.State
+                && c.Pincode == request.Pincode
+                && c.ContactPerson == request.ContactPerson
+                && c.MobileNumber == request.MobileNumber),
             Arg.Any<CancellationToken>());
     }
 
@@ -82,7 +97,9 @@ public class ShopsControllerTests
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
         ArrangeBusResponse<AuthResult>(Errors.Shop.NameRequired);
 
-        var result = await _controller.CreateShop(new CreateShopRequest("  "), CancellationToken.None);
+        var result = await _controller.CreateShop(
+            new CreateShopRequest("  ", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -93,7 +110,9 @@ public class ShopsControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.CreateShop(new CreateShopRequest("Main Shop"), CancellationToken.None);
+        var result = await _controller.CreateShop(
+            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -104,7 +123,9 @@ public class ShopsControllerTests
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
         ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
 
-        var result = await _controller.CreateShop(new CreateShopRequest("Main Shop"), CancellationToken.None);
+        var result = await _controller.CreateShop(
+            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);

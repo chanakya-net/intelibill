@@ -69,5 +69,8 @@
     </div>
   </nav>
 
-  <app-create-shop-overlay *ngIf="showCreateShopOverlay()"></app-create-shop-overlay>
+  <app-create-shop-overlay
+    *ngIf="showCreateShopOverlay()"
+    (closeRequested)="onCreateShopOverlayClose()"
+  ></app-create-shop-overlay>
 </div>

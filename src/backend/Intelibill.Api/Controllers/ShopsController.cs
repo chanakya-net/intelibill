@@ -39,7 +39,15 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
             return Unauthorized();
 
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new CreateShopCommand(userId.Value, request.Name),
+            new CreateShopCommand(
+                userId.Value,
+                request.Name,
+                request.Address,
+                request.City,
+                request.State,
+                request.Pincode,
+                request.ContactPerson,
+                request.MobileNumber),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -81,6 +89,13 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
     }
 }
 
-public sealed record CreateShopRequest(string Name);
+public sealed record CreateShopRequest(
+    string Name,
+    string Address,
+    string City,
+    string State,
+    string Pincode,
+    string? ContactPerson,
+    string? MobileNumber);
 public sealed record SwitchActiveShopRequest(Guid ShopId);
 public sealed record SetDefaultShopRequest(Guid ShopId);

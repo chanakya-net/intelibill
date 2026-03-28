@@ -3,6 +3,19 @@
 
   <article class="overlay-card" [class.card-busy]="isSubmitting()">
     <header class="overlay-header">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        class="overlay-close"
+        [disabled]="isSubmitting()"
+        aria-label="Close shop setup"
+        (click)="onClose()"
+      ></button>
+
       <p class="overlay-kicker">Workspace Setup</p>
       <h2>Create your first shop</h2>
       <p>
@@ -29,6 +42,104 @@
         <p class="field-error" *ngIf="form.controls.name.hasError('maxlength') && form.controls.name.touched">
           Shop name must be 120 characters or fewer.
         </p>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-address">Address</label>
+        <input
+          id="shop-address"
+          type="text"
+          pInputText
+          formControlName="address"
+          autocomplete="street-address"
+          class="w-full"
+          placeholder="Ex: 42 MG Road"
+          [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
+          Address is required.
+        </p>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-city">City</label>
+          <input
+            id="shop-city"
+            type="text"
+            pInputText
+            formControlName="city"
+            autocomplete="address-level2"
+            class="w-full"
+            placeholder="Ex: Bengaluru"
+            [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
+          />
+          <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
+            City is required.
+          </p>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-state">State</label>
+          <input
+            id="shop-state"
+            type="text"
+            pInputText
+            formControlName="state"
+            autocomplete="address-level1"
+            class="w-full"
+            placeholder="Ex: Karnataka"
+            [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
+          />
+          <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
+            State is required.
+          </p>
+        </div>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-pincode">Pincode</label>
+        <input
+          id="shop-pincode"
+          type="text"
+          pInputText
+          formControlName="pincode"
+          autocomplete="postal-code"
+          class="w-full"
+          placeholder="Ex: 560001"
+          [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
+          Pincode is required.
+        </p>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-contact-person">Contact Person (Optional)</label>
+          <input
+            id="shop-contact-person"
+            type="text"
+            pInputText
+            formControlName="contactPerson"
+            autocomplete="name"
+            class="w-full"
+            placeholder="Ex: Chandra"
+          />
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-mobile">Mobile Number (Optional)</label>
+          <input
+            id="shop-mobile"
+            type="text"
+            pInputText
+            formControlName="mobileNumber"
+            autocomplete="tel"
+            class="w-full"
+            placeholder="Ex: 9876543210"
+          />
+        </div>
       </div>
 
       <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>

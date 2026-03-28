@@ -21,12 +21,31 @@ public sealed class CreateShopCommandHandler(
         if (string.IsNullOrWhiteSpace(command.Name))
             return Errors.Shop.NameRequired;
 
+        if (string.IsNullOrWhiteSpace(command.Address))
+            return Errors.Shop.AddressRequired;
+
+        if (string.IsNullOrWhiteSpace(command.City))
+            return Errors.Shop.CityRequired;
+
+        if (string.IsNullOrWhiteSpace(command.State))
+            return Errors.Shop.StateRequired;
+
+        if (string.IsNullOrWhiteSpace(command.Pincode))
+            return Errors.Shop.PincodeRequired;
+
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
 
         var isFirstShop = user.ShopMemberships.Count == 0;
-        var shop = Shop.Create(command.Name);
+        var shop = Shop.Create(
+            command.Name,
+            command.Address,
+            command.City,
+            command.State,
+            command.Pincode,
+            command.ContactPerson,
+            command.MobileNumber);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
         membership.MarkUsed();
 

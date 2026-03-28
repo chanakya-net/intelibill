@@ -56,7 +56,7 @@ public class UserTests
     public void AddShopMembership_AttachesMembershipToUser()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var shop = Shop.Create("Main");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
 
         shop.AddMembership(membership);

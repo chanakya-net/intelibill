@@ -18,11 +18,14 @@ namespace Intelibill.Integration.Tests;
 
 public class ShopIsolationIntegrationTests
 {
+    private static Shop CreateTestShop(string name, string pincode = "560001") =>
+        Shop.Create(name, "Address", "City", "State", pincode, null, null);
+
     [Fact]
     public async Task SwitchActiveShop_WhenUserDoesNotOwnShop_ReturnsMembershipForbiddenError()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var ownShop = Shop.Create("Own");
+        var ownShop = CreateTestShop("Own");
         var ownMembership = ShopMembership.Create(ownShop.Id, user.Id, ShopRole.Owner, true);
         ownShop.AddMembership(ownMembership);
         user.AddShopMembership(ownMembership);
@@ -43,12 +46,12 @@ public class ShopIsolationIntegrationTests
     public async Task SwitchActiveShop_ForOwnedShop_RotatesTokenWithActiveShopClaim()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var firstShop = Shop.Create("First");
+        var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
         firstShop.AddMembership(firstMembership);
         user.AddShopMembership(firstMembership);
 
-        var secondShop = Shop.Create("Second");
+        var secondShop = CreateTestShop("Second", "560002");
         var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);
@@ -89,7 +92,9 @@ public class ShopIsolationIntegrationTests
             tokenService,
             unitOfWork);
 
-        var result = await handler.HandleAsync(new CreateShopCommand(user.Id, "   "), CancellationToken.None);
+        var result = await handler.HandleAsync(
+            new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.NameRequired.Code);
@@ -112,7 +117,9 @@ public class ShopIsolationIntegrationTests
             tokenService,
             unitOfWork);
 
-        var result = await handler.HandleAsync(new CreateShopCommand(Guid.NewGuid(), "Main"), CancellationToken.None);
+        var result = await handler.HandleAsync(
+            new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserNotFound.Code);
@@ -136,10 +143,26 @@ public class ShopIsolationIntegrationTests
             tokenService,
             unitOfWork);
 
-        var result = await handler.HandleAsync(new CreateShopCommand(user.Id, "  Main Shop  "), CancellationToken.None);
+        var result = await handler.HandleAsync(
+            new CreateShopCommand(
+                user.Id,
+                "  Main Shop  ",
+                "  42 MG Road  ",
+                "  Bengaluru  ",
+                "  Karnataka  ",
+                "  560001  ",
+                "  Chandra  ",
+                "  9876543210  "),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("Main Shop", shopRepository.AddedShops.Single().Name);
+        Assert.Equal("42 MG Road", shopRepository.AddedShops.Single().Address);
+        Assert.Equal("Bengaluru", shopRepository.AddedShops.Single().City);
+        Assert.Equal("Karnataka", shopRepository.AddedShops.Single().State);
+        Assert.Equal("560001", shopRepository.AddedShops.Single().Pincode);
+        Assert.Equal("Chandra", shopRepository.AddedShops.Single().ContactPerson);
+        Assert.Equal("9876543210", shopRepository.AddedShops.Single().MobileNumber);
         Assert.Equal(user.Id, result.Value.User.Id);
         Assert.NotNull(result.Value.ActiveShopId);
         Assert.NotNull(result.Value.Shops);
@@ -168,7 +191,7 @@ public class ShopIsolationIntegrationTests
     public async Task SetDefaultShop_WhenMembershipMissing_ReturnsForbiddenError()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var existingShop = Shop.Create("Existing");
+        var existingShop = CreateTestShop("Existing");
         var existingMembership = ShopMembership.Create(existingShop.Id, user.Id, ShopRole.Owner, true);
         existingMembership.MarkUsed();
         existingShop.AddMembership(existingMembership);
@@ -191,13 +214,13 @@ public class ShopIsolationIntegrationTests
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
 
-        var firstShop = Shop.Create("First");
+        var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
         firstMembership.MarkUsed();
         firstShop.AddMembership(firstMembership);
         user.AddShopMembership(firstMembership);
 
-        var secondShop = Shop.Create("Second");
+        var secondShop = CreateTestShop("Second", "560002");
         var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);
@@ -234,13 +257,13 @@ public class ShopIsolationIntegrationTests
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
 
-        var firstShop = Shop.Create("First");
+        var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, false);
         firstMembership.MarkUsed();
         firstShop.AddMembership(firstMembership);
         user.AddShopMembership(firstMembership);
 
-        var secondShop = Shop.Create("Second");
+        var secondShop = CreateTestShop("Second", "560002");
         var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, true);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);

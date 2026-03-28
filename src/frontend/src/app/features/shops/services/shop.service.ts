@@ -9,6 +9,12 @@ import { AuthService } from '../../../core/auth/auth.service';
 
 interface CreateShopRequest {
   readonly name: string;
+  readonly address: string;
+  readonly city: string;
+  readonly state: string;
+  readonly pincode: string;
+  readonly contactPerson?: string;
+  readonly mobileNumber?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -20,8 +26,7 @@ export class ShopService {
     return this.http.get<readonly UserShop[]>(SHOP_ENDPOINTS.me);
   }
 
-  createShop(name: string): Observable<void> {
-    const payload: CreateShopRequest = { name };
+  createShop(payload: CreateShopRequest): Observable<void> {
 
     return this.http.post<AuthResult>(SHOP_ENDPOINTS.create, payload).pipe(
       tap((result) => this.authService.applyAuthResult(result)),

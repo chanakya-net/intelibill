@@ -19,7 +19,15 @@ public class CreateShopCommandHandlerTests
     public async Task HandleAsync_FirstShop_AssignsDefaultAndReturnsActiveShop()
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var command = new CreateShopCommand(user.Id, "Main Shop");
+        var command = new CreateShopCommand(
+            user.Id,
+            "Main Shop",
+            "42 MG Road",
+            "Bengaluru",
+            "Karnataka",
+            "560001",
+            "Chandra",
+            "9876543210");
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -46,8 +54,38 @@ public class CreateShopCommandHandlerTests
         Assert.Single(shops!);
         Assert.True(shops[0].IsDefault);
 
-        await _shopRepository.Received(1).AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
+        await _shopRepository.Received(1).AddAsync(
+            Arg.Is<Shop>(s =>
+                s.Name == "Main Shop"
+                && s.Address == "42 MG Road"
+                && s.City == "Bengaluru"
+                && s.State == "Karnataka"
+                && s.Pincode == "560001"
+                && s.ContactPerson == "Chandra"
+                && s.MobileNumber == "9876543210"),
+            Arg.Any<CancellationToken>());
+
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenAddressBlank_ReturnsAddressRequired()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        var command = new CreateShopCommand(user.Id, "Main Shop", "   ", "Bengaluru", "Karnataka", "560001", null, null);
+
+        var handler = new CreateShopCommandHandler(
+            _userRepository,
+            _shopRepository,
+            _refreshTokenRepository,
+            _tokenService,
+            _unitOfWork);
+
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Shop.AddressRequired", result.FirstError.Code);
+        await _shopRepository.DidNotReceive().AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
     }
 }
