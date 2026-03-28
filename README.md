@@ -49,7 +49,7 @@
 <!-- FRONTEND_TEST_BREAKDOWN_START -->
 | Project | Tests | Coverage |
 |---|---|---:|
-| INVENTORY | 67/67 passed | 100.0% |
+| INVENTORY | 66/66 passed | 100.0% |
 <!-- FRONTEND_TEST_BREAKDOWN_END -->
 
 # intelibill
