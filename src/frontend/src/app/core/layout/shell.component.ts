@@ -15,7 +15,6 @@ import { ShopsActions } from '../../features/shops/state/shops.actions';
 import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
 import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
-import { SetDefaultStoreOverlayComponent } from '../../features/users/components/set-default-store-overlay.component';
 
 @Component({
   selector: 'app-shell',
@@ -31,7 +30,6 @@ import { SetDefaultStoreOverlayComponent } from '../../features/users/components
     ManageShopOverlayComponent,
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
-    SetDefaultStoreOverlayComponent,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
@@ -50,7 +48,6 @@ export class ShellComponent {
   readonly showManageShopOverlay = signal(false);
   readonly showUpdateProfileOverlay = signal(false);
   readonly showChangePasswordOverlay = signal(false);
-  readonly showSetDefaultStoreOverlay = signal(false);
 
   readonly session = this.authService.session;
   readonly shops = this.store.selectSignal(selectShops);
@@ -66,10 +63,6 @@ export class ShellComponent {
     }
 
     return this.getShopDisplayLabel(activeShop);
-  });
-  readonly shouldShowSetDefaultStoreAction = computed(() => {
-    const shops = this.shops();
-    return shops.length > 1;
   });
   readonly shouldShowManageShopAction = computed(() => {
     const shops = this.shops();
@@ -180,11 +173,6 @@ export class ShellComponent {
     this.showChangePasswordOverlay.set(true);
   }
 
-  onOpenSetDefaultStore(): void {
-    this.isProfileMenuOpen.set(false);
-    this.showSetDefaultStoreOverlay.set(true);
-  }
-
   onOpenAddShop(): void {
     this.isProfileMenuOpen.set(false);
     this.showCreateShopOverlayManual.set(true);
@@ -198,7 +186,6 @@ export class ShellComponent {
   onProfileOverlayClose(): void {
     this.showUpdateProfileOverlay.set(false);
     this.showChangePasswordOverlay.set(false);
-    this.showSetDefaultStoreOverlay.set(false);
   }
 
   onManageShopOverlayClose(): void {

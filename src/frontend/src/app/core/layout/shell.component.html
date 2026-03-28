@@ -72,9 +72,6 @@
         <div class="profile-menu" *ngIf="isProfileMenuOpen()" role="menu" aria-label="Profile actions">
           <button type="button" role="menuitem" (click)="onOpenUpdateProfile()">Update Profile</button>
           <button type="button" role="menuitem" (click)="onOpenChangePassword()">Change Password</button>
-          <button type="button" role="menuitem" *ngIf="shouldShowSetDefaultStoreAction()" (click)="onOpenSetDefaultStore()">
-            Set Default Store
-          </button>
           <button type="button" role="menuitem" (click)="onOpenAddShop()">Add Shop</button>
           <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction()" (click)="onOpenManageShop()">Manage Shop</button>
         </div>
@@ -139,10 +136,4 @@
     (closeRequested)="onProfileOverlayClose()"
   ></app-change-password-overlay>
 
-  <app-set-default-store-overlay
-    *ngIf="showSetDefaultStoreOverlay()"
-    [shops]="shops()"
-    [activeShopId]="activeShopId()"
-    (closeRequested)="onProfileOverlayClose()"
-  ></app-set-default-store-overlay>
 </div>

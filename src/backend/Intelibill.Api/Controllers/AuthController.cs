@@ -46,7 +46,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithPhone), auth));
     }
 
-    // ── Login ─────────────────────────────────────────────────────────────────
+    // ── Login ────────────────────────────────────────────────────────────
 
     [HttpPost("login/email")]
     public async Task<IActionResult> LoginWithEmail(
