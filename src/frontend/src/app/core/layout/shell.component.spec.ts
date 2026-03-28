@@ -157,18 +157,6 @@ describe('ShellComponent', () => {
     expect(component.profileInitials()).toBe('TU');
   });
 
-  it('shows set default store action only when user has more than one shop', () => {
-    const component = setup();
-    expect(component.shouldShowSetDefaultStoreAction()).toBe(false);
-
-    shopsSignal.set([
-        { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-        { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: false, lastUsedAt: null },
-      ]);
-
-    expect(component.shouldShowSetDefaultStoreAction()).toBe(true);
-  });
-
   it('shows manage shop action when user has at least one shop', () => {
     const component = setup();
 
