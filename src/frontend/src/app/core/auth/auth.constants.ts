@@ -6,3 +6,8 @@ export const AUTH_ENDPOINTS = {
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,
   revokeToken: `${API_BASE_URL}/auth/token/revoke`,
 } as const;
+
+export const SHOP_ENDPOINTS = {
+  me: `${API_BASE_URL}/shops/me`,
+  create: `${API_BASE_URL}/shops`,
+} as const;

@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Intelibill.Application.Common.Interfaces;
 
 namespace Intelibill.Api.Extensions;
@@ -7,7 +8,9 @@ internal sealed class HttpCurrentSessionContext(IHttpContextAccessor httpContext
 {
     private const string ActiveShopClaim = "active_shop_id";
 
-    public Guid? UserId => TryReadGuidClaim(JwtRegisteredClaimNames.Sub);
+    public Guid? UserId =>
+        TryReadGuidClaim(JwtRegisteredClaimNames.Sub)
+        ?? TryReadGuidClaim(ClaimTypes.NameIdentifier);
 
     public Guid? ActiveShopId => TryReadGuidClaim(ActiveShopClaim);
 

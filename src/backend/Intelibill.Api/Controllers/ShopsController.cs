@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
@@ -74,7 +75,8 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
 
     private Guid? GetCurrentUserId()
     {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(sub, out var userId) ? userId : null;
     }
 }

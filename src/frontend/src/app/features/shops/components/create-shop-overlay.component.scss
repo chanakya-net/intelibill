@@ -1,0 +1,153 @@
+.create-shop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(56, 189, 248, 0.16), transparent 35%),
+    radial-gradient(circle at 78% 22%, rgba(14, 116, 144, 0.22), transparent 38%),
+    rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.overlay-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 30rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  background: linear-gradient(165deg, rgba(2, 132, 199, 0.95) 0%, rgba(14, 116, 144, 0.94) 100%);
+  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.34);
+  color: #f8fafc;
+  overflow: hidden;
+}
+
+.overlay-header {
+  padding: 1.6rem 1.6rem 0.8rem;
+
+  h2 {
+    margin-top: 0.2rem;
+    font-size: 2rem;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin-top: 0.65rem;
+    color: rgba(241, 245, 249, 0.95);
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+}
+
+.overlay-kicker {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 242, 254, 0.45);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 700;
+  color: #e0f2fe;
+}
+
+.overlay-form {
+  padding: 1.25rem 1.6rem 1.7rem;
+}
+
+.field-wrap {
+  label {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(224, 242, 254, 0.95);
+    font-weight: 700;
+  }
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #ffe4e6;
+}
+
+.server-error {
+  border: 1px solid rgba(254, 202, 202, 0.7);
+  background: rgba(127, 29, 29, 0.22);
+  border-radius: 0.8rem;
+  color: #ffe4e6;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.create-button {
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #0f172a;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.22);
+}
+
+.card-busy {
+  pointer-events: none;
+}
+
+.submit-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+:host ::ng-deep input.p-inputtext {
+  border-radius: 0.72rem;
+  border-color: rgba(186, 230, 253, 0.5);
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 0.82rem 0.9rem;
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+:host ::ng-deep input.p-inputtext::placeholder {
+  color: #64748b;
+}
+
+:host ::ng-deep input.p-inputtext:enabled:focus {
+  border-color: #7dd3fc;
+  box-shadow: 0 0 0 0.18rem rgba(125, 211, 252, 0.35);
+}
+
+:host ::ng-deep .create-shop-spinner .p-progressspinner-circle {
+  stroke: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .create-shop-overlay {
+    padding: 0.8rem;
+  }
+
+  .overlay-header {
+    h2 {
+      font-size: 1.62rem;
+    }
+  }
+
+  .overlay-form {
+    padding: 1rem 1.2rem 1.3rem;
+  }
+}

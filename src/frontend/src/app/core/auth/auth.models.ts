@@ -22,12 +22,22 @@ export interface AuthUser {
   readonly lastName: string;
 }
 
+export interface UserShop {
+  readonly shopId: string;
+  readonly shopName: string;
+  readonly role: string;
+  readonly isDefault: boolean;
+  readonly lastUsedAt: string | null;
+}
+
 export interface AuthResult {
   readonly accessToken: string;
   readonly refreshToken: string;
   readonly accessTokenExpiresAt: string;
   readonly refreshTokenExpiresAt: string;
   readonly user: AuthUser;
+  readonly activeShopId: string | null;
+  readonly shops: readonly UserShop[];
 }
 
 export interface AuthSession {
@@ -37,6 +47,8 @@ export interface AuthSession {
   readonly refreshTokenExpiresAt: string;
   readonly rememberMe: boolean;
   readonly user: AuthUser;
+  readonly activeShopId: string | null;
+  readonly shops: readonly UserShop[];
 }
 
 export interface ApiErrorPayload {

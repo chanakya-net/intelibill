@@ -25,6 +25,15 @@ export class AuthService {
     const session = this.sessionSignal();
     return !!session && !this.isExpired(session.accessTokenExpiresAt);
   });
+  readonly needsShopSetup = computed(() => {
+    const session = this.sessionSignal();
+    if (!session || this.isExpired(session.accessTokenExpiresAt)) {
+      return false;
+    }
+
+    const hasAssignedShop = !!session.activeShopId || session.shops.length > 0;
+    return !hasAssignedShop;
+  });
 
   constructor() {
     if (this.isBrowser()) {
@@ -203,6 +212,12 @@ export class AuthService {
     this.sessionSignal.set(null);
   }
 
+  applyAuthResult(result: AuthResult): void {
+    const currentSession = this.sessionSignal();
+    const rememberMe = currentSession?.rememberMe ?? true;
+    this.setSession(this.toSession(result, rememberMe));
+  }
+
   private setSession(session: AuthSession): void {
     this.sessionSignal.set(session);
 
@@ -219,6 +234,8 @@ export class AuthService {
       refreshTokenExpiresAt: result.refreshTokenExpiresAt,
       user: result.user,
       rememberMe,
+      activeShopId: result.activeShopId,
+      shops: result.shops ?? [],
     };
   }
 

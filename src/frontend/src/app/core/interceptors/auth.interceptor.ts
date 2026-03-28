@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 
 import { catchError, of, switchMap, throwError } from 'rxjs';
 
-import { AUTH_ENDPOINTS } from '../auth/auth.constants';
+import { AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 
 const REFRESH_ATTEMPTED = new HttpContextToken<boolean>(() => false);
@@ -24,9 +24,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         return throwError(() => error);
       }
 
+      const shouldRedirectOnAuthFailure = !isAuthRedirectSuppressedEndpoint(request.url);
+
       const shouldTryRefresh = error.status === 401
         && !request.context.get(REFRESH_ATTEMPTED)
-        && !isAuthEndpointRequest(request.url)
+        && !isRefreshExcludedEndpointRequest(request.url)
         && authService.hasRefreshToken();
 
       if (!shouldTryRefresh) {
@@ -36,10 +38,14 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       return authService.refreshAccessToken().pipe(
         switchMap((session) => {
           if (!session) {
-            authService.clearSession();
-            return of(router.navigateByUrl('/login')).pipe(
-              switchMap(() => throwError(() => error))
-            );
+            if (shouldRedirectOnAuthFailure) {
+              authService.clearSession();
+              return of(router.navigateByUrl('/login')).pipe(
+                switchMap(() => throwError(() => error))
+              );
+            }
+
+            return throwError(() => error);
           }
 
           const retryRequest = request.clone({
@@ -50,18 +56,26 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           return next(retryRequest);
         }),
         catchError((refreshError) => {
-          authService.clearSession();
-          return of(router.navigateByUrl('/login')).pipe(
-            switchMap(() => throwError(() => refreshError))
-          );
+          if (shouldRedirectOnAuthFailure) {
+            authService.clearSession();
+            return of(router.navigateByUrl('/login')).pipe(
+              switchMap(() => throwError(() => refreshError))
+            );
+          }
+
+          return throwError(() => refreshError);
         })
       );
     })
   );
 };
 
-function isAuthEndpointRequest(url: string): boolean {
+function isRefreshExcludedEndpointRequest(url: string): boolean {
   return url.startsWith(AUTH_ENDPOINTS.loginWithEmail)
     || url.startsWith(AUTH_ENDPOINTS.refreshToken)
     || url.startsWith(AUTH_ENDPOINTS.revokeToken);
+}
+
+function isAuthRedirectSuppressedEndpoint(url: string): boolean {
+  return url.startsWith(SHOP_ENDPOINTS.create);
 }

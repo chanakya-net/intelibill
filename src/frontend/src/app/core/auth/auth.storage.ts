@@ -50,7 +50,23 @@ export class AuthStorage {
     }
 
     try {
-      return JSON.parse(raw) as AuthSession;
+      const parsed = JSON.parse(raw) as Partial<AuthSession>;
+
+      if (!parsed.accessToken || !parsed.refreshToken || !parsed.accessTokenExpiresAt || !parsed.refreshTokenExpiresAt || !parsed.user) {
+        storage.removeItem(key);
+        return null;
+      }
+
+      return {
+        accessToken: parsed.accessToken,
+        refreshToken: parsed.refreshToken,
+        accessTokenExpiresAt: parsed.accessTokenExpiresAt,
+        refreshTokenExpiresAt: parsed.refreshTokenExpiresAt,
+        rememberMe: parsed.rememberMe ?? key === LOCAL_SESSION_KEY,
+        user: parsed.user,
+        activeShopId: parsed.activeShopId ?? null,
+        shops: parsed.shops ?? [],
+      };
     } catch {
       storage.removeItem(key);
       return null;

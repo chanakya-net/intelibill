@@ -1,0 +1,50 @@
+<section class="create-shop-overlay" aria-modal="true" role="dialog">
+  <div class="overlay-backdrop"></div>
+
+  <article class="overlay-card" [class.card-busy]="isSubmitting()">
+    <header class="overlay-header">
+      <p class="overlay-kicker">Workspace Setup</p>
+      <h2>Create your first shop</h2>
+      <p>
+        Your account is ready, but you need a shop before accessing inventory workflows.
+      </p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-name">Shop Name</label>
+        <input
+          id="shop-name"
+          type="text"
+          pInputText
+          formControlName="name"
+          autocomplete="organization"
+          class="w-full"
+          placeholder="Ex: Downtown Electronics"
+          [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
+          Shop name is required.
+        </p>
+        <p class="field-error" *ngIf="form.controls.name.hasError('maxlength') && form.controls.name.touched">
+          Shop name must be 120 characters or fewer.
+        </p>
+      </div>
+
+      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+
+      <button
+        pButton
+        type="submit"
+        [label]="isSubmitting() ? 'Creating shop...' : 'Create Shop'"
+        [loading]="isSubmitting()"
+        [disabled]="form.invalid || isSubmitting()"
+        class="create-button w-full"
+      ></button>
+    </form>
+
+    <div class="submit-overlay" *ngIf="isSubmitting()">
+      <p-progressSpinner strokeWidth="4" styleClass="create-shop-spinner"></p-progressSpinner>
+    </div>
+  </article>
+</section>
