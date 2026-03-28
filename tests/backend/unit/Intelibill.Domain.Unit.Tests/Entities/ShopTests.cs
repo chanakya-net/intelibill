@@ -46,6 +46,40 @@ public class ShopTests
     }
 
     [Fact]
+    public void UpdateDetails_TrimFields()
+    {
+        var shop = Shop.Create("Old", "Old Address", "Old City", "Old State", "000000", null, null);
+
+        shop.UpdateDetails(
+            "  Main Shop  ",
+            "  42 MG Road  ",
+            "  Bengaluru  ",
+            "  Karnataka  ",
+            "  560001  ",
+            "  Chandra  ",
+            "  9876543210  ");
+
+        Assert.Equal("Main Shop", shop.Name);
+        Assert.Equal("42 MG Road", shop.Address);
+        Assert.Equal("Bengaluru", shop.City);
+        Assert.Equal("Karnataka", shop.State);
+        Assert.Equal("560001", shop.Pincode);
+        Assert.Equal("Chandra", shop.ContactPerson);
+        Assert.Equal("9876543210", shop.MobileNumber);
+    }
+
+    [Fact]
+    public void UpdateDetails_EmptyOptionalValues_NormalizesToNull()
+    {
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", "Chandra", "123");
+
+        shop.UpdateDetails("Main", "Address", "City", "State", "560001", "   ", null);
+
+        Assert.Null(shop.ContactPerson);
+        Assert.Null(shop.MobileNumber);
+    }
+
+    [Fact]
     public void AddMembership_AttachesShopToMembership()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");

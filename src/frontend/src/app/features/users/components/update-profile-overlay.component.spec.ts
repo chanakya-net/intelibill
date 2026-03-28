@@ -1,19 +1,54 @@
+import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { UpdateProfileOverlayComponent } from './update-profile-overlay.component';
-import { UserAccountService } from '../services/user-account.service';
+import { UsersActions } from '../state/users.actions';
+import {
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
 
 describe('UpdateProfileOverlayComponent', () => {
-  const userAccountService = {
-    updateMyProfile: vi.fn<UserAccountService['updateMyProfile']>(),
+  const dispatch = vi.fn();
+  const isSubmittingSignal = signal(false);
+  const errorSignal = signal('');
+  const lastMutationTypeSignal = signal<'update-profile' | 'change-password' | null>(null);
+  const lastMutationSucceededSignal = signal(false);
+
+  const store = {
+    dispatch,
+    selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
+      if (selector === selectUsersSubmitting) {
+        return isSubmittingSignal;
+      }
+
+      if (selector === selectUsersErrorMessage) {
+        return errorSignal;
+      }
+
+      if (selector === selectUsersLastMutationType) {
+        return lastMutationTypeSignal;
+      }
+
+      if (selector === selectUsersLastMutationSucceeded) {
+        return lastMutationSucceededSignal;
+      }
+
+      return signal(undefined);
+    }),
   };
 
-  function setup(): UpdateProfileOverlayComponent {
+  function setup(): {
+    component: UpdateProfileOverlayComponent;
+    fixture: ReturnType<typeof TestBed.createComponent<UpdateProfileOverlayComponent>>;
+  } {
     TestBed.configureTestingModule({
       imports: [UpdateProfileOverlayComponent],
-      providers: [{ provide: UserAccountService, useValue: userAccountService }],
+      providers: [{ provide: Store, useValue: store }],
     });
 
     const fixture = TestBed.createComponent(UpdateProfileOverlayComponent);
@@ -25,12 +60,16 @@ describe('UpdateProfileOverlayComponent', () => {
       lastName: 'User',
     });
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return { component: fixture.componentInstance, fixture };
   }
 
   beforeEach(() => {
-    userAccountService.updateMyProfile.mockReset();
-    userAccountService.updateMyProfile.mockReturnValue(of(void 0));
+    dispatch.mockReset();
+    store.selectSignal.mockClear();
+    isSubmittingSignal.set(false);
+    errorSignal.set('');
+    lastMutationTypeSignal.set(null);
+    lastMutationSucceededSignal.set(false);
   });
 
   afterEach(() => {
@@ -38,17 +77,19 @@ describe('UpdateProfileOverlayComponent', () => {
   });
 
   it('does not submit when form is invalid', () => {
-    const component = setup();
+    const { component } = setup();
     component.form.controls.email.setValue('');
 
     component.onSubmit();
 
     expect(component.form.touched).toBe(true);
-    expect(userAccountService.updateMyProfile).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: UsersActions.updateProfileRequested.type })
+    );
   });
 
-  it('submits trimmed values and emits closeRequested on success', () => {
-    const component = setup();
+  it('dispatches update action with trimmed values and emits close on success', () => {
+    const { component, fixture } = setup();
     const closeSpy = vi.fn();
     component.closeRequested.subscribe(closeSpy);
 
@@ -59,22 +100,30 @@ describe('UpdateProfileOverlayComponent', () => {
 
     component.onSubmit();
 
-    expect(userAccountService.updateMyProfile).toHaveBeenCalledWith({
-      firstName: 'Jane',
-      lastName: 'Doe',
-      email: 'jane@example.com',
-      phoneNumber: '+15557654321',
-    });
+    expect(dispatch).toHaveBeenCalledWith(UsersActions.clearError());
+    expect(dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
+    expect(dispatch).toHaveBeenCalledWith(
+      UsersActions.updateProfileRequested({
+        payload: {
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+          phoneNumber: '+15557654321',
+        },
+      })
+    );
+
+    lastMutationTypeSignal.set('update-profile');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('maps email conflict into friendly error message', () => {
-    userAccountService.updateMyProfile.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
-    );
-    const component = setup();
-
-    component.onSubmit();
+  it('reads server error from selector', () => {
+    const { component, fixture } = setup();
+    errorSignal.set('This email is already used by another account.');
+    fixture.detectChanges();
 
     expect(component.serverError()).toBe('This email is already used by another account.');
   });

@@ -1,0 +1,168 @@
+<section class="manage-shop-overlay" aria-modal="true" role="dialog">
+  <div class="overlay-backdrop"></div>
+
+  <article class="overlay-card" [class.card-busy]="isSubmitting() || isLoadingDetails()">
+    <header class="overlay-header">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        class="overlay-close"
+        [disabled]="isSubmitting()"
+        aria-label="Close manage shop"
+        (click)="onClose()"
+      ></button>
+
+      <p class="overlay-kicker">Shop Management</p>
+      <h2>Manage shop details</h2>
+      <p>Pick a shop, review its details, and save updates for your team.</p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
+      <div class="field-wrap space-y-1.5">
+        <label for="manage-shop-id">Select Shop</label>
+        <select
+          id="manage-shop-id"
+          formControlName="shopId"
+          class="shop-select"
+          [disabled]="isSubmitting() || isLoadingDetails()"
+          (change)="onShopSelectionChange()"
+        >
+          <option *ngFor="let shop of shops" [value]="shop.shopId">
+            {{ shop.shopName }} ({{ shop.role }})
+          </option>
+        </select>
+      </div>
+
+      <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
+        Selected shop role is {{ selectedShopRole() || 'Unknown' }}. Only owners can save updates.
+      </p>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-name">Shop Name</label>
+        <input
+          id="shop-name"
+          type="text"
+          pInputText
+          formControlName="name"
+          autocomplete="organization"
+          class="w-full"
+          [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
+          Shop name is required.
+        </p>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-address">Address</label>
+        <input
+          id="shop-address"
+          type="text"
+          pInputText
+          formControlName="address"
+          autocomplete="street-address"
+          class="w-full"
+          [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
+          Address is required.
+        </p>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-city">City</label>
+          <input
+            id="shop-city"
+            type="text"
+            pInputText
+            formControlName="city"
+            autocomplete="address-level2"
+            class="w-full"
+            [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
+          />
+          <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
+            City is required.
+          </p>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-state">State</label>
+          <input
+            id="shop-state"
+            type="text"
+            pInputText
+            formControlName="state"
+            autocomplete="address-level1"
+            class="w-full"
+            [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
+          />
+          <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
+            State is required.
+          </p>
+        </div>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-pincode">Pincode</label>
+        <input
+          id="shop-pincode"
+          type="text"
+          pInputText
+          formControlName="pincode"
+          autocomplete="postal-code"
+          class="w-full"
+          [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
+          Pincode is required.
+        </p>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-contact-person">Contact Person (Optional)</label>
+          <input
+            id="shop-contact-person"
+            type="text"
+            pInputText
+            formControlName="contactPerson"
+            autocomplete="name"
+            class="w-full"
+          />
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="shop-mobile">Mobile Number (Optional)</label>
+          <input
+            id="shop-mobile"
+            type="text"
+            pInputText
+            formControlName="mobileNumber"
+            autocomplete="tel"
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+
+      <button
+        pButton
+        type="submit"
+        [label]="isSubmitting() ? 'Saving changes...' : 'Save Shop Changes'"
+        [loading]="isSubmitting()"
+        [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
+        class="save-button w-full"
+      ></button>
+    </form>
+
+    <div class="submit-overlay" *ngIf="isSubmitting() || isLoadingDetails()">
+      <p-progressSpinner strokeWidth="4" styleClass="manage-shop-spinner"></p-progressSpinner>
+    </div>
+  </article>
+</section>

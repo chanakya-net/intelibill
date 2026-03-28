@@ -1,13 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload } from '../../../core/auth/auth.models';
-import { UserAccountService } from '../services/user-account.service';
+import { RootState } from '../../../core/state/app.state';
+import { UsersActions } from '../state/users.actions';
+import {
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
 
 @Component({
   selector: 'app-change-password-overlay',
@@ -16,12 +23,15 @@ import { UserAccountService } from '../services/user-account.service';
   templateUrl: './change-password-overlay.component.html',
   styleUrl: './change-password-overlay.component.scss',
 })
-export class ChangePasswordOverlayComponent {
+export class ChangePasswordOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
-  private readonly userAccountService = inject(UserAccountService);
+  private readonly store = inject(Store<RootState>);
 
-  readonly isSubmitting = signal(false);
-  readonly serverError = signal('');
+  readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
+  readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
+  readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
+  readonly isChangePasswordPending = signal(false);
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -30,6 +40,24 @@ export class ChangePasswordOverlayComponent {
     newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
     confirmNewPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
   }, { validators: [passwordsMatchValidator] });
+
+  constructor() {
+    effect(() => {
+      const isChangePasswordSuccess = this.lastMutationType() === 'change-password' && this.lastMutationSucceeded();
+      if (!this.isChangePasswordPending() || !isChangePasswordSuccess || this.isSubmitting()) {
+        return;
+      }
+
+      this.isChangePasswordPending.set(false);
+      this.store.dispatch(UsersActions.clearMutationStatus());
+      this.closeRequested.emit();
+    });
+  }
+
+  ngOnInit(): void {
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+  }
 
   onClose(): void {
     if (this.isSubmitting()) {
@@ -49,24 +77,15 @@ export class ChangePasswordOverlayComponent {
       return;
     }
 
-    this.serverError.set('');
-    this.isSubmitting.set(true);
-
     const payload = {
       currentPassword: this.form.controls.currentPassword.value,
       newPassword: this.form.controls.newPassword.value,
     };
 
-    this.userAccountService.changeMyPassword(payload).subscribe({
-      next: () => {
-        this.isSubmitting.set(false);
-        this.closeRequested.emit();
-      },
-      error: (error: { error?: ApiErrorPayload }) => {
-        this.serverError.set(getChangePasswordErrorMessage(error.error));
-        this.isSubmitting.set(false);
-      },
-    });
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+    this.isChangePasswordPending.set(true);
+    this.store.dispatch(UsersActions.changePasswordRequested({ payload }));
   }
 }
 
@@ -79,22 +98,4 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
   }
 
   return newPassword === confirmNewPassword ? null : { passwordMismatch: true };
-}
-
-function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-
-  if (title === 'Auth.InvalidCurrentPassword') {
-    return 'Current password is incorrect.';
-  }
-
-  if (title === 'Auth.PasswordNotSet') {
-    return 'Password is not set for this account.';
-  }
-
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to change password right now. Please try again.';
 }

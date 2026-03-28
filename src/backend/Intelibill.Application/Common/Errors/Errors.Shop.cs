@@ -26,5 +26,11 @@ public static partial class Errors
 
         public static Error MembershipNotFound =>
             Error.Forbidden("Shop.MembershipNotFound", "You do not have access to this shop.");
+
+        public static Error ShopNotFound =>
+            Error.NotFound("Shop.ShopNotFound", "The shop was not found.");
+
+        public static Error UserIsNotOwner =>
+            Error.Forbidden("Shop.UserIsNotOwner", "Only the shop owner can update shop details.");
     }
 }

@@ -1,10 +1,15 @@
 import { Routes } from '@angular/router';
+import { provideEffects } from '@ngrx/effects';
 import { provideState } from '@ngrx/store';
 
 import { authGuard } from './core/guards/auth.guard';
 import { ShellComponent } from './core/layout/shell.component';
 import { operationsFeature } from './features/operations/state/operations.feature';
 import { overviewFeature } from './features/overview/state/overview.feature';
+import { ShopsEffects } from './features/shops/state/shops.effects';
+import { shopsFeature } from './features/shops/state/shops.reducer';
+import { UsersEffects } from './features/users/state/users.effects';
+import { usersFeature } from './features/users/state/users.reducer';
 
 export const routes: Routes = [
 	{
@@ -25,6 +30,11 @@ export const routes: Routes = [
 		path: '',
 		component: ShellComponent,
 		canActivate: [authGuard],
+		providers: [
+			provideState(shopsFeature),
+			provideState(usersFeature),
+			provideEffects(ShopsEffects, UsersEffects),
+		],
 		children: [
 			{
 				path: '',

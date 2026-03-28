@@ -7,7 +7,7 @@ import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthResult, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 
-interface CreateShopRequest {
+export interface CreateShopRequest {
   readonly name: string;
   readonly address: string;
   readonly city: string;
@@ -15,6 +15,17 @@ interface CreateShopRequest {
   readonly pincode: string;
   readonly contactPerson?: string;
   readonly mobileNumber?: string;
+}
+
+export interface ShopDetails {
+  readonly shopId: string;
+  readonly name: string;
+  readonly address: string;
+  readonly city: string;
+  readonly state: string;
+  readonly pincode: string;
+  readonly contactPerson: string | null;
+  readonly mobileNumber: string | null;
 }
 
 interface SetDefaultShopRequest {
@@ -28,6 +39,10 @@ export class ShopService {
 
   getMyShops(): Observable<readonly UserShop[]> {
     return this.http.get<readonly UserShop[]>(SHOP_ENDPOINTS.me);
+  }
+
+  getShopDetails(shopId: string): Observable<ShopDetails> {
+    return this.http.get<ShopDetails>(SHOP_ENDPOINTS.details(shopId));
   }
 
   createShop(payload: CreateShopRequest): Observable<void> {
@@ -45,5 +60,9 @@ export class ShopService {
       tap((result) => this.authService.applyAuthResult(result)),
       map(() => void 0)
     );
+  }
+
+  updateShop(shopId: string, payload: CreateShopRequest): Observable<ShopDetails> {
+    return this.http.put<ShopDetails>(SHOP_ENDPOINTS.update(shopId), payload);
   }
 }

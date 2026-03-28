@@ -48,6 +48,7 @@
             Set Default Store
           </button>
           <button type="button" role="menuitem" (click)="onOpenAddShop()">Add Shop</button>
+          <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction()" (click)="onOpenManageShop()">Manage Shop</button>
         </div>
 
         <button
@@ -93,6 +94,12 @@
     (closeRequested)="onCreateShopOverlayClose()"
   ></app-create-shop-overlay>
 
+  <app-manage-shop-overlay
+    *ngIf="showManageShopOverlay()"
+    [shops]="shops()"
+    (closeRequested)="onManageShopOverlayClose()"
+  ></app-manage-shop-overlay>
+
   <app-update-profile-overlay
     *ngIf="showUpdateProfileOverlay() && session()?.user"
     [user]="session()!.user"
@@ -106,8 +113,8 @@
 
   <app-set-default-store-overlay
     *ngIf="showSetDefaultStoreOverlay()"
-    [shops]="session()?.shops ?? []"
-    [activeShopId]="session()?.activeShopId ?? null"
+    [shops]="shops()"
+    [activeShopId]="activeShopId()"
     (closeRequested)="onProfileOverlayClose()"
   ></app-set-default-store-overlay>
 </div>

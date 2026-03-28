@@ -1,10 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using ErrorOr;
+using FluentValidation;
+using FluentValidation.Results;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -277,6 +280,85 @@ public class ShopIsolationIntegrationTests
         Assert.True(result.Value[0].IsDefault);
     }
 
+    [Fact]
+    public async Task UpdateShop_WhenOwner_UpdatesDetailsAndPersists()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "First", "Last");
+        var shop = CreateTestShop("Old Shop");
+        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
+        shop.AddMembership(membership);
+        user.AddShopMembership(membership);
+
+        var userRepository = new InMemoryUserRepository(user);
+        var shopRepository = new InMemoryShopRepository();
+        var unitOfWork = new InMemoryUnitOfWork();
+
+        var handler = new UpdateShopCommandHandler(
+            BuildValidUpdateShopValidator(),
+            userRepository,
+            shopRepository,
+            unitOfWork);
+
+        var result = await handler.HandleAsync(
+            new UpdateShopCommand(
+                user.Id,
+                shop.Id,
+                "  Main Shop  ",
+                "  42 MG Road  ",
+                "  Bengaluru  ",
+                "  Karnataka  ",
+                "  560001  ",
+                "  Chandra  ",
+                "  9876543210  "),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("Main Shop", shop.Name);
+        Assert.Equal("42 MG Road", shop.Address);
+        Assert.Equal("Bengaluru", shop.City);
+        Assert.Equal("Karnataka", shop.State);
+        Assert.Equal("560001", shop.Pincode);
+        Assert.Equal("Chandra", shop.ContactPerson);
+        Assert.Equal("9876543210", shop.MobileNumber);
+        Assert.True(unitOfWork.SaveChangesCalled);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenUserIsNotOwner_ReturnsForbiddenError()
+    {
+        var user = User.CreateWithEmail("manager@test.com", "hash", "First", "Last");
+        var shop = CreateTestShop("Main");
+        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Manager, true);
+        shop.AddMembership(membership);
+        user.AddShopMembership(membership);
+
+        var userRepository = new InMemoryUserRepository(user);
+        var shopRepository = new InMemoryShopRepository();
+        var unitOfWork = new InMemoryUnitOfWork();
+
+        var handler = new UpdateShopCommandHandler(
+            BuildValidUpdateShopValidator(),
+            userRepository,
+            shopRepository,
+            unitOfWork);
+
+        var result = await handler.HandleAsync(
+            new UpdateShopCommand(
+                user.Id,
+                shop.Id,
+                "Main Shop",
+                "Address",
+                "City",
+                "State",
+                "560001",
+                null,
+                null),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwner.Code);
+    }
+
     private static ITokenService BuildTokenService()
     {
         var configuration = new ConfigurationBuilder()
@@ -299,6 +381,12 @@ public class ShopIsolationIntegrationTests
         services.AddInfrastructure(configuration);
 
         return services.BuildServiceProvider().GetRequiredService<ITokenService>();
+    }
+
+    private static InlineValidator<UpdateShopCommand> BuildValidUpdateShopValidator()
+    {
+        var validator = new InlineValidator<UpdateShopCommand>();
+        return validator;
     }
 
     private sealed class InMemoryUserRepository(User? user) : IUserRepository

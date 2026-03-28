@@ -1,19 +1,51 @@
+import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { SetDefaultStoreOverlayComponent } from './set-default-store-overlay.component';
-import { ShopService } from '../../shops/services/shop.service';
+import { ShopsActions } from '../../shops/state/shops.actions';
+import {
+  selectShopsErrorMessage,
+  selectShopsLastMutationSucceeded,
+  selectShopsLastMutationType,
+  selectShopsSubmitting,
+} from '../../shops/state/shops.selectors';
 
 describe('SetDefaultStoreOverlayComponent', () => {
-  const shopService = {
-    setDefaultShop: vi.fn<ShopService['setDefaultShop']>(),
+  const dispatch = vi.fn();
+  const isSubmittingSignal = signal(false);
+  const errorSignal = signal('');
+  const lastMutationTypeSignal = signal<'create' | 'update' | 'set-default' | null>(null);
+  const lastMutationSucceededSignal = signal(false);
+
+  const store = {
+    dispatch,
+    selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
+      if (selector === selectShopsSubmitting) {
+        return isSubmittingSignal;
+      }
+
+      if (selector === selectShopsErrorMessage) {
+        return errorSignal;
+      }
+
+      if (selector === selectShopsLastMutationType) {
+        return lastMutationTypeSignal;
+      }
+
+      if (selector === selectShopsLastMutationSucceeded) {
+        return lastMutationSucceededSignal;
+      }
+
+      return signal(undefined);
+    }),
   };
 
-  function setup(): SetDefaultStoreOverlayComponent {
+  function setup(): { component: SetDefaultStoreOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<SetDefaultStoreOverlayComponent>> } {
     TestBed.configureTestingModule({
       imports: [SetDefaultStoreOverlayComponent],
-      providers: [{ provide: ShopService, useValue: shopService }],
+      providers: [{ provide: Store, useValue: store }],
     });
 
     const fixture = TestBed.createComponent(SetDefaultStoreOverlayComponent);
@@ -23,12 +55,16 @@ describe('SetDefaultStoreOverlayComponent', () => {
       { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: false, lastUsedAt: null },
     ]);
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return { component: fixture.componentInstance, fixture };
   }
 
   beforeEach(() => {
-    shopService.setDefaultShop.mockReset();
-    shopService.setDefaultShop.mockReturnValue(of(void 0));
+    dispatch.mockReset();
+    store.selectSignal.mockClear();
+    isSubmittingSignal.set(false);
+    errorSignal.set('');
+    lastMutationTypeSignal.set(null);
+    lastMutationSucceededSignal.set(false);
   });
 
   afterEach(() => {
@@ -36,32 +72,37 @@ describe('SetDefaultStoreOverlayComponent', () => {
   });
 
   it('closes directly when selecting currently active shop', () => {
-    const component = setup();
+    const { component } = setup();
     const closeSpy = vi.fn();
     component.closeRequested.subscribe(closeSpy);
 
     component.onSetDefault('shop-1');
 
-    expect(shopService.setDefaultShop).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.setDefaultShopRequested.type })
+    );
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('calls setDefaultShop and emits close on success', () => {
-    const component = setup();
+  it('dispatches setDefault action and closes on success', () => {
+    const { component, fixture } = setup();
     const closeSpy = vi.fn();
     component.closeRequested.subscribe(closeSpy);
 
     component.onSetDefault('shop-2');
 
-    expect(shopService.setDefaultShop).toHaveBeenCalledWith('shop-2');
+    expect(dispatch).toHaveBeenCalledWith(ShopsActions.setDefaultShopRequested({ shopId: 'shop-2' }));
+
+    lastMutationTypeSignal.set('set-default');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('sets server error when set default fails', () => {
-    shopService.setDefaultShop.mockReturnValue(throwError(() => new Error('Failed')));
-    const component = setup();
-
-    component.onSetDefault('shop-2');
+  it('reads server error from selector', () => {
+    const { component } = setup();
+    errorSignal.set('Unable to set default store right now. Please try again.');
 
     expect(component.serverError()).toBe('Unable to set default store right now. Please try again.');
   });

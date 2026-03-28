@@ -1,10 +1,13 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { Store } from '@ngrx/store';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../auth/auth.service';
+import { ShopsActions } from '../../features/shops/state/shops.actions';
+import { selectShops } from '../../features/shops/state/shops.selectors';
 import { ShellComponent } from './shell.component';
 
 describe('ShellComponent', () => {
@@ -31,10 +34,28 @@ describe('ShellComponent', () => {
     signOutAndRedirect: vi.fn<AuthService['signOutAndRedirect']>(),
   };
 
+  const store = {
+    dispatch: vi.fn(),
+    selectSignal: vi.fn((selector: unknown) => {
+      if (selector === selectShops) {
+        return shopsSignal;
+      }
+
+      return signal(false);
+    }),
+  };
+
+  const shopsSignal = signal([
+    { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+  ]);
+
   function setup(): ShellComponent {
     TestBed.configureTestingModule({
       imports: [ShellComponent, RouterTestingModule.withRoutes([])],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: Store, useValue: store },
+      ],
     });
 
     const fixture = TestBed.createComponent(ShellComponent);
@@ -45,6 +66,8 @@ describe('ShellComponent', () => {
   beforeEach(() => {
     authService.signOutAndRedirect.mockReset();
     authService.signOutAndRedirect.mockReturnValue(of(void 0));
+    store.dispatch.mockReset();
+    store.selectSignal.mockClear();
     authService.needsShopSetup.set(false);
     sessionSignal.set({
       accessToken: 'access-token',
@@ -62,6 +85,9 @@ describe('ShellComponent', () => {
       activeShopId: 'shop-1',
       shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
     });
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ]);
   });
 
   afterEach(() => {
@@ -78,6 +104,12 @@ describe('ShellComponent', () => {
     expect(component.isSigningOut()).toBe(false);
   });
 
+  it('dispatches load shops when shell initializes', () => {
+    setup();
+
+    expect(store.dispatch).toHaveBeenCalledWith(ShopsActions.loadShopsRequested());
+  });
+
   it('shows initials from first and last name when profile image is unavailable', () => {
     const component = setup();
 
@@ -88,15 +120,22 @@ describe('ShellComponent', () => {
     const component = setup();
     expect(component.shouldShowSetDefaultStoreAction()).toBe(false);
 
-    sessionSignal.set({
-      ...sessionSignal(),
-      shops: [
+    shopsSignal.set([
         { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
         { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: false, lastUsedAt: null },
-      ],
-    });
+      ]);
 
     expect(component.shouldShowSetDefaultStoreAction()).toBe(true);
+  });
+
+  it('shows manage shop action when user has at least one shop', () => {
+    const component = setup();
+
+    expect(component.shouldShowManageShopAction()).toBe(true);
+
+    shopsSignal.set([]);
+
+    expect(component.shouldShowManageShopAction()).toBe(false);
   });
 
   it('opens update profile overlay from profile actions', () => {
@@ -123,6 +162,15 @@ describe('ShellComponent', () => {
     component.onOpenAddShop();
 
     expect(component.showCreateShopOverlay()).toBe(true);
+    expect(component.isProfileMenuOpen()).toBe(false);
+  });
+
+  it('opens manage shop overlay from profile actions', () => {
+    const component = setup();
+
+    component.onOpenManageShop();
+
+    expect(component.showManageShopOverlay()).toBe(true);
     expect(component.isProfileMenuOpen()).toBe(false);
   });
 });

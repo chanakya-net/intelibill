@@ -1,29 +1,65 @@
+import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { CreateShopOverlayComponent } from './create-shop-overlay.component';
-import { ShopService } from '../services/shop.service';
+import { ShopsActions } from '../state/shops.actions';
+import {
+  selectShopsErrorMessage,
+  selectShopsLastMutationSucceeded,
+  selectShopsLastMutationType,
+  selectShopsSubmitting,
+} from '../state/shops.selectors';
 
 describe('CreateShopOverlayComponent', () => {
-  const shopService = {
-    createShop: vi.fn<ShopService['createShop']>(),
+  const dispatch = vi.fn();
+  const isSubmittingSignal = signal(false);
+  const errorSignal = signal('');
+  const lastMutationTypeSignal = signal<'create' | 'update' | 'set-default' | null>(null);
+  const lastMutationSucceededSignal = signal(false);
+
+  const store = {
+    dispatch,
+    selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
+      if (selector === selectShopsSubmitting) {
+        return isSubmittingSignal;
+      }
+
+      if (selector === selectShopsErrorMessage) {
+        return errorSignal;
+      }
+
+      if (selector === selectShopsLastMutationType) {
+        return lastMutationTypeSignal;
+      }
+
+      if (selector === selectShopsLastMutationSucceeded) {
+        return lastMutationSucceededSignal;
+      }
+
+      return signal(undefined);
+    }),
   };
 
-  function setup(): CreateShopOverlayComponent {
+  function setup(): { component: CreateShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<CreateShopOverlayComponent>> } {
     TestBed.configureTestingModule({
       imports: [CreateShopOverlayComponent],
-      providers: [{ provide: ShopService, useValue: shopService }],
+      providers: [{ provide: Store, useValue: store }],
     });
 
     const fixture = TestBed.createComponent(CreateShopOverlayComponent);
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return { component: fixture.componentInstance, fixture };
   }
 
   beforeEach(() => {
-    shopService.createShop.mockReset();
-    shopService.createShop.mockReturnValue(of(void 0));
+    dispatch.mockReset();
+    store.selectSignal.mockClear();
+    isSubmittingSignal.set(false);
+    errorSignal.set('');
+    lastMutationTypeSignal.set(null);
+    lastMutationSucceededSignal.set(false);
   });
 
   afterEach(() => {
@@ -31,7 +67,7 @@ describe('CreateShopOverlayComponent', () => {
   });
 
   it('does not submit when required fields are missing', () => {
-    const component = setup();
+    const { component } = setup();
 
     component.form.controls.name.setValue('');
     component.form.controls.address.setValue('');
@@ -42,11 +78,13 @@ describe('CreateShopOverlayComponent', () => {
     component.onSubmit();
 
     expect(component.form.touched).toBe(true);
-    expect(shopService.createShop).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.createShopRequested.type })
+    );
   });
 
-  it('submits trimmed values and omits blank optional fields', () => {
-    const component = setup();
+  it('dispatches create action with trimmed values and blank optionals omitted', () => {
+    const { component } = setup();
 
     component.form.controls.name.setValue('  Main Shop  ');
     component.form.controls.address.setValue('  42 MG Road  ');
@@ -58,22 +96,28 @@ describe('CreateShopOverlayComponent', () => {
 
     component.onSubmit();
 
-    expect(shopService.createShop).toHaveBeenCalledWith({
-      name: 'Main Shop',
-      address: '42 MG Road',
-      city: 'Bengaluru',
-      state: 'Karnataka',
-      pincode: '560001',
-      contactPerson: undefined,
-      mobileNumber: undefined,
-    });
+    expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearError());
+    expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.createShopRequested({
+        payload: {
+          name: 'Main Shop',
+          address: '42 MG Road',
+          city: 'Bengaluru',
+          state: 'Karnataka',
+          pincode: '560001',
+          contactPerson: undefined,
+          mobileNumber: undefined,
+        },
+      })
+    );
   });
 
-  it('maps server validation errors into friendly message', () => {
-    shopService.createShop.mockReturnValue(
-      throwError(() => ({ error: { title: 'Shop.AddressRequired' } }))
-    );
-    const component = setup();
+  it('emits close after create mutation succeeds', () => {
+    const { component, fixture } = setup();
+    const closeSpy = vi.fn();
+
+    component.closeRequested.subscribe(closeSpy);
 
     component.form.controls.name.setValue('Main Shop');
     component.form.controls.address.setValue('42 MG Road');
@@ -83,11 +127,15 @@ describe('CreateShopOverlayComponent', () => {
 
     component.onSubmit();
 
-    expect(component.serverError()).toBe('Shop address is required.');
+    lastMutationTypeSignal.set('create');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('emits closeRequested when close is clicked', () => {
-    const component = setup();
+    const { component } = setup();
     const closeSpy = vi.fn();
 
     component.closeRequested.subscribe(closeSpy);

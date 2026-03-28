@@ -1,13 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload, AuthUser } from '../../../core/auth/auth.models';
-import { UserAccountService } from '../services/user-account.service';
+import { AuthUser } from '../../../core/auth/auth.models';
+import { RootState } from '../../../core/state/app.state';
+import { UsersActions } from '../state/users.actions';
+import {
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
 
 @Component({
   selector: 'app-update-profile-overlay',
@@ -18,10 +26,13 @@ import { UserAccountService } from '../services/user-account.service';
 })
 export class UpdateProfileOverlayComponent {
   private readonly formBuilder = inject(FormBuilder);
-  private readonly userAccountService = inject(UserAccountService);
+  private readonly store = inject(Store<RootState>);
 
-  readonly isSubmitting = signal(false);
-  readonly serverError = signal('');
+  readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
+  readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
+  readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
+  readonly isUpdateProfilePending = signal(false);
 
   @Input({ required: true }) user!: AuthUser;
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -33,7 +44,22 @@ export class UpdateProfileOverlayComponent {
     phoneNumber: ['', [Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
   });
 
+  constructor() {
+    effect(() => {
+      const isUpdateProfileSuccess = this.lastMutationType() === 'update-profile' && this.lastMutationSucceeded();
+      if (!this.isUpdateProfilePending() || !isUpdateProfileSuccess || this.isSubmitting()) {
+        return;
+      }
+
+      this.isUpdateProfilePending.set(false);
+      this.store.dispatch(UsersActions.clearMutationStatus());
+      this.closeRequested.emit();
+    });
+  }
+
   ngOnInit(): void {
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
     this.form.patchValue({
       firstName: this.user.firstName,
       lastName: this.user.lastName,
@@ -60,9 +86,6 @@ export class UpdateProfileOverlayComponent {
       return;
     }
 
-    this.serverError.set('');
-    this.isSubmitting.set(true);
-
     const payload = {
       firstName: this.form.controls.firstName.value.trim(),
       lastName: this.form.controls.lastName.value.trim(),
@@ -70,38 +93,14 @@ export class UpdateProfileOverlayComponent {
       phoneNumber: this.toNullable(this.form.controls.phoneNumber.value),
     };
 
-    this.userAccountService.updateMyProfile(payload).subscribe({
-      next: () => {
-        this.isSubmitting.set(false);
-        this.closeRequested.emit();
-      },
-      error: (error: { error?: ApiErrorPayload }) => {
-        this.serverError.set(getProfileUpdateErrorMessage(error.error));
-        this.isSubmitting.set(false);
-      },
-    });
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+    this.isUpdateProfilePending.set(true);
+    this.store.dispatch(UsersActions.updateProfileRequested({ payload }));
   }
 
   private toNullable(value: string): string | null {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
   }
-}
-
-function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-
-  if (title === 'Auth.EmailAlreadyInUse') {
-    return 'This email is already used by another account.';
-  }
-
-  if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'This mobile number is already used by another account.';
-  }
-
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to update profile right now. Please try again.';
 }

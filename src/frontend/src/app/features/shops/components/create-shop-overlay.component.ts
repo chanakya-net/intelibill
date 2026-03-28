@@ -1,13 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload } from '../../../core/auth/auth.models';
-import { ShopService } from '../services/shop.service';
+import { RootState } from '../../../core/state/app.state';
+import { ShopsActions } from '../state/shops.actions';
+import {
+  selectShopsErrorMessage,
+  selectShopsLastMutationSucceeded,
+  selectShopsLastMutationType,
+  selectShopsSubmitting,
+} from '../state/shops.selectors';
 
 @Component({
   selector: 'app-create-shop-overlay',
@@ -16,12 +23,15 @@ import { ShopService } from '../services/shop.service';
   templateUrl: './create-shop-overlay.component.html',
   styleUrl: './create-shop-overlay.component.scss',
 })
-export class CreateShopOverlayComponent {
+export class CreateShopOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
-  private readonly shopService = inject(ShopService);
+  private readonly store = inject(Store<RootState>);
 
-  readonly isSubmitting = signal(false);
-  readonly serverError = signal('');
+  readonly isSubmitting = this.store.selectSignal(selectShopsSubmitting);
+  readonly serverError = this.store.selectSignal(selectShopsErrorMessage);
+  readonly lastMutationType = this.store.selectSignal(selectShopsLastMutationType);
+  readonly lastMutationSucceeded = this.store.selectSignal(selectShopsLastMutationSucceeded);
+  readonly isCreatePending = signal(false);
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -34,6 +44,24 @@ export class CreateShopOverlayComponent {
     contactPerson: ['', [Validators.maxLength(120)]],
     mobileNumber: ['', [Validators.maxLength(32)]],
   });
+
+  constructor() {
+    effect(() => {
+      const isCreateSuccess = this.lastMutationType() === 'create' && this.lastMutationSucceeded();
+      if (!this.isCreatePending() || !isCreateSuccess || this.isSubmitting()) {
+        return;
+      }
+
+      this.isCreatePending.set(false);
+      this.store.dispatch(ShopsActions.clearMutationStatus());
+      this.closeRequested.emit();
+    });
+  }
+
+  ngOnInit(): void {
+    this.store.dispatch(ShopsActions.clearError());
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+  }
 
   onClose(): void {
     if (this.isSubmitting()) {
@@ -53,8 +81,9 @@ export class CreateShopOverlayComponent {
       return;
     }
 
-    this.serverError.set('');
-    this.isSubmitting.set(true);
+    this.store.dispatch(ShopsActions.clearError());
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.isCreatePending.set(true);
 
     const payload = {
       name: this.form.controls.name.value.trim(),
@@ -66,53 +95,11 @@ export class CreateShopOverlayComponent {
       mobileNumber: this.toOptionalValue(this.form.controls.mobileNumber.value),
     };
 
-    this.shopService.createShop(payload).subscribe({
-      next: () => {
-        this.isSubmitting.set(false);
-      },
-      error: (error: { error?: ApiErrorPayload }) => {
-        this.serverError.set(getShopCreateErrorMessage(error.error));
-        this.isSubmitting.set(false);
-      },
-    });
+    this.store.dispatch(ShopsActions.createShopRequested({ payload }));
   }
 
   private toOptionalValue(value: string): string | undefined {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : undefined;
   }
-}
-
-function getShopCreateErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-
-  if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
-    return 'Your session could not be verified for shop creation. Please sign in again.';
-  }
-
-  if (title === 'Shop.NameRequired') {
-    return 'Shop name is required.';
-  }
-
-  if (title === 'Shop.AddressRequired') {
-    return 'Shop address is required.';
-  }
-
-  if (title === 'Shop.CityRequired') {
-    return 'Shop city is required.';
-  }
-
-  if (title === 'Shop.StateRequired') {
-    return 'Shop state is required.';
-  }
-
-  if (title === 'Shop.PincodeRequired') {
-    return 'Shop pincode is required.';
-  }
-
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to create your shop right now. Please try again.';
 }

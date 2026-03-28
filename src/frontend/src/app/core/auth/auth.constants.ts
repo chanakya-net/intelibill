@@ -11,6 +11,8 @@ export const SHOP_ENDPOINTS = {
   me: `${API_BASE_URL}/shops/me`,
   create: `${API_BASE_URL}/shops`,
   setDefault: `${API_BASE_URL}/shops/default`,
+  details: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
+  update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
 } as const;
 
 export const USER_ENDPOINTS = {

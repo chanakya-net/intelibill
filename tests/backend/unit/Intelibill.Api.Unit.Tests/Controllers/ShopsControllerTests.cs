@@ -7,6 +7,9 @@ using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShop;
+using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -252,6 +255,134 @@ public class ShopsControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetShopDetails_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GetShopDetails(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GetShopDetails_WhenSuccessful_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210");
+        ArrangeBusResponse<ShopDetailsDto>(details);
+
+        var result = await _controller.GetShopDetails(shopId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(details, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<ShopDetailsDto>>(
+            Arg.Is<GetShopDetailsQuery>(q => q.UserId == userId && q.ShopId == shopId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetShopDetails_WhenMembershipMissing_ReturnsForbidden()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.MembershipNotFound);
+
+        var result = await _controller.GetShopDetails(Guid.NewGuid(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.UpdateShop(
+            Guid.NewGuid(),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenSuccessful_ReturnsOkAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        var request = new UpdateShopRequest("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", "Chandra", "9876543210");
+        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber);
+        ArrangeBusResponse<ShopDetailsDto>(details);
+
+        var result = await _controller.UpdateShop(shopId, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(details, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<ShopDetailsDto>>(
+            Arg.Is<UpdateShopCommand>(c =>
+                c.UserId == userId
+                && c.ShopId == shopId
+                && c.Name == request.Name
+                && c.Address == request.Address
+                && c.City == request.City
+                && c.State == request.State
+                && c.Pincode == request.Pincode
+                && c.ContactPerson == request.ContactPerson
+                && c.MobileNumber == request.MobileNumber),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenValidationError_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.NameRequired);
+
+        var result = await _controller.UpdateShop(
+            Guid.NewGuid(),
+            new UpdateShopRequest("  ", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenUserIsNotOwner_ReturnsForbidden()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.UserIsNotOwner);
+
+        var result = await _controller.UpdateShop(
+            Guid.NewGuid(),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WhenShopNotFound_ReturnsNotFound()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.ShopNotFound);
+
+        var result = await _controller.UpdateShop(
+            Guid.NewGuid(),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
     }
 
     private void ArrangeBusResponse<T>(ErrorOr<T> response)

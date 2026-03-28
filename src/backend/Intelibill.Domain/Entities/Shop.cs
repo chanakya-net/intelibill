@@ -43,6 +43,24 @@ public sealed class Shop : BaseEntity
         Name = name.Trim();
     }
 
+    public void UpdateDetails(
+        string name,
+        string address,
+        string city,
+        string state,
+        string pincode,
+        string? contactPerson,
+        string? mobileNumber)
+    {
+        Name = name.Trim();
+        Address = address.Trim();
+        City = city.Trim();
+        State = state.Trim();
+        Pincode = pincode.Trim();
+        ContactPerson = NormalizeOptional(contactPerson);
+        MobileNumber = NormalizeOptional(mobileNumber);
+    }
+
     public void AddMembership(ShopMembership membership)
     {
         membership.AttachShop(this);

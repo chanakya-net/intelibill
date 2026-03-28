@@ -7,14 +7,14 @@ import { AuthResult } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { USER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-interface UpdateMyProfileRequest {
+export interface UpdateMyProfileRequest {
   readonly email: string;
   readonly phoneNumber: string | null;
   readonly firstName: string;
   readonly lastName: string;
 }
 
-interface ChangeMyPasswordRequest {
+export interface ChangeMyPasswordRequest {
   readonly currentPassword: string;
   readonly newPassword: string;
 }
