@@ -1,0 +1,99 @@
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(16, 185, 129, 0.2), transparent 36%),
+    radial-gradient(circle at 82% 20%, rgba(245, 158, 11, 0.2), transparent 40%),
+    rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.overlay-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 32rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #ffffff;
+  box-shadow: 0 24px 52px rgba(2, 6, 23, 0.33);
+  overflow: hidden;
+}
+
+.overlay-header {
+  position: relative;
+  padding: 1.5rem 1.5rem 0.8rem;
+
+  h2 {
+    margin-top: 0.25rem;
+    font-size: 1.8rem;
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin-top: 0.6rem;
+    color: #475569;
+    font-size: 0.95rem;
+  }
+}
+
+.overlay-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.overlay-kicker {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 700;
+  color: #047857;
+}
+
+.overlay-form {
+  padding: 1.2rem 1.5rem 1.6rem;
+}
+
+.shop-option {
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: 0.85rem;
+}
+
+.server-error {
+  border: 1px solid rgba(254, 202, 202, 0.8);
+  background: #fff1f2;
+  border-radius: 0.8rem;
+  color: #9f1239;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.card-busy {
+  pointer-events: none;
+}
+
+.submit-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.22);
+}

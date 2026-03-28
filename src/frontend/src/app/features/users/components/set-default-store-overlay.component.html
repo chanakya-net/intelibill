@@ -1,0 +1,44 @@
+<section class="profile-overlay" aria-modal="true" role="dialog">
+  <div class="overlay-backdrop"></div>
+
+  <article class="overlay-card" [class.card-busy]="isSubmitting()">
+    <header class="overlay-header">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        class="overlay-close"
+        [disabled]="isSubmitting()"
+        aria-label="Close default store selection"
+        (click)="onClose()"
+      ></button>
+
+      <p class="overlay-kicker">Workspace</p>
+      <h2>Set Default Store</h2>
+      <p>Select which store should be active by default when you sign in.</p>
+    </header>
+
+    <div class="overlay-form space-y-3">
+      <button
+        *ngFor="let shop of shops"
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="shop.shopId !== activeShopId"
+        [label]="shop.shopName"
+        [disabled]="isSubmitting()"
+        class="shop-option w-full"
+        (click)="onSetDefault(shop.shopId)"
+      ></button>
+
+      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+    </div>
+
+    <div class="submit-overlay" *ngIf="isSubmitting()">
+      <p-progressSpinner strokeWidth="4" styleClass="overlay-spinner"></p-progressSpinner>
+    </div>
+  </article>
+</section>

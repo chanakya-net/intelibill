@@ -7,7 +7,7 @@
         </div>
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-orange-700/75">Enterprise Suite</p>
-          <h1 class="text-lg font-bold text-stone-900">INVENTORY</h1>
+          <h1 class="text-lg font-bold text-stone-900">Intelibill</h1>
         </div>
       </div>
 
@@ -28,9 +28,28 @@
         </a>
       </nav>
 
-      <div class="flex items-center gap-2">
+      <div class="relative flex items-center gap-2">
         <p-tag severity="success" value="PWA Ready"></p-tag>
         <p-tag severity="info" value="SSR + Hydration"></p-tag>
+
+        <button
+          type="button"
+          class="profile-avatar"
+          aria-label="Open profile menu"
+          (click)="onToggleProfileMenu()"
+        >
+          {{ profileInitials() }}
+        </button>
+
+        <div class="profile-menu" *ngIf="isProfileMenuOpen()" role="menu" aria-label="Profile actions">
+          <button type="button" role="menuitem" (click)="onOpenUpdateProfile()">Update Profile</button>
+          <button type="button" role="menuitem" (click)="onOpenChangePassword()">Change Password</button>
+          <button type="button" role="menuitem" *ngIf="shouldShowSetDefaultStoreAction()" (click)="onOpenSetDefaultStore()">
+            Set Default Store
+          </button>
+          <button type="button" role="menuitem" (click)="onOpenAddShop()">Add Shop</button>
+        </div>
+
         <button
           pButton
           type="button"
@@ -73,4 +92,22 @@
     *ngIf="showCreateShopOverlay()"
     (closeRequested)="onCreateShopOverlayClose()"
   ></app-create-shop-overlay>
+
+  <app-update-profile-overlay
+    *ngIf="showUpdateProfileOverlay() && session()?.user"
+    [user]="session()!.user"
+    (closeRequested)="onProfileOverlayClose()"
+  ></app-update-profile-overlay>
+
+  <app-change-password-overlay
+    *ngIf="showChangePasswordOverlay()"
+    (closeRequested)="onProfileOverlayClose()"
+  ></app-change-password-overlay>
+
+  <app-set-default-store-overlay
+    *ngIf="showSetDefaultStoreOverlay()"
+    [shops]="session()?.shops ?? []"
+    [activeShopId]="session()?.activeShopId ?? null"
+    (closeRequested)="onProfileOverlayClose()"
+  ></app-set-default-store-overlay>
 </div>

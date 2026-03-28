@@ -10,4 +10,10 @@ export const AUTH_ENDPOINTS = {
 export const SHOP_ENDPOINTS = {
   me: `${API_BASE_URL}/shops/me`,
   create: `${API_BASE_URL}/shops`,
+  setDefault: `${API_BASE_URL}/shops/default`,
+} as const;
+
+export const USER_ENDPOINTS = {
+  me: `${API_BASE_URL}/users/me`,
+  changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;

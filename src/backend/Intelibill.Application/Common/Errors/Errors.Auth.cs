@@ -15,6 +15,15 @@ public static partial class Errors
         public static Error InvalidCredentials =>
             Error.Unauthorized("Auth.InvalidCredentials", "The email or password is incorrect.");
 
+        public static Error InvalidCurrentPassword =>
+            Error.Unauthorized("Auth.InvalidCurrentPassword", "The current password is incorrect.");
+
+        public static Error PasswordNotSet =>
+            Error.Validation("Auth.PasswordNotSet", "This account does not have a password set.");
+
+        public static Error UserNotFound =>
+            Error.NotFound("Auth.UserNotFound", "User not found.");
+
         public static Error InvalidRefreshToken =>
             Error.Unauthorized("Auth.InvalidRefreshToken", "The refresh token is invalid or has expired.");
 

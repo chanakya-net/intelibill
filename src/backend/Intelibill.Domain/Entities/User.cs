@@ -70,4 +70,12 @@ public sealed class User : BaseEntity
     {
         PasswordHash = passwordHash;
     }
+
+    public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName)
+    {
+        Email = email.Trim().ToLowerInvariant();
+        PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+    }
 }

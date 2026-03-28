@@ -1,0 +1,63 @@
+<section class="profile-overlay" aria-modal="true" role="dialog">
+  <div class="overlay-backdrop"></div>
+
+  <article class="overlay-card" [class.card-busy]="isSubmitting()">
+    <header class="overlay-header">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        class="overlay-close"
+        [disabled]="isSubmitting()"
+        aria-label="Close profile update"
+        (click)="onClose()"
+      ></button>
+
+      <p class="overlay-kicker">Account</p>
+      <h2>Update Profile</h2>
+      <p>Edit your name, email, and mobile details.</p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="first-name">First Name</label>
+          <input id="first-name" pInputText type="text" formControlName="firstName" class="w-full" autocomplete="given-name" />
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="last-name">Last Name</label>
+          <input id="last-name" pInputText type="text" formControlName="lastName" class="w-full" autocomplete="family-name" />
+        </div>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="email">Email</label>
+        <input id="email" pInputText type="email" formControlName="email" class="w-full" autocomplete="email" />
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="phone">Mobile Number</label>
+        <input id="phone" pInputText type="text" formControlName="phoneNumber" class="w-full" autocomplete="tel" />
+      </div>
+
+      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+
+      <button
+        pButton
+        type="submit"
+        [label]="isSubmitting() ? 'Updating...' : 'Update Profile'"
+        [loading]="isSubmitting()"
+        [disabled]="form.invalid || isSubmitting()"
+        class="submit-button w-full"
+      ></button>
+    </form>
+
+    <div class="submit-overlay" *ngIf="isSubmitting()">
+      <p-progressSpinner strokeWidth="4" styleClass="overlay-spinner"></p-progressSpinner>
+    </div>
+  </article>
+</section>

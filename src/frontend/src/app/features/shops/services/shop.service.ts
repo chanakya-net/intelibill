@@ -17,6 +17,10 @@ interface CreateShopRequest {
   readonly mobileNumber?: string;
 }
 
+interface SetDefaultShopRequest {
+  readonly shopId: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ShopService {
   private readonly http = inject(HttpClient);
@@ -29,6 +33,15 @@ export class ShopService {
   createShop(payload: CreateShopRequest): Observable<void> {
 
     return this.http.post<AuthResult>(SHOP_ENDPOINTS.create, payload).pipe(
+      tap((result) => this.authService.applyAuthResult(result)),
+      map(() => void 0)
+    );
+  }
+
+  setDefaultShop(shopId: string): Observable<void> {
+    const payload: SetDefaultShopRequest = { shopId };
+
+    return this.http.post<AuthResult>(SHOP_ENDPOINTS.setDefault, payload).pipe(
       tap((result) => this.authService.applyAuthResult(result)),
       map(() => void 0)
     );

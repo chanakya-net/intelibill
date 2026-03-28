@@ -1,6 +1,6 @@
 {
-  "name": "INVENTORY",
-  "short_name": "INVENTORY",
+  "name": "Intelibill",
+  "short_name": "Intelibill",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",
