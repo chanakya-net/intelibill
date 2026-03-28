@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "frontend tests",
-  "message": "0/0 passed",
-  "color": "lightgrey"
+  "message": "67/67 passed",
+  "color": "brightgreen"
 }
