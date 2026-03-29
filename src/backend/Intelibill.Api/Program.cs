@@ -8,6 +8,7 @@ using Intelibill.Infrastructure;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Wolverine;
@@ -62,7 +63,14 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("OwnerOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("active_shop_role", "Owner");
+    });
+});
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
 builder.Host.UseWolverine(opts =>

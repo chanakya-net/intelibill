@@ -46,7 +46,7 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepository.GetActiveByTokenAsync(command.RefreshToken, Arg.Any<CancellationToken>())
                                .Returns(token);
 
-        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns(("newAccessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("newAccessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
         var newRefreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "newRefreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(newRefreshToken);
 

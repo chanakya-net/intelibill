@@ -4,6 +4,8 @@ import { usersFeature } from './users.reducer';
 
 export const selectUsersState = usersFeature.selectUsersState;
 
+export const selectShopUsers = createSelector(selectUsersState, (state) => state.shopUsers);
+export const selectUsersLoadingShopUsers = createSelector(selectUsersState, (state) => state.loadingShopUsers);
 export const selectUsersSubmitting = createSelector(selectUsersState, (state) => state.submitting);
 export const selectUsersErrorMessage = createSelector(selectUsersState, (state) => state.errorMessage);
 export const selectUsersLastMutationType = createSelector(selectUsersState, (state) => state.lastMutationType);

@@ -29,11 +29,11 @@ public sealed class RegisterWithPhoneCommandHandler(
             return Errors.Auth.PhoneAlreadyInUse;
 
         var user = User.CreateWithPhone(command.PhoneNumber, command.FirstName, command.LastName);
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
 
         await userRepository.AddAsync(user, cancellationToken);
 
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

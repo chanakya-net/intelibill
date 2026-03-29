@@ -16,12 +16,16 @@ describe('UsersEffects', () => {
   const userAccountService = {
     updateMyProfile: vi.fn<UserAccountService['updateMyProfile']>(),
     changeMyPassword: vi.fn<UserAccountService['changeMyPassword']>(),
+    getShopUsers: vi.fn<UserAccountService['getShopUsers']>(),
+    addShopUser: vi.fn<UserAccountService['addShopUser']>(),
   };
 
   beforeEach(() => {
     actions$ = new Subject<Action>();
     userAccountService.updateMyProfile.mockReset();
     userAccountService.changeMyPassword.mockReset();
+    userAccountService.getShopUsers.mockReset();
+    userAccountService.addShopUser.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -170,6 +174,67 @@ describe('UsersEffects', () => {
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
         errorMessage: 'Unable to change password right now. Please try again.',
+      })
+    );
+  });
+
+  it('dispatches loadShopUsersSucceeded on users load success', async () => {
+    userAccountService.getShopUsers.mockReturnValue(
+      of([
+        {
+          userId: 'u1',
+          firstName: 'Owner',
+          lastName: 'User',
+          email: 'owner@test.com',
+          phoneNumber: '+15551234567',
+          role: 'Owner',
+        },
+      ])
+    );
+
+    const output = firstValueFrom(effects.loadShopUsers$.pipe(take(1)));
+
+    actions$.next(UsersActions.loadShopUsersRequested());
+
+    await expect(output).resolves.toEqual(
+      UsersActions.loadShopUsersSucceeded({
+        users: [
+          {
+            userId: 'u1',
+            firstName: 'Owner',
+            lastName: 'User',
+            email: 'owner@test.com',
+            phoneNumber: '+15551234567',
+            role: 'Owner',
+          },
+        ],
+      })
+    );
+  });
+
+  it('maps owner-only failure on add user effect', async () => {
+    userAccountService.addShopUser.mockReturnValue(
+      throwError(() => ({ error: { title: 'Shop.UserIsNotOwner' } }))
+    );
+
+    const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
+
+    actions$.next(
+      UsersActions.addShopUserRequested({
+        payload: {
+          firstName: 'Sales',
+          lastName: 'Rep',
+          phoneNumber: '+15557654321',
+          password: 'Pass1234!',
+          confirmPassword: 'Pass1234!',
+          role: 'SalesPerson',
+        },
+      })
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.addShopUserFailed({
+        errorMessage: 'Only owner can add new users for this shop.',
       })
     );
   });

@@ -19,6 +19,24 @@ export interface ChangeMyPasswordRequest {
   readonly newPassword: string;
 }
 
+export interface ShopUser {
+  readonly userId: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly email: string | null;
+  readonly phoneNumber: string | null;
+  readonly role: string;
+}
+
+export interface AddShopUserRequest {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phoneNumber: string;
+  readonly password: string;
+  readonly confirmPassword: string;
+  readonly role: 'Manager' | 'SalesPerson';
+}
+
 @Injectable({ providedIn: 'root' })
 export class UserAccountService {
   private readonly http = inject(HttpClient);
@@ -35,5 +53,13 @@ export class UserAccountService {
     return this.http.post(USER_ENDPOINTS.changePassword, payload).pipe(
       map(() => void 0)
     );
+  }
+
+  getShopUsers(): Observable<readonly ShopUser[]> {
+    return this.http.get<readonly ShopUser[]>(USER_ENDPOINTS.list);
+  }
+
+  addShopUser(payload: AddShopUserRequest): Observable<ShopUser> {
+    return this.http.post<ShopUser>(USER_ENDPOINTS.add, payload);
   }
 }

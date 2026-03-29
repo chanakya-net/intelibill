@@ -31,11 +31,11 @@ public sealed class RegisterWithEmailCommandHandler(
 
         var passwordHash = passwordHasher.Hash(command.Password);
         var user = User.CreateWithEmail(command.Email, passwordHash, command.FirstName, command.LastName);
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
 
         await userRepository.AddAsync(user, cancellationToken);
 
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

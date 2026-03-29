@@ -28,8 +28,8 @@ public sealed class SetDefaultShopCommandHandler(
 
         targetMembership.MarkUsed();
 
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

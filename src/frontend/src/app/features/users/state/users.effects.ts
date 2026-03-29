@@ -46,6 +46,42 @@ export class UsersEffects {
       )
     )
   );
+
+  readonly loadShopUsers$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.loadShopUsersRequested),
+      switchMap(() =>
+        this.userAccountService.getShopUsers().pipe(
+          map((users) => UsersActions.loadShopUsersSucceeded({ users })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              UsersActions.loadShopUsersFailed({
+                errorMessage: getLoadShopUsersErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly addShopUser$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.addShopUserRequested),
+      switchMap(({ payload }) =>
+        this.userAccountService.addShopUser(payload).pipe(
+          map((user) => UsersActions.addShopUserSucceeded({ user })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              UsersActions.addShopUserFailed({
+                errorMessage: getAddShopUserErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
 }
 
 function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): string {
@@ -82,4 +118,34 @@ function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): stri
   }
 
   return 'Unable to change password right now. Please try again.';
+}
+
+function getLoadShopUsersErrorMessage(error: ApiErrorPayload | undefined): string {
+  if (error?.detail) {
+    return error.detail;
+  }
+
+  return 'Unable to load shop users right now. Please try again.';
+}
+
+function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  if (title === 'Shop.UserIsNotOwner') {
+    return 'Only owner can add new users for this shop.';
+  }
+
+  if (title === 'Auth.PhoneAlreadyInUse') {
+    return 'This mobile number is already used by another account.';
+  }
+
+  if (title === 'Users.RoleNotSupported') {
+    return 'Role must be Manager or Sales Person.';
+  }
+
+  if (error?.detail) {
+    return error.detail;
+  }
+
+  return 'Unable to add shop user right now. Please try again.';
 }

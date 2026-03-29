@@ -32,8 +32,8 @@ public sealed class RefreshTokenCommandHandler(
         refreshTokenRepository.Update(existing);
 
         var user = existing.User;
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var newRefreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(newRefreshToken, cancellationToken);

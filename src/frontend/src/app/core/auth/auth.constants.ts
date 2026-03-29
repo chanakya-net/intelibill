@@ -16,6 +16,8 @@ export const SHOP_ENDPOINTS = {
 } as const;
 
 export const USER_ENDPOINTS = {
+  list: `${API_BASE_URL}/users`,
+  add: `${API_BASE_URL}/users`,
   me: `${API_BASE_URL}/users/me`,
   changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;

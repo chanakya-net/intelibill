@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
 import { UserShop } from '../auth/auth.models';
@@ -18,6 +18,7 @@ import { ChangePasswordOverlayComponent } from '../../features/users/components/
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     RouterOutlet,
     CreateShopOverlayComponent,
     ManageShopOverlayComponent,
@@ -60,6 +61,14 @@ export class ShellComponent {
   readonly shouldShowManageShopAction = computed(() => {
     const shops = this.shops();
     return shops.length > 0;
+  });
+  readonly isOwnerOfActiveShop = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+
+    return activeShop.role.toLowerCase() === 'owner';
   });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
@@ -127,7 +136,7 @@ export class ShellComponent {
   }
 
   onToggleShopMenu(): void {
-    if (this.shops().length === 0) {
+    if (this.shops().length === 0 || !this.isOwnerOfActiveShop()) {
       return;
     }
 
@@ -149,6 +158,11 @@ export class ShellComponent {
     this.store.dispatch(ShopsActions.clearMutationStatus());
     this.store.dispatch(ShopsActions.setDefaultShopRequested({ shopId }));
     this.isShopMenuOpen.set(false);
+  }
+
+  onCloseMenus(): void {
+    this.isShopMenuOpen.set(false);
+    this.isProfileMenuOpen.set(false);
   }
 
   getShopDisplayLabel(shop: UserShop): string {

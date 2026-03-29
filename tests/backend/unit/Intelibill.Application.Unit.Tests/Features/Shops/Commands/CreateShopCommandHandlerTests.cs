@@ -33,7 +33,7 @@ public class CreateShopCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
-        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>())
+        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>())
             .Returns(("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         var refreshToken = Domain.Entities.RefreshToken.Create(user.Id, "refresh-token", DateTimeOffset.UtcNow.AddDays(7));

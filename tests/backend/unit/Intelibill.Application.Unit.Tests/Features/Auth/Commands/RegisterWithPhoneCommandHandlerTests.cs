@@ -42,7 +42,7 @@ public class RegisterWithPhoneCommandHandlerTests
     {
         var command = new RegisterWithPhoneCommand("+1234567890", "First", "Last");
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(false);
-        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         var refreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(refreshToken);

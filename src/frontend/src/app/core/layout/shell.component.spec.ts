@@ -169,6 +169,18 @@ describe('ShellComponent', () => {
     expect(component.shouldShowManageShopAction()).toBe(false);
   });
 
+  it('returns owner permission only when active shop role is owner', () => {
+    const component = setup();
+
+    expect(component.isOwnerOfActiveShop()).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+
+    expect(component.isOwnerOfActiveShop()).toBe(false);
+  });
+
   it('opens update profile overlay from profile actions', () => {
     const component = setup();
 
@@ -253,6 +265,17 @@ describe('ShellComponent', () => {
     expect(component.isShopMenuOpen()).toBe(true);
 
     component.onToggleShopMenu();
+    expect(component.isShopMenuOpen()).toBe(false);
+  });
+
+  it('does not open shop menu when active shop role is not owner', () => {
+    const component = setup();
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+
+    component.onToggleShopMenu();
+
     expect(component.isShopMenuOpen()).toBe(false);
   });
 

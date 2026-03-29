@@ -1,0 +1,93 @@
+.users-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.users-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #b45309;
+}
+
+h1 {
+  margin: 0.3rem 0 0;
+  font-size: 1.75rem;
+  color: #1f2937;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: #57534e;
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+}
+
+.users-table-card {
+  border: 1px solid #fdba74;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.85rem 0.95rem;
+  border-bottom: 1px solid #fed7aa;
+  white-space: nowrap;
+}
+
+th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9a3412;
+}
+
+.role-pill {
+  display: inline-block;
+  border-radius: 9999px;
+  background: #ffedd5;
+  color: #9a3412;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #292524;
+}
+
+.empty-state p {
+  margin: 0.4rem 0 0;
+  color: #57534e;
+}

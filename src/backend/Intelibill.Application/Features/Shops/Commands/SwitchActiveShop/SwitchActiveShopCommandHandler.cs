@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -23,10 +24,13 @@ public sealed class SwitchActiveShopCommandHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
+        if (membership.Role != ShopRole.Owner)
+            return Errors.Shop.UserIsNotOwnerForSwitch;
+
         membership.MarkUsed();
 
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user, membership.ShopId);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, membership.ShopId);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

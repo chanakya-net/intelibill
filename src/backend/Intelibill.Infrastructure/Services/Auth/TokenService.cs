@@ -15,8 +15,9 @@ internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
 {
     private readonly JwtOptions _jwt = options.Value;
     private const string ActiveShopClaim = "active_shop_id";
+    private const string ActiveShopRoleClaim = "active_shop_role";
 
-    public (string AccessToken, DateTimeOffset ExpiresAt) GenerateAccessToken(User user, Guid? activeShopId = null)
+    public (string AccessToken, DateTimeOffset ExpiresAt) GenerateAccessToken(User user, Guid? activeShopId = null, string? activeShopRole = null)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwt.AccessTokenExpiryMinutes);
 
@@ -34,6 +35,9 @@ internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
 
         if (activeShopId is not null)
             claims.Add(new Claim(ActiveShopClaim, activeShopId.Value.ToString()));
+
+        if (!string.IsNullOrWhiteSpace(activeShopRole))
+            claims.Add(new Claim(ActiveShopRoleClaim, activeShopRole));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

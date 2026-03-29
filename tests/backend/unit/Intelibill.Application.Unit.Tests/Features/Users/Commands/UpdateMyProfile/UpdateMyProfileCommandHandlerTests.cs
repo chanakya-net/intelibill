@@ -84,7 +84,7 @@ public class UpdateMyProfileCommandHandlerTests
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber!, Arg.Any<CancellationToken>()).Returns(false);
 
         var refreshToken = RefreshToken.Create(user.Id, "refresh-token", DateTimeOffset.UtcNow.AddDays(7));
-        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>()).Returns(("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         _tokenService.CreateRefreshToken(user.Id).Returns(refreshToken);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);

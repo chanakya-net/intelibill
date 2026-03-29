@@ -72,6 +72,7 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
     }
 
     [HttpPost("switch")]
+    [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> SwitchActiveShop([FromBody] SwitchActiveShopRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -100,6 +101,7 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
     }
 
     [HttpPut("{shopId:guid}")]
+    [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> UpdateShop(Guid shopId, [FromBody] UpdateShopRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();

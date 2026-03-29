@@ -1,10 +1,13 @@
 import { createFeature, createReducer, on } from '@ngrx/store';
 
+import { ShopUser } from '../services/user-account.service';
 import { UserMutationType, UsersActions } from './users.actions';
 
 export const usersFeatureKey = 'users';
 
 export interface UsersState {
+  readonly shopUsers: readonly ShopUser[];
+  readonly loadingShopUsers: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
   readonly lastMutationType: UserMutationType | null;
@@ -12,6 +15,8 @@ export interface UsersState {
 }
 
 const initialState: UsersState = {
+  shopUsers: [],
+  loadingShopUsers: false,
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
@@ -61,6 +66,46 @@ export const usersReducer = createReducer(
     submitting: false,
     errorMessage,
     lastMutationType: 'change-password',
+    lastMutationSucceeded: false,
+  })),
+
+  on(UsersActions.loadShopUsersRequested, (state) => ({
+    ...state,
+    loadingShopUsers: true,
+    errorMessage: '',
+  })),
+  on(UsersActions.loadShopUsersSucceeded, (state, { users }) => ({
+    ...state,
+    loadingShopUsers: false,
+    shopUsers: users,
+    errorMessage: '',
+  })),
+  on(UsersActions.loadShopUsersFailed, (state, { errorMessage }) => ({
+    ...state,
+    loadingShopUsers: false,
+    errorMessage,
+  })),
+
+  on(UsersActions.addShopUserRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'add-shop-user',
+    lastMutationSucceeded: false,
+  })),
+  on(UsersActions.addShopUserSucceeded, (state, { user }) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    shopUsers: [...state.shopUsers, user],
+    lastMutationType: 'add-shop-user',
+    lastMutationSucceeded: true,
+  })),
+  on(UsersActions.addShopUserFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'add-shop-user',
     lastMutationSucceeded: false,
   })),
 

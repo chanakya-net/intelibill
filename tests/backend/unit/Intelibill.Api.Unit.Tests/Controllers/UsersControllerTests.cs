@@ -4,8 +4,11 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
+using Intelibill.Application.Features.Users.Commands.AddShopUser;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
 using Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
+using Intelibill.Application.Features.Users.DTOs;
+using Intelibill.Application.Features.Users.Queries.GetShopUsers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -121,6 +124,89 @@ public class UsersControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetShopUsers_WhenNoActiveShopClaim_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+
+        var result = await _controller.GetShopUsers(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetShopUsers_WhenSuccessful_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        IReadOnlyList<ShopUserDto> users = [
+            new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner"),
+            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "SalesPerson")
+        ];
+        ArrangeBusResponse<IReadOnlyList<ShopUserDto>>(users.ToList());
+
+        var result = await _controller.GetShopUsers(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(users, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<ShopUserDto>>>(
+            Arg.Is<GetShopUsersQuery>(q => q.UserId == userId && q.ShopId == shopId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddShopUser_WhenSuccessful_ReturnsCreatedAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = new AddShopUserRequest("Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", null, "+15551231234", "SalesPerson");
+        ArrangeBusResponse<ShopUserDto>(createdUser);
+
+        var result = await _controller.AddShopUser(request, CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result);
+        Assert.Equal(nameof(UsersController.GetShopUsers), created.ActionName);
+        Assert.Equal(createdUser, created.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<ShopUserDto>>(
+            Arg.Is<AddShopUserCommand>(c =>
+                c.ActorUserId == userId
+                && c.ShopId == shopId
+                && c.FirstName == request.FirstName
+                && c.LastName == request.LastName
+                && c.PhoneNumber == request.PhoneNumber
+                && c.Password == request.Password
+                && c.ConfirmPassword == request.ConfirmPassword
+                && c.Role == request.Role),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddShopUser_WhenNoActiveShopClaim_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+
+        var result = await _controller.AddShopUser(
+            new AddShopUserRequest("Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
     }
 
     private void ArrangeBusResponse<T>(ErrorOr<T> response)
