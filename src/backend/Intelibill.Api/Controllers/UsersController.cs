@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Users.Commands.AddShopUser;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
+using Intelibill.Application.Features.Users.Commands.EditShopUser;
 using Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Application.Features.Users.Queries.GetShopUsers;
@@ -46,14 +47,10 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
         if (userId is null)
             return Unauthorized();
 
-        var shopId = GetCurrentActiveShopId();
-        if (shopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
             new AddShopUserCommand(
                 userId.Value,
-                shopId.Value,
+                request.ShopIds,
                 request.FirstName,
                 request.LastName,
                 request.PhoneNumber,
@@ -63,6 +60,33 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
             cancellationToken);
 
         return result.ToActionResult(user => CreatedAtAction(nameof(GetShopUsers), user));
+    }
+
+    [HttpPut("{targetUserId:guid}")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> EditShopUser(Guid targetUserId, [FromBody] EditShopUserRequest request, CancellationToken cancellationToken)
+    {
+        var actorUserId = GetCurrentUserId();
+        if (actorUserId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
+            new EditShopUserCommand(
+                actorUserId.Value,
+                activeShopId.Value,
+                targetUserId,
+                request.FirstName,
+                request.LastName,
+                request.PhoneNumber,
+                request.Role,
+                request.IsLoginEnabled),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
     }
 
     [HttpPut("me")]
@@ -108,6 +132,7 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     }
 }
 
-public sealed record AddShopUserRequest(string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
+public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
+public sealed record EditShopUserRequest(string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled);
 public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName);
 public sealed record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { AddShopUserOverlayComponent } from './add-shop-user-overlay.component';
 import { UsersActions } from '../state/users.actions';
 import {
@@ -18,6 +19,21 @@ describe('AddShopUserOverlayComponent', () => {
   const errorSignal = signal('');
   const lastMutationTypeSignal = signal<'update-profile' | 'change-password' | 'add-shop-user' | null>(null);
   const lastMutationSucceededSignal = signal(false);
+  const authService = {
+    session: signal({
+      accessToken: '',
+      refreshToken: '',
+      accessTokenExpiresAt: '',
+      refreshTokenExpiresAt: '',
+      rememberMe: true,
+      user: { id: 'u1', email: 'owner@test.com', phoneNumber: '+15550001111', firstName: 'Owner', lastName: 'User' },
+      activeShopId: 's1',
+      shops: [
+        { shopId: 's1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+        { shopId: 's2', shopName: 'Outlet', role: 'Owner', isDefault: false, lastUsedAt: null },
+      ],
+    }),
+  };
 
   const store = {
     dispatch,
@@ -48,7 +64,10 @@ describe('AddShopUserOverlayComponent', () => {
   } {
     TestBed.configureTestingModule({
       imports: [AddShopUserOverlayComponent],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: AuthService, useValue: authService },
+      ],
     });
 
     const fixture = TestBed.createComponent(AddShopUserOverlayComponent);
@@ -75,6 +94,7 @@ describe('AddShopUserOverlayComponent', () => {
     component.form.controls.firstName.setValue('Sales');
     component.form.controls.lastName.setValue('User');
     component.form.controls.phoneNumber.setValue('+15551234567');
+    component.form.controls.shopIds.setValue(['s1']);
     component.form.controls.password.setValue('Pass1234!');
     component.form.controls.confirmPassword.setValue('Mismatch123!');
     component.form.controls.role.setValue('SalesPerson');
@@ -93,6 +113,7 @@ describe('AddShopUserOverlayComponent', () => {
     component.form.controls.firstName.setValue('Sales');
     component.form.controls.lastName.setValue('User');
     component.form.controls.phoneNumber.setValue('+15551234567');
+    component.form.controls.shopIds.setValue(['s1', 's2']);
     component.form.controls.password.setValue('Pass1234!');
     component.form.controls.confirmPassword.setValue('Pass1234!');
     component.form.controls.role.setValue('SalesPerson');
@@ -104,6 +125,7 @@ describe('AddShopUserOverlayComponent', () => {
     expect(dispatch).toHaveBeenCalledWith(
       UsersActions.addShopUserRequested({
         payload: {
+          shopIds: ['s1', 's2'],
           firstName: 'Sales',
           lastName: 'User',
           phoneNumber: '+15551234567',

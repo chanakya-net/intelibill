@@ -4,17 +4,20 @@ import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay.component';
+import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
+import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import { selectShopUsers, selectUsersErrorMessage, selectUsersLoadingShopUsers } from '../state/users.selectors';
 
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, AddShopUserOverlayComponent],
+  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddShopUserOverlayComponent, EditShopUserOverlayComponent],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
 })
@@ -27,6 +30,8 @@ export class UsersPageComponent {
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
 
   readonly showAddUserOverlay = signal(false);
+  readonly showEditUserOverlay = signal(false);
+  readonly editingUser = signal<ShopUser | null>(null);
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
     const session = this.session();
@@ -38,6 +43,7 @@ export class UsersPageComponent {
     return activeShop?.role ?? '';
   });
   readonly canAddUsers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
+  readonly canEditUsers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
 
   constructor() {
     this.store.dispatch(UsersActions.loadShopUsersRequested());
@@ -54,6 +60,23 @@ export class UsersPageComponent {
     this.store.dispatch(UsersActions.loadShopUsersRequested());
   }
 
+  onOpenEditUser(user: ShopUser): void {
+    if (!this.canEditUsers() || !this.canEditRole(user.role)) {
+      return;
+    }
+
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+    this.editingUser.set(user);
+    this.showEditUserOverlay.set(true);
+  }
+
+  onCloseEditUser(): void {
+    this.showEditUserOverlay.set(false);
+    this.editingUser.set(null);
+    this.store.dispatch(UsersActions.loadShopUsersRequested());
+  }
+
   getRoleLabel(role: string): string {
     const normalized = role.trim().toLowerCase();
     if (normalized === 'salesperson' || normalized === 'staff') {
@@ -61,5 +84,9 @@ export class UsersPageComponent {
     }
 
     return role;
+  }
+
+  canEditRole(role: string): boolean {
+    return role.trim().toLowerCase() !== 'owner';
   }
 }

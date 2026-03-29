@@ -37,6 +37,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(u => u.IsLoginEnabled)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.HasMany(u => u.ExternalLogins)
             .WithOne(el => el.User)
             .HasForeignKey(el => el.UserId)

@@ -27,12 +27,17 @@ public sealed class AddShopUserCommandHandler(
         if (actor is null)
             return Errors.Auth.UserNotFound;
 
-        var actorMembership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
-        if (actorMembership is null)
-            return Errors.Shop.MembershipNotFound;
+        var actorMembershipsByShop = actor.ShopMemberships
+            .ToDictionary(sm => sm.ShopId, sm => sm);
 
-        if (actorMembership.Role != ShopRole.Owner)
-            return Errors.Shop.UserIsNotOwner;
+        foreach (var shopId in command.ShopIds)
+        {
+            if (!actorMembershipsByShop.TryGetValue(shopId, out var actorMembership))
+                return Errors.Shop.MembershipNotFound;
+
+            if (actorMembership.Role != ShopRole.Owner)
+                return Errors.Shop.UserIsNotOwner;
+        }
 
         if (!TryParseShopRole(command.Role, out var role))
             return Errors.Users.RoleNotSupported;
@@ -41,17 +46,21 @@ public sealed class AddShopUserCommandHandler(
         if (await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 
-        var shop = actorMembership.Shop ?? await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
         var passwordHash = passwordHasher.Hash(command.Password);
         var newUser = User.CreateWithPhone(normalizedPhone, command.FirstName, command.LastName);
         newUser.UpdatePassword(passwordHash);
 
-        var membership = ShopMembership.Create(shop.Id, newUser.Id, role, false);
-        shop.AddMembership(membership);
-        newUser.AddShopMembership(membership);
+        foreach (var shopId in command.ShopIds)
+        {
+            var actorMembership = actorMembershipsByShop[shopId];
+            var shop = actorMembership.Shop ?? await shopRepository.GetByIdAsync(shopId, cancellationToken);
+            if (shop is null)
+                return Errors.Shop.ShopNotFound;
+
+            var membership = ShopMembership.Create(shop.Id, newUser.Id, role, false);
+            shop.AddMembership(membership);
+            newUser.AddShopMembership(membership);
+        }
 
         await userRepository.AddAsync(newUser, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -62,7 +71,8 @@ public sealed class AddShopUserCommandHandler(
             newUser.LastName,
             newUser.Email,
             newUser.PhoneNumber,
-            ToRoleLabel(role));
+            ToRoleLabel(role),
+            newUser.IsLoginEnabled);
     }
 
     private static bool TryParseShopRole(string roleValue, out ShopRole role)

@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: frontend-main-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-test-frontend:
     name: Build and Test Frontend
@@ -168,6 +172,22 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin main
           git add .github/badges/frontend-tests.json .github/badges/frontend-tests.svg
           git commit -m 'ci: update frontend test badges'
-          git push
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Frontend badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push frontend badge updates after retries. Skipping failure.'

@@ -6,6 +6,7 @@ import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
 import { UserAccountService } from '../services/user-account.service';
+import { ShopsActions } from '../../shops/state/shops.actions';
 import { UsersActions } from './users.actions';
 import { UsersEffects } from './users.effects';
 
@@ -18,6 +19,7 @@ describe('UsersEffects', () => {
     changeMyPassword: vi.fn<UserAccountService['changeMyPassword']>(),
     getShopUsers: vi.fn<UserAccountService['getShopUsers']>(),
     addShopUser: vi.fn<UserAccountService['addShopUser']>(),
+    editShopUser: vi.fn<UserAccountService['editShopUser']>(),
   };
 
   beforeEach(() => {
@@ -26,6 +28,7 @@ describe('UsersEffects', () => {
     userAccountService.changeMyPassword.mockReset();
     userAccountService.getShopUsers.mockReset();
     userAccountService.addShopUser.mockReset();
+    userAccountService.editShopUser.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -188,6 +191,7 @@ describe('UsersEffects', () => {
           email: 'owner@test.com',
           phoneNumber: '+15551234567',
           role: 'Owner',
+          isLoginEnabled: true,
         },
       ])
     );
@@ -206,6 +210,7 @@ describe('UsersEffects', () => {
             email: 'owner@test.com',
             phoneNumber: '+15551234567',
             role: 'Owner',
+            isLoginEnabled: true,
           },
         ],
       })
@@ -222,6 +227,7 @@ describe('UsersEffects', () => {
     actions$.next(
       UsersActions.addShopUserRequested({
         payload: {
+          shopIds: ['shop-1'],
           firstName: 'Sales',
           lastName: 'Rep',
           phoneNumber: '+15557654321',
@@ -237,5 +243,21 @@ describe('UsersEffects', () => {
         errorMessage: 'Only owner can add new users for this shop.',
       })
     );
+  });
+
+  it('reloads shop users after default shop switch succeeds', async () => {
+    const output = firstValueFrom(effects.reloadShopUsersAfterShopSwitch$.pipe(take(1)));
+
+    actions$.next(ShopsActions.setDefaultShopSucceeded());
+
+    await expect(output).resolves.toEqual(UsersActions.loadShopUsersRequested());
+  });
+
+  it('reloads shop users after create shop succeeds', async () => {
+    const output = firstValueFrom(effects.reloadShopUsersAfterShopSwitch$.pipe(take(1)));
+
+    actions$.next(ShopsActions.createShopSucceeded());
+
+    await expect(output).resolves.toEqual(UsersActions.loadShopUsersRequested());
   });
 });

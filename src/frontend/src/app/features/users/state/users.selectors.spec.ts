@@ -11,6 +11,7 @@ describe('users selectors', () => {
         email: 'owner@test.com',
         phoneNumber: '+15551234567',
         role: 'Owner',
+        isLoginEnabled: true,
       },
     ],
     loadingShopUsers: true,

@@ -45,27 +45,7 @@ h1 {
   border: 1px solid #fdba74;
   border-radius: 1rem;
   background: linear-gradient(160deg, #ffffff, #fff7ed);
-  overflow: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 0.85rem 0.95rem;
-  border-bottom: 1px solid #fed7aa;
-  white-space: nowrap;
-}
-
-th {
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #9a3412;
+  overflow: hidden;
 }
 
 .role-pill {
@@ -75,6 +55,20 @@ th {
   color: #9a3412;
   padding: 0.25rem 0.65rem;
   font-size: 0.8rem;
+}
+
+.status-pill {
+  display: inline-block;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.status-pill.disabled {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .empty-state {

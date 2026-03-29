@@ -23,37 +23,70 @@
   </div>
 
   <div class="users-table-card" *ngIf="!isLoading()">
-    <table *ngIf="users().length > 0; else noUsersState">
-      <thead>
+    <p-table
+      [value]="$any(users())"
+      [sortField]="'firstName'"
+      [sortOrder]="1"
+      class="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
         <tr>
-          <th>Name</th>
-          <th>Mobile</th>
-          <th>Email</th>
-          <th>Role</th>
+          <th pSortableColumn="firstName">Name <p-sortIcon field="firstName" /></th>
+          <th pSortableColumn="phoneNumber">Mobile <p-sortIcon field="phoneNumber" /></th>
+          <th pSortableColumn="email">Email <p-sortIcon field="email" /></th>
+          <th pSortableColumn="role">Role <p-sortIcon field="role" /></th>
+          <th pSortableColumn="isLoginEnabled">Login <p-sortIcon field="isLoginEnabled" /></th>
+          <th *ngIf="canEditUsers()">Actions</th>
         </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of users()">
+      </ng-template>
+
+      <ng-template pTemplate="body" let-user>
+        <tr>
           <td>{{ user.firstName }} {{ user.lastName }}</td>
           <td>{{ user.phoneNumber || '-' }}</td>
           <td>{{ user.email || '-' }}</td>
+          <td><span class="role-pill">{{ getRoleLabel(user.role) }}</span></td>
           <td>
-            <span class="role-pill">{{ getRoleLabel(user.role) }}</span>
+            <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
+              {{ user.isLoginEnabled ? 'Enabled' : 'Disabled' }}
+            </span>
+          </td>
+          <td *ngIf="canEditUsers()">
+            <button
+              pButton
+              type="button"
+              label="Edit"
+              icon="pi pi-pencil"
+              size="small"
+              severity="secondary"
+              [disabled]="!canEditRole(user.role)"
+              (click)="onOpenEditUser(user)"
+            ></button>
           </td>
         </tr>
-      </tbody>
-    </table>
+      </ng-template>
 
-    <ng-template #noUsersState>
-      <div class="empty-state">
-        <h2>No users found</h2>
-        <p>Start by adding a manager or sales person for this shop.</p>
-      </div>
-    </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td [attr.colspan]="canEditUsers() ? 6 : 5">
+            <div class="empty-state">
+              <h2>No users found</h2>
+              <p>Start by adding a manager or sales person for this shop.</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
   </div>
 
   <app-add-shop-user-overlay
     *ngIf="showAddUserOverlay()"
     (closeRequested)="onCloseAddUser()"
   ></app-add-shop-user-overlay>
+
+  <app-edit-shop-user-overlay
+    *ngIf="showEditUserOverlay() && editingUser()"
+    [user]="$any(editingUser())"
+    (closeRequested)="onCloseEditUser()"
+  ></app-edit-shop-user-overlay>
 </section>

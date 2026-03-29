@@ -14,6 +14,23 @@
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <fieldset class="shop-selection">
+        <legend>Shops</legend>
+        <p class="shop-selection-description">Select one or more shops for this user.</p>
+
+        <label class="shop-option" *ngFor="let shop of availableShops()">
+          <input
+            type="checkbox"
+            [checked]="isShopSelected(shop.shopId)"
+            (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+          />
+          <span>
+            {{ shop.shopName }}
+            <small *ngIf="shop.isDefault">(Default)</small>
+          </span>
+        </label>
+      </fieldset>
+
       <label>
         <span>First Name</span>
         <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
@@ -50,6 +67,9 @@
       <p class="error-message" *ngIf="serverError()">{{ serverError() }}</p>
       <p class="error-message" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
         Password and confirm password must match.
+      </p>
+      <p class="error-message" *ngIf="form.controls.shopIds.invalid && form.controls.shopIds.touched">
+        Select at least one shop.
       </p>
 
       <div class="actions">
