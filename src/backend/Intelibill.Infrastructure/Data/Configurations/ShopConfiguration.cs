@@ -38,6 +38,9 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
         builder.Property(s => s.MobileNumber)
             .HasMaxLength(32);
 
+        builder.Property(s => s.GstNumber)
+            .HasMaxLength(20);
+
         builder.HasMany(s => s.Memberships)
             .WithOne(sm => sm.Shop)
             .HasForeignKey(sm => sm.ShopId)

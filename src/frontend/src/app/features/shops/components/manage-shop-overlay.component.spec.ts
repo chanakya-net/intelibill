@@ -30,6 +30,7 @@ describe('ManageShopOverlayComponent', () => {
     pincode: '560001',
     contactPerson: 'Chandra',
     mobileNumber: '9876543210',
+    gstNumber: '27AAPFU0939F1ZV',
   });
   const lastMutationTypeSignal = signal<'create' | 'update' | 'set-default' | null>(null);
   const lastMutationSucceededSignal = signal(false);
@@ -98,6 +99,7 @@ describe('ManageShopOverlayComponent', () => {
       pincode: '560001',
       contactPerson: 'Chandra',
       mobileNumber: '9876543210',
+      gstNumber: '27AAPFU0939F1ZV',
     });
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
@@ -113,6 +115,7 @@ describe('ManageShopOverlayComponent', () => {
     expect(dispatch).toHaveBeenCalledWith(ShopsActions.selectShop({ shopId: 'shop-1' }));
     expect(dispatch).toHaveBeenCalledWith(ShopsActions.loadShopDetailsRequested({ shopId: 'shop-1' }));
     expect(component.form.controls.name.value).toBe('Main');
+    expect(component.form.controls.gstNumber.value).toBe('27AAPFU0939F1ZV');
     expect(component.selectedShopRole()).toBe('Owner');
   });
 
@@ -153,6 +156,7 @@ describe('ManageShopOverlayComponent', () => {
     component.form.controls.pincode.setValue('  560001  ');
     component.form.controls.contactPerson.setValue('   ');
     component.form.controls.mobileNumber.setValue('  ');
+    component.form.controls.gstNumber.setValue('');
 
     component.onSubmit();
 
@@ -167,6 +171,7 @@ describe('ManageShopOverlayComponent', () => {
           pincode: '560001',
           contactPerson: undefined,
           mobileNumber: undefined,
+          gstNumber: undefined,
         },
       })
     );
@@ -183,5 +188,17 @@ describe('ManageShopOverlayComponent', () => {
     errorSignal.set('Only shop owners can update shop details.');
 
     expect(component.serverError()).toBe('Only shop owners can update shop details.');
+  });
+
+  it('does not submit when gstNumber is present but invalid', () => {
+    const { component } = setup();
+
+    component.form.controls.gstNumber.setValue('ABC');
+    component.onSubmit();
+
+    expect(component.form.controls.gstNumber.invalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.updateShopRequested.type })
+    );
   });
 });

@@ -21,6 +21,9 @@ public static partial class Errors
         public static Error PincodeRequired =>
             Error.Validation("Shop.PincodeRequired", "Shop pincode is required.");
 
+        public static Error GstNumberInvalid =>
+            Error.Validation("Shop.GstNumberInvalid", "GST number must be a valid Indian GSTIN.");
+
         public static Error UserNotFound =>
             Error.NotFound("Shop.UserNotFound", "The user was not found.");
 

@@ -42,7 +42,8 @@ public sealed class UpdateShopCommandHandler(
             command.State,
             command.Pincode,
             command.ContactPerson,
-            command.MobileNumber);
+            command.MobileNumber,
+            command.GstNumber);
 
         shopRepository.Update(shop);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -55,6 +56,7 @@ public sealed class UpdateShopCommandHandler(
             shop.State,
             shop.Pincode,
             shop.ContactPerson,
-            shop.MobileNumber);
+            shop.MobileNumber,
+            shop.GstNumber);
     }
 }

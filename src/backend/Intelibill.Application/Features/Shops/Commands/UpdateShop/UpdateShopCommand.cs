@@ -9,4 +9,5 @@ public sealed record UpdateShopCommand(
     string State,
     string Pincode,
     string? ContactPerson,
-    string? MobileNumber);
+    string? MobileNumber,
+    string? GstNumber);

@@ -64,7 +64,8 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
                 request.State,
                 request.Pincode,
                 request.ContactPerson,
-                request.MobileNumber),
+                request.MobileNumber,
+                request.GstNumber),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -115,7 +116,8 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
                 request.State,
                 request.Pincode,
                 request.ContactPerson,
-                request.MobileNumber),
+                request.MobileNumber,
+                request.GstNumber),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -136,7 +138,8 @@ public sealed record CreateShopRequest(
     string State,
     string Pincode,
     string? ContactPerson,
-    string? MobileNumber);
+    string? MobileNumber,
+    string? GstNumber);
 public sealed record SwitchActiveShopRequest(Guid ShopId);
 public sealed record SetDefaultShopRequest(Guid ShopId);
 public sealed record UpdateShopRequest(
@@ -146,4 +149,5 @@ public sealed record UpdateShopRequest(
     string State,
     string Pincode,
     string? ContactPerson,
-    string? MobileNumber);
+    string? MobileNumber,
+    string? GstNumber);

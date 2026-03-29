@@ -27,7 +27,8 @@ public class CreateShopCommandHandlerTests
             "Karnataka",
             "560001",
             "Chandra",
-            "9876543210");
+            "9876543210",
+            "27AAPFU0939F1ZV");
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -62,7 +63,8 @@ public class CreateShopCommandHandlerTests
                 && s.State == "Karnataka"
                 && s.Pincode == "560001"
                 && s.ContactPerson == "Chandra"
-                && s.MobileNumber == "9876543210"),
+                && s.MobileNumber == "9876543210"
+                && s.GstNumber == "27AAPFU0939F1ZV"),
             Arg.Any<CancellationToken>());
 
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
@@ -73,7 +75,7 @@ public class CreateShopCommandHandlerTests
     public async Task HandleAsync_WhenAddressBlank_ReturnsAddressRequired()
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var command = new CreateShopCommand(user.Id, "Main Shop", "   ", "Bengaluru", "Karnataka", "560001", null, null);
+        var command = new CreateShopCommand(user.Id, "Main Shop", "   ", "Bengaluru", "Karnataka", "560001", null, null, null);
 
         var handler = new CreateShopCommandHandler(
             _userRepository,
@@ -86,6 +88,26 @@ public class CreateShopCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal("Shop.AddressRequired", result.FirstError.Code);
+        await _shopRepository.DidNotReceive().AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenGstNumberInvalid_ReturnsValidationError()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        var command = new CreateShopCommand(user.Id, "Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, "123");
+
+        var handler = new CreateShopCommandHandler(
+            _userRepository,
+            _shopRepository,
+            _refreshTokenRepository,
+            _tokenService,
+            _unitOfWork);
+
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Shop.GstNumberInvalid", result.FirstError.Code);
         await _shopRepository.DidNotReceive().AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
     }
 }

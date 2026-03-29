@@ -72,7 +72,8 @@ public class ShopsControllerTests
             "Karnataka",
             "560001",
             "Chandra",
-            "9876543210");
+            "9876543210",
+            "27AAPFU0939F1ZV");
         var authResult = CreateAuthResult();
         ArrangeBusResponse<AuthResult>(authResult);
 
@@ -90,7 +91,8 @@ public class ShopsControllerTests
                 && c.State == request.State
                 && c.Pincode == request.Pincode
                 && c.ContactPerson == request.ContactPerson
-                && c.MobileNumber == request.MobileNumber),
+                && c.MobileNumber == request.MobileNumber
+                && c.GstNumber == request.GstNumber),
             Arg.Any<CancellationToken>());
     }
 
@@ -101,7 +103,7 @@ public class ShopsControllerTests
         ArrangeBusResponse<AuthResult>(Errors.Shop.NameRequired);
 
         var result = await _controller.CreateShop(
-            new CreateShopRequest("  ", "Address", "City", "State", "560001", null, null),
+            new CreateShopRequest("  ", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -114,7 +116,7 @@ public class ShopsControllerTests
         SetUserClaims();
 
         var result = await _controller.CreateShop(
-            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null),
+            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
@@ -127,7 +129,7 @@ public class ShopsControllerTests
         ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
 
         var result = await _controller.CreateShop(
-            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null),
+            new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -273,7 +275,7 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210");
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210", "27AAPFU0939F1ZV");
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.GetShopDetails(shopId, CancellationToken.None);
@@ -305,7 +307,7 @@ public class ShopsControllerTests
 
         var result = await _controller.UpdateShop(
             Guid.NewGuid(),
-            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
@@ -317,8 +319,8 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var request = new UpdateShopRequest("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", "Chandra", "9876543210");
-        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber);
+        var request = new UpdateShopRequest("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", "Chandra", "9876543210", "27AAPFU0939F1ZV");
+        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber, request.GstNumber);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.UpdateShop(shopId, request, CancellationToken.None);
@@ -336,7 +338,8 @@ public class ShopsControllerTests
                 && c.State == request.State
                 && c.Pincode == request.Pincode
                 && c.ContactPerson == request.ContactPerson
-                && c.MobileNumber == request.MobileNumber),
+                && c.MobileNumber == request.MobileNumber
+                && c.GstNumber == request.GstNumber),
             Arg.Any<CancellationToken>());
     }
 
@@ -348,7 +351,7 @@ public class ShopsControllerTests
 
         var result = await _controller.UpdateShop(
             Guid.NewGuid(),
-            new UpdateShopRequest("  ", "Address", "City", "State", "560001", null, null),
+            new UpdateShopRequest("  ", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -363,7 +366,7 @@ public class ShopsControllerTests
 
         var result = await _controller.UpdateShop(
             Guid.NewGuid(),
-            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -378,7 +381,7 @@ public class ShopsControllerTests
 
         var result = await _controller.UpdateShop(
             Guid.NewGuid(),
-            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null),
+            new UpdateShopRequest("Main", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);

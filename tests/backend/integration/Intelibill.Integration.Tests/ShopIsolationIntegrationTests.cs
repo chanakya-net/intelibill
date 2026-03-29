@@ -22,7 +22,7 @@ namespace Intelibill.Integration.Tests;
 public class ShopIsolationIntegrationTests
 {
     private static Shop CreateTestShop(string name, string pincode = "560001") =>
-        Shop.Create(name, "Address", "City", "State", pincode, null, null);
+        Shop.Create(name, "Address", "City", "State", pincode, null, null, null);
 
     [Fact]
     public async Task SwitchActiveShop_WhenUserDoesNotOwnShop_ReturnsMembershipForbiddenError()
@@ -96,7 +96,7 @@ public class ShopIsolationIntegrationTests
             unitOfWork);
 
         var result = await handler.HandleAsync(
-            new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null),
+            new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -121,7 +121,7 @@ public class ShopIsolationIntegrationTests
             unitOfWork);
 
         var result = await handler.HandleAsync(
-            new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null),
+            new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null, null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -155,7 +155,8 @@ public class ShopIsolationIntegrationTests
                 "  Karnataka  ",
                 "  560001  ",
                 "  Chandra  ",
-                "  9876543210  "),
+                "  9876543210  ",
+                "  27AAPFU0939F1ZV  "),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -166,6 +167,7 @@ public class ShopIsolationIntegrationTests
         Assert.Equal("560001", shopRepository.AddedShops.Single().Pincode);
         Assert.Equal("Chandra", shopRepository.AddedShops.Single().ContactPerson);
         Assert.Equal("9876543210", shopRepository.AddedShops.Single().MobileNumber);
+        Assert.Equal("27AAPFU0939F1ZV", shopRepository.AddedShops.Single().GstNumber);
         Assert.Equal(user.Id, result.Value.User.Id);
         Assert.NotNull(result.Value.ActiveShopId);
         Assert.NotNull(result.Value.Shops);
@@ -309,7 +311,8 @@ public class ShopIsolationIntegrationTests
                 "  Karnataka  ",
                 "  560001  ",
                 "  Chandra  ",
-                "  9876543210  "),
+                "  9876543210  ",
+                "  27AAPFU0939F1ZV  "),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -320,6 +323,7 @@ public class ShopIsolationIntegrationTests
         Assert.Equal("560001", shop.Pincode);
         Assert.Equal("Chandra", shop.ContactPerson);
         Assert.Equal("9876543210", shop.MobileNumber);
+        Assert.Equal("27AAPFU0939F1ZV", shop.GstNumber);
         Assert.True(unitOfWork.SaveChangesCalled);
     }
 
@@ -351,6 +355,7 @@ public class ShopIsolationIntegrationTests
                 "City",
                 "State",
                 "560001",
+                null,
                 null,
                 null),
             CancellationToken.None);

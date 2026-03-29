@@ -15,6 +15,7 @@ export interface CreateShopRequest {
   readonly pincode: string;
   readonly contactPerson?: string;
   readonly mobileNumber?: string;
+  readonly gstNumber?: string;
 }
 
 export interface ShopDetails {
@@ -26,6 +27,7 @@ export interface ShopDetails {
   readonly pincode: string;
   readonly contactPerson: string | null;
   readonly mobileNumber: string | null;
+  readonly gstNumber: string | null;
 }
 
 interface SetDefaultShopRequest {
