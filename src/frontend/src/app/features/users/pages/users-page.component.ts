@@ -4,6 +4,7 @@ import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
@@ -14,7 +15,7 @@ import { selectShopUsers, selectUsersErrorMessage, selectUsersLoadingShopUsers }
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, AddShopUserOverlayComponent],
+  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddShopUserOverlayComponent],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
 })

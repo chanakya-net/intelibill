@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import { ShopsActions } from '../../shops/state/shops.actions';
 import { UserAccountService } from '../services/user-account.service';
 import { UsersActions } from './users.actions';
 
@@ -80,6 +81,13 @@ export class UsersEffects {
           )
         )
       )
+    )
+  );
+
+  readonly reloadShopUsersAfterShopSwitch$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded),
+      map(() => UsersActions.loadShopUsersRequested())
     )
   );
 }

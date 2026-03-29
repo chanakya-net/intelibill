@@ -23,8 +23,15 @@ public sealed class SetDefaultShopCommandHandler(
         if (targetMembership is null)
             return Errors.Shop.MembershipNotFound;
 
-        foreach (var membership in user.ShopMemberships)
-            membership.SetDefault(membership.ShopId == command.ShopId);
+        if (!targetMembership.IsDefault)
+        {
+            foreach (var membership in user.ShopMemberships.Where(sm => sm.IsDefault))
+                membership.SetDefault(false);
+
+            // Persist clearing existing defaults first so the partial unique index never sees two defaults.
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            targetMembership.SetDefault(true);
+        }
 
         targetMembership.MarkUsed();
 

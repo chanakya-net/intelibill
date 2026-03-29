@@ -6,6 +6,7 @@ import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
 import { UserAccountService } from '../services/user-account.service';
+import { ShopsActions } from '../../shops/state/shops.actions';
 import { UsersActions } from './users.actions';
 import { UsersEffects } from './users.effects';
 
@@ -237,5 +238,21 @@ describe('UsersEffects', () => {
         errorMessage: 'Only owner can add new users for this shop.',
       })
     );
+  });
+
+  it('reloads shop users after default shop switch succeeds', async () => {
+    const output = firstValueFrom(effects.reloadShopUsersAfterShopSwitch$.pipe(take(1)));
+
+    actions$.next(ShopsActions.setDefaultShopSucceeded());
+
+    await expect(output).resolves.toEqual(UsersActions.loadShopUsersRequested());
+  });
+
+  it('reloads shop users after create shop succeeds', async () => {
+    const output = firstValueFrom(effects.reloadShopUsersAfterShopSwitch$.pipe(take(1)));
+
+    actions$.next(ShopsActions.createShopSucceeded());
+
+    await expect(output).resolves.toEqual(UsersActions.loadShopUsersRequested());
   });
 });

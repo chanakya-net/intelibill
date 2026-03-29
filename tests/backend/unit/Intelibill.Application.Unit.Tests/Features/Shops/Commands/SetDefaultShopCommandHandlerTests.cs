@@ -57,6 +57,6 @@ public class SetDefaultShopCommandHandlerTests
         Assert.False(shops.Single(s => s.ShopId == firstShop.Id).IsDefault);
 
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
