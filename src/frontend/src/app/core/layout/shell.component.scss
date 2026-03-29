@@ -105,7 +105,7 @@ a.is-active {
 .profile-menu {
   position: absolute;
   top: calc(100% + 0.35rem);
-  right: 6.25rem;
+  right: 0;
   z-index: 50;
   width: 13.5rem;
   padding: 0.35rem;
@@ -114,7 +114,8 @@ a.is-active {
   background: #fff7ed;
   box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
 
-  button {
+  button,
+  a {
     @include buttons.button-menu-item;
     display: block;
     width: 100%;
@@ -123,11 +124,12 @@ a.is-active {
     font-size: 0.86rem;
     font-weight: 600;
     padding: 0.6rem 0.65rem;
+    text-decoration: none;
   }
 }
 
 @media (max-width: 768px) {
   .profile-menu {
-    right: 3.3rem;
+    right: 0;
   }
 }

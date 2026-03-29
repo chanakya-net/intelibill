@@ -14,8 +14,8 @@ import { ButtonModule } from 'primeng/button';
       <h2 class="text-3xl font-bold text-slate-900">Page Not Found</h2>
       <p class="text-slate-600">The route does not exist in the Intelibill workspace.</p>
       <div class="pt-2">
-        <a routerLink="/overview">
-          <p-button label="Go to Overview" icon="pi pi-arrow-left"></p-button>
+        <a routerLink="/">
+          <p-button label="Go Back" icon="pi pi-arrow-left"></p-button>
         </a>
       </div>
     </section>
