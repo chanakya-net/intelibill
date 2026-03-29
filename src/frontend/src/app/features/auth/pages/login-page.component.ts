@@ -84,6 +84,10 @@ function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'The email or password is incorrect.';
   }
 
+  if (title === 'Auth.UserLoginDisabled') {
+    return 'Your login is disabled. Please contact the shop owner.';
+  }
+
   if (error?.detail) {
     return error.detail;
   }

@@ -109,6 +109,29 @@ export const usersReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(UsersActions.editShopUserRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'edit-shop-user',
+    lastMutationSucceeded: false,
+  })),
+  on(UsersActions.editShopUserSucceeded, (state, { user }) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    shopUsers: state.shopUsers.map((existing) => (existing.userId === user.userId ? user : existing)),
+    lastMutationType: 'edit-shop-user',
+    lastMutationSucceeded: true,
+  })),
+  on(UsersActions.editShopUserFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'edit-shop-user',
+    lastMutationSucceeded: false,
+  })),
+
   on(UsersActions.clearError, (state) => ({
     ...state,
     errorMessage: '',

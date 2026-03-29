@@ -32,7 +32,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, shop.Id, "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -51,7 +51,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, shop.Id, "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Owner");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Owner");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -71,7 +71,7 @@ public class AddShopUserCommandHandlerTests
         shop.AddMembership(actorMembership);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, shop.Id, "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(false);

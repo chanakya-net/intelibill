@@ -35,6 +35,8 @@
           <th pSortableColumn="phoneNumber">Mobile <p-sortIcon field="phoneNumber" /></th>
           <th pSortableColumn="email">Email <p-sortIcon field="email" /></th>
           <th pSortableColumn="role">Role <p-sortIcon field="role" /></th>
+          <th pSortableColumn="isLoginEnabled">Login <p-sortIcon field="isLoginEnabled" /></th>
+          <th *ngIf="canEditUsers()">Actions</th>
         </tr>
       </ng-template>
 
@@ -44,12 +46,29 @@
           <td>{{ user.phoneNumber || '-' }}</td>
           <td>{{ user.email || '-' }}</td>
           <td><span class="role-pill">{{ getRoleLabel(user.role) }}</span></td>
+          <td>
+            <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
+              {{ user.isLoginEnabled ? 'Enabled' : 'Disabled' }}
+            </span>
+          </td>
+          <td *ngIf="canEditUsers()">
+            <button
+              pButton
+              type="button"
+              label="Edit"
+              icon="pi pi-pencil"
+              size="small"
+              severity="secondary"
+              [disabled]="!canEditRole(user.role)"
+              (click)="onOpenEditUser(user)"
+            ></button>
+          </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="4">
+          <td [attr.colspan]="canEditUsers() ? 6 : 5">
             <div class="empty-state">
               <h2>No users found</h2>
               <p>Start by adding a manager or sales person for this shop.</p>
@@ -64,4 +83,10 @@
     *ngIf="showAddUserOverlay()"
     (closeRequested)="onCloseAddUser()"
   ></app-add-shop-user-overlay>
+
+  <app-edit-shop-user-overlay
+    *ngIf="showEditUserOverlay() && editingUser()"
+    [user]="$any(editingUser())"
+    (closeRequested)="onCloseEditUser()"
+  ></app-edit-shop-user-overlay>
 </section>

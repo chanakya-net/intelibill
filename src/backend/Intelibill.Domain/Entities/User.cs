@@ -11,6 +11,7 @@ public sealed class User : BaseEntity
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
     public bool IsEmailVerified { get; private set; }
+    public bool IsLoginEnabled { get; private set; } = true;
 
     private readonly List<UserExternalLogin> _externalLogins = [];
     public IReadOnlyList<UserExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
@@ -71,11 +72,23 @@ public sealed class User : BaseEntity
         PasswordHash = passwordHash;
     }
 
+    public void SetLoginEnabled(bool isLoginEnabled)
+    {
+        IsLoginEnabled = isLoginEnabled;
+    }
+
     public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName)
     {
         Email = email.Trim().ToLowerInvariant();
         PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
+    }
+
+    public void UpdateShopUserProfile(string firstName, string lastName, string phoneNumber)
+    {
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+        PhoneNumber = phoneNumber.Trim();
     }
 }

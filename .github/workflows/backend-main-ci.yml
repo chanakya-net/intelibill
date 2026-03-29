@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: backend-main-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-test-backend:
     name: Build and Test Backend
@@ -183,6 +187,22 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin main
           git add .github/badges/tests.json .github/badges/tests.svg
           git commit -m 'ci: update test badges'
-          git push
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push badge updates after retries. Skipping failure.'

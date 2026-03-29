@@ -148,8 +148,8 @@ public class UsersControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         IReadOnlyList<ShopUserDto> users = [
-            new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner"),
-            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "SalesPerson")
+            new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner", true),
+            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "SalesPerson", true)
         ];
         ArrangeBusResponse<IReadOnlyList<ShopUserDto>>(users.ToList());
 
@@ -172,8 +172,8 @@ public class UsersControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var request = new AddShopUserRequest("Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
-        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", null, "+15551231234", "SalesPerson");
+        var request = new AddShopUserRequest([shopId], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", null, "+15551231234", "SalesPerson", true);
         ArrangeBusResponse<ShopUserDto>(createdUser);
 
         var result = await _controller.AddShopUser(request, CancellationToken.None);
@@ -185,7 +185,8 @@ public class UsersControllerTests
         await _bus.Received(1).InvokeAsync<ErrorOr<ShopUserDto>>(
             Arg.Is<AddShopUserCommand>(c =>
                 c.ActorUserId == userId
-                && c.ShopId == shopId
+                && c.ShopIds.Count == 1
+                && c.ShopIds[0] == shopId
                 && c.FirstName == request.FirstName
                 && c.LastName == request.LastName
                 && c.PhoneNumber == request.PhoneNumber
@@ -196,17 +197,15 @@ public class UsersControllerTests
     }
 
     [Fact]
-    public async Task AddShopUser_WhenNoActiveShopClaim_ReturnsBadRequest()
+    public async Task AddShopUser_WhenUserMissing_ReturnsUnauthorized()
     {
-        var userId = Guid.NewGuid();
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        SetUserClaims();
 
         var result = await _controller.AddShopUser(
-            new AddShopUserRequest("Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson"),
+            new AddShopUserRequest([Guid.NewGuid()], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson"),
             CancellationToken.None);
 
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        Assert.IsType<UnauthorizedResult>(result);
     }
 
     private void ArrangeBusResponse<T>(ErrorOr<T> response)

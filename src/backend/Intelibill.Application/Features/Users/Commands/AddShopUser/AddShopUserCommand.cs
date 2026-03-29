@@ -2,7 +2,7 @@ namespace Intelibill.Application.Features.Users.Commands.AddShopUser;
 
 public sealed record AddShopUserCommand(
     Guid ActorUserId,
-    Guid ShopId,
+    IReadOnlyList<Guid> ShopIds,
     string FirstName,
     string LastName,
     string PhoneNumber,

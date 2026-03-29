@@ -75,4 +75,20 @@ public class LoginWithEmailCommandHandlerTests
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_WhenLoginDisabled_ReturnsUserLoginDisabledError()
+    {
+        var command = new LoginWithEmailCommand("test@test.com", "Pass123!");
+        var user = User.CreateWithEmail(command.Email, "hashed", "First", "Last");
+        user.SetLoginEnabled(false);
+
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.UserLoginDisabled.Code);
+    }
 }

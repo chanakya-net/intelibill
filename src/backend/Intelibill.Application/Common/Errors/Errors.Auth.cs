@@ -15,6 +15,9 @@ public static partial class Errors
         public static Error InvalidCredentials =>
             Error.Unauthorized("Auth.InvalidCredentials", "The email or password is incorrect.");
 
+        public static Error UserLoginDisabled =>
+            Error.Unauthorized("Auth.UserLoginDisabled", "Your account login is disabled. Please contact the shop owner.");
+
         public static Error InvalidCurrentPassword =>
             Error.Unauthorized("Auth.InvalidCurrentPassword", "The current password is incorrect.");
 

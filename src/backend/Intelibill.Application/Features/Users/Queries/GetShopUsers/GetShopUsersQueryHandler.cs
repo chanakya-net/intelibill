@@ -33,7 +33,8 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
                 sm.User.LastName,
                 sm.User.Email,
                 sm.User.PhoneNumber,
-                sm.Role == ShopRole.Staff ? "SalesPerson" : sm.Role.ToString()))
+                sm.Role == ShopRole.Staff ? "SalesPerson" : sm.Role.ToString(),
+                sm.User.IsLoginEnabled))
             .ToList();
 
         return users;

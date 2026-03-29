@@ -18,6 +18,7 @@ export const SHOP_ENDPOINTS = {
 export const USER_ENDPOINTS = {
   list: `${API_BASE_URL}/users`,
   add: `${API_BASE_URL}/users`,
+  update: (userId: string) => `${API_BASE_URL}/users/${userId}`,
   me: `${API_BASE_URL}/users/me`,
   changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;

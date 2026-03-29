@@ -47,6 +47,15 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
         return await DbSet.AnyAsync(u => u.Email == normalized, cancellationToken);
     }
 
-    public async Task<bool> ExistsByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default) =>
-        await DbSet.AnyAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
+    public async Task<bool> ExistsByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AnyAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
+    }
+
+    public async Task<bool> ExistsByPhoneAsync(string phoneNumber, Guid excludedUserId, CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AnyAsync(
+            u => u.PhoneNumber == phoneNumber && u.Id != excludedUserId,
+            cancellationToken);
+    }
 }

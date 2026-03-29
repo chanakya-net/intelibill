@@ -6,4 +6,5 @@ public sealed record ShopUserDto(
     string LastName,
     string? Email,
     string? PhoneNumber,
-    string Role);
+    string Role,
+    bool IsLoginEnabled);

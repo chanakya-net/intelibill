@@ -19,6 +19,7 @@ describe('UsersEffects', () => {
     changeMyPassword: vi.fn<UserAccountService['changeMyPassword']>(),
     getShopUsers: vi.fn<UserAccountService['getShopUsers']>(),
     addShopUser: vi.fn<UserAccountService['addShopUser']>(),
+    editShopUser: vi.fn<UserAccountService['editShopUser']>(),
   };
 
   beforeEach(() => {
@@ -27,6 +28,7 @@ describe('UsersEffects', () => {
     userAccountService.changeMyPassword.mockReset();
     userAccountService.getShopUsers.mockReset();
     userAccountService.addShopUser.mockReset();
+    userAccountService.editShopUser.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -189,6 +191,7 @@ describe('UsersEffects', () => {
           email: 'owner@test.com',
           phoneNumber: '+15551234567',
           role: 'Owner',
+          isLoginEnabled: true,
         },
       ])
     );
@@ -207,6 +210,7 @@ describe('UsersEffects', () => {
             email: 'owner@test.com',
             phoneNumber: '+15551234567',
             role: 'Owner',
+            isLoginEnabled: true,
           },
         ],
       })
@@ -223,6 +227,7 @@ describe('UsersEffects', () => {
     actions$.next(
       UsersActions.addShopUserRequested({
         payload: {
+          shopIds: ['shop-1'],
           firstName: 'Sales',
           lastName: 'Rep',
           phoneNumber: '+15557654321',

@@ -57,6 +57,20 @@ h1 {
   font-size: 0.8rem;
 }
 
+.status-pill {
+  display: inline-block;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.status-pill.disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .empty-state {
   padding: 2rem;
   text-align: center;

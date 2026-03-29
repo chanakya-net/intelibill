@@ -48,6 +48,7 @@ describe('usersReducer', () => {
             email: 'owner@test.com',
             phoneNumber: '+15551234567',
             role: 'Owner',
+            isLoginEnabled: true,
           },
         ],
       })
@@ -178,6 +179,7 @@ describe('usersReducer', () => {
           email: null,
           phoneNumber: '+15557654321',
           role: 'SalesPerson',
+          isLoginEnabled: true,
         },
       })
     );
@@ -186,6 +188,47 @@ describe('usersReducer', () => {
     expect(next.lastMutationType).toBe('add-shop-user');
     expect(next.lastMutationSucceeded).toBe(true);
     expect(next.shopUsers).toHaveLength(1);
+  });
+
+  it('replaces matching user when edit shop user succeeds', () => {
+    const state: UsersState = {
+      ...initialState,
+      shopUsers: [
+        {
+          userId: 'u2',
+          firstName: 'Sales',
+          lastName: 'Rep',
+          email: null,
+          phoneNumber: '+15557654321',
+          role: 'SalesPerson',
+          isLoginEnabled: true,
+        },
+      ],
+      submitting: true,
+      lastMutationType: 'edit-shop-user',
+      lastMutationSucceeded: false,
+    };
+
+    const next = usersReducer(
+      state,
+      UsersActions.editShopUserSucceeded({
+        user: {
+          userId: 'u2',
+          firstName: 'Sales',
+          lastName: 'User',
+          email: null,
+          phoneNumber: '+15557654321',
+          role: 'Manager',
+          isLoginEnabled: false,
+        },
+      })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.lastMutationType).toBe('edit-shop-user');
+    expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.shopUsers[0].role).toBe('Manager');
+    expect(next.shopUsers[0].isLoginEnabled).toBe(false);
   });
 
   it('clears only error message on clearError', () => {

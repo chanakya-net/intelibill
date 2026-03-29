@@ -6,6 +6,11 @@ internal sealed class AddShopUserCommandValidator : AbstractValidator<AddShopUse
 {
     public AddShopUserCommandValidator()
     {
+        RuleFor(x => x.ShopIds)
+            .NotEmpty()
+            .Must(ids => ids.Distinct().Count() == ids.Count)
+            .WithMessage("At least one unique shop must be selected.");
+
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .MaximumLength(100);

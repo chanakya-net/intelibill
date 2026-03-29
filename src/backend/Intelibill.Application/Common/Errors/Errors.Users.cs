@@ -11,5 +11,8 @@ public static partial class Errors
 
         public static Error UserAlreadyMember =>
             Error.Conflict("Users.UserAlreadyMember", "This user is already a member of the active shop.");
+
+        public static Error CannotModifyOwner =>
+            Error.Forbidden("Users.CannotModifyOwner", "Owner accounts cannot be modified from this endpoint.");
     }
 }

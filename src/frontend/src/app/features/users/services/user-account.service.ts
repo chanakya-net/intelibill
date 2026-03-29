@@ -26,15 +26,25 @@ export interface ShopUser {
   readonly email: string | null;
   readonly phoneNumber: string | null;
   readonly role: string;
+  readonly isLoginEnabled: boolean;
 }
 
 export interface AddShopUserRequest {
+  readonly shopIds: readonly string[];
   readonly firstName: string;
   readonly lastName: string;
   readonly phoneNumber: string;
   readonly password: string;
   readonly confirmPassword: string;
   readonly role: 'Manager' | 'SalesPerson';
+}
+
+export interface EditShopUserRequest {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phoneNumber: string;
+  readonly role: 'Manager' | 'SalesPerson';
+  readonly isLoginEnabled: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -61,5 +71,9 @@ export class UserAccountService {
 
   addShopUser(payload: AddShopUserRequest): Observable<ShopUser> {
     return this.http.post<ShopUser>(USER_ENDPOINTS.add, payload);
+  }
+
+  editShopUser(userId: string, payload: EditShopUserRequest): Observable<ShopUser> {
+    return this.http.put<ShopUser>(USER_ENDPOINTS.update(userId), payload);
   }
 }

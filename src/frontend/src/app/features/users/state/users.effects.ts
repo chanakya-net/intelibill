@@ -84,6 +84,24 @@ export class UsersEffects {
     )
   );
 
+  readonly editShopUser$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.editShopUserRequested),
+      switchMap(({ userId, payload }) =>
+        this.userAccountService.editShopUser(userId, payload).pipe(
+          map((user) => UsersActions.editShopUserSucceeded({ user })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              UsersActions.editShopUserFailed({
+                errorMessage: getEditShopUserErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   readonly reloadShopUsersAfterShopSwitch$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded),
@@ -156,4 +174,30 @@ function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string 
   }
 
   return 'Unable to add shop user right now. Please try again.';
+}
+
+function getEditShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  if (title === 'Shop.UserIsNotOwner') {
+    return 'Only owner can edit users for this shop.';
+  }
+
+  if (title === 'Users.CannotModifyOwner') {
+    return 'Owner account cannot be modified from this screen.';
+  }
+
+  if (title === 'Auth.PhoneAlreadyInUse') {
+    return 'This mobile number is already used by another account.';
+  }
+
+  if (title === 'Users.RoleNotSupported') {
+    return 'Role must be Manager or Sales Person.';
+  }
+
+  if (error?.detail) {
+    return error.detail;
+  }
+
+  return 'Unable to update user right now. Please try again.';
 }
