@@ -55,8 +55,7 @@ jobs:
               --configuration Debug \
               --verbosity normal \
               --logger "trx;LogFileName=${project_name}.trx" \
-              --results-directory "${project_results_dir}" \
-              --collect:"XPlat Code Coverage"
+              --results-directory "${project_results_dir}"
           done
 
       - name: Generate badge data
@@ -71,17 +70,10 @@ jobs:
             exit 1
           fi
 
-          rows_file=.github/badges/tests-by-project-table.md
-          {
-            echo '| Project | Tests Passed | Failed | Coverage |'
-            echo '|---|---:|---:|---:|'
-          } > "${rows_file}"
-
           total_tests=0
           passed_tests=0
           failed_tests=0
           skipped_tests=0
-          coverage_reports=()
 
           for project in "${test_projects[@]}"; do
             project_name=$(basename "${project}" .csproj)
@@ -106,53 +98,7 @@ jobs:
             passed_tests=$((passed_tests + passed))
             failed_tests=$((failed_tests + failed))
             skipped_tests=$((skipped_tests + skipped))
-
-            coverage_file=$(find "TestResults/${project_name}" -type f -name 'coverage.cobertura.xml' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2- || true)
-            project_coverage='0.0'
-
-            if [ -n "${coverage_file}" ]; then
-              coverage_reports+=("${coverage_file}")
-
-              lines_valid=$(grep -oP 'lines-valid="\K[0-9]+' "${coverage_file}" | head -1 || true)
-              lines_covered=$(grep -oP 'lines-covered="\K[0-9]+' "${coverage_file}" | head -1 || true)
-              lines_valid=${lines_valid:-0}
-              lines_covered=${lines_covered:-0}
-
-              if [ "${lines_valid}" -gt 0 ]; then
-                project_coverage=$(awk -v c="${lines_covered}" -v v="${lines_valid}" 'BEGIN { printf "%.1f", (c/v)*100 }')
-              else
-                line_rate=$(grep -oP 'line-rate="\K[0-9.]+(?=")' "${coverage_file}" | head -1 || true)
-                if [ -n "${line_rate}" ]; then
-                  project_coverage=$(awk -v r="${line_rate}" 'BEGIN { printf "%.1f", r*100 }')
-                fi
-              fi
-            fi
-
-            printf '| %s | %s/%s | %s | %s%% |\n' "${project_name}" "${passed}" "${total}" "${failed}" "${project_coverage}" >> "${rows_file}"
           done
-
-          if [ ${#coverage_reports[@]} -gt 0 ]; then
-            mkdir -p .tools
-            if [ ! -x .tools/reportgenerator ]; then
-              dotnet tool install dotnet-reportgenerator-globaltool --tool-path .tools > /dev/null
-            fi
-
-            reports_arg=$(IFS=';'; echo "${coverage_reports[*]}")
-            rm -rf .tmp/coverage-merged
-
-            ./.tools/reportgenerator \
-              "-reports:${reports_arg}" \
-              "-targetdir:.tmp/coverage-merged" \
-              "-reporttypes:JsonSummary" > /dev/null
-
-            coverage_pct=$(grep -oP '"linecoverage"\s*:\s*\K[0-9.]+' .tmp/coverage-merged/Summary.json | head -1 || true)
-            coverage_pct=${coverage_pct:-0.0}
-            coverage_pct=$(awk -v p="${coverage_pct}" 'BEGIN { printf "%.1f", p }')
-          else
-            coverage_pct='0.0'
-          fi
-
-          printf '| **Total** | **%s/%s** | **%s** | **%s%%** |\n' "${passed_tests}" "${total_tests}" "${failed_tests}" "${coverage_pct}" >> "${rows_file}"
 
           tests_color="red"
           if [ "${total_tests}" -eq 0 ]; then
@@ -169,26 +115,6 @@ jobs:
             "label": "tests",
             "message": "${passed_tests}/${total_tests} passed",
             "color": "${tests_color}"
-          }
-          JSON
-
-          coverage_color="red"
-          if awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 80) }'; then
-            coverage_color="brightgreen"
-          elif awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 60) }'; then
-            coverage_color="yellow"
-          elif awk -v p="${coverage_pct}" 'BEGIN { exit !(p > 0) }'; then
-            coverage_color="orange"
-          else
-            coverage_color="lightgrey"
-          fi
-
-          cat > .github/badges/coverage.json <<JSON
-          {
-            "schemaVersion": 1,
-            "label": "coverage",
-            "message": "${coverage_pct}%",
-            "color": "${coverage_color}"
           }
           JSON
 
@@ -245,37 +171,18 @@ jobs:
           }
 
           make_badge_svg "tests" "${passed_tests}/${total_tests} passed" "$(to_hex_color "${tests_color}")" ".github/badges/tests.svg"
-          make_badge_svg "coverage" "${coverage_pct}%" "$(to_hex_color "${coverage_color}")" ".github/badges/coverage.svg"
-
-          awk -v table_file="${rows_file}" '
-            $0=="<!-- TEST_BREAKDOWN_START -->" {
-              print;
-              while ((getline line < table_file) > 0) print line;
-              close(table_file);
-              in_block=1;
-              next;
-            }
-            $0=="<!-- TEST_BREAKDOWN_END -->" {
-              in_block=0;
-              print;
-              next;
-            }
-            !in_block { print; }
-          ' README.md > README.md.tmp
-
-          mv README.md.tmp README.md
 
       - name: Commit badge updates
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- .github/badges/tests.json .github/badges/coverage.json .github/badges/tests.svg .github/badges/coverage.svg README.md; then
+          if git diff --quiet -- .github/badges/tests.json .github/badges/tests.svg; then
             echo 'No badge changes to commit.'
             exit 0
           fi
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/badges/tests.json .github/badges/coverage.json .github/badges/tests.svg .github/badges/coverage.svg README.md
-          git commit -m 'ci: update test and coverage badges'
+          git add .github/badges/tests.json .github/badges/tests.svg
+          git commit -m 'ci: update test badges'
           git push
