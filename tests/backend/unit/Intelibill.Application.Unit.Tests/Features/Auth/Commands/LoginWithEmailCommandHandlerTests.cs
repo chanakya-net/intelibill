@@ -60,7 +60,7 @@ public class LoginWithEmailCommandHandlerTests
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
-        _tokenService.GenerateAccessToken(user).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         var refreshToken = Domain.Entities.RefreshToken.Create(user.Id, "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(user.Id).Returns(refreshToken);

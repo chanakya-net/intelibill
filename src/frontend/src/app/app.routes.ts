@@ -33,6 +33,20 @@ export const routes: Routes = [
 			provideState(usersFeature),
 			provideEffects(ShopsEffects, UsersEffects),
 		],
+		children: [
+			{
+				path: 'users',
+				loadComponent: () =>
+					import('./features/users/pages/users-page.component').then(
+						(m) => m.UsersPageComponent
+					),
+			},
+			{
+				path: '',
+				pathMatch: 'full',
+				redirectTo: 'users',
+			},
+		],
 	},
 	{
 		path: '**',

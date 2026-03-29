@@ -1,8 +1,8 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { ChangeMyPasswordRequest, UpdateMyProfileRequest } from '../services/user-account.service';
+import { AddShopUserRequest, ChangeMyPasswordRequest, ShopUser, UpdateMyProfileRequest } from '../services/user-account.service';
 
-export type UserMutationType = 'update-profile' | 'change-password';
+export type UserMutationType = 'update-profile' | 'change-password' | 'add-shop-user';
 
 export const UsersActions = createActionGroup({
   source: 'Users',
@@ -14,6 +14,14 @@ export const UsersActions = createActionGroup({
     'Change Password Requested': props<{ payload: ChangeMyPasswordRequest }>(),
     'Change Password Succeeded': emptyProps(),
     'Change Password Failed': props<{ errorMessage: string }>(),
+
+    'Load Shop Users Requested': emptyProps(),
+    'Load Shop Users Succeeded': props<{ users: readonly ShopUser[] }>(),
+    'Load Shop Users Failed': props<{ errorMessage: string }>(),
+
+    'Add Shop User Requested': props<{ payload: AddShopUserRequest }>(),
+    'Add Shop User Succeeded': props<{ user: ShopUser }>(),
+    'Add Shop User Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

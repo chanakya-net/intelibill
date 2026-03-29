@@ -1,0 +1,59 @@
+<section class="users-page">
+  <header class="users-header">
+    <div>
+      <p class="eyebrow">Team Access</p>
+      <h1>Shop Users</h1>
+      <p class="subtitle">View all members in the active shop and manage role assignments.</p>
+    </div>
+
+    <button
+      pButton
+      type="button"
+      label="Add User"
+      icon="pi pi-user-plus"
+      *ngIf="canAddUsers()"
+      (click)="onOpenAddUser()"
+    ></button>
+  </header>
+
+  <p class="error" *ngIf="serverError()">{{ serverError() }}</p>
+
+  <div class="loading" *ngIf="isLoading()">
+    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+  </div>
+
+  <div class="users-table-card" *ngIf="!isLoading()">
+    <table *ngIf="users().length > 0; else noUsersState">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Mobile</th>
+          <th>Email</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users()">
+          <td>{{ user.firstName }} {{ user.lastName }}</td>
+          <td>{{ user.phoneNumber || '-' }}</td>
+          <td>{{ user.email || '-' }}</td>
+          <td>
+            <span class="role-pill">{{ getRoleLabel(user.role) }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ng-template #noUsersState>
+      <div class="empty-state">
+        <h2>No users found</h2>
+        <p>Start by adding a manager or sales person for this shop.</p>
+      </div>
+    </ng-template>
+  </div>
+
+  <app-add-shop-user-overlay
+    *ngIf="showAddUserOverlay()"
+    (closeRequested)="onCloseAddUser()"
+  ></app-add-shop-user-overlay>
+</section>

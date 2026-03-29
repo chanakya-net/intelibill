@@ -1,0 +1,104 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255, 190, 120, 0.35), rgba(22, 18, 12, 0.5));
+  backdrop-filter: blur(2px);
+}
+
+.overlay-card {
+  position: relative;
+  margin: 5vh auto;
+  width: min(640px, calc(100vw - 2rem));
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: #fffdf8;
+  padding: 1.25rem;
+  box-shadow: 0 24px 50px rgba(24, 24, 27, 0.2);
+}
+
+.overlay-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+
+h2 {
+  margin: 0.3rem 0 0;
+  font-size: 1.4rem;
+  color: #1c1917;
+}
+
+.description {
+  margin: 0.25rem 0 0;
+  color: #57534e;
+  font-size: 0.92rem;
+}
+
+.close-button {
+  border: 0;
+  background: transparent;
+  color: #57534e;
+  cursor: pointer;
+}
+
+.overlay-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+label span {
+  font-size: 0.82rem;
+  color: #57534e;
+}
+
+select {
+  border-radius: 0.6rem;
+  border: 1px solid #d6d3d1;
+  background: white;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.error-message {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+.submit-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.72);
+}

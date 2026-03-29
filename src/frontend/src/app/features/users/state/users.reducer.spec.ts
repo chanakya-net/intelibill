@@ -26,8 +26,41 @@ describe('usersReducer', () => {
     expect(next.lastMutationSucceeded).toBe(false);
   });
 
+  it('sets loading state when shop users load is requested', () => {
+    const next = usersReducer(initialState, UsersActions.loadShopUsersRequested());
+
+    expect(next.loadingShopUsers).toBe(true);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('stores users when shop users load succeeds', () => {
+    const next = usersReducer(
+      {
+        ...initialState,
+        loadingShopUsers: true,
+      },
+      UsersActions.loadShopUsersSucceeded({
+        users: [
+          {
+            userId: 'u1',
+            firstName: 'Owner',
+            lastName: 'User',
+            email: 'owner@test.com',
+            phoneNumber: '+15551234567',
+            role: 'Owner',
+          },
+        ],
+      })
+    );
+
+    expect(next.loadingShopUsers).toBe(false);
+    expect(next.shopUsers).toHaveLength(1);
+  });
+
   it('sets success state when update profile succeeds', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: true,
       errorMessage: 'Old error',
       lastMutationType: 'update-profile',
@@ -44,6 +77,8 @@ describe('usersReducer', () => {
 
   it('sets failed state when update profile fails', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: true,
       errorMessage: '',
       lastMutationType: 'update-profile',
@@ -85,6 +120,8 @@ describe('usersReducer', () => {
 
   it('sets success state when change password succeeds', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: true,
       errorMessage: 'Old error',
       lastMutationType: 'change-password',
@@ -101,6 +138,8 @@ describe('usersReducer', () => {
 
   it('sets failed state when change password fails', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: true,
       errorMessage: '',
       lastMutationType: 'change-password',
@@ -120,8 +159,39 @@ describe('usersReducer', () => {
     expect(next.lastMutationSucceeded).toBe(false);
   });
 
+  it('appends user when add shop user succeeds', () => {
+    const state: UsersState = {
+      ...initialState,
+      shopUsers: [],
+      submitting: true,
+      lastMutationType: 'add-shop-user',
+      lastMutationSucceeded: false,
+    };
+
+    const next = usersReducer(
+      state,
+      UsersActions.addShopUserSucceeded({
+        user: {
+          userId: 'u2',
+          firstName: 'Sales',
+          lastName: 'Rep',
+          email: null,
+          phoneNumber: '+15557654321',
+          role: 'SalesPerson',
+        },
+      })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.lastMutationType).toBe('add-shop-user');
+    expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.shopUsers).toHaveLength(1);
+  });
+
   it('clears only error message on clearError', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: false,
       errorMessage: 'Any error',
       lastMutationType: 'update-profile',
@@ -137,6 +207,8 @@ describe('usersReducer', () => {
 
   it('clears mutation status on clearMutationStatus', () => {
     const state: UsersState = {
+      shopUsers: [],
+      loadingShopUsers: false,
       submitting: false,
       errorMessage: '',
       lastMutationType: 'change-password',

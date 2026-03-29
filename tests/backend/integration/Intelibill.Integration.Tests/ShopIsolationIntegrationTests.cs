@@ -55,7 +55,7 @@ public class ShopIsolationIntegrationTests
         user.AddShopMembership(firstMembership);
 
         var secondShop = CreateTestShop("Second", "560002");
-        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
+        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Owner, false);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);
 
@@ -72,10 +72,38 @@ public class ShopIsolationIntegrationTests
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         var activeShopClaim = jwt.Claims.FirstOrDefault(c => c.Type == "active_shop_id")?.Value;
+        var activeRoleClaim = jwt.Claims.FirstOrDefault(c => c.Type == "active_shop_role")?.Value;
         Assert.Equal(secondShop.Id.ToString(), activeShopClaim);
+        Assert.Equal("Owner", activeRoleClaim);
 
         Assert.Single(refreshTokenRepository.AddedTokens);
         Assert.True(unitOfWork.SaveChangesCalled);
+    }
+
+    [Fact]
+    public async Task SwitchActiveShop_WhenTargetRoleIsNotOwner_ReturnsOwnerOnlyError()
+    {
+        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        var firstShop = CreateTestShop("First");
+        var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
+        firstShop.AddMembership(firstMembership);
+        user.AddShopMembership(firstMembership);
+
+        var secondShop = CreateTestShop("Second", "560002");
+        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
+        secondShop.AddMembership(secondMembership);
+        user.AddShopMembership(secondMembership);
+
+        var tokenService = BuildTokenService();
+        var userRepository = new InMemoryUserRepository(user);
+        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
+        var unitOfWork = new InMemoryUnitOfWork();
+
+        var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
+        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwnerForSwitch.Code);
     }
 
     [Fact]

@@ -30,8 +30,8 @@ public sealed class LoginWithEmailCommandHandler(
         if (user is null || user.PasswordHash is null || !passwordHasher.Verify(command.Password, user.PasswordHash))
             return Errors.Auth.InvalidCredentials;
 
-        var (activeShopId, shops) = AuthShopSelection.Resolve(user);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId);
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
+        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

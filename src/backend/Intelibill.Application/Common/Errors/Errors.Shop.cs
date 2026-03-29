@@ -35,5 +35,11 @@ public static partial class Errors
 
         public static Error UserIsNotOwner =>
             Error.Forbidden("Shop.UserIsNotOwner", "Only the shop owner can update shop details.");
+
+        public static Error UserIsNotOwnerForSwitch =>
+            Error.Forbidden("Shop.UserIsNotOwnerForSwitch", "Only the shop owner can change the active shop.");
+
+        public static Error ActiveShopNotSelected =>
+            Error.Validation("Shop.ActiveShopNotSelected", "No active shop is selected for this session.");
     }
 }

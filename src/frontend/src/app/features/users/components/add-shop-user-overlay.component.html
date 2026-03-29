@@ -1,0 +1,65 @@
+<section class="overlay" aria-modal="true" role="dialog" aria-label="Add user to shop">
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">Shop Users</p>
+        <h2>Add User</h2>
+        <p class="description">Create a manager or sales person for the active shop.</p>
+      </div>
+      <button type="button" class="close-button" aria-label="Close" (click)="onClose()">
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>First Name</span>
+        <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
+      </label>
+
+      <label>
+        <span>Last Name</span>
+        <input pInputText type="text" formControlName="lastName" autocomplete="family-name" />
+      </label>
+
+      <label>
+        <span>Mobile Number</span>
+        <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />
+      </label>
+
+      <label>
+        <span>Password</span>
+        <p-password formControlName="password" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
+      </label>
+
+      <label>
+        <span>Confirm Password</span>
+        <p-password formControlName="confirmPassword" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
+      </label>
+
+      <label>
+        <span>Role</span>
+        <select formControlName="role">
+          <option value="Manager">Manager</option>
+          <option value="SalesPerson">Sales Person</option>
+        </select>
+      </label>
+
+      <p class="error-message" *ngIf="serverError()">{{ serverError() }}</p>
+      <p class="error-message" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
+        Password and confirm password must match.
+      </p>
+
+      <div class="actions">
+        <button pButton type="button" label="Cancel" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
+        <button pButton type="submit" label="Add User" [disabled]="isSubmitting()"></button>
+      </div>
+    </form>
+
+    <div class="submit-overlay" *ngIf="isSubmitting()">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  </div>
+</section>

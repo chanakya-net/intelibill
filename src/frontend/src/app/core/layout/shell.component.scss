@@ -30,6 +30,27 @@ a.is-active {
   }
 }
 
+.users-nav-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.9), rgba(254, 215, 170, 0.75));
+  color: #9a3412;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.45rem 0.72rem;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-nav-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(194, 65, 12, 0.15);
+}
+
 .active-shop-trigger {
   display: inline-flex;
   align-items: center;

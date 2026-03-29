@@ -4,14 +4,14 @@ namespace Intelibill.Application.Features.Auth.DTOs;
 
 internal static class AuthShopSelection
 {
-    public static (Guid? ActiveShopId, IReadOnlyList<UserShopDto> Shops) Resolve(User user, Guid? preferredShopId = null)
+    public static (Guid? ActiveShopId, string? ActiveShopRole, IReadOnlyList<UserShopDto> Shops) Resolve(User user, Guid? preferredShopId = null)
     {
         var memberships = user.ShopMemberships
             .Where(sm => sm.Shop is not null)
             .ToList();
 
         if (memberships.Count == 0)
-            return (null, []);
+            return (null, null, []);
 
         if (memberships.Count == 1 && !memberships[0].IsDefault)
             memberships[0].SetDefault(true);
@@ -41,6 +41,6 @@ internal static class AuthShopSelection
                 sm.LastUsedAt))
             .ToList();
 
-        return (activeMembership.ShopId, shops);
+        return (activeMembership.ShopId, activeMembership.Role.ToString(), shops);
     }
 }
