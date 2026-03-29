@@ -12,7 +12,6 @@
 | Build Pass Status | [![Backend Build](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
 | Test Pass Status | [![Backend Tests](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=tests)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) |
 | Tests Run (Latest) | ![Tests Run](.github/badges/tests.svg) |
-| Coverage (Latest) | ![Coverage](.github/badges/coverage.svg) |
 
 </div>
 
@@ -24,12 +23,35 @@
 |---|---|
 | Frontend Build Status | [![Frontend Main CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/frontend-main-ci.yml?branch=main&label=frontend%20build)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
 | Frontend Tests (Latest) | ![Frontend Tests](.github/badges/frontend-tests.svg) |
-| Frontend Coverage (Latest) | ![Frontend Coverage](.github/badges/frontend-coverage.svg) |
 
 </div>
 
 </div>
 
+<<<<<<< ours
+||||||| ancestor
+## Test Results
+
+### Backend Test Cases
+
+<!-- TEST_BREAKDOWN_START -->
+| Project | Tests Passed | Failed | Coverage |
+|---|---:|---:|---:|
+| Intelibill.Integration.Tests | 15/15 | 0 | 22.6% |
+| Intelibill.Api.Unit.Tests | 62/62 | 0 | 8.4% |
+| Intelibill.Application.Unit.Tests | 40/40 | 0 | 74.0% |
+| Intelibill.Domain.Unit.Tests | 25/25 | 0 | 92.2% |
+| **Total** | **142/142** | **0** | **38.0%** |
+<!-- TEST_BREAKDOWN_END -->
+
+### Frontend Test Cases
+
+<!-- FRONTEND_TEST_BREAKDOWN_START -->
+| Project | Tests | Coverage |
+|---|---|---:|
+| INVENTORY | 67/67 passed | 100.0% |
+<!-- FRONTEND_TEST_BREAKDOWN_END -->
+=======
 ## Test Results
 
 ### Backend Test Cases
@@ -51,6 +73,7 @@
 |---|---|---:|
 | INVENTORY | 66/66 passed | 100.0% |
 <!-- FRONTEND_TEST_BREAKDOWN_END -->
+>>>>>>> theirs
 
 # intelibill
 

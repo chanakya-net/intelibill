@@ -42,12 +42,11 @@ jobs:
       - name: Build frontend application
         run: bun run build
 
-      - name: Run frontend tests with coverage
+      - name: Run frontend tests
         run: |
           set -euo pipefail
           mkdir -p ../../TestResults/frontend
-          rm -rf coverage
-          CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../TestResults/frontend/test-output.log
+          CI=true FORCE_COLOR=0 bun run test --watch=false 2>&1 | tee ../../TestResults/frontend/test-output.log
           # Strip ANSI escape codes so downstream parsing is deterministic.
           sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../TestResults/frontend/test-output.log > ../../TestResults/frontend/test-output.clean.log
 
@@ -92,39 +91,7 @@ jobs:
 
           tests_message="${tests_passed}/${tests_total} passed"
 
-          coverage_file='src/frontend/coverage/INVENTORY/clover.xml'
-          coverage_pct='0.0'
-
-          if [ ! -f "${coverage_file}" ]; then
-            echo "Expected coverage report not found: ${coverage_file}"
-            exit 1
-          fi
-
-          metrics_line=$(grep -m1 '<metrics ' "${coverage_file}" || true)
-          statements=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*statements="\([0-9][0-9]*\)".*/\1/p')
-          covered=$(printf '%s\n' "${metrics_line}" | sed -n 's/.*coveredstatements="\([0-9][0-9]*\)".*/\1/p')
-          statements=${statements:-0}
-          covered=${covered:-0}
-
-          if [ "${statements}" -gt 0 ]; then
-            coverage_pct=$(awk -v c="${covered}" -v s="${statements}" 'BEGIN { printf "%.1f", (c/s)*100 }')
-          else
-            echo "Coverage metrics are invalid in ${coverage_file} (statements=${statements}, covered=${covered})."
-            exit 1
-          fi
-
-          echo "Frontend CI parse summary: tests=${tests_message}, test_files_total=${test_files_total}, coverage_file=${coverage_file}, coverage=${coverage_pct}%"
-
-          coverage_color='red'
-          if awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 80) }'; then
-            coverage_color='brightgreen'
-          elif awk -v p="${coverage_pct}" 'BEGIN { exit !(p >= 60) }'; then
-            coverage_color='yellow'
-          elif awk -v p="${coverage_pct}" 'BEGIN { exit !(p > 0) }'; then
-            coverage_color='orange'
-          else
-            coverage_color='lightgrey'
-          fi
+          echo "Frontend CI parse summary: tests=${tests_message}, test_files_total=${test_files_total}"
 
           cat > .github/badges/frontend-tests.json <<JSON
           {
@@ -132,15 +99,6 @@ jobs:
             "label": "frontend tests",
             "message": "${tests_message}",
             "color": "${tests_color}"
-          }
-          JSON
-
-          cat > .github/badges/frontend-coverage.json <<JSON
-          {
-            "schemaVersion": 1,
-            "label": "frontend coverage",
-            "message": "${coverage_pct}%",
-            "color": "${coverage_color}"
           }
           JSON
 
@@ -197,45 +155,19 @@ jobs:
           }
 
           make_badge_svg 'frontend tests' "${tests_message}" "$(to_hex_color "${tests_color}")" '.github/badges/frontend-tests.svg'
-          make_badge_svg 'frontend coverage' "${coverage_pct}%" "$(to_hex_color "${coverage_color}")" '.github/badges/frontend-coverage.svg'
-
-          rows_file=.github/badges/frontend-tests-table.md
-          {
-            echo '| Project | Tests | Coverage |'
-            echo '|---|---|---:|'
-            printf '| INVENTORY | %s | %s%% |\n' "${tests_message}" "${coverage_pct}"
-          } > "${rows_file}"
-
-          awk -v table_file="${rows_file}" '
-            $0=="<!-- FRONTEND_TEST_BREAKDOWN_START -->" {
-              print;
-              while ((getline line < table_file) > 0) print line;
-              close(table_file);
-              in_block=1;
-              next;
-            }
-            $0=="<!-- FRONTEND_TEST_BREAKDOWN_END -->" {
-              in_block=0;
-              print;
-              next;
-            }
-            !in_block { print; }
-          ' README.md > README.md.tmp
-
-          mv README.md.tmp README.md
 
       - name: Commit frontend badge updates
         working-directory: .
         run: |
           set -euo pipefail
 
-          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json .github/badges/frontend-coverage.json .github/badges/frontend-tests.svg .github/badges/frontend-coverage.svg README.md)" ]; then
+          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json .github/badges/frontend-tests.svg)" ]; then
             echo 'No frontend badge changes to commit.'
             exit 0
           fi
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/badges/frontend-tests.json .github/badges/frontend-coverage.json .github/badges/frontend-tests.svg .github/badges/frontend-coverage.svg README.md
-          git commit -m 'ci: update frontend test and coverage badges'
+          git add .github/badges/frontend-tests.json .github/badges/frontend-tests.svg
+          git commit -m 'ci: update frontend test badges'
           git push

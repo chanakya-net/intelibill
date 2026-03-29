@@ -1,5 +1,5 @@
 import { APP_INITIALIZER, ApplicationConfig, inject, provideBrowserGlobalErrorListeners, isDevMode } from '@angular/core';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { definePreset } from '@primeuix/themes';
@@ -43,7 +43,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([httpLoadingInterceptor, authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([httpLoadingInterceptor, authInterceptor])),
     providePrimeNG({
       ripple: true,
       theme: {
