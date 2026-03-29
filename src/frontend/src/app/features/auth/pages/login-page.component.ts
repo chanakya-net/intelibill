@@ -45,7 +45,7 @@ export class LoginPageComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      void this.router.navigateByUrl('/overview');
+      void this.router.navigateByUrl('/');
       return;
     }
 
@@ -68,7 +68,7 @@ export class LoginPageComponent implements OnInit {
 
     this.authService.loginWithEmail(email.trim(), password, rememberMe).subscribe({
       next: () => {
-        void this.router.navigateByUrl('/overview');
+        void this.router.navigateByUrl('/');
       },
       error: (error: { error?: ApiErrorPayload }) => {
         this.serverError.set(getAuthErrorMessage(error.error));

@@ -4,8 +4,6 @@ import { provideState } from '@ngrx/store';
 
 import { authGuard } from './core/guards/auth.guard';
 import { ShellComponent } from './core/layout/shell.component';
-import { operationsFeature } from './features/operations/state/operations.feature';
-import { overviewFeature } from './features/overview/state/overview.feature';
 import { ShopsEffects } from './features/shops/state/shops.effects';
 import { shopsFeature } from './features/shops/state/shops.reducer';
 import { UsersEffects } from './features/users/state/users.effects';
@@ -34,29 +32,6 @@ export const routes: Routes = [
 			provideState(shopsFeature),
 			provideState(usersFeature),
 			provideEffects(ShopsEffects, UsersEffects),
-		],
-		children: [
-			{
-				path: '',
-				pathMatch: 'full',
-				redirectTo: 'overview',
-			},
-			{
-				path: 'overview',
-				providers: [provideState(overviewFeature)],
-				loadComponent: () =>
-					import('./features/overview/pages/overview-page.component').then(
-						(m) => m.OverviewPageComponent
-					),
-			},
-			{
-				path: 'operations',
-				providers: [provideState(operationsFeature)],
-				loadComponent: () =>
-					import('./features/operations/pages/operations-page.component').then(
-						(m) => m.OperationsPageComponent
-					),
-			},
 		],
 	},
 	{

@@ -36,7 +36,7 @@ export class RegisterEffects {
       this.actions$.pipe(
         ofType(RegisterActions.succeeded),
         tap(() => {
-          void this.router.navigateByUrl('/overview');
+          void this.router.navigateByUrl('/');
         })
       ),
     { dispatch: false }

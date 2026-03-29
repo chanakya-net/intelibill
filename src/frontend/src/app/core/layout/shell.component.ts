@@ -1,10 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-
-import { TagModule } from 'primeng/tag';
-import { ButtonModule } from 'primeng/button';
+import { RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
 import { UserShop } from '../auth/auth.models';
@@ -22,10 +19,6 @@ import { ChangePasswordOverlayComponent } from '../../features/users/components/
   imports: [
     CommonModule,
     RouterOutlet,
-    RouterLink,
-    RouterLinkActive,
-    TagModule,
-    ButtonModule,
     CreateShopOverlayComponent,
     ManageShopOverlayComponent,
     UpdateProfileOverlayComponent,

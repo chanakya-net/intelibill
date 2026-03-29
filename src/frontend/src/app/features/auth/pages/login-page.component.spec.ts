@@ -51,11 +51,11 @@ describe('LoginPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('redirects to overview on init when already authenticated', () => {
+  it('redirects to root on init when already authenticated', () => {
     authService.isAuthenticated.mockReturnValue(true);
     const { navigateByUrl } = setup();
 
-    expect(navigateByUrl).toHaveBeenCalledWith('/overview');
+    expect(navigateByUrl).toHaveBeenCalledWith('/');
   });
 
   it('prefills remembered email on init', () => {
@@ -86,7 +86,7 @@ describe('LoginPageComponent', () => {
     component.onSubmit();
 
     expect(authService.loginWithEmail).toHaveBeenCalledWith('user@example.com', 'Password123!', true);
-    expect(navigateByUrl).toHaveBeenCalledWith('/overview');
+    expect(navigateByUrl).toHaveBeenCalledWith('/');
     expect(component.serverError()).toBe('');
   });
 

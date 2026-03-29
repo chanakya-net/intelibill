@@ -39,27 +39,7 @@
         </div>
       </div>
 
-      <nav class="hidden items-center gap-2 md:flex">
-        <a
-          routerLink="/overview"
-          routerLinkActive="is-active"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-orange-100/70 hover:text-orange-900"
-        >
-          Overview
-        </a>
-        <a
-          routerLink="/operations"
-          routerLinkActive="is-active"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-orange-100/70 hover:text-orange-900"
-        >
-          Operations
-        </a>
-      </nav>
-
       <div class="relative flex items-center gap-2" #profileMenuRoot>
-        <p-tag severity="success" value="PWA Ready"></p-tag>
-        <p-tag severity="info" value="SSR + Hydration"></p-tag>
-
         <button
           type="button"
           class="profile-avatar"
@@ -74,19 +54,8 @@
           <button type="button" role="menuitem" (click)="onOpenChangePassword()">Change Password</button>
           <button type="button" role="menuitem" (click)="onOpenAddShop()">Add Shop</button>
           <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction()" (click)="onOpenManageShop()">Manage Shop</button>
+          <button type="button" role="menuitem" [disabled]="isSigningOut()" (click)="onSignOut()">Logout</button>
         </div>
-
-        <button
-          pButton
-          type="button"
-          icon="pi pi-sign-out"
-          label="Logout"
-          severity="secondary"
-          [outlined]="true"
-          [loading]="isSigningOut()"
-          [disabled]="isSigningOut()"
-          (click)="onSignOut()"
-        ></button>
       </div>
     </div>
   </header>
@@ -94,25 +63,6 @@
   <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
     <router-outlet></router-outlet>
   </main>
-
-  <nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-orange-200 bg-orange-50/90 px-3 py-2 md:hidden">
-    <div class="grid grid-cols-2 gap-2">
-      <a
-        routerLink="/overview"
-        routerLinkActive="is-active"
-        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-stone-700"
-      >
-        Overview
-      </a>
-      <a
-        routerLink="/operations"
-        routerLinkActive="is-active"
-        class="rounded-lg px-4 py-2 text-center text-sm font-medium text-stone-700"
-      >
-        Operations
-      </a>
-    </div>
-  </nav>
 
   <app-create-shop-overlay
     *ngIf="showCreateShopOverlay()"
