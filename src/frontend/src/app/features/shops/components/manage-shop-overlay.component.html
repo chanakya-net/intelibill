@@ -149,6 +149,22 @@
         </div>
       </div>
 
+      <div class="field-wrap space-y-1.5">
+        <label for="shop-gst">GST Number (Optional)</label>
+        <input
+          id="shop-gst"
+          type="text"
+          pInputText
+          formControlName="gstNumber"
+          class="w-full"
+          placeholder="Ex: 27AAPFU0939F1ZV"
+          [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
+        />
+        <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
+          Enter a valid Indian GSTIN.
+        </p>
+      </div>
+
       <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
 
       <button

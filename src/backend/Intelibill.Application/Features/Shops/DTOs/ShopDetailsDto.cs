@@ -8,4 +8,5 @@ public sealed record ShopDetailsDto(
     string State,
     string Pincode,
     string? ContactPerson,
-    string? MobileNumber);
+    string? MobileNumber,
+    string? GstNumber);

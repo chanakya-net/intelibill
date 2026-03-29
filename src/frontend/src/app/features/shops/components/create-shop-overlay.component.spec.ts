@@ -93,6 +93,7 @@ describe('CreateShopOverlayComponent', () => {
     component.form.controls.pincode.setValue('  560001  ');
     component.form.controls.contactPerson.setValue('   ');
     component.form.controls.mobileNumber.setValue('  ');
+    component.form.controls.gstNumber.setValue('');
 
     component.onSubmit();
 
@@ -108,6 +109,53 @@ describe('CreateShopOverlayComponent', () => {
           pincode: '560001',
           contactPerson: undefined,
           mobileNumber: undefined,
+          gstNumber: undefined,
+        },
+      })
+    );
+  });
+
+  it('does not submit when gstNumber is present but invalid', () => {
+    const { component } = setup();
+
+    component.form.controls.name.setValue('Main Shop');
+    component.form.controls.address.setValue('42 MG Road');
+    component.form.controls.city.setValue('Bengaluru');
+    component.form.controls.state.setValue('Karnataka');
+    component.form.controls.pincode.setValue('560001');
+    component.form.controls.gstNumber.setValue('123');
+
+    component.onSubmit();
+
+    expect(component.form.controls.gstNumber.invalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.createShopRequested.type })
+    );
+  });
+
+  it('submits when gstNumber is empty', () => {
+    const { component } = setup();
+
+    component.form.controls.name.setValue('Main Shop');
+    component.form.controls.address.setValue('42 MG Road');
+    component.form.controls.city.setValue('Bengaluru');
+    component.form.controls.state.setValue('Karnataka');
+    component.form.controls.pincode.setValue('560001');
+    component.form.controls.gstNumber.setValue('');
+
+    component.onSubmit();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.createShopRequested({
+        payload: {
+          name: 'Main Shop',
+          address: '42 MG Road',
+          city: 'Bengaluru',
+          state: 'Karnataka',
+          pincode: '560001',
+          contactPerson: undefined,
+          mobileNumber: undefined,
+          gstNumber: undefined,
         },
       })
     );

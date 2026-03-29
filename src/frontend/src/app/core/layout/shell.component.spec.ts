@@ -68,6 +68,7 @@ describe('ShellComponent', () => {
       pincode: '560001',
       contactPerson: null,
       mobileNumber: null,
+      gstNumber: null,
     },
   });
 
@@ -126,6 +127,7 @@ describe('ShellComponent', () => {
         pincode: '560001',
         contactPerson: null,
         mobileNumber: null,
+        gstNumber: null,
       },
     });
     shopsSubmittingSignal.set(false);
@@ -223,6 +225,7 @@ describe('ShellComponent', () => {
         pincode: '560001',
         contactPerson: null,
         mobileNumber: null,
+        gstNumber: null,
       },
       'shop-2': {
         shopId: 'shop-2',
@@ -233,6 +236,7 @@ describe('ShellComponent', () => {
         pincode: '110001',
         contactPerson: null,
         mobileNumber: null,
+        gstNumber: null,
       },
     });
     fixture.detectChanges();

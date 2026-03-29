@@ -8,4 +8,5 @@ public sealed record CreateShopCommand(
 	string State,
 	string Pincode,
 	string? ContactPerson,
-	string? MobileNumber);
+	string? MobileNumber,
+	string? GstNumber);

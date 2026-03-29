@@ -20,7 +20,7 @@ public class UpdateShopCommandHandlerTests
     public async Task HandleAsync_WhenUserIsOwner_UpdatesShopAndSaves()
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var shop = Shop.Create("Old", "Address", "City", "State", "560001", null, null);
+        var shop = Shop.Create("Old", "Address", "City", "State", "560001", null, null, null);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
         shop.AddMembership(membership);
         user.AddShopMembership(membership);
@@ -34,7 +34,8 @@ public class UpdateShopCommandHandlerTests
             "  Karnataka  ",
             "  560001  ",
             "  Chandra  ",
-            "  9876543210  ");
+            "  9876543210  ",
+            "  27AAPFU0939F1ZV  ");
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
@@ -56,6 +57,7 @@ public class UpdateShopCommandHandlerTests
         Assert.Equal("560001", result.Value.Pincode);
         Assert.Equal("Chandra", result.Value.ContactPerson);
         Assert.Equal("9876543210", result.Value.MobileNumber);
+        Assert.Equal("27AAPFU0939F1ZV", result.Value.GstNumber);
 
         _shopRepository.Received(1).Update(shop);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -72,6 +74,7 @@ public class UpdateShopCommandHandlerTests
             "City",
             "State",
             "560001",
+            null,
             null,
             null);
 
@@ -103,6 +106,7 @@ public class UpdateShopCommandHandlerTests
             "State",
             "560001",
             null,
+            null,
             null);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
@@ -124,7 +128,7 @@ public class UpdateShopCommandHandlerTests
     public async Task HandleAsync_WhenUserIsNotOwner_ReturnsForbidden()
     {
         var user = User.CreateWithEmail("manager@test.com", "hash", "Manager", "One");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null);
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Manager, false);
         shop.AddMembership(membership);
         user.AddShopMembership(membership);
@@ -137,6 +141,7 @@ public class UpdateShopCommandHandlerTests
             "City",
             "State",
             "560001",
+            null,
             null,
             null);
 
@@ -172,6 +177,7 @@ public class UpdateShopCommandHandlerTests
             "State",
             "560001",
             null,
+            null,
             null);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
@@ -203,6 +209,7 @@ public class UpdateShopCommandHandlerTests
             "State",
             "560001",
             null,
+            null,
             null);
 
         var handler = new UpdateShopCommandHandler(
@@ -215,6 +222,34 @@ public class UpdateShopCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal("Name", result.FirstError.Code);
+        await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenGstNumberIsInvalid_ReturnsValidationError()
+    {
+        var command = new UpdateShopCommand(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Main",
+            "Address",
+            "City",
+            "State",
+            "560001",
+            null,
+            null,
+            "123");
+
+        var handler = new UpdateShopCommandHandler(
+            BuildInvalidValidator("GstNumber", "GST number must be a valid Indian GSTIN."),
+            _userRepository,
+            _shopRepository,
+            _unitOfWork);
+
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("GstNumber", result.FirstError.Code);
         await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 

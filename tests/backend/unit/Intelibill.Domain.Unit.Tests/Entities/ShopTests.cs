@@ -15,7 +15,8 @@ public class ShopTests
             "  Karnataka  ",
             "  560001  ",
             "  Chandra  ",
-            "  9876543210  ");
+            "  9876543210  ",
+            "  27AAPFU0939F1ZV  ");
 
         Assert.Equal("Main Shop", shop.Name);
         Assert.Equal("42 MG Road", shop.Address);
@@ -24,21 +25,23 @@ public class ShopTests
         Assert.Equal("560001", shop.Pincode);
         Assert.Equal("Chandra", shop.ContactPerson);
         Assert.Equal("9876543210", shop.MobileNumber);
+        Assert.Equal("27AAPFU0939F1ZV", shop.GstNumber);
     }
 
     [Fact]
     public void Create_EmptyOptionalValues_NormalizesToNull()
     {
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", "   ", null);
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", "   ", null, "   ");
 
         Assert.Null(shop.ContactPerson);
         Assert.Null(shop.MobileNumber);
+        Assert.Null(shop.GstNumber);
     }
 
     [Fact]
     public void Rename_TrimName()
     {
-        var shop = Shop.Create("Old", "Address", "City", "State", "560001", null, null);
+        var shop = Shop.Create("Old", "Address", "City", "State", "560001", null, null, null);
 
         shop.Rename("  New Name  ");
 
@@ -48,7 +51,7 @@ public class ShopTests
     [Fact]
     public void UpdateDetails_TrimFields()
     {
-        var shop = Shop.Create("Old", "Old Address", "Old City", "Old State", "000000", null, null);
+        var shop = Shop.Create("Old", "Old Address", "Old City", "Old State", "000000", null, null, null);
 
         shop.UpdateDetails(
             "  Main Shop  ",
@@ -57,7 +60,8 @@ public class ShopTests
             "  Karnataka  ",
             "  560001  ",
             "  Chandra  ",
-            "  9876543210  ");
+            "  9876543210  ",
+            "  29ABCDE1234F2Z5  ");
 
         Assert.Equal("Main Shop", shop.Name);
         Assert.Equal("42 MG Road", shop.Address);
@@ -66,24 +70,26 @@ public class ShopTests
         Assert.Equal("560001", shop.Pincode);
         Assert.Equal("Chandra", shop.ContactPerson);
         Assert.Equal("9876543210", shop.MobileNumber);
+        Assert.Equal("29ABCDE1234F2Z5", shop.GstNumber);
     }
 
     [Fact]
     public void UpdateDetails_EmptyOptionalValues_NormalizesToNull()
     {
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", "Chandra", "123");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", "Chandra", "123", "27AAPFU0939F1ZV");
 
-        shop.UpdateDetails("Main", "Address", "City", "State", "560001", "   ", null);
+        shop.UpdateDetails("Main", "Address", "City", "State", "560001", "   ", null, "   ");
 
         Assert.Null(shop.ContactPerson);
         Assert.Null(shop.MobileNumber);
+        Assert.Null(shop.GstNumber);
     }
 
     [Fact]
     public void AddMembership_AttachesShopToMembership()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null);
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Manager, false);
 
         shop.AddMembership(membership);

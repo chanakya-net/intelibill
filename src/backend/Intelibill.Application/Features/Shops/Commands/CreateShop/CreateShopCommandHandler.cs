@@ -1,4 +1,5 @@
 using ErrorOr;
+using System.Text.RegularExpressions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -16,6 +17,11 @@ public sealed class CreateShopCommandHandler(
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
+    private static readonly Regex IndiaGstRegex = new(
+        "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(250));
+
     public async Task<ErrorOr<AuthResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command.Name))
@@ -33,6 +39,10 @@ public sealed class CreateShopCommandHandler(
         if (string.IsNullOrWhiteSpace(command.Pincode))
             return Errors.Shop.PincodeRequired;
 
+        var gstNumber = command.GstNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(gstNumber) && !IndiaGstRegex.IsMatch(gstNumber))
+            return Errors.Shop.GstNumberInvalid;
+
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
@@ -45,7 +55,8 @@ public sealed class CreateShopCommandHandler(
             command.State,
             command.Pincode,
             command.ContactPerson,
-            command.MobileNumber);
+            command.MobileNumber,
+            command.GstNumber);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
         membership.MarkUsed();
 

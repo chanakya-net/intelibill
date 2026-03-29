@@ -11,6 +11,7 @@ public sealed class Shop : BaseEntity
     public string Pincode { get; private set; } = string.Empty;
     public string? ContactPerson { get; private set; }
     public string? MobileNumber { get; private set; }
+    public string? GstNumber { get; private set; }
 
     private readonly List<ShopMembership> _memberships = [];
     public IReadOnlyList<ShopMembership> Memberships => _memberships.AsReadOnly();
@@ -24,7 +25,8 @@ public sealed class Shop : BaseEntity
         string state,
         string pincode,
         string? contactPerson,
-        string? mobileNumber)
+        string? mobileNumber,
+        string? gstNumber)
     {
         return new Shop
         {
@@ -35,6 +37,7 @@ public sealed class Shop : BaseEntity
             Pincode = pincode.Trim(),
             ContactPerson = NormalizeOptional(contactPerson),
             MobileNumber = NormalizeOptional(mobileNumber),
+            GstNumber = NormalizeOptional(gstNumber),
         };
     }
 
@@ -50,7 +53,8 @@ public sealed class Shop : BaseEntity
         string state,
         string pincode,
         string? contactPerson,
-        string? mobileNumber)
+        string? mobileNumber,
+        string? gstNumber)
     {
         Name = name.Trim();
         Address = address.Trim();
@@ -59,6 +63,7 @@ public sealed class Shop : BaseEntity
         Pincode = pincode.Trim();
         ContactPerson = NormalizeOptional(contactPerson);
         MobileNumber = NormalizeOptional(mobileNumber);
+        GstNumber = NormalizeOptional(gstNumber);
     }
 
     public void AddMembership(ShopMembership membership)

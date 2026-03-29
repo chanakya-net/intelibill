@@ -29,6 +29,7 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
             shop.State,
             shop.Pincode,
             shop.ContactPerson,
-            shop.MobileNumber);
+            shop.MobileNumber,
+            shop.GstNumber);
     }
 }

@@ -16,6 +16,8 @@ import {
   selectShopsSubmitting,
 } from '../state/shops.selectors';
 
+const INDIA_GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
+
 @Component({
   selector: 'app-create-shop-overlay',
   standalone: true,
@@ -43,6 +45,7 @@ export class CreateShopOverlayComponent implements OnInit {
     pincode: ['', [Validators.required, Validators.maxLength(16)]],
     contactPerson: ['', [Validators.maxLength(120)]],
     mobileNumber: ['', [Validators.maxLength(32)]],
+    gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
   });
 
   constructor() {
@@ -93,6 +96,7 @@ export class CreateShopOverlayComponent implements OnInit {
       pincode: this.form.controls.pincode.value.trim(),
       contactPerson: this.toOptionalValue(this.form.controls.contactPerson.value),
       mobileNumber: this.toOptionalValue(this.form.controls.mobileNumber.value),
+      gstNumber: this.toOptionalValue(this.form.controls.gstNumber.value),
     };
 
     this.store.dispatch(ShopsActions.createShopRequested({ payload }));

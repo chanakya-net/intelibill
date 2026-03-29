@@ -53,6 +53,7 @@ describe('ShopService', () => {
       pincode: '560001',
       contactPerson: null,
       mobileNumber: null,
+      gstNumber: null,
     });
 
     http.verify();
@@ -69,6 +70,7 @@ describe('ShopService', () => {
       pincode: '560001',
       contactPerson: 'Chandra',
       mobileNumber: '9876543210',
+      gstNumber: '27AAPFU0939F1ZV',
     }).subscribe((response) => {
       expect(response.shopId).toBe('shop-1');
       expect(response.address).toBe('42 MG Road');
@@ -84,6 +86,7 @@ describe('ShopService', () => {
       pincode: '560001',
       contactPerson: 'Chandra',
       mobileNumber: '9876543210',
+      gstNumber: '27AAPFU0939F1ZV',
     });
     request.flush({
       shopId: 'shop-1',
@@ -94,6 +97,7 @@ describe('ShopService', () => {
       pincode: '560001',
       contactPerson: 'Chandra',
       mobileNumber: '9876543210',
+      gstNumber: '27AAPFU0939F1ZV',
     });
 
     http.verify();
