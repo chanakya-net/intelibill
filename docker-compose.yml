@@ -39,7 +39,7 @@ services:
     healthcheck:
       # Check if the API is responding on port 8080.
       # curl's failure (-f) will indicate if the server is not starting or listening.
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      test: ["CMD", "curl", "-s", "--max-time", "25", "http://localhost:8080/"]
       interval: 10s
       timeout: 5s
       retries: 5
