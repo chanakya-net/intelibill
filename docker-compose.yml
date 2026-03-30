@@ -16,5 +16,50 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: intelibill_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Database__Host=postgres
+      - Database__Port=5432
+      - Database__Database=intelibill_dev
+      - Database__Username=intelibill
+      - Database__Password=intelibill_dev_password
+      - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
+      - Jwt__Issuer=Intelibill
+      - Jwt__Audience=Intelibill
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Check if the API is responding on port 8080.
+      # curl's failure (-f) will indicate if the server is not starting or listening.
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    container_name: intelibill_frontend
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: on-failure
+
 volumes:
   postgres_data:
+
