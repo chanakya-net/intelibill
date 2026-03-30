@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Domain.Entities;
@@ -12,7 +10,6 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Users.Commands.AddShopUser;
 
 public sealed class AddShopUserCommandHandler(
-    IValidator<AddShopUserCommand> validator,
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IPasswordHasher passwordHasher,
@@ -20,9 +17,6 @@ public sealed class AddShopUserCommandHandler(
 {
     public async Task<ErrorOr<ShopUserDto>> HandleAsync(AddShopUserCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
         if (actor is null)
             return Errors.Auth.UserNotFound;

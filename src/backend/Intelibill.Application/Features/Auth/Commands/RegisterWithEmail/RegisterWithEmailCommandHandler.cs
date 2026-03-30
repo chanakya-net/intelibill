@@ -6,13 +6,9 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
 
 public sealed class RegisterWithEmailCommandHandler(
-    IValidator<RegisterWithEmailCommand> validator,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IPasswordHasher passwordHasher,
@@ -23,9 +19,6 @@ public sealed class RegisterWithEmailCommandHandler(
         RegisterWithEmailCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         if (await userRepository.ExistsByEmailAsync(command.Email, cancellationToken))
             return Errors.Auth.EmailAlreadyInUse;
 

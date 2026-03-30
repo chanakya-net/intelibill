@@ -1,5 +1,4 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Models;
@@ -14,7 +13,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.ExternalLogin
 
 public class ExternalLoginCommandHandlerTests
 {
-    private readonly IValidator<ExternalLoginCommand> _validator = Substitute.For<IValidator<ExternalLoginCommand>>();
     private readonly IExternalAuthProvider _mockProvider = Substitute.For<IExternalAuthProvider>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
@@ -25,9 +23,7 @@ public class ExternalLoginCommandHandlerTests
     public ExternalLoginCommandHandlerTests()
     {
         _mockProvider.Provider.Returns(ExternalAuthProvider.Google);
-        _handler = new ExternalLoginCommandHandler(_validator, new[] { _mockProvider }, _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<ExternalLoginCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new ExternalLoginCommandHandler(new[] { _mockProvider }, _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
     }
 
     [Fact]
@@ -35,7 +31,7 @@ public class ExternalLoginCommandHandlerTests
     {
         var command = new ExternalLoginCommand(ExternalAuthProvider.Facebook, "token123", null, null);
         // Handler with no providers
-        var handler = new ExternalLoginCommandHandler(_validator, Array.Empty<IExternalAuthProvider>(), _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
+        var handler = new ExternalLoginCommandHandler(Array.Empty<IExternalAuthProvider>(), _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 

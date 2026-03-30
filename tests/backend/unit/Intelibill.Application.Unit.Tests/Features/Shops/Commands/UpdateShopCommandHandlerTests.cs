@@ -1,7 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
-using FluentValidation;
-using FluentValidation.Results;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -41,7 +39,6 @@ public class UpdateShopCommandHandlerTests
             .Returns(user);
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidValidator(),
             _userRepository,
             _shopRepository,
             _unitOfWork);
@@ -82,7 +79,6 @@ public class UpdateShopCommandHandlerTests
             .Returns((User?)null);
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidValidator(),
             _userRepository,
             _shopRepository,
             _unitOfWork);
@@ -113,7 +109,6 @@ public class UpdateShopCommandHandlerTests
             .Returns(user);
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidValidator(),
             _userRepository,
             _shopRepository,
             _unitOfWork);
@@ -149,7 +144,6 @@ public class UpdateShopCommandHandlerTests
             .Returns(user);
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidValidator(),
             _userRepository,
             _shopRepository,
             _unitOfWork);
@@ -186,7 +180,6 @@ public class UpdateShopCommandHandlerTests
             .Returns((Shop?)null);
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidValidator(),
             _userRepository,
             _shopRepository,
             _unitOfWork);
@@ -197,75 +190,4 @@ public class UpdateShopCommandHandlerTests
         Assert.Equal("Shop.ShopNotFound", result.FirstError.Code);
     }
 
-    [Fact]
-    public async Task HandleAsync_WhenNameIsBlank_ReturnsValidationError()
-    {
-        var command = new UpdateShopCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            "   ",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            null);
-
-        var handler = new UpdateShopCommandHandler(
-            BuildInvalidValidator("Name", "Name is required."),
-            _userRepository,
-            _shopRepository,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Name", result.FirstError.Code);
-        await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenGstNumberIsInvalid_ReturnsValidationError()
-    {
-        var command = new UpdateShopCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            "Main",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            "123");
-
-        var handler = new UpdateShopCommandHandler(
-            BuildInvalidValidator("GstNumber", "GST number must be a valid Indian GSTIN."),
-            _userRepository,
-            _shopRepository,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("GstNumber", result.FirstError.Code);
-        await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
-
-    private static IValidator<UpdateShopCommand> BuildValidValidator()
-    {
-        var validator = Substitute.For<IValidator<UpdateShopCommand>>();
-        validator.ValidateAsync(Arg.Any<UpdateShopCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new ValidationResult());
-        return validator;
-    }
-
-    private static IValidator<UpdateShopCommand> BuildInvalidValidator(string propertyName, string errorMessage)
-    {
-        var validator = Substitute.For<IValidator<UpdateShopCommand>>();
-        validator.ValidateAsync(Arg.Any<UpdateShopCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new ValidationResult([new ValidationFailure(propertyName, errorMessage)]));
-        return validator;
-    }
 }

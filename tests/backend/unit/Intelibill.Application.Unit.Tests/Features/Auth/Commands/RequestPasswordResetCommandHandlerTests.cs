@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Domain.Entities;
@@ -10,7 +9,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RequestPasswo
 
 public class RequestPasswordResetCommandHandlerTests
 {
-    private readonly IValidator<RequestPasswordResetCommand> _validator = Substitute.For<IValidator<RequestPasswordResetCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
     private readonly IEmailService _emailService = Substitute.For<IEmailService>();
@@ -19,9 +17,7 @@ public class RequestPasswordResetCommandHandlerTests
 
     public RequestPasswordResetCommandHandlerTests()
     {
-        _handler = new RequestPasswordResetCommandHandler(_validator, _userRepository, _passwordResetTokenRepository, _emailService, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<RequestPasswordResetCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new RequestPasswordResetCommandHandler(_userRepository, _passwordResetTokenRepository, _emailService, _unitOfWork);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.Commands.AddShopUser;
@@ -12,17 +11,10 @@ namespace Intelibill.Application.Unit.Tests.Features.Users.Commands.AddShopUser;
 
 public class AddShopUserCommandHandlerTests
 {
-    private readonly IValidator<AddShopUserCommand> _validator = Substitute.For<IValidator<AddShopUserCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
-
-    public AddShopUserCommandHandlerTests()
-    {
-        _validator.ValidateAsync(Arg.Any<AddShopUserCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new FluentValidation.Results.ValidationResult());
-    }
 
     [Fact]
     public async Task HandleAsync_WhenActorIsNotOwner_ReturnsForbiddenError()
@@ -36,7 +28,7 @@ public class AddShopUserCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new AddShopUserCommandHandler(_validator, _userRepository, _shopRepository, _passwordHasher, _unitOfWork);
+        var handler = new AddShopUserCommandHandler(_userRepository, _shopRepository, _passwordHasher, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -55,7 +47,7 @@ public class AddShopUserCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new AddShopUserCommandHandler(_validator, _userRepository, _shopRepository, _passwordHasher, _unitOfWork);
+        var handler = new AddShopUserCommandHandler(_userRepository, _shopRepository, _passwordHasher, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -78,7 +70,7 @@ public class AddShopUserCommandHandlerTests
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(false);
         _passwordHasher.Hash(command.Password).Returns("hashed-pass");
 
-        var handler = new AddShopUserCommandHandler(_validator, _userRepository, _shopRepository, _passwordHasher, _unitOfWork);
+        var handler = new AddShopUserCommandHandler(_userRepository, _shopRepository, _passwordHasher, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -110,7 +102,7 @@ public class AddShopUserCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);
 
-        var handler = new AddShopUserCommandHandler(_validator, _userRepository, _shopRepository, _passwordHasher, _unitOfWork);
+        var handler = new AddShopUserCommandHandler(_userRepository, _shopRepository, _passwordHasher, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);

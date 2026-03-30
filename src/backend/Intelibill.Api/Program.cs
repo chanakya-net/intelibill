@@ -77,12 +77,12 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
+// Register ValidationMiddleware - Wolverine will auto-discover BeforeAsync methods from DI
 builder.Services.AddScoped<ValidationMiddleware>();
 
 builder.Host.UseWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);
-    // ValidationMiddleware is registered as scoped - Wolverine will auto-discover its BeforeAsync method
 });
 
 var app = builder.Build();

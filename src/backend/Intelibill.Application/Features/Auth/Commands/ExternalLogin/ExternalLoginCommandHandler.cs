@@ -6,13 +6,9 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 
 public sealed class ExternalLoginCommandHandler(
-    IValidator<ExternalLoginCommand> validator,
     IEnumerable<IExternalAuthProvider> authProviders,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
@@ -23,9 +19,6 @@ public sealed class ExternalLoginCommandHandler(
         ExternalLoginCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var provider = authProviders.FirstOrDefault(p => p.Provider == command.Provider);
         if (provider is null)
             return Errors.Auth.UnsupportedProvider;

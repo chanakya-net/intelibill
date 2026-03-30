@@ -5,13 +5,9 @@ using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 
 public sealed class LoginWithEmailCommandHandler(
-    IValidator<LoginWithEmailCommand> validator,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IPasswordHasher passwordHasher,
@@ -22,9 +18,6 @@ public sealed class LoginWithEmailCommandHandler(
         LoginWithEmailCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
 
         if (user is null || user.PasswordHash is null || !passwordHasher.Verify(command.Password, user.PasswordHash))

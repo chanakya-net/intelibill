@@ -6,13 +6,9 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.ResetPassword;
 
 public sealed class ResetPasswordCommandHandler(
-    IValidator<ResetPasswordCommand> validator,
     IUserRepository userRepository,
     IPasswordResetTokenRepository passwordResetTokenRepository,
     IRefreshTokenRepository refreshTokenRepository,
@@ -23,9 +19,6 @@ public sealed class ResetPasswordCommandHandler(
         ResetPasswordCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
         if (user is null)
             return Errors.Auth.InvalidPasswordResetToken;

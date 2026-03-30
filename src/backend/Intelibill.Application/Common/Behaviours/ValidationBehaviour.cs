@@ -1,6 +1,5 @@
 using ErrorOr;
 using FluentValidation;
-using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
 
 namespace Intelibill.Application.Common.Behaviours;
@@ -26,9 +25,9 @@ public class ValidationMiddleware
         TMessage message,
         CancellationToken cancellationToken)
     {
-        // Get the validator for this message type from DI
-        using var scope = _serviceProvider.CreateScope();
-        var validator = scope.ServiceProvider.GetService(typeof(IValidator<TMessage>)) as IValidator<TMessage>;
+        // Resolve validator from the existing scoped provider — no child scope needed
+        // since this middleware is already registered as scoped per Wolverine message.
+        var validator = _serviceProvider.GetService(typeof(IValidator<TMessage>)) as IValidator<TMessage>;
         
         if (validator is null)
             return null; // No validator, continue to handler
