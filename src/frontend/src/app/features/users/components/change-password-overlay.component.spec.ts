@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { ChangePasswordOverlayComponent } from './change-password-overlay.component';
@@ -47,7 +48,7 @@ describe('ChangePasswordOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<ChangePasswordOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [ChangePasswordOverlayComponent],
+      imports: [ChangePasswordOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [{ provide: Store, useValue: store }],
     });
 

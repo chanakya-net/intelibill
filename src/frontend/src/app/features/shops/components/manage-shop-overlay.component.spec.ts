@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { UserShop } from '../../../core/auth/auth.models';
@@ -73,7 +74,7 @@ describe('ManageShopOverlayComponent', () => {
 
   function setup(): { component: ManageShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<ManageShopOverlayComponent>> } {
     TestBed.configureTestingModule({
-      imports: [ManageShopOverlayComponent],
+      imports: [ManageShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [{ provide: Store, useValue: store }],
     });
 
@@ -139,7 +140,7 @@ describe('ManageShopOverlayComponent', () => {
 
     expect(dispatch).toHaveBeenCalledWith(
       ShopsActions.updateShopFailed({
-        errorMessage: 'Only shop owners can update shop details.',
+        errorMessage: 'errors.shops.onlyOwnersCanUpdate',
       })
     );
   });

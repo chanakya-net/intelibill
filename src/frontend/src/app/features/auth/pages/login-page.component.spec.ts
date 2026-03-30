@@ -3,7 +3,9 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
+import { vi } from 'vitest';
 
 import { AuthSession } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -22,7 +24,7 @@ describe('LoginPageComponent', () => {
 
   function setup(): { component: LoginPageComponent; navigateByUrl: ReturnType<typeof vi.spyOn> } {
     TestBed.configureTestingModule({
-      imports: [LoginPageComponent, RouterTestingModule.withRoutes([])],
+      imports: [LoginPageComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
@@ -87,7 +89,7 @@ describe('LoginPageComponent', () => {
 
     expect(authService.loginWithEmail).toHaveBeenCalledWith('user@example.com', 'Password123!', true);
     expect(navigateByUrl).toHaveBeenCalledWith('/');
-    expect(component.serverError()).toBe('');
+    expect(component.serverError()).toBeNull();
   });
 
   it('maps invalid credential error into friendly message', () => {
@@ -100,6 +102,6 @@ describe('LoginPageComponent', () => {
 
     component.onSubmit();
 
-    expect(component.serverError()).toBe('The email or password is incorrect.');
+    expect(component.serverError()).toBe('errors.auth.invalidCredentials');
   });
 });

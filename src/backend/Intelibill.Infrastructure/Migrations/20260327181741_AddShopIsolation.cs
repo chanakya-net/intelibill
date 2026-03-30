@@ -80,48 +80,54 @@ namespace Intelibill.Infrastructure.Migrations
                 columns: new[] { "user_id", "shop_id" },
                 unique: true);
 
-            migrationBuilder.Sql(
-                """
-                ALTER TABLE shop_memberships ENABLE ROW LEVEL SECURITY;
-                ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
+            if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                migrationBuilder.Sql(
+                    """
+                    ALTER TABLE shop_memberships ENABLE ROW LEVEL SECURITY;
+                    ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
 
-                CREATE POLICY shop_memberships_user_policy
-                    ON shop_memberships
-                    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid)
-                    WITH CHECK (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
+                    CREATE POLICY shop_memberships_user_policy
+                        ON shop_memberships
+                        USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid)
+                        WITH CHECK (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
-                CREATE POLICY shops_membership_policy
-                    ON shops
-                    USING (
-                        EXISTS (
-                            SELECT 1
-                            FROM shop_memberships sm
-                            WHERE sm.shop_id = shops.id
-                              AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                    CREATE POLICY shops_membership_policy
+                        ON shops
+                        USING (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = shops.id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
                         )
-                    )
-                    WITH CHECK (
-                        EXISTS (
-                            SELECT 1
-                            FROM shop_memberships sm
-                            WHERE sm.shop_id = shops.id
-                              AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
-                        )
-                    );
-                """);
+                        WITH CHECK (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = shops.id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
+                        );
+                    """);
+            }
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(
-                """
-                DROP POLICY IF EXISTS shops_membership_policy ON shops;
-                DROP POLICY IF EXISTS shop_memberships_user_policy ON shop_memberships;
+            if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                migrationBuilder.Sql(
+                    """
+                    DROP POLICY IF EXISTS shops_membership_policy ON shops;
+                    DROP POLICY IF EXISTS shop_memberships_user_policy ON shop_memberships;
 
-                ALTER TABLE shops DISABLE ROW LEVEL SECURITY;
-                ALTER TABLE shop_memberships DISABLE ROW LEVEL SECURITY;
-                """);
+                    ALTER TABLE shops DISABLE ROW LEVEL SECURITY;
+                    ALTER TABLE shop_memberships DISABLE ROW LEVEL SECURITY;
+                    """);
+            }
 
             migrationBuilder.DropTable(
                 name: "shop_memberships");
