@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Infrastructure;
 
@@ -72,5 +73,34 @@ public static class DependencyInjection
         services.AddScoped<IExternalAuthProvider, AppleAuthProvider>();
 
         return services;
+    }
+
+    private static readonly Action<ILogger, Exception?> LogApplyingMigrations =
+        LoggerMessage.Define(LogLevel.Information, new EventId(1, nameof(ApplyMigrationsAsync)), "Applying migrations...");
+
+    private static readonly Action<ILogger, Exception?> LogMigrationsApplied =
+        LoggerMessage.Define(LogLevel.Information, new EventId(2, nameof(ApplyMigrationsAsync)), "Migrations applied successfully.");
+
+    private static readonly Action<ILogger, Exception?> LogMigrationError =
+        LoggerMessage.Define(LogLevel.Error, new EventId(3, nameof(ApplyMigrationsAsync)), "An error occurred while applying migrations.");
+
+    public static async Task ApplyMigrationsAsync(this IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var services = scope.ServiceProvider;
+        var logger = services.GetRequiredService<ILogger<ApplicationDbContext>>();
+
+        try
+        {
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            LogApplyingMigrations(logger, null);
+            await context.Database.MigrateAsync();
+            LogMigrationsApplied(logger, null);
+        }
+        catch (Exception ex)
+        {
+            LogMigrationError(logger, ex);
+            throw;
+        }
     }
 }
