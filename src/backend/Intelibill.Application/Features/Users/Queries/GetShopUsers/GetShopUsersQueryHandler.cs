@@ -22,8 +22,26 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        var users = shop.Memberships
+        var actorOwnedShopIds = caller.ShopMemberships
+            .Where(sm => sm.Role == ShopRole.Owner)
+            .Select(sm => sm.ShopId)
+            .ToList();
+
+        var shopMembers = shop.Memberships
             .Where(sm => sm.User is not null)
+            .ToList();
+
+        var memberUserIds = shopMembers.Select(sm => sm.UserId).ToList();
+
+        var allMemberships = actorOwnedShopIds.Count > 0
+            ? await shopRepository.GetMembershipsForUsersInShopsAsync(memberUserIds, actorOwnedShopIds, cancellationToken)
+            : [];
+
+        var membershipsByUser = allMemberships
+            .GroupBy(sm => sm.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(sm => sm.ShopId).ToList() as IReadOnlyList<Guid>);
+
+        var users = shopMembers
             .OrderBy(sm => GetRoleOrder(sm.Role))
             .ThenBy(sm => sm.User.FirstName)
             .ThenBy(sm => sm.User.LastName)
@@ -34,7 +52,8 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
                 sm.User.Email,
                 sm.User.PhoneNumber,
                 sm.Role == ShopRole.Staff ? "SalesPerson" : sm.Role.ToString(),
-                sm.User.IsLoginEnabled))
+                sm.User.IsLoginEnabled,
+                membershipsByUser.TryGetValue(sm.UserId, out var shopIds) ? shopIds : []))
             .ToList();
 
         return users;

@@ -49,6 +49,7 @@ describe('usersReducer', () => {
             phoneNumber: '+15551234567',
             role: 'Owner',
             isLoginEnabled: true,
+            shopIds: ['shop-1'],
           },
         ],
       })
@@ -180,6 +181,7 @@ describe('usersReducer', () => {
           phoneNumber: '+15557654321',
           role: 'SalesPerson',
           isLoginEnabled: true,
+          shopIds: ['shop-1'],
         },
       })
     );
@@ -202,6 +204,7 @@ describe('usersReducer', () => {
           phoneNumber: '+15557654321',
           role: 'SalesPerson',
           isLoginEnabled: true,
+          shopIds: ['shop-1'],
         },
       ],
       submitting: true,
@@ -220,6 +223,7 @@ describe('usersReducer', () => {
           phoneNumber: '+15557654321',
           role: 'Manager',
           isLoginEnabled: false,
+          shopIds: ['shop-1'],
         },
       })
     );

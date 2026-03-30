@@ -464,6 +464,14 @@ public class ShopIsolationIntegrationTests
         public Task<Shop?> GetByIdWithMembersAsync(Guid shopId, CancellationToken cancellationToken = default)
             => Task.FromResult<Shop?>(null);
 
+        public Task<IReadOnlyList<ShopMembership>> GetMembershipsForUsersInShopsAsync(IReadOnlyList<Guid> userIds, IReadOnlyList<Guid> shopIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ShopMembership>>([]);
+
+        public Task AddMembershipAsync(ShopMembership membership, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public void RemoveMembership(ShopMembership membership) { }
+
         public Task<Shop?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.FromResult<Shop?>(null);
 

@@ -14,6 +14,25 @@
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <fieldset class="shop-selection">
+        <legend>Shops</legend>
+        <p class="shop-selection-description">Select the shops this user should have access to.</p>
+
+        <div class="shop-options">
+          <label class="shop-option" *ngFor="let shop of availableShops()">
+            <input
+              type="checkbox"
+              [checked]="isShopSelected(shop.shopId)"
+              (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+            />
+            <span>
+              {{ shop.shopName }}
+              <small *ngIf="shop.isDefault">Default</small>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <label>
         <span>First Name</span>
         <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />

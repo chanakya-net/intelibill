@@ -7,4 +7,5 @@ public sealed record ShopUserDto(
     string? Email,
     string? PhoneNumber,
     string Role,
-    bool IsLoginEnabled);
+    bool IsLoginEnabled,
+    IReadOnlyList<Guid> ShopIds);
