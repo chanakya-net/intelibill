@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
 import { UserShop } from '../auth/auth.models';
@@ -12,18 +12,20 @@ import { ShopsActions } from '../../features/shops/state/shops.actions';
 import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
 import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
+import { MenuItem } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
   imports: [
     CommonModule,
-    RouterLink,
     RouterOutlet,
     CreateShopOverlayComponent,
     ManageShopOverlayComponent,
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
+    MenuModule,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
@@ -31,9 +33,11 @@ import { ChangePasswordOverlayComponent } from '../../features/users/components/
 export class ShellComponent {
   private readonly authService = inject(AuthService);
   private readonly store = inject(Store<RootState>);
+  private readonly router = inject(Router);
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
+  @ViewChild('profileMenu') profileMenu?: Menu;
 
   readonly isSigningOut = signal(false);
   readonly isProfileMenuOpen = signal(false);
@@ -90,6 +94,53 @@ export class ShellComponent {
     const firstName = user.firstName?.trim() ?? '';
     return firstName || user.email || 'User';
   });
+  readonly profileMenuItems = computed<MenuItem[]>(() => {
+    const items: MenuItem[] = [
+      {
+        label: 'Manage Users',
+        icon: 'pi pi-users',
+        command: () => {
+          this.onCloseMenus();
+          void this.router.navigate(['/users']);
+        },
+      },
+      {
+        label: 'Update Profile',
+        icon: 'pi pi-user-edit',
+        command: () => this.onOpenUpdateProfile(),
+      },
+      {
+        label: 'Change Password',
+        icon: 'pi pi-key',
+        command: () => this.onOpenChangePassword(),
+      },
+    ];
+
+    if (this.isOwnerOfActiveShop()) {
+      items.push({
+        label: 'Add Shop',
+        icon: 'pi pi-plus-circle',
+        command: () => this.onOpenAddShop(),
+      });
+    }
+
+    if (this.shouldShowManageShopAction() && this.isOwnerOfActiveShop()) {
+      items.push({
+        label: 'Manage Shop',
+        icon: 'pi pi-wrench',
+        command: () => this.onOpenManageShop(),
+      });
+    }
+
+    items.push({
+      label: 'Logout',
+      icon: 'pi pi-sign-out',
+      disabled: this.isSigningOut(),
+      command: () => this.onSignOut(),
+    });
+
+    return items;
+  });
 
   constructor() {
     this.store.dispatch(ShopsActions.loadShopsRequested());
@@ -132,6 +183,7 @@ export class ShellComponent {
 
     if (this.isProfileMenuOpen() && this.profileMenuRoot && !this.isTargetInside(this.profileMenuRoot.nativeElement, target, composedPath)) {
       this.isProfileMenuOpen.set(false);
+      this.profileMenu?.hide();
     }
   }
 
@@ -139,8 +191,14 @@ export class ShellComponent {
     return root.contains(target) || composedPath.includes(root);
   }
 
-  onToggleProfileMenu(): void {
+  onToggleProfileMenu(event?: MouseEvent, menu?: Menu): void {
     this.isShopMenuOpen.set(false);
+
+    if (event && menu) {
+      menu.toggle(event);
+      return;
+    }
+
     this.isProfileMenuOpen.set(!this.isProfileMenuOpen());
   }
 
@@ -172,6 +230,7 @@ export class ShellComponent {
   onCloseMenus(): void {
     this.isShopMenuOpen.set(false);
     this.isProfileMenuOpen.set(false);
+    this.profileMenu?.hide();
   }
 
   getShopDisplayLabel(shop: UserShop): string {
