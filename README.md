@@ -28,8 +28,6 @@
 
 </div>
 
-<<<<<<< ours
-||||||| ancestor
 ## Test Results
 
 ### Backend Test Cases
@@ -51,29 +49,6 @@
 |---|---|---:|
 | INVENTORY | 67/67 passed | 100.0% |
 <!-- FRONTEND_TEST_BREAKDOWN_END -->
-=======
-## Test Results
-
-### Backend Test Cases
-
-<!-- TEST_BREAKDOWN_START -->
-| Project | Tests Passed | Failed | Coverage |
-|---|---:|---:|---:|
-| Intelibill.Integration.Tests | 15/15 | 0 | 22.6% |
-| Intelibill.Api.Unit.Tests | 62/62 | 0 | 8.4% |
-| Intelibill.Application.Unit.Tests | 40/40 | 0 | 74.0% |
-| Intelibill.Domain.Unit.Tests | 25/25 | 0 | 92.2% |
-| **Total** | **142/142** | **0** | **38.0%** |
-<!-- TEST_BREAKDOWN_END -->
-
-### Frontend Test Cases
-
-<!-- FRONTEND_TEST_BREAKDOWN_START -->
-| Project | Tests | Coverage |
-|---|---|---:|
-| INVENTORY | 66/66 passed | 100.0% |
-<!-- FRONTEND_TEST_BREAKDOWN_END -->
->>>>>>> theirs
 
 # intelibill
 
@@ -252,3 +227,56 @@ Frontend stack highlights:
 ### Mobile
 
 *Not yet started.*
+
+### Docker
+
+The `docker-compose.yml` supports two modes via [Compose profiles](https://docs.docker.com/compose/profiles/).
+
+#### DB only (local dev & debugging)
+
+Spins up only PostgreSQL — use this when running the backend locally with `dotnet run`:
+
+```bash
+docker compose up -d
+```
+
+PostgreSQL will be available at `localhost:5432`.
+Credentials match `appsettings.Development.json`:
+
+| Setting  | Value                   |
+|----------|-------------------------|
+| Host     | `localhost`             |
+| Port     | `5432`                  |
+| Database | `intelibill_dev`        |
+| Username | `intelibill`            |
+| Password | `intelibill_dev_password` |
+
+#### Full stack (all services)
+
+Builds and starts PostgreSQL + backend API + frontend SSR together:
+
+```bash
+docker compose --profile full up -d
+```
+
+| Service  | URL                       |
+|----------|---------------------------|
+| Backend  | `http://localhost:8080`   |
+| Frontend | `http://localhost:4000`   |
+
+#### Other useful commands
+
+```bash
+# Rebuild images before starting (after code changes)
+docker compose --profile full up -d --build
+
+# Stop all services
+docker compose --profile full down
+
+# Stop and remove volumes (wipes the database)
+docker compose --profile full down -v
+
+# View logs
+docker compose logs -f backend
+docker compose logs -f postgres
+```
