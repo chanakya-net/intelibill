@@ -80,6 +80,9 @@ builder.Host.UseWolverine(opts =>
 
 var app = builder.Build();
 
+// Apply migrations
+await app.Services.ApplyMigrationsAsync();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
