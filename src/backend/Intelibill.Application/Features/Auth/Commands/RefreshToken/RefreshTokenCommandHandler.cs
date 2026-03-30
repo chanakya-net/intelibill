@@ -5,13 +5,9 @@ using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.RefreshToken;
 
 public sealed class RefreshTokenCommandHandler(
-    IValidator<RefreshTokenCommand> validator,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
@@ -20,9 +16,6 @@ public sealed class RefreshTokenCommandHandler(
         RefreshTokenCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var existing = await refreshTokenRepository.GetActiveByTokenAsync(command.RefreshToken, cancellationToken);
         if (existing is null)
             return Errors.Auth.InvalidRefreshToken;

@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -10,16 +8,12 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
 
 public sealed class UpdateShopCommandHandler(
-    IValidator<UpdateShopCommand> validator,
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;

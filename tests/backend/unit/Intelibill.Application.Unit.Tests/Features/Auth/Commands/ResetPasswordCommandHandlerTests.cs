@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.ResetPassword
 
 public class ResetPasswordCommandHandlerTests
 {
-    private readonly IValidator<ResetPasswordCommand> _validator = Substitute.For<IValidator<ResetPasswordCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
@@ -21,9 +19,7 @@ public class ResetPasswordCommandHandlerTests
 
     public ResetPasswordCommandHandlerTests()
     {
-        _handler = new ResetPasswordCommandHandler(_validator, _userRepository, _passwordResetTokenRepository, _refreshTokenRepository, _passwordHasher, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<ResetPasswordCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new ResetPasswordCommandHandler(_userRepository, _passwordResetTokenRepository, _refreshTokenRepository, _passwordHasher, _unitOfWork);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Users.Commands.UpdateMyProf
 
 public class UpdateMyProfileCommandHandlerTests
 {
-    private readonly IValidator<UpdateMyProfileCommand> _validator = Substitute.For<IValidator<UpdateMyProfileCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
@@ -21,14 +19,10 @@ public class UpdateMyProfileCommandHandlerTests
     public UpdateMyProfileCommandHandlerTests()
     {
         _handler = new UpdateMyProfileCommandHandler(
-            _validator,
             _userRepository,
             _refreshTokenRepository,
             _tokenService,
             _unitOfWork);
-
-        _validator.ValidateAsync(Arg.Any<UpdateMyProfileCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new FluentValidation.Results.ValidationResult());
     }
 
     [Fact]

@@ -324,7 +324,6 @@ public class ShopIsolationIntegrationTests
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidUpdateShopValidator(),
             userRepository,
             shopRepository,
             unitOfWork);
@@ -369,7 +368,6 @@ public class ShopIsolationIntegrationTests
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new UpdateShopCommandHandler(
-            BuildValidUpdateShopValidator(),
             userRepository,
             shopRepository,
             unitOfWork);
@@ -414,12 +412,6 @@ public class ShopIsolationIntegrationTests
         services.AddInfrastructure(configuration);
 
         return services.BuildServiceProvider().GetRequiredService<ITokenService>();
-    }
-
-    private static InlineValidator<UpdateShopCommand> BuildValidUpdateShopValidator()
-    {
-        var validator = new InlineValidator<UpdateShopCommand>();
-        return validator;
     }
 
     private sealed class InMemoryUserRepository(User? user) : IUserRepository

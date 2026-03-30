@@ -6,13 +6,9 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 
 public sealed class RegisterWithPhoneCommandHandler(
-    IValidator<RegisterWithPhoneCommand> validator,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
@@ -22,9 +18,6 @@ public sealed class RegisterWithPhoneCommandHandler(
         RegisterWithPhoneCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         if (await userRepository.ExistsByPhoneAsync(command.PhoneNumber, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 

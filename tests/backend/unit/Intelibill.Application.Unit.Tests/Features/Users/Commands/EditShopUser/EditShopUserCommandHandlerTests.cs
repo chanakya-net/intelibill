@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Users.Commands.EditShopUser;
 using Intelibill.Domain.Entities;
@@ -11,16 +10,9 @@ namespace Intelibill.Application.Unit.Tests.Features.Users.Commands.EditShopUser
 
 public class EditShopUserCommandHandlerTests
 {
-    private readonly IValidator<EditShopUserCommand> _validator = Substitute.For<IValidator<EditShopUserCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
-
-    public EditShopUserCommandHandlerTests()
-    {
-        _validator.ValidateAsync(Arg.Any<EditShopUserCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new FluentValidation.Results.ValidationResult());
-    }
 
     [Fact]
     public async Task HandleAsync_WhenActorIsNotOwner_ReturnsForbiddenError()
@@ -36,7 +28,7 @@ public class EditShopUserCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -60,7 +52,7 @@ public class EditShopUserCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -85,7 +77,7 @@ public class EditShopUserCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, target.Id, Arg.Any<CancellationToken>()).Returns(false);
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -117,7 +109,7 @@ public class EditShopUserCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -154,7 +146,7 @@ public class EditShopUserCommandHandlerTests
             Arg.Any<CancellationToken>())
             .Returns(new List<ShopMembership> { targetMembership1, targetMembership2 });
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -191,7 +183,7 @@ public class EditShopUserCommandHandlerTests
             Arg.Any<CancellationToken>())
             .Returns(new List<ShopMembership> { targetMembership1 });
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -220,7 +212,7 @@ public class EditShopUserCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, target.Id, Arg.Any<CancellationToken>()).Returns(false);
 
-        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _shopRepository, _unitOfWork);
+        var handler = new EditShopUserCommandHandler(_userRepository, _shopRepository, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);

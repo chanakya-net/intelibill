@@ -6,13 +6,9 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-using FluentValidation;
-using Intelibill.Application.Common.Extensions;
-
 namespace Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 
 public sealed class RequestPasswordResetCommandHandler(
-    IValidator<RequestPasswordResetCommand> validator,
     IUserRepository userRepository,
     IPasswordResetTokenRepository passwordResetTokenRepository,
     IEmailService emailService,
@@ -22,9 +18,6 @@ public sealed class RequestPasswordResetCommandHandler(
         RequestPasswordResetCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
 
         // Always return success to avoid revealing whether the email exists.

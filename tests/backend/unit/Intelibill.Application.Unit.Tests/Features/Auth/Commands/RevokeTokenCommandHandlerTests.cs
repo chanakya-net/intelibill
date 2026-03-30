@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
 using Intelibill.Domain.Interfaces;
@@ -9,16 +8,13 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RevokeToken;
 
 public class RevokeTokenCommandHandlerTests
 {
-    private readonly IValidator<RevokeTokenCommand> _validator = Substitute.For<IValidator<RevokeTokenCommand>>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly RevokeTokenCommandHandler _handler;
 
     public RevokeTokenCommandHandlerTests()
     {
-        _handler = new RevokeTokenCommandHandler(_validator, _refreshTokenRepository, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<RevokeTokenCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new RevokeTokenCommandHandler(_refreshTokenRepository, _unitOfWork);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RefreshToken;
 
 public class RefreshTokenCommandHandlerTests
 {
-    private readonly IValidator<RefreshTokenCommand> _validator = Substitute.For<IValidator<RefreshTokenCommand>>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -19,9 +17,7 @@ public class RefreshTokenCommandHandlerTests
 
     public RefreshTokenCommandHandlerTests()
     {
-        _handler = new RefreshTokenCommandHandler(_validator, _refreshTokenRepository, _tokenService, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<RefreshTokenCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new RefreshTokenCommandHandler(_refreshTokenRepository, _tokenService, _unitOfWork);
     }
 
     [Fact]

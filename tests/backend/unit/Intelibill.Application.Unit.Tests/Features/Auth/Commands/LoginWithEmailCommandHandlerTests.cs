@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.LoginWithEmai
 
 public class LoginWithEmailCommandHandlerTests
 {
-    private readonly IValidator<LoginWithEmailCommand> _validator = Substitute.For<IValidator<LoginWithEmailCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
@@ -21,9 +19,7 @@ public class LoginWithEmailCommandHandlerTests
 
     public LoginWithEmailCommandHandlerTests()
     {
-        _handler = new LoginWithEmailCommandHandler(_validator, _userRepository, _refreshTokenRepository, _passwordHasher, _tokenService, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<LoginWithEmailCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new LoginWithEmailCommandHandler(_userRepository, _refreshTokenRepository, _passwordHasher, _tokenService, _unitOfWork);
     }
 
     [Fact]

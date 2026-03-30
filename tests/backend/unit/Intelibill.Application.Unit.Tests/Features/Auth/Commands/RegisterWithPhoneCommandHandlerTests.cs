@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RegisterWithP
 
 public class RegisterWithPhoneCommandHandlerTests
 {
-    private readonly IValidator<RegisterWithPhoneCommand> _validator = Substitute.For<IValidator<RegisterWithPhoneCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
@@ -20,9 +18,7 @@ public class RegisterWithPhoneCommandHandlerTests
 
     public RegisterWithPhoneCommandHandlerTests()
     {
-        _handler = new RegisterWithPhoneCommandHandler(_validator, _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
-        _validator.ValidateAsync(Arg.Any<RegisterWithPhoneCommand>(), Arg.Any<CancellationToken>())
-                  .Returns(new FluentValidation.Results.ValidationResult());
+        _handler = new RegisterWithPhoneCommandHandler(_userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
     }
 
     [Fact]

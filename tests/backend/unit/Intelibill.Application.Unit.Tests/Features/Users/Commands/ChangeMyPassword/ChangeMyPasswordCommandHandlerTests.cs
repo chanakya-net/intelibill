@@ -1,4 +1,3 @@
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
@@ -11,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Users.Commands.ChangeMyPass
 
 public class ChangeMyPasswordCommandHandlerTests
 {
-    private readonly IValidator<ChangeMyPasswordCommand> _validator = Substitute.For<IValidator<ChangeMyPasswordCommand>>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
@@ -21,14 +19,10 @@ public class ChangeMyPasswordCommandHandlerTests
     public ChangeMyPasswordCommandHandlerTests()
     {
         _handler = new ChangeMyPasswordCommandHandler(
-            _validator,
             _userRepository,
             _refreshTokenRepository,
             _passwordHasher,
             _unitOfWork);
-
-        _validator.ValidateAsync(Arg.Any<ChangeMyPasswordCommand>(), Arg.Any<CancellationToken>())
-            .Returns(new FluentValidation.Results.ValidationResult());
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware;
 using Intelibill.Api.Options;
 using Intelibill.Application;
+using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure;
 using Scalar.AspNetCore;
@@ -76,6 +77,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
+// Register ValidationMiddleware - Wolverine will auto-discover BeforeAsync methods from DI
+builder.Services.AddScoped<ValidationMiddleware>();
+
 builder.Host.UseWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);

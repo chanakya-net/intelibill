@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
@@ -10,7 +8,6 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 
 public sealed class UpdateMyProfileCommandHandler(
-    IValidator<UpdateMyProfileCommand> validator,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
@@ -20,9 +17,6 @@ public sealed class UpdateMyProfileCommandHandler(
         UpdateMyProfileCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is { IsError: true } err) return err.Errors;
-
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Auth.UserNotFound;
