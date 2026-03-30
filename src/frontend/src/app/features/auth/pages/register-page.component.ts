@@ -13,7 +13,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { RootState } from '../../../core/state/app.state';
 import { LocalizationService } from '../../../core/i18n/localization.service';
-import { SupportedLanguage } from '../../../core/i18n/language.constants';
+import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RegisterActions } from '../state/register.actions';
 import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/register.selectors';
 
@@ -43,14 +43,7 @@ export class RegisterPageComponent implements OnInit {
   readonly isSubmitting = this.store.selectSignal(selectRegisterSubmitting);
   readonly supportedLanguages = this.localizationService.supportedLanguages;
   readonly currentLanguage = this.localizationService.currentLanguage;
-  readonly nativeLanguageNames: Record<string, string> = {
-    'en-IN': 'English',
-    'hi-IN': '\u0939\u093f\u0902\u0926\u0940',
-    'ta-IN': '\u0ba4\u0bae\u0bbf\u0bb4\u0bcd',
-    'te-IN': '\u0c24\u0c46\u0c32\u0c41\u0c17\u0c41',
-    'bn-IN': '\u09ac\u09be\u0982\u09b2\u09be',
-    'ml-IN': '\u0d2e\u0d32\u0d2f\u0d3e\u0d33\u0d02',
-  };
+  readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
 
   readonly form = this.formBuilder.nonNullable.group({
     firstName: ['', [Validators.required, Validators.maxLength(100)]],

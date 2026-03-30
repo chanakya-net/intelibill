@@ -5,8 +5,19 @@ export const SUPPORTED_LANGUAGES = [
   'te-IN',
   'bn-IN',
   'ml-IN',
+  'kn-IN',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const DEFAULT_LANGUAGE: SupportedLanguage = 'en-IN';
+
+export const NATIVE_LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
+  'en-IN': 'English',
+  'hi-IN': 'हिंदी',
+  'ta-IN': 'தமிழ்',
+  'te-IN': 'తెలుగు',
+  'bn-IN': 'বাংলা',
+  'ml-IN': 'മലയാളം',
+  'kn-IN': 'ಕನ್ನಡ',
+};
