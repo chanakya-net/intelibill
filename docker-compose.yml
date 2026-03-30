@@ -33,6 +33,7 @@ services:
       - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
+      - App__BaseUrl=http://localhost:4000
     depends_on:
       postgres:
         condition: service_healthy

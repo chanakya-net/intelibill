@@ -25,7 +25,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendDev", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200", "https://localhost:4200")
+            .WithOrigins(
+                "http://localhost:4200", "https://localhost:4200",  // local dev (ng serve)
+                "http://localhost:4000", "https://localhost:4000"   // Docker frontend
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

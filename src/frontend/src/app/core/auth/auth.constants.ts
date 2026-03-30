@@ -1,4 +1,6 @@
-export const API_BASE_URL = 'http://localhost:5202/api';
+import { environment } from '../../../environments/environment';
+
+export const API_BASE_URL = environment.apiBaseUrl;
 
 export const AUTH_ENDPOINTS = {
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
