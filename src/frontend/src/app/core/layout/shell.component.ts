@@ -81,6 +81,15 @@ export class ShellComponent {
     const initials = `${first}${last}`.trim();
     return initials || 'U';
   });
+  readonly profileDisplayName = computed(() => {
+    const user = this.session()?.user;
+    if (!user) {
+      return 'User';
+    }
+
+    const firstName = user.firstName?.trim() ?? '';
+    return firstName || user.email || 'User';
+  });
 
   constructor() {
     this.store.dispatch(ShopsActions.loadShopsRequested());

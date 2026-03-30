@@ -40,32 +40,48 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <a
-          routerLink="/users"
-          class="users-nav-button"
-          aria-label="Open users page"
-          (click)="onCloseMenus()"
-        >
-          <i class="pi pi-users" aria-hidden="true"></i>
-          <span>Users</span>
-        </a>
-
       <div class="relative flex items-center gap-2" #profileMenuRoot>
         <button
           type="button"
-          class="profile-avatar"
+          class="profile-trigger"
           aria-label="Open profile menu"
+          [attr.aria-expanded]="isProfileMenuOpen()"
+          aria-haspopup="menu"
           (click)="onToggleProfileMenu()"
         >
-          {{ profileInitials() }}
+          <span class="profile-avatar">{{ profileInitials() }}</span>
+          <span class="profile-text">
+            <span class="profile-name">{{ profileDisplayName() }}</span>
+            <span class="profile-label">Profile</span>
+          </span>
+          <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
         </button>
 
         <div class="profile-menu" *ngIf="isProfileMenuOpen()" role="menu" aria-label="Profile actions">
-          <button type="button" role="menuitem" (click)="onOpenUpdateProfile()">Update Profile</button>
-          <button type="button" role="menuitem" (click)="onOpenChangePassword()">Change Password</button>
-          <button type="button" role="menuitem" *ngIf="isOwnerOfActiveShop()" (click)="onOpenAddShop()">Add Shop</button>
-          <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction() && isOwnerOfActiveShop()" (click)="onOpenManageShop()">Manage Shop</button>
-          <button type="button" role="menuitem" [disabled]="isSigningOut()" (click)="onSignOut()">Logout</button>
+          <a routerLink="/users" role="menuitem" (click)="onCloseMenus()">
+            <i class="pi pi-users" aria-hidden="true"></i>
+            <span>Manage Users</span>
+          </a>
+          <button type="button" role="menuitem" (click)="onOpenUpdateProfile()">
+            <i class="pi pi-user-edit" aria-hidden="true"></i>
+            <span>Update Profile</span>
+          </button>
+          <button type="button" role="menuitem" (click)="onOpenChangePassword()">
+            <i class="pi pi-key" aria-hidden="true"></i>
+            <span>Change Password</span>
+          </button>
+          <button type="button" role="menuitem" *ngIf="isOwnerOfActiveShop()" (click)="onOpenAddShop()">
+            <i class="pi pi-plus-circle" aria-hidden="true"></i>
+            <span>Add Shop</span>
+          </button>
+          <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction() && isOwnerOfActiveShop()" (click)="onOpenManageShop()">
+            <i class="pi pi-wrench" aria-hidden="true"></i>
+            <span>Manage Shop</span>
+          </button>
+          <button type="button" role="menuitem" [disabled]="isSigningOut()" (click)="onSignOut()">
+            <i class="pi pi-sign-out" aria-hidden="true"></i>
+            <span>Logout</span>
+          </button>
         </div>
       </div>
       </div>
