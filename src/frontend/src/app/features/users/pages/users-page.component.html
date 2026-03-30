@@ -24,7 +24,7 @@
 
   <div class="users-table-card" *ngIf="!isLoading()">
     <p-table
-      [value]="$any(users())"
+      [value]="tableUsers()"
       [sortField]="'firstName'"
       [sortOrder]="1"
       class="p-datatable-sm"

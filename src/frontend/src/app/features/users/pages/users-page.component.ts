@@ -32,6 +32,7 @@ export class UsersPageComponent {
   private readonly authService = inject(AuthService);
 
   readonly users = this.store.selectSignal(selectShopUsers);
+  readonly tableUsers = computed(() => [...this.users()]);
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
