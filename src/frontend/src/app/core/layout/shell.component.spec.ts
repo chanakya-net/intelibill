@@ -2,8 +2,25 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { vi } from 'vitest';
+import { vi, beforeAll } from 'vitest';
+
+beforeAll(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+});
 
 import { AuthService } from '../auth/auth.service';
 import { ShopDetails } from '../../features/shops/services/shop.service';
@@ -76,7 +93,7 @@ describe('ShellComponent', () => {
 
   function createFixture() {
     TestBed.configureTestingModule({
-      imports: [ShellComponent, RouterTestingModule.withRoutes([])],
+      imports: [ShellComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },

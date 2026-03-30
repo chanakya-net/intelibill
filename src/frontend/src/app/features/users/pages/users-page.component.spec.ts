@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -102,7 +103,7 @@ describe('UsersPageComponent', () => {
     lastMutationSucceededSignal.set(false);
     sessionSignal.set(defaultSession);
     TestBed.configureTestingModule({
-      imports: [UsersPageComponent],
+      imports: [UsersPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },
@@ -138,8 +139,8 @@ describe('UsersPageComponent', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;
 
-    expect(component.getRoleLabel('SalesPerson')).toBe('Sales Person');
-    expect(component.getRoleLabel('Staff')).toBe('Sales Person');
+    expect(component.getRoleLabel('SalesPerson')).toBe('users.salesPerson');
+    expect(component.getRoleLabel('Staff')).toBe('users.salesPerson');
   });
 
   it('closes add overlay on successful add mutation', () => {

@@ -2,6 +2,7 @@ import { Signal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { RegisterActions } from '../state/register.actions';
 import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/register.selectors';
@@ -26,7 +27,7 @@ describe('RegisterPageComponent', () => {
 
   function setup(): RegisterPageComponent {
     TestBed.configureTestingModule({
-      imports: [RegisterPageComponent],
+      imports: [RegisterPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         provideRouter([]),
         { provide: Store, useValue: store },

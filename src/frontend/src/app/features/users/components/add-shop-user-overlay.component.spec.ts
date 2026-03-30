@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -63,7 +64,7 @@ describe('AddShopUserOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<AddShopUserOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [AddShopUserOverlayComponent],
+      imports: [AddShopUserOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },

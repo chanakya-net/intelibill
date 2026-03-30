@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { CreateShopOverlayComponent } from './create-shop-overlay.component';
@@ -44,7 +45,7 @@ describe('CreateShopOverlayComponent', () => {
 
   function setup(): { component: CreateShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<CreateShopOverlayComponent>> } {
     TestBed.configureTestingModule({
-      imports: [CreateShopOverlayComponent],
+      imports: [CreateShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [{ provide: Store, useValue: store }],
     });
 

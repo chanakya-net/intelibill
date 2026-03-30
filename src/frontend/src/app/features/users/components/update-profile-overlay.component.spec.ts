@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { UpdateProfileOverlayComponent } from './update-profile-overlay.component';
@@ -47,7 +48,7 @@ describe('UpdateProfileOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<UpdateProfileOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [UpdateProfileOverlayComponent],
+      imports: [UpdateProfileOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [{ provide: Store, useValue: store }],
     });
 
@@ -109,6 +110,7 @@ describe('UpdateProfileOverlayComponent', () => {
           lastName: 'Doe',
           email: 'jane@example.com',
           phoneNumber: '+15557654321',
+          language: 'en-IN',
         },
       })
     );
