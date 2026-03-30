@@ -5,7 +5,13 @@ import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { UsersActions } from '../state/users.actions';
-import { selectShopUsers, selectUsersErrorMessage, selectUsersLoadingShopUsers } from '../state/users.selectors';
+import {
+  selectShopUsers,
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersLoadingShopUsers,
+} from '../state/users.selectors';
 import { UsersPageComponent } from './users-page.component';
 
 describe('UsersPageComponent', () => {
@@ -17,10 +23,13 @@ describe('UsersPageComponent', () => {
       email: 'owner@test.com',
       phoneNumber: '+15551234567',
       role: 'Owner',
+      isLoginEnabled: true,
     },
   ]);
   const loadingSignal = signal(false);
   const errorSignal = signal('');
+  const lastMutationTypeSignal = signal<'update-profile' | 'change-password' | 'add-shop-user' | 'edit-shop-user' | null>(null);
+  const lastMutationSucceededSignal = signal(false);
 
   const store = {
     dispatch: vi.fn(),
@@ -37,11 +46,19 @@ describe('UsersPageComponent', () => {
         return errorSignal;
       }
 
+      if (selector === selectUsersLastMutationType) {
+        return lastMutationTypeSignal;
+      }
+
+      if (selector === selectUsersLastMutationSucceeded) {
+        return lastMutationSucceededSignal;
+      }
+
       return signal(null);
     }),
   };
 
-  const sessionSignal = signal({
+  const defaultSession = {
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
     accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -56,7 +73,8 @@ describe('UsersPageComponent', () => {
     },
     activeShopId: 'shop-1',
     shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
-  });
+  };
+  const sessionSignal = signal(defaultSession);
 
   const authService = {
     session: sessionSignal,
@@ -64,6 +82,9 @@ describe('UsersPageComponent', () => {
 
   beforeEach(() => {
     store.dispatch.mockReset();
+    lastMutationTypeSignal.set(null);
+    lastMutationSucceededSignal.set(false);
+    sessionSignal.set(defaultSession);
     TestBed.configureTestingModule({
       imports: [UsersPageComponent],
       providers: [
@@ -103,5 +124,37 @@ describe('UsersPageComponent', () => {
 
     expect(component.getRoleLabel('SalesPerson')).toBe('Sales Person');
     expect(component.getRoleLabel('Staff')).toBe('Sales Person');
+  });
+
+  it('closes add overlay on successful add mutation', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    component.onOpenAddUser();
+    expect(component.showAddUserOverlay()).toBe(true);
+
+    lastMutationTypeSignal.set('add-shop-user');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(component.showAddUserOverlay()).toBe(false);
+    expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
+  });
+
+  it('closes edit overlay on successful edit mutation', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+    const targetUser = { ...shopUsersSignal()[0], role: 'Manager' };
+
+    component.onOpenEditUser(targetUser);
+    expect(component.showEditUserOverlay()).toBe(true);
+
+    lastMutationTypeSignal.set('edit-shop-user');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(component.showEditUserOverlay()).toBe(false);
+    expect(component.editingUser()).toBeNull();
+    expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
   });
 });

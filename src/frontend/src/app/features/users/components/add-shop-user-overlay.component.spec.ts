@@ -136,4 +136,5 @@ describe('AddShopUserOverlayComponent', () => {
       })
     );
   });
+
 });

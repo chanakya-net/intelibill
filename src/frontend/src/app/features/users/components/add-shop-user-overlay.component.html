@@ -18,17 +18,19 @@
         <legend>Shops</legend>
         <p class="shop-selection-description">Select one or more shops for this user.</p>
 
-        <label class="shop-option" *ngFor="let shop of availableShops()">
-          <input
-            type="checkbox"
-            [checked]="isShopSelected(shop.shopId)"
-            (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
-          />
-          <span>
-            {{ shop.shopName }}
-            <small *ngIf="shop.isDefault">(Default)</small>
-          </span>
-        </label>
+        <div class="shop-options">
+          <label class="shop-option" *ngFor="let shop of availableShops()">
+            <input
+              type="checkbox"
+              [checked]="isShopSelected(shop.shopId)"
+              (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+            />
+            <span>
+              {{ shop.shopName }}
+              <small *ngIf="shop.isDefault">Default</small>
+            </span>
+          </label>
+        </div>
       </fieldset>
 
       <label>

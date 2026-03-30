@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, effect, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 
@@ -13,8 +13,6 @@ import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import {
   selectUsersErrorMessage,
-  selectUsersLastMutationSucceeded,
-  selectUsersLastMutationType,
   selectUsersSubmitting,
 } from '../state/users.selectors';
 
@@ -31,9 +29,6 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
-  readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
-  readonly isEditUserPending = signal(false);
 
   @Input({ required: true }) user!: ShopUser;
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -46,18 +41,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     isLoginEnabled: [true],
   });
 
-  constructor() {
-    effect(() => {
-      const isSuccess = this.lastMutationType() === 'edit-shop-user' && this.lastMutationSucceeded();
-      if (!this.isEditUserPending() || !isSuccess || this.isSubmitting()) {
-        return;
-      }
-
-      this.isEditUserPending.set(false);
-      this.store.dispatch(UsersActions.clearMutationStatus());
-      this.closeRequested.emit();
-    });
-  }
+  constructor() {}
 
   ngOnInit(): void {
     this.patchFormFromUser();
@@ -93,7 +77,6 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
 
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
-    this.isEditUserPending.set(true);
 
     this.store.dispatch(
       UsersActions.editShopUserRequested({
