@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
@@ -19,7 +20,7 @@ import {
 @Component({
   selector: 'app-change-password-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule, PasswordModule, ProgressSpinnerModule],
+  imports: [CommonModule, ReactiveFormsModule, ButtonModule, PasswordModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './change-password-overlay.component.html',
   styleUrl: './change-password-overlay.component.scss',
 })

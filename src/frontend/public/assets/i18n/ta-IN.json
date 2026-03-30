@@ -1,0 +1,206 @@
+{
+  "common": {
+    "language": "மொழி",
+    "firstName": "முதல் பெயர்",
+    "lastName": "கடைசி பெயர்",
+    "cancel": "ரத்து செய்",
+    "close": "மூடு"
+  },
+  "languages": {
+    "en-IN": "ஆங்கிலம்",
+    "hi-IN": "இந்தி",
+    "ta-IN": "தமிழ்",
+    "te-IN": "தெலுங்கு",
+    "bn-IN": "பெங்காலி",
+    "ml-IN": "மலையாளம்"
+  },
+  "auth": {
+    "loginNow": "இப்போது உள்நுழைக",
+    "emailAddress": "மின்னஞ்சல் முகவரி",
+    "emailPlaceholder": "மின்னஞ்சல் அல்லது பயனர்பெயர்",
+    "password": "கடவுச்சொல்",
+    "signingIn": "உள்நுழைந்து கொண்டிருக்கிறது...",
+    "loginCta": "உள்நுழை",
+    "orLoginWith": "அல்லது இதன் மூலம் உள்நுழைக",
+    "facebook": "பேஸ்புக்",
+    "google": "கூகுள்",
+    "notMember": "உறுப்பினராக இல்லையா?",
+    "signupNow": "இப்போது பதிவு செய்யவும்",
+    "rememberMe": "என்னை நினைவில் கொள்",
+    "validation": {
+      "emailInvalid": "சரியான மின்னஞ்சலை உள்ளிடவும்.",
+      "passwordRequired": "கடவுச்சொல் அவசியம்."
+    }
+  },
+  "register": {
+    "newHere": "இங்கே புதியவரா",
+    "createAccount": "கணக்கு உருவாக்கு",
+    "subtitle": "உங்கள் Intelibill பணிமனையை தொடங்குங்கள்.",
+    "confirmPassword": "கடவுச்சொல்லை உறுதிப்படுத்து",
+    "backToLogin": "உள்நுழைவு பக்கத்திற்குத் திரும்பு",
+    "creatingAccount": "கணக்கு உருவாகிறது...",
+    "signUp": "பதிவு செய்",
+    "validation": {
+      "passwordLength": "கடவுச்சொல் 8 முதல் 100 எழுத்துகள் இருக்க வேண்டும்.",
+      "confirmPasswordRequired": "கடவுச்சொல்லை மீண்டும் உள்ளிடவும்.",
+      "passwordMismatch": "கடவுச்சொற்கள் பொருந்தவில்லை."
+    }
+  },
+  "shell": {
+    "enterpriseSuite": "என்டர்பிரைஸ் தொகுப்பு",
+    "appName": "Intelibill",
+    "switchActiveShop": "செயலில் உள்ள கடையை மாற்று",
+    "availableShops": "கிடைக்கக்கூடிய கடைகள்",
+    "active": "செயலில்",
+    "openProfileMenu": "சுயவிவர மெனுவை திற",
+    "profile": "சுயவிவரம்",
+    "profileActions": "சுயவிவர செயல்கள்",
+    "userFallback": "பயனர்",
+    "manageUsers": "பயனர்களை நிர்வகி",
+    "updateProfile": "சுயவிவரத்தை புதுப்பி",
+    "changePassword": "கடவுச்சொல்லை மாற்று",
+    "addShop": "கடை சேர்க்க",
+    "manageShop": "கடை நிர்வகி",
+    "language": "மொழி",
+    "logout": "வெளியேறு"
+  },
+  "users": {
+    "teamAccess": "குழு அணுகல்",
+    "shopUsers": "கடை பயனர்கள்",
+    "subtitle": "செயலில் உள்ள கடையின் உறுப்பினர்களை காணவும் மற்றும் பங்குகளை நிர்வகிக்கவும்.",
+    "name": "பெயர்",
+    "mobile": "மொபைல்",
+    "email": "மின்னஞ்சல்",
+    "role": "பங்கு",
+    "login": "உள்நுழைவு",
+    "actions": "செயல்கள்",
+    "enabled": "இயக்கப்பட்டது",
+    "disabled": "முடக்கப்பட்டது",
+    "edit": "திருத்து",
+    "addUser": "பயனர் சேர்க்க",
+    "editUser": "பயனரை திருத்து",
+    "addUserDescription": "செயலில் உள்ள கடைக்கு மேலாளர் அல்லது விற்பனையாளர் உருவாக்கவும்.",
+    "editUserDescription": "இந்த பயனரின் பங்கு மற்றும் உள்நுழைவு அணுகலை புதுப்பிக்கவும்.",
+    "addUserToShop": "கடைக்கு பயனரைச் சேர்",
+    "editShopUser": "கடை பயனரை திருத்து",
+    "shops": "கடைகள்",
+    "default": "இயல்புநிலை",
+    "selectOneOrMoreShops": "இந்த பயனருக்கு ஒரு அல்லது அதற்கு மேற்பட்ட கடைகளைத் தேர்ந்தெடுக்கவும்.",
+    "selectShopsForAccess": "இந்த பயனருக்கு எந்த கடைகளில் அணுகல் வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்.",
+    "mobileNumber": "மொபைல் எண்",
+    "allowUserLogin": "இந்த பயனருக்கு உள்நுழைய அனுமதி",
+    "saveChanges": "மாற்றங்களை சேமி",
+    "manager": "மேலாளர்",
+    "owner": "உரிமையாளர்",
+    "salesPerson": "விற்பனையாளர்",
+    "noUsersFound": "பயனர்கள் இல்லை",
+    "noUsersDescription": "இந்த கடைக்காக மேலாளர் அல்லது விற்பனையாளரைச் சேர்த்து தொடங்கவும்.",
+    "validation": {
+      "passwordConfirmationMustMatch": "கடவுச்சொல் மற்றும் உறுதிப்படுத்தல் பொருந்த வேண்டும்.",
+      "selectAtLeastOneShop": "குறைந்தது ஒரு கடையைத் தேர்ந்தெடுக்கவும்."
+    }
+  },
+  "profile": {
+    "account": "கணக்கு",
+    "updateProfile": "சுயவிவரத்தை புதுப்பி",
+    "updateProfileDescription": "உங்கள் பெயர், மின்னஞ்சல் மற்றும் மொபைல் விவரங்களை திருத்தவும்.",
+    "updating": "புதுப்பிக்கிறது...",
+    "security": "பாதுகாப்பு",
+    "changePassword": "கடவுச்சொல்லை மாற்று",
+    "changePasswordDescription": "குறைந்தது 8 எழுத்துகள் கொண்ட வலுவான கடவுச்சொல்லைப் பயன்படுத்தவும்.",
+    "currentPassword": "தற்போதைய கடவுச்சொல்",
+    "newPassword": "புதிய கடவுச்சொல்",
+    "retypeNewPassword": "புதிய கடவுச்சொல்லை மீண்டும் தட்டச்சு செய்",
+    "changing": "மாற்றுகிறது...",
+    "validation": {
+      "passwordsMustMatch": "புதிய கடவுச்சொல் மற்றும் மீண்டும் தட்டச்சு செய்த கடவுச்சொல் பொருந்த வேண்டும்."
+    }
+  },
+  "shops": {
+    "workspaceSetup": "பணிமனை அமைப்பு",
+    "createFirstShop": "உங்கள் முதல் கடையை உருவாக்குங்கள்",
+    "createFirstShopDescription": "உங்கள் கணக்கு தயாராக உள்ளது, ஆனால் சரக்கு செயல்முறைகளை அணுக முன் ஒரு கடை தேவை.",
+    "shopManagement": "கடை மேலாண்மை",
+    "manageShopDetails": "கடை விவரங்களை நிர்வகி",
+    "manageShopDescription": "ஒரு கடையைத் தேர்ந்தெடுத்து அதன் விவரங்களைப் பார்த்து உங்கள் குழுவிற்கான மாற்றங்களைச் சேமிக்கவும்.",
+    "shopName": "கடை பெயர்",
+    "address": "முகவரி",
+    "city": "நகரம்",
+    "state": "மாநிலம்",
+    "pincode": "அஞ்சல் குறியீடு",
+    "contactPersonOptional": "தொடர்பு நபர் (விருப்பம்)",
+    "mobileNumberOptional": "மொபைல் எண் (விருப்பம்)",
+    "gstNumberOptional": "GST எண் (விருப்பம்)",
+    "createShop": "கடை உருவாக்கு",
+    "creatingShop": "கடை உருவாகிறது...",
+    "saveShopChanges": "கடை மாற்றங்களை சேமி",
+    "savingChanges": "மாற்றங்களை சேமிக்கிறது...",
+    "selectShop": "கடையைத் தேர்ந்தெடு",
+    "selectedShopRoleIs": "தேர்ந்தெடுக்கப்பட்ட கடையின் பங்கு",
+    "unknown": "தெரியவில்லை",
+    "onlyOwnersCanSave": "உரிமையாளர்கள் மட்டுமே மாற்றங்களைச் சேமிக்க முடியும்.",
+    "placeholders": {
+      "shopName": "உதா: Downtown Electronics",
+      "address": "உதா: 42 MG Road",
+      "city": "உதா: Bengaluru",
+      "state": "உதா: Karnataka",
+      "pincode": "உதா: 560001",
+      "contactPerson": "உதா: Chandra",
+      "mobileNumber": "உதா: 9876543210",
+      "gst": "உதா: 27AAPFU0939F1ZV"
+    },
+    "validation": {
+      "shopNameRequired": "கடை பெயர் அவசியம்.",
+      "shopNameMaxLength": "கடை பெயர் 120 எழுத்துகள் அல்லது குறைவாக இருக்க வேண்டும்.",
+      "addressRequired": "முகவரி அவசியம்.",
+      "cityRequired": "நகரம் அவசியம்.",
+      "stateRequired": "மாநிலம் அவசியம்.",
+      "pincodeRequired": "அஞ்சல் குறியீடு அவசியம்.",
+      "gstInvalid": "சரியான இந்திய GSTIN ஐ உள்ளிடவும்."
+    }
+  },
+  "notFound": {
+    "title": "பக்கம் கிடைக்கவில்லை",
+    "description": "இந்த பாதை Intelibill பணிமனையில் இல்லை.",
+    "goBack": "பின்செல்"
+  },
+  "errors": {
+    "auth": {
+      "invalidCredentials": "மின்னஞ்சல் அல்லது கடவுச்சொல் தவறானது.",
+      "userLoginDisabled": "உங்கள் உள்நுழைவு முடக்கப்பட்டுள்ளது. கடை உரிமையாளரை தொடர்பு கொள்ளவும்.",
+      "unableToSignIn": "இப்போது உள்நுழைய முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "emailAlreadyInUse": "இந்த மின்னஞ்சலுடன் ஏற்கனவே ஒரு கணக்கு உள்ளது.",
+      "unableToCreateAccount": "இப்போது கணக்கை உருவாக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "emailAlreadyInUseByAnother": "இந்த மின்னஞ்சல் மற்றொரு கணக்கில் ஏற்கனவே பயன்படுத்தப்படுகிறது.",
+      "phoneAlreadyInUseByAnother": "இந்த மொபைல் எண் மற்றொரு கணக்கில் ஏற்கனவே பயன்படுத்தப்படுகிறது.",
+      "invalidCurrentPassword": "தற்போதைய கடவுச்சொல் தவறானது.",
+      "passwordNotSet": "இந்த கணக்கிற்கு கடவுச்சொல் அமைக்கப்படவில்லை.",
+      "sessionVerificationFailed": "கடை செயல்பாட்டிற்கு உங்கள் அமர்வு சரிபார்க்கப்படவில்லை. மீண்டும் உள்நுழையவும்."
+    },
+    "users": {
+      "unableToUpdateProfile": "இப்போது சுயவிவரத்தை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "unableToChangePassword": "இப்போது கடவுச்சொல்லை மாற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "unableToLoadShopUsers": "இப்போது கடை பயனர்களை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "onlyOwnerCanAddUsers": "இந்த கடைக்கு உரிமையாளர் மட்டுமே புதிய பயனர்களை சேர்க்க முடியும்.",
+      "roleNotSupported": "பங்கு மேலாளர் அல்லது விற்பனையாளர் ஆக இருக்க வேண்டும்.",
+      "unableToAddShopUser": "இப்போது கடை பயனரைச் சேர்க்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "onlyOwnerCanEditUsers": "இந்த கடைக்கு உரிமையாளர் மட்டுமே பயனர்களைத் திருத்த முடியும்.",
+      "ownerCannotBeModified": "இந்த திரையில் இருந்து உரிமையாளர் கணக்கை மாற்ற முடியாது.",
+      "unableToUpdateUser": "இப்போது பயனரை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."
+    },
+    "shops": {
+      "unableToLoadShops": "இப்போது உங்கள் கடைகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "unableToSetDefaultStore": "இப்போது இயல்புநிலை கடையை அமைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "membershipNotFound": "இந்த கடைக்கு உங்களுக்கு அணுகல் இல்லை.",
+      "shopNotFound": "தேர்ந்தெடுத்த கடை இனி இல்லை.",
+      "unableToLoadDetails": "இப்போது கடை விவரங்களை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "onlyOwnersCanUpdate": "கடை விவரங்களை உரிமையாளர்கள் மட்டுமே புதுப்பிக்க முடியும்.",
+      "nameRequired": "கடை பெயர் அவசியம்.",
+      "addressRequired": "கடை முகவரி அவசியம்.",
+      "cityRequired": "கடை நகரம் அவசியம்.",
+      "stateRequired": "கடை மாநிலம் அவசியம்.",
+      "pincodeRequired": "கடை அஞ்சல் குறியீடு அவசியம்.",
+      "unableToUpdateShop": "இப்போது கடையை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."
+    }
+  }
+}

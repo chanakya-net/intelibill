@@ -14,7 +14,8 @@ public sealed record UserDto(
     string? Email,
     string? PhoneNumber,
     string FirstName,
-    string LastName);
+    string LastName,
+    string Language = "en-IN");
 
 public sealed record UserShopDto(
     Guid ShopId,

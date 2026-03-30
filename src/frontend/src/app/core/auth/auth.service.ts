@@ -8,12 +8,15 @@ import { catchError, finalize, map, Observable, of, shareReplay, switchMap, tap,
 import { AUTH_ENDPOINTS } from './auth.constants';
 import { AuthResult, AuthSession, LoginWithEmailRequest, RefreshTokenRequest, RegisterWithEmailRequest } from './auth.models';
 import { AuthStorage } from './auth.storage';
+import { LocalizationService } from '../i18n/localization.service';
+import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly storage = inject(AuthStorage);
+  private readonly localizationService = inject(LocalizationService);
   private readonly platformId = inject(PLATFORM_ID);
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
@@ -220,6 +223,9 @@ export class AuthService {
 
   private setSession(session: AuthSession): void {
     this.sessionSignal.set(session);
+    const preferredLanguage = session.user.language || DEFAULT_LANGUAGE;
+
+    void this.localizationService.setLanguage(preferredLanguage);
 
     if (this.isBrowser()) {
       this.storage.saveSession(session);
@@ -227,12 +233,17 @@ export class AuthService {
   }
 
   private toSession(result: AuthResult, rememberMe: boolean): AuthSession {
+    const normalizedUser = {
+      ...result.user,
+      language: result.user.language || DEFAULT_LANGUAGE,
+    };
+
     return {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       accessTokenExpiresAt: result.accessTokenExpiresAt,
       refreshTokenExpiresAt: result.refreshTokenExpiresAt,
-      user: result.user,
+      user: normalizedUser,
       rememberMe,
       activeShopId: result.activeShopId,
       shops: result.shops ?? [],

@@ -20,6 +20,7 @@ export interface AuthUser {
   readonly phoneNumber: string | null;
   readonly firstName: string;
   readonly lastName: string;
+  readonly language?: string;
 }
 
 export interface UserShop {

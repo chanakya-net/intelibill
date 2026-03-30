@@ -114,7 +114,8 @@ public sealed class EditShopUserCommandHandler(
             targetUser.PhoneNumber,
             ToRoleLabel(role),
             targetUser.IsLoginEnabled,
-            finalShopIds);
+            finalShopIds,
+            targetUser.Language);
     }
 
     private static bool TryParseShopRole(string roleValue, out ShopRole role)

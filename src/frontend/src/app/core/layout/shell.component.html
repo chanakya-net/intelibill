@@ -6,16 +6,16 @@
           OZ
         </div>
         <div class="shell-shop" #shopMenuRoot>
-          <p class="shell-suite-label">Enterprise Suite</p>
+          <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
           <div class="shell-title-row">
-            <h1 class="shell-title">Intelibill</h1>
+            <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
             <button
               type="button"
               class="active-shop-trigger active-shop-trigger-desktop"
               *ngIf="activeShopLabel() as activeShopCaption"
               [attr.aria-expanded]="isShopMenuOpen()"
               aria-haspopup="menu"
-              aria-label="Switch active shop"
+              [attr.aria-label]="'shell.switchActiveShop' | transloco"
               (click)="onToggleShopMenu()"
             >
               <span class="active-shop-caption">{{ activeShopCaption }}</span>
@@ -29,14 +29,14 @@
             *ngIf="activeShopLabel() as activeShopCaption"
             [attr.aria-expanded]="isShopMenuOpen()"
             aria-haspopup="menu"
-            aria-label="Switch active shop"
+            [attr.aria-label]="'shell.switchActiveShop' | transloco"
             (click)="onToggleShopMenu()"
           >
             <span class="active-shop-caption">{{ activeShopCaption }}</span>
             <i class="pi pi-chevron-down" aria-hidden="true"></i>
           </button>
 
-          <div class="shop-menu" *ngIf="isShopMenuOpen()" role="menu" aria-label="Available shops">
+          <div class="shop-menu" *ngIf="isShopMenuOpen()" role="menu" [attr.aria-label]="'shell.availableShops' | transloco">
             <button
               type="button"
               role="menuitem"
@@ -46,7 +46,7 @@
               (click)="onSelectShop(shop.shopId)"
             >
               {{ getShopDisplayLabel(shop) }}
-              <span *ngIf="shop.shopId === activeShopId()">Active</span>
+              <span *ngIf="shop.shopId === activeShopId()">{{ 'shell.active' | transloco }}</span>
             </button>
           </div>
         </div>
@@ -56,7 +56,7 @@
         <button
           type="button"
           class="profile-trigger"
-          aria-label="Open profile menu"
+          [attr.aria-label]="'shell.openProfileMenu' | transloco"
           [attr.aria-expanded]="isProfileMenuOpen()"
           aria-haspopup="menu"
           (click)="onToggleProfileMenu($event, profileMenu)"
@@ -64,20 +64,20 @@
           <span class="profile-avatar">{{ profileInitials() }}</span>
           <span class="profile-text">
             <span class="profile-name">{{ profileDisplayName() }}</span>
-            <span class="profile-label">Profile</span>
+            <span class="profile-label">{{ 'shell.profile' | transloco }}</span>
           </span>
           <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
         </button>
 
-        <p-menu
+        <p-tieredMenu
           #profileMenu
           [model]="profileMenuItems()"
           [popup]="true"
           styleClass="profile-prime-menu"
-          aria-label="Profile actions"
+          [attr.aria-label]="'shell.profileActions' | transloco"
           (onShow)="isProfileMenuOpen.set(true)"
           (onHide)="isProfileMenuOpen.set(false)"
-        ></p-menu>
+        ></p-tieredMenu>
       </div>
     </div>
   </header>

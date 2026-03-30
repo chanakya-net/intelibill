@@ -8,6 +8,7 @@ import { AuthResult, AuthSession } from './auth.models';
 import { AuthService } from './auth.service';
 import { AuthStorage } from './auth.storage';
 import { AUTH_ENDPOINTS } from './auth.constants';
+import { LocalizationService } from '../i18n/localization.service';
 
 function buildAuthResult(overrides?: Partial<AuthResult>): AuthResult {
   const now = Date.now();
@@ -60,6 +61,10 @@ describe('AuthService', () => {
     navigateByUrl: vi.fn<Router['navigateByUrl']>(),
   };
 
+  const localizationService = {
+    setLanguage: vi.fn<LocalizationService['setLanguage']>().mockResolvedValue(undefined),
+  };
+
   function setup(): { service: AuthService; http: HttpTestingController } {
     TestBed.configureTestingModule({
       providers: [
@@ -68,6 +73,7 @@ describe('AuthService', () => {
         { provide: PLATFORM_ID, useValue: 'browser' },
         { provide: AuthStorage, useValue: storage },
         { provide: Router, useValue: router },
+        { provide: LocalizationService, useValue: localizationService },
       ],
     });
 
@@ -85,6 +91,7 @@ describe('AuthService', () => {
     storage.getLastEmail.mockReturnValue('');
     storage.clearLastEmail.mockReset();
     router.navigateByUrl.mockResolvedValue(true);
+    localizationService.setLanguage.mockClear();
   });
 
   afterEach(() => {

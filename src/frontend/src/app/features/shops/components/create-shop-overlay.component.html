@@ -12,20 +12,20 @@
         [rounded]="true"
         class="overlay-close"
         [disabled]="isSubmitting()"
-        aria-label="Close shop setup"
+        [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       ></button>
 
-      <p class="overlay-kicker">Workspace Setup</p>
-      <h2>Create your first shop</h2>
+      <p class="overlay-kicker">{{ 'shops.workspaceSetup' | transloco }}</p>
+      <h2>{{ 'shops.createFirstShop' | transloco }}</h2>
       <p>
-        Your account is ready, but you need a shop before accessing inventory workflows.
+        {{ 'shops.createFirstShopDescription' | transloco }}
       </p>
     </header>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
       <div class="field-wrap space-y-1.5">
-        <label for="shop-name">Shop Name</label>
+        <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
         <input
           id="shop-name"
           type="text"
@@ -33,19 +33,19 @@
           formControlName="name"
           autocomplete="organization"
           class="w-full"
-          placeholder="Ex: Downtown Electronics"
+          [placeholder]="'shops.placeholders.shopName' | transloco"
           [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
         />
         <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
-          Shop name is required.
+          {{ 'shops.validation.shopNameRequired' | transloco }}
         </p>
         <p class="field-error" *ngIf="form.controls.name.hasError('maxlength') && form.controls.name.touched">
-          Shop name must be 120 characters or fewer.
+          {{ 'shops.validation.shopNameMaxLength' | transloco }}
         </p>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-address">Address</label>
+        <label for="shop-address">{{ 'shops.address' | transloco }}</label>
         <input
           id="shop-address"
           type="text"
@@ -53,17 +53,17 @@
           formControlName="address"
           autocomplete="street-address"
           class="w-full"
-          placeholder="Ex: 42 MG Road"
+          [placeholder]="'shops.placeholders.address' | transloco"
           [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
         />
         <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
-          Address is required.
+          {{ 'shops.validation.addressRequired' | transloco }}
         </p>
       </div>
 
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
-          <label for="shop-city">City</label>
+          <label for="shop-city">{{ 'shops.city' | transloco }}</label>
           <input
             id="shop-city"
             type="text"
@@ -71,16 +71,16 @@
             formControlName="city"
             autocomplete="address-level2"
             class="w-full"
-            placeholder="Ex: Bengaluru"
+            [placeholder]="'shops.placeholders.city' | transloco"
             [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
           />
           <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
-            City is required.
+            {{ 'shops.validation.cityRequired' | transloco }}
           </p>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="shop-state">State</label>
+          <label for="shop-state">{{ 'shops.state' | transloco }}</label>
           <input
             id="shop-state"
             type="text"
@@ -88,17 +88,17 @@
             formControlName="state"
             autocomplete="address-level1"
             class="w-full"
-            placeholder="Ex: Karnataka"
+            [placeholder]="'shops.placeholders.state' | transloco"
             [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
           />
           <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
-            State is required.
+            {{ 'shops.validation.stateRequired' | transloco }}
           </p>
         </div>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-pincode">Pincode</label>
+        <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
         <input
           id="shop-pincode"
           type="text"
@@ -106,17 +106,17 @@
           formControlName="pincode"
           autocomplete="postal-code"
           class="w-full"
-          placeholder="Ex: 560001"
+          [placeholder]="'shops.placeholders.pincode' | transloco"
           [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
         />
         <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
-          Pincode is required.
+          {{ 'shops.validation.pincodeRequired' | transloco }}
         </p>
       </div>
 
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
-          <label for="shop-contact-person">Contact Person (Optional)</label>
+          <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
           <input
             id="shop-contact-person"
             type="text"
@@ -124,12 +124,12 @@
             formControlName="contactPerson"
             autocomplete="name"
             class="w-full"
-            placeholder="Ex: Chandra"
+            [placeholder]="'shops.placeholders.contactPerson' | transloco"
           />
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="shop-mobile">Mobile Number (Optional)</label>
+          <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
           <input
             id="shop-mobile"
             type="text"
@@ -137,33 +137,33 @@
             formControlName="mobileNumber"
             autocomplete="tel"
             class="w-full"
-            placeholder="Ex: 9876543210"
+            [placeholder]="'shops.placeholders.mobileNumber' | transloco"
           />
         </div>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-gst">GST Number (Optional)</label>
+        <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
         <input
           id="shop-gst"
           type="text"
           pInputText
           formControlName="gstNumber"
           class="w-full"
-          placeholder="Ex: 27AAPFU0939F1ZV"
+          [placeholder]="'shops.placeholders.gst' | transloco"
           [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
         />
         <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
-          Enter a valid Indian GSTIN.
+          {{ 'shops.validation.gstInvalid' | transloco }}
         </p>
       </div>
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+      <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
 
       <button
         pButton
         type="submit"
-        [label]="isSubmitting() ? 'Creating shop...' : 'Create Shop'"
+        [label]="isSubmitting() ? ('shops.creatingShop' | transloco) : ('shops.createShop' | transloco)"
         [loading]="isSubmitting()"
         [disabled]="form.invalid || isSubmitting()"
         class="create-button w-full"

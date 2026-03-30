@@ -44,7 +44,7 @@ public sealed class RefreshTokenCommandHandler(
             newRefreshToken.Token,
             accessTokenExpiry,
             newRefreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName),
+            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
             activeShopId,
             shops);
     }

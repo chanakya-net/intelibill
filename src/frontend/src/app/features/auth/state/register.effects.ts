@@ -47,12 +47,8 @@ function getRegisterErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Auth.EmailAlreadyInUse') {
-    return 'An account with this email already exists.';
+    return 'errors.auth.emailAlreadyInUse';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to create your account right now. Please try again.';
+  return 'errors.auth.unableToCreateAccount';
 }

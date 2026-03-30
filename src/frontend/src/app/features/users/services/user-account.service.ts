@@ -12,6 +12,7 @@ export interface UpdateMyProfileRequest {
   readonly phoneNumber: string | null;
   readonly firstName: string;
   readonly lastName: string;
+  readonly language?: string;
 }
 
 export interface ChangeMyPasswordRequest {

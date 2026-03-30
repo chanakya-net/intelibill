@@ -1,22 +1,22 @@
-<section class="overlay" aria-modal="true" role="dialog" aria-label="Add user to shop">
+<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'users.addUserToShop' | transloco">
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
     <header class="overlay-header">
       <div>
-        <p class="eyebrow">Shop Users</p>
-        <h2>Add User</h2>
-        <p class="description">Create a manager or sales person for the active shop.</p>
+        <p class="eyebrow">{{ 'users.shopUsers' | transloco }}</p>
+        <h2>{{ 'users.addUser' | transloco }}</h2>
+        <p class="description">{{ 'users.addUserDescription' | transloco }}</p>
       </div>
-      <button type="button" class="close-button" aria-label="Close" (click)="onClose()">
+      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <fieldset class="shop-selection">
-        <legend>Shops</legend>
-        <p class="shop-selection-description">Select one or more shops for this user.</p>
+        <legend>{{ 'users.shops' | transloco }}</legend>
+        <p class="shop-selection-description">{{ 'users.selectOneOrMoreShops' | transloco }}</p>
 
         <div class="shop-options">
           <label class="shop-option" *ngFor="let shop of availableShops()">
@@ -27,61 +27,61 @@
             />
             <span>
               {{ shop.shopName }}
-              <small *ngIf="shop.isDefault">Default</small>
+              <small *ngIf="shop.isDefault">{{ 'users.default' | transloco }}</small>
             </span>
           </label>
         </div>
       </fieldset>
 
       <label>
-        <span>First Name</span>
+        <span>{{ 'common.firstName' | transloco }}</span>
         <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
       </label>
 
       <label>
-        <span>Last Name</span>
+        <span>{{ 'common.lastName' | transloco }}</span>
         <input pInputText type="text" formControlName="lastName" autocomplete="family-name" />
       </label>
 
       <label>
-        <span>Email</span>
+        <span>{{ 'users.email' | transloco }}</span>
         <input pInputText type="email" formControlName="email" autocomplete="email" />
       </label>
 
       <label>
-        <span>Mobile Number</span>
+        <span>{{ 'users.mobileNumber' | transloco }}</span>
         <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />
       </label>
 
       <label>
-        <span>Password</span>
+        <span>{{ 'auth.password' | transloco }}</span>
         <p-password formControlName="password" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
       </label>
 
       <label>
-        <span>Confirm Password</span>
+        <span>{{ 'register.confirmPassword' | transloco }}</span>
         <p-password formControlName="confirmPassword" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
       </label>
 
       <label>
-        <span>Role</span>
+        <span>{{ 'users.role' | transloco }}</span>
         <select formControlName="role">
-          <option value="Manager">Manager</option>
-          <option value="SalesPerson">Sales Person</option>
+          <option value="Manager">{{ 'users.manager' | transloco }}</option>
+          <option value="SalesPerson">{{ 'users.salesPerson' | transloco }}</option>
         </select>
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() }}</p>
+      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
       <p class="error-message" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
-        Password and confirm password must match.
+        {{ 'users.validation.passwordConfirmationMustMatch' | transloco }}
       </p>
       <p class="error-message" *ngIf="form.controls.shopIds.invalid && form.controls.shopIds.touched">
-        Select at least one shop.
+        {{ 'users.validation.selectAtLeastOneShop' | transloco }}
       </p>
 
       <div class="actions">
-        <button pButton type="button" label="Cancel" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" label="Add User" [disabled]="isSubmitting()"></button>
+        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
+        <button pButton type="submit" [label]="'users.addUser' | transloco" [disabled]="isSubmitting()"></button>
       </div>
     </form>
 

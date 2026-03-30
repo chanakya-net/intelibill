@@ -37,6 +37,11 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(u => u.Language)
+            .IsRequired()
+            .HasMaxLength(10)
+            .HasDefaultValue("en-IN");
+
         builder.Property(u => u.IsLoginEnabled)
             .IsRequired()
             .HasDefaultValue(true);

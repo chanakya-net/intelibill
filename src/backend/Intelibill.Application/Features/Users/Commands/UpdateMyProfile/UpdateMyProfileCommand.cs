@@ -5,4 +5,5 @@ public sealed record UpdateMyProfileCommand(
     string Email,
     string? PhoneNumber,
     string FirstName,
-    string LastName);
+    string LastName,
+    string Language = "en-IN");

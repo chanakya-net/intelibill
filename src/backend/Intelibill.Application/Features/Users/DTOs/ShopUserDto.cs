@@ -8,4 +8,5 @@ public sealed record ShopUserDto(
     string? PhoneNumber,
     string Role,
     bool IsLoginEnabled,
-    IReadOnlyList<Guid> ShopIds);
+    IReadOnlyList<Guid> ShopIds,
+    string? Language = null);

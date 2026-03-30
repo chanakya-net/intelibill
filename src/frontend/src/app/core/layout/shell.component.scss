@@ -235,7 +235,8 @@
   }
 }
 
-:host ::ng-deep .profile-prime-menu.p-menu {
+:host ::ng-deep .profile-prime-menu.p-menu,
+:host ::ng-deep .profile-prime-menu.p-tieredmenu {
   width: 13.5rem;
   border-radius: 0.9rem;
   border: 1px solid #fed7aa;
@@ -249,24 +250,44 @@
   left: auto !important;
 }
 
-:host ::ng-deep .profile-prime-menu .p-menu-list {
+:host ::ng-deep .profile-prime-menu .p-menu-list,
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-root-list {
   padding: 0.35rem;
 }
 
-:host ::ng-deep .profile-prime-menu .p-menu-item-link {
+:host ::ng-deep .profile-prime-menu .p-menu-item-link,
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-link {
   border-radius: 0.65rem;
   font-size: 0.86rem;
   font-weight: 600;
   gap: 0.5rem;
 }
 
-:host ::ng-deep .profile-prime-menu .p-menu-item-icon {
+:host ::ng-deep .profile-prime-menu .p-menu-item-icon,
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-icon {
   color: #9a3412;
   transition: transform 120ms ease;
 }
 
-:host ::ng-deep .profile-prime-menu .p-menu-item-link:hover .p-menu-item-icon {
+:host ::ng-deep .profile-prime-menu .p-menu-item-link:hover .p-menu-item-icon,
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-link:hover .p-tieredmenu-item-icon {
   animation: profile-menu-icon-sway 0.55s ease-in-out 1;
+}
+
+/* Submenu panel for Language flyout */
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-overlay {
+  border-radius: 0.9rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
+  min-width: 11rem;
+}
+
+:host ::ng-deep .profile-prime-menu .p-tieredmenu-overlay .p-tieredmenu-item-link {
+  border-radius: 0.65rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  gap: 0.5rem;
 }
 
 @keyframes profile-menu-icon-sway {

@@ -100,7 +100,7 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
             return Unauthorized();
 
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new UpdateMyProfileCommand(userId.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName),
+            new UpdateMyProfileCommand(userId.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -137,5 +137,5 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
 
 public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string Email, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
 public sealed record EditShopUserRequest(string Email, string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled, IReadOnlyList<Guid>? ShopIds = null);
-public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName);
+public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName, string Language = "en-IN");
 public sealed record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);

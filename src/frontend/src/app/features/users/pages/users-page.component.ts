@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -23,7 +24,7 @@ import {
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddShopUserOverlayComponent, EditShopUserOverlayComponent],
+  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddShopUserOverlayComponent, EditShopUserOverlayComponent, TranslocoPipe],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
 })
@@ -106,7 +107,15 @@ export class UsersPageComponent {
   getRoleLabel(role: string): string {
     const normalized = role.trim().toLowerCase();
     if (normalized === 'salesperson' || normalized === 'staff') {
-      return 'Sales Person';
+      return 'users.salesPerson';
+    }
+
+    if (normalized === 'manager') {
+      return 'users.manager';
+    }
+
+    if (normalized === 'owner') {
+      return 'users.owner';
     }
 
     return role;

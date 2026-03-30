@@ -4,6 +4,8 @@ namespace Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 
 internal sealed class UpdateMyProfileCommandValidator : AbstractValidator<UpdateMyProfileCommand>
 {
+    private static readonly string[] SupportedLanguages = ["en-IN", "hi-IN", "ta-IN", "te-IN", "bn-IN", "ml-IN"];
+
     public UpdateMyProfileCommandValidator()
     {
         RuleFor(x => x.Email)
@@ -23,5 +25,10 @@ internal sealed class UpdateMyProfileCommandValidator : AbstractValidator<Update
         RuleFor(x => x.LastName)
             .NotEmpty()
             .MaximumLength(100);
+
+        RuleFor(x => x.Language)
+            .NotEmpty()
+            .Must(language => SupportedLanguages.Contains(language))
+            .WithMessage("Language must be one of the supported locale codes.");
     }
 }

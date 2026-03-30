@@ -1,0 +1,206 @@
+{
+  "common": {
+    "language": "భాష",
+    "firstName": "మొదటి పేరు",
+    "lastName": "చివరి పేరు",
+    "cancel": "రద్దు",
+    "close": "మూసివేయి"
+  },
+  "languages": {
+    "en-IN": "ఇంగ్లీష్",
+    "hi-IN": "హిందీ",
+    "ta-IN": "తమిళం",
+    "te-IN": "తెలుగు",
+    "bn-IN": "బంగ్లా",
+    "ml-IN": "మలయాళం"
+  },
+  "auth": {
+    "loginNow": "ఇప్పుడే లాగిన్ అవ్వండి",
+    "emailAddress": "ఇమెయిల్ చిరునామా",
+    "emailPlaceholder": "ఇమెయిల్ లేదా యూజర్‌నేమ్",
+    "password": "పాస్‌వర్డ్",
+    "signingIn": "సైన్-ఇన్ అవుతోంది...",
+    "loginCta": "లాగిన్",
+    "orLoginWith": "లేదా దీని ద్వారా లాగిన్ అవ్వండి",
+    "facebook": "ఫేస్‌బుక్",
+    "google": "గూగుల్",
+    "notMember": "సభ్యులు కాదా?",
+    "signupNow": "ఇప్పుడే సైన్ అప్ చేయండి",
+    "rememberMe": "నన్ను గుర్తుంచుకో",
+    "validation": {
+      "emailInvalid": "చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.",
+      "passwordRequired": "పాస్‌వర్డ్ అవసరం."
+    }
+  },
+  "register": {
+    "newHere": "ఇక్కడ కొత్తవారా",
+    "createAccount": "ఖాతా సృష్టించండి",
+    "subtitle": "మీ Intelibill వర్క్‌స్పేస్‌ను ప్రారంభించండి.",
+    "confirmPassword": "పాస్‌వర్డ్ నిర్ధారించండి",
+    "backToLogin": "లాగిన్‌కు తిరిగి వెళ్ళండి",
+    "creatingAccount": "ఖాతా సృష్టిస్తోంది...",
+    "signUp": "సైన్ అప్",
+    "validation": {
+      "passwordLength": "పాస్‌వర్డ్ 8 నుండి 100 అక్షరాల మధ్య ఉండాలి.",
+      "confirmPasswordRequired": "దయచేసి మీ పాస్‌వర్డ్ మళ్లీ నమోదు చేయండి.",
+      "passwordMismatch": "పాస్‌వర్డ్‌లు సరిపోలడం లేదు."
+    }
+  },
+  "shell": {
+    "enterpriseSuite": "ఎంటర్‌ప్రైజ్ సూట్",
+    "appName": "Intelibill",
+    "switchActiveShop": "సక్రియ దుకాణం మార్చండి",
+    "availableShops": "అందుబాటులో ఉన్న దుకాణాలు",
+    "active": "సక్రియం",
+    "openProfileMenu": "ప్రొఫైల్ మెనూ తెరవండి",
+    "profile": "ప్రొఫైల్",
+    "profileActions": "ప్రొఫైల్ చర్యలు",
+    "userFallback": "వినియోగదారు",
+    "manageUsers": "వినియోగదారులను నిర్వహించండి",
+    "updateProfile": "ప్రొఫైల్ నవీకరించండి",
+    "changePassword": "పాస్‌వర్డ్ మార్చండి",
+    "addShop": "దుకాణం జోడించండి",
+    "manageShop": "దుకాణం నిర్వహించండి",
+    "language": "భాష",
+    "logout": "లాగౌట్"
+  },
+  "users": {
+    "teamAccess": "టీమ్ యాక్సెస్",
+    "shopUsers": "దుకాణ వినియోగదారులు",
+    "subtitle": "సక్రియ దుకాణంలోని సభ్యులందరిని చూసి పాత్రలను నిర్వహించండి.",
+    "name": "పేరు",
+    "mobile": "మొబైల్",
+    "email": "ఇమెయిల్",
+    "role": "పాత్ర",
+    "login": "లాగిన్",
+    "actions": "చర్యలు",
+    "enabled": "ప్రారంభించబడింది",
+    "disabled": "నిలిపివేయబడింది",
+    "edit": "సవరించు",
+    "addUser": "వినియోగదారిని జోడించండి",
+    "editUser": "వినియోగదారిని సవరించండి",
+    "addUserDescription": "సక్రియ దుకాణానికి మేనేజర్ లేదా సేల్స్ పర్సన్ సృష్టించండి.",
+    "editUserDescription": "ఈ వినియోగదారికి పాత్ర మరియు లాగిన్ యాక్సెస్‌ను నవీకరించండి.",
+    "addUserToShop": "దుకాణానికి వినియోగదారిని జోడించండి",
+    "editShopUser": "దుకాణ వినియోగదారిని సవరించండి",
+    "shops": "దుకాణాలు",
+    "default": "డీఫాల్ట్",
+    "selectOneOrMoreShops": "ఈ వినియోగదారికి ఒకటి లేదా ఎక్కువ దుకాణాలను ఎంచుకోండి.",
+    "selectShopsForAccess": "ఈ వినియోగదారికి యాక్సెస్ ఉండాల్సిన దుకాణాలను ఎంచుకోండి.",
+    "mobileNumber": "మొబైల్ నంబర్",
+    "allowUserLogin": "ఈ వినియోగదారికి లాగిన్ అనుమతించండి",
+    "saveChanges": "మార్పులు సేవ్ చేయండి",
+    "manager": "మేనేజర్",
+    "owner": "యజమాని",
+    "salesPerson": "సేల్స్ పర్సన్",
+    "noUsersFound": "వినియోగదారులు లేరు",
+    "noUsersDescription": "ఈ దుకాణానికి మేనేజర్ లేదా సేల్స్ పర్సన్‌ని జోడించడం ద్వారా ప్రారంభించండి.",
+    "validation": {
+      "passwordConfirmationMustMatch": "పాస్‌వర్డ్ మరియు నిర్ధారణ పాస్‌వర్డ్ సరిపోవాలి.",
+      "selectAtLeastOneShop": "కనీసం ఒక దుకాణాన్ని ఎంచుకోండి."
+    }
+  },
+  "profile": {
+    "account": "ఖాతా",
+    "updateProfile": "ప్రొఫైల్ నవీకరించండి",
+    "updateProfileDescription": "మీ పేరు, ఇమెయిల్ మరియు మొబైల్ వివరాలను సవరించండి.",
+    "updating": "నవీకరిస్తోంది...",
+    "security": "భద్రత",
+    "changePassword": "పాస్‌వర్డ్ మార్చండి",
+    "changePasswordDescription": "కనీసం 8 అక్షరాలు ఉన్న బలమైన పాస్‌వర్డ్ ఉపయోగించండి.",
+    "currentPassword": "ప్రస్తుత పాస్‌వర్డ్",
+    "newPassword": "కొత్త పాస్‌వర్డ్",
+    "retypeNewPassword": "కొత్త పాస్‌వర్డ్ మళ్లీ టైప్ చేయండి",
+    "changing": "మారుస్తోంది...",
+    "validation": {
+      "passwordsMustMatch": "కొత్త పాస్‌వర్డ్ మరియు మళ్లీ టైప్ చేసిన పాస్‌వర్డ్ ఒకేలా ఉండాలి."
+    }
+  },
+  "shops": {
+    "workspaceSetup": "వర్క్‌స్పేస్ సెటప్",
+    "createFirstShop": "మీ మొదటి దుకాణం సృష్టించండి",
+    "createFirstShopDescription": "మీ ఖాతా సిద్ధంగా ఉంది, కానీ ఇన్వెంటరీ వర్క్‌ఫ్లోలను ఉపయోగించడానికి ముందు ఒక దుకాణం అవసరం.",
+    "shopManagement": "దుకాణ నిర్వహణ",
+    "manageShopDetails": "దుకాణ వివరాలను నిర్వహించండి",
+    "manageShopDescription": "దుకాణాన్ని ఎంచుకుని, వివరాలను చూసి, మీ టీమ్ కోసం మార్పులు సేవ్ చేయండి.",
+    "shopName": "దుకాణ పేరు",
+    "address": "చిరునామా",
+    "city": "నగరం",
+    "state": "రాష్ట్రం",
+    "pincode": "పిన్‌కోడ్",
+    "contactPersonOptional": "సంప్రదింపు వ్యక్తి (ఐచ్చికం)",
+    "mobileNumberOptional": "మొబైల్ నంబర్ (ఐచ్చికం)",
+    "gstNumberOptional": "GST నంబర్ (ఐచ్చికం)",
+    "createShop": "దుకాణం సృష్టించండి",
+    "creatingShop": "దుకాణం సృష్టిస్తోంది...",
+    "saveShopChanges": "దుకాణ మార్పులను సేవ్ చేయండి",
+    "savingChanges": "మార్పులను సేవ్ చేస్తోంది...",
+    "selectShop": "దుకాణం ఎంచుకోండి",
+    "selectedShopRoleIs": "ఎంచుకున్న దుకాణ పాత్ర",
+    "unknown": "తెలియదు",
+    "onlyOwnersCanSave": "మార్పులను యజమానులు మాత్రమే సేవ్ చేయగలరు.",
+    "placeholders": {
+      "shopName": "ఉదా: Downtown Electronics",
+      "address": "ఉదా: 42 MG Road",
+      "city": "ఉదా: Bengaluru",
+      "state": "ఉదా: Karnataka",
+      "pincode": "ఉదా: 560001",
+      "contactPerson": "ఉదా: Chandra",
+      "mobileNumber": "ఉదా: 9876543210",
+      "gst": "ఉదా: 27AAPFU0939F1ZV"
+    },
+    "validation": {
+      "shopNameRequired": "దుకాణ పేరు అవసరం.",
+      "shopNameMaxLength": "దుకాణ పేరు 120 అక్షరాలు లేదా అంతకంటే తక్కువగా ఉండాలి.",
+      "addressRequired": "చిరునామా అవసరం.",
+      "cityRequired": "నగరం అవసరం.",
+      "stateRequired": "రాష్ట్రం అవసరం.",
+      "pincodeRequired": "పిన్‌కోడ్ అవసరం.",
+      "gstInvalid": "చెల్లుబాటు అయ్యే భారతీయ GSTIN నమోదు చేయండి."
+    }
+  },
+  "notFound": {
+    "title": "పేజీ కనబడలేదు",
+    "description": "ఈ రూట్ Intelibill వర్క్‌స్పేస్‌లో లేదు.",
+    "goBack": "వెనక్కి వెళ్ళండి"
+  },
+  "errors": {
+    "auth": {
+      "invalidCredentials": "ఇమెయిల్ లేదా పాస్‌వర్డ్ తప్పుగా ఉంది.",
+      "userLoginDisabled": "మీ లాగిన్ నిలిపివేయబడింది. దయచేసి దుకాణ యజమానిని సంప్రదించండి.",
+      "unableToSignIn": "ఇప్పుడే సైన్-ఇన్ చేయలేకపోతున్నాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
+      "emailAlreadyInUse": "ఈ ఇమెయిల్‌తో ఇప్పటికే ఖాతా ఉంది.",
+      "unableToCreateAccount": "ఇప్పుడే మీ ఖాతాను సృష్టించలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
+      "emailAlreadyInUseByAnother": "ఈ ఇమెయిల్ ఇప్పటికే మరో ఖాతాలో ఉపయోగంలో ఉంది.",
+      "phoneAlreadyInUseByAnother": "ఈ మొబైల్ నంబర్ ఇప్పటికే మరో ఖాతాలో ఉపయోగంలో ఉంది.",
+      "invalidCurrentPassword": "ప్రస్తుత పాస్‌వర్డ్ తప్పు.",
+      "passwordNotSet": "ఈ ఖాతాకు పాస్‌వర్డ్ సెట్ చేయలేదు.",
+      "sessionVerificationFailed": "దుకాణ చర్య కోసం మీ సెషన్ ధృవీకరించబడలేదు. మళ్లీ సైన్-ఇన్ చేయండి."
+    },
+    "users": {
+      "unableToUpdateProfile": "ప్రొఫైల్‌ను ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "unableToChangePassword": "పాస్‌వర్డ్‌ను ఇప్పుడు మార్చలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "unableToLoadShopUsers": "దుకాణ వినియోగదారులను ఇప్పుడు లోడ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "onlyOwnerCanAddUsers": "ఈ దుకాణానికి యజమాని మాత్రమే కొత్త వినియోగదారులను జోడించగలరు.",
+      "roleNotSupported": "పాత్ర మేనేజర్ లేదా సేల్స్ పర్సన్ అయి ఉండాలి.",
+      "unableToAddShopUser": "దుకాణ వినియోగదారిని ఇప్పుడు జోడించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "onlyOwnerCanEditUsers": "ఈ దుకాణానికి యజమాని మాత్రమే వినియోగదారులను సవరించగలరు.",
+      "ownerCannotBeModified": "ఈ స్క్రీన్ నుంచి యజమాని ఖాతాను మార్చలేరు.",
+      "unableToUpdateUser": "వినియోగదారిని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+    },
+    "shops": {
+      "unableToLoadShops": "మీ దుకాణాలను ఇప్పుడు లోడ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "unableToSetDefaultStore": "డీఫాల్ట్ దుకాణాన్ని ఇప్పుడు సెట్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "membershipNotFound": "ఈ దుకాణానికి మీకు యాక్సెస్ లేదు.",
+      "shopNotFound": "ఎంచుకున్న దుకాణం ఇక లేదు.",
+      "unableToLoadDetails": "దుకాణ వివరాలను ఇప్పుడు లోడ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "onlyOwnersCanUpdate": "దుకాణ వివరాలను యజమానులు మాత్రమే నవీకరించగలరు.",
+      "nameRequired": "దుకాణ పేరు అవసరం.",
+      "addressRequired": "దుకాణ చిరునామా అవసరం.",
+      "cityRequired": "దుకాణ నగరం అవసరం.",
+      "stateRequired": "దుకాణ రాష్ట్రం అవసరం.",
+      "pincodeRequired": "దుకాణ పిన్‌కోడ్ అవసరం.",
+      "unableToUpdateShop": "దుకాణాన్ని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+    }
+  }
+}
