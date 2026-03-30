@@ -51,6 +51,7 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
             new AddShopUserCommand(
                 userId.Value,
                 request.ShopIds,
+                request.Email,
                 request.FirstName,
                 request.LastName,
                 request.PhoneNumber,
@@ -79,6 +80,7 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
                 actorUserId.Value,
                 activeShopId.Value,
                 targetUserId,
+                request.Email,
                 request.FirstName,
                 request.LastName,
                 request.PhoneNumber,
@@ -132,7 +134,7 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     }
 }
 
-public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
-public sealed record EditShopUserRequest(string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled);
+public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string Email, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
+public sealed record EditShopUserRequest(string Email, string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled);
 public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName);
 public sealed record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);

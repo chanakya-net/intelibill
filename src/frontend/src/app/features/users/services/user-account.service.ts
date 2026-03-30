@@ -31,6 +31,7 @@ export interface ShopUser {
 
 export interface AddShopUserRequest {
   readonly shopIds: readonly string[];
+  readonly email: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly phoneNumber: string;
@@ -40,6 +41,7 @@ export interface AddShopUserRequest {
 }
 
 export interface EditShopUserRequest {
+  readonly email: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly phoneNumber: string;

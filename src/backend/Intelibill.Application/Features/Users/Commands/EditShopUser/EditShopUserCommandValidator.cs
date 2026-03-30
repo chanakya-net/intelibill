@@ -6,6 +6,11 @@ internal sealed class EditShopUserCommandValidator : AbstractValidator<EditShopU
 {
     public EditShopUserCommandValidator()
     {
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .EmailAddress()
+            .MaximumLength(256);
+
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .MaximumLength(100);

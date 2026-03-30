@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output, computed, effect, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 
@@ -13,8 +13,6 @@ import { RootState } from '../../../core/state/app.state';
 import { UsersActions } from '../state/users.actions';
 import {
   selectUsersErrorMessage,
-  selectUsersLastMutationSucceeded,
-  selectUsersLastMutationType,
   selectUsersSubmitting,
 } from '../state/users.selectors';
 
@@ -32,15 +30,13 @@ export class AddShopUserOverlayComponent implements OnInit {
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
-  readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
-  readonly isAddUserPending = signal(false);
   readonly availableShops = computed(() => this.authService.session()?.shops ?? []);
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
     shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
@@ -49,18 +45,7 @@ export class AddShopUserOverlayComponent implements OnInit {
     role: ['Manager' as 'Manager' | 'SalesPerson', [Validators.required]],
   }, { validators: passwordsMatchValidator });
 
-  constructor() {
-    effect(() => {
-      const isSuccess = this.lastMutationType() === 'add-shop-user' && this.lastMutationSucceeded();
-      if (!this.isAddUserPending() || !isSuccess || this.isSubmitting()) {
-        return;
-      }
-
-      this.isAddUserPending.set(false);
-      this.store.dispatch(UsersActions.clearMutationStatus());
-      this.closeRequested.emit();
-    });
-  }
+  constructor() {}
 
   ngOnInit(): void {
     this.store.dispatch(UsersActions.clearError());
@@ -87,11 +72,11 @@ export class AddShopUserOverlayComponent implements OnInit {
 
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
-    this.isAddUserPending.set(true);
     this.store.dispatch(
       UsersActions.addShopUserRequested({
         payload: {
           shopIds: this.form.controls.shopIds.value,
+          email: this.form.controls.email.value.trim(),
           firstName: this.form.controls.firstName.value.trim(),
           lastName: this.form.controls.lastName.value.trim(),
           phoneNumber: this.form.controls.phoneNumber.value.trim(),

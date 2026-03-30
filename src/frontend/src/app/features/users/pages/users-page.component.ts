@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
@@ -12,7 +12,13 @@ import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay
 import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
-import { selectShopUsers, selectUsersErrorMessage, selectUsersLoadingShopUsers } from '../state/users.selectors';
+import {
+  selectShopUsers,
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersLoadingShopUsers,
+} from '../state/users.selectors';
 
 @Component({
   selector: 'app-users-page',
@@ -28,6 +34,8 @@ export class UsersPageComponent {
   readonly users = this.store.selectSignal(selectShopUsers);
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
+  readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
 
   readonly showAddUserOverlay = signal(false);
   readonly showEditUserOverlay = signal(false);
@@ -47,6 +55,25 @@ export class UsersPageComponent {
 
   constructor() {
     this.store.dispatch(UsersActions.loadShopUsersRequested());
+
+    effect(() => {
+      if (!this.lastMutationSucceeded()) {
+        return;
+      }
+
+      const mutationType = this.lastMutationType();
+      if (mutationType === 'add-shop-user' && this.showAddUserOverlay()) {
+        this.showAddUserOverlay.set(false);
+        this.store.dispatch(UsersActions.clearMutationStatus());
+        return;
+      }
+
+      if (mutationType === 'edit-shop-user' && this.showEditUserOverlay()) {
+        this.showEditUserOverlay.set(false);
+        this.editingUser.set(null);
+        this.store.dispatch(UsersActions.clearMutationStatus());
+      }
+    });
   }
 
   onOpenAddUser(): void {
@@ -57,7 +84,6 @@ export class UsersPageComponent {
 
   onCloseAddUser(): void {
     this.showAddUserOverlay.set(false);
-    this.store.dispatch(UsersActions.loadShopUsersRequested());
   }
 
   onOpenEditUser(user: ShopUser): void {
@@ -74,7 +100,6 @@ export class UsersPageComponent {
   onCloseEditUser(): void {
     this.showEditUserOverlay.set(false);
     this.editingUser.set(null);
-    this.store.dispatch(UsersActions.loadShopUsersRequested());
   }
 
   getRoleLabel(role: string): string {

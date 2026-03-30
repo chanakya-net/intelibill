@@ -31,7 +31,7 @@ public class EditShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "Sales", "User", "+15551230000", "Manager", true);
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales.updated@test.com", "Sales", "User", "+15551230000", "Manager", true);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -54,7 +54,7 @@ public class EditShopUserCommandHandlerTests
         actor.AddShopMembership(actorMembership);
         target.AddShopMembership(targetMembership);
 
-        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "Other", "Owner", "+15551230000", "Manager", false);
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "other.owner@test.com", "Other", "Owner", "+15551230000", "Manager", false);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
@@ -78,7 +78,7 @@ public class EditShopUserCommandHandlerTests
         actor.AddShopMembership(actorMembership);
         target.AddShopMembership(targetMembership);
 
-        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "Sales", "Manager", "+15551230000", "Manager", false);
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales.manager@test.com", "Sales", "Manager", "+15551230000", "Manager", false);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
@@ -91,9 +91,35 @@ public class EditShopUserCommandHandlerTests
         Assert.Equal("Manager", result.Value.Role);
         Assert.Equal("Sales", target.FirstName);
         Assert.Equal("Manager", target.LastName);
+        Assert.Equal(command.Email, target.Email);
         Assert.Equal(command.PhoneNumber, target.PhoneNumber);
         Assert.False(target.IsLoginEnabled);
 
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEmailAlreadyExists_ReturnsConflictError()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+
+        var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
+        var targetMembership = ShopMembership.Create(shop.Id, target.Id, ShopRole.Staff, false);
+        actor.AddShopMembership(actorMembership);
+        target.AddShopMembership(targetMembership);
+
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales.dup@test.com", "Sales", "User", "+15551230000", "Manager", true);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
+        _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);
+
+        var handler = new EditShopUserCommandHandler(_validator, _userRepository, _unitOfWork);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.EmailAlreadyInUse.Code, result.FirstError.Code);
     }
 }

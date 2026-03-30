@@ -1,27 +1,40 @@
 <div class="app-shell min-h-screen">
-  <header class="sticky top-0 z-30 border-b border-orange-200/70 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-      <div class="flex items-center gap-3">
-        <div class="grid h-10 w-10 place-content-center rounded-xl bg-orange-700 text-sm font-bold tracking-widest text-orange-50">
+  <header class="shell-header">
+    <div class="shell-header-inner">
+      <div class="shell-brand">
+        <div class="shell-logo">
           OZ
         </div>
-        <div class="relative" #shopMenuRoot>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-orange-700/75">Enterprise Suite</p>
-          <div class="flex items-center gap-3">
-            <h1 class="text-lg font-bold leading-tight text-stone-900">Intelibill</h1>
+        <div class="shell-shop" #shopMenuRoot>
+          <p class="shell-suite-label">Enterprise Suite</p>
+          <div class="shell-title-row">
+            <h1 class="shell-title">Intelibill</h1>
             <button
               type="button"
-              class="active-shop-trigger"
+              class="active-shop-trigger active-shop-trigger-desktop"
               *ngIf="activeShopLabel() as activeShopCaption"
               [attr.aria-expanded]="isShopMenuOpen()"
               aria-haspopup="menu"
               aria-label="Switch active shop"
               (click)="onToggleShopMenu()"
             >
-              <span>{{ activeShopCaption }}</span>
-              <i class="pi pi-chevron-down text-xs" aria-hidden="true"></i>
+              <span class="active-shop-caption">{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
             </button>
           </div>
+
+          <button
+            type="button"
+            class="active-shop-trigger active-shop-trigger-mobile"
+            *ngIf="activeShopLabel() as activeShopCaption"
+            [attr.aria-expanded]="isShopMenuOpen()"
+            aria-haspopup="menu"
+            aria-label="Switch active shop"
+            (click)="onToggleShopMenu()"
+          >
+            <span class="active-shop-caption">{{ activeShopCaption }}</span>
+            <i class="pi pi-chevron-down" aria-hidden="true"></i>
+          </button>
 
           <div class="shop-menu" *ngIf="isShopMenuOpen()" role="menu" aria-label="Available shops">
             <button
@@ -39,35 +52,32 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <a
-          routerLink="/users"
-          class="users-nav-button"
-          aria-label="Open users page"
-          (click)="onCloseMenus()"
-        >
-          <i class="pi pi-users" aria-hidden="true"></i>
-          <span>Users</span>
-        </a>
-
-      <div class="relative flex items-center gap-2" #profileMenuRoot>
+      <div class="shell-actions" #profileMenuRoot>
         <button
           type="button"
-          class="profile-avatar"
+          class="profile-trigger"
           aria-label="Open profile menu"
-          (click)="onToggleProfileMenu()"
+          [attr.aria-expanded]="isProfileMenuOpen()"
+          aria-haspopup="menu"
+          (click)="onToggleProfileMenu($event, profileMenu)"
         >
-          {{ profileInitials() }}
+          <span class="profile-avatar">{{ profileInitials() }}</span>
+          <span class="profile-text">
+            <span class="profile-name">{{ profileDisplayName() }}</span>
+            <span class="profile-label">Profile</span>
+          </span>
+          <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
         </button>
 
-        <div class="profile-menu" *ngIf="isProfileMenuOpen()" role="menu" aria-label="Profile actions">
-          <button type="button" role="menuitem" (click)="onOpenUpdateProfile()">Update Profile</button>
-          <button type="button" role="menuitem" (click)="onOpenChangePassword()">Change Password</button>
-          <button type="button" role="menuitem" *ngIf="isOwnerOfActiveShop()" (click)="onOpenAddShop()">Add Shop</button>
-          <button type="button" role="menuitem" *ngIf="shouldShowManageShopAction() && isOwnerOfActiveShop()" (click)="onOpenManageShop()">Manage Shop</button>
-          <button type="button" role="menuitem" [disabled]="isSigningOut()" (click)="onSignOut()">Logout</button>
-        </div>
-      </div>
+        <p-menu
+          #profileMenu
+          [model]="profileMenuItems()"
+          [popup]="true"
+          styleClass="profile-prime-menu"
+          aria-label="Profile actions"
+          (onShow)="isProfileMenuOpen.set(true)"
+          (onHide)="isProfileMenuOpen.set(false)"
+        ></p-menu>
       </div>
     </div>
   </header>

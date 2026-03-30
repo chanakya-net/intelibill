@@ -45,11 +45,16 @@ public sealed class EditShopUserCommandHandler(
         if (!TryParseShopRole(command.Role, out var role))
             return Errors.Users.RoleNotSupported;
 
+        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
+        var emailChanged = !string.Equals(targetUser.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase);
+        if (emailChanged && await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
+            return Errors.Auth.EmailAlreadyInUse;
+
         var normalizedPhone = command.PhoneNumber.Trim();
         if (await userRepository.ExistsByPhoneAsync(normalizedPhone, targetUser.Id, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 
-        targetUser.UpdateShopUserProfile(command.FirstName, command.LastName, normalizedPhone);
+        targetUser.UpdateShopUserProfile(normalizedEmail, command.FirstName, command.LastName, normalizedPhone);
         targetUser.SetLoginEnabled(command.IsLoginEnabled);
         targetMembership.SetRole(role);
 

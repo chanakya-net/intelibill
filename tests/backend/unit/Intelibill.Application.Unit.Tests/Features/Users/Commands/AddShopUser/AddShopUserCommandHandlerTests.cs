@@ -32,7 +32,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -51,7 +51,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Owner");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Owner");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -71,9 +71,10 @@ public class AddShopUserCommandHandlerTests
         shop.AddMembership(actorMembership);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(false);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(false);
         _passwordHasher.Hash(command.Password).Returns("hashed-pass");
 
@@ -84,13 +85,35 @@ public class AddShopUserCommandHandlerTests
         Assert.Equal("SalesPerson", result.Value.Role);
         Assert.Equal(command.FirstName, result.Value.FirstName);
         Assert.Equal(command.LastName, result.Value.LastName);
+        Assert.Equal(command.Email, result.Value.Email);
         Assert.Equal(command.PhoneNumber, result.Value.PhoneNumber);
 
         await _userRepository.Received(1).AddAsync(Arg.Is<User>(u =>
             u.FirstName == command.FirstName
             && u.LastName == command.LastName
+            && u.Email == command.Email
             && u.PhoneNumber == command.PhoneNumber
             && u.ShopMemberships.Any(sm => sm.ShopId == shop.Id && sm.Role == ShopRole.Staff)), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEmailAlreadyExists_ReturnsConflictError()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
+        actor.AddShopMembership(actorMembership);
+
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);
+
+        var handler = new AddShopUserCommandHandler(_validator, _userRepository, _shopRepository, _passwordHasher, _unitOfWork);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.EmailAlreadyInUse.Code, result.FirstError.Code);
     }
 }

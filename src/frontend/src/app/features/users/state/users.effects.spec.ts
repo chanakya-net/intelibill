@@ -228,6 +228,7 @@ describe('UsersEffects', () => {
       UsersActions.addShopUserRequested({
         payload: {
           shopIds: ['shop-1'],
+          email: 'sales@shop.com',
           firstName: 'Sales',
           lastName: 'Rep',
           phoneNumber: '+15557654321',
@@ -241,6 +242,63 @@ describe('UsersEffects', () => {
     await expect(output).resolves.toEqual(
       UsersActions.addShopUserFailed({
         errorMessage: 'Only owner can add new users for this shop.',
+      })
+    );
+  });
+
+  it('maps email conflict on add user effect', async () => {
+    userAccountService.addShopUser.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+    );
+
+    const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
+
+    actions$.next(
+      UsersActions.addShopUserRequested({
+        payload: {
+          shopIds: ['shop-1'],
+          email: 'sales@shop.com',
+          firstName: 'Sales',
+          lastName: 'Rep',
+          phoneNumber: '+15557654321',
+          password: 'Pass1234!',
+          confirmPassword: 'Pass1234!',
+          role: 'SalesPerson',
+        },
+      })
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.addShopUserFailed({
+        errorMessage: 'This email is already used by another account.',
+      })
+    );
+  });
+
+  it('maps email conflict on edit user effect', async () => {
+    userAccountService.editShopUser.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+    );
+
+    const output = firstValueFrom(effects.editShopUser$.pipe(take(1)));
+
+    actions$.next(
+      UsersActions.editShopUserRequested({
+        userId: 'u1',
+        payload: {
+          email: 'sales.updated@shop.com',
+          firstName: 'Sales',
+          lastName: 'Rep',
+          phoneNumber: '+15557654321',
+          role: 'Manager',
+          isLoginEnabled: true,
+        },
+      })
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.editShopUserFailed({
+        errorMessage: 'This email is already used by another account.',
       })
     );
   });
