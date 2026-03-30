@@ -53,7 +53,8 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
                 sm.User.PhoneNumber,
                 sm.Role == ShopRole.Staff ? "SalesPerson" : sm.Role.ToString(),
                 sm.User.IsLoginEnabled,
-                membershipsByUser.TryGetValue(sm.UserId, out var shopIds) ? shopIds : []))
+                membershipsByUser.TryGetValue(sm.UserId, out var shopIds) ? shopIds : [],
+                sm.User.Language))
             .ToList();
 
         return users;

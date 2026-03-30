@@ -88,7 +88,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
-        errorMessage: 'This email is already used by another account.',
+        errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
       })
     );
   });
@@ -113,7 +113,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
-        errorMessage: 'Profile update failed.',
+        errorMessage: 'errors.users.unableToUpdateProfile',
       })
     );
   });
@@ -153,7 +153,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
-        errorMessage: 'Current password is incorrect.',
+        errorMessage: 'errors.auth.invalidCurrentPassword',
       })
     );
   });
@@ -176,7 +176,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
-        errorMessage: 'Unable to change password right now. Please try again.',
+        errorMessage: 'errors.users.unableToChangePassword',
       })
     );
   });
@@ -243,7 +243,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.addShopUserFailed({
-        errorMessage: 'Only owner can add new users for this shop.',
+        errorMessage: 'errors.users.onlyOwnerCanAddUsers',
       })
     );
   });
@@ -272,7 +272,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.addShopUserFailed({
-        errorMessage: 'This email is already used by another account.',
+        errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
       })
     );
   });
@@ -300,7 +300,7 @@ describe('UsersEffects', () => {
 
     await expect(output).resolves.toEqual(
       UsersActions.editShopUserFailed({
-        errorMessage: 'This email is already used by another account.',
+        errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
       })
     );
   });

@@ -12,44 +12,44 @@
         [rounded]="true"
         class="overlay-close"
         [disabled]="isSubmitting()"
-        aria-label="Close profile update"
+        [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       ></button>
 
-      <p class="overlay-kicker">Account</p>
-      <h2>Update Profile</h2>
-      <p>Edit your name, email, and mobile details.</p>
+      <p class="overlay-kicker">{{ 'profile.account' | transloco }}</p>
+      <h2>{{ 'profile.updateProfile' | transloco }}</h2>
+      <p>{{ 'profile.updateProfileDescription' | transloco }}</p>
     </header>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
-          <label for="first-name">First Name</label>
+          <label for="first-name">{{ 'common.firstName' | transloco }}</label>
           <input id="first-name" pInputText type="text" formControlName="firstName" class="w-full" autocomplete="given-name" />
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="last-name">Last Name</label>
+          <label for="last-name">{{ 'common.lastName' | transloco }}</label>
           <input id="last-name" pInputText type="text" formControlName="lastName" class="w-full" autocomplete="family-name" />
         </div>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="email">Email</label>
+        <label for="email">{{ 'users.email' | transloco }}</label>
         <input id="email" pInputText type="email" formControlName="email" class="w-full" autocomplete="email" />
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="phone">Mobile Number</label>
+        <label for="phone">{{ 'users.mobileNumber' | transloco }}</label>
         <input id="phone" pInputText type="text" formControlName="phoneNumber" class="w-full" autocomplete="tel" />
       </div>
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+      <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
 
       <button
         pButton
         type="submit"
-        [label]="isSubmitting() ? 'Updating...' : 'Update Profile'"
+        [label]="isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)"
         [loading]="isSubmitting()"
         [disabled]="form.invalid || isSubmitting()"
         class="submit-button w-full"

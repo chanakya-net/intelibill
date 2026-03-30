@@ -1,0 +1,206 @@
+{
+  "common": {
+    "language": "भाषा",
+    "firstName": "पहला नाम",
+    "lastName": "अंतिम नाम",
+    "cancel": "रद्द करें",
+    "close": "बंद करें"
+  },
+  "languages": {
+    "en-IN": "अंग्रेज़ी",
+    "hi-IN": "हिंदी",
+    "ta-IN": "तमिल",
+    "te-IN": "तेलुगु",
+    "bn-IN": "बांग्ला",
+    "ml-IN": "मलयालम"
+  },
+  "auth": {
+    "loginNow": "अभी लॉगिन करें",
+    "emailAddress": "ईमेल पता",
+    "emailPlaceholder": "ईमेल या यूज़रनेम",
+    "password": "पासवर्ड",
+    "signingIn": "साइन-इन हो रहा है...",
+    "loginCta": "लॉगिन",
+    "orLoginWith": "या इसके साथ लॉगिन करें",
+    "facebook": "फेसबुक",
+    "google": "गूगल",
+    "notMember": "सदस्य नहीं हैं?",
+    "signupNow": "अभी साइन अप करें",
+    "rememberMe": "मुझे याद रखें",
+    "validation": {
+      "emailInvalid": "मान्य ईमेल पता दर्ज करें।",
+      "passwordRequired": "पासवर्ड आवश्यक है।"
+    }
+  },
+  "register": {
+    "newHere": "यहां नए हैं",
+    "createAccount": "खाता बनाएं",
+    "subtitle": "अपना Intelibill कार्यक्षेत्र शुरू करें।",
+    "confirmPassword": "पासवर्ड की पुष्टि करें",
+    "backToLogin": "लॉगिन पर वापस जाएं",
+    "creatingAccount": "खाता बनाया जा रहा है...",
+    "signUp": "साइन अप",
+    "validation": {
+      "passwordLength": "पासवर्ड 8 से 100 अक्षरों के बीच होना चाहिए।",
+      "confirmPasswordRequired": "कृपया पासवर्ड दोबारा दर्ज करें।",
+      "passwordMismatch": "पासवर्ड मेल नहीं खाते।"
+    }
+  },
+  "shell": {
+    "enterpriseSuite": "एंटरप्राइज सूट",
+    "appName": "Intelibill",
+    "switchActiveShop": "सक्रिय दुकान बदलें",
+    "availableShops": "उपलब्ध दुकानें",
+    "active": "सक्रिय",
+    "openProfileMenu": "प्रोफाइल मेनू खोलें",
+    "profile": "प्रोफाइल",
+    "profileActions": "प्रोफाइल क्रियाएं",
+    "userFallback": "उपयोगकर्ता",
+    "manageUsers": "उपयोगकर्ता प्रबंधित करें",
+    "updateProfile": "प्रोफाइल अपडेट करें",
+    "changePassword": "पासवर्ड बदलें",
+    "addShop": "दुकान जोड़ें",
+    "manageShop": "दुकान प्रबंधित करें",
+    "language": "भाषा",
+    "logout": "लॉगआउट"
+  },
+  "users": {
+    "teamAccess": "टीम एक्सेस",
+    "shopUsers": "दुकान उपयोगकर्ता",
+    "subtitle": "सक्रिय दुकान के सभी सदस्यों को देखें और भूमिकाएं प्रबंधित करें।",
+    "name": "नाम",
+    "mobile": "मोबाइल",
+    "email": "ईमेल",
+    "role": "भूमिका",
+    "login": "लॉगिन",
+    "actions": "क्रियाएं",
+    "enabled": "सक्षम",
+    "disabled": "अक्षम",
+    "edit": "संपादित करें",
+    "addUser": "उपयोगकर्ता जोड़ें",
+    "editUser": "उपयोगकर्ता संपादित करें",
+    "addUserDescription": "सक्रिय दुकान के लिए मैनेजर या सेल्स पर्सन बनाएं।",
+    "editUserDescription": "इस उपयोगकर्ता की भूमिका और लॉगिन एक्सेस अपडेट करें।",
+    "addUserToShop": "दुकान में उपयोगकर्ता जोड़ें",
+    "editShopUser": "दुकान उपयोगकर्ता संपादित करें",
+    "shops": "दुकानें",
+    "default": "डिफ़ॉल्ट",
+    "selectOneOrMoreShops": "इस उपयोगकर्ता के लिए एक या अधिक दुकानें चुनें।",
+    "selectShopsForAccess": "चुनें कि इस उपयोगकर्ता को किन दुकानों तक पहुंच हो।",
+    "mobileNumber": "मोबाइल नंबर",
+    "allowUserLogin": "इस उपयोगकर्ता को लॉगिन की अनुमति दें",
+    "saveChanges": "परिवर्तन सहेजें",
+    "manager": "मैनेजर",
+    "owner": "स्वामी",
+    "salesPerson": "सेल्स पर्सन",
+    "noUsersFound": "कोई उपयोगकर्ता नहीं मिला",
+    "noUsersDescription": "इस दुकान के लिए मैनेजर या सेल्स पर्सन जोड़कर शुरू करें।",
+    "validation": {
+      "passwordConfirmationMustMatch": "पासवर्ड और पुष्टि पासवर्ड समान होने चाहिए।",
+      "selectAtLeastOneShop": "कम से कम एक दुकान चुनें।"
+    }
+  },
+  "profile": {
+    "account": "खाता",
+    "updateProfile": "प्रोफाइल अपडेट करें",
+    "updateProfileDescription": "अपना नाम, ईमेल और मोबाइल विवरण संपादित करें।",
+    "updating": "अपडेट हो रहा है...",
+    "security": "सुरक्षा",
+    "changePassword": "पासवर्ड बदलें",
+    "changePasswordDescription": "कम से कम 8 अक्षरों वाला मजबूत पासवर्ड उपयोग करें।",
+    "currentPassword": "वर्तमान पासवर्ड",
+    "newPassword": "नया पासवर्ड",
+    "retypeNewPassword": "नया पासवर्ड फिर से लिखें",
+    "changing": "बदला जा रहा है...",
+    "validation": {
+      "passwordsMustMatch": "नया पासवर्ड और पुनः लिखा पासवर्ड समान होना चाहिए।"
+    }
+  },
+  "shops": {
+    "workspaceSetup": "वर्कस्पेस सेटअप",
+    "createFirstShop": "अपनी पहली दुकान बनाएं",
+    "createFirstShopDescription": "आपका खाता तैयार है, लेकिन इन्वेंटरी वर्कफ्लो तक पहुंच से पहले आपको एक दुकान चाहिए।",
+    "shopManagement": "दुकान प्रबंधन",
+    "manageShopDetails": "दुकान विवरण प्रबंधित करें",
+    "manageShopDescription": "एक दुकान चुनें, उसका विवरण देखें और अपनी टीम के लिए बदलाव सहेजें।",
+    "shopName": "दुकान का नाम",
+    "address": "पता",
+    "city": "शहर",
+    "state": "राज्य",
+    "pincode": "पिनकोड",
+    "contactPersonOptional": "संपर्क व्यक्ति (वैकल्पिक)",
+    "mobileNumberOptional": "मोबाइल नंबर (वैकल्पिक)",
+    "gstNumberOptional": "जीएसटी नंबर (वैकल्पिक)",
+    "createShop": "दुकान बनाएं",
+    "creatingShop": "दुकान बनाई जा रही है...",
+    "saveShopChanges": "दुकान परिवर्तन सहेजें",
+    "savingChanges": "परिवर्तन सहेजे जा रहे हैं...",
+    "selectShop": "दुकान चुनें",
+    "selectedShopRoleIs": "चुनी गई दुकान की भूमिका है",
+    "unknown": "अज्ञात",
+    "onlyOwnersCanSave": "केवल स्वामी ही परिवर्तन सहेज सकते हैं।",
+    "placeholders": {
+      "shopName": "उदा: डाउनटाउन इलेक्ट्रॉनिक्स",
+      "address": "उदा: 42 एमजी रोड",
+      "city": "उदा: बेंगलुरु",
+      "state": "उदा: कर्नाटक",
+      "pincode": "उदा: 560001",
+      "contactPerson": "उदा: चंद्रा",
+      "mobileNumber": "उदा: 9876543210",
+      "gst": "उदा: 27AAPFU0939F1ZV"
+    },
+    "validation": {
+      "shopNameRequired": "दुकान का नाम आवश्यक है।",
+      "shopNameMaxLength": "दुकान का नाम 120 अक्षरों या उससे कम होना चाहिए।",
+      "addressRequired": "पता आवश्यक है।",
+      "cityRequired": "शहर आवश्यक है।",
+      "stateRequired": "राज्य आवश्यक है।",
+      "pincodeRequired": "पिनकोड आवश्यक है।",
+      "gstInvalid": "मान्य भारतीय GSTIN दर्ज करें।"
+    }
+  },
+  "notFound": {
+    "title": "पेज नहीं मिला",
+    "description": "यह रूट Intelibill वर्कस्पेस में मौजूद नहीं है।",
+    "goBack": "वापस जाएं"
+  },
+  "errors": {
+    "auth": {
+      "invalidCredentials": "ईमेल या पासवर्ड गलत है।",
+      "userLoginDisabled": "आपका लॉगिन निष्क्रिय है। कृपया दुकान स्वामी से संपर्क करें।",
+      "unableToSignIn": "अभी साइन-इन नहीं हो पा रहा है। कृपया फिर प्रयास करें।",
+      "emailAlreadyInUse": "इस ईमेल से एक खाता पहले से मौजूद है।",
+      "unableToCreateAccount": "अभी आपका खाता नहीं बनाया जा सका। कृपया फिर प्रयास करें।",
+      "emailAlreadyInUseByAnother": "यह ईमेल पहले से किसी अन्य खाते में उपयोग हो रहा है।",
+      "phoneAlreadyInUseByAnother": "यह मोबाइल नंबर पहले से किसी अन्य खाते में उपयोग हो रहा है।",
+      "invalidCurrentPassword": "वर्तमान पासवर्ड गलत है।",
+      "passwordNotSet": "इस खाते के लिए पासवर्ड सेट नहीं है।",
+      "sessionVerificationFailed": "दुकान क्रिया के लिए आपका सत्र सत्यापित नहीं हो सका। कृपया फिर से साइन-इन करें।"
+    },
+    "users": {
+      "unableToUpdateProfile": "अभी प्रोफाइल अपडेट नहीं हो सकी। कृपया फिर प्रयास करें।",
+      "unableToChangePassword": "अभी पासवर्ड नहीं बदला जा सका। कृपया फिर प्रयास करें।",
+      "unableToLoadShopUsers": "अभी दुकान उपयोगकर्ता लोड नहीं हो सके। कृपया फिर प्रयास करें।",
+      "onlyOwnerCanAddUsers": "इस दुकान के लिए केवल स्वामी नए उपयोगकर्ता जोड़ सकता है।",
+      "roleNotSupported": "भूमिका मैनेजर या सेल्स पर्सन होनी चाहिए।",
+      "unableToAddShopUser": "अभी दुकान उपयोगकर्ता नहीं जोड़ा जा सका। कृपया फिर प्रयास करें।",
+      "onlyOwnerCanEditUsers": "इस दुकान के लिए केवल स्वामी उपयोगकर्ताओं को संपादित कर सकता है।",
+      "ownerCannotBeModified": "स्वामी खाते को इस स्क्रीन से संशोधित नहीं किया जा सकता।",
+      "unableToUpdateUser": "अभी उपयोगकर्ता अपडेट नहीं हो सका। कृपया फिर प्रयास करें।"
+    },
+    "shops": {
+      "unableToLoadShops": "अभी आपकी दुकानें लोड नहीं हो सकीं। कृपया फिर प्रयास करें।",
+      "unableToSetDefaultStore": "अभी डिफ़ॉल्ट स्टोर सेट नहीं हो सका। कृपया फिर प्रयास करें।",
+      "membershipNotFound": "आपको इस दुकान तक पहुंच नहीं है।",
+      "shopNotFound": "चुनी गई दुकान अब मौजूद नहीं है।",
+      "unableToLoadDetails": "अभी दुकान का विवरण लोड नहीं हो सका। कृपया फिर प्रयास करें।",
+      "onlyOwnersCanUpdate": "केवल दुकान स्वामी ही दुकान विवरण अपडेट कर सकते हैं।",
+      "nameRequired": "दुकान का नाम आवश्यक है।",
+      "addressRequired": "दुकान का पता आवश्यक है।",
+      "cityRequired": "दुकान का शहर आवश्यक है।",
+      "stateRequired": "दुकान का राज्य आवश्यक है।",
+      "pincodeRequired": "दुकान का पिनकोड आवश्यक है।",
+      "unableToUpdateShop": "अभी दुकान अपडेट नहीं हो सकी। कृपया फिर प्रयास करें।"
+    }
+  }
+}

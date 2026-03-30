@@ -1,22 +1,22 @@
-<section class="overlay" aria-modal="true" role="dialog" aria-label="Edit shop user">
+<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'users.editShopUser' | transloco">
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
     <header class="overlay-header">
       <div>
-        <p class="eyebrow">Shop Users</p>
-        <h2>Edit User</h2>
-        <p class="description">Update role and login access for this user.</p>
+        <p class="eyebrow">{{ 'users.shopUsers' | transloco }}</p>
+        <h2>{{ 'users.editUser' | transloco }}</h2>
+        <p class="description">{{ 'users.editUserDescription' | transloco }}</p>
       </div>
-      <button type="button" class="close-button" aria-label="Close" (click)="onClose()">
+      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <fieldset class="shop-selection">
-        <legend>Shops</legend>
-        <p class="shop-selection-description">Select the shops this user should have access to.</p>
+        <legend>{{ 'users.shops' | transloco }}</legend>
+        <p class="shop-selection-description">{{ 'users.selectShopsForAccess' | transloco }}</p>
 
         <div class="shop-options">
           <label class="shop-option" *ngFor="let shop of availableShops()">
@@ -27,50 +27,50 @@
             />
             <span>
               {{ shop.shopName }}
-              <small *ngIf="shop.isDefault">Default</small>
+              <small *ngIf="shop.isDefault">{{ 'users.default' | transloco }}</small>
             </span>
           </label>
         </div>
       </fieldset>
 
       <label>
-        <span>First Name</span>
+        <span>{{ 'common.firstName' | transloco }}</span>
         <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
       </label>
 
       <label>
-        <span>Last Name</span>
+        <span>{{ 'common.lastName' | transloco }}</span>
         <input pInputText type="text" formControlName="lastName" autocomplete="family-name" />
       </label>
 
       <label>
-        <span>Email</span>
+        <span>{{ 'users.email' | transloco }}</span>
         <input pInputText type="email" formControlName="email" autocomplete="email" />
       </label>
 
       <label>
-        <span>Mobile Number</span>
+        <span>{{ 'users.mobileNumber' | transloco }}</span>
         <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />
       </label>
 
       <label>
-        <span>Role</span>
+        <span>{{ 'users.role' | transloco }}</span>
         <select formControlName="role">
-          <option value="Manager">Manager</option>
-          <option value="SalesPerson">Sales Person</option>
+          <option value="Manager">{{ 'users.manager' | transloco }}</option>
+          <option value="SalesPerson">{{ 'users.salesPerson' | transloco }}</option>
         </select>
       </label>
 
       <label class="toggle-row" for="isLoginEnabled">
         <p-checkbox inputId="isLoginEnabled" formControlName="isLoginEnabled" [binary]="true"></p-checkbox>
-        <span>Allow this user to login</span>
+        <span>{{ 'users.allowUserLogin' | transloco }}</span>
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() }}</p>
+      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
 
       <div class="actions">
-        <button pButton type="button" label="Cancel" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" label="Save Changes" [disabled]="isSubmitting()"></button>
+        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
+        <button pButton type="submit" [label]="'users.saveChanges' | transloco" [disabled]="isSubmitting()"></button>
       </div>
     </form>
 

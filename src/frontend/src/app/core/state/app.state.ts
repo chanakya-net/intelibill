@@ -1,5 +1,6 @@
 export interface AppShellState {
   readonly sidebarCollapsed: boolean;
+  readonly currentLanguage: string;
 }
 
 export interface HttpUiState {

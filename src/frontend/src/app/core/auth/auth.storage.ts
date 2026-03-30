@@ -5,6 +5,7 @@ import { AuthSession } from './auth.models';
 const LOCAL_SESSION_KEY = 'inventory.auth.session.local';
 const SESSION_SESSION_KEY = 'inventory.auth.session.temporary';
 const LAST_EMAIL_KEY = 'inventory.auth.last-email';
+const LANGUAGE_KEY = 'inventory.preferences.language';
 
 @Injectable({ providedIn: 'root' })
 export class AuthStorage {
@@ -41,6 +42,18 @@ export class AuthStorage {
 
   clearLastEmail(): void {
     localStorage.removeItem(LAST_EMAIL_KEY);
+  }
+
+  saveLanguage(language: string): void {
+    localStorage.setItem(LANGUAGE_KEY, language);
+  }
+
+  getLanguage(): string {
+    return localStorage.getItem(LANGUAGE_KEY) ?? 'en-IN';
+  }
+
+  clearLanguage(): void {
+    localStorage.removeItem(LANGUAGE_KEY);
   }
 
   private readSessionFromStorage(storage: Storage, key: string): AuthSession | null {

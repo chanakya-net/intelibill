@@ -40,7 +40,7 @@ public sealed class UpdateMyProfileCommandHandler(
         if (phoneChanged && normalizedPhone is not null && await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 
-        user.UpdateProfile(normalizedEmail, normalizedPhone, command.FirstName, command.LastName);
+        user.UpdateProfile(normalizedEmail, normalizedPhone, command.FirstName, command.LastName, command.Language);
         userRepository.Update(user);
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
@@ -55,7 +55,7 @@ public sealed class UpdateMyProfileCommandHandler(
             refreshToken.Token,
             accessTokenExpiry,
             refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName),
+            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
             activeShopId,
             shops);
     }

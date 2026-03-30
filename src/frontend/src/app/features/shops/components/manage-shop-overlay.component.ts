@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -25,7 +26,7 @@ const INDIA_GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
 @Component({
   selector: 'app-manage-shop-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',
 })
@@ -132,7 +133,7 @@ export class ManageShopOverlayComponent implements OnInit {
     if (!this.isSelectedShopOwner()) {
         this.store.dispatch(
           ShopsActions.updateShopFailed({
-            errorMessage: 'Only shop owners can update shop details.',
+            errorMessage: 'errors.shops.onlyOwnersCanUpdate',
           })
         );
       return;

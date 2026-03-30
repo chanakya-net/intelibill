@@ -14,11 +14,15 @@ import { metaReducers, rootReducers } from './core/state';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
 import { firstValueFrom } from 'rxjs';
+import { provideTransloco, translocoConfig } from '@ngneat/transloco';
 
 import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { httpLoadingInterceptor } from './core/interceptors/http-loading.interceptor';
 import { RegisterEffects } from './features/auth/state/register.effects';
+import { LocalizationService } from './core/i18n/localization.service';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './core/i18n/language.constants';
+import { TranslocoHttpLoader } from './core/i18n/transloco-http.loader';
 
 const enterprisePreset = definePreset(Aura, {
   semantic: {
@@ -63,6 +67,16 @@ export const appConfig: ApplicationConfig = {
       maxAge: 25,
       logOnly: !isDevMode(),
     }),
+    provideTransloco({
+      config: translocoConfig({
+        availableLangs: [...SUPPORTED_LANGUAGES],
+        defaultLang: DEFAULT_LANGUAGE,
+        fallbackLang: DEFAULT_LANGUAGE,
+        reRenderOnLangChange: true,
+        prodMode: !isDevMode(),
+      }),
+      loader: TranslocoHttpLoader,
+    }),
     provideClientHydration(withEventReplay()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
@@ -77,8 +91,11 @@ export const appConfig: ApplicationConfig = {
 };
 
 function initializeAuthSession(): () => Promise<boolean> {
-  return () => {
+  return async () => {
+    const localizationService = inject(LocalizationService);
     const authService = inject(AuthService);
+
+    await localizationService.initialize();
     return firstValueFrom(authService.bootstrapSession());
   };
 }

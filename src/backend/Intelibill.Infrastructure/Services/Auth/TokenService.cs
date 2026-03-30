@@ -16,6 +16,7 @@ internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
     private readonly JwtOptions _jwt = options.Value;
     private const string ActiveShopClaim = "active_shop_id";
     private const string ActiveShopRoleClaim = "active_shop_role";
+    private const string LanguageClaim = "language";
 
     public (string AccessToken, DateTimeOffset ExpiresAt) GenerateAccessToken(User user, Guid? activeShopId = null, string? activeShopRole = null)
     {
@@ -32,6 +33,8 @@ internal sealed class TokenService(IOptions<JwtOptions> options) : ITokenService
 
         if (user.Email is not null)
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+
+        claims.Add(new Claim(LanguageClaim, user.Language));
 
         if (activeShopId is not null)
             claims.Add(new Claim(ActiveShopClaim, activeShopId.Value.ToString()));

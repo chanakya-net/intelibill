@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -11,6 +12,8 @@ import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { RootState } from '../../../core/state/app.state';
+import { LocalizationService } from '../../../core/i18n/localization.service';
+import { SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RegisterActions } from '../state/register.actions';
 import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/register.selectors';
 
@@ -26,6 +29,7 @@ import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/r
     ButtonModule,
     RouterLink,
     ProgressSpinnerModule,
+    TranslocoPipe,
   ],
   templateUrl: './register-page.component.html',
   styleUrl: './register-page.component.scss',
@@ -33,9 +37,12 @@ import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/r
 export class RegisterPageComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
+  private readonly localizationService = inject(LocalizationService);
 
   readonly serverError = this.store.selectSignal(selectRegisterErrorMessage);
   readonly isSubmitting = this.store.selectSignal(selectRegisterSubmitting);
+  readonly supportedLanguages = this.localizationService.supportedLanguages;
+  readonly currentLanguage = this.localizationService.currentLanguage;
 
   readonly form = this.formBuilder.nonNullable.group({
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
@@ -68,6 +75,10 @@ export class RegisterPageComponent implements OnInit {
         rememberMe,
       })
     );
+  }
+
+  async onLanguageChanged(language: string): Promise<void> {
+    await this.localizationService.setLanguage(language as SupportedLanguage);
   }
 }
 

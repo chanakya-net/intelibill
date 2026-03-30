@@ -45,7 +45,7 @@ public sealed class LoginWithEmailCommandHandler(
             refreshToken.Token,
             accessTokenExpiry,
             refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName),
+            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
             activeShopId,
             shops);
     }

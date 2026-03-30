@@ -1,0 +1,206 @@
+{
+  "common": {
+    "language": "ভাষা",
+    "firstName": "নামের প্রথম অংশ",
+    "lastName": "নামের শেষ অংশ",
+    "cancel": "বাতিল",
+    "close": "বন্ধ করুন"
+  },
+  "languages": {
+    "en-IN": "ইংরেজি",
+    "hi-IN": "হিন্দি",
+    "ta-IN": "তামিল",
+    "te-IN": "তেলুগু",
+    "bn-IN": "বাংলা",
+    "ml-IN": "মালয়ালম"
+  },
+  "auth": {
+    "loginNow": "এখনই লগইন করুন",
+    "emailAddress": "ইমেল ঠিকানা",
+    "emailPlaceholder": "ইমেল বা ইউজারনেম",
+    "password": "পাসওয়ার্ড",
+    "signingIn": "সাইন-ইন হচ্ছে...",
+    "loginCta": "লগইন",
+    "orLoginWith": "অথবা এর মাধ্যমে লগইন করুন",
+    "facebook": "ফেসবুক",
+    "google": "গুগল",
+    "notMember": "এখনও সদস্য নন?",
+    "signupNow": "এখনই সাইন আপ করুন",
+    "rememberMe": "আমাকে মনে রাখুন",
+    "validation": {
+      "emailInvalid": "সঠিক ইমেল ঠিকানা লিখুন।",
+      "passwordRequired": "পাসওয়ার্ড আবশ্যক।"
+    }
+  },
+  "register": {
+    "newHere": "নতুন এসেছেন?",
+    "createAccount": "অ্যাকাউন্ট তৈরি করুন",
+    "subtitle": "আপনার Intelibill ওয়ার্কস্পেস শুরু করুন।",
+    "confirmPassword": "পাসওয়ার্ড নিশ্চিত করুন",
+    "backToLogin": "লগইনে ফিরে যান",
+    "creatingAccount": "অ্যাকাউন্ট তৈরি হচ্ছে...",
+    "signUp": "সাইন আপ",
+    "validation": {
+      "passwordLength": "পাসওয়ার্ড 8 থেকে 100 অক্ষরের মধ্যে হতে হবে।",
+      "confirmPasswordRequired": "দয়া করে পাসওয়ার্ড আবার লিখুন।",
+      "passwordMismatch": "পাসওয়ার্ড মিলছে না।"
+    }
+  },
+  "shell": {
+    "enterpriseSuite": "এন্টারপ্রাইজ সুইট",
+    "appName": "Intelibill",
+    "switchActiveShop": "সক্রিয় দোকান পরিবর্তন করুন",
+    "availableShops": "উপলব্ধ দোকানসমূহ",
+    "active": "সক্রিয়",
+    "openProfileMenu": "প্রোফাইল মেনু খুলুন",
+    "profile": "প্রোফাইল",
+    "profileActions": "প্রোফাইল কার্যাবলি",
+    "userFallback": "ব্যবহারকারী",
+    "manageUsers": "ব্যবহারকারী ব্যবস্থাপনা",
+    "updateProfile": "প্রোফাইল আপডেট",
+    "changePassword": "পাসওয়ার্ড পরিবর্তন",
+    "addShop": "দোকান যোগ করুন",
+    "manageShop": "দোকান ব্যবস্থাপনা",
+    "language": "ভাষা",
+    "logout": "লগআউট"
+  },
+  "users": {
+    "teamAccess": "টিম অ্যাক্সেস",
+    "shopUsers": "দোকানের ব্যবহারকারী",
+    "subtitle": "সক্রিয় দোকানের সকল সদস্য দেখুন এবং ভূমিকা পরিচালনা করুন।",
+    "name": "নাম",
+    "mobile": "মোবাইল",
+    "email": "ইমেল",
+    "role": "ভূমিকা",
+    "login": "লগইন",
+    "actions": "কার্যাবলি",
+    "enabled": "সক্রিয়",
+    "disabled": "নিষ্ক্রিয়",
+    "edit": "সম্পাদনা",
+    "addUser": "ব্যবহারকারী যোগ করুন",
+    "editUser": "ব্যবহারকারী সম্পাদনা করুন",
+    "addUserDescription": "সক্রিয় দোকানের জন্য একজন ম্যানেজার বা সেলস পার্সন তৈরি করুন।",
+    "editUserDescription": "এই ব্যবহারকারীর ভূমিকা ও লগইন অ্যাক্সেস আপডেট করুন।",
+    "addUserToShop": "দোকানে ব্যবহারকারী যোগ করুন",
+    "editShopUser": "দোকানের ব্যবহারকারী সম্পাদনা করুন",
+    "shops": "দোকানসমূহ",
+    "default": "ডিফল্ট",
+    "selectOneOrMoreShops": "এই ব্যবহারকারীর জন্য এক বা একাধিক দোকান নির্বাচন করুন।",
+    "selectShopsForAccess": "এই ব্যবহারকারীর কোন কোন দোকানে অ্যাক্সেস থাকবে তা নির্বাচন করুন।",
+    "mobileNumber": "মোবাইল নম্বর",
+    "allowUserLogin": "এই ব্যবহারকারীকে লগইন করতে দিন",
+    "saveChanges": "পরিবর্তন সংরক্ষণ করুন",
+    "manager": "ম্যানেজার",
+    "owner": "মালিক",
+    "salesPerson": "সেলস পার্সন",
+    "noUsersFound": "কোনো ব্যবহারকারী পাওয়া যায়নি",
+    "noUsersDescription": "এই দোকানের জন্য ম্যানেজার বা সেলস পার্সন যোগ করে শুরু করুন।",
+    "validation": {
+      "passwordConfirmationMustMatch": "পাসওয়ার্ড ও কনফার্ম পাসওয়ার্ড মিলতে হবে।",
+      "selectAtLeastOneShop": "কমপক্ষে একটি দোকান নির্বাচন করুন।"
+    }
+  },
+  "profile": {
+    "account": "অ্যাকাউন্ট",
+    "updateProfile": "প্রোফাইল আপডেট",
+    "updateProfileDescription": "আপনার নাম, ইমেল ও মোবাইল তথ্য সম্পাদনা করুন।",
+    "updating": "আপডেট হচ্ছে...",
+    "security": "নিরাপত্তা",
+    "changePassword": "পাসওয়ার্ড পরিবর্তন",
+    "changePasswordDescription": "কমপক্ষে 8 অক্ষরের শক্তিশালী পাসওয়ার্ড ব্যবহার করুন।",
+    "currentPassword": "বর্তমান পাসওয়ার্ড",
+    "newPassword": "নতুন পাসওয়ার্ড",
+    "retypeNewPassword": "নতুন পাসওয়ার্ড আবার লিখুন",
+    "changing": "পরিবর্তন হচ্ছে...",
+    "validation": {
+      "passwordsMustMatch": "নতুন পাসওয়ার্ড ও পুনরায় লেখা পাসওয়ার্ড একই হতে হবে।"
+    }
+  },
+  "shops": {
+    "workspaceSetup": "ওয়ার্কস্পেস সেটআপ",
+    "createFirstShop": "আপনার প্রথম দোকান তৈরি করুন",
+    "createFirstShopDescription": "আপনার অ্যাকাউন্ট প্রস্তুত, তবে ইনভেন্টরি কাজ শুরু করতে একটি দোকান দরকার।",
+    "shopManagement": "দোকান ব্যবস্থাপনা",
+    "manageShopDetails": "দোকানের তথ্য ব্যবস্থাপনা",
+    "manageShopDescription": "একটি দোকান নির্বাচন করুন, তথ্য দেখুন এবং টিমের জন্য পরিবর্তন সংরক্ষণ করুন।",
+    "shopName": "দোকানের নাম",
+    "address": "ঠিকানা",
+    "city": "শহর",
+    "state": "রাজ্য",
+    "pincode": "পিনকোড",
+    "contactPersonOptional": "যোগাযোগ ব্যক্তি (ঐচ্ছিক)",
+    "mobileNumberOptional": "মোবাইল নম্বর (ঐচ্ছিক)",
+    "gstNumberOptional": "GST নম্বর (ঐচ্ছিক)",
+    "createShop": "দোকান তৈরি করুন",
+    "creatingShop": "দোকান তৈরি হচ্ছে...",
+    "saveShopChanges": "দোকানের পরিবর্তন সংরক্ষণ করুন",
+    "savingChanges": "পরিবর্তন সংরক্ষণ হচ্ছে...",
+    "selectShop": "দোকান নির্বাচন করুন",
+    "selectedShopRoleIs": "নির্বাচিত দোকানের ভূমিকা",
+    "unknown": "অজানা",
+    "onlyOwnersCanSave": "শুধুমাত্র মালিকরাই পরিবর্তন সংরক্ষণ করতে পারবেন।",
+    "placeholders": {
+      "shopName": "যেমন: Downtown Electronics",
+      "address": "যেমন: 42 MG Road",
+      "city": "যেমন: Bengaluru",
+      "state": "যেমন: Karnataka",
+      "pincode": "যেমন: 560001",
+      "contactPerson": "যেমন: Chandra",
+      "mobileNumber": "যেমন: 9876543210",
+      "gst": "যেমন: 27AAPFU0939F1ZV"
+    },
+    "validation": {
+      "shopNameRequired": "দোকানের নাম আবশ্যক।",
+      "shopNameMaxLength": "দোকানের নাম 120 অক্ষর বা তার কম হতে হবে।",
+      "addressRequired": "ঠিকানা আবশ্যক।",
+      "cityRequired": "শহর আবশ্যক।",
+      "stateRequired": "রাজ্য আবশ্যক।",
+      "pincodeRequired": "পিনকোড আবশ্যক।",
+      "gstInvalid": "সঠিক ভারতীয় GSTIN দিন।"
+    }
+  },
+  "notFound": {
+    "title": "পৃষ্ঠা পাওয়া যায়নি",
+    "description": "এই রুটটি Intelibill ওয়ার্কস্পেসে নেই।",
+    "goBack": "ফিরে যান"
+  },
+  "errors": {
+    "auth": {
+      "invalidCredentials": "ইমেল বা পাসওয়ার্ড ভুল।",
+      "userLoginDisabled": "আপনার লগইন নিষ্ক্রিয় করা হয়েছে। দোকানের মালিকের সাথে যোগাযোগ করুন।",
+      "unableToSignIn": "এই মুহূর্তে সাইন-ইন করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "emailAlreadyInUse": "এই ইমেল দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে।",
+      "unableToCreateAccount": "এই মুহূর্তে অ্যাকাউন্ট তৈরি করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "emailAlreadyInUseByAnother": "এই ইমেল অন্য একটি অ্যাকাউন্টে ব্যবহৃত হচ্ছে।",
+      "phoneAlreadyInUseByAnother": "এই মোবাইল নম্বর অন্য একটি অ্যাকাউন্টে ব্যবহৃত হচ্ছে।",
+      "invalidCurrentPassword": "বর্তমান পাসওয়ার্ড ভুল।",
+      "passwordNotSet": "এই অ্যাকাউন্টের জন্য পাসওয়ার্ড সেট করা নেই।",
+      "sessionVerificationFailed": "দোকান কার্যক্রমের জন্য সেশন যাচাই করা যায়নি। আবার সাইন-ইন করুন।"
+    },
+    "users": {
+      "unableToUpdateProfile": "এই মুহূর্তে প্রোফাইল আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "unableToChangePassword": "এই মুহূর্তে পাসওয়ার্ড পরিবর্তন করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "unableToLoadShopUsers": "এই মুহূর্তে দোকানের ব্যবহারকারী লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "onlyOwnerCanAddUsers": "এই দোকানে কেবল মালিক নতুন ব্যবহারকারী যোগ করতে পারেন।",
+      "roleNotSupported": "ভূমিকা অবশ্যই Manager বা Sales Person হতে হবে।",
+      "unableToAddShopUser": "এই মুহূর্তে দোকানের ব্যবহারকারী যোগ করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "onlyOwnerCanEditUsers": "এই দোকানে কেবল মালিক ব্যবহারকারী সম্পাদনা করতে পারেন।",
+      "ownerCannotBeModified": "এই স্ক্রিন থেকে মালিকের অ্যাকাউন্ট পরিবর্তন করা যাবে না।",
+      "unableToUpdateUser": "এই মুহূর্তে ব্যবহারকারী আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
+    },
+    "shops": {
+      "unableToLoadShops": "এই মুহূর্তে আপনার দোকানগুলো লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "unableToSetDefaultStore": "এই মুহূর্তে ডিফল্ট স্টোর সেট করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "membershipNotFound": "এই দোকানে আপনার অ্যাক্সেস নেই।",
+      "shopNotFound": "নির্বাচিত দোকান আর বিদ্যমান নেই।",
+      "unableToLoadDetails": "এই মুহূর্তে দোকানের তথ্য লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "onlyOwnersCanUpdate": "শুধুমাত্র দোকানের মালিকরাই দোকানের তথ্য আপডেট করতে পারবেন।",
+      "nameRequired": "দোকানের নাম আবশ্যক।",
+      "addressRequired": "দোকানের ঠিকানা আবশ্যক।",
+      "cityRequired": "দোকানের শহর আবশ্যক।",
+      "stateRequired": "দোকানের রাজ্য আবশ্যক।",
+      "pincodeRequired": "দোকানের পিনকোড আবশ্যক।",
+      "unableToUpdateShop": "এই মুহূর্তে দোকান আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
+    }
+  }
+}

@@ -12,18 +12,18 @@
         [rounded]="true"
         class="overlay-close"
         [disabled]="isSubmitting()"
-        aria-label="Close manage shop"
+        [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       ></button>
 
-      <p class="overlay-kicker">Shop Management</p>
-      <h2>Manage shop details</h2>
-      <p>Pick a shop, review its details, and save updates for your team.</p>
+      <p class="overlay-kicker">{{ 'shops.shopManagement' | transloco }}</p>
+      <h2>{{ 'shops.manageShopDetails' | transloco }}</h2>
+      <p>{{ 'shops.manageShopDescription' | transloco }}</p>
     </header>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
       <div class="field-wrap space-y-1.5">
-        <label for="manage-shop-id">Select Shop</label>
+        <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
         <select
           id="manage-shop-id"
           formControlName="shopId"
@@ -38,11 +38,11 @@
       </div>
 
       <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
-        Selected shop role is {{ selectedShopRole() || 'Unknown' }}. Only owners can save updates.
+        {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}
       </p>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-name">Shop Name</label>
+        <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
         <input
           id="shop-name"
           type="text"
@@ -53,12 +53,12 @@
           [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
         />
         <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
-          Shop name is required.
+          {{ 'shops.validation.shopNameRequired' | transloco }}
         </p>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-address">Address</label>
+        <label for="shop-address">{{ 'shops.address' | transloco }}</label>
         <input
           id="shop-address"
           type="text"
@@ -69,13 +69,13 @@
           [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
         />
         <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
-          Address is required.
+          {{ 'shops.validation.addressRequired' | transloco }}
         </p>
       </div>
 
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
-          <label for="shop-city">City</label>
+          <label for="shop-city">{{ 'shops.city' | transloco }}</label>
           <input
             id="shop-city"
             type="text"
@@ -86,12 +86,12 @@
             [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
           />
           <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
-            City is required.
+            {{ 'shops.validation.cityRequired' | transloco }}
           </p>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="shop-state">State</label>
+          <label for="shop-state">{{ 'shops.state' | transloco }}</label>
           <input
             id="shop-state"
             type="text"
@@ -102,13 +102,13 @@
             [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
           />
           <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
-            State is required.
+            {{ 'shops.validation.stateRequired' | transloco }}
           </p>
         </div>
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-pincode">Pincode</label>
+        <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
         <input
           id="shop-pincode"
           type="text"
@@ -119,13 +119,13 @@
           [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
         />
         <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
-          Pincode is required.
+          {{ 'shops.validation.pincodeRequired' | transloco }}
         </p>
       </div>
 
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
-          <label for="shop-contact-person">Contact Person (Optional)</label>
+          <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
           <input
             id="shop-contact-person"
             type="text"
@@ -137,7 +137,7 @@
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="shop-mobile">Mobile Number (Optional)</label>
+          <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
           <input
             id="shop-mobile"
             type="text"
@@ -150,27 +150,27 @@
       </div>
 
       <div class="field-wrap space-y-1.5">
-        <label for="shop-gst">GST Number (Optional)</label>
+        <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
         <input
           id="shop-gst"
           type="text"
           pInputText
           formControlName="gstNumber"
           class="w-full"
-          placeholder="Ex: 27AAPFU0939F1ZV"
+          [placeholder]="'shops.placeholders.gst' | transloco"
           [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
         />
         <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
-          Enter a valid Indian GSTIN.
+          {{ 'shops.validation.gstInvalid' | transloco }}
         </p>
       </div>
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+      <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
 
       <button
         pButton
         type="submit"
-        [label]="isSubmitting() ? 'Saving changes...' : 'Save Shop Changes'"
+        [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.saveShopChanges' | transloco)"
         [loading]="isSubmitting()"
         [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
         class="save-button w-full"

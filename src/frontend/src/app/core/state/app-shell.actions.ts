@@ -5,5 +5,6 @@ export const AppShellActions = createActionGroup({
   events: {
     'Toggle Sidebar': emptyProps(),
     'Set Sidebar Collapsed': props<{ collapsed: boolean }>(),
+    'Set Language': props<{ language: string }>(),
   },
 });

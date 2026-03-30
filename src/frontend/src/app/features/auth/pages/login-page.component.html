@@ -10,12 +10,25 @@
   <div class="auth-stage w-full h-screen">
     <article class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20">
       <header class="auth-header">
-        <h2>Login Now</h2>
+        <h2>{{ 'auth.loginNow' | transloco }}</h2>
+        <div class="field-wrap space-y-1.5 mt-3">
+          <label for="language">{{ 'common.language' | transloco }}</label>
+          <select
+            id="language"
+            class="w-full"
+            [value]="currentLanguage()"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            <option *ngFor="let language of supportedLanguages" [value]="language">
+              {{ ('languages.' + language) | transloco }} ({{ language }})
+            </option>
+          </select>
+        </div>
       </header>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="login-form space-y-4 p-6 pt-6" [class.form-busy]="isHttpLoading()">
         <div class="field-wrap space-y-1.5">
-          <label for="email">Email Address</label>
+          <label for="email">{{ 'auth.emailAddress' | transloco }}</label>
           <input
             id="email"
             type="email"
@@ -23,14 +36,14 @@
             formControlName="email"
             autocomplete="email"
             class="w-full"
-            placeholder="Email or Username"
+            [placeholder]="'auth.emailPlaceholder' | transloco"
             [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
           />
-          <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">Enter a valid email address.</p>
+          <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">{{ 'auth.validation.emailInvalid' | transloco }}</p>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="password">Password</label>
+          <label for="password">{{ 'auth.password' | transloco }}</label>
           <p-password
             inputId="password"
             formControlName="password"
@@ -39,37 +52,37 @@
             styleClass="w-full"
             inputStyleClass="w-full"
             autocomplete="current-password"
-            placeholder="Password"
+            [placeholder]="'auth.password' | transloco"
           ></p-password>
-          <p class="field-error" *ngIf="form.controls.password.invalid && form.controls.password.touched">Password is required.</p>
+          <p class="field-error" *ngIf="form.controls.password.invalid && form.controls.password.touched">{{ 'auth.validation.passwordRequired' | transloco }}</p>
         </div>
 
         <p *ngIf="serverError()" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {{ serverError() }}
+          {{ getServerErrorMessage() }}
         </p>
 
         <button
           pButton
           type="submit"
-          [label]="isHttpLoading() ? 'Signing in...' : 'LOGIN'"
+          [label]="isHttpLoading() ? ('auth.signingIn' | transloco) : ('auth.loginCta' | transloco)"
           [disabled]="form.invalid || isHttpLoading()"
           class="auth-submit w-full"
         ></button>
 
-        <p class="social-title">Or login with</p>
+        <p class="social-title">{{ 'auth.orLoginWith' | transloco }}</p>
 
         <div class="social-actions">
           <button type="button" class="social-button">
             <span class="social-icon social-icon-fb">f</span>
-            <span>Facebook</span>
+            <span>{{ 'auth.facebook' | transloco }}</span>
           </button>
           <button type="button" class="social-button">
             <span class="social-icon social-icon-google">G</span>
-            <span>Google</span>
+            <span>{{ 'auth.google' | transloco }}</span>
           </button>
         </div>
 
-        <p class="signup-hint">Not a member? <a routerLink="/register">Signup now</a></p>
+        <p class="signup-hint">{{ 'auth.notMember' | transloco }} <a routerLink="/register">{{ 'auth.signupNow' | transloco }}</a></p>
       </form>
 
       <div class="form-overlay" *ngIf="isHttpLoading()">

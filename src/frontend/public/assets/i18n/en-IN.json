@@ -1,0 +1,206 @@
+{
+  "common": {
+    "language": "Language",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "languages": {
+    "en-IN": "English",
+    "hi-IN": "Hindi",
+    "ta-IN": "Tamil",
+    "te-IN": "Telugu",
+    "bn-IN": "Bangla",
+    "ml-IN": "Malayalam"
+  },
+  "auth": {
+    "loginNow": "Login Now",
+    "emailAddress": "Email Address",
+    "emailPlaceholder": "Email or Username",
+    "password": "Password",
+    "signingIn": "Signing in...",
+    "loginCta": "LOGIN",
+    "orLoginWith": "Or login with",
+    "facebook": "Facebook",
+    "google": "Google",
+    "notMember": "Not a member?",
+    "signupNow": "Signup now",
+    "rememberMe": "Remember me",
+    "validation": {
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Password is required."
+    }
+  },
+  "register": {
+    "newHere": "New Here",
+    "createAccount": "Create Account",
+    "subtitle": "Start your Intelibill workspace.",
+    "confirmPassword": "Confirm Password",
+    "backToLogin": "Back to login",
+    "creatingAccount": "Creating account...",
+    "signUp": "Sign up",
+    "validation": {
+      "passwordLength": "Password must be between 8 and 100 characters.",
+      "confirmPasswordRequired": "Please re-enter your password.",
+      "passwordMismatch": "Passwords do not match."
+    }
+  },
+  "shell": {
+    "enterpriseSuite": "Enterprise Suite",
+    "appName": "Intelibill",
+    "switchActiveShop": "Switch active shop",
+    "availableShops": "Available shops",
+    "active": "Active",
+    "openProfileMenu": "Open profile menu",
+    "profile": "Profile",
+    "profileActions": "Profile actions",
+    "userFallback": "User",
+    "manageUsers": "Manage Users",
+    "updateProfile": "Update Profile",
+    "changePassword": "Change Password",
+    "addShop": "Add Shop",
+    "manageShop": "Manage Shop",
+    "language": "Language",
+    "logout": "Logout"
+  },
+  "users": {
+    "teamAccess": "Team Access",
+    "shopUsers": "Shop Users",
+    "subtitle": "View all members in the active shop and manage role assignments.",
+    "name": "Name",
+    "mobile": "Mobile",
+    "email": "Email",
+    "role": "Role",
+    "login": "Login",
+    "actions": "Actions",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "edit": "Edit",
+    "addUser": "Add User",
+    "editUser": "Edit User",
+    "addUserDescription": "Create a manager or sales person for the active shop.",
+    "editUserDescription": "Update role and login access for this user.",
+    "addUserToShop": "Add user to shop",
+    "editShopUser": "Edit shop user",
+    "shops": "Shops",
+    "default": "Default",
+    "selectOneOrMoreShops": "Select one or more shops for this user.",
+    "selectShopsForAccess": "Select the shops this user should have access to.",
+    "mobileNumber": "Mobile Number",
+    "allowUserLogin": "Allow this user to login",
+    "saveChanges": "Save Changes",
+    "manager": "Manager",
+    "owner": "Owner",
+    "salesPerson": "Sales Person",
+    "noUsersFound": "No users found",
+    "noUsersDescription": "Start by adding a manager or sales person for this shop.",
+    "validation": {
+      "passwordConfirmationMustMatch": "Password and confirm password must match.",
+      "selectAtLeastOneShop": "Select at least one shop."
+    }
+  },
+  "profile": {
+    "account": "Account",
+    "updateProfile": "Update Profile",
+    "updateProfileDescription": "Edit your name, email, and mobile details.",
+    "updating": "Updating...",
+    "security": "Security",
+    "changePassword": "Change Password",
+    "changePasswordDescription": "Use a strong password with at least 8 characters.",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "retypeNewPassword": "Retype New Password",
+    "changing": "Changing...",
+    "validation": {
+      "passwordsMustMatch": "New password and retyped password must match."
+    }
+  },
+  "shops": {
+    "workspaceSetup": "Workspace Setup",
+    "createFirstShop": "Create your first shop",
+    "createFirstShopDescription": "Your account is ready, but you need a shop before accessing inventory workflows.",
+    "shopManagement": "Shop Management",
+    "manageShopDetails": "Manage shop details",
+    "manageShopDescription": "Pick a shop, review its details, and save updates for your team.",
+    "shopName": "Shop Name",
+    "address": "Address",
+    "city": "City",
+    "state": "State",
+    "pincode": "Pincode",
+    "contactPersonOptional": "Contact Person (Optional)",
+    "mobileNumberOptional": "Mobile Number (Optional)",
+    "gstNumberOptional": "GST Number (Optional)",
+    "createShop": "Create Shop",
+    "creatingShop": "Creating shop...",
+    "saveShopChanges": "Save Shop Changes",
+    "savingChanges": "Saving changes...",
+    "selectShop": "Select Shop",
+    "selectedShopRoleIs": "Selected shop role is",
+    "unknown": "Unknown",
+    "onlyOwnersCanSave": "Only owners can save updates.",
+    "placeholders": {
+      "shopName": "Ex: Downtown Electronics",
+      "address": "Ex: 42 MG Road",
+      "city": "Ex: Bengaluru",
+      "state": "Ex: Karnataka",
+      "pincode": "Ex: 560001",
+      "contactPerson": "Ex: Chandra",
+      "mobileNumber": "Ex: 9876543210",
+      "gst": "Ex: 27AAPFU0939F1ZV"
+    },
+    "validation": {
+      "shopNameRequired": "Shop name is required.",
+      "shopNameMaxLength": "Shop name must be 120 characters or fewer.",
+      "addressRequired": "Address is required.",
+      "cityRequired": "City is required.",
+      "stateRequired": "State is required.",
+      "pincodeRequired": "Pincode is required.",
+      "gstInvalid": "Enter a valid Indian GSTIN."
+    }
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The route does not exist in the Intelibill workspace.",
+    "goBack": "Go Back"
+  },
+  "errors": {
+    "auth": {
+      "invalidCredentials": "The email or password is incorrect.",
+      "userLoginDisabled": "Your login is disabled. Please contact the shop owner.",
+      "unableToSignIn": "Unable to sign in right now. Please try again.",
+      "emailAlreadyInUse": "An account with this email already exists.",
+      "unableToCreateAccount": "Unable to create your account right now. Please try again.",
+      "emailAlreadyInUseByAnother": "This email is already used by another account.",
+      "phoneAlreadyInUseByAnother": "This mobile number is already used by another account.",
+      "invalidCurrentPassword": "Current password is incorrect.",
+      "passwordNotSet": "Password is not set for this account.",
+      "sessionVerificationFailed": "Your session could not be verified for shop operation. Please sign in again."
+    },
+    "users": {
+      "unableToUpdateProfile": "Unable to update profile right now. Please try again.",
+      "unableToChangePassword": "Unable to change password right now. Please try again.",
+      "unableToLoadShopUsers": "Unable to load shop users right now. Please try again.",
+      "onlyOwnerCanAddUsers": "Only owner can add new users for this shop.",
+      "roleNotSupported": "Role must be Manager or Sales Person.",
+      "unableToAddShopUser": "Unable to add shop user right now. Please try again.",
+      "onlyOwnerCanEditUsers": "Only owner can edit users for this shop.",
+      "ownerCannotBeModified": "Owner account cannot be modified from this screen.",
+      "unableToUpdateUser": "Unable to update user right now. Please try again."
+    },
+    "shops": {
+      "unableToLoadShops": "Unable to load your shops right now. Please try again.",
+      "unableToSetDefaultStore": "Unable to set default store right now. Please try again.",
+      "membershipNotFound": "You do not have access to this shop.",
+      "shopNotFound": "The selected shop no longer exists.",
+      "unableToLoadDetails": "Unable to load shop details right now. Please try again.",
+      "onlyOwnersCanUpdate": "Only shop owners can update shop details.",
+      "nameRequired": "Shop name is required.",
+      "addressRequired": "Shop address is required.",
+      "cityRequired": "Shop city is required.",
+      "stateRequired": "Shop state is required.",
+      "pincodeRequired": "Shop pincode is required.",
+      "unableToUpdateShop": "Unable to update shop right now. Please try again."
+    }
+  }
+}

@@ -5,11 +5,23 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class User : BaseEntity
 {
+    private const string DefaultLanguage = "en-IN";
+    private static readonly HashSet<string> SupportedLanguages =
+    [
+        "en-IN",
+        "hi-IN",
+        "ta-IN",
+        "te-IN",
+        "bn-IN",
+        "ml-IN",
+    ];
+
     public string? Email { get; private set; }
     public string? PhoneNumber { get; private set; }
     public string? PasswordHash { get; private set; }
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
+    public string Language { get; private set; } = DefaultLanguage;
     public bool IsEmailVerified { get; private set; }
     public bool IsLoginEnabled { get; private set; } = true;
 
@@ -77,12 +89,27 @@ public sealed class User : BaseEntity
         IsLoginEnabled = isLoginEnabled;
     }
 
-    public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName)
+    public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName, string? language)
     {
         Email = email.Trim().ToLowerInvariant();
         PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
+        SetLanguage(language);
+    }
+
+    public void SetLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            Language = DefaultLanguage;
+            return;
+        }
+
+        var normalizedLanguage = language.Trim();
+        Language = SupportedLanguages.Contains(normalizedLanguage)
+            ? normalizedLanguage
+            : DefaultLanguage;
     }
 
     public void UpdateShopUserProfile(string email, string firstName, string lastName, string phoneNumber)

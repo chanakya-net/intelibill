@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
@@ -20,7 +21,7 @@ import {
 @Component({
   selector: 'app-edit-shop-user-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './edit-shop-user-overlay.component.html',
   styleUrl: './edit-shop-user-overlay.component.scss',
 })

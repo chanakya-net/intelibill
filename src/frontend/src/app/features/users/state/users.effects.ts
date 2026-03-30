@@ -114,102 +114,82 @@ function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): strin
   const title = error?.title ?? '';
 
   if (title === 'Auth.EmailAlreadyInUse') {
-    return 'This email is already used by another account.';
+    return 'errors.auth.emailAlreadyInUseByAnother';
   }
 
   if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'This mobile number is already used by another account.';
+    return 'errors.auth.phoneAlreadyInUseByAnother';
   }
 
   if (title === 'Auth.EmailAlreadyInUse') {
-    return 'This email is already used by another account.';
+    return 'errors.auth.emailAlreadyInUseByAnother';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to update profile right now. Please try again.';
+  return 'errors.users.unableToUpdateProfile';
 }
 
 function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Auth.InvalidCurrentPassword') {
-    return 'Current password is incorrect.';
+    return 'errors.auth.invalidCurrentPassword';
   }
 
   if (title === 'Auth.PasswordNotSet') {
-    return 'Password is not set for this account.';
+    return 'errors.auth.passwordNotSet';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to change password right now. Please try again.';
+  return 'errors.users.unableToChangePassword';
 }
 
 function getLoadShopUsersErrorMessage(error: ApiErrorPayload | undefined): string {
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to load shop users right now. Please try again.';
+  return 'errors.users.unableToLoadShopUsers';
 }
 
 function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Shop.UserIsNotOwner') {
-    return 'Only owner can add new users for this shop.';
+    return 'errors.users.onlyOwnerCanAddUsers';
   }
 
   if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'This mobile number is already used by another account.';
+    return 'errors.auth.phoneAlreadyInUseByAnother';
   }
 
   if (title === 'Auth.EmailAlreadyInUse') {
-    return 'This email is already used by another account.';
+    return 'errors.auth.emailAlreadyInUseByAnother';
   }
 
   if (title === 'Users.RoleNotSupported') {
-    return 'Role must be Manager or Sales Person.';
+    return 'errors.users.roleNotSupported';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to add shop user right now. Please try again.';
+  return 'errors.users.unableToAddShopUser';
 }
 
 function getEditShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Shop.UserIsNotOwner') {
-    return 'Only owner can edit users for this shop.';
+    return 'errors.users.onlyOwnerCanEditUsers';
   }
 
   if (title === 'Users.CannotModifyOwner') {
-    return 'Owner account cannot be modified from this screen.';
+    return 'errors.users.ownerCannotBeModified';
   }
 
   if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'This mobile number is already used by another account.';
+    return 'errors.auth.phoneAlreadyInUseByAnother';
   }
 
   if (title === 'Auth.EmailAlreadyInUse') {
-    return 'This email is already used by another account.';
+    return 'errors.auth.emailAlreadyInUseByAnother';
   }
 
   if (title === 'Users.RoleNotSupported') {
-    return 'Role must be Manager or Sales Person.';
+    return 'errors.users.roleNotSupported';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to update user right now. Please try again.';
+  return 'errors.users.unableToUpdateUser';
 }

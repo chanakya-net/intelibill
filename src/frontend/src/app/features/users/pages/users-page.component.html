@@ -1,22 +1,22 @@
 <section class="users-page">
   <header class="users-header">
     <div>
-      <p class="eyebrow">Team Access</p>
-      <h1>Shop Users</h1>
-      <p class="subtitle">View all members in the active shop and manage role assignments.</p>
+      <p class="eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+      <h1>{{ 'users.shopUsers' | transloco }}</h1>
+      <p class="subtitle">{{ 'users.subtitle' | transloco }}</p>
     </div>
 
     <button
       pButton
       type="button"
-      label="Add User"
+      [label]="'users.addUser' | transloco"
       icon="pi pi-user-plus"
       *ngIf="canAddUsers()"
       (click)="onOpenAddUser()"
     ></button>
   </header>
 
-  <p class="error" *ngIf="serverError()">{{ serverError() }}</p>
+  <p class="error" *ngIf="serverError()">{{ serverError() | transloco }}</p>
 
   <div class="loading" *ngIf="isLoading()">
     <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
@@ -31,12 +31,12 @@
     >
       <ng-template pTemplate="header">
         <tr>
-          <th pSortableColumn="firstName">Name <p-sortIcon field="firstName" /></th>
-          <th pSortableColumn="phoneNumber">Mobile <p-sortIcon field="phoneNumber" /></th>
-          <th pSortableColumn="email">Email <p-sortIcon field="email" /></th>
-          <th pSortableColumn="role">Role <p-sortIcon field="role" /></th>
-          <th pSortableColumn="isLoginEnabled">Login <p-sortIcon field="isLoginEnabled" /></th>
-          <th *ngIf="canEditUsers()">Actions</th>
+          <th pSortableColumn="firstName">{{ 'users.name' | transloco }} <p-sortIcon field="firstName" /></th>
+          <th pSortableColumn="phoneNumber">{{ 'users.mobile' | transloco }} <p-sortIcon field="phoneNumber" /></th>
+          <th pSortableColumn="email">{{ 'users.email' | transloco }} <p-sortIcon field="email" /></th>
+          <th pSortableColumn="role">{{ 'users.role' | transloco }} <p-sortIcon field="role" /></th>
+          <th pSortableColumn="isLoginEnabled">{{ 'users.login' | transloco }} <p-sortIcon field="isLoginEnabled" /></th>
+          <th *ngIf="canEditUsers()">{{ 'users.actions' | transloco }}</th>
         </tr>
       </ng-template>
 
@@ -45,17 +45,17 @@
           <td>{{ user.firstName }} {{ user.lastName }}</td>
           <td>{{ user.phoneNumber || '-' }}</td>
           <td>{{ user.email || '-' }}</td>
-          <td><span class="role-pill">{{ getRoleLabel(user.role) }}</span></td>
+          <td><span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span></td>
           <td>
             <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
-              {{ user.isLoginEnabled ? 'Enabled' : 'Disabled' }}
+              {{ user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco) }}
             </span>
           </td>
           <td *ngIf="canEditUsers()">
             <button
               pButton
               type="button"
-              label="Edit"
+              [label]="'users.edit' | transloco"
               icon="pi pi-pencil"
               size="small"
               severity="secondary"
@@ -70,8 +70,8 @@
         <tr>
           <td [attr.colspan]="canEditUsers() ? 6 : 5">
             <div class="empty-state">
-              <h2>No users found</h2>
-              <p>Start by adding a manager or sales person for this shop.</p>
+              <h2>{{ 'users.noUsersFound' | transloco }}</h2>
+              <p>{{ 'users.noUsersDescription' | transloco }}</p>
             </div>
           </td>
         </tr>

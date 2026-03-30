@@ -10,26 +10,39 @@
   <div class="auth-stage w-full h-screen">
     <article class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20">
       <header class="auth-header">
-        <p class="auth-kicker">New Here</p>
-        <h2>Create Account</h2>
-        <p>Start your Intelibill workspace.</p>
+        <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
+        <h2>{{ 'register.createAccount' | transloco }}</h2>
+        <p>{{ 'register.subtitle' | transloco }}</p>
+        <div class="field-wrap space-y-1.5 mt-3">
+          <label for="language">{{ 'common.language' | transloco }}</label>
+          <select
+            id="language"
+            class="w-full"
+            [value]="currentLanguage()"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            <option *ngFor="let language of supportedLanguages" [value]="language">
+              {{ ('languages.' + language) | transloco }} ({{ language }})
+            </option>
+          </select>
+        </div>
       </header>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 p-6 pt-6" [class.form-busy]="isSubmitting()">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="field-wrap space-y-1.5">
-            <label for="firstName">First Name</label>
+            <label for="firstName">{{ 'common.firstName' | transloco }}</label>
             <input id="firstName" type="text" pInputText formControlName="firstName" autocomplete="given-name" class="w-full" />
           </div>
 
           <div class="field-wrap space-y-1.5">
-            <label for="lastName">Last Name</label>
+            <label for="lastName">{{ 'common.lastName' | transloco }}</label>
             <input id="lastName" type="text" pInputText formControlName="lastName" autocomplete="family-name" class="w-full" />
           </div>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="email">Email Address</label>
+          <label for="email">{{ 'auth.emailAddress' | transloco }}</label>
           <input
             id="email"
             type="email"
@@ -39,11 +52,11 @@
             class="w-full"
             [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
           />
-          <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">Enter a valid email address.</p>
+          <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">{{ 'auth.validation.emailInvalid' | transloco }}</p>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="password">Password</label>
+          <label for="password">{{ 'auth.password' | transloco }}</label>
           <p-password
             inputId="password"
             formControlName="password"
@@ -54,12 +67,12 @@
             autocomplete="new-password"
           ></p-password>
           <p class="field-error" *ngIf="form.controls.password.invalid && form.controls.password.touched">
-            Password must be between 8 and 100 characters.
+            {{ 'register.validation.passwordLength' | transloco }}
           </p>
         </div>
 
         <div class="field-wrap space-y-1.5">
-          <label for="confirmPassword">Confirm Password</label>
+          <label for="confirmPassword">{{ 'register.confirmPassword' | transloco }}</label>
           <p-password
             inputId="confirmPassword"
             formControlName="confirmPassword"
@@ -70,29 +83,29 @@
             autocomplete="new-password"
           ></p-password>
           <p class="field-error" *ngIf="form.controls.confirmPassword.invalid && form.controls.confirmPassword.touched">
-            Please re-enter your password.
+            {{ 'register.validation.confirmPasswordRequired' | transloco }}
           </p>
           <p class="field-error" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
-            Passwords do not match.
+            {{ 'register.validation.passwordMismatch' | transloco }}
           </p>
         </div>
 
         <div class="flex items-center justify-between pt-0.5 text-sm">
           <div class="flex items-center gap-2">
             <p-checkbox inputId="rememberMe" formControlName="rememberMe" [binary]="true"></p-checkbox>
-            <label for="rememberMe" class="text-stone-700">Remember me</label>
+            <label for="rememberMe" class="text-stone-700">{{ 'auth.rememberMe' | transloco }}</label>
           </div>
-          <a routerLink="/login" class="text-orange-800 font-medium">Back to login</a>
+          <a routerLink="/login" class="text-orange-800 font-medium">{{ 'register.backToLogin' | transloco }}</a>
         </div>
 
         <p *ngIf="serverError()" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {{ serverError() }}
+          {{ serverError() | transloco }}
         </p>
 
         <button
           pButton
           type="submit"
-          [label]="isSubmitting() ? 'Creating account...' : 'Sign up'"
+          [label]="isSubmitting() ? ('register.creatingAccount' | transloco) : ('register.signUp' | transloco)"
           [disabled]="form.invalid || isSubmitting()"
           class="auth-submit w-full"
         ></button>

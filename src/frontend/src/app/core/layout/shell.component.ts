@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { Router, RouterOutlet } from '@angular/router';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AuthService } from '../auth/auth.service';
 import { UserShop } from '../auth/auth.models';
@@ -12,8 +13,11 @@ import { ShopsActions } from '../../features/shops/state/shops.actions';
 import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
 import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
+import { LocalizationService } from '../i18n/localization.service';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, SupportedLanguage } from '../i18n/language.constants';
 import { MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
+import { UsersActions } from '../../features/users/state/users.actions';
 
 @Component({
   selector: 'app-shell',
@@ -26,6 +30,7 @@ import { Menu, MenuModule } from 'primeng/menu';
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
     MenuModule,
+    TranslocoPipe,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
@@ -34,6 +39,7 @@ export class ShellComponent {
   private readonly authService = inject(AuthService);
   private readonly store = inject(Store<RootState>);
   private readonly router = inject(Router);
+  private readonly localizationService = inject(LocalizationService);
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
@@ -46,6 +52,8 @@ export class ShellComponent {
   readonly showManageShopOverlay = signal(false);
   readonly showUpdateProfileOverlay = signal(false);
   readonly showChangePasswordOverlay = signal(false);
+  readonly currentLanguage = this.localizationService.currentLanguage;
+  readonly supportedLanguages = SUPPORTED_LANGUAGES;
 
   readonly session = this.authService.session;
   readonly shops = this.store.selectSignal(selectShops);
@@ -88,16 +96,17 @@ export class ShellComponent {
   readonly profileDisplayName = computed(() => {
     const user = this.session()?.user;
     if (!user) {
-      return 'User';
+      return this.localizationService.translate('shell.userFallback');
     }
 
     const firstName = user.firstName?.trim() ?? '';
-    return firstName || user.email || 'User';
+    return firstName || user.email || this.localizationService.translate('shell.userFallback');
   });
   readonly profileMenuItems = computed<MenuItem[]>(() => {
+    const currentLanguage = this.currentLanguage();
     const items: MenuItem[] = [
       {
-        label: 'Manage Users',
+        label: this.localizationService.translate('shell.manageUsers'),
         icon: 'pi pi-users',
         command: () => {
           this.onCloseMenus();
@@ -105,12 +114,12 @@ export class ShellComponent {
         },
       },
       {
-        label: 'Update Profile',
+        label: this.localizationService.translate('shell.updateProfile'),
         icon: 'pi pi-user-edit',
         command: () => this.onOpenUpdateProfile(),
       },
       {
-        label: 'Change Password',
+        label: this.localizationService.translate('shell.changePassword'),
         icon: 'pi pi-key',
         command: () => this.onOpenChangePassword(),
       },
@@ -118,7 +127,7 @@ export class ShellComponent {
 
     if (this.isOwnerOfActiveShop()) {
       items.push({
-        label: 'Add Shop',
+        label: this.localizationService.translate('shell.addShop'),
         icon: 'pi pi-plus-circle',
         command: () => this.onOpenAddShop(),
       });
@@ -126,14 +135,24 @@ export class ShellComponent {
 
     if (this.shouldShowManageShopAction() && this.isOwnerOfActiveShop()) {
       items.push({
-        label: 'Manage Shop',
+        label: this.localizationService.translate('shell.manageShop'),
         icon: 'pi pi-wrench',
         command: () => this.onOpenManageShop(),
       });
     }
 
     items.push({
-      label: 'Logout',
+      label: this.localizationService.translate('shell.language'),
+      icon: 'pi pi-globe',
+      items: this.supportedLanguages.map((language) => ({
+        label: `${this.localizationService.translate(`languages.${language}`)} (${language})`,
+        icon: currentLanguage === language ? 'pi pi-check' : undefined,
+        command: () => this.onLanguageSelected(language),
+      })),
+    });
+
+    items.push({
+      label: this.localizationService.translate('shell.logout'),
       icon: 'pi pi-sign-out',
       disabled: this.isSigningOut(),
       command: () => this.onSignOut(),
@@ -275,5 +294,32 @@ export class ShellComponent {
     }
 
     this.onSignOut();
+  }
+
+  onLanguageSelected(language: SupportedLanguage): void {
+    const currentLanguage = this.currentLanguage();
+    if (currentLanguage === language) {
+      return;
+    }
+
+    void this.localizationService.setLanguage(language);
+
+    const user = this.session()?.user;
+    if (!user) {
+      return;
+    }
+
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(
+      UsersActions.updateProfileRequested({
+        payload: {
+          email: user.email ?? '',
+          phoneNumber: user.phoneNumber,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          language: language || user.language || DEFAULT_LANGUAGE,
+        },
+      })
+    );
   }
 }

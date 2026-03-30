@@ -20,7 +20,7 @@ export class ShopsEffects {
           catchError(() =>
             of(
               ShopsActions.loadShopsFailed({
-                errorMessage: 'Unable to load your shops right now. Please try again.',
+                errorMessage: 'errors.shops.unableToLoadShops',
               })
             )
           )
@@ -106,7 +106,7 @@ export class ShopsEffects {
           catchError(() =>
             of(
               ShopsActions.setDefaultShopFailed({
-                errorMessage: 'Unable to set default store right now. Please try again.',
+                errorMessage: 'errors.shops.unableToSetDefaultStore',
               })
             )
           )
@@ -127,54 +127,46 @@ function getShopDetailsErrorMessage(error: ApiErrorPayload | undefined): string 
   const title = error?.title ?? '';
 
   if (title === 'Shop.MembershipNotFound') {
-    return 'You do not have access to this shop.';
+    return 'errors.shops.membershipNotFound';
   }
 
   if (title === 'Shop.ShopNotFound') {
-    return 'The selected shop no longer exists.';
+    return 'errors.shops.shopNotFound';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to load shop details right now. Please try again.';
+  return 'errors.shops.unableToLoadDetails';
 }
 
 function getShopMutationErrorMessage(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
-    return 'Your session could not be verified for shop operation. Please sign in again.';
+    return 'errors.auth.sessionVerificationFailed';
   }
 
   if (title === 'Shop.UserIsNotOwner') {
-    return 'Only shop owners can update shop details.';
+    return 'errors.shops.onlyOwnersCanUpdate';
   }
 
   if (title === 'Shop.NameRequired') {
-    return 'Shop name is required.';
+    return 'errors.shops.nameRequired';
   }
 
   if (title === 'Shop.AddressRequired') {
-    return 'Shop address is required.';
+    return 'errors.shops.addressRequired';
   }
 
   if (title === 'Shop.CityRequired') {
-    return 'Shop city is required.';
+    return 'errors.shops.cityRequired';
   }
 
   if (title === 'Shop.StateRequired') {
-    return 'Shop state is required.';
+    return 'errors.shops.stateRequired';
   }
 
   if (title === 'Shop.PincodeRequired') {
-    return 'Shop pincode is required.';
+    return 'errors.shops.pincodeRequired';
   }
 
-  if (error?.detail) {
-    return error.detail;
-  }
-
-  return 'Unable to update shop right now. Please try again.';
+  return 'errors.shops.unableToUpdateShop';
 }

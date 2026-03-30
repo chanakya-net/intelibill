@@ -2,12 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { AuthUser } from '../../../core/auth/auth.models';
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { RootState } from '../../../core/state/app.state';
 import { UsersActions } from '../state/users.actions';
 import {
@@ -20,13 +22,14 @@ import {
 @Component({
   selector: 'app-update-profile-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './update-profile-overlay.component.html',
   styleUrl: './update-profile-overlay.component.scss',
 })
 export class UpdateProfileOverlayComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
+  private readonly localizationService = inject(LocalizationService);
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
@@ -91,6 +94,7 @@ export class UpdateProfileOverlayComponent {
       lastName: this.form.controls.lastName.value.trim(),
       email: this.form.controls.email.value.trim(),
       phoneNumber: this.toNullable(this.form.controls.phoneNumber.value),
+      language: this.user.language ?? this.localizationService.currentLanguage(),
     };
 
     this.store.dispatch(UsersActions.clearError());
