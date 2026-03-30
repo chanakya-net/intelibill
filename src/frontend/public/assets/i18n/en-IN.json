@@ -12,7 +12,8 @@
     "ta-IN": "Tamil",
     "te-IN": "Telugu",
     "bn-IN": "Bangla",
-    "ml-IN": "Malayalam"
+    "ml-IN": "Malayalam",
+    "kn-IN": "Kannada"
   },
   "auth": {
     "loginNow": "Login Now",

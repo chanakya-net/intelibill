@@ -14,19 +14,11 @@ import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '.
 import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
 import { LocalizationService } from '../i18n/localization.service';
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, SupportedLanguage } from '../i18n/language.constants';
+import { DEFAULT_LANGUAGE, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, SupportedLanguage } from '../i18n/language.constants';
 import { MenuItem } from 'primeng/api';
 import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
 import { UsersActions } from '../../features/users/state/users.actions';
 
-const NATIVE_LANGUAGE_NAMES: Record<string, string> = {
-  'en-IN': 'English',
-  'hi-IN': 'हिंदी',
-  'ta-IN': 'தமிழ்',
-  'te-IN': 'తెలుగు',
-  'bn-IN': 'বাংলা',
-  'ml-IN': 'മലയാളം',
-};
 
 @Component({
   selector: 'app-shell',
