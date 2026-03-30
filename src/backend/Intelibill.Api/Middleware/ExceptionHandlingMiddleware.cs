@@ -26,11 +26,9 @@ public partial class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<E
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        if (exception is ValidationException validationEx)
+        if (exception is FluentValidation.ValidationException ve)
         {
-            var errors = validationEx.Errors
-                .Select(e => new { code = e.PropertyName, description = e.ErrorMessage })
-                .ToArray();
+            var errors = ve.Errors.Select(e => new { code = e.PropertyName, description = e.ErrorMessage }).ToArray();
 
             var validationResponse = new
             {
