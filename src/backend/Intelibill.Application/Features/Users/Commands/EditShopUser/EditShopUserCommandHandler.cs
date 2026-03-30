@@ -4,6 +4,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -13,6 +14,7 @@ namespace Intelibill.Application.Features.Users.Commands.EditShopUser;
 public sealed class EditShopUserCommandHandler(
     IValidator<EditShopUserCommand> validator,
     IUserRepository userRepository,
+    IShopRepository shopRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<ShopUserDto>> HandleAsync(EditShopUserCommand command, CancellationToken cancellationToken)
@@ -59,6 +61,49 @@ public sealed class EditShopUserCommandHandler(
         targetMembership.SetRole(role);
 
         userRepository.Update(targetUser);
+
+        IReadOnlyList<Guid> finalShopIds;
+
+        if (command.ShopIds is not null)
+        {
+            var actorOwnedShopIds = actor.ShopMemberships
+                .Where(sm => sm.Role == ShopRole.Owner)
+                .Select(sm => sm.ShopId)
+                .ToHashSet();
+
+            var requestedShopIds = command.ShopIds
+                .Where(id => actorOwnedShopIds.Contains(id))
+                .ToHashSet();
+
+            var currentMemberships = await shopRepository.GetMembershipsForUsersInShopsAsync(
+                [command.TargetUserId],
+                actorOwnedShopIds.ToList(),
+                cancellationToken);
+
+            foreach (var membership in currentMemberships)
+            {
+                if (!requestedShopIds.Contains(membership.ShopId))
+                    shopRepository.RemoveMembership(membership);
+            }
+
+            var currentShopIds = currentMemberships.Select(sm => sm.ShopId).ToHashSet();
+
+            foreach (var shopId in requestedShopIds)
+            {
+                if (!currentShopIds.Contains(shopId))
+                {
+                    var newMembership = ShopMembership.Create(shopId, command.TargetUserId, role, isDefault: false);
+                    await shopRepository.AddMembershipAsync(newMembership, cancellationToken);
+                }
+            }
+
+            finalShopIds = requestedShopIds.ToList();
+        }
+        else
+        {
+            finalShopIds = targetUser.ShopMemberships.Select(sm => sm.ShopId).ToList();
+        }
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ShopUserDto(
@@ -68,7 +113,8 @@ public sealed class EditShopUserCommandHandler(
             targetUser.Email,
             targetUser.PhoneNumber,
             ToRoleLabel(role),
-            targetUser.IsLoginEnabled);
+            targetUser.IsLoginEnabled,
+            finalShopIds);
     }
 
     private static bool TryParseShopRole(string roleValue, out ShopRole role)

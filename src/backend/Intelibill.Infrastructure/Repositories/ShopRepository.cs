@@ -64,4 +64,18 @@ internal sealed class ShopRepository(ApplicationDbContext context)
             .Include(s => s.Memberships)
             .ThenInclude(sm => sm.User)
             .FirstOrDefaultAsync(s => s.Id == shopId, cancellationToken);
+
+    public async Task<IReadOnlyList<ShopMembership>> GetMembershipsForUsersInShopsAsync(
+        IReadOnlyList<Guid> userIds,
+        IReadOnlyList<Guid> shopIds,
+        CancellationToken cancellationToken = default) =>
+        await _context.ShopMemberships
+            .Where(sm => userIds.Contains(sm.UserId) && shopIds.Contains(sm.ShopId))
+            .ToListAsync(cancellationToken);
+
+    public async Task AddMembershipAsync(ShopMembership membership, CancellationToken cancellationToken = default) =>
+        await _context.ShopMemberships.AddAsync(membership, cancellationToken);
+
+    public void RemoveMembership(ShopMembership membership) =>
+        _context.ShopMemberships.Remove(membership);
 }

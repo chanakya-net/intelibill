@@ -76,7 +76,8 @@ public sealed class AddShopUserCommandHandler(
             newUser.Email,
             newUser.PhoneNumber,
             ToRoleLabel(role),
-            newUser.IsLoginEnabled);
+            newUser.IsLoginEnabled,
+            command.ShopIds.ToList());
     }
 
     private static bool TryParseShopRole(string roleValue, out ShopRole role)

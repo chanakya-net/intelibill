@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 
@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
@@ -26,12 +27,16 @@ import {
 export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
+  private readonly authService = inject(AuthService);
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  readonly availableShops = computed(() => this.authService.session()?.shops ?? []);
 
   @Input({ required: true }) user!: ShopUser;
   @Output() readonly closeRequested = new EventEmitter<void>();
+
+  private selectedShopIds: string[] = [];
 
   readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
@@ -89,15 +94,33 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
           phoneNumber: this.form.controls.phoneNumber.value.trim(),
           role: this.form.controls.role.value,
           isLoginEnabled: this.form.controls.isLoginEnabled.value,
+          shopIds: [...this.selectedShopIds],
         },
       })
     );
+  }
+
+  isShopSelected(shopId: string): boolean {
+    return this.selectedShopIds.includes(shopId);
+  }
+
+  onToggleShop(shopId: string, isChecked: boolean): void {
+    if (isChecked && !this.selectedShopIds.includes(shopId)) {
+      this.selectedShopIds = [...this.selectedShopIds, shopId];
+      return;
+    }
+
+    if (!isChecked && this.selectedShopIds.includes(shopId)) {
+      this.selectedShopIds = this.selectedShopIds.filter((id) => id !== shopId);
+    }
   }
 
   private patchFormFromUser(): void {
     if (!this.user) {
       return;
     }
+
+    this.selectedShopIds = [...(this.user.shopIds ?? [])];
 
     this.form.patchValue({
       email: this.user.email ?? '',

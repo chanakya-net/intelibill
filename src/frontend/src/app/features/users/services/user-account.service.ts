@@ -27,6 +27,7 @@ export interface ShopUser {
   readonly phoneNumber: string | null;
   readonly role: string;
   readonly isLoginEnabled: boolean;
+  readonly shopIds: readonly string[];
 }
 
 export interface AddShopUserRequest {
@@ -47,6 +48,7 @@ export interface EditShopUserRequest {
   readonly phoneNumber: string;
   readonly role: 'Manager' | 'SalesPerson';
   readonly isLoginEnabled: boolean;
+  readonly shopIds?: readonly string[];
 }
 
 @Injectable({ providedIn: 'root' })

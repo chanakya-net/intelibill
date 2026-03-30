@@ -9,4 +9,5 @@ public sealed record EditShopUserCommand(
     string LastName,
     string PhoneNumber,
     string Role,
-    bool IsLoginEnabled);
+    bool IsLoginEnabled,
+    IReadOnlyList<Guid>? ShopIds = null);

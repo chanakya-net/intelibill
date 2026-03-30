@@ -11,4 +11,7 @@ public interface IShopRepository : IRepository<Shop>
     Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default);
     Task ClearDefaultForUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Shop?> GetByIdWithMembersAsync(Guid shopId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ShopMembership>> GetMembershipsForUsersInShopsAsync(IReadOnlyList<Guid> userIds, IReadOnlyList<Guid> shopIds, CancellationToken cancellationToken = default);
+    Task AddMembershipAsync(ShopMembership membership, CancellationToken cancellationToken = default);
+    void RemoveMembership(ShopMembership membership);
 }
