@@ -12,6 +12,7 @@ describe('users selectors', () => {
         phoneNumber: '+15551234567',
         role: 'Owner',
         isLoginEnabled: true,
+        shopIds: ['shop-1'],
       },
     ],
     loadingShopUsers: true,

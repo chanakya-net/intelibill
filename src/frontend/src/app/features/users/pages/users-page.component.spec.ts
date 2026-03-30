@@ -4,6 +4,7 @@ import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import {
   selectShopUsers,
@@ -15,7 +16,7 @@ import {
 import { UsersPageComponent } from './users-page.component';
 
 describe('UsersPageComponent', () => {
-  const shopUsersSignal = signal([
+  const shopUsersSignal = signal<ShopUser[]>([
     {
       userId: 'u1',
       firstName: 'Owner',
@@ -24,6 +25,7 @@ describe('UsersPageComponent', () => {
       phoneNumber: '+15551234567',
       role: 'Owner',
       isLoginEnabled: true,
+      shopIds: ['shop-1'],
     },
   ]);
   const loadingSignal = signal(false);
@@ -82,6 +84,20 @@ describe('UsersPageComponent', () => {
 
   beforeEach(() => {
     store.dispatch.mockReset();
+    shopUsersSignal.set([
+      {
+        userId: 'u1',
+        firstName: 'Owner',
+        lastName: 'User',
+        email: 'owner@test.com',
+        phoneNumber: '+15551234567',
+        role: 'Owner',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+    ]);
+    loadingSignal.set(false);
+    errorSignal.set('');
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
     sessionSignal.set(defaultSession);
@@ -156,5 +172,64 @@ describe('UsersPageComponent', () => {
     expect(component.showEditUserOverlay()).toBe(false);
     expect(component.editingUser()).toBeNull();
     expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
+  });
+
+  it('returns a mutable table copy so sorting does not mutate store state', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+    const frozenUsers = Object.freeze([
+      Object.freeze({
+        userId: 'u2',
+        firstName: 'Zara',
+        lastName: 'User',
+        email: 'zara@test.com',
+        phoneNumber: '+15557654321',
+        role: 'Manager',
+        isLoginEnabled: true,
+        shopIds: Object.freeze(['shop-2']),
+      }),
+      Object.freeze({
+        userId: 'u1',
+        firstName: 'Ayaan',
+        lastName: 'User',
+        email: 'ayaan@test.com',
+        phoneNumber: '+15551234567',
+        role: 'Owner',
+        isLoginEnabled: true,
+        shopIds: Object.freeze(['shop-1']),
+      }),
+    ]);
+
+    shopUsersSignal.set(frozenUsers as unknown as ShopUser[]);
+
+    const tableUsers = component.tableUsers();
+
+    expect(tableUsers).not.toBe(shopUsersSignal());
+    expect(() => tableUsers.sort((left, right) => left.firstName.localeCompare(right.firstName))).not.toThrow();
+    expect(shopUsersSignal()[0].firstName).toBe('Zara');
+    expect(shopUsersSignal()[1].firstName).toBe('Ayaan');
+  });
+
+  it('updates table users when shop users state changes', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.tableUsers().map((user) => user.userId)).toEqual(['u1']);
+
+    shopUsersSignal.set([
+      {
+        userId: 'u3',
+        firstName: 'New',
+        lastName: 'Shop',
+        email: 'newshop@test.com',
+        phoneNumber: '+15559876543',
+        role: 'Manager',
+        isLoginEnabled: true,
+        shopIds: ['shop-2'],
+      },
+    ]);
+    fixture.detectChanges();
+
+    expect(component.tableUsers().map((user) => user.userId)).toEqual(['u3']);
   });
 });

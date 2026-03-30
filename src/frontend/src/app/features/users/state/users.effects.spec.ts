@@ -192,6 +192,7 @@ describe('UsersEffects', () => {
           phoneNumber: '+15551234567',
           role: 'Owner',
           isLoginEnabled: true,
+          shopIds: ['shop-1'],
         },
       ])
     );
@@ -211,6 +212,7 @@ describe('UsersEffects', () => {
             phoneNumber: '+15551234567',
             role: 'Owner',
             isLoginEnabled: true,
+            shopIds: ['shop-1'],
           },
         ],
       })
