@@ -134,4 +134,4 @@ See `Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
 
 | Topic | File |
 |---|---|
-| Architecture, design patterns, conventions | [../../.claude/docs/architectural_patterns.md](../../.claude/docs/architectural_patterns.md) |
+| Architecture, design patterns, conventions | [../../docs/architectural_patterns.md](../../docs/architectural_patterns.md) |
