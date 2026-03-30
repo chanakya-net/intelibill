@@ -36,6 +36,7 @@ export class AddShopUserOverlayComponent implements OnInit {
 
   readonly form = this.formBuilder.nonNullable.group({
     shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
@@ -75,6 +76,7 @@ export class AddShopUserOverlayComponent implements OnInit {
       UsersActions.addShopUserRequested({
         payload: {
           shopIds: this.form.controls.shopIds.value,
+          email: this.form.controls.email.value.trim(),
           firstName: this.form.controls.firstName.value.trim(),
           lastName: this.form.controls.lastName.value.trim(),
           phoneNumber: this.form.controls.phoneNumber.value.trim(),

@@ -121,6 +121,10 @@ function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): strin
     return 'This mobile number is already used by another account.';
   }
 
+  if (title === 'Auth.EmailAlreadyInUse') {
+    return 'This email is already used by another account.';
+  }
+
   if (error?.detail) {
     return error.detail;
   }
@@ -165,6 +169,10 @@ function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string 
     return 'This mobile number is already used by another account.';
   }
 
+  if (title === 'Auth.EmailAlreadyInUse') {
+    return 'This email is already used by another account.';
+  }
+
   if (title === 'Users.RoleNotSupported') {
     return 'Role must be Manager or Sales Person.';
   }
@@ -189,6 +197,10 @@ function getEditShopUserErrorMessage(error: ApiErrorPayload | undefined): string
 
   if (title === 'Auth.PhoneAlreadyInUse') {
     return 'This mobile number is already used by another account.';
+  }
+
+  if (title === 'Auth.EmailAlreadyInUse') {
+    return 'This email is already used by another account.';
   }
 
   if (title === 'Users.RoleNotSupported') {

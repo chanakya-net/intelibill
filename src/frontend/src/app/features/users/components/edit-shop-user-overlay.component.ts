@@ -34,6 +34,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
@@ -82,6 +83,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       UsersActions.editShopUserRequested({
         userId: this.user.userId,
         payload: {
+          email: this.form.controls.email.value.trim(),
           firstName: this.form.controls.firstName.value.trim(),
           lastName: this.form.controls.lastName.value.trim(),
           phoneNumber: this.form.controls.phoneNumber.value.trim(),
@@ -98,6 +100,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     }
 
     this.form.patchValue({
+      email: this.user.email ?? '',
       firstName: this.user.firstName,
       lastName: this.user.lastName,
       phoneNumber: this.user.phoneNumber ?? '',

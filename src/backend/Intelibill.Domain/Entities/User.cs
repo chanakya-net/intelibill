@@ -85,8 +85,9 @@ public sealed class User : BaseEntity
         LastName = lastName.Trim();
     }
 
-    public void UpdateShopUserProfile(string firstName, string lastName, string phoneNumber)
+    public void UpdateShopUserProfile(string email, string firstName, string lastName, string phoneNumber)
     {
+        Email = email.Trim().ToLowerInvariant();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
         PhoneNumber = phoneNumber.Trim();

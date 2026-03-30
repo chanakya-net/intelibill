@@ -93,6 +93,7 @@ describe('AddShopUserOverlayComponent', () => {
 
     component.form.controls.firstName.setValue('Sales');
     component.form.controls.lastName.setValue('User');
+    component.form.controls.email.setValue('sales@test.com');
     component.form.controls.phoneNumber.setValue('+15551234567');
     component.form.controls.shopIds.setValue(['s1']);
     component.form.controls.password.setValue('Pass1234!');
@@ -112,6 +113,7 @@ describe('AddShopUserOverlayComponent', () => {
 
     component.form.controls.firstName.setValue('Sales');
     component.form.controls.lastName.setValue('User');
+    component.form.controls.email.setValue('sales@test.com');
     component.form.controls.phoneNumber.setValue('+15551234567');
     component.form.controls.shopIds.setValue(['s1', 's2']);
     component.form.controls.password.setValue('Pass1234!');
@@ -126,6 +128,7 @@ describe('AddShopUserOverlayComponent', () => {
       UsersActions.addShopUserRequested({
         payload: {
           shopIds: ['s1', 's2'],
+          email: 'sales@test.com',
           firstName: 'Sales',
           lastName: 'User',
           phoneNumber: '+15551234567',

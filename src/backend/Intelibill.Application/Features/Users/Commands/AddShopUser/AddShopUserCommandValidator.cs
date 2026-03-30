@@ -19,6 +19,11 @@ internal sealed class AddShopUserCommandValidator : AbstractValidator<AddShopUse
             .NotEmpty()
             .MaximumLength(100);
 
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .EmailAddress()
+            .MaximumLength(256);
+
         RuleFor(x => x.PhoneNumber)
             .NotEmpty()
             .MaximumLength(32)

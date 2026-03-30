@@ -42,13 +42,17 @@ public sealed class AddShopUserCommandHandler(
         if (!TryParseShopRole(command.Role, out var role))
             return Errors.Users.RoleNotSupported;
 
+        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
+        if (await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
+            return Errors.Auth.EmailAlreadyInUse;
+
         var normalizedPhone = command.PhoneNumber.Trim();
         if (await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 
         var passwordHash = passwordHasher.Hash(command.Password);
-        var newUser = User.CreateWithPhone(normalizedPhone, command.FirstName, command.LastName);
-        newUser.UpdatePassword(passwordHash);
+        var newUser = User.CreateWithEmail(normalizedEmail, passwordHash, command.FirstName, command.LastName);
+        newUser.UpdateShopUserProfile(normalizedEmail, command.FirstName, command.LastName, normalizedPhone);
 
         foreach (var shopId in command.ShopIds)
         {
