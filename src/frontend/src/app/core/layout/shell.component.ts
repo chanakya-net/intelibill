@@ -16,8 +16,17 @@ import { ChangePasswordOverlayComponent } from '../../features/users/components/
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, SupportedLanguage } from '../i18n/language.constants';
 import { MenuItem } from 'primeng/api';
-import { Menu, MenuModule } from 'primeng/menu';
+import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
 import { UsersActions } from '../../features/users/state/users.actions';
+
+const NATIVE_LANGUAGE_NAMES: Record<string, string> = {
+  'en-IN': 'English',
+  'hi-IN': 'हिंदी',
+  'ta-IN': 'தமிழ்',
+  'te-IN': 'తెలుగు',
+  'bn-IN': 'বাংলা',
+  'ml-IN': 'മലയാളം',
+};
 
 @Component({
   selector: 'app-shell',
@@ -29,7 +38,7 @@ import { UsersActions } from '../../features/users/state/users.actions';
     ManageShopOverlayComponent,
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
-    MenuModule,
+    TieredMenuModule,
     TranslocoPipe,
   ],
   templateUrl: './shell.component.html',
@@ -43,7 +52,7 @@ export class ShellComponent {
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
-  @ViewChild('profileMenu') profileMenu?: Menu;
+  @ViewChild('profileMenu') profileMenu?: TieredMenu;
 
   readonly isSigningOut = signal(false);
   readonly isProfileMenuOpen = signal(false);
@@ -145,8 +154,8 @@ export class ShellComponent {
       label: this.localizationService.translate('shell.language'),
       icon: 'pi pi-globe',
       items: this.supportedLanguages.map((language) => ({
-        label: `${this.localizationService.translate(`languages.${language}`)} (${language})`,
-        icon: currentLanguage === language ? 'pi pi-check' : undefined,
+        label: NATIVE_LANGUAGE_NAMES[language] ?? language,
+        icon: currentLanguage === language ? 'pi pi-check' : '',
         command: () => this.onLanguageSelected(language),
       })),
     });
@@ -210,7 +219,7 @@ export class ShellComponent {
     return root.contains(target) || composedPath.includes(root);
   }
 
-  onToggleProfileMenu(event?: MouseEvent, menu?: Menu): void {
+  onToggleProfileMenu(event?: MouseEvent, menu?: TieredMenu): void {
     this.isShopMenuOpen.set(false);
 
     if (event && menu) {

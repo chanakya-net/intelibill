@@ -43,6 +43,14 @@ export class LoginPageComponent implements OnInit {
   readonly isHttpLoading = this.store.selectSignal((state) => state.httpUi.pendingRequests > 0);
   readonly supportedLanguages = this.localizationService.supportedLanguages;
   readonly currentLanguage = this.localizationService.currentLanguage;
+  readonly nativeLanguageNames: Record<string, string> = {
+    'en-IN': 'English',
+    'hi-IN': '\u0939\u093f\u0902\u0926\u0940',
+    'ta-IN': '\u0ba4\u0bae\u0bbf\u0bb4\u0bcd',
+    'te-IN': '\u0c24\u0c46\u0c32\u0c41\u0c17\u0c41',
+    'bn-IN': '\u09ac\u09be\u0982\u09b2\u09be',
+    'ml-IN': '\u0d2e\u0d32\u0d2f\u0d3e\u0d33\u0d02',
+  };
 
   readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

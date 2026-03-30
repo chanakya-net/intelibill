@@ -13,19 +13,6 @@
         <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
         <h2>{{ 'register.createAccount' | transloco }}</h2>
         <p>{{ 'register.subtitle' | transloco }}</p>
-        <div class="field-wrap space-y-1.5 mt-3">
-          <label for="language">{{ 'common.language' | transloco }}</label>
-          <select
-            id="language"
-            class="w-full"
-            [value]="currentLanguage()"
-            (change)="onLanguageChanged($any($event.target).value)"
-          >
-            <option *ngFor="let language of supportedLanguages" [value]="language">
-              {{ ('languages.' + language) | transloco }} ({{ language }})
-            </option>
-          </select>
-        </div>
       </header>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 p-6 pt-6" [class.form-busy]="isSubmitting()">
@@ -109,6 +96,21 @@
           [disabled]="form.invalid || isSubmitting()"
           class="auth-submit w-full"
         ></button>
+
+        <div class="lang-pick">
+          <i class="pi pi-globe" aria-hidden="true"></i>
+          <select
+            id="language"
+            [attr.aria-label]="'common.language' | transloco"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            <option
+              *ngFor="let language of supportedLanguages"
+              [value]="language"
+              [selected]="language === currentLanguage()"
+            >{{ nativeLanguageNames[language] }}</option>
+          </select>
+        </div>
       </form>
 
       <div class="form-overlay" *ngIf="isSubmitting()">

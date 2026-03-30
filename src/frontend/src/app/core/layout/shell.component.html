@@ -69,7 +69,7 @@
           <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
         </button>
 
-        <p-menu
+        <p-tieredMenu
           #profileMenu
           [model]="profileMenuItems()"
           [popup]="true"
@@ -77,7 +77,7 @@
           [attr.aria-label]="'shell.profileActions' | transloco"
           (onShow)="isProfileMenuOpen.set(true)"
           (onHide)="isProfileMenuOpen.set(false)"
-        ></p-menu>
+        ></p-tieredMenu>
       </div>
     </div>
   </header>

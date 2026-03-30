@@ -11,19 +11,6 @@
     <article class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20">
       <header class="auth-header">
         <h2>{{ 'auth.loginNow' | transloco }}</h2>
-        <div class="field-wrap space-y-1.5 mt-3">
-          <label for="language">{{ 'common.language' | transloco }}</label>
-          <select
-            id="language"
-            class="w-full"
-            [value]="currentLanguage()"
-            (change)="onLanguageChanged($any($event.target).value)"
-          >
-            <option *ngFor="let language of supportedLanguages" [value]="language">
-              {{ ('languages.' + language) | transloco }} ({{ language }})
-            </option>
-          </select>
-        </div>
       </header>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="login-form space-y-4 p-6 pt-6" [class.form-busy]="isHttpLoading()">
@@ -83,6 +70,21 @@
         </div>
 
         <p class="signup-hint">{{ 'auth.notMember' | transloco }} <a routerLink="/register">{{ 'auth.signupNow' | transloco }}</a></p>
+
+        <div class="lang-pick">
+          <i class="pi pi-globe" aria-hidden="true"></i>
+          <select
+            id="language"
+            [attr.aria-label]="'common.language' | transloco"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            <option
+              *ngFor="let language of supportedLanguages"
+              [value]="language"
+              [selected]="language === currentLanguage()"
+            >{{ nativeLanguageNames[language] }}</option>
+          </select>
+        </div>
       </form>
 
       <div class="form-overlay" *ngIf="isHttpLoading()">
