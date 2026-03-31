@@ -6,6 +6,8 @@ import { authGuard } from './core/guards/auth.guard';
 import { ShellComponent } from './core/layout/shell.component';
 import { ShopsEffects } from './features/shops/state/shops.effects';
 import { shopsFeature } from './features/shops/state/shops.reducer';
+import { SuppliersEffects } from './features/suppliers/state/suppliers.effects';
+import { suppliersFeature } from './features/suppliers/state/suppliers.reducer';
 import { UsersEffects } from './features/users/state/users.effects';
 import { usersFeature } from './features/users/state/users.reducer';
 
@@ -31,9 +33,17 @@ export const routes: Routes = [
 		providers: [
 			provideState(shopsFeature),
 			provideState(usersFeature),
-			provideEffects(ShopsEffects, UsersEffects),
+			provideState(suppliersFeature),
+			provideEffects(ShopsEffects, UsersEffects, SuppliersEffects),
 		],
 		children: [
+			{
+				path: 'suppliers',
+				loadComponent: () =>
+					import('./features/suppliers/pages/suppliers-page.component').then(
+						(m) => m.SuppliersPageComponent
+					),
+			},
 			{
 				path: 'users',
 				loadComponent: () =>

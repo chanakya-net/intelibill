@@ -58,6 +58,7 @@
     "profileActions": "Profile actions",
     "userFallback": "User",
     "manageUsers": "Manage Users",
+    "manageSuppliers": "Manage Suppliers",
     "updateProfile": "Update Profile",
     "changePassword": "Change Password",
     "addShop": "Add Shop",
@@ -100,6 +101,35 @@
       "passwordConfirmationMustMatch": "Password and confirm password must match.",
       "selectAtLeastOneShop": "Select at least one shop."
     }
+  },
+  "suppliers": {
+    "supplierDirectory": "Supplier Directory",
+    "title": "Suppliers",
+    "subtitle": "Suppliers added by the owner are available across all owned shops.",
+    "name": "Name",
+    "contactPerson": "Contact Person",
+    "contactPhone": "Contact Phone",
+    "address": "Address",
+    "city": "City",
+    "state": "State",
+    "pin": "PIN",
+    "status": "Status",
+    "preferred": "Preferred",
+    "actions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive",
+    "yes": "Yes",
+    "no": "No",
+    "addSupplier": "Add Supplier",
+    "editSupplier": "Edit Supplier",
+    "addSupplierDescription": "Create a supplier that is shared across all your shops.",
+    "editSupplierDescription": "Update supplier details available across your shops.",
+    "supplierForm": "Supplier form",
+    "saveChanges": "Save Changes",
+    "noSuppliersFound": "No suppliers found",
+    "noSuppliersDescription": "Start by adding your first supplier.",
+    "isActive": "Is Active",
+    "isPreferred": "Is Preferred"
   },
   "profile": {
     "account": "Account",
@@ -188,6 +218,14 @@
       "onlyOwnerCanEditUsers": "Only owner can edit users for this shop.",
       "ownerCannotBeModified": "Owner account cannot be modified from this screen.",
       "unableToUpdateUser": "Unable to update user right now. Please try again."
+    },
+    "suppliers": {
+      "unableToLoadSuppliers": "Unable to load suppliers right now. Please try again.",
+      "onlyOwnerCanManageSuppliers": "Only owner can add or edit suppliers for this shop.",
+      "supplierNotFound": "The supplier no longer exists.",
+      "invalidContactPhone": "Contact person phone must be a valid phone number.",
+      "unableToAddSupplier": "Unable to add supplier right now. Please try again.",
+      "unableToUpdateSupplier": "Unable to update supplier right now. Please try again."
     },
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",

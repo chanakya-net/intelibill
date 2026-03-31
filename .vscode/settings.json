@@ -3,6 +3,12 @@
         "dotnet test": true,
         "bun": true,
         "dotnet build": true,
-        "npx ng": true
+        "npx ng": true,
+        "dotnet ef": true,
+        "${p}/${f}": true,
+        "/^node -e \"const fs=require\\('fs'\\); const p='src/frontend/public/assets/i18n'; const files=\\['hi-IN\\.json','ta-IN\\.json','te-IN\\.json','bn-IN\\.json','ml-IN\\.json','kn-IN\\.json'\\]; for \\(const f of files\\)\\{ JSON\\.parse\\(fs\\.readFileSync\\(p \\+ '/' \\+ f,'utf8'\\)\\); \\} console\\.log\\('ok'\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

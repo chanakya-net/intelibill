@@ -58,6 +58,7 @@
     "profileActions": "প্রোফাইল কার্যাবলি",
     "userFallback": "ব্যবহারকারী",
     "manageUsers": "ব্যবহারকারী ব্যবস্থাপনা",
+    "manageSuppliers": "সরবরাহকারী ব্যবস্থাপনা",
     "updateProfile": "প্রোফাইল আপডেট",
     "changePassword": "পাসওয়ার্ড পরিবর্তন",
     "addShop": "দোকান যোগ করুন",
@@ -100,6 +101,35 @@
       "passwordConfirmationMustMatch": "পাসওয়ার্ড ও কনফার্ম পাসওয়ার্ড মিলতে হবে।",
       "selectAtLeastOneShop": "কমপক্ষে একটি দোকান নির্বাচন করুন।"
     }
+  },
+  "suppliers": {
+    "supplierDirectory": "সরবরাহকারী নির্দেশিকা",
+    "title": "সরবরাহকারী",
+    "subtitle": "মালিক যোগ করা সরবরাহকারীরা আপনার সব মালিকানাধীন দোকানে পাওয়া যাবে।",
+    "name": "নাম",
+    "contactPerson": "যোগাযোগ ব্যক্তি",
+    "contactPhone": "যোগাযোগ ফোন",
+    "address": "ঠিকানা",
+    "city": "শহর",
+    "state": "রাজ্য",
+    "pin": "পিন",
+    "status": "স্থিতি",
+    "preferred": "পছন্দের",
+    "actions": "কার্যাবলি",
+    "active": "সক্রিয়",
+    "inactive": "নিষ্ক্রিয়",
+    "yes": "হ্যাঁ",
+    "no": "না",
+    "addSupplier": "সরবরাহকারী যোগ করুন",
+    "editSupplier": "সরবরাহকারী সম্পাদনা করুন",
+    "addSupplierDescription": "একজন সরবরাহকারী তৈরি করুন যা আপনার সব দোকানে শেয়ার হবে।",
+    "editSupplierDescription": "আপনার দোকানগুলোর জন্য সরবরাহকারীর তথ্য আপডেট করুন।",
+    "supplierForm": "সরবরাহকারী ফর্ম",
+    "saveChanges": "পরিবর্তন সংরক্ষণ করুন",
+    "noSuppliersFound": "কোনো সরবরাহকারী পাওয়া যায়নি",
+    "noSuppliersDescription": "আপনার প্রথম সরবরাহকারী যোগ করে শুরু করুন।",
+    "isActive": "সক্রিয় আছে",
+    "isPreferred": "পছন্দের আছে"
   },
   "profile": {
     "account": "অ্যাকাউন্ট",
@@ -188,6 +218,14 @@
       "onlyOwnerCanEditUsers": "এই দোকানে কেবল মালিক ব্যবহারকারী সম্পাদনা করতে পারেন।",
       "ownerCannotBeModified": "এই স্ক্রিন থেকে মালিকের অ্যাকাউন্ট পরিবর্তন করা যাবে না।",
       "unableToUpdateUser": "এই মুহূর্তে ব্যবহারকারী আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
+    },
+    "suppliers": {
+      "unableToLoadSuppliers": "এই মুহূর্তে সরবরাহকারী লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "onlyOwnerCanManageSuppliers": "এই দোকানে কেবল মালিক সরবরাহকারী যোগ বা সম্পাদনা করতে পারবেন।",
+      "supplierNotFound": "সরবরাহকারী আর বিদ্যমান নেই।",
+      "invalidContactPhone": "যোগাযোগ ব্যক্তির ফোন নম্বর বৈধ হতে হবে।",
+      "unableToAddSupplier": "এই মুহূর্তে সরবরাহকারী যোগ করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "unableToUpdateSupplier": "এই মুহূর্তে সরবরাহকারী আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
     },
     "shops": {
       "unableToLoadShops": "এই মুহূর্তে আপনার দোকানগুলো লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",
