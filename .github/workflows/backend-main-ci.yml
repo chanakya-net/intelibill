@@ -122,65 +122,11 @@ jobs:
           }
           JSON
 
-          make_badge_svg() {
-            local label="$1"
-            local message="$2"
-            local color="$3"
-            local output="$4"
-
-            local label_chars=${#label}
-            local message_chars=${#message}
-            local label_width=$((label_chars * 7 + 14))
-            local message_width=$((message_chars * 7 + 14))
-            local total_width=$((label_width + message_width))
-            local label_center=$((label_width / 2))
-            local message_center=$((label_width + (message_width / 2)))
-
-            {
-              printf '%s\n' "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${total_width}\" height=\"20\" role=\"img\" aria-label=\"${label}: ${message}\">"
-              printf '%s\n' '  <linearGradient id="s" x2="0" y2="100%">'
-              printf '%s\n' '    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>'
-              printf '%s\n' '    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>'
-              printf '%s\n' '    <stop offset=".9" stop-color="#000" stop-opacity=".3"/>'
-              printf '%s\n' '    <stop offset="1" stop-color="#000" stop-opacity=".5"/>'
-              printf '%s\n' '  </linearGradient>'
-              printf '%s\n' '  <clipPath id="r">'
-              printf '%s\n' "    <rect width=\"${total_width}\" height=\"20\" rx=\"3\" fill=\"#fff\"/>"
-              printf '%s\n' '  </clipPath>'
-              printf '%s\n' '  <g clip-path="url(#r)">'
-              printf '%s\n' "    <rect width=\"${label_width}\" height=\"20\" fill=\"#555\"/>"
-              printf '%s\n' "    <rect x=\"${label_width}\" width=\"${message_width}\" height=\"20\" fill=\"${color}\"/>"
-              printf '%s\n' "    <rect width=\"${total_width}\" height=\"20\" fill=\"url(#s)\"/>"
-              printf '%s\n' '  </g>'
-              printf '%s\n' '  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">'
-              printf '%s\n' "    <text x=\"${label_center}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">${label}</text>"
-              printf '%s\n' "    <text x=\"${label_center}\" y=\"14\">${label}</text>"
-              printf '%s\n' "    <text x=\"${message_center}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">${message}</text>"
-              printf '%s\n' "    <text x=\"${message_center}\" y=\"14\">${message}</text>"
-              printf '%s\n' '  </g>'
-              printf '%s\n' '</svg>'
-            } > "${output}"
-          }
-
-          to_hex_color() {
-            case "$1" in
-              brightgreen) echo "#4c1" ;;
-              green) echo "#97ca00" ;;
-              yellow) echo "#dfb317" ;;
-              orange) echo "#fe7d37" ;;
-              red) echo "#e05d44" ;;
-              lightgrey) echo "#9f9f9f" ;;
-              *) echo "#9f9f9f" ;;
-            esac
-          }
-
-          make_badge_svg "tests" "${passed_tests}/${total_tests} passed" "$(to_hex_color "${tests_color}")" ".github/badges/tests.svg"
-
       - name: Commit badge updates
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- .github/badges/tests.json .github/badges/tests.svg; then
+          if [ -z "$(git status --porcelain -- .github/badges/tests.json)" ]; then
             echo 'No badge changes to commit.'
             exit 0
           fi
@@ -189,7 +135,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
           git fetch origin main
-          git add .github/badges/tests.json .github/badges/tests.svg
+          git add .github/badges/tests.json
           git commit -m 'ci: update test badges'
 
           max_attempts=3

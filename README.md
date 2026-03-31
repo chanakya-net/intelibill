@@ -7,7 +7,7 @@ AI-powered inventory management system.
 | | Backend | Frontend |
 |---|---|---|
 | Build | [![Backend CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/backend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend CI](https://img.shields.io/github/actions/workflow/status/chanakya-net/intelibill/frontend-main-ci.yml?branch=main&label=build)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
-| Tests | ![Tests Run](.github/badges/tests.svg) | ![Frontend Tests](.github/badges/frontend-tests.svg) |
+| Tests | [![Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/tests.json&cacheSeconds=300)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chanakya-net/intelibill/main/.github/badges/frontend-tests.json&cacheSeconds=300)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
 
 ## Tech Stack
 
