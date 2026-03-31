@@ -44,7 +44,8 @@ public class CreateShopCommandHandlerTests
             _shopRepository,
             _refreshTokenRepository,
             _tokenService,
-            _unitOfWork);
+            _unitOfWork,
+            null);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -82,7 +83,8 @@ public class CreateShopCommandHandlerTests
             _shopRepository,
             _refreshTokenRepository,
             _tokenService,
-            _unitOfWork);
+            _unitOfWork,
+            new CreateShopCommandValidator());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -102,7 +104,8 @@ public class CreateShopCommandHandlerTests
             _shopRepository,
             _refreshTokenRepository,
             _tokenService,
-            _unitOfWork);
+            _unitOfWork,
+            new CreateShopCommandValidator());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 

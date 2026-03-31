@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
 
-internal sealed class CreateShopCommandValidator : AbstractValidator<CreateShopCommand>
+public sealed class CreateShopCommandValidator : AbstractValidator<CreateShopCommand>
 {
     private static readonly Regex IndiaGstRegex = new(
         "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$",
@@ -13,23 +13,23 @@ internal sealed class CreateShopCommandValidator : AbstractValidator<CreateShopC
     public CreateShopCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty()
+            .NotEmpty().WithErrorCode("Shop.NameRequired")
             .MaximumLength(120);
 
         RuleFor(x => x.Address)
-            .NotEmpty()
+            .NotEmpty().WithErrorCode("Shop.AddressRequired")
             .MaximumLength(320);
 
         RuleFor(x => x.City)
-            .NotEmpty()
+            .NotEmpty().WithErrorCode("Shop.CityRequired")
             .MaximumLength(120);
 
         RuleFor(x => x.State)
-            .NotEmpty()
+            .NotEmpty().WithErrorCode("Shop.StateRequired")
             .MaximumLength(120);
 
         RuleFor(x => x.Pincode)
-            .NotEmpty()
+            .NotEmpty().WithErrorCode("Shop.PincodeRequired")
             .MaximumLength(16);
 
         RuleFor(x => x.ContactPerson)
@@ -41,6 +41,7 @@ internal sealed class CreateShopCommandValidator : AbstractValidator<CreateShopC
         RuleFor(x => x.GstNumber)
             .MaximumLength(20)
             .Must(value => string.IsNullOrWhiteSpace(value) || IndiaGstRegex.IsMatch(value.Trim()))
+            .WithErrorCode("Shop.GstNumberInvalid")
             .WithMessage("GST number must be a valid Indian GSTIN.");
     }
 }

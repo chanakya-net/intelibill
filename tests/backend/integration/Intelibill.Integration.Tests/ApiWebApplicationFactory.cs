@@ -1,4 +1,7 @@
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -56,6 +59,12 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
                     .UseSnakeCaseNamingConvention()
                     .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
+
+            // SQLite cannot translate DateTimeOffset.UtcNow in WHERE clauses.
+            // Replace the repository with a SQLite-compatible version that evaluates
+            // the expiry filter client-side.
+            services.RemoveAll<IRefreshTokenRepository>();
+            services.AddScoped<IRefreshTokenRepository, SqliteRefreshTokenRepository>();
         });
     }
 
@@ -66,5 +75,36 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
         {
             _connection.Dispose();
         }
+    }
+}
+
+/// <summary>
+/// SQLite-compatible refresh token repository that evaluates the DateTimeOffset
+/// expiry filter on the client side, since SQLite cannot translate DateTimeOffset.UtcNow
+/// to SQL in WHERE clauses.
+/// </summary>
+internal sealed class SqliteRefreshTokenRepository(ApplicationDbContext context)
+    : RepositoryBase<RefreshToken>(context), IRefreshTokenRepository
+{
+    public async Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var tokens = await DbSet
+            .Include(rt => rt.User)
+            .ThenInclude(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
+            .Where(rt => rt.Token == token && !rt.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        return tokens.FirstOrDefault(rt => rt.ExpiresAt > DateTimeOffset.UtcNow);
+    }
+
+    public async Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var tokens = await DbSet
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        foreach (var t in tokens)
+            t.Revoke();
     }
 }

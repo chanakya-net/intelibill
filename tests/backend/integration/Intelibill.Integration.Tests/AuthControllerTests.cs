@@ -1,0 +1,250 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+namespace Intelibill.Integration.Tests;
+
+public class AuthControllerTests : IClassFixture<ApiWebApplicationFactory>
+{
+    private readonly ApiWebApplicationFactory _factory;
+
+    public AuthControllerTests(ApiWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
+
+    private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
+    {
+        BaseAddress = new Uri("https://localhost"),
+        AllowAutoRedirect = false
+    });
+
+    private static string UniqueEmail() => $"auth-{Guid.NewGuid():N}@test.com";
+    private static string UniquePhone() => $"+919{Guid.NewGuid().ToString("N")[..9]}";
+
+    [Fact]
+    public async Task RegisterWithEmail_ValidRequest_Returns201WithTokens()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(),
+            password = "Pass123!",
+            firstName = "Test",
+            lastName = "User"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("refreshToken").GetString()));
+        Assert.Equal("Test", body.GetProperty("user").GetProperty("firstName").GetString());
+    }
+
+    [Fact]
+    public async Task RegisterWithEmail_DuplicateEmail_Returns409()
+    {
+        using var client = CreateClient();
+        var email = UniqueEmail();
+        await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email, password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email, password = "Pass123!", firstName = "Another", lastName = "User"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RegisterWithPhone_ValidRequest_Returns201WithTokens()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/register/phone", new
+        {
+            phoneNumber = UniquePhone(),
+            firstName = "Phone",
+            lastName = "User"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("refreshToken").GetString()));
+    }
+
+    [Fact]
+    public async Task RegisterWithPhone_DuplicatePhone_Returns409()
+    {
+        using var client = CreateClient();
+        var phone = UniquePhone();
+        await client.PostAsJsonAsync("/api/auth/register/phone", new
+        {
+            phoneNumber = phone, firstName = "First", lastName = "User"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/auth/register/phone", new
+        {
+            phoneNumber = phone, firstName = "Second", lastName = "User"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LoginWithEmail_ValidCredentials_Returns200WithTokens()
+    {
+        using var client = CreateClient();
+        var email = UniqueEmail();
+        await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email, password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        {
+            email, password = "Pass123!"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("refreshToken").GetString()));
+    }
+
+    [Fact]
+    public async Task LoginWithEmail_WrongPassword_Returns401()
+    {
+        using var client = CreateClient();
+        var email = UniqueEmail();
+        await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email, password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        {
+            email, password = "WrongPassword!"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LoginWithEmail_UnknownEmail_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        {
+            email = UniqueEmail(),
+            password = "Pass123!"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RequestPasswordReset_ForAnyEmail_AlwaysReturns200()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/password-reset/request", new
+        {
+            email = UniqueEmail()
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("reset link", body.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithInvalidToken_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/password-reset/confirm", new
+        {
+            email = UniqueEmail(),
+            token = "bogus-reset-token",
+            newPassword = "NewPass123!"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithValidToken_Returns200WithRotatedToken()
+    {
+        using var client = CreateClient();
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+        var registerBody = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var originalRefreshToken = registerBody.GetProperty("refreshToken").GetString()!;
+
+        var response = await client.PostAsJsonAsync("/api/auth/token/refresh", new
+        {
+            refreshToken = originalRefreshToken
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
+        Assert.NotEqual(originalRefreshToken, body.GetProperty("refreshToken").GetString());
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithInvalidToken_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/token/refresh", new
+        {
+            refreshToken = "invalid-refresh-token"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RevokeToken_WithValidToken_Returns204()
+    {
+        using var client = CreateClient();
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+        var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var refreshToken = body.GetProperty("refreshToken").GetString()!;
+
+        var response = await client.PostAsJsonAsync("/api/auth/token/revoke", new { refreshToken });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RevokeToken_ThenRefresh_Returns401()
+    {
+        using var client = CreateClient();
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User"
+        });
+        var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var refreshToken = body.GetProperty("refreshToken").GetString()!;
+
+        await client.PostAsJsonAsync("/api/auth/token/revoke", new { refreshToken });
+        var response = await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+}
