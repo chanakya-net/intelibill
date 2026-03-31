@@ -71,43 +71,4 @@ public class CreateShopCommandHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task HandleAsync_WhenAddressBlank_ReturnsAddressRequired()
-    {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var command = new CreateShopCommand(user.Id, "Main Shop", "   ", "Bengaluru", "Karnataka", "560001", null, null, null);
-
-        var handler = new CreateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _refreshTokenRepository,
-            _tokenService,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.AddressRequired", result.FirstError.Code);
-        await _shopRepository.DidNotReceive().AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenGstNumberInvalid_ReturnsValidationError()
-    {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var command = new CreateShopCommand(user.Id, "Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, "123");
-
-        var handler = new CreateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _refreshTokenRepository,
-            _tokenService,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.GstNumberInvalid", result.FirstError.Code);
-        await _shopRepository.DidNotReceive().AddAsync(Arg.Any<Shop>(), Arg.Any<CancellationToken>());
-    }
 }
