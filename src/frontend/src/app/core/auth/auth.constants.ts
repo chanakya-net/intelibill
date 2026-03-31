@@ -24,3 +24,9 @@ export const USER_ENDPOINTS = {
   me: `${API_BASE_URL}/users/me`,
   changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;
+
+export const SUPPLIER_ENDPOINTS = {
+  list: `${API_BASE_URL}/suppliers`,
+  add: `${API_BASE_URL}/suppliers`,
+  update: (supplierId: string) => `${API_BASE_URL}/suppliers/${supplierId}`,
+} as const;

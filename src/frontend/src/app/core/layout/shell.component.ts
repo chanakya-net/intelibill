@@ -115,6 +115,14 @@ export class ShellComponent {
         },
       },
       {
+        label: this.localizationService.translate('shell.manageSuppliers'),
+        icon: 'pi pi-truck',
+        command: () => {
+          this.onCloseMenus();
+          void this.router.navigate(['/suppliers']);
+        },
+      },
+      {
         label: this.localizationService.translate('shell.updateProfile'),
         icon: 'pi pi-user-edit',
         command: () => this.onOpenUpdateProfile(),
