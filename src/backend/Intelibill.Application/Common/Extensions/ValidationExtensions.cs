@@ -13,7 +13,7 @@ public static class ValidationExtensions
         if (result.IsValid) return null;
 
         var errors = result.Errors
-            .Select(f => Error.Validation(code: f.PropertyName, description: f.ErrorMessage))
+            .Select(f => Error.Validation(code: f.ErrorCode ?? f.PropertyName, description: f.ErrorMessage))
             .ToList();
 
         return errors;

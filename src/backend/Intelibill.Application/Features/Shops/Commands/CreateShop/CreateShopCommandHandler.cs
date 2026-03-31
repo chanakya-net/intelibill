@@ -1,5 +1,7 @@
 using ErrorOr;
+using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Entities;
@@ -14,10 +16,14 @@ public sealed class CreateShopCommandHandler(
     IShopRepository shopRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IValidator<CreateShopCommand>? validator = null)
 {
     public async Task<ErrorOr<AuthResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
+        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationResult is not null) return validationResult.Value.Errors;
+
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;

@@ -121,7 +121,8 @@ public class ShopIsolationIntegrationTests
             shopRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork);
+            unitOfWork,
+            new CreateShopCommandValidator());
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null, null),
@@ -146,7 +147,8 @@ public class ShopIsolationIntegrationTests
             shopRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork);
+            unitOfWork,
+            null);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null, null),
@@ -172,7 +174,8 @@ public class ShopIsolationIntegrationTests
             shopRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork);
+            unitOfWork,
+            new CreateShopCommandValidator());
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(
