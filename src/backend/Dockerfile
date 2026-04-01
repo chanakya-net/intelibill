@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y libgssapi-krb5-2 curl && rm -rf /var/li
 COPY --from=build /app/publish .
 
 # Expose ports
-EXPOSE 5000
+EXPOSE 5277
 EXPOSE 5001
 
 # Set the environment to Production
