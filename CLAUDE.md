@@ -27,19 +27,19 @@ AI-powered inventory management system backend.
 
 ## Key Directories
 
-Paths are relative to this file (`src/backend/`).
+Paths are relative to this file (repo root).
 
 | Path | Purpose |
 |---|---|
-| `Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
-| `Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
-| `Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
-| `Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
-| `../../tests/backend/unit/` | Domain and Application unit tests |
-| `../../tests/backend/integration/` | Integration tests referencing the API project |
-| `../../Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
-| `../../Directory.Packages.props` | Central Package Management — all NuGet versions are declared here |
-| `../../global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
+| `src/backend/Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
+| `src/backend/Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
+| `src/backend/Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
+| `src/backend/Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
+| `tests/backend/unit/` | Domain and Application unit tests |
+| `tests/backend/integration/` | Integration tests referencing the API project |
+| `Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
+| `Directory.Packages.props` | Central Package Management — all NuGet versions are declared here |
+| `global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
 
 ## Multi-Shop Architecture Notes
 
@@ -119,19 +119,19 @@ Current passing test snapshot:
 ## Configuration
 
 Database credentials use the Options Pattern bound to the `"Database"` config section.
-See `Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
+See `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
 
-- `Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
-- `Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
+- `src/backend/Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
+- `src/backend/Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
 - Production — supply values via environment variables or secrets manager
 
 ## Adding NuGet Packages
 
-1. Add `<PackageVersion Include="..." Version="..." />` to `../../Directory.Packages.props`
+1. Add `<PackageVersion Include="..." Version="..." />` to `Directory.Packages.props`
 2. Add `<PackageReference Include="..." />` (no version) to the relevant `.csproj`
 
 ## Additional Documentation
 
 | Topic | File |
 |---|---|
-| Architecture, design patterns, conventions | [../../docs/architectural_patterns.md](../../docs/architectural_patterns.md) |
+| Architecture, design patterns, conventions | [docs/architectural_patterns.md](docs/architectural_patterns.md) |
