@@ -135,12 +135,12 @@ describe('UsersPageComponent', () => {
     expect(component.canAddUsers()).toBe(false);
   });
 
-  it('normalizes salesperson role label for table display', () => {
+  it('normalizes staff role label for table display', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;
 
-    expect(component.getRoleLabel('SalesPerson')).toBe('users.salesPerson');
-    expect(component.getRoleLabel('Staff')).toBe('users.salesPerson');
+    expect(component.getRoleLabel('SalesPerson')).toBe('users.staff');
+    expect(component.getRoleLabel('Staff')).toBe('users.staff');
   });
 
   it('closes add overlay on successful add mutation', () => {

@@ -178,7 +178,7 @@ public class UsersControllerTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task AddShopUser_AsOwner_WithSalesPersonRole_Returns201()
+    public async Task AddShopUser_AsOwner_WithStaffRole_Returns201()
     {
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
@@ -195,13 +195,13 @@ public class UsersControllerTests : IClassFixture<ApiWebApplicationFactory>
             phoneNumber = UniquePhone(),
             password = "StaffPass1!",
             confirmPassword = "StaffPass1!",
-            role = "SalesPerson"
+            role = "Staff"
         });
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("SalesPerson", body.GetProperty("role").GetString());
+        Assert.Equal("Staff", body.GetProperty("role").GetString());
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public class UsersControllerTests : IClassFixture<ApiWebApplicationFactory>
             firstName = "Updated",
             lastName = "Name",
             phoneNumber = UniquePhone(),
-            role = "SalesPerson",
+            role = "Staff",
             isLoginEnabled = true
         });
         var response = await client.SendAsync(editRequest);
@@ -318,7 +318,7 @@ public class UsersControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Updated", body.GetProperty("firstName").GetString());
-        Assert.Equal("SalesPerson", body.GetProperty("role").GetString());
+        Assert.Equal("Staff", body.GetProperty("role").GetString());
     }
 
     [Fact]

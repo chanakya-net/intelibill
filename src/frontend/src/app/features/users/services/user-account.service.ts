@@ -39,7 +39,7 @@ export interface AddShopUserRequest {
   readonly phoneNumber: string;
   readonly password: string;
   readonly confirmPassword: string;
-  readonly role: 'Manager' | 'SalesPerson';
+  readonly role: 'Manager' | 'Staff';
 }
 
 export interface EditShopUserRequest {
@@ -47,7 +47,7 @@ export interface EditShopUserRequest {
   readonly firstName: string;
   readonly lastName: string;
   readonly phoneNumber: string;
-  readonly role: 'Manager' | 'SalesPerson';
+  readonly role: 'Manager' | 'Staff';
   readonly isLoginEnabled: boolean;
   readonly shopIds?: readonly string[];
 }

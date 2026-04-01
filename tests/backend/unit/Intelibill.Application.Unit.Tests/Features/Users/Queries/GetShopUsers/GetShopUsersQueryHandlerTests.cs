@@ -59,6 +59,6 @@ public class GetShopUsersQueryHandlerTests
         Assert.Equal(3, result.Value.Count);
         Assert.Equal("Owner", result.Value[0].Role);
         Assert.Equal("Manager", result.Value[1].Role);
-        Assert.Equal("SalesPerson", result.Value[2].Role);
+        Assert.Equal("Staff", result.Value[2].Role);
     }
 }

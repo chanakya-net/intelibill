@@ -99,7 +99,7 @@ describe('AddShopUserOverlayComponent', () => {
     component.form.controls.shopIds.setValue(['s1']);
     component.form.controls.password.setValue('Pass1234!');
     component.form.controls.confirmPassword.setValue('Mismatch123!');
-    component.form.controls.role.setValue('SalesPerson');
+    component.form.controls.role.setValue('Staff');
 
     component.onSubmit();
 
@@ -119,7 +119,7 @@ describe('AddShopUserOverlayComponent', () => {
     component.form.controls.shopIds.setValue(['s1', 's2']);
     component.form.controls.password.setValue('Pass1234!');
     component.form.controls.confirmPassword.setValue('Pass1234!');
-    component.form.controls.role.setValue('SalesPerson');
+    component.form.controls.role.setValue('Staff');
 
     component.onSubmit();
 
@@ -135,7 +135,7 @@ describe('AddShopUserOverlayComponent', () => {
           phoneNumber: '+15551234567',
           password: 'Pass1234!',
           confirmPassword: 'Pass1234!',
-          role: 'SalesPerson',
+          role: 'Staff',
         },
       })
     );

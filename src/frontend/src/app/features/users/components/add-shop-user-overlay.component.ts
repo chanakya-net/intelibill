@@ -43,7 +43,7 @@ export class AddShopUserOverlayComponent implements OnInit {
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
     confirmPassword: ['', [Validators.required]],
-    role: ['Manager' as 'Manager' | 'SalesPerson', [Validators.required]],
+    role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
   }, { validators: passwordsMatchValidator });
 
   constructor() {}

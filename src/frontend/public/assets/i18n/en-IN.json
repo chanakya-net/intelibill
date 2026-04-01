@@ -94,7 +94,7 @@
     "saveChanges": "Save Changes",
     "manager": "Manager",
     "owner": "Owner",
-    "salesPerson": "Sales Person",
+    "staff": "Staff",
     "noUsersFound": "No users found",
     "noUsersDescription": "Start by adding a manager or sales person for this shop.",
     "validation": {

@@ -150,7 +150,7 @@ public class UsersControllerTests
 
         IReadOnlyList<ShopUserDto> users = [
             new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner", true, []),
-            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "SalesPerson", true, [])
+            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "Staff", true, [])
         ];
         ArrangeBusResponse<IReadOnlyList<ShopUserDto>>(users.ToList());
 
@@ -173,8 +173,8 @@ public class UsersControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var request = new AddShopUserRequest([shopId], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
-        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", "sales@test.com", "+15551231234", "SalesPerson", true, []);
+        var request = new AddShopUserRequest([shopId], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
+        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", "sales@test.com", "+15551231234", "Staff", true, []);
         ArrangeBusResponse<ShopUserDto>(createdUser);
 
         var result = await _controller.AddShopUser(request, CancellationToken.None);
@@ -204,7 +204,7 @@ public class UsersControllerTests
         SetUserClaims();
 
         var result = await _controller.AddShopUser(
-            new AddShopUserRequest([Guid.NewGuid()], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson"),
+            new AddShopUserRequest([Guid.NewGuid()], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff"),
             CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
