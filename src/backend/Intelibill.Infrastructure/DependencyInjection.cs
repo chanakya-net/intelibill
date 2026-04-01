@@ -46,7 +46,9 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddOptions<ExternalAuthOptions>()
-            .Bind(configuration.GetSection(ExternalAuthOptions.SectionName));
+            .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ExternalAuthOptions>, ExternalAuthOptionsValidator>();
 
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
@@ -62,6 +64,8 @@ public static class DependencyInjection
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.
+        services.AddMemoryCache();
+        services.AddHttpClient(nameof(GoogleAuthProvider));
         services.AddHttpClient(nameof(FacebookAuthProvider));
         services.AddHttpClient(nameof(TwitterAuthProvider));
 
@@ -72,6 +76,11 @@ public static class DependencyInjection
         services.AddScoped<IExternalAuthProvider, FacebookAuthProvider>();
         services.AddScoped<IExternalAuthProvider, TwitterAuthProvider>();
         services.AddScoped<IExternalAuthProvider, AppleAuthProvider>();
+
+        services.AddScoped<IExternalOAuthCodeProvider, GoogleAuthProvider>();
+        services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
+        services.AddScoped<IExternalOAuthStateStore, InMemoryExternalOAuthStateStore>();
+        services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
 
         return services;
     }

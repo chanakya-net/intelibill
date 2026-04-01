@@ -32,8 +32,8 @@ RUN apt-get update && apt-get install -y libgssapi-krb5-2 curl && rm -rf /var/li
 COPY --from=build /app/publish .
 
 # Expose ports
-EXPOSE 8080
-EXPOSE 8081
+EXPOSE 5000
+EXPOSE 5001
 
 # Set the environment to Production
 ENV ASPNETCORE_ENVIRONMENT=Production

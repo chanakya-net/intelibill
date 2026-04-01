@@ -36,6 +36,15 @@ public static partial class Errors
         public static Error UnsupportedProvider =>
             Error.Validation("Auth.UnsupportedProvider", "The specified authentication provider is not supported.");
 
+        public static Error ExternalStateMissing =>
+            Error.Validation("Auth.ExternalStateMissing", "The external login state is missing.");
+
+        public static Error ExternalStateInvalid =>
+            Error.Unauthorized("Auth.ExternalStateInvalid", "The external login state is invalid or has expired.");
+
+        public static Error ExternalCodeMissing =>
+            Error.Validation("Auth.ExternalCodeMissing", "The external login code is missing.");
+
         public static Error ExternalProviderError(string description) =>
             Error.Unauthorized("Auth.ExternalProviderError", description);
     }

@@ -72,6 +72,8 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
 function isRefreshExcludedEndpointRequest(url: string): boolean {
   return url.startsWith(AUTH_ENDPOINTS.loginWithEmail)
+    || url.startsWith(AUTH_ENDPOINTS.loginExternalInit)
+    || url.startsWith(AUTH_ENDPOINTS.loginExternalCallback)
     || url.startsWith(AUTH_ENDPOINTS.refreshToken)
     || url.startsWith(AUTH_ENDPOINTS.revokeToken);
 }
