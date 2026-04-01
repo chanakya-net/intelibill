@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Models;
 using Intelibill.Domain.Enums;
@@ -11,16 +12,61 @@ namespace Intelibill.Infrastructure.Services.Auth.ExternalAuth;
 
 internal sealed class FacebookAuthProvider(
     IHttpClientFactory httpClientFactory,
-    IOptions<ExternalAuthOptions> options) : IExternalAuthProvider
+    IOptions<ExternalAuthOptions> options) : IExternalAuthProvider, IExternalOAuthCodeProvider
 {
     private readonly ExternalAuthOptions.FacebookOptions _fb = options.Value.Facebook;
 
     public ExternalAuthProvider Provider => ExternalAuthProvider.Facebook;
+    public bool IsEnabled => _fb.Enabled;
+    public bool SupportsPkce => false;
+
+    public Task<ErrorOr<string>> CreateAuthorizationUrlAsync(
+        string state,
+        string? codeChallenge,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsEnabled)
+            return Task.FromResult<ErrorOr<string>>(Errors.Auth.UnsupportedProvider);
+
+        var url = $"{_fb.AuthorizationEndpoint}" +
+                  $"?response_type=code" +
+                  $"&client_id={Uri.EscapeDataString(_fb.AppId)}" +
+                  $"&redirect_uri={Uri.EscapeDataString(_fb.RedirectUri)}" +
+                  $"&scope={Uri.EscapeDataString(_fb.Scope)}" +
+                  $"&state={Uri.EscapeDataString(state)}";
+
+        return Task.FromResult<ErrorOr<string>>(url);
+    }
+
+    public async Task<ErrorOr<string>> ExchangeCodeForLoginTokenAsync(
+        string code,
+        string? codeVerifier,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsEnabled)
+            return Errors.Auth.UnsupportedProvider;
+
+        using var client = httpClientFactory.CreateClient(nameof(FacebookAuthProvider));
+        var tokenUrl = $"{_fb.TokenEndpoint}" +
+                       $"?client_id={Uri.EscapeDataString(_fb.AppId)}" +
+                       $"&client_secret={Uri.EscapeDataString(_fb.AppSecret)}" +
+                       $"&redirect_uri={Uri.EscapeDataString(_fb.RedirectUri)}" +
+                       $"&code={Uri.EscapeDataString(code)}";
+
+        var token = await client.GetFromJsonAsync<FacebookTokenResponse>(tokenUrl, cancellationToken);
+        if (token is null || string.IsNullOrWhiteSpace(token.AccessToken))
+            return Errors.Auth.ExternalProviderError("Facebook did not return an access token.");
+
+        return token.AccessToken;
+    }
 
     public async Task<ErrorOr<ExternalUserInfo>> ValidateTokenAsync(
         string token,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_fb.AppId) || string.IsNullOrWhiteSpace(_fb.AppSecret))
+            return Errors.Auth.ExternalProviderError("Facebook authentication is not configured.");
+
         using var client = httpClientFactory.CreateClient(nameof(FacebookAuthProvider));
 
         // Inspect the token via the debug_token endpoint using our app token.
@@ -67,5 +113,10 @@ internal sealed class FacebookAuthProvider(
         [JsonPropertyName("email")] public string? Email { get; set; }
         [JsonPropertyName("first_name")] public string? FirstName { get; set; }
         [JsonPropertyName("last_name")] public string? LastName { get; set; }
+    }
+
+    private sealed class FacebookTokenResponse
+    {
+        [JsonPropertyName("access_token")] public string? AccessToken { get; set; }
     }
 }

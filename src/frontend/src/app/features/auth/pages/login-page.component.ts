@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -10,7 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import { ApiErrorPayload, ExternalAuthProvider } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
@@ -33,9 +33,13 @@ import { RootState } from '../../../core/state/app.state';
   styleUrl: './login-page.component.scss',
 })
 export class LoginPageComponent implements OnInit {
+  private static readonly ExternalErrorStorageKey = 'inventory.auth.external.error';
+  private static readonly ExternalPendingStorageKey = 'inventory.auth.external.pending';
+
   private readonly authService = inject(AuthService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly store = inject(Store<RootState>);
   private readonly localizationService = inject(LocalizationService);
 
@@ -61,6 +65,53 @@ export class LoginPageComponent implements OnInit {
     if (rememberedEmail) {
       this.form.controls.email.setValue(rememberedEmail);
       this.form.controls.rememberMe.setValue(true);
+    }
+
+    const code = this.route.snapshot.queryParamMap.get('code');
+    const state = this.route.snapshot.queryParamMap.get('state');
+    if (code && state) {
+      this.authService.completeExternalLogin(code, state).subscribe({
+        next: () => {
+          this.clearExternalPendingMarker();
+          void this.router.navigateByUrl('/');
+        },
+        error: (error: { error?: ApiErrorPayload }) => {
+          this.clearExternalPendingMarker();
+          this.serverError.set(getExternalCallbackErrorMessage(error.error));
+        },
+      });
+      return;
+    }
+
+    let externalAuthError = this.route.snapshot.queryParamMap.get('externalAuthError');
+
+    if (!externalAuthError) {
+      try {
+        externalAuthError = sessionStorage.getItem(LoginPageComponent.ExternalErrorStorageKey);
+      } catch {
+        externalAuthError = null;
+      }
+    }
+
+    if (externalAuthError) {
+      this.serverError.set(externalAuthError);
+
+      try {
+        sessionStorage.removeItem(LoginPageComponent.ExternalErrorStorageKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    try {
+      const pendingExternalAuth = sessionStorage.getItem(LoginPageComponent.ExternalPendingStorageKey);
+      if (pendingExternalAuth) {
+        this.serverError.set('External sign-in did not complete. Please try again.');
+        sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);
+      }
+    } catch {
+      // Ignore storage failures.
     }
   }
 
@@ -88,6 +139,14 @@ export class LoginPageComponent implements OnInit {
     await this.localizationService.setLanguage(language as SupportedLanguage);
   }
 
+  onGoogleLogin(): void {
+    this.startExternalLogin(ExternalAuthProvider.Google);
+  }
+
+  onFacebookLogin(): void {
+    this.startExternalLogin(ExternalAuthProvider.Facebook);
+  }
+
   getServerErrorMessage(): string {
     const error = this.serverError();
     if (!error) {
@@ -99,6 +158,34 @@ export class LoginPageComponent implements OnInit {
     }
 
     return error;
+  }
+
+  private startExternalLogin(provider: ExternalAuthProvider): void {
+    this.serverError.set(null);
+
+    try {
+      sessionStorage.setItem(LoginPageComponent.ExternalPendingStorageKey, provider.toString());
+    } catch {
+      // Ignore storage failures.
+    }
+
+    this.authService.initializeExternalLogin(provider).subscribe({
+      next: (authorizationUrl) => {
+        window.location.assign(authorizationUrl);
+      },
+      error: (error: { error?: ApiErrorPayload }) => {
+        this.clearExternalPendingMarker();
+        this.serverError.set(getAuthErrorMessage(error.error));
+      },
+    });
+  }
+
+  private clearExternalPendingMarker(): void {
+    try {
+      sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);
+    } catch {
+      // Ignore storage failures.
+    }
   }
 }
 
@@ -113,5 +200,27 @@ function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'errors.auth.userLoginDisabled';
   }
 
+  if (title === 'Auth.UnsupportedProvider') {
+    return 'Google login is not enabled on the server.';
+  }
+
+  if (title === 'Auth.ExternalProviderError') {
+    return error?.detail ?? 'External login configuration is invalid on the server.';
+  }
+
   return 'errors.auth.unableToSignIn';
+}
+
+function getExternalCallbackErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  if (title === 'Auth.ExternalStateInvalid') {
+    return 'Your sign-in session expired. Please try again.';
+  }
+
+  if (title === 'Auth.ExternalProviderError') {
+    return error?.detail ?? 'Unable to complete external sign-in.';
+  }
+
+  return 'Unable to complete external sign-in.';
 }

@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { AuthResult, AuthSession } from './auth.models';
+import { AuthResult, AuthSession, ExternalAuthProvider } from './auth.models';
 import { AuthService } from './auth.service';
 import { AuthStorage } from './auth.storage';
 import { AUTH_ENDPOINTS } from './auth.constants';
@@ -200,6 +200,49 @@ describe('AuthService', () => {
 
     expect(storage.clearSession).toHaveBeenCalledTimes(1);
     expect(service.session()).toBeNull();
+
+    http.verify();
+  });
+
+  it('initializeExternalLogin returns authorization url', () => {
+    const { service, http } = setup();
+    let resultUrl = '';
+
+    service.initializeExternalLogin(ExternalAuthProvider.Google).subscribe((url) => {
+      resultUrl = url;
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalInit);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ provider: ExternalAuthProvider.Google });
+    request.flush({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test' });
+
+    expect(resultUrl).toContain('accounts.google.com');
+    http.verify();
+  });
+
+  it('completeExternalLogin stores session from callback response', () => {
+    const { service, http } = setup();
+    let emitted: AuthSession | undefined;
+
+    service.completeExternalLogin('code-123', 'state-123').subscribe((session) => {
+      emitted = session;
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalCallback);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      code: 'code-123',
+      state: 'state-123',
+      firstName: undefined,
+      lastName: undefined,
+    });
+
+    request.flush(buildAuthResult({ accessToken: 'external-access-token' }));
+
+    expect(emitted?.accessToken).toBe('external-access-token');
+    expect(service.getAccessToken()).toBe('external-access-token');
+    expect(storage.saveSession).toHaveBeenCalledTimes(1);
 
     http.verify();
   });

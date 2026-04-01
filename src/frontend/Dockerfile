@@ -2,8 +2,13 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-# Install Bun globally
-RUN npm install -g bun@1.3.11
+# Install Bun
+ENV BUN_INSTALL=/root/.bun
+ENV PATH=$BUN_INSTALL/bin:$PATH
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl ca-certificates \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& curl -fsSL https://bun.sh/install | bash -s -- bun-v1.3.11
 
 # Copy the package.json and bun.lock files
 COPY ["src/frontend/package.json", "src/frontend/bun.lock", "./"]

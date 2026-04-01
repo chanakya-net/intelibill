@@ -6,7 +6,17 @@ import { Router } from '@angular/router';
 import { catchError, finalize, map, Observable, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
-import { AuthResult, AuthSession, LoginWithEmailRequest, RefreshTokenRequest, RegisterWithEmailRequest } from './auth.models';
+import {
+  AuthResult,
+  AuthSession,
+  ExternalAuthProvider,
+  ExternalLoginCallbackRequest,
+  ExternalLoginInitRequest,
+  ExternalLoginInitResponse,
+  LoginWithEmailRequest,
+  RefreshTokenRequest,
+  RegisterWithEmailRequest,
+} from './auth.models';
 import { AuthStorage } from './auth.storage';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
@@ -88,6 +98,28 @@ export class AuthService {
     );
   }
 
+  initializeExternalLogin(provider: ExternalAuthProvider): Observable<string> {
+    const payload: ExternalLoginInitRequest = { provider };
+
+    return this.http.post<ExternalLoginInitResponse>(AUTH_ENDPOINTS.loginExternalInit, payload).pipe(
+      map((result) => result.authorizationUrl)
+    );
+  }
+
+  completeExternalLogin(code: string, state: string, firstName?: string, lastName?: string): Observable<AuthSession> {
+    const payload: ExternalLoginCallbackRequest = {
+      code,
+      state,
+      firstName,
+      lastName,
+    };
+
+    return this.http.post<AuthResult>(AUTH_ENDPOINTS.loginExternalCallback, payload).pipe(
+      map((result) => this.toSession(result, true)),
+      tap((session) => this.setSession(session))
+    );
+  }
+
   bootstrapSession(): Observable<boolean> {
     if (!this.isBrowser()) {
       return of(true);
@@ -146,7 +178,6 @@ export class AuthService {
     this.refreshInFlight$ = this.http.post<AuthResult>(AUTH_ENDPOINTS.refreshToken, payload).pipe(
       map((result) => this.toSession(result, session.rememberMe)),
       tap((refreshedSession) => this.setSession(refreshedSession)),
-      map((refreshedSession) => refreshedSession),
       catchError((error) => {
         this.clearSession();
         return throwError(() => error);

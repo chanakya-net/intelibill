@@ -14,6 +14,26 @@ export interface RefreshTokenRequest {
   readonly refreshToken: string;
 }
 
+export enum ExternalAuthProvider {
+  Google = 1,
+  Facebook = 3,
+}
+
+export interface ExternalLoginInitRequest {
+  readonly provider: ExternalAuthProvider;
+}
+
+export interface ExternalLoginInitResponse {
+  readonly authorizationUrl: string;
+}
+
+export interface ExternalLoginCallbackRequest {
+  readonly code: string;
+  readonly state: string;
+  readonly firstName?: string;
+  readonly lastName?: string;
+}
+
 export interface AuthUser {
   readonly id: string;
   readonly email: string | null;

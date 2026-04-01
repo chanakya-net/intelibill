@@ -5,6 +5,8 @@ export const API_BASE_URL = environment.apiBaseUrl;
 export const AUTH_ENDPOINTS = {
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
   loginWithEmail: `${API_BASE_URL}/auth/login/email`,
+  loginExternalInit: `${API_BASE_URL}/auth/login/external/init`,
+  loginExternalCallback: `${API_BASE_URL}/auth/login/external/callback`,
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,
   revokeToken: `${API_BASE_URL}/auth/token/revoke`,
 } as const;

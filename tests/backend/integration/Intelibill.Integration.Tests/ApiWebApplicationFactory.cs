@@ -41,7 +41,9 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Issuer"] = "inventory.ai.integration",
                 ["Jwt:Audience"] = "inventory.ai.integration",
                 ["Jwt:AccessTokenExpiryMinutes"] = "15",
-                ["Jwt:RefreshTokenExpiryDays"] = "7"
+                ["Jwt:RefreshTokenExpiryDays"] = "7",
+                ["ExternalAuth:Google:Enabled"] = "false",
+                ["ExternalAuth:Facebook:Enabled"] = "false"
             });
         });
 

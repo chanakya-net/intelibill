@@ -247,4 +247,31 @@ public class AuthControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task InitializeExternalLogin_WhenProviderDisabled_Returns400()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/external/init", new
+        {
+            provider = 1 // Google
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenStateIsInvalid_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/external/callback", new
+        {
+            code = "code-123",
+            state = "invalid-state"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }
