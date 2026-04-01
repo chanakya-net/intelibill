@@ -10,8 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload } from '../../../core/auth/auth.models';
-import { ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { ApiErrorPayload, ExternalAuthProvider } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';

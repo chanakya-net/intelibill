@@ -178,7 +178,6 @@ export class AuthService {
     this.refreshInFlight$ = this.http.post<AuthResult>(AUTH_ENDPOINTS.refreshToken, payload).pipe(
       map((result) => this.toSession(result, session.rememberMe)),
       tap((refreshedSession) => this.setSession(refreshedSession)),
-      map((refreshedSession) => refreshedSession),
       catchError((error) => {
         this.clearSession();
         return throwError(() => error);
