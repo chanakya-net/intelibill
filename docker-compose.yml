@@ -23,10 +23,10 @@ services:
       dockerfile: src/backend/Dockerfile
     container_name: intelibill_backend
     ports:
-      - "5001:5000"
+      - "5277:5277"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_URLS=http://+:5277
       - Database__Host=postgres
       - Database__Port=5432
       - Database__Database=intelibill_dev
@@ -40,9 +40,9 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # Check if the API is responding on port 5000.
+      # Check if the API is responding on port 5277.
       # curl's failure (-f) will indicate if the server is not starting or listening.
-      test: ["CMD", "curl", "-s", "--max-time", "25", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-s", "--max-time", "25", "http://localhost:5277/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,7 +58,7 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - API_URL=http://backend:5000
+      - API_URL=http://backend:5277
     depends_on:
       backend:
         condition: service_healthy
