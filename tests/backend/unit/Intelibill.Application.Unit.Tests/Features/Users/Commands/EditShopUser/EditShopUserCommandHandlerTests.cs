@@ -135,7 +135,7 @@ public class EditShopUserCommandHandlerTests
         target.AddShopMembership(targetMembership2);
 
         // Provide only shop1 — shop2 membership should be removed
-        var command = new EditShopUserCommand(actor.Id, shop1.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "SalesPerson", true, [shop1.Id]);
+        var command = new EditShopUserCommand(actor.Id, shop1.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "Staff", true, [shop1.Id]);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
@@ -172,7 +172,7 @@ public class EditShopUserCommandHandlerTests
         target.AddShopMembership(targetMembership1);
 
         // Provide both shops — shop2 membership should be added
-        var command = new EditShopUserCommand(actor.Id, shop1.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "SalesPerson", true, [shop1.Id, shop2.Id]);
+        var command = new EditShopUserCommand(actor.Id, shop1.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "Staff", true, [shop1.Id, shop2.Id]);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
@@ -206,7 +206,7 @@ public class EditShopUserCommandHandlerTests
         target.AddShopMembership(targetMembership);
 
         // ShopIds is null (default) — membership reconciliation should be skipped
-        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "SalesPerson", true);
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales@test.com", "Sales", "User", "+15551231234", "Staff", true);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);

@@ -44,7 +44,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
-    role: ['Manager' as 'Manager' | 'SalesPerson', [Validators.required]],
+    role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
     isLoginEnabled: [true],
   });
 
@@ -128,7 +128,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       firstName: this.user.firstName,
       lastName: this.user.lastName,
       phoneNumber: this.user.phoneNumber ?? '',
-      role: this.user.role === 'Manager' ? 'Manager' : 'SalesPerson',
+      role: this.user.role === 'Manager' ? 'Manager' : 'Staff',
       isLoginEnabled: this.user.isLoginEnabled,
     });
   }

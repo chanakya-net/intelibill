@@ -134,6 +134,6 @@ public sealed class EditShopUserCommandHandler(
 
     private static string ToRoleLabel(ShopRole role)
     {
-        return role == ShopRole.Staff ? "SalesPerson" : role.ToString();
+        return role == ShopRole.Staff ? "Staff" : role.ToString();
     }
 }

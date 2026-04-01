@@ -107,7 +107,7 @@ export class UsersPageComponent {
   getRoleLabel(role: string): string {
     const normalized = role.trim().toLowerCase();
     if (normalized === 'salesperson' || normalized === 'staff') {
-      return 'users.salesPerson';
+      return 'users.staff';
     }
 
     if (normalized === 'manager') {

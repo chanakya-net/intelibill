@@ -94,7 +94,7 @@
     "saveChanges": "परिवर्तन सहेजें",
     "manager": "मैनेजर",
     "owner": "स्वामी",
-    "salesPerson": "सेल्स पर्सन",
+    "staff": "स्टाफ",
     "noUsersFound": "कोई उपयोगकर्ता नहीं मिला",
     "noUsersDescription": "इस दुकान के लिए मैनेजर या सेल्स पर्सन जोड़कर शुरू करें।",
     "validation": {

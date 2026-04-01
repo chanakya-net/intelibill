@@ -24,7 +24,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
@@ -55,7 +55,7 @@ public class AddShopUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_AddsSalesPersonMember()
+    public async Task HandleAsync_WhenValid_AddsStaffMember()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -63,7 +63,7 @@ public class AddShopUserCommandHandlerTests
         shop.AddMembership(actorMembership);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(false);
@@ -74,7 +74,7 @@ public class AddShopUserCommandHandlerTests
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal("SalesPerson", result.Value.Role);
+        Assert.Equal("Staff", result.Value.Role);
         Assert.Equal(command.FirstName, result.Value.FirstName);
         Assert.Equal(command.LastName, result.Value.LastName);
         Assert.Equal(command.Email, result.Value.Email);
@@ -97,7 +97,7 @@ public class AddShopUserCommandHandlerTests
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
         actor.AddShopMembership(actorMembership);
 
-        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "SalesPerson");
+        var command = new AddShopUserCommand(actor.Id, [shop.Id], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);

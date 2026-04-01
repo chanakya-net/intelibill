@@ -236,7 +236,7 @@ describe('UsersEffects', () => {
           phoneNumber: '+15557654321',
           password: 'Pass1234!',
           confirmPassword: 'Pass1234!',
-          role: 'SalesPerson',
+          role: 'Staff',
         },
       })
     );
@@ -265,7 +265,7 @@ describe('UsersEffects', () => {
           phoneNumber: '+15557654321',
           password: 'Pass1234!',
           confirmPassword: 'Pass1234!',
-          role: 'SalesPerson',
+          role: 'Staff',
         },
       })
     );
