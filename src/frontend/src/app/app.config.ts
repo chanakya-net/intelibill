@@ -4,7 +4,6 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideRouter } from '@angular/router';
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
-import { provideEffects } from '@ngrx/effects';
 import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { providePrimeNG } from 'primeng/config';
@@ -19,7 +18,6 @@ import { provideTransloco, translocoConfig } from '@ngneat/transloco';
 import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { httpLoadingInterceptor } from './core/interceptors/http-loading.interceptor';
-import { RegisterEffects } from './features/auth/state/register.effects';
 import { LocalizationService } from './core/i18n/localization.service';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './core/i18n/language.constants';
 import { TranslocoHttpLoader } from './core/i18n/transloco-http.loader';
@@ -62,7 +60,6 @@ export const appConfig: ApplicationConfig = {
       },
     }),
     provideStore(rootReducers, { metaReducers }),
-    provideEffects(RegisterEffects),
     provideStoreDevtools({
       maxAge: 25,
       logOnly: !isDevMode(),
