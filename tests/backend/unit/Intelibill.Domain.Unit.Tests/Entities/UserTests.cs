@@ -44,7 +44,9 @@ public class UserTests
     public void AddExternalLogin_AddsToCollection()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var externalLogin = UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "provider-key", "ext@test.com");
+        var externalLoginResult = UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "provider-key", "ext@test.com");
+        Assert.False(externalLoginResult.IsError);
+        var externalLogin = externalLoginResult.Value;
 
         user.AddExternalLogin(externalLogin);
 
