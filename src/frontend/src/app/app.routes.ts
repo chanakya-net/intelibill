@@ -1,15 +1,6 @@
 import { Routes } from '@angular/router';
-import { provideEffects } from '@ngrx/effects';
-import { provideState } from '@ngrx/store';
 
 import { authGuard } from './core/guards/auth.guard';
-import { ShellComponent } from './core/layout/shell.component';
-import { ShopsEffects } from './features/shops/state/shops.effects';
-import { shopsFeature } from './features/shops/state/shops.reducer';
-import { SuppliersEffects } from './features/suppliers/state/suppliers.effects';
-import { suppliersFeature } from './features/suppliers/state/suppliers.reducer';
-import { UsersEffects } from './features/users/state/users.effects';
-import { usersFeature } from './features/users/state/users.reducer';
 
 export const routes: Routes = [
 	{
@@ -21,10 +12,8 @@ export const routes: Routes = [
 	},
 	{
 		path: 'register',
-		loadComponent: () =>
-			import('./features/auth/pages/register-page.component').then(
-				(m) => m.RegisterPageComponent
-			),
+		loadChildren: () =>
+			import('./features/auth/register.routes').then((m) => m.registerRoutes),
 	},
 	{
 		path: 'auth/callback',
@@ -35,35 +24,9 @@ export const routes: Routes = [
 	},
 	{
 		path: '',
-		component: ShellComponent,
 		canActivate: [authGuard],
-		providers: [
-			provideState(shopsFeature),
-			provideState(usersFeature),
-			provideState(suppliersFeature),
-			provideEffects(ShopsEffects, UsersEffects, SuppliersEffects),
-		],
-		children: [
-			{
-				path: 'suppliers',
-				loadComponent: () =>
-					import('./features/suppliers/pages/suppliers-page.component').then(
-						(m) => m.SuppliersPageComponent
-					),
-			},
-			{
-				path: 'users',
-				loadComponent: () =>
-					import('./features/users/pages/users-page.component').then(
-						(m) => m.UsersPageComponent
-					),
-			},
-			{
-				path: '',
-				pathMatch: 'full',
-				redirectTo: 'users',
-			},
-		],
+		loadChildren: () =>
+			import('./core/layout/shell.routes').then((m) => m.shellRoutes),
 	},
 	{
 		path: '**',

@@ -235,78 +235,6 @@
   }
 }
 
-:host ::ng-deep .profile-prime-menu.p-menu,
-:host ::ng-deep .profile-prime-menu.p-tieredmenu {
-  width: 13.5rem;
-  border-radius: 0.9rem;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
-  /* Override PrimeNG's JS-calculated left-align so the menu stays inside the
-     max-width container on wide viewports. CSS !important beats inline styles. */
-  position: fixed !important;
-  top: 4rem !important;
-  right: max(1rem, calc((100vw - 80rem) / 2 + 1rem)) !important;
-  left: auto !important;
-}
-
-:host ::ng-deep .profile-prime-menu .p-menu-list,
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-root-list {
-  padding: 0.35rem;
-}
-
-:host ::ng-deep .profile-prime-menu .p-menu-item-link,
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-link {
-  border-radius: 0.65rem;
-  font-size: 0.86rem;
-  font-weight: 600;
-  gap: 0.5rem;
-}
-
-:host ::ng-deep .profile-prime-menu .p-menu-item-icon,
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-icon {
-  color: #9a3412;
-  transition: transform 120ms ease;
-}
-
-:host ::ng-deep .profile-prime-menu .p-menu-item-link:hover .p-menu-item-icon,
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-item-link:hover .p-tieredmenu-item-icon {
-  animation: profile-menu-icon-sway 0.55s ease-in-out 1;
-}
-
-/* Submenu panel for Language flyout */
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-overlay {
-  border-radius: 0.9rem;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
-  min-width: 11rem;
-}
-
-:host ::ng-deep .profile-prime-menu .p-tieredmenu-overlay .p-tieredmenu-item-link {
-  border-radius: 0.65rem;
-  font-size: 0.86rem;
-  font-weight: 600;
-  gap: 0.5rem;
-}
-
-@keyframes profile-menu-icon-sway {
-  0% {
-    transform: translateX(0) scaleX(1);
-  }
-
-  35% {
-    transform: translateX(2px) scaleX(0.9);
-  }
-
-  70% {
-    transform: translateX(-2px) scaleX(-0.95);
-  }
-
-  100% {
-    transform: translateX(0) scaleX(1);
-  }
-}
 
 .shell-actions {
   position: relative;
@@ -432,9 +360,4 @@
     font-size: 1.1rem;
   }
 
-  :host ::ng-deep .profile-prime-menu.p-menu {
-    width: 12.4rem;
-    top: 5.5rem !important;
-    right: 0.75rem !important;
-  }
 }
