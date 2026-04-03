@@ -53,8 +53,13 @@ public sealed class ExternalLoginCommandHandler(
             }
 
             // Link the external login to the user.
-            var externalLogin = UserExternalLogin.Create(user.Id, command.Provider, userInfo.ProviderKey, userInfo.Email);
-            user.AddExternalLogin(externalLogin);
+            var externalLoginResult = UserExternalLogin.Create(user.Id, command.Provider, userInfo.ProviderKey, userInfo.Email);
+            if (externalLoginResult.IsError)
+            {
+                return externalLoginResult.Errors;
+            }
+
+            user.AddExternalLogin(externalLoginResult.Value);
         }
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);

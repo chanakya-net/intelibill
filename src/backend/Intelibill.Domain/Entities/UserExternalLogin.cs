@@ -1,3 +1,4 @@
+using ErrorOr;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
 
@@ -14,17 +15,22 @@ public sealed class UserExternalLogin : BaseEntity
 
     private UserExternalLogin() { }
 
-    public static UserExternalLogin Create(
+    public static ErrorOr<UserExternalLogin> Create(
         Guid userId,
         ExternalAuthProvider provider,
         string providerKey,
         string? providerEmail)
     {
+        if (string.IsNullOrWhiteSpace(providerKey))
+        {
+            return Error.Validation("UserExternalLogin.ProviderKeyRequired", "Provider key is required.");
+        }
+
         return new UserExternalLogin
         {
             UserId = userId,
             Provider = provider,
-            ProviderKey = providerKey,
+            ProviderKey = providerKey.Trim(),
             ProviderEmail = providerEmail,
         };
     }
