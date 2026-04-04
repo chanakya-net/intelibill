@@ -174,4 +174,75 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         var txCount = await db.StockTransactions.CountAsync(t => t.ItemId == itemId && t.InventoryBatchId == batchId);
         Assert.Equal(2, txCount);
     }
+
+    [Fact]
+    public async Task AddInboundInventoryBatch_WithInvalidRow_ReturnsPartialSuccessAndPersistsValidRows()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var sharedBarcode = $"BATCH-{Guid.NewGuid():N}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    clientRowId = "row-1",
+                    itemName = "Batch Rice",
+                    barcode = sharedBarcode,
+                    itemDescription = "Valid row",
+                    uom = "kg",
+                    batchNumber = "BR-001",
+                    quantity = 5m,
+                    costPrice = 90m,
+                    mrp = 120m,
+                    salesPrice = 110m,
+                    minSalePrice = 100m,
+                    taxRatePercent = 5m,
+                    expiryDate = (DateOnly?)null,
+                    manufacturingDate = (DateOnly?)null,
+                    referenceNumber = "PO-3001",
+                    notes = "Inbound",
+                    performedAt = (DateTimeOffset?)null,
+                },
+                new
+                {
+                    clientRowId = "row-2",
+                    itemName = "Different Name Same Barcode",
+                    barcode = sharedBarcode,
+                    itemDescription = "Invalid row",
+                    uom = "kg",
+                    batchNumber = "BR-002",
+                    quantity = 5m,
+                    costPrice = 90m,
+                    mrp = 120m,
+                    salesPrice = 110m,
+                    minSalePrice = 100m,
+                    taxRatePercent = 5m,
+                    expiryDate = (DateOnly?)null,
+                    manufacturingDate = (DateOnly?)null,
+                    referenceNumber = "PO-3002",
+                    notes = "Inbound",
+                    performedAt = (DateTimeOffset?)null,
+                },
+            },
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, body.GetProperty("requestedCount").GetInt32());
+        Assert.Equal(1, body.GetProperty("successCount").GetInt32());
+        Assert.Equal(1, body.GetProperty("failedCount").GetInt32());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var itemCount = await db.Items.CountAsync(i => i.Name == "Batch Rice");
+        Assert.Equal(1, itemCount);
+    }
 }

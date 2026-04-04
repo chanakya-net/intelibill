@@ -37,3 +37,8 @@ export const ITEM_ENDPOINTS = {
   list: `${API_BASE_URL}/items`,
   add: `${API_BASE_URL}/items`,
 } as const;
+
+export const INVENTORY_ENDPOINTS = {
+  inbound: `${API_BASE_URL}/inventory/inbound`,
+  inboundBatch: `${API_BASE_URL}/inventory/inbound/batch`,
+} as const;

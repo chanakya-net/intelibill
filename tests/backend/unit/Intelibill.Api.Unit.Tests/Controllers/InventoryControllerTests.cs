@@ -100,6 +100,64 @@ public class InventoryControllerTests
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
     }
 
+    [Fact]
+    public async Task AddInventoryBatch_WhenEmptyBatch_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(Array.Empty<AddInventoryBatchRowRequest>()), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddInventoryBatch_WhenSomeRowsFail_ReturnsSuccessAndFailureRows()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => (ErrorOr<AddInventoryResultDto>)new AddInventoryResultDto(
+                    Guid.NewGuid(),
+                    "Rice",
+                    "111",
+                    Guid.NewGuid(),
+                    "B-1",
+                    10m,
+                    10m,
+                    Guid.NewGuid(),
+                    DateTimeOffset.UtcNow),
+                _ => (ErrorOr<AddInventoryResultDto>)Errors.Inventory.ItemIdentityConflict);
+
+        var request = new AddInventoryBatchRequest(
+            new[]
+            {
+                CreateBatchRow("row-1", "Rice", "111"),
+                CreateBatchRow("row-2", "Dal", "222"),
+            });
+
+        var result = await _controller.AddInventoryBatch(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<AddInventoryBatchResponse>(ok.Value);
+
+        Assert.Equal(2, payload.RequestedCount);
+        Assert.Equal(1, payload.SuccessCount);
+        Assert.Equal(1, payload.FailedCount);
+        Assert.Single(payload.Succeeded);
+        Assert.Single(payload.Failed);
+        Assert.Equal("row-2", payload.Failed[0].ClientRowId);
+    }
+
     private static AddInventoryRequest CreateRequest() =>
         new(
             ItemName: "Rice",
@@ -117,6 +175,26 @@ public class InventoryControllerTests
             ManufacturingDate: null,
             ReferenceNumber: "PO-123",
             Notes: "initial",
+            PerformedAt: null);
+
+    private static AddInventoryBatchRowRequest CreateBatchRow(string clientRowId, string itemName, string barcode) =>
+        new(
+            ClientRowId: clientRowId,
+            ItemName: itemName,
+            Barcode: barcode,
+            ItemDescription: null,
+            Uom: "kg",
+            BatchNumber: "B-1",
+            Quantity: 1m,
+            CostPrice: 80m,
+            Mrp: 120m,
+            SalesPrice: 110m,
+            MinSalePrice: 100m,
+            TaxRatePercent: 5m,
+            ExpiryDate: null,
+            ManufacturingDate: null,
+            ReferenceNumber: null,
+            Notes: null,
             PerformedAt: null);
 
     private void SetUserClaims(params Claim[] claims)

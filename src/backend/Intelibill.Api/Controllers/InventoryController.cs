@@ -53,6 +53,80 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPost("inbound/batch")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> AddInventoryBatch([FromBody] AddInventoryBatchRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        if (request.Items.Count == 0)
+            return new List<Error>
+            {
+                Error.Validation("Inventory.BatchEmpty", "At least one inventory row is required.")
+            }.ToProblemResult();
+
+        if (request.Items.Count > 100)
+            return new List<Error>
+            {
+                Error.Validation("Inventory.BatchLimitExceeded", "A maximum of 100 inventory rows can be saved at once.")
+            }.ToProblemResult();
+
+        var succeeded = new List<AddInventoryBatchSucceededRow>();
+        var failed = new List<AddInventoryBatchFailedRow>();
+
+        foreach (var row in request.Items)
+        {
+            var result = await bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(
+                new AddInventoryCommand(
+                    userId.Value,
+                    activeShopId.Value,
+                    row.ItemName,
+                    row.Barcode,
+                    row.ItemDescription,
+                    row.Uom,
+                    row.BatchNumber,
+                    row.Quantity,
+                    row.CostPrice,
+                    row.Mrp,
+                    row.SalesPrice,
+                    row.MinSalePrice,
+                    row.TaxRatePercent,
+                    row.ExpiryDate,
+                    row.ManufacturingDate,
+                    row.ReferenceNumber,
+                    row.Notes,
+                    row.PerformedAt),
+                cancellationToken);
+
+            if (result.IsError)
+            {
+                failed.Add(
+                    new AddInventoryBatchFailedRow(
+                        row.ClientRowId,
+                        row.ItemName,
+                        row.Barcode,
+                        result.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()));
+                continue;
+            }
+
+            succeeded.Add(new AddInventoryBatchSucceededRow(row.ClientRowId, result.Value));
+        }
+
+        return Ok(
+            new AddInventoryBatchResponse(
+                request.Items.Count,
+                succeeded.Count,
+                failed.Count,
+                succeeded,
+                failed));
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -85,3 +159,41 @@ public sealed record AddInventoryRequest(
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? PerformedAt);
+
+public sealed record AddInventoryBatchRequest(IReadOnlyList<AddInventoryBatchRowRequest> Items);
+
+public sealed record AddInventoryBatchRowRequest(
+    string ClientRowId,
+    string ItemName,
+    string Barcode,
+    string? ItemDescription,
+    string Uom,
+    string BatchNumber,
+    decimal Quantity,
+    decimal CostPrice,
+    decimal Mrp,
+    decimal SalesPrice,
+    decimal MinSalePrice,
+    decimal TaxRatePercent,
+    DateOnly? ExpiryDate,
+    DateOnly? ManufacturingDate,
+    string? ReferenceNumber,
+    string? Notes,
+    DateTimeOffset? PerformedAt);
+
+public sealed record AddInventoryBatchResponse(
+    int RequestedCount,
+    int SuccessCount,
+    int FailedCount,
+    IReadOnlyList<AddInventoryBatchSucceededRow> Succeeded,
+    IReadOnlyList<AddInventoryBatchFailedRow> Failed);
+
+public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
+
+public sealed record AddInventoryBatchFailedRow(
+    string ClientRowId,
+    string ItemName,
+    string Barcode,
+    IReadOnlyList<AddInventoryBatchRowError> Errors);
+
+public sealed record AddInventoryBatchRowError(string Code, string Description);
