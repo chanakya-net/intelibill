@@ -43,11 +43,14 @@ export class ShellComponent {
   private readonly localizationService = inject(LocalizationService);
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
+  @ViewChild('inventoryMenuRoot') inventoryMenuRoot?: ElementRef<HTMLElement>;
+  @ViewChild('inventoryMenu') inventoryMenu?: TieredMenu;
   @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('profileMenu') profileMenu?: TieredMenu;
 
   readonly isSigningOut = signal(false);
   readonly isProfileMenuOpen = signal(false);
+  readonly isInventoryMenuOpen = signal(false);
   readonly isShopMenuOpen = signal(false);
   readonly showCreateShopOverlayManual = signal(false);
   readonly showManageShopOverlay = signal(false);
@@ -82,6 +85,15 @@ export class ShellComponent {
     }
 
     return activeShop.role.toLowerCase() === 'owner';
+  });
+  readonly isOwnerOrManagerOfActiveShop = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+
+    const role = activeShop.role.toLowerCase();
+    return role === 'owner' || role === 'manager';
   });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
@@ -169,6 +181,19 @@ export class ShellComponent {
 
     return items;
   });
+  readonly inventoryMenuItems = computed<MenuItem[]>(() => {
+    if (!this.isOwnerOrManagerOfActiveShop()) {
+      return [];
+    }
+
+    return [
+      {
+        label: this.localizationService.translate('shell.addNewProduct'),
+        icon: 'pi pi-plus-circle',
+        command: () => this.onOpenAddProduct(),
+      },
+    ];
+  });
 
   constructor() {
     this.store.dispatch(ShopsActions.loadShopsRequested());
@@ -209,6 +234,15 @@ export class ShellComponent {
       this.isShopMenuOpen.set(false);
     }
 
+    if (
+      this.isInventoryMenuOpen() &&
+      this.inventoryMenuRoot &&
+      !this.isTargetInside(this.inventoryMenuRoot.nativeElement, target, composedPath)
+    ) {
+      this.isInventoryMenuOpen.set(false);
+      this.inventoryMenu?.hide();
+    }
+
     if (this.isProfileMenuOpen() && this.profileMenuRoot && !this.isTargetInside(this.profileMenuRoot.nativeElement, target, composedPath)) {
       this.isProfileMenuOpen.set(false);
       this.profileMenu?.hide();
@@ -221,6 +255,8 @@ export class ShellComponent {
 
   onToggleProfileMenu(event?: MouseEvent, menu?: TieredMenu): void {
     this.isShopMenuOpen.set(false);
+    this.isInventoryMenuOpen.set(false);
+    this.inventoryMenu?.hide();
 
     if (event && menu) {
       menu.toggle(event);
@@ -236,7 +272,26 @@ export class ShellComponent {
     }
 
     this.isProfileMenuOpen.set(false);
+    this.isInventoryMenuOpen.set(false);
+    this.inventoryMenu?.hide();
     this.isShopMenuOpen.set(!this.isShopMenuOpen());
+  }
+
+  onToggleInventoryMenu(event?: MouseEvent, menu?: TieredMenu): void {
+    if (!this.isOwnerOrManagerOfActiveShop()) {
+      return;
+    }
+
+    this.isShopMenuOpen.set(false);
+    this.isProfileMenuOpen.set(false);
+    this.profileMenu?.hide();
+
+    if (event && menu) {
+      menu.toggle(event);
+      return;
+    }
+
+    this.isInventoryMenuOpen.set(!this.isInventoryMenuOpen());
   }
 
   onSelectShop(shopId: string): void {
@@ -257,7 +312,9 @@ export class ShellComponent {
 
   onCloseMenus(): void {
     this.isShopMenuOpen.set(false);
+    this.isInventoryMenuOpen.set(false);
     this.isProfileMenuOpen.set(false);
+    this.inventoryMenu?.hide();
     this.profileMenu?.hide();
   }
 
@@ -279,6 +336,13 @@ export class ShellComponent {
   onOpenAddShop(): void {
     this.isProfileMenuOpen.set(false);
     this.showCreateShopOverlayManual.set(true);
+  }
+
+  onOpenAddProduct(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/inventory'], {
+      state: { openAddProduct: true },
+    });
   }
 
   onOpenManageShop(): void {

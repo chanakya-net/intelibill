@@ -198,6 +198,24 @@ describe('ShellComponent', () => {
     expect(component.isOwnerOfActiveShop()).toBe(false);
   });
 
+  it('shows dedicated inventory menu for manager and hides for staff', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+
+    const managerItems = component.inventoryMenuItems();
+    expect(managerItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+
+    const staffItems = component.inventoryMenuItems();
+    expect(staffItems).toHaveLength(0);
+  });
+
   it('opens update profile overlay from profile actions', () => {
     const component = setup();
 

@@ -1,0 +1,78 @@
+.inventory-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.inventory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #b45309;
+}
+
+h1 {
+  margin: 0.3rem 0 0;
+  font-size: 1.75rem;
+  color: #1f2937;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: #57534e;
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+}
+
+.inventory-table-card {
+  border: 1px solid #fdba74;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  overflow: hidden;
+}
+
+.status-pill {
+  display: inline-block;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.status-pill.disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #292524;
+}
+
+.empty-state p {
+  margin: 0.4rem 0 0;
+  color: #57534e;
+}

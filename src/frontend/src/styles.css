@@ -100,6 +100,59 @@ p {
   gap: 0.5rem;
 }
 
+.inventory-prime-menu.p-menu,
+.inventory-prime-menu.p-tieredmenu {
+  width: 13.5rem;
+  border-radius: 0.9rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
+  position: absolute !important;
+  top: calc(100% + 0.4rem) !important;
+  left: 0 !important;
+  right: auto !important;
+  z-index: 80;
+}
+
+.inventory-prime-menu .p-menu-list,
+.inventory-prime-menu .p-tieredmenu-root-list {
+  padding: 0.35rem;
+}
+
+.inventory-prime-menu .p-menu-item-link,
+.inventory-prime-menu .p-tieredmenu-item-link {
+  border-radius: 0.65rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  gap: 0.5rem;
+}
+
+.inventory-prime-menu .p-menu-item-icon,
+.inventory-prime-menu .p-tieredmenu-item-icon {
+  color: #9a3412;
+  transition: transform 120ms ease;
+}
+
+.inventory-prime-menu .p-menu-item-link:hover .p-menu-item-icon,
+.inventory-prime-menu .p-tieredmenu-item-link:hover .p-tieredmenu-item-icon {
+  animation: profile-menu-icon-sway 0.55s ease-in-out 1;
+}
+
+.inventory-prime-menu .p-tieredmenu-overlay {
+  border-radius: 0.9rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
+  min-width: 11rem;
+}
+
+.inventory-prime-menu .p-tieredmenu-overlay .p-tieredmenu-item-link {
+  border-radius: 0.65rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  gap: 0.5rem;
+}
+
 @keyframes profile-menu-icon-sway {
   0%   { transform: translateX(0) scaleX(1); }
   35%  { transform: translateX(2px) scaleX(0.9); }

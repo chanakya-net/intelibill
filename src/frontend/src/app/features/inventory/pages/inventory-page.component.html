@@ -1,0 +1,66 @@
+<section class="inventory-page">
+  <header class="inventory-header">
+    <div>
+      <p class="eyebrow">{{ 'inventory.directory' | transloco }}</p>
+      <h1>{{ 'inventory.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'inventory.subtitle' | transloco }}</p>
+    </div>
+
+    <button
+      pButton
+      type="button"
+      [label]="'inventory.addNewProduct' | transloco"
+      icon="pi pi-plus"
+      *ngIf="canManageInventory()"
+      (click)="onOpenAddProduct()"
+    ></button>
+  </header>
+
+  <p class="error" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+
+  <div class="loading" *ngIf="isLoadingItems() || isSubmitting()">
+    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+  </div>
+
+  <div class="inventory-table-card" *ngIf="!isLoadingItems() && !isSubmitting()">
+    <p-table [value]="tableItems()" [sortField]="'name'" [sortOrder]="1" class="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="name">{{ 'inventory.name' | transloco }} <p-sortIcon field="name" /></th>
+          <th pSortableColumn="barcode">{{ 'inventory.barcode' | transloco }} <p-sortIcon field="barcode" /></th>
+          <th pSortableColumn="uom">{{ 'inventory.uom' | transloco }} <p-sortIcon field="uom" /></th>
+          <th pSortableColumn="isActive">{{ 'inventory.status' | transloco }} <p-sortIcon field="isActive" /></th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.barcode }}</td>
+          <td>{{ item.uom }}</td>
+          <td>
+            <span class="status-pill" [class.disabled]="!item.isActive">
+              {{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}
+            </span>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4">
+            <div class="empty-state">
+              <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
+              <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <app-add-product-overlay
+    *ngIf="showAddProductOverlay()"
+    (closeRequested)="onCloseAddProduct()"
+  ></app-add-product-overlay>
+</section>

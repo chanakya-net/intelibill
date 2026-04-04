@@ -7,21 +7,20 @@
         </div>
         <div class="shell-shop" #shopMenuRoot>
           <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
-          <div class="shell-title-row">
-            <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
-            <button
-              type="button"
-              class="active-shop-trigger active-shop-trigger-desktop"
-              *ngIf="activeShopLabel() as activeShopCaption"
-              [attr.aria-expanded]="isShopMenuOpen()"
-              aria-haspopup="menu"
-              [attr.aria-label]="'shell.switchActiveShop' | transloco"
-              (click)="onToggleShopMenu()"
-            >
-              <span class="active-shop-caption">{{ activeShopCaption }}</span>
-              <i class="pi pi-chevron-down" aria-hidden="true"></i>
-            </button>
-          </div>
+          <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
+
+          <button
+            type="button"
+            class="active-shop-trigger active-shop-trigger-desktop"
+            *ngIf="activeShopLabel() as activeShopCaption"
+            [attr.aria-expanded]="isShopMenuOpen()"
+            aria-haspopup="menu"
+            [attr.aria-label]="'shell.switchActiveShop' | transloco"
+            (click)="onToggleShopMenu()"
+          >
+            <span class="active-shop-caption">{{ activeShopCaption }}</span>
+            <i class="pi pi-chevron-down" aria-hidden="true"></i>
+          </button>
 
           <button
             type="button"
@@ -48,6 +47,34 @@
               {{ getShopDisplayLabel(shop) }}
               <span *ngIf="shop.shopId === activeShopId()">{{ 'shell.active' | transloco }}</span>
             </button>
+          </div>
+        </div>
+
+        <div class="shell-middle-zone" *ngIf="inventoryMenuItems().length > 0">
+          <div class="shell-primary-nav" #inventoryMenuRoot>
+            <button
+              type="button"
+              class="inventory-trigger"
+              [attr.aria-label]="'shell.manageInventory' | transloco"
+              [attr.aria-expanded]="isInventoryMenuOpen()"
+              aria-haspopup="menu"
+              (click)="onToggleInventoryMenu($event, inventoryMenu)"
+            >
+              <i class="pi pi-box" aria-hidden="true"></i>
+              <span>{{ 'shell.manageInventory' | transloco }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
+            </button>
+
+            <p-tieredMenu
+              #inventoryMenu
+              [model]="inventoryMenuItems()"
+              [popup]="true"
+              [appendTo]="inventoryMenuRoot"
+              styleClass="inventory-prime-menu"
+              [attr.aria-label]="'shell.manageInventory' | transloco"
+              (onShow)="isInventoryMenuOpen.set(true)"
+              (onHide)="isInventoryMenuOpen.set(false)"
+            ></p-tieredMenu>
           </div>
         </div>
       </div>
