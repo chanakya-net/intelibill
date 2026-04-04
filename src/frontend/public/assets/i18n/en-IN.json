@@ -59,6 +59,8 @@
     "userFallback": "User",
     "manageUsers": "Manage Users",
     "manageSuppliers": "Manage Suppliers",
+    "manageInventory": "Inventory",
+    "addNewProduct": "Add New Product",
     "updateProfile": "Update Profile",
     "changePassword": "Change Password",
     "addShop": "Add Shop",
@@ -130,6 +132,25 @@
     "noSuppliersDescription": "Start by adding your first supplier.",
     "isActive": "Is Active",
     "isPreferred": "Is Preferred"
+  },
+  "inventory": {
+    "directory": "Inventory Directory",
+    "title": "Inventory",
+    "subtitle": "Add products for the active shop and keep your catalog ready for stock operations.",
+    "name": "Product Name",
+    "barcode": "Barcode",
+    "description": "Description",
+    "uom": "UOM",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "isActive": "Is Active",
+    "preferredSupplierIdOptional": "Preferred Supplier ID (Optional)",
+    "addNewProduct": "Add New Product",
+    "addNewProductDescription": "Create a product linked to your current active shop.",
+    "productForm": "Add product form",
+    "noItemsFound": "No products added yet",
+    "noItemsDescription": "Use Add New Product to create your first product in this shop."
   },
   "profile": {
     "account": "Account",
@@ -226,6 +247,15 @@
       "invalidContactPhone": "Contact person phone must be a valid phone number.",
       "unableToAddSupplier": "Unable to add supplier right now. Please try again.",
       "unableToUpdateSupplier": "Unable to update supplier right now. Please try again."
+    },
+    "items": {
+      "activeShopNotSelected": "Please select an active shop before adding products.",
+      "onlyOwnerOrManagerCanManageItems": "Only owner or manager can add products for this shop.",
+      "nameRequired": "Product name is required.",
+      "barcodeRequired": "Barcode is required.",
+      "uomRequired": "UOM is required.",
+      "preferredSupplierNotFound": "Preferred supplier was not found in this shop.",
+      "unableToAddItem": "Unable to add product right now. Please try again."
     },
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",

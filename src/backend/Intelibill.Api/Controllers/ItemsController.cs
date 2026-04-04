@@ -5,6 +5,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -16,6 +17,24 @@ namespace Intelibill.Api.Controllers;
 [Authorize]
 public sealed class ItemsController(IMessageBus bus) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> GetItems(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
+            new GetItemsQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> AddItem([FromBody] AddItemRequest request, CancellationToken cancellationToken)

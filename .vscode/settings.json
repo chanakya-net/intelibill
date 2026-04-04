@@ -11,6 +11,7 @@
             "matchCommandLine": true
         },
         "dotnet list": true,
-        "dotnet restore": true
+        "dotnet restore": true,
+        "bunx": true
     }
 }

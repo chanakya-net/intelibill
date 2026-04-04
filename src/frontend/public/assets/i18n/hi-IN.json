@@ -59,6 +59,8 @@
     "userFallback": "उपयोगकर्ता",
     "manageUsers": "उपयोगकर्ता प्रबंधित करें",
     "manageSuppliers": "आपूर्तिकर्ता प्रबंधित करें",
+    "manageInventory": "इन्वेंटरी",
+    "addNewProduct": "नया उत्पाद जोड़ें",
     "updateProfile": "प्रोफाइल अपडेट करें",
     "changePassword": "पासवर्ड बदलें",
     "addShop": "दुकान जोड़ें",
@@ -130,6 +132,25 @@
     "noSuppliersDescription": "अपना पहला आपूर्तिकर्ता जोड़कर शुरुआत करें।",
     "isActive": "सक्रिय है",
     "isPreferred": "प्राथमिक है"
+  },
+  "inventory": {
+    "directory": "इन्वेंटरी निर्देशिका",
+    "title": "इन्वेंटरी",
+    "subtitle": "सक्रिय दुकान के लिए उत्पाद जोड़ें और स्टॉक संचालन के लिए कैटलॉग तैयार रखें।",
+    "name": "उत्पाद नाम",
+    "barcode": "बारकोड",
+    "description": "विवरण",
+    "uom": "माप इकाई",
+    "status": "स्थिति",
+    "active": "सक्रिय",
+    "inactive": "निष्क्रिय",
+    "isActive": "सक्रिय है",
+    "preferredSupplierIdOptional": "प्राथमिक आपूर्तिकर्ता आईडी (वैकल्पिक)",
+    "addNewProduct": "नया उत्पाद जोड़ें",
+    "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
+    "productForm": "उत्पाद जोड़ने का फॉर्म",
+    "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
+    "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।"
   },
   "profile": {
     "account": "खाता",
@@ -226,6 +247,15 @@
       "invalidContactPhone": "संपर्क व्यक्ति का फोन नंबर मान्य होना चाहिए।",
       "unableToAddSupplier": "अभी आपूर्तिकर्ता नहीं जोड़ा जा सका। कृपया फिर प्रयास करें।",
       "unableToUpdateSupplier": "अभी आपूर्तिकर्ता अपडेट नहीं हो सका। कृपया फिर प्रयास करें।"
+    },
+    "items": {
+      "activeShopNotSelected": "उत्पाद जोड़ने से पहले कृपया सक्रिय दुकान चुनें।",
+      "onlyOwnerOrManagerCanManageItems": "इस दुकान में उत्पाद केवल स्वामी या प्रबंधक जोड़ सकते हैं।",
+      "nameRequired": "उत्पाद नाम आवश्यक है।",
+      "barcodeRequired": "बारकोड आवश्यक है।",
+      "uomRequired": "माप इकाई आवश्यक है।",
+      "preferredSupplierNotFound": "प्राथमिक आपूर्तिकर्ता इस दुकान में नहीं मिला।",
+      "unableToAddItem": "अभी उत्पाद नहीं जोड़ा जा सका। कृपया फिर प्रयास करें।"
     },
     "shops": {
       "unableToLoadShops": "अभी आपकी दुकानें लोड नहीं हो सकीं। कृपया फिर प्रयास करें।",

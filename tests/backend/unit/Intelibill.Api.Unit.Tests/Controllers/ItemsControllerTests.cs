@@ -5,6 +5,7 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -20,6 +21,43 @@ public class ItemsControllerTests
     public ItemsControllerTests()
     {
         _controller = new ItemsController(_bus);
+    }
+
+    [Fact]
+    public async Task GetItems_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GetItems(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GetItems_WhenValid_ReturnsOk()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var items = (IReadOnlyList<ItemDto>)
+        [
+            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, null),
+        ];
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<ItemDto>>>(items.ToList()));
+
+        var result = await _controller.GetItems(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(items, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
+            Arg.Is<GetItemsQuery>(q => q.UserId == userId && q.ActiveShopId == shopId),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

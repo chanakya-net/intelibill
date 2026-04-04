@@ -59,6 +59,8 @@
     "userFallback": "ব্যবহারকারী",
     "manageUsers": "ব্যবহারকারী ব্যবস্থাপনা",
     "manageSuppliers": "সরবরাহকারী ব্যবস্থাপনা",
+    "manageInventory": "ইনভেন্টরি",
+    "addNewProduct": "নতুন পণ্য যোগ করুন",
     "updateProfile": "প্রোফাইল আপডেট",
     "changePassword": "পাসওয়ার্ড পরিবর্তন",
     "addShop": "দোকান যোগ করুন",
@@ -130,6 +132,25 @@
     "noSuppliersDescription": "আপনার প্রথম সরবরাহকারী যোগ করে শুরু করুন।",
     "isActive": "সক্রিয় আছে",
     "isPreferred": "পছন্দের আছে"
+  },
+  "inventory": {
+    "directory": "ইনভেন্টরি ডিরেক্টরি",
+    "title": "ইনভেন্টরি",
+    "subtitle": "সক্রিয় শপের জন্য পণ্য যোগ করুন এবং স্টক কাজের জন্য ক্যাটালগ প্রস্তুত রাখুন।",
+    "name": "পণ্যের নাম",
+    "barcode": "বারকোড",
+    "description": "বিবরণ",
+    "uom": "পরিমাপ একক",
+    "status": "অবস্থা",
+    "active": "সক্রিয়",
+    "inactive": "নিষ্ক্রিয়",
+    "isActive": "সক্রিয়",
+    "preferredSupplierIdOptional": "পছন্দের সরবরাহকারী আইডি (ঐচ্ছিক)",
+    "addNewProduct": "নতুন পণ্য যোগ করুন",
+    "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
+    "productForm": "পণ্য যোগ করার ফর্ম",
+    "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
+    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।"
   },
   "profile": {
     "account": "অ্যাকাউন্ট",
@@ -226,6 +247,15 @@
       "invalidContactPhone": "যোগাযোগ ব্যক্তির ফোন নম্বর বৈধ হতে হবে।",
       "unableToAddSupplier": "এই মুহূর্তে সরবরাহকারী যোগ করা যাচ্ছে না। আবার চেষ্টা করুন।",
       "unableToUpdateSupplier": "এই মুহূর্তে সরবরাহকারী আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
+    },
+    "items": {
+      "activeShopNotSelected": "পণ্য যোগ করার আগে অনুগ্রহ করে একটি সক্রিয় শপ নির্বাচন করুন।",
+      "onlyOwnerOrManagerCanManageItems": "এই শপে কেবল মালিক বা ম্যানেজার পণ্য যোগ করতে পারেন।",
+      "nameRequired": "পণ্যের নাম প্রয়োজন।",
+      "barcodeRequired": "বারকোড প্রয়োজন।",
+      "uomRequired": "পরিমাপ একক প্রয়োজন।",
+      "preferredSupplierNotFound": "পছন্দের সরবরাহকারী এই শপে পাওয়া যায়নি।",
+      "unableToAddItem": "এখন পণ্য যোগ করা যাচ্ছে না। অনুগ্রহ করে আবার চেষ্টা করুন।"
     },
     "shops": {
       "unableToLoadShops": "এই মুহূর্তে আপনার দোকানগুলো লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",

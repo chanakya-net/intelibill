@@ -1,4 +1,5 @@
 .app-shell {
+  --shell-header-pill-height: 2.72rem;
   background:
     radial-gradient(circle at 12% 12%, rgba(251, 146, 60, 0.16), transparent 42%),
     radial-gradient(circle at 88% 18%, rgba(245, 158, 11, 0.14), transparent 46%),
@@ -32,6 +33,14 @@
   flex: 1 1 auto;
 }
 
+.shell-middle-zone {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-left: 0.25rem;
+  flex: 0 0 auto;
+}
+
 .shell-logo {
   width: 2.5rem;
   height: 2.5rem;
@@ -62,13 +71,6 @@
   color: rgba(194, 65, 12, 0.82);
 }
 
-.shell-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
 .shell-title {
   margin: 0;
   font-size: 1.9rem;
@@ -78,9 +80,15 @@
   white-space: nowrap;
 }
 
+.active-shop-trigger-desktop {
+  display: inline-flex;
+  margin-top: 0.32rem;
+}
+
 .profile-trigger {
   display: inline-flex;
   align-items: center;
+  min-height: var(--shell-header-pill-height);
   gap: 0.6rem;
   border-radius: 9999px;
   border: 1px solid rgba(234, 88, 12, 0.35);
@@ -178,10 +186,6 @@
   }
 }
 
-.active-shop-trigger-desktop {
-  display: inline-flex;
-}
-
 .active-shop-trigger-mobile {
   display: none;
 }
@@ -243,6 +247,40 @@
   flex: 0 0 auto;
 }
 
+.shell-primary-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.inventory-trigger {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--shell-header-pill-height);
+  gap: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.28rem 0.58rem 0.28rem 0.3rem;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #fb923c;
+    box-shadow: 0 10px 20px rgba(194, 65, 12, 0.14);
+  }
+
+  .pi {
+    font-size: 0.76rem;
+  }
+}
+
 @media (max-width: 1024px) {
   .shell-header-inner {
     padding: 0.64rem 0.9rem;
@@ -266,7 +304,19 @@
     display: none;
   }
 
+  .inventory-trigger span {
+    display: none;
+  }
+
+  .shell-middle-zone {
+    margin-left: 0.15rem;
+  }
+
   .profile-trigger {
+    padding: 0.24rem 0.46rem 0.24rem 0.28rem;
+  }
+
+  .inventory-trigger {
     padding: 0.24rem 0.46rem 0.24rem 0.28rem;
   }
 }
@@ -339,6 +389,36 @@
   .shell-actions {
     align-self: start;
     margin-top: 0.1rem;
+  }
+
+  .shell-middle-zone {
+    grid-column: 1 / 2;
+    margin: 0.25rem 0 0;
+    padding: 0.15rem 0.2rem;
+    justify-content: flex-start;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .shell-primary-nav {
+    align-self: start;
+    margin-top: 0;
+    margin-left: 0;
+  }
+
+  .inventory-trigger {
+    height: 2.1rem;
+    min-width: 2.1rem;
+    padding: 0 0.55rem;
+    justify-content: center;
+
+    span {
+      display: none;
+    }
+
+    .pi:last-child {
+      display: none;
+    }
   }
 
   .profile-trigger {
