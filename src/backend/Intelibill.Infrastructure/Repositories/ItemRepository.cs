@@ -11,6 +11,12 @@ internal sealed class ItemRepository(ApplicationDbContext context)
     public async Task<Item?> GetByBarcodeAsync(Guid shopId, string barcode, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.Barcode == barcode, cancellationToken);
 
+    public async Task<Item?> GetByNameAsync(Guid shopId, string name, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = name.Trim();
+        return await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.Name == normalizedName, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Item>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Where(i => i.ShopId == shopId)

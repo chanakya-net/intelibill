@@ -61,6 +61,20 @@ public sealed class Inventory : BaseEntity
         return Result.Success;
     }
 
+    public ErrorOr<Success> AddQuantity(decimal quantityToAdd, Guid updatedBy)
+    {
+        if (quantityToAdd <= 0)
+        {
+            return Error.Validation("Inventory.QuantityAdditionInvalid", "Quantity to add must be greater than zero.");
+        }
+
+        Quantity += quantityToAdd;
+        LastUpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedBy = updatedBy;
+
+        return Result.Success;
+    }
+
     public void MarkUpdatedBy(Guid updatedBy)
     {
         UpdatedBy = updatedBy;

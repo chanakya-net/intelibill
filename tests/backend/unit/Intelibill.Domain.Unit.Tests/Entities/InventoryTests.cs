@@ -44,4 +44,26 @@ public class InventoryTests
         Assert.True(result.IsError);
         Assert.Equal("Inventory.ReorderExceedsMax", result.FirstError.Code);
     }
+
+    [Fact]
+    public void AddQuantity_WithPositiveQuantity_UpdatesQuantity()
+    {
+        var createResult = Inventory.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            quantity: 10m,
+            reorderLevel: 2m,
+            maxLevel: 30m,
+            Guid.NewGuid());
+        Assert.False(createResult.IsError);
+
+        var inventory = createResult.Value;
+        var updatedBy = Guid.NewGuid();
+
+        var result = inventory.AddQuantity(5m, updatedBy);
+
+        Assert.False(result.IsError);
+        Assert.Equal(15m, inventory.Quantity);
+        Assert.Equal(updatedBy, inventory.UpdatedBy);
+    }
 }

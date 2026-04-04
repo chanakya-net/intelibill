@@ -1,0 +1,68 @@
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Items.Commands.AddItem;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces;
+using Intelibill.Domain.Interfaces.Repositories;
+using NSubstitute;
+
+namespace Intelibill.Application.Unit.Tests.Features.Items.Commands.AddItem;
+
+public class AddItemCommandHandlerTests
+{
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+
+    [Fact]
+    public async Task HandleAsync_WhenBarcodeExists_ReturnsConflict()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var existing = Item.Create(shop.Id, "Existing", null, "kg", "111", true, null, actor.Id);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existing);
+
+        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, _unitOfWork);
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Item.BarcodeAlreadyExists.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenValid_CreatesItem()
+    {
+        var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+
+        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, _unitOfWork);
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("Rice", result.Value.Name);
+        Assert.Equal("111", result.Value.Barcode);
+
+        await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i => i.Name == "Rice" && i.Barcode == "111"), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static AddItemCommand CreateCommand(Guid actorId, Guid shopId) =>
+        new(
+            actorId,
+            shopId,
+            Name: "Rice",
+            Barcode: "111",
+            Description: "Premium",
+            Uom: "kg",
+            IsActive: true,
+            PreferredSupplierId: null);
+}

@@ -1,0 +1,10 @@
+namespace Intelibill.Application.Features.Items.DTOs;
+
+public sealed record ItemDto(
+    Guid Id,
+    string Name,
+    string Barcode,
+    string? Description,
+    string Uom,
+    bool IsActive,
+    Guid? PreferredSupplierId);
