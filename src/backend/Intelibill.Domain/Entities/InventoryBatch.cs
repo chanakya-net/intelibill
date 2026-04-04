@@ -93,6 +93,19 @@ public sealed class InventoryBatch : BaseEntity
         return Result.Success;
     }
 
+    public ErrorOr<Success> AddQuantity(decimal quantityToAdd, Guid updatedBy)
+    {
+        if (quantityToAdd <= 0)
+        {
+            return Error.Validation("InventoryBatch.QuantityAdditionInvalid", "Quantity to add must be greater than zero.");
+        }
+
+        Quantity += quantityToAdd;
+        UpdatedBy = updatedBy;
+
+        return Result.Success;
+    }
+
     public decimal GetTaxAmountPerUnit()
     {
         return SalesPrice * (TaxRatePercent / 100m);
