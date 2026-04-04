@@ -192,6 +192,11 @@ export class ShellComponent {
         icon: 'pi pi-plus-circle',
         command: () => this.onOpenAddProduct(),
       },
+      {
+        label: this.localizationService.translate('shell.batchInventoryInbound'),
+        icon: 'pi pi-list-check',
+        command: () => this.onOpenInventoryBatch(),
+      },
     ];
   });
 
@@ -343,6 +348,11 @@ export class ShellComponent {
     void this.router.navigate(['/inventory'], {
       state: { openAddProduct: true },
     });
+  }
+
+  onOpenInventoryBatch(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/inventory/batch']);
   }
 
   onOpenManageShop(): void {

@@ -25,6 +25,13 @@ export const shellRoutes: Routes = [
 		],
 		children: [
 			{
+				path: 'inventory/batch',
+				loadComponent: () =>
+					import('../../features/inventory/pages/inventory-batch-page.component').then(
+						(m) => m.InventoryBatchPageComponent
+					),
+			},
+			{
 				path: 'inventory',
 				loadComponent: () =>
 					import('../../features/inventory/pages/inventory-page.component').then(
