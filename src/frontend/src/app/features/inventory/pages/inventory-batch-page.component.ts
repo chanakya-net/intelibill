@@ -23,6 +23,8 @@ import {
   InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { Supplier } from '../../suppliers/services/supplier.service';
+import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 
 @Component({
   selector: 'app-inventory-batch-page',
@@ -52,6 +54,7 @@ export class InventoryBatchPageComponent {
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
+  private readonly suppliersFacade = inject(SuppliersFacade);
 
   readonly isSaving = signal(false);
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
@@ -59,6 +62,8 @@ export class InventoryBatchPageComponent {
   readonly loadingDraft = signal(false);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
+  readonly supplierSuggestions = signal<string[]>([]);
+  readonly suppliers = this.suppliersFacade.suppliers;
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly tableRows = computed(() => [...this.pendingRows()]);
@@ -85,7 +90,7 @@ export class InventoryBatchPageComponent {
     taxRatePercent: [0, [Validators.required, Validators.min(0)]],
     expiryDate: [''],
     manufacturingDate: [''],
-    supplierId: ['', [Validators.pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/)]],
+    supplierName: [''],
     referenceNumber: ['', [Validators.maxLength(120)]],
     notes: ['', [Validators.maxLength(320)]],
   });
@@ -98,6 +103,7 @@ export class InventoryBatchPageComponent {
         return;
       }
 
+      this.suppliersFacade.load();
       void this.loadDraftRows(shopId);
     });
 
@@ -126,6 +132,23 @@ export class InventoryBatchPageComponent {
     }
   }
 
+  onFilterSupplier(event: AutoCompleteCompleteEvent): void {
+    const normalized = event.query.trim().toLowerCase();
+    const matches = this.suppliers()
+      .filter((supplier) => supplier.name.toLowerCase().includes(normalized))
+      .slice(0, 15)
+      .map((supplier) => supplier.name);
+
+    this.supplierSuggestions.set(matches);
+  }
+
+  onSupplierSelected(selection: string): void {
+    const supplier = this.findSupplierByName(selection);
+    if (supplier) {
+      this.form.controls.supplierName.setValue(supplier.name);
+    }
+  }
+
   onAddRow(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -136,6 +159,8 @@ export class InventoryBatchPageComponent {
       this.showWarn('inventory.batchLimitReached');
       return;
     }
+
+    const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
 
     const row: InventoryInboundDraftRow = {
       clientRowId: this.createRowId(),
@@ -152,7 +177,7 @@ export class InventoryBatchPageComponent {
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
-      supplierId: this.nullable(this.form.controls.supplierId.value),
+      supplierId,
       referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
       notes: this.nullable(this.form.controls.notes.value),
       performedAt: new Date().toISOString(),
@@ -177,7 +202,7 @@ export class InventoryBatchPageComponent {
       taxRatePercent: 0,
       expiryDate: '',
       manufacturingDate: '',
-      supplierId: '',
+      supplierName: '',
       referenceNumber: '',
       notes: '',
     });
@@ -280,6 +305,28 @@ export class InventoryBatchPageComponent {
   private nullable(value: string): string | null {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private resolveSupplierId(value: string): string | null {
+    const normalized = value.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    return this.findSupplierByName(normalized)?.supplierId ?? null;
+  }
+
+  getSupplierDisplayName(supplierId: string | null): string {
+    if (!supplierId) {
+      return '-';
+    }
+
+    return this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId;
+  }
+
+  private findSupplierByName(name: string): Supplier | undefined {
+    const normalized = name.trim().toLowerCase();
+    return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
   }
 
   private generateBatchNumber(): string {

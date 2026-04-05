@@ -1,3 +1,4 @@
+import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
 import { Supplier } from '../services/supplier.service';
@@ -5,8 +6,12 @@ import { SupplierMutationType, SuppliersActions } from './suppliers.actions';
 
 export const suppliersFeatureKey = 'suppliers';
 
-export interface SuppliersState {
-  readonly suppliers: readonly Supplier[];
+export const suppliersAdapter = createEntityAdapter<Supplier>({
+  selectId: (supplier) => supplier.supplierId,
+  sortComparer: (left, right) => left.name.localeCompare(right.name),
+});
+
+export interface SuppliersState extends EntityState<Supplier> {
   readonly loadingSuppliers: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
@@ -14,14 +19,13 @@ export interface SuppliersState {
   readonly lastMutationSucceeded: boolean;
 }
 
-const initialState: SuppliersState = {
-  suppliers: [],
+const initialState: SuppliersState = suppliersAdapter.getInitialState({
   loadingSuppliers: false,
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
-};
+});
 
 export const suppliersReducer = createReducer(
   initialState,
@@ -30,12 +34,13 @@ export const suppliersReducer = createReducer(
     loadingSuppliers: true,
     errorMessage: '',
   })),
-  on(SuppliersActions.loadSuppliersSucceeded, (state, { suppliers }) => ({
-    ...state,
-    loadingSuppliers: false,
-    suppliers,
-    errorMessage: '',
-  })),
+  on(SuppliersActions.loadSuppliersSucceeded, (state, { suppliers }) =>
+    suppliersAdapter.setAll([...suppliers], {
+      ...state,
+      loadingSuppliers: false,
+      errorMessage: '',
+    })
+  ),
   on(SuppliersActions.loadSuppliersFailed, (state, { errorMessage }) => ({
     ...state,
     loadingSuppliers: false,
@@ -49,14 +54,15 @@ export const suppliersReducer = createReducer(
     lastMutationType: 'add-supplier',
     lastMutationSucceeded: false,
   })),
-  on(SuppliersActions.addSupplierSucceeded, (state, { supplier }) => ({
-    ...state,
-    submitting: false,
-    errorMessage: '',
-    suppliers: [...state.suppliers, supplier],
-    lastMutationType: 'add-supplier',
-    lastMutationSucceeded: true,
-  })),
+  on(SuppliersActions.addSupplierSucceeded, (state, { supplier }) =>
+    suppliersAdapter.addOne(supplier, {
+      ...state,
+      submitting: false,
+      errorMessage: '',
+      lastMutationType: 'add-supplier',
+      lastMutationSucceeded: true,
+    })
+  ),
   on(SuppliersActions.addSupplierFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
@@ -72,14 +78,21 @@ export const suppliersReducer = createReducer(
     lastMutationType: 'edit-supplier',
     lastMutationSucceeded: false,
   })),
-  on(SuppliersActions.editSupplierSucceeded, (state, { supplier }) => ({
-    ...state,
-    submitting: false,
-    errorMessage: '',
-    suppliers: state.suppliers.map((current) => (current.supplierId === supplier.supplierId ? supplier : current)),
-    lastMutationType: 'edit-supplier',
-    lastMutationSucceeded: true,
-  })),
+  on(SuppliersActions.editSupplierSucceeded, (state, { supplier }) =>
+    suppliersAdapter.updateOne(
+      {
+        id: supplier.supplierId,
+        changes: supplier,
+      },
+      {
+        ...state,
+        submitting: false,
+        errorMessage: '',
+        lastMutationType: 'edit-supplier',
+        lastMutationSucceeded: true,
+      }
+    )
+  ),
   on(SuppliersActions.editSupplierFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,

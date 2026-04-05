@@ -37,7 +37,14 @@
 
       <label>
         <span>{{ 'inventory.supplierIdOptional' | transloco }}</span>
-        <input pInputText type="text" formControlName="supplierId" />
+        <p-autocomplete
+          formControlName="supplierName"
+          [suggestions]="supplierSuggestions()"
+          (completeMethod)="onFilterSupplier($event)"
+          (onSelect)="onSupplierSelected($event.value)"
+          appendTo="body"
+          [fluid]="true"
+        ></p-autocomplete>
       </label>
 
       <label>
@@ -139,7 +146,7 @@
           <td>{{ row.itemName }}</td>
           <td>{{ row.barcode }}</td>
           <td>{{ row.batchNumber }}</td>
-          <td>{{ row.supplierId || '-' }}</td>
+          <td>{{ getSupplierDisplayName(row.supplierId) }}</td>
           <td>{{ row.quantity }}</td>
           <td>{{ row.salesPrice }}</td>
           <td>

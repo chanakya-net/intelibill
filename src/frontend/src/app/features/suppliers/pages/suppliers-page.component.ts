@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -8,18 +7,10 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { RootState } from '../../../core/state/app.state';
 import { AddSupplierOverlayComponent } from '../components/add-supplier-overlay.component';
 import { EditSupplierOverlayComponent } from '../components/edit-supplier-overlay.component';
 import { Supplier } from '../services/supplier.service';
-import { SuppliersActions } from '../state/suppliers.actions';
-import {
-  selectSuppliers,
-  selectSuppliersErrorMessage,
-  selectSuppliersLastMutationSucceeded,
-  selectSuppliersLastMutationType,
-  selectSuppliersLoading,
-} from '../state/suppliers.selectors';
+import { SuppliersFacade } from '../state/suppliers.facade';
 
 @Component({
   selector: 'app-suppliers-page',
@@ -37,15 +28,15 @@ import {
   styleUrl: './suppliers-page.component.scss',
 })
 export class SuppliersPageComponent {
-  private readonly store = inject(Store<RootState>);
   private readonly authService = inject(AuthService);
+  private readonly suppliersFacade = inject(SuppliersFacade);
 
-  readonly suppliers = this.store.selectSignal(selectSuppliers);
+  readonly suppliers = this.suppliersFacade.suppliers;
   readonly tableSuppliers = computed(() => [...this.suppliers()]);
-  readonly isLoading = this.store.selectSignal(selectSuppliersLoading);
-  readonly serverError = this.store.selectSignal(selectSuppliersErrorMessage);
-  readonly lastMutationType = this.store.selectSignal(selectSuppliersLastMutationType);
-  readonly lastMutationSucceeded = this.store.selectSignal(selectSuppliersLastMutationSucceeded);
+  readonly isLoading = this.suppliersFacade.isLoading;
+  readonly serverError = this.suppliersFacade.errorMessage;
+  readonly lastMutationType = this.suppliersFacade.lastMutationType;
+  readonly lastMutationSucceeded = this.suppliersFacade.lastMutationSucceeded;
 
   readonly showAddSupplierOverlay = signal(false);
   readonly showEditSupplierOverlay = signal(false);
@@ -64,7 +55,7 @@ export class SuppliersPageComponent {
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
 
   constructor() {
-    this.store.dispatch(SuppliersActions.loadSuppliersRequested());
+    this.suppliersFacade.load();
 
     effect(() => {
       if (!this.lastMutationSucceeded()) {
@@ -74,21 +65,21 @@ export class SuppliersPageComponent {
       const mutationType = this.lastMutationType();
       if (mutationType === 'add-supplier' && this.showAddSupplierOverlay()) {
         this.showAddSupplierOverlay.set(false);
-        this.store.dispatch(SuppliersActions.clearMutationStatus());
+        this.suppliersFacade.clearMutationStatus();
         return;
       }
 
       if (mutationType === 'edit-supplier' && this.showEditSupplierOverlay()) {
         this.showEditSupplierOverlay.set(false);
         this.editingSupplier.set(null);
-        this.store.dispatch(SuppliersActions.clearMutationStatus());
+        this.suppliersFacade.clearMutationStatus();
       }
     });
   }
 
   onOpenAddSupplier(): void {
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
     this.showAddSupplierOverlay.set(true);
   }
 
@@ -101,8 +92,8 @@ export class SuppliersPageComponent {
       return;
     }
 
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
     this.editingSupplier.set(supplier);
     this.showEditSupplierOverlay.set(true);
   }

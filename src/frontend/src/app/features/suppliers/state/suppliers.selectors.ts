@@ -1,10 +1,12 @@
 import { createSelector } from '@ngrx/store';
 
-import { suppliersFeature } from './suppliers.reducer';
+import { suppliersAdapter, suppliersFeature } from './suppliers.reducer';
 
 export const selectSuppliersState = suppliersFeature.selectSuppliersState;
+const supplierEntitySelectors = suppliersAdapter.getSelectors(selectSuppliersState);
 
-export const selectSuppliers = createSelector(selectSuppliersState, (state) => state.suppliers);
+export const selectSuppliers = supplierEntitySelectors.selectAll;
+export const selectSupplierEntities = supplierEntitySelectors.selectEntities;
 export const selectSuppliersLoading = createSelector(selectSuppliersState, (state) => state.loadingSuppliers);
 export const selectSuppliersSubmitting = createSelector(selectSuppliersState, (state) => state.submitting);
 export const selectSuppliersErrorMessage = createSelector(selectSuppliersState, (state) => state.errorMessage);
