@@ -52,6 +52,12 @@ h1 {
   min-width: 0;
 }
 
+.row-form label input[pInputText],
+.row-form label textarea[pInputTextarea] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .notes-field {
   grid-column: span 2;
 }

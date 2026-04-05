@@ -22,7 +22,7 @@
           (completeMethod)="onFilterName($event)"
           (onSelect)="onNameSelected($event.value)"
           appendTo="body"
-          styleClass="w-full"
+          [fluid]="true"
         ></p-autocomplete>
       </label>
 
@@ -34,7 +34,7 @@
           (completeMethod)="onFilterBarcode($event)"
           (onSelect)="onBarcodeSelected($event.value)"
           appendTo="body"
-          styleClass="w-full"
+          [fluid]="true"
         ></p-autocomplete>
       </label>
 

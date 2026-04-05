@@ -19,7 +19,7 @@
           (completeMethod)="onFilterName($event)"
           (onSelect)="onNameSelected($event.value)"
           appendTo="body"
-          styleClass="w-full"
+          [fluid]="true"
         ></p-autocomplete>
       </label>
 
@@ -31,7 +31,7 @@
           (completeMethod)="onFilterBarcode($event)"
           (onSelect)="onBarcodeSelected($event.value)"
           appendTo="body"
-          styleClass="w-full"
+          [fluid]="true"
         ></p-autocomplete>
       </label>
 
@@ -52,32 +52,32 @@
 
       <label>
         <span>{{ 'inventory.quantity' | transloco }}</span>
-        <p-inputNumber formControlName="quantity" [min]="0.0001" mode="decimal" [maxFractionDigits]="3"></p-inputNumber>
+        <p-inputNumber formControlName="quantity" [min]="0.0001" mode="decimal" [maxFractionDigits]="3" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
         <span>{{ 'inventory.costPrice' | transloco }}</span>
-        <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2"></p-inputNumber>
+        <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
         <span>{{ 'inventory.mrp' | transloco }}</span>
-        <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2"></p-inputNumber>
+        <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputNumber formControlName="salesPrice" [min]="0" mode="decimal" [maxFractionDigits]="2"></p-inputNumber>
+        <p-inputNumber formControlName="salesPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
         <span>{{ 'inventory.minSalePrice' | transloco }}</span>
-        <p-inputNumber formControlName="minSalePrice" [min]="0" mode="decimal" [maxFractionDigits]="2"></p-inputNumber>
+        <p-inputNumber formControlName="minSalePrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
         <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
-        <p-inputNumber formControlName="taxRatePercent" [min]="0" mode="decimal" [maxFractionDigits]="2"></p-inputNumber>
+        <p-inputNumber formControlName="taxRatePercent" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
       </label>
 
       <label>
