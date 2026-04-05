@@ -2,6 +2,9 @@
   position: fixed;
   inset: 0;
   z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
 }
 
 .overlay-backdrop {
@@ -9,13 +12,15 @@
   inset: 0;
   background: radial-gradient(circle at top right, rgba(255, 190, 120, 0.35), rgba(22, 18, 12, 0.5));
   backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .overlay-card {
   position: relative;
-  margin: 5vh auto;
-  width: min(560px, calc(100vw - 2rem));
-  max-height: 90vh;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 2rem);
   overflow: auto;
   border-radius: 1rem;
   border: 1px solid rgba(251, 191, 36, 0.35);
@@ -99,4 +104,24 @@ label span {
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .overlay-card {
+    padding: 1rem;
+    max-height: calc(100vh - 1rem);
+  }
+
+  h2 {
+    font-size: 1.2rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }

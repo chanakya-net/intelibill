@@ -81,6 +81,17 @@
 
       <div class="shell-actions" #profileMenuRoot>
         <button
+          #mobileMenuTrigger
+          type="button"
+          class="mobile-menu-trigger"
+          [attr.aria-expanded]="isMobileMenuOpen()"
+          [attr.aria-label]="'shell.appName' | transloco"
+          (click)="onToggleMobileMenu()"
+        >
+          <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
+        </button>
+
+        <button
           type="button"
           class="profile-trigger"
           [attr.aria-label]="'shell.openProfileMenu' | transloco"
@@ -107,6 +118,65 @@
         ></p-tieredMenu>
       </div>
     </div>
+
+    <nav class="mobile-nav" *ngIf="isMobileMenuOpen()" #mobileNavRef aria-label="Mobile navigation">
+      <div class="mobile-nav-section" *ngIf="inventoryMenuItems().length > 0">
+        <button type="button" class="mobile-nav-section-toggle" (click)="onToggleMobileSection('inventory')">
+          <span class="mobile-nav-section-label">{{ 'shell.manageInventory' | transloco }}</span>
+          <i class="pi pi-chevron-down mobile-nav-section-chevron" [class.rotated]="isMobileSectionExpanded('inventory')" aria-hidden="true"></i>
+        </button>
+        <div *ngIf="isMobileSectionExpanded('inventory')" class="mobile-nav-section-items">
+          <button
+            *ngFor="let item of inventoryMenuItems()"
+            type="button"
+            class="mobile-nav-item"
+            [disabled]="item.disabled ?? false"
+            (click)="onMobileNavItemClick(item)"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mobile-nav-section">
+        <button type="button" class="mobile-nav-section-toggle" (click)="onToggleMobileSection('profile')">
+          <span class="mobile-nav-section-label">{{ 'shell.profile' | transloco }}</span>
+          <i class="pi pi-chevron-down mobile-nav-section-chevron" [class.rotated]="isMobileSectionExpanded('profile')" aria-hidden="true"></i>
+        </button>
+        <div *ngIf="isMobileSectionExpanded('profile')" class="mobile-nav-section-items">
+        <ng-container *ngFor="let item of profileMenuItems()">
+          <button
+            type="button"
+            class="mobile-nav-item"
+            [disabled]="item.disabled ?? false"
+            (click)="onMobileNavItemClick(item)"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+            <i
+              *ngIf="item.items?.length"
+              class="pi pi-chevron-down mobile-nav-chevron"
+              [class.rotated]="expandedMobileSectionLabel() === item.label"
+              aria-hidden="true"
+            ></i>
+          </button>
+          <div class="mobile-nav-subitems" *ngIf="item.items?.length && expandedMobileSectionLabel() === item.label">
+            <button
+              *ngFor="let sub of item.items"
+              type="button"
+              class="mobile-nav-subitem"
+              [disabled]="sub.disabled ?? false"
+              (click)="onMobileNavItemClick(sub)"
+            >
+              <i *ngIf="sub.icon" [class]="sub.icon" aria-hidden="true"></i>
+              <span>{{ sub.label }}</span>
+            </button>
+          </div>
+        </ng-container>
+        </div>
+      </div>
+    </nav>
   </header>
 
   <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
