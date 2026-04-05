@@ -106,12 +106,18 @@ jobs:
           }
           JSON
 
+          encoded_message=$(printf '%s' "${tests_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/frontend%20tests-${encoded_message}-${tests_color}.svg?style=flat" \
+            -o .github/badges/frontend-tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/frontend-build.svg
+
       - name: Commit frontend badge updates
         working-directory: .
         run: |
           set -euo pipefail
 
-          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json)" ]; then
+          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json .github/badges/frontend-tests.svg .github/badges/frontend-build.svg)" ]; then
             echo 'No frontend badge changes to commit.'
             exit 0
           fi
@@ -120,7 +126,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
           git fetch origin main
-          git add .github/badges/frontend-tests.json
+          git add .github/badges/frontend-tests.json .github/badges/frontend-tests.svg .github/badges/frontend-build.svg
           git commit -m 'ci: update frontend test badges'
 
           max_attempts=3
