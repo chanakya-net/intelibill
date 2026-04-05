@@ -85,12 +85,25 @@
 
       <label>
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputNumber formControlName="salesPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
-      </label>
-
-      <label>
-        <span>{{ 'inventory.minSalePrice' | transloco }}</span>
-        <p-inputNumber formControlName="minSalePrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="salesPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            placeholder="ex: 200"
+            [minFractionDigits]="2"
+          ></p-inputNumber>
+          <p-select
+            formControlName="taxIncluded"
+            [options]="taxModeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [fluid]="true"
+          ></p-select>
+        </p-inputgroup>
       </label>
 
       <label>

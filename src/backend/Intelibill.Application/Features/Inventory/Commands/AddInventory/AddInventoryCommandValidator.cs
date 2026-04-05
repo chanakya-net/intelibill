@@ -35,10 +35,6 @@ internal sealed class AddInventoryCommandValidator : AbstractValidator<AddInvent
         RuleFor(x => x.SalesPrice)
             .GreaterThanOrEqualTo(0);
 
-        RuleFor(x => x.MinSalePrice)
-            .GreaterThanOrEqualTo(0)
-            .LessThanOrEqualTo(x => x.SalesPrice);
-
         RuleFor(x => x.SalesPrice)
             .LessThanOrEqualTo(x => x.Mrp);
 

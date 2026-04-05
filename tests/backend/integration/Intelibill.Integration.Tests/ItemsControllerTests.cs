@@ -143,7 +143,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
             costPrice = 50.0m,
             mrp = 100.0m,
             salesPrice = 90.0m,
-            minSalePrice = 80.0m,
             taxRatePercent = 5.0m,
             expiryDate = (DateOnly?)null,
             manufacturingDate = (DateOnly?)null,
@@ -167,7 +166,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(50.0m, body.GetProperty("costPrice").GetDecimal());
         Assert.Equal(100.0m, body.GetProperty("mrp").GetDecimal());
         Assert.Equal(90.0m, body.GetProperty("salesPrice").GetDecimal());
-        Assert.Equal(80.0m, body.GetProperty("minSalePrice").GetDecimal());
     }
 
     [Fact]
@@ -193,7 +191,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
             costPrice = 25.0m,
             mrp = 50.0m,
             salesPrice = 45.0m,
-            minSalePrice = 40.0m,
             taxRatePercent = 10.0m,
             expiryDate = (DateOnly?)null,
             manufacturingDate = (DateOnly?)null,
@@ -217,7 +214,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(25.0m, body.GetProperty("costPrice").GetDecimal());
         Assert.Equal(50.0m, body.GetProperty("mrp").GetDecimal());
         Assert.Equal(45.0m, body.GetProperty("salesPrice").GetDecimal());
-        Assert.Equal(40.0m, body.GetProperty("minSalePrice").GetDecimal());
     }
 
     [Fact]

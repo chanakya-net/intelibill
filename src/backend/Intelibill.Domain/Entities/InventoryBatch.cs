@@ -12,8 +12,8 @@ public sealed class InventoryBatch : BaseEntity
     public decimal CostPrice { get; private set; }
     public decimal Mrp { get; private set; }
     public decimal SalesPrice { get; private set; }
-    public decimal MinSalePrice { get; private set; }
     public decimal TaxRatePercent { get; private set; }
+    public bool TaxIncluded { get; private set; }
     public DateOnly? ExpiryDate { get; private set; }
     public DateOnly? ManufacturingDate { get; private set; }
     public Guid? SupplierId { get; private set; }
@@ -33,14 +33,14 @@ public sealed class InventoryBatch : BaseEntity
         decimal costPrice,
         decimal mrp,
         decimal salesPrice,
-        decimal minSalePrice,
         decimal taxRatePercent,
+        bool taxIncluded,
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
         Guid? supplierId,
         Guid createdBy)
     {
-        var validation = ValidateBatch(batchNumber, quantity, salesPrice, minSalePrice, mrp, taxRatePercent);
+        var validation = ValidateBatch(batchNumber, quantity, salesPrice, mrp, taxRatePercent);
         if (validation.IsError)
         {
             return validation.Errors;
@@ -55,8 +55,8 @@ public sealed class InventoryBatch : BaseEntity
             CostPrice = costPrice,
             Mrp = mrp,
             SalesPrice = salesPrice,
-            MinSalePrice = minSalePrice,
             TaxRatePercent = taxRatePercent,
+            TaxIncluded = taxIncluded,
             ExpiryDate = expiryDate,
             ManufacturingDate = manufacturingDate,
             SupplierId = supplierId,
@@ -70,14 +70,14 @@ public sealed class InventoryBatch : BaseEntity
         decimal costPrice,
         decimal mrp,
         decimal salesPrice,
-        decimal minSalePrice,
         decimal taxRatePercent,
+        bool taxIncluded,
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
         Guid? supplierId,
         Guid updatedBy)
     {
-        var validation = ValidateBatch(batchNumber, quantity, salesPrice, minSalePrice, mrp, taxRatePercent);
+        var validation = ValidateBatch(batchNumber, quantity, salesPrice, mrp, taxRatePercent);
         if (validation.IsError)
         {
             return validation.Errors;
@@ -88,8 +88,8 @@ public sealed class InventoryBatch : BaseEntity
         CostPrice = costPrice;
         Mrp = mrp;
         SalesPrice = salesPrice;
-        MinSalePrice = minSalePrice;
         TaxRatePercent = taxRatePercent;
+        TaxIncluded = taxIncluded;
         ExpiryDate = expiryDate;
         ManufacturingDate = manufacturingDate;
         SupplierId = supplierId;
@@ -125,7 +125,6 @@ public sealed class InventoryBatch : BaseEntity
         string batchNumber,
         decimal quantity,
         decimal salesPrice,
-        decimal minSalePrice,
         decimal mrp,
         decimal taxRatePercent)
     {
@@ -142,11 +141,6 @@ public sealed class InventoryBatch : BaseEntity
         if (taxRatePercent < 0 || taxRatePercent > 100)
         {
             return Error.Validation("InventoryBatch.TaxRateOutOfRange", "Tax rate must be between 0 and 100.");
-        }
-
-        if (minSalePrice > salesPrice)
-        {
-            return Error.Validation("InventoryBatch.MinSaleAboveSale", "Minimum sale price cannot exceed sales price.");
         }
 
         if (salesPrice > mrp)

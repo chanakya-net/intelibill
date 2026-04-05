@@ -5,5 +5,4 @@ public sealed record ProductDetailsDto(
     string Uom,
     decimal CostPrice,
     decimal Mrp,
-    decimal SalesPrice,
-    decimal MinSalePrice);
+    decimal SalesPrice);

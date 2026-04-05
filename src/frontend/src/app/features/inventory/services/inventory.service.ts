@@ -33,8 +33,8 @@ export interface AddInventoryBatchRowRequest {
   readonly costPrice: number;
   readonly mrp: number;
   readonly salesPrice: number;
-  readonly minSalePrice: number;
   readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
   readonly supplierId: string | null;
@@ -77,7 +77,6 @@ export interface ProductDetailsDto {
   readonly costPrice: number;
   readonly mrp: number;
   readonly salesPrice: number;
-  readonly minSalePrice: number;
 }
 
 @Injectable({ providedIn: 'root' })

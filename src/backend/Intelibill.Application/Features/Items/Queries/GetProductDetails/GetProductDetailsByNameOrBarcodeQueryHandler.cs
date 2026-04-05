@@ -48,7 +48,6 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
             item.Uom,
             latestBatch.CostPrice,
             latestBatch.Mrp,
-            latestBatch.SalesPrice,
-            latestBatch.MinSalePrice);
+            latestBatch.SalesPrice);
     }
 }

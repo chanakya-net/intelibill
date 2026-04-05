@@ -162,7 +162,6 @@
     "costPrice": "Cost Price",
     "mrp": "MRP",
     "salesPrice": "Sales Price",
-    "minSalePrice": "Min Sale Price",
     "taxRatePercent": "Tax %",
     "batchNumber": "Batch Number",
     "expiryDate": "Expiry Date",

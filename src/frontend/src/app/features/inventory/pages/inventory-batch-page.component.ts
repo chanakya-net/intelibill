@@ -5,8 +5,11 @@ import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
@@ -35,8 +38,11 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
     TranslocoPipe,
     AutoCompleteModule,
     ButtonModule,
-    InputTextModule,
+    InputGroupAddonModule,
+    InputGroupModule,
     InputNumberModule,
+    InputTextModule,
+    SelectModule,
     TextareaModule,
     TableModule,
     ToastModule,
@@ -64,6 +70,10 @@ export class InventoryBatchPageComponent {
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
   readonly supplierSuggestions = signal<string[]>([]);
+  readonly taxModeOptions = signal([
+    { label: 'With Tax', value: true },
+    { label: 'Without Tax', value: false },
+  ]);
   readonly suppliers = this.suppliersFacade.suppliers;
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
@@ -87,8 +97,8 @@ export class InventoryBatchPageComponent {
     costPrice: [0, [Validators.required, Validators.min(0)]],
     mrp: [0, [Validators.required, Validators.min(0)]],
     salesPrice: [0, [Validators.required, Validators.min(0)]],
-    minSalePrice: [0, [Validators.required, Validators.min(0)]],
     taxRatePercent: [0, [Validators.required, Validators.min(0)]],
+    taxIncluded: [false, [Validators.required]],
     expiryDate: [''],
     manufacturingDate: [''],
     supplierName: [''],
@@ -161,7 +171,6 @@ export class InventoryBatchPageComponent {
           costPrice: details.costPrice,
           mrp: details.mrp,
           salesPrice: details.salesPrice,
-          minSalePrice: details.minSalePrice,
         });
         this.showInfo('inventory.productDetailsLoaded');
       }
@@ -221,8 +230,8 @@ export class InventoryBatchPageComponent {
       costPrice: Number(this.form.controls.costPrice.value),
       mrp: Number(this.form.controls.mrp.value),
       salesPrice: Number(this.form.controls.salesPrice.value),
-      minSalePrice: Number(this.form.controls.minSalePrice.value),
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
+      taxIncluded: this.form.controls.taxIncluded.value,
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
       supplierId,
@@ -246,8 +255,8 @@ export class InventoryBatchPageComponent {
       costPrice: 0,
       mrp: 0,
       salesPrice: 0,
-      minSalePrice: 0,
       taxRatePercent: 0,
+      taxIncluded: false,
       expiryDate: '',
       manufacturingDate: '',
       supplierName: '',
@@ -289,8 +298,8 @@ export class InventoryBatchPageComponent {
       costPrice: row.costPrice,
       mrp: row.mrp,
       salesPrice: row.salesPrice,
-      minSalePrice: row.minSalePrice,
       taxRatePercent: row.taxRatePercent,
+      taxIncluded: row.taxIncluded,
       expiryDate: row.expiryDate,
       manufacturingDate: row.manufacturingDate,
       supplierId: row.supplierId,
