@@ -62,10 +62,12 @@ public class SuppliersControllerTests
             "City",
             "State",
             "560001",
+            0m,
+            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
             true,
             false);
 
-        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.IsActive, request.IsPreferred);
+        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.Amount, request.Status, request.IsActive, request.IsPreferred);
         _bus.InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
         var result = await _controller.AddSupplier(request, CancellationToken.None);
@@ -93,7 +95,7 @@ public class SuppliersControllerTests
 
         var result = await _controller.EditSupplier(
             Guid.NewGuid(),
-            new EditSupplierRequest("Name", null, null, "Address", "City", "State", "560001", true, false),
+            new EditSupplierRequest("Name", null, null, "Address", "City", "State", "560001", 0m, Intelibill.Domain.Enums.SupplierStatus.IWillReceive, true, false),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);

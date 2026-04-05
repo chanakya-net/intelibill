@@ -18,8 +18,10 @@ public class SupplierTests
             "  Bengaluru  ",
             "  Karnataka  ",
             "  560001  ",
-            isActive: true,
-            isPreferred: false);
+            1500.50m,
+            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
+            true,
+            false);
 
         Assert.Equal(ownerId, supplier.OwnerUserId);
         Assert.Equal("Fresh Foods Pvt Ltd", supplier.Name);
@@ -45,8 +47,10 @@ public class SupplierTests
             "City",
             "State",
             "560001",
-            isActive: true,
-            isPreferred: true);
+            0m,
+            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
+            true,
+            true);
 
         Assert.Null(supplier.ContactPersonName);
         Assert.Null(supplier.ContactPersonPhone);
@@ -64,8 +68,10 @@ public class SupplierTests
             "City",
             "State",
             "560001",
-            isActive: true,
-            isPreferred: false);
+            0m,
+            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
+            true,
+            false);
 
         supplier.Update(
             "  Updated Supplier  ",
@@ -75,8 +81,10 @@ public class SupplierTests
             "  Mysuru  ",
             "  Karnataka  ",
             "  570001  ",
-            isActive: false,
-            isPreferred: true);
+            2500.75m,
+            Intelibill.Domain.Enums.SupplierStatus.INeedToPay,
+            false,
+            true);
 
         Assert.Equal("Updated Supplier", supplier.Name);
         Assert.Equal("New Contact", supplier.ContactPersonName);
@@ -85,6 +93,8 @@ public class SupplierTests
         Assert.Equal("Mysuru", supplier.City);
         Assert.Equal("Karnataka", supplier.State);
         Assert.Equal("570001", supplier.Pin);
+        Assert.Equal(2500.75m, supplier.Amount);
+        Assert.Equal(Intelibill.Domain.Enums.SupplierStatus.INeedToPay, supplier.Status);
         Assert.False(supplier.IsActive);
         Assert.True(supplier.IsPreferred);
     }

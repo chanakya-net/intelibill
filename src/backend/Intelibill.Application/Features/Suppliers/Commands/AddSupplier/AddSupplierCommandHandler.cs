@@ -35,6 +35,8 @@ public sealed class AddSupplierCommandHandler(
             command.City,
             command.State,
             command.Pin,
+            command.Amount,
+            command.Status,
             command.IsActive,
             command.IsPreferred);
 
@@ -54,6 +56,8 @@ public sealed class AddSupplierCommandHandler(
             supplier.City,
             supplier.State,
             supplier.Pin,
+            supplier.Amount,
+            supplier.Status,
             supplier.IsActive,
             supplier.IsPreferred);
 }

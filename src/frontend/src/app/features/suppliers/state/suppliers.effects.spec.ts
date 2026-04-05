@@ -5,7 +5,7 @@ import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
-import { SupplierService } from '../services/supplier.service';
+import { SupplierService, SupplierStatus } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 import { SuppliersEffects } from './suppliers.effects';
 
@@ -56,6 +56,8 @@ describe('SuppliersEffects', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
+          amount: 1500,
+          status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
         },
@@ -77,6 +79,8 @@ describe('SuppliersEffects', () => {
             city: 'City',
             state: 'State',
             pin: '560001',
+            amount: 1500,
+            status: SupplierStatus.IWillReceive,
             isActive: true,
             isPreferred: false,
           },
@@ -101,6 +105,8 @@ describe('SuppliersEffects', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
+          amount: 0,
+          status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
         },
