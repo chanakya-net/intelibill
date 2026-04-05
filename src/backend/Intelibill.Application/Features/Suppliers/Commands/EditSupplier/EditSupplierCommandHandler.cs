@@ -40,6 +40,8 @@ public sealed class EditSupplierCommandHandler(
             command.City,
             command.State,
             command.Pin,
+            command.Amount,
+            command.Status,
             command.IsActive,
             command.IsPreferred);
 
@@ -55,6 +57,8 @@ public sealed class EditSupplierCommandHandler(
             supplier.City,
             supplier.State,
             supplier.Pin,
+            supplier.Amount,
+            supplier.Status,
             supplier.IsActive,
             supplier.IsPreferred);
     }

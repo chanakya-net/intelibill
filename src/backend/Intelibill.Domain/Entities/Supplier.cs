@@ -1,4 +1,5 @@
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Entities;
 
@@ -12,6 +13,8 @@ public sealed class Supplier : BaseEntity
     public string City { get; private set; } = string.Empty;
     public string State { get; private set; } = string.Empty;
     public string Pin { get; private set; } = string.Empty;
+    public decimal Amount { get; private set; }
+    public SupplierStatus Status { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsPreferred { get; private set; }
 
@@ -26,6 +29,8 @@ public sealed class Supplier : BaseEntity
         string city,
         string state,
         string pin,
+        decimal amount,
+        SupplierStatus status,
         bool isActive,
         bool isPreferred)
     {
@@ -39,6 +44,8 @@ public sealed class Supplier : BaseEntity
             City = city.Trim(),
             State = state.Trim(),
             Pin = pin.Trim(),
+            Amount = amount,
+            Status = status,
             IsActive = isActive,
             IsPreferred = isPreferred,
         };
@@ -52,6 +59,8 @@ public sealed class Supplier : BaseEntity
         string city,
         string state,
         string pin,
+        decimal amount,
+        SupplierStatus status,
         bool isActive,
         bool isPreferred)
     {
@@ -62,6 +71,8 @@ public sealed class Supplier : BaseEntity
         City = city.Trim();
         State = state.Trim();
         Pin = pin.Trim();
+        Amount = amount;
+        Status = status;
         IsActive = isActive;
         IsPreferred = isPreferred;
     }

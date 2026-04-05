@@ -59,6 +59,8 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
                 request.City,
                 request.State,
                 request.Pin,
+                request.Amount,
+                request.Status,
                 request.IsActive,
                 request.IsPreferred),
             cancellationToken);
@@ -90,6 +92,8 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
                 request.City,
                 request.State,
                 request.Pin,
+                request.Amount,
+                request.Status,
                 request.IsActive,
                 request.IsPreferred),
             cancellationToken);
@@ -120,6 +124,8 @@ public sealed record AddSupplierRequest(
     string City,
     string State,
     string Pin,
+    decimal Amount,
+    Intelibill.Domain.Enums.SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);
 
@@ -131,5 +137,7 @@ public sealed record EditSupplierRequest(
     string City,
     string State,
     string Pin,
+    decimal Amount,
+    Intelibill.Domain.Enums.SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);

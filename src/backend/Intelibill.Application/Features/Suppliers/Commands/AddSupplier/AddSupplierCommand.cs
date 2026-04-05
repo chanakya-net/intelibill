@@ -1,5 +1,7 @@
 namespace Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 
+using Intelibill.Domain.Enums;
+
 public sealed record AddSupplierCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
@@ -10,5 +12,7 @@ public sealed record AddSupplierCommand(
     string City,
     string State,
     string Pin,
+    decimal Amount,
+    SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);

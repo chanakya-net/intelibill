@@ -1,5 +1,7 @@
 namespace Intelibill.Application.Features.Suppliers.DTOs;
 
+using Intelibill.Domain.Enums;
+
 public sealed record SupplierDto(
     Guid SupplierId,
     string Name,
@@ -9,5 +11,7 @@ public sealed record SupplierDto(
     string City,
     string State,
     string Pin,
+    decimal Amount,
+    SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);
