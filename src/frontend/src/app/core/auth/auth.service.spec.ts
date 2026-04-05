@@ -1,14 +1,79 @@
-import { PLATFORM_ID, signal } from '@angular/core';
+import '@angular/compiler';
+
+import { PLATFORM_ID } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthResult, AuthSession, ExternalAuthProvider } from './auth.models';
 import { AuthService } from './auth.service';
 import { AuthStorage } from './auth.storage';
 import { AUTH_ENDPOINTS } from './auth.constants';
 import { LocalizationService } from '../i18n/localization.service';
+
+class FakeBroadcastChannel {
+  static instances: FakeBroadcastChannel[] = [];
+
+  static reset(): void {
+    FakeBroadcastChannel.instances = [];
+  }
+
+  readonly name: string;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+
+  private listeners = new Set<(event: MessageEvent<unknown>) => void>();
+  private closed = false;
+
+  constructor(name: string) {
+    this.name = name;
+    FakeBroadcastChannel.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    if (type !== 'message') {
+      return;
+    }
+
+    if (typeof listener === 'function') {
+      this.listeners.add(listener as (event: MessageEvent<unknown>) => void);
+      return;
+    }
+
+    this.listeners.add((event) => listener.handleEvent(event));
+  }
+
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    if (type !== 'message' || typeof listener !== 'function') {
+      return;
+    }
+
+    this.listeners.delete(listener as (event: MessageEvent<unknown>) => void);
+  }
+
+  postMessage(message: unknown): void {
+    for (const instance of FakeBroadcastChannel.instances) {
+      if (instance === this || instance.closed || instance.name !== this.name) {
+        continue;
+      }
+
+      instance.dispatch(message);
+    }
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  private dispatch(data: unknown): void {
+    const event = { data } as MessageEvent<unknown>;
+    this.onmessage?.(event);
+    for (const listener of this.listeners) {
+      listener(event);
+    }
+  }
+}
 
 function buildAuthResult(overrides?: Partial<AuthResult>): AuthResult {
   const now = Date.now();
@@ -48,6 +113,7 @@ function buildSession(overrides?: Partial<AuthSession>): AuthSession {
 }
 
 describe('AuthService', () => {
+  const originalBroadcastChannel = globalThis.BroadcastChannel;
   const storage = {
     loadSession: vi.fn<AuthStorage['loadSession']>(),
     saveSession: vi.fn<AuthStorage['saveSession']>(),
@@ -83,7 +149,12 @@ describe('AuthService', () => {
     };
   }
 
+  beforeAll(() => {
+    vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+  });
+
   beforeEach(() => {
+    FakeBroadcastChannel.reset();
     storage.loadSession.mockReturnValue(null);
     storage.saveSession.mockReset();
     storage.clearSession.mockReset();
@@ -95,7 +166,17 @@ describe('AuthService', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     TestBed.resetTestingModule();
+  });
+
+  afterAll(() => {
+    if (originalBroadcastChannel) {
+      vi.stubGlobal('BroadcastChannel', originalBroadcastChannel);
+      return;
+    }
+
+    vi.unstubAllGlobals();
   });
 
   it('logs in and stores last email when rememberMe is true', () => {
@@ -163,6 +244,77 @@ describe('AuthService', () => {
     expect(emitted?.accessToken).toBe('new-access-token');
     expect(service.getAccessToken()).toBe('new-access-token');
     expect(storage.saveSession).toHaveBeenCalledTimes(1);
+
+    http.verify();
+  });
+
+  it('recovers from a refresh race by adopting a fresher stored session', () => {
+    const now = Date.now();
+    const initialSession = buildSession({
+      accessTokenExpiresAt: new Date(now - 10_000).toISOString(),
+      refreshTokenExpiresAt: new Date(now + 60_000).toISOString(),
+    });
+    const rotatedSession = buildSession({
+      accessToken: 'rotated-access-token',
+      refreshToken: 'rotated-refresh-token',
+      accessTokenExpiresAt: new Date(now + 120_000).toISOString(),
+      refreshTokenExpiresAt: new Date(now + 180_000).toISOString(),
+    });
+    storage.loadSession
+      .mockReturnValueOnce(initialSession)
+      .mockReturnValue(rotatedSession);
+
+    const { service, http } = setup();
+    let emitted: AuthSession | null | undefined;
+
+    service.refreshAccessToken().subscribe((session) => {
+      emitted = session;
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+
+    expect(emitted?.accessToken).toBe('rotated-access-token');
+    expect(service.getAccessToken()).toBe('rotated-access-token');
+    expect(storage.clearSession).not.toHaveBeenCalled();
+
+    http.verify();
+  });
+
+  it('adopts a rotated session broadcast from another tab', () => {
+    const { service } = setup();
+    const externalTab = new FakeBroadcastChannel('intelibill.auth.session');
+    const rotatedSession = buildSession({
+      accessToken: 'broadcast-access-token',
+      refreshToken: 'broadcast-refresh-token',
+    });
+
+    externalTab.postMessage({
+      type: 'SESSION_UPDATED',
+      session: rotatedSession,
+    });
+
+    expect(service.getAccessToken()).toBe('broadcast-access-token');
+    expect(storage.saveSession).toHaveBeenCalledWith(rotatedSession);
+  });
+
+  it('schedules a proactive refresh before the access token expires', () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    storage.loadSession.mockReturnValue(
+      buildSession({
+        accessTokenExpiresAt: new Date(now + 90_000).toISOString(),
+        refreshTokenExpiresAt: new Date(now + 180_000).toISOString(),
+      })
+    );
+
+    const { http } = setup();
+
+    vi.advanceTimersByTime(30_000);
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    expect(request.request.method).toBe('POST');
+    request.flush(buildAuthResult({ accessToken: 'proactive-access-token' }));
 
     http.verify();
   });

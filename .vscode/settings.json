@@ -12,6 +12,9 @@
         },
         "dotnet list": true,
         "dotnet restore": true,
-        "bunx": true
+        "bunx": true,
+        "npx tsc": true,
+        "npx vitest": true,
+        "npx ng": true
     }
 }

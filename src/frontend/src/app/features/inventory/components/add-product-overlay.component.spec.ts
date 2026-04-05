@@ -12,6 +12,7 @@ import {
   selectInventorySubmitting,
 } from '../state/inventory.selectors';
 import { AddProductOverlayComponent } from './add-product-overlay.component';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 
 describe('AddProductOverlayComponent', () => {
   const dispatch = vi.fn();
@@ -43,10 +44,20 @@ describe('AddProductOverlayComponent', () => {
     }),
   };
 
+  const productCatalogSync = {
+    filterByName: vi.fn(() => []),
+    filterByBarcode: vi.fn(() => []),
+    findByName: vi.fn(() => undefined),
+    findByBarcode: vi.fn(() => undefined),
+  };
+
   function setup(): AddProductOverlayComponent {
     TestBed.configureTestingModule({
       imports: [AddProductOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: ProductCatalogSyncService, useValue: productCatalogSync },
+      ],
     });
 
     const fixture = TestBed.createComponent(AddProductOverlayComponent);
@@ -57,6 +68,10 @@ describe('AddProductOverlayComponent', () => {
   beforeEach(() => {
     dispatch.mockReset();
     store.selectSignal.mockClear();
+    productCatalogSync.filterByName.mockClear();
+    productCatalogSync.filterByBarcode.mockClear();
+    productCatalogSync.findByName.mockClear();
+    productCatalogSync.findByBarcode.mockClear();
     isSubmittingSignal.set(false);
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
