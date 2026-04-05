@@ -75,17 +75,23 @@
 
       <label>
         <span>{{ 'inventory.costPrice' | transloco }}</span>
-        <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        </p-inputgroup>
       </label>
 
       <label>
         <span>{{ 'inventory.mrp' | transloco }}</span>
-        <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        </p-inputgroup>
       </label>
 
-      <label>
+      <label class="sales-price-field">
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputgroup>
+        <p-inputgroup class="sales-price-group">
           <p-inputgroup-addon>₹</p-inputgroup-addon>
           <p-inputNumber
             formControlName="salesPrice"
@@ -97,6 +103,7 @@
             [minFractionDigits]="2"
           ></p-inputNumber>
           <p-select
+            class="sales-price-tax-mode"
             formControlName="taxIncluded"
             [options]="taxModeOptions()"
             optionLabel="label"
