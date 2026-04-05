@@ -86,13 +86,8 @@
         <textarea pInputTextarea rows="2" formControlName="notes"></textarea>
       </label>
 
-      <label>
-        <span>{{ 'inventory.performedAt' | transloco }}</span>
-        <input pInputText type="datetime-local" formControlName="performedAt" />
-      </label>
-
       <div class="form-actions">
-        <button pButton type="submit" [label]="'inventory.addRow' | transloco" icon="pi pi-plus"></button>
+        <button pButton type="submit" [label]="'inventory.addRow' | transloco" icon="pi pi-plus" [disabled]="form.invalid"></button>
       </div>
     </form>
   </div>
