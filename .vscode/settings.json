@@ -15,6 +15,10 @@
         "bunx": true,
         "npx tsc": true,
         "npx vitest": true,
-        "npx ng": true
+        "npx ng": true,
+        "/^for f in src/frontend/public/assets/i18n/\\*-IN\\.json; do perl -0pi -e 's/\"status\":\\\\s\\*\"\\(\\[\\^\"\\]\\+\\)\",\\\\n/\"status\": \"\\$1\",\\\\n    \"supplier\": \"Supplier\",\\\\n/s' \"\\$f\"; done$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

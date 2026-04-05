@@ -104,7 +104,6 @@ describe('AddProductOverlayComponent', () => {
     component.form.controls.barcode.setValue('  B001  ');
     component.form.controls.description.setValue('  Product description  ');
     component.form.controls.uom.setValue('  packet  ');
-    component.form.controls.preferredSupplierId.setValue('');
     component.form.controls.isActive.setValue(true);
 
     component.onSubmit();
@@ -119,7 +118,6 @@ describe('AddProductOverlayComponent', () => {
           description: 'Product description',
           uom: 'packet',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );

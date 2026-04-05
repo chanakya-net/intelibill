@@ -21,7 +21,7 @@ public class AddItemCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var existing = Item.Create(shop.Id, "Existing", null, "kg", "111", true, null, actor.Id);
+        var existing = Item.Create(shop.Id, "Existing", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existing);
@@ -63,6 +63,5 @@ public class AddItemCommandHandlerTests
             Barcode: "111",
             Description: "Premium",
             Uom: "kg",
-            IsActive: true,
-            PreferredSupplierId: null);
+            IsActive: true);
 }

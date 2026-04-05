@@ -8,5 +8,6 @@ public sealed record AddInventoryResultDto(
     string BatchNumber,
     decimal BatchQuantity,
     decimal TotalQuantity,
+    Guid? SupplierId,
     Guid StockTransactionId,
     DateTimeOffset PerformedAt);

@@ -6,5 +6,4 @@ public sealed record ItemDto(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive,
-    Guid? PreferredSupplierId);
+    bool IsActive);

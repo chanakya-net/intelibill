@@ -105,8 +105,7 @@ public sealed class ItemsController(
                 request.Barcode,
                 request.Description,
                 request.Uom,
-                request.IsActive,
-                request.PreferredSupplierId),
+                request.IsActive),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -132,7 +131,6 @@ public sealed record AddItemRequest(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive,
-    Guid? PreferredSupplierId);
+    bool IsActive);
 
 internal sealed record ItemCatalogEntry(Guid ItemId, string Name, string Barcode);

@@ -49,7 +49,6 @@ export class AddProductOverlayComponent implements OnInit {
     description: ['', [Validators.maxLength(320)]],
     uom: ['', [Validators.required, Validators.maxLength(40)]],
     isActive: [true],
-    preferredSupplierId: ['', [Validators.pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/)]],
   });
 
   ngOnInit(): void {
@@ -107,7 +106,6 @@ export class AddProductOverlayComponent implements OnInit {
           description: this.nullableTrimmed(this.form.controls.description.value),
           uom: this.form.controls.uom.value.trim(),
           isActive: this.form.controls.isActive.value,
-          preferredSupplierId: this.nullableTrimmed(this.form.controls.preferredSupplierId.value),
         },
       })
     );

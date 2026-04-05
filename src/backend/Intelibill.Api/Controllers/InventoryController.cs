@@ -45,6 +45,7 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 request.TaxRatePercent,
                 request.ExpiryDate,
                 request.ManufacturingDate,
+                request.SupplierId,
                 request.ReferenceNumber,
                 request.Notes,
                 request.PerformedAt),
@@ -99,6 +100,7 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                     row.TaxRatePercent,
                     row.ExpiryDate,
                     row.ManufacturingDate,
+                    row.SupplierId,
                     row.ReferenceNumber,
                     row.Notes,
                     row.PerformedAt),
@@ -156,6 +158,7 @@ public sealed record AddInventoryRequest(
     decimal TaxRatePercent,
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
+    Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? PerformedAt);
@@ -177,6 +180,7 @@ public sealed record AddInventoryBatchRowRequest(
     decimal TaxRatePercent,
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
+    Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? PerformedAt);

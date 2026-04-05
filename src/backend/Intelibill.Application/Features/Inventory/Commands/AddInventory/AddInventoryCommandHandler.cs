@@ -63,7 +63,6 @@ public sealed class AddInventoryCommandHandler(
                 command.Uom,
                 normalizedBarcode,
                 isActive: true,
-                preferredSupplierId: null,
                 createdBy: command.ActorUserId);
 
             await itemRepository.AddAsync(item, cancellationToken);
@@ -89,6 +88,7 @@ public sealed class AddInventoryCommandHandler(
                 command.TaxRatePercent,
                 command.ExpiryDate,
                 command.ManufacturingDate,
+                command.SupplierId,
                 command.ActorUserId);
 
             if (batchResult.IsError)
@@ -161,6 +161,7 @@ public sealed class AddInventoryCommandHandler(
             batch.BatchNumber,
             batch.Quantity,
             inventory.Quantity,
+            batch.SupplierId,
             stockTransaction.Id,
             stockTransaction.PerformedAt);
     }

@@ -10,7 +10,6 @@ public sealed class Item : BaseEntity
     public string Uom { get; private set; } = string.Empty;
     public string Barcode { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
-    public Guid? PreferredSupplierId { get; private set; }
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
@@ -27,7 +26,6 @@ public sealed class Item : BaseEntity
         string uom,
         string barcode,
         bool isActive,
-        Guid? preferredSupplierId,
         Guid createdBy)
     {
         return new Item
@@ -38,7 +36,6 @@ public sealed class Item : BaseEntity
             Uom = uom.Trim(),
             Barcode = barcode.Trim(),
             IsActive = isActive,
-            PreferredSupplierId = preferredSupplierId,
             CreatedBy = createdBy,
         };
     }
@@ -49,7 +46,6 @@ public sealed class Item : BaseEntity
         string uom,
         string barcode,
         bool isActive,
-        Guid? preferredSupplierId,
         Guid updatedBy)
     {
         Name = name.Trim();
@@ -57,7 +53,6 @@ public sealed class Item : BaseEntity
         Uom = uom.Trim();
         Barcode = barcode.Trim();
         IsActive = isActive;
-        PreferredSupplierId = preferredSupplierId;
         UpdatedBy = updatedBy;
     }
 

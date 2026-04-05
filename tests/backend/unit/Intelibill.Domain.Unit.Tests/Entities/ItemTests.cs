@@ -14,7 +14,6 @@ public class ItemTests
             "  KG  ",
             "  8900001234567  ",
             isActive: true,
-            preferredSupplierId: Guid.NewGuid(),
             createdBy: Guid.NewGuid());
 
         Assert.Equal("Atta", item.Name);
@@ -34,7 +33,6 @@ public class ItemTests
             "KG",
             "8900001234567",
             isActive: true,
-            preferredSupplierId: null,
             createdBy: Guid.NewGuid());
 
         Assert.Null(item.Description);

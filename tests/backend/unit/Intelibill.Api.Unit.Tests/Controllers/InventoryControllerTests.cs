@@ -62,6 +62,7 @@ public class InventoryControllerTests
             request.BatchNumber,
             request.Quantity,
             request.Quantity,
+            request.SupplierId,
             Guid.NewGuid(),
             DateTimeOffset.UtcNow);
 
@@ -78,6 +79,7 @@ public class InventoryControllerTests
                 && c.ActiveShopId == shopId
                 && c.ItemName == request.ItemName
                 && c.Barcode == request.Barcode
+                && c.SupplierId == request.SupplierId
                 && c.Quantity == request.Quantity),
             Arg.Any<CancellationToken>());
     }
@@ -134,6 +136,7 @@ public class InventoryControllerTests
                     "B-1",
                     10m,
                     10m,
+                    null,
                     Guid.NewGuid(),
                     DateTimeOffset.UtcNow),
                 _ => (ErrorOr<AddInventoryResultDto>)Errors.Inventory.ItemIdentityConflict);
@@ -173,6 +176,7 @@ public class InventoryControllerTests
             TaxRatePercent: 5m,
             ExpiryDate: null,
             ManufacturingDate: null,
+            SupplierId: null,
             ReferenceNumber: "PO-123",
             Notes: "initial",
             PerformedAt: null);
@@ -193,6 +197,7 @@ public class InventoryControllerTests
             TaxRatePercent: 5m,
             ExpiryDate: null,
             ManufacturingDate: null,
+            SupplierId: null,
             ReferenceNumber: null,
             Notes: null,
             PerformedAt: null);

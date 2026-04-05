@@ -25,7 +25,6 @@ describe('InventoryPageComponent', () => {
       description: null,
       uom: 'ltr',
       isActive: true,
-      preferredSupplierId: null,
     },
   ]);
   const submittingSignal = signal(false);
@@ -96,7 +95,6 @@ describe('InventoryPageComponent', () => {
         description: null,
         uom: 'ltr',
         isActive: true,
-        preferredSupplierId: null,
       },
     ]);
     submittingSignal.set(false);

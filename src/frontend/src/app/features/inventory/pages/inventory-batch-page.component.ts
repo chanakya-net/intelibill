@@ -85,6 +85,7 @@ export class InventoryBatchPageComponent {
     taxRatePercent: [0, [Validators.required, Validators.min(0)]],
     expiryDate: [''],
     manufacturingDate: [''],
+    supplierId: ['', [Validators.pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/)]],
     referenceNumber: ['', [Validators.maxLength(120)]],
     notes: ['', [Validators.maxLength(320)]],
   });
@@ -151,6 +152,7 @@ export class InventoryBatchPageComponent {
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
+      supplierId: this.nullable(this.form.controls.supplierId.value),
       referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
       notes: this.nullable(this.form.controls.notes.value),
       performedAt: new Date().toISOString(),
@@ -175,9 +177,10 @@ export class InventoryBatchPageComponent {
       taxRatePercent: 0,
       expiryDate: '',
       manufacturingDate: '',
+      supplierId: '',
       referenceNumber: '',
-       notes: '',
-     });
+      notes: '',
+    });
 
     this.form.controls.batchNumber.setValue(this.generateBatchNumber());
   }
@@ -217,6 +220,7 @@ export class InventoryBatchPageComponent {
       taxRatePercent: row.taxRatePercent,
       expiryDate: row.expiryDate,
       manufacturingDate: row.manufacturingDate,
+      supplierId: row.supplierId,
       referenceNumber: row.referenceNumber,
       notes: row.notes,
       performedAt: new Date().toISOString(),

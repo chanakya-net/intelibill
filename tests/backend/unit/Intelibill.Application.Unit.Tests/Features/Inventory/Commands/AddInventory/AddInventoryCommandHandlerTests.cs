@@ -42,8 +42,8 @@ public class AddInventoryCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var barcodeItem = Item.Create(shop.Id, "Rice", null, "kg", "111", true, null, actor.Id);
-        var nameItem = Item.Create(shop.Id, "Rice", null, "kg", "222", true, null, actor.Id);
+        var barcodeItem = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
+        var nameItem = Item.Create(shop.Id, "Rice", null, "kg", "222", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(barcodeItem);
@@ -71,15 +71,17 @@ public class AddInventoryCommandHandlerTests
         _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
             .Returns((InventoryBatch?)null);
 
+        var supplierId = Guid.NewGuid();
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, supplierId), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.BatchQuantity);
         Assert.Equal(10m, result.Value.TotalQuantity);
+        Assert.Equal(supplierId, result.Value.SupplierId);
 
         await _itemRepository.Received(1).AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Any<InventoryBatch>(), Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => b.SupplierId == supplierId), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Is<StockTransaction>(t => t.TransactionType == StockTransactionType.In && t.Quantity == 10m), Arg.Any<CancellationToken>());
         await _inventoryRepository.Received(1).AddAsync(Arg.Any<DomainInventory>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -92,7 +94,7 @@ public class AddInventoryCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
 
-        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, null, actor.Id);
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         var batchResult = InventoryBatch.Create(
             shop.Id,
@@ -106,6 +108,7 @@ public class AddInventoryCommandHandlerTests
             taxRatePercent: 5m,
             expiryDate: null,
             manufacturingDate: null,
+            supplierId: null,
             createdBy: actor.Id);
         Assert.False(batchResult.IsError);
         var batch = batchResult.Value;
@@ -136,7 +139,7 @@ public class AddInventoryCommandHandlerTests
     private AddInventoryCommandHandler CreateHandler() =>
         new(_userRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _inventoryRepository, _unitOfWork);
 
-    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId) =>
+    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null) =>
         new(
             actorId,
             shopId,
@@ -153,6 +156,7 @@ public class AddInventoryCommandHandlerTests
             TaxRatePercent: 5m,
             ExpiryDate: null,
             ManufacturingDate: null,
+            SupplierId: supplierId,
             ReferenceNumber: "PO-123",
             Notes: "Initial stock",
             PerformedAt: null);

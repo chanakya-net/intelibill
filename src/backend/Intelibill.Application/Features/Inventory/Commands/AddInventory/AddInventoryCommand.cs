@@ -16,6 +16,7 @@ public sealed record AddInventoryCommand(
     decimal TaxRatePercent,
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
+    Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? PerformedAt);

@@ -41,8 +41,8 @@ public class GetItemsQueryHandlerTests
         _userRepository.GetByIdWithDetailsAsync(manager.Id, Arg.Any<CancellationToken>()).Returns(manager);
 
         _itemRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([
-            Item.Create(shop.Id, "Milk", null, "ltr", "B001", true, null, owner.Id),
-            Item.Create(shop.Id, "Rice", "Premium", "kg", "B002", true, null, owner.Id),
+            Item.Create(shop.Id, "Milk", null, "ltr", "B001", true, owner.Id),
+            Item.Create(shop.Id, "Rice", "Premium", "kg", "B002", true, owner.Id),
         ]);
 
         var handler = new GetItemsQueryHandler(_userRepository, _itemRepository);

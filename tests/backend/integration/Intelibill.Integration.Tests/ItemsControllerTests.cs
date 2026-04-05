@@ -73,7 +73,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
             description = "Premium quality",
             uom = "kg",
             isActive = true,
-            preferredSupplierId = (Guid?)null,
         });
 
         var response = await client.SendAsync(request);
@@ -101,7 +100,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
             description = "Premium quality",
             uom = "kg",
             isActive = true,
-            preferredSupplierId = (Guid?)null,
         });
         var firstResponse = await client.SendAsync(firstRequest);
         Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
@@ -115,7 +113,6 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
             description = "Another",
             uom = "kg",
             isActive = true,
-            preferredSupplierId = (Guid?)null,
         });
 
         var secondResponse = await client.SendAsync(secondRequest);

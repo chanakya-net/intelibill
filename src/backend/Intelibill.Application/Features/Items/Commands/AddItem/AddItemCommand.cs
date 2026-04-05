@@ -7,5 +7,4 @@ public sealed record AddItemCommand(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive,
-    Guid? PreferredSupplierId);
+    bool IsActive);
