@@ -47,11 +47,16 @@ export class ShellComponent {
   @ViewChild('inventoryMenu') inventoryMenu?: TieredMenu;
   @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('profileMenu') profileMenu?: TieredMenu;
+  @ViewChild('mobileNavRef') mobileNavRef?: ElementRef<HTMLElement>;
+  @ViewChild('mobileMenuTrigger') mobileMenuTrigger?: ElementRef<HTMLElement>;
 
   readonly isSigningOut = signal(false);
   readonly isProfileMenuOpen = signal(false);
   readonly isInventoryMenuOpen = signal(false);
   readonly isShopMenuOpen = signal(false);
+  readonly isMobileMenuOpen = signal(false);
+  readonly expandedMobileSectionLabel = signal<string | null>(null);
+  readonly expandedMobileSections = signal<Set<string>>(new Set(['inventory', 'profile']));
   readonly showCreateShopOverlayManual = signal(false);
   readonly showManageShopOverlay = signal(false);
   readonly showUpdateProfileOverlay = signal(false);
@@ -252,6 +257,18 @@ export class ShellComponent {
       this.isProfileMenuOpen.set(false);
       this.profileMenu?.hide();
     }
+
+    if (this.isMobileMenuOpen()) {
+      const isInNav = this.mobileNavRef?.nativeElement
+        ? this.isTargetInside(this.mobileNavRef.nativeElement, target, composedPath)
+        : false;
+      const isInTrigger = this.mobileMenuTrigger?.nativeElement
+        ? this.isTargetInside(this.mobileMenuTrigger.nativeElement, target, composedPath)
+        : false;
+      if (!isInNav && !isInTrigger) {
+        this.closeMobileMenu();
+      }
+    }
   }
 
   private isTargetInside(root: HTMLElement, target: Node, composedPath: readonly EventTarget[]): boolean {
@@ -321,6 +338,54 @@ export class ShellComponent {
     this.isProfileMenuOpen.set(false);
     this.inventoryMenu?.hide();
     this.profileMenu?.hide();
+    this.closeMobileMenu();
+  }
+
+  closeMobileMenu(): void {
+    this.isMobileMenuOpen.set(false);
+    this.expandedMobileSectionLabel.set(null);
+  }
+
+  isMobileSectionExpanded(key: string): boolean {
+    return this.expandedMobileSections().has(key);
+  }
+
+  onToggleMobileSection(key: string): void {
+    this.expandedMobileSections.update((sections) => {
+      const next = new Set(sections);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  onToggleMobileMenu(): void {
+    this.isShopMenuOpen.set(false);
+    this.isInventoryMenuOpen.set(false);
+    this.isProfileMenuOpen.set(false);
+    this.inventoryMenu?.hide();
+    this.profileMenu?.hide();
+    this.isMobileMenuOpen.update((open) => !open);
+    if (!this.isMobileMenuOpen()) {
+      this.expandedMobileSectionLabel.set(null);
+    }
+  }
+
+  onMobileNavItemClick(item: MenuItem): void {
+    if (item.disabled) {
+      return;
+    }
+    if (item.items?.length) {
+      this.expandedMobileSectionLabel.update(
+        (current) => (current === item.label ? null : (item.label ?? null)),
+      );
+      return;
+    }
+    item.command?.({ originalEvent: new Event('click'), item });
+    this.closeMobileMenu();
   }
 
   getShopDisplayLabel(shop: UserShop): string {
