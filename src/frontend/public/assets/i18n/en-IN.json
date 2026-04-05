@@ -61,7 +61,7 @@
     "manageSuppliers": "Manage Suppliers",
     "manageInventory": "Inventory",
     "addNewProduct": "Add New Product",
-    "batchInventoryInbound": "Batch Inventory Inbound",
+    "batchInventoryInbound": "Add Inventory",
     "updateProfile": "Update Profile",
     "changePassword": "Change Password",
     "addShop": "Add Shop",
@@ -149,7 +149,7 @@
     "preferredSupplierIdOptional": "Preferred Supplier ID (Optional)",
     "addNewProduct": "Add New Product",
     "addNewProductDescription": "Create a product linked to your current active shop.",
-    "batchInboundTitle": "Batch Inventory Inbound",
+    "batchInboundTitle": "Add Inventory",
     "batchInboundSubtitle": "Add multiple inbound rows, review them in a grid, then save all at once.",
     "addRow": "Add Row",
     "clearAll": "Clear All",
@@ -285,7 +285,8 @@
       "barcodeRequired": "Barcode is required.",
       "uomRequired": "UOM is required.",
       "preferredSupplierNotFound": "Preferred supplier was not found in this shop.",
-      "unableToAddItem": "Unable to add product right now. Please try again."
+      "unableToAddItem": "Unable to add product right now. Please try again.",
+      "unableToLoadItems": "Unable to load inventory right now. Please try again."
     },
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",
