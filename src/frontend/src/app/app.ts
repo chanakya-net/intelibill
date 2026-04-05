@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ProductCatalogSyncService } from './core/services/product-catalog-sync.service';
 
 @Component({
   selector: 'app-root',
@@ -8,4 +9,5 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.scss'
 })
 export class App {
+  private readonly _catalogSync = inject(ProductCatalogSyncService);
 }

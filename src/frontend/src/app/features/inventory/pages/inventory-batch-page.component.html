@@ -13,12 +13,26 @@
     <form class="row-form" [formGroup]="form" (ngSubmit)="onAddRow()">
       <label>
         <span>{{ 'inventory.name' | transloco }}</span>
-        <input pInputText type="text" formControlName="itemName" />
+        <p-autocomplete
+          formControlName="itemName"
+          [suggestions]="nameSuggestions()"
+          (completeMethod)="onFilterName($event)"
+          (onSelect)="onNameSelected($event.value)"
+          appendTo="body"
+          styleClass="w-full"
+        ></p-autocomplete>
       </label>
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
-        <input pInputText type="text" formControlName="barcode" />
+        <p-autocomplete
+          formControlName="barcode"
+          [suggestions]="barcodeSuggestions()"
+          (completeMethod)="onFilterBarcode($event)"
+          (onSelect)="onBarcodeSelected($event.value)"
+          appendTo="body"
+          styleClass="w-full"
+        ></p-autocomplete>
       </label>
 
       <label>

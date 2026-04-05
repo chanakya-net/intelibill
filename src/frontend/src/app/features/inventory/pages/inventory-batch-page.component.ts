@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
+import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
@@ -21,6 +22,7 @@ import {
   InventoryDraftIndexedDbService,
   InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 
 @Component({
   selector: 'app-inventory-batch-page',
@@ -29,6 +31,7 @@ import {
     CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
+    AutoCompleteModule,
     ButtonModule,
     InputTextModule,
     InputNumberModule,
@@ -48,11 +51,14 @@ export class InventoryBatchPageComponent {
   private readonly draftStorage = inject(InventoryDraftIndexedDbService);
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
 
   readonly isSaving = signal(false);
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
+  readonly nameSuggestions = signal<string[]>([]);
+  readonly barcodeSuggestions = signal<string[]>([]);
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly tableRows = computed(() => [...this.pendingRows()]);
@@ -93,6 +99,30 @@ export class InventoryBatchPageComponent {
 
       void this.loadDraftRows(shopId);
     });
+
+    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
+  }
+
+  onFilterName(event: AutoCompleteCompleteEvent): void {
+    this.nameSuggestions.set(this.catalogSync.filterByName(event.query).map((e) => e.name));
+  }
+
+  onFilterBarcode(event: AutoCompleteCompleteEvent): void {
+    this.barcodeSuggestions.set(this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode));
+  }
+
+  onNameSelected(name: string): void {
+    const entry = this.catalogSync.findByName(name);
+    if (entry) {
+      this.form.controls.barcode.setValue(entry.barcode);
+    }
+  }
+
+  onBarcodeSelected(barcode: string): void {
+    const entry = this.catalogSync.findByBarcode(barcode);
+    if (entry) {
+      this.form.controls.itemName.setValue(entry.name);
+    }
   }
 
   onAddRow(): void {
@@ -148,6 +178,8 @@ export class InventoryBatchPageComponent {
       referenceNumber: '',
        notes: '',
      });
+
+    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
   }
 
   onRemoveRow(clientRowId: string): void {
@@ -244,6 +276,16 @@ export class InventoryBatchPageComponent {
   private nullable(value: string): string | null {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private generateBatchNumber(): string {
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    for (let i = 0; i < 5; i++) {
+      suffix += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `BN-${date}-${suffix}`;
   }
 
   private createRowId(): string {
