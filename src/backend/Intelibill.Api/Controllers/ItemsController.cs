@@ -1,11 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
+using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -15,8 +17,59 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/items")]
 [Authorize]
-public sealed class ItemsController(IMessageBus bus) : ControllerBase
+public sealed class ItemsController(
+    IMessageBus bus,
+    IUserRepository userRepository,
+    IItemRepository itemRepository) : ControllerBase
 {
+    [HttpGet("stream")]
+    public async Task StreamItems(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+        {
+            Response.StatusCode = 400;
+            return;
+        }
+
+        var caller = await userRepository.GetByIdWithDetailsAsync(userId.Value, cancellationToken);
+        if (caller is null)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
+        if (!caller.ShopMemberships.Any(sm => sm.ShopId == activeShopId.Value))
+        {
+            Response.StatusCode = 403;
+            return;
+        }
+
+        Response.ContentType = "application/x-ndjson; charset=utf-8";
+        Response.Headers.CacheControl = "no-store";
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var count = 0;
+
+        await foreach (var item in itemRepository.StreamByShopIdAsync(activeShopId.Value, cancellationToken))
+        {
+            var line = JsonSerializer.Serialize(new ItemCatalogEntry(item.Id, item.Name, item.Barcode), jsonOptions) + "\n";
+            await Response.WriteAsync(line, cancellationToken);
+            count++;
+            if (count % 50 == 0)
+                await Response.Body.FlushAsync(cancellationToken);
+        }
+
+        await Response.Body.FlushAsync(cancellationToken);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetItems(CancellationToken cancellationToken)
     {
@@ -84,3 +137,5 @@ public sealed record AddItemRequest(
     string Uom,
     bool IsActive,
     Guid? PreferredSupplierId);
+
+internal sealed record ItemCatalogEntry(Guid ItemId, string Name, string Barcode);

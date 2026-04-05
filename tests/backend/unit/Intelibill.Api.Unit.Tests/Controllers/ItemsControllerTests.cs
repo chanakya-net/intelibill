@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
+using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -16,11 +17,13 @@ namespace Intelibill.Api.Unit.Tests.Controllers;
 public class ItemsControllerTests
 {
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ItemsController _controller;
 
     public ItemsControllerTests()
     {
-        _controller = new ItemsController(_bus);
+        _controller = new ItemsController(_bus, _userRepository, _itemRepository);
     }
 
     [Fact]

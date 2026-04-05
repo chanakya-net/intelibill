@@ -1,15 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { RootState } from '../../../core/state/app.state';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryActions } from '../state/inventory.actions';
 import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state/inventory.selectors';
 
@@ -19,6 +21,7 @@ import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    AutoCompleteModule,
     InputTextModule,
     CheckboxModule,
     ButtonModule,
@@ -31,9 +34,12 @@ import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state
 export class AddProductOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
 
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
+  readonly nameSuggestions = signal<string[]>([]);
+  readonly barcodeSuggestions = signal<string[]>([]);
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -49,6 +55,28 @@ export class AddProductOverlayComponent implements OnInit {
   ngOnInit(): void {
     this.store.dispatch(InventoryActions.clearError());
     this.store.dispatch(InventoryActions.clearMutationStatus());
+  }
+
+  onFilterName(event: AutoCompleteCompleteEvent): void {
+    this.nameSuggestions.set(this.catalogSync.filterByName(event.query).map((e) => e.name));
+  }
+
+  onFilterBarcode(event: AutoCompleteCompleteEvent): void {
+    this.barcodeSuggestions.set(this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode));
+  }
+
+  onNameSelected(name: string): void {
+    const entry = this.catalogSync.findByName(name);
+    if (entry) {
+      this.form.controls.barcode.setValue(entry.barcode);
+    }
+  }
+
+  onBarcodeSelected(barcode: string): void {
+    const entry = this.catalogSync.findByBarcode(barcode);
+    if (entry) {
+      this.form.controls.name.setValue(entry.name);
+    }
   }
 
   onClose(): void {

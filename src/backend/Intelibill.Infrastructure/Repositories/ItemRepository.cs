@@ -22,4 +22,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             .Where(i => i.ShopId == shopId)
             .OrderBy(i => i.Name)
             .ToListAsync(cancellationToken);
+
+    public IAsyncEnumerable<Item> StreamByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        DbSet
+            .Where(i => i.ShopId == shopId)
+            .OrderBy(i => i.Name)
+            .AsAsyncEnumerable();
 }
