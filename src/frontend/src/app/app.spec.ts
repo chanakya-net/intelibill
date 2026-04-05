@@ -1,10 +1,26 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+
+import { ProductCatalogSyncService } from './core/services/product-catalog-sync.service';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ProductCatalogSyncService,
+          useValue: {
+            catalogEntries: () => [],
+            filterByName: () => [],
+            filterByBarcode: () => [],
+            findByName: () => undefined,
+            findByBarcode: () => undefined,
+          },
+        },
+      ],
     }).compileComponents();
   });
 
