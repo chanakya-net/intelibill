@@ -81,7 +81,6 @@ export class InventoryBatchPageComponent {
     manufacturingDate: [''],
     referenceNumber: ['', [Validators.maxLength(120)]],
     notes: ['', [Validators.maxLength(320)]],
-    performedAt: [''],
   });
 
   constructor() {
@@ -124,7 +123,7 @@ export class InventoryBatchPageComponent {
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
       referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
       notes: this.nullable(this.form.controls.notes.value),
-      performedAt: this.nullable(this.form.controls.performedAt.value),
+      performedAt: new Date().toISOString(),
     };
 
     const updatedRows = [...this.pendingRows(), row];
@@ -147,9 +146,8 @@ export class InventoryBatchPageComponent {
       expiryDate: '',
       manufacturingDate: '',
       referenceNumber: '',
-      notes: '',
-      performedAt: '',
-    });
+       notes: '',
+     });
   }
 
   onRemoveRow(clientRowId: string): void {
@@ -189,7 +187,7 @@ export class InventoryBatchPageComponent {
       manufacturingDate: row.manufacturingDate,
       referenceNumber: row.referenceNumber,
       notes: row.notes,
-      performedAt: row.performedAt,
+      performedAt: new Date().toISOString(),
     }));
 
     this.inventoryService.addInventoryBatch({ items: payload }).subscribe({
