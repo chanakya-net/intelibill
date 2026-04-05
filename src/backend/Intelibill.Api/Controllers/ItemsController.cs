@@ -7,6 +7,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
+using Intelibill.Application.Features.Items.Queries.GetProductDetails;
 using Intelibill.Application.Features.Items.Queries.StreamItems;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -80,6 +81,30 @@ public sealed class ItemsController(
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
             new GetItemsQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("details")]
+    public async Task<IActionResult> GetProductDetails(
+        [FromQuery] string? name,
+        [FromQuery] string? barcode,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(barcode))
+            return BadRequest("Either name or barcode must be provided");
+
+        var result = await bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
+            new GetProductDetailsByNameOrBarcodeQuery(userId.Value, activeShopId.Value, name, barcode),
             cancellationToken);
 
         return result.ToActionResult(Ok);

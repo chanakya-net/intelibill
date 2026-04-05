@@ -71,6 +71,15 @@ export interface AddInventoryBatchResponse {
   readonly failed: readonly AddInventoryBatchFailedRow[];
 }
 
+export interface ProductDetailsDto {
+  readonly description: string;
+  readonly uom: string;
+  readonly costPrice: number;
+  readonly mrp: number;
+  readonly salesPrice: number;
+  readonly minSalePrice: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InventoryService {
   private readonly http = inject(HttpClient);
@@ -81,6 +90,17 @@ export class InventoryService {
 
   addItem(payload: AddItemRequest): Observable<Item> {
     return this.http.post<Item>(ITEM_ENDPOINTS.add, payload);
+  }
+
+  getProductDetailsByNameOrBarcode(name: string | undefined, barcode: string | undefined): Observable<ProductDetailsDto> {
+    const params = new URLSearchParams();
+    if (name) {
+      params.append('name', name);
+    }
+    if (barcode) {
+      params.append('barcode', barcode);
+    }
+    return this.http.get<ProductDetailsDto>(`${ITEM_ENDPOINTS.list}/details?${params.toString()}`);
   }
 
   addInventoryBatch(payload: AddInventoryBatchRequest): Observable<AddInventoryBatchResponse> {

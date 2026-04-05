@@ -60,6 +60,7 @@ export class InventoryBatchPageComponent {
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
+  readonly loadingProduct = signal(false);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
   readonly supplierSuggestions = signal<string[]>([]);
@@ -130,6 +131,53 @@ export class InventoryBatchPageComponent {
     if (entry) {
       this.form.controls.itemName.setValue(entry.name);
     }
+    void this.fetchProductDetails();
+  }
+
+  onBarcodeBlur(): void {
+    void this.fetchProductDetails();
+  }
+
+  private async fetchProductDetails(): Promise<void> {
+    const itemName = this.form.controls.itemName.value?.trim();
+    const barcode = this.form.controls.barcode.value?.trim();
+
+    // Skip if itemName is empty
+    if (!itemName || !barcode) {
+      return;
+    }
+
+    this.loadingProduct.set(true);
+
+    try {
+      const details = await this.inventoryService
+        .getProductDetailsByNameOrBarcode(itemName, barcode)
+        .toPromise();
+
+      if (details) {
+        this.form.patchValue({
+          itemDescription: details.description || '',
+          uom: details.uom,
+          costPrice: details.costPrice,
+          mrp: details.mrp,
+          salesPrice: details.salesPrice,
+          minSalePrice: details.minSalePrice,
+        });
+        this.showInfo('inventory.productDetailsLoaded');
+      }
+    } catch (error) {
+      this.showError('inventory.productDetailsLoadError');
+    } finally {
+      this.loadingProduct.set(false);
+    }
+  }
+
+  private showInfo(messageKey: string): void {
+    this.messageService.add({
+      severity: 'info',
+      summary: this.translate(messageKey),
+      life: 2500,
+    });
   }
 
   onFilterSupplier(event: AutoCompleteCompleteEvent): void {
@@ -369,14 +417,6 @@ export class InventoryBatchPageComponent {
       severity: 'error',
       summary: this.translate(messageKey),
       life: 3500,
-    });
-  }
-
-  private showInfo(messageKey: string): void {
-    this.messageService.add({
-      severity: 'info',
-      summary: this.translate(messageKey),
-      life: 2500,
     });
   }
 

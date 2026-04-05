@@ -25,14 +25,20 @@
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
-        <p-autocomplete
-          formControlName="barcode"
-          [suggestions]="barcodeSuggestions()"
-          (completeMethod)="onFilterBarcode($event)"
-          (onSelect)="onBarcodeSelected($event.value)"
-          appendTo="body"
-          [fluid]="true"
-        ></p-autocomplete>
+        <div class="barcode-field-wrapper" [style.position]="'relative'">
+          <p-autocomplete
+            formControlName="barcode"
+            [suggestions]="barcodeSuggestions()"
+            (completeMethod)="onFilterBarcode($event)"
+            (onSelect)="onBarcodeSelected($event.value)"
+            (blur)="onBarcodeBlur()"
+            appendTo="body"
+            [fluid]="true"
+          ></p-autocomplete>
+          <div *ngIf="loadingProduct()" class="barcode-loading-overlay">
+            <p-progressSpinner styleClass="h-6 w-6" strokeWidth="6"></p-progressSpinner>
+          </div>
+        </div>
       </label>
 
       <label>
