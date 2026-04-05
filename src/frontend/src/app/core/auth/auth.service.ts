@@ -21,6 +21,13 @@ import { AuthStorage } from './auth.storage';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
 
+const CLOCK_SKEW_BUFFER_MS = 30_000;
+const PROACTIVE_REFRESH_LEAD_MS = 60_000;
+
+type SessionBroadcastMessage =
+  | { readonly type: 'SESSION_UPDATED'; readonly session: AuthSession }
+  | { readonly type: 'SESSION_CLEARED' };
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
@@ -32,15 +39,17 @@ export class AuthService {
   private readonly sessionSignal = signal<AuthSession | null>(null);
   private refreshInFlight$: Observable<AuthSession | null> | null = null;
   private bootstrapInFlight$: Observable<boolean> | null = null;
+  private sessionChannel: BroadcastChannel | null = null;
+  private proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null;
 
   readonly session = computed(() => this.sessionSignal());
   readonly isAuthenticated = computed(() => {
     const session = this.sessionSignal();
-    return !!session && !this.isExpired(session.accessTokenExpiresAt);
+    return !!session && !this.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS);
   });
   readonly needsShopSetup = computed(() => {
     const session = this.sessionSignal();
-    if (!session || this.isExpired(session.accessTokenExpiresAt)) {
+    if (!session || this.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
       return false;
     }
 
@@ -51,6 +60,11 @@ export class AuthService {
   constructor() {
     if (this.isBrowser()) {
       this.sessionSignal.set(this.storage.loadSession());
+      this.sessionChannel = new BroadcastChannel('intelibill.auth.session');
+      this.sessionChannel.addEventListener('message', (event: MessageEvent<SessionBroadcastMessage>) => {
+        this.handleSessionBroadcast(event.data);
+      });
+      this.scheduleProactiveRefresh(this.sessionSignal());
     }
   }
 
@@ -134,7 +148,7 @@ export class AuthService {
       return of(false);
     }
 
-    if (!this.isExpired(session.accessTokenExpiresAt)) {
+    if (!this.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
       return of(true);
     }
 
@@ -179,6 +193,14 @@ export class AuthService {
       map((result) => this.toSession(result, session.rememberMe)),
       tap((refreshedSession) => this.setSession(refreshedSession)),
       catchError((error) => {
+        // Another tab may have already rotated the token and saved a fresh session
+        // to localStorage. Re-read storage before clearing to avoid spurious logout
+        // on multi-tab refresh races.
+        const fresherSession = this.storage.loadSession();
+        if (fresherSession && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
+          this.sessionSignal.set(fresherSession);
+          return of(fresherSession);
+        }
         this.clearSession();
         return throwError(() => error);
       }),
@@ -241,8 +263,10 @@ export class AuthService {
   clearSession(): void {
     if (this.isBrowser()) {
       this.storage.clearSession();
+      this.sessionChannel?.postMessage({ type: 'SESSION_CLEARED' });
     }
 
+    this.cancelProactiveRefresh();
     this.sessionSignal.set(null);
   }
 
@@ -260,6 +284,8 @@ export class AuthService {
 
     if (this.isBrowser()) {
       this.storage.saveSession(session);
+      this.sessionChannel?.postMessage({ type: 'SESSION_UPDATED', session });
+      this.scheduleProactiveRefresh(session);
     }
   }
 
@@ -281,14 +307,56 @@ export class AuthService {
     };
   }
 
-  private isExpired(timestamp: string): boolean {
+  private handleSessionBroadcast(message: SessionBroadcastMessage): void {
+    if (message.type === 'SESSION_UPDATED') {
+      // Another tab successfully refreshed — adopt the new session so we
+      // don't attempt to refresh using the now-revoked token.
+      this.sessionSignal.set(message.session);
+      this.storage.saveSession(message.session);
+      this.scheduleProactiveRefresh(message.session);
+    } else if (message.type === 'SESSION_CLEARED') {
+      // Another tab signed out — mirror the logout in this tab.
+      const wasAuthenticated = this.sessionSignal() !== null;
+      this.sessionSignal.set(null);
+      this.storage.clearSession();
+      this.cancelProactiveRefresh();
+      if (wasAuthenticated) {
+        void this.router.navigateByUrl('/login');
+      }
+    }
+  }
+
+  private scheduleProactiveRefresh(session: AuthSession | null): void {
+    this.cancelProactiveRefresh();
+    if (!session) return;
+
+    const expiresAt = Date.parse(session.accessTokenExpiresAt);
+    if (Number.isNaN(expiresAt)) return;
+
+    const delay = expiresAt - PROACTIVE_REFRESH_LEAD_MS - Date.now();
+    if (delay <= 0) return;
+
+    this.proactiveRefreshTimerId = setTimeout(() => {
+      this.proactiveRefreshTimerId = null;
+      this.refreshAccessToken().subscribe({ error: () => { /* clearSession called internally */ } });
+    }, delay);
+  }
+
+  private cancelProactiveRefresh(): void {
+    if (this.proactiveRefreshTimerId !== null) {
+      clearTimeout(this.proactiveRefreshTimerId);
+      this.proactiveRefreshTimerId = null;
+    }
+  }
+
+  private isExpired(timestamp: string, bufferMs = 0): boolean {
     const expirationTime = Date.parse(timestamp);
 
     if (Number.isNaN(expirationTime)) {
       return true;
     }
 
-    return expirationTime <= Date.now();
+    return expirationTime - bufferMs <= Date.now();
   }
 
   private isBrowser(): boolean {
