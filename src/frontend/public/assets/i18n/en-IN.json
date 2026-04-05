@@ -162,7 +162,6 @@
     "costPrice": "Cost Price",
     "mrp": "MRP",
     "salesPrice": "Sales Price",
-    "minSalePrice": "Min Sale Price",
     "taxRatePercent": "Tax %",
     "batchNumber": "Batch Number",
     "expiryDate": "Expiry Date",
@@ -180,6 +179,8 @@
     "draftLoaded": "Draft rows restored from this device.",
     "batchLimitReached": "You can save up to 100 rows at once.",
     "removeFailed": "Failed rows remain in the grid for retry.",
+    "productDetailsLoaded": "Product details loaded successfully.",
+    "productDetailsLoadError": "Failed to load product details. Please try again.",
     "productForm": "Add product form",
     "noItemsFound": "No products added yet",
     "noItemsDescription": "Use Add New Product to create your first product in this shop."

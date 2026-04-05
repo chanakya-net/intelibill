@@ -12,7 +12,6 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
         {
             tableBuilder.HasCheckConstraint("ck_inventory_batches_quantity_non_negative", "quantity >= 0");
             tableBuilder.HasCheckConstraint("ck_inventory_batches_tax_rate_range", "tax_rate_percent >= 0 AND tax_rate_percent <= 100");
-            tableBuilder.HasCheckConstraint("ck_inventory_batches_min_sale_lte_sales", "min_sale_price <= sales_price");
             tableBuilder.HasCheckConstraint("ck_inventory_batches_sales_lte_mrp", "sales_price <= mrp");
         });
 
@@ -44,12 +43,12 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasPrecision(18, 2)
             .IsRequired();
 
-        builder.Property(b => b.MinSalePrice)
-            .HasPrecision(18, 2)
-            .IsRequired();
-
         builder.Property(b => b.TaxRatePercent)
             .HasPrecision(5, 2)
+            .IsRequired();
+
+        builder.Property(b => b.TaxIncluded)
+            .HasDefaultValue(false)
             .IsRequired();
 
         builder.Property(b => b.SupplierId);

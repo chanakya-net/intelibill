@@ -5,8 +5,11 @@ import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
@@ -35,8 +38,11 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
     TranslocoPipe,
     AutoCompleteModule,
     ButtonModule,
-    InputTextModule,
+    InputGroupAddonModule,
+    InputGroupModule,
     InputNumberModule,
+    InputTextModule,
+    SelectModule,
     TextareaModule,
     TableModule,
     ToastModule,
@@ -60,9 +66,14 @@ export class InventoryBatchPageComponent {
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
+  readonly loadingProduct = signal(false);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
   readonly supplierSuggestions = signal<string[]>([]);
+  readonly taxModeOptions = signal([
+    { label: 'With Tax', value: true },
+    { label: 'Without Tax', value: false },
+  ]);
   readonly suppliers = this.suppliersFacade.suppliers;
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
@@ -86,8 +97,8 @@ export class InventoryBatchPageComponent {
     costPrice: [0, [Validators.required, Validators.min(0)]],
     mrp: [0, [Validators.required, Validators.min(0)]],
     salesPrice: [0, [Validators.required, Validators.min(0)]],
-    minSalePrice: [0, [Validators.required, Validators.min(0)]],
     taxRatePercent: [0, [Validators.required, Validators.min(0)]],
+    taxIncluded: [false, [Validators.required]],
     expiryDate: [''],
     manufacturingDate: [''],
     supplierName: [''],
@@ -130,6 +141,50 @@ export class InventoryBatchPageComponent {
     if (entry) {
       this.form.controls.itemName.setValue(entry.name);
     }
+    void this.fetchProductDetails();
+  }
+
+  onBarcodeFocusOut(): void {
+    void this.fetchProductDetails();
+  }
+
+  private async fetchProductDetails(): Promise<void> {
+    const itemName = this.form.controls.itemName.value?.trim();
+    const barcode = this.form.controls.barcode.value?.trim();
+
+    // Skip if itemName is empty
+    if (!itemName || !barcode) {
+      return;
+    }
+
+    this.loadingProduct.set(true);
+
+    try {
+      const details = await this.inventoryService
+        .getProductDetailsByNameOrBarcode(itemName, barcode)
+        .toPromise();
+
+      if (details) {
+        const patch = this.buildProductDetailsPatch(details);
+
+        if (Object.keys(patch).length > 0) {
+          this.form.patchValue(patch);
+          this.showInfo('inventory.productDetailsLoaded');
+        }
+      }
+    } catch (error) {
+      this.showError('inventory.productDetailsLoadError');
+    } finally {
+      this.loadingProduct.set(false);
+    }
+  }
+
+  private showInfo(messageKey: string): void {
+    this.messageService.add({
+      severity: 'info',
+      summary: this.translate(messageKey),
+      life: 2500,
+    });
   }
 
   onFilterSupplier(event: AutoCompleteCompleteEvent): void {
@@ -173,8 +228,8 @@ export class InventoryBatchPageComponent {
       costPrice: Number(this.form.controls.costPrice.value),
       mrp: Number(this.form.controls.mrp.value),
       salesPrice: Number(this.form.controls.salesPrice.value),
-      minSalePrice: Number(this.form.controls.minSalePrice.value),
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
+      taxIncluded: this.form.controls.taxIncluded.value,
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
       supplierId,
@@ -198,8 +253,8 @@ export class InventoryBatchPageComponent {
       costPrice: 0,
       mrp: 0,
       salesPrice: 0,
-      minSalePrice: 0,
       taxRatePercent: 0,
+      taxIncluded: false,
       expiryDate: '',
       manufacturingDate: '',
       supplierName: '',
@@ -241,8 +296,8 @@ export class InventoryBatchPageComponent {
       costPrice: row.costPrice,
       mrp: row.mrp,
       salesPrice: row.salesPrice,
-      minSalePrice: row.minSalePrice,
       taxRatePercent: row.taxRatePercent,
+      taxIncluded: row.taxIncluded,
       expiryDate: row.expiryDate,
       manufacturingDate: row.manufacturingDate,
       supplierId: row.supplierId,
@@ -300,6 +355,50 @@ export class InventoryBatchPageComponent {
     }
 
     await this.draftStorage.saveRows(shopId, rows);
+  }
+
+  private buildProductDetailsPatch(details: {
+    description: string;
+    uom: string;
+    costPrice: number;
+    mrp: number;
+    salesPrice: number;
+  }): Partial<{
+    itemDescription: string;
+    uom: string;
+    costPrice: number;
+    mrp: number;
+    salesPrice: number;
+  }> {
+    const patch: Partial<{
+      itemDescription: string;
+      uom: string;
+      costPrice: number;
+      mrp: number;
+      salesPrice: number;
+    }> = {};
+
+    if (!this.form.controls.itemDescription.dirty) {
+      patch.itemDescription = details.description || '';
+    }
+
+    if (!this.form.controls.uom.dirty) {
+      patch.uom = details.uom;
+    }
+
+    if (!this.form.controls.costPrice.dirty) {
+      patch.costPrice = details.costPrice;
+    }
+
+    if (!this.form.controls.mrp.dirty) {
+      patch.mrp = details.mrp;
+    }
+
+    if (!this.form.controls.salesPrice.dirty) {
+      patch.salesPrice = details.salesPrice;
+    }
+
+    return patch;
   }
 
   private nullable(value: string): string | null {
@@ -369,14 +468,6 @@ export class InventoryBatchPageComponent {
       severity: 'error',
       summary: this.translate(messageKey),
       life: 3500,
-    });
-  }
-
-  private showInfo(messageKey: string): void {
-    this.messageService.add({
-      severity: 'info',
-      summary: this.translate(messageKey),
-      life: 2500,
     });
   }
 

@@ -3,6 +3,7 @@ using System;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intelibill.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260405173818_AddTaxIncludedToInventoryBatches")]
+    partial class AddTaxIncludedToInventoryBatches
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,6 +136,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("manufacturing_date");
 
+                    b.Property<decimal>("MinSalePrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("min_sale_price");
+
                     b.Property<decimal>("Mrp")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -203,6 +211,8 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.ToTable("inventory_batches", null, t =>
                         {
+                            t.HasCheckConstraint("ck_inventory_batches_min_sale_lte_sales", "min_sale_price <= sales_price");
+
                             t.HasCheckConstraint("ck_inventory_batches_quantity_non_negative", "quantity >= 0");
 
                             t.HasCheckConstraint("ck_inventory_batches_sales_lte_mrp", "sales_price <= mrp");

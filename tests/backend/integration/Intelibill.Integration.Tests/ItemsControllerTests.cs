@@ -119,4 +119,143 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task GetProductDetails_WithValidProductName_Returns200WithDetails()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var productName = $"Product {Guid.NewGuid():N}";
+        var barcode = $"BCODE-{Guid.NewGuid():N}";
+
+        // Create item and batch via inventory inbound
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = productName,
+            barcode,
+            itemDescription = "Test Description",
+            uom = "kg",
+            batchNumber = "BATCH-001",
+            quantity = 10.0m,
+            costPrice = 50.0m,
+            mrp = 100.0m,
+            salesPrice = 90.0m,
+            taxRatePercent = 5.0m,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            referenceNumber = "REF-001",
+            notes = "Test batch",
+            performedAt = (DateTimeOffset?)null,
+        });
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        inboundResponse.EnsureSuccessStatusCode();
+
+        // Get product details by name
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items/details?name={Uri.EscapeDataString(productName)}");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        var body = await detailsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Test Description", body.GetProperty("description").GetString());
+        Assert.Equal("kg", body.GetProperty("uom").GetString());
+        Assert.Equal(50.0m, body.GetProperty("costPrice").GetDecimal());
+        Assert.Equal(100.0m, body.GetProperty("mrp").GetDecimal());
+        Assert.Equal(90.0m, body.GetProperty("salesPrice").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WithValidBarcode_Returns200WithDetails()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var productName = $"Product {Guid.NewGuid():N}";
+        var barcode = $"BCODE-{Guid.NewGuid():N}";
+
+        // Create item and batch
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = productName,
+            barcode,
+            itemDescription = "Barcode Test",
+            uom = "piece",
+            batchNumber = "BATCH-002",
+            quantity = 5.0m,
+            costPrice = 25.0m,
+            mrp = 50.0m,
+            salesPrice = 45.0m,
+            taxRatePercent = 10.0m,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            referenceNumber = "",
+            notes = "",
+            performedAt = (DateTimeOffset?)null,
+        });
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        inboundResponse.EnsureSuccessStatusCode();
+
+        // Get product details by barcode
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items/details?barcode={Uri.EscapeDataString(barcode)}");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        var body = await detailsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Barcode Test", body.GetProperty("description").GetString());
+        Assert.Equal("piece", body.GetProperty("uom").GetString());
+        Assert.Equal(25.0m, body.GetProperty("costPrice").GetDecimal());
+        Assert.Equal(50.0m, body.GetProperty("mrp").GetDecimal());
+        Assert.Equal(45.0m, body.GetProperty("salesPrice").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WithUnknownProduct_Returns404()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/items/details?name=NonExistentProduct");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.NotFound, detailsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WithoutParameters_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/items/details");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, detailsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProductDetails_Unauthorized_Returns401()
+    {
+        using var client = CreateClient();
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/items/details?name=Product");
+        // No authorization header
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, detailsResponse.StatusCode);
+    }
 }

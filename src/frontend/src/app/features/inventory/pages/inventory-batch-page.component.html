@@ -25,14 +25,20 @@
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
-        <p-autocomplete
-          formControlName="barcode"
-          [suggestions]="barcodeSuggestions()"
-          (completeMethod)="onFilterBarcode($event)"
-          (onSelect)="onBarcodeSelected($event.value)"
-          appendTo="body"
-          [fluid]="true"
-        ></p-autocomplete>
+        <div class="barcode-field-wrapper" [style.position]="'relative'">
+          <p-autocomplete
+            formControlName="barcode"
+            [suggestions]="barcodeSuggestions()"
+            (completeMethod)="onFilterBarcode($event)"
+            (onSelect)="onBarcodeSelected($event.value)"
+            (focusout)="onBarcodeFocusOut()"
+            appendTo="body"
+            [fluid]="true"
+          ></p-autocomplete>
+          <div *ngIf="loadingProduct()" class="barcode-loading-overlay">
+            <p-progressSpinner styleClass="h-6 w-6" strokeWidth="6"></p-progressSpinner>
+          </div>
+        </div>
       </label>
 
       <label>
@@ -69,22 +75,42 @@
 
       <label>
         <span>{{ 'inventory.costPrice' | transloco }}</span>
-        <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber formControlName="costPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        </p-inputgroup>
       </label>
 
       <label>
         <span>{{ 'inventory.mrp' | transloco }}</span>
-        <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber formControlName="mrp" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        </p-inputgroup>
       </label>
 
-      <label>
+      <label class="sales-price-field">
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputNumber formControlName="salesPrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
-      </label>
-
-      <label>
-        <span>{{ 'inventory.minSalePrice' | transloco }}</span>
-        <p-inputNumber formControlName="minSalePrice" [min]="0" mode="decimal" [maxFractionDigits]="2" [fluid]="true"></p-inputNumber>
+        <p-inputgroup class="sales-price-group">
+          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="salesPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            placeholder="ex: 200"
+            [minFractionDigits]="2"
+          ></p-inputNumber>
+          <p-select
+            class="sales-price-tax-mode"
+            formControlName="taxIncluded"
+            [options]="taxModeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [fluid]="true"
+          ></p-select>
+        </p-inputgroup>
       </label>
 
       <label>
