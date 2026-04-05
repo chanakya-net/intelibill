@@ -144,7 +144,7 @@ export class InventoryBatchPageComponent {
     void this.fetchProductDetails();
   }
 
-  onBarcodeBlur(): void {
+  onBarcodeFocusOut(): void {
     void this.fetchProductDetails();
   }
 
@@ -165,14 +165,12 @@ export class InventoryBatchPageComponent {
         .toPromise();
 
       if (details) {
-        this.form.patchValue({
-          itemDescription: details.description || '',
-          uom: details.uom,
-          costPrice: details.costPrice,
-          mrp: details.mrp,
-          salesPrice: details.salesPrice,
-        });
-        this.showInfo('inventory.productDetailsLoaded');
+        const patch = this.buildProductDetailsPatch(details);
+
+        if (Object.keys(patch).length > 0) {
+          this.form.patchValue(patch);
+          this.showInfo('inventory.productDetailsLoaded');
+        }
       }
     } catch (error) {
       this.showError('inventory.productDetailsLoadError');
@@ -357,6 +355,50 @@ export class InventoryBatchPageComponent {
     }
 
     await this.draftStorage.saveRows(shopId, rows);
+  }
+
+  private buildProductDetailsPatch(details: {
+    description: string;
+    uom: string;
+    costPrice: number;
+    mrp: number;
+    salesPrice: number;
+  }): Partial<{
+    itemDescription: string;
+    uom: string;
+    costPrice: number;
+    mrp: number;
+    salesPrice: number;
+  }> {
+    const patch: Partial<{
+      itemDescription: string;
+      uom: string;
+      costPrice: number;
+      mrp: number;
+      salesPrice: number;
+    }> = {};
+
+    if (!this.form.controls.itemDescription.dirty) {
+      patch.itemDescription = details.description || '';
+    }
+
+    if (!this.form.controls.uom.dirty) {
+      patch.uom = details.uom;
+    }
+
+    if (!this.form.controls.costPrice.dirty) {
+      patch.costPrice = details.costPrice;
+    }
+
+    if (!this.form.controls.mrp.dirty) {
+      patch.mrp = details.mrp;
+    }
+
+    if (!this.form.controls.salesPrice.dirty) {
+      patch.salesPrice = details.salesPrice;
+    }
+
+    return patch;
   }
 
   private nullable(value: string): string | null {

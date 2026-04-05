@@ -31,7 +31,7 @@
             [suggestions]="barcodeSuggestions()"
             (completeMethod)="onFilterBarcode($event)"
             (onSelect)="onBarcodeSelected($event.value)"
-            (blur)="onBarcodeBlur()"
+            (focusout)="onBarcodeFocusOut()"
             appendTo="body"
             [fluid]="true"
           ></p-autocomplete>
