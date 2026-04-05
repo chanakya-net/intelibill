@@ -7,6 +7,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
+using Intelibill.Application.Features.Items.Queries.StreamItems;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,6 @@ namespace Intelibill.Api.Controllers;
 [Authorize]
 public sealed class ItemsController(
     IMessageBus bus,
-    IUserRepository userRepository,
     IItemRepository itemRepository) : ControllerBase
 {
     [HttpGet("stream")]
@@ -39,16 +39,13 @@ public sealed class ItemsController(
             return;
         }
 
-        var caller = await userRepository.GetByIdWithDetailsAsync(userId.Value, cancellationToken);
-        if (caller is null)
-        {
-            Response.StatusCode = 401;
-            return;
-        }
+        var validation = await bus.InvokeAsync<ErrorOr<Success>>(
+            new StreamItemsQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
 
-        if (!caller.ShopMemberships.Any(sm => sm.ShopId == activeShopId.Value))
+        if (validation.IsError)
         {
-            Response.StatusCode = 403;
+            Response.StatusCode = validation.FirstError.Type == ErrorType.NotFound ? 401 : 403;
             return;
         }
 
