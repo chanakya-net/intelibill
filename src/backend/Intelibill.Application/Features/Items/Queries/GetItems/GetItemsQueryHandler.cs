@@ -28,8 +28,7 @@ public sealed class GetItemsQueryHandler(
                 item.Barcode,
                 item.Description,
                 item.Uom,
-                item.IsActive,
-                item.PreferredSupplierId))
+                item.IsActive))
             .ToList();
     }
 }

@@ -32,7 +32,6 @@ describe('inventoryReducer', () => {
             description: null,
             uom: 'ltr',
             isActive: true,
-            preferredSupplierId: null,
           },
         ],
       })
@@ -68,7 +67,6 @@ describe('inventoryReducer', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );
@@ -97,7 +95,6 @@ describe('inventoryReducer', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );

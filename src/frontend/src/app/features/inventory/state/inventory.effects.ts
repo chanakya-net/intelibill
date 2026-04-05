@@ -83,9 +83,5 @@ function getAddItemErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'errors.items.uomRequired';
   }
 
-  if (title === 'Item.PreferredSupplierNotFound') {
-    return 'errors.items.preferredSupplierNotFound';
-  }
-
   return 'errors.items.unableToAddItem';
 }

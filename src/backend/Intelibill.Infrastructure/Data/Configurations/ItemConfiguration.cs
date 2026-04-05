@@ -50,10 +50,5 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
             .WithMany()
             .HasForeignKey(i => i.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasOne<Supplier>()
-            .WithMany()
-            .HasForeignKey(i => i.PreferredSupplierId)
-            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -51,7 +51,6 @@ describe('InventoryEffects', () => {
         description: null,
         uom: 'ltr',
         isActive: true,
-        preferredSupplierId: null,
       })
     );
 
@@ -65,7 +64,6 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );
@@ -79,7 +77,6 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );
@@ -100,7 +97,6 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       })
     );
@@ -122,7 +118,6 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
-          preferredSupplierId: null,
         },
       ])
     );
@@ -141,7 +136,6 @@ describe('InventoryEffects', () => {
             description: null,
             uom: 'ltr',
             isActive: true,
-            preferredSupplierId: null,
           },
         ],
       })

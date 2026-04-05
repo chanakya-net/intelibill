@@ -31,7 +31,6 @@ describe('InventoryService', () => {
         description: null,
         uom: 'packet',
         isActive: true,
-        preferredSupplierId: null,
       })
       .subscribe((item) => {
         expect(item.name).toBe('Premium Tea');
@@ -45,7 +44,6 @@ describe('InventoryService', () => {
       description: null,
       uom: 'packet',
       isActive: true,
-      preferredSupplierId: null,
     });
 
     request.flush({
@@ -55,7 +53,6 @@ describe('InventoryService', () => {
       description: null,
       uom: 'packet',
       isActive: true,
-      preferredSupplierId: null,
     });
 
     http.verify();
@@ -80,7 +77,6 @@ describe('InventoryService', () => {
         description: null,
         uom: 'packet',
         isActive: true,
-        preferredSupplierId: null,
       },
     ]);
 

@@ -36,6 +36,18 @@
       </label>
 
       <label>
+        <span>{{ 'inventory.supplierIdOptional' | transloco }}</span>
+        <p-autocomplete
+          formControlName="supplierName"
+          [suggestions]="supplierSuggestions()"
+          (completeMethod)="onFilterSupplier($event)"
+          (onSelect)="onSupplierSelected($event.value)"
+          appendTo="body"
+          [fluid]="true"
+        ></p-autocomplete>
+      </label>
+
+      <label>
         <span>{{ 'inventory.description' | transloco }}</span>
         <input pInputText type="text" formControlName="itemDescription" />
       </label>
@@ -122,6 +134,7 @@
           <th>{{ 'inventory.name' | transloco }}</th>
           <th>{{ 'inventory.barcode' | transloco }}</th>
           <th>{{ 'inventory.batchNumber' | transloco }}</th>
+          <th>{{ 'inventory.supplier' | transloco }}</th>
           <th>{{ 'inventory.quantity' | transloco }}</th>
           <th>{{ 'inventory.salesPrice' | transloco }}</th>
           <th>{{ 'inventory.actions' | transloco }}</th>
@@ -133,6 +146,7 @@
           <td>{{ row.itemName }}</td>
           <td>{{ row.barcode }}</td>
           <td>{{ row.batchNumber }}</td>
+          <td>{{ getSupplierDisplayName(row.supplierId) }}</td>
           <td>{{ row.quantity }}</td>
           <td>{{ row.salesPrice }}</td>
           <td>
@@ -152,7 +166,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="6">
+          <td colspan="7">
             <div class="empty-state">
               <h3>{{ 'inventory.noPendingRows' | transloco }}</h3>
               <p>{{ 'inventory.noPendingRowsDescription' | transloco }}</p>

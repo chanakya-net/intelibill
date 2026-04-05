@@ -15,6 +15,7 @@ export interface InventoryInboundDraftRow {
   readonly taxRatePercent: number;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
+  readonly supplierId: string | null;
   readonly referenceNumber: string | null;
   readonly notes: string | null;
   readonly performedAt: string | null;

@@ -19,6 +19,7 @@ public class InventoryBatchTests
             taxRatePercent: 18m,
             expiryDate: null,
             manufacturingDate: DateOnly.FromDateTime(DateTime.UtcNow),
+            supplierId: null,
             createdBy: Guid.NewGuid());
         Assert.False(result.IsError);
 
@@ -41,6 +42,7 @@ public class InventoryBatchTests
             taxRatePercent: 101m,
             expiryDate: null,
             manufacturingDate: null,
+            supplierId: null,
             createdBy: Guid.NewGuid());
 
         Assert.True(result.IsError);
@@ -62,6 +64,7 @@ public class InventoryBatchTests
             taxRatePercent: 18m,
             expiryDate: null,
             manufacturingDate: null,
+            supplierId: null,
             createdBy: Guid.NewGuid());
         Assert.False(createResult.IsError);
 

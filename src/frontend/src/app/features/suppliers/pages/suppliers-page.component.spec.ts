@@ -1,19 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { Supplier } from '../services/supplier.service';
-import { SuppliersActions } from '../state/suppliers.actions';
-import {
-  selectSuppliers,
-  selectSuppliersErrorMessage,
-  selectSuppliersLastMutationSucceeded,
-  selectSuppliersLastMutationType,
-  selectSuppliersLoading,
-} from '../state/suppliers.selectors';
+import { SuppliersFacade } from '../state/suppliers.facade';
 import { SuppliersPageComponent } from './suppliers-page.component';
 
 describe('SuppliersPageComponent', () => {
@@ -36,31 +28,15 @@ describe('SuppliersPageComponent', () => {
   const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | null>(null);
   const lastMutationSucceededSignal = signal(false);
 
-  const store = {
-    dispatch: vi.fn(),
-    selectSignal: vi.fn((selector: unknown) => {
-      if (selector === selectSuppliers) {
-        return suppliersSignal;
-      }
-
-      if (selector === selectSuppliersLoading) {
-        return loadingSignal;
-      }
-
-      if (selector === selectSuppliersErrorMessage) {
-        return errorSignal;
-      }
-
-      if (selector === selectSuppliersLastMutationType) {
-        return lastMutationTypeSignal;
-      }
-
-      if (selector === selectSuppliersLastMutationSucceeded) {
-        return lastMutationSucceededSignal;
-      }
-
-      return signal(null);
-    }),
+  const suppliersFacade = {
+    suppliers: suppliersSignal,
+    isLoading: loadingSignal,
+    errorMessage: errorSignal,
+    lastMutationType: lastMutationTypeSignal,
+    lastMutationSucceeded: lastMutationSucceededSignal,
+    load: vi.fn(),
+    clearError: vi.fn(),
+    clearMutationStatus: vi.fn(),
   };
 
   const sessionSignal = signal({
@@ -85,7 +61,9 @@ describe('SuppliersPageComponent', () => {
   };
 
   beforeEach(() => {
-    store.dispatch.mockReset();
+    suppliersFacade.load.mockReset();
+    suppliersFacade.clearError.mockReset();
+    suppliersFacade.clearMutationStatus.mockReset();
     suppliersSignal.set([
       {
         supplierId: 's1',
@@ -108,7 +86,7 @@ describe('SuppliersPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [SuppliersPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
-        { provide: Store, useValue: store },
+        { provide: SuppliersFacade, useValue: suppliersFacade },
         { provide: AuthService, useValue: authService },
       ],
     });
@@ -121,7 +99,7 @@ describe('SuppliersPageComponent', () => {
   it('loads suppliers on init', () => {
     TestBed.createComponent(SuppliersPageComponent);
 
-    expect(store.dispatch).toHaveBeenCalledWith(SuppliersActions.loadSuppliersRequested());
+    expect(suppliersFacade.load).toHaveBeenCalled();
   });
 
   it('closes add overlay on successful add mutation', () => {
@@ -136,7 +114,7 @@ describe('SuppliersPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.showAddSupplierOverlay()).toBe(false);
-    expect(store.dispatch).toHaveBeenCalledWith(SuppliersActions.clearMutationStatus());
+    expect(suppliersFacade.clearMutationStatus).toHaveBeenCalled();
   });
 
   it('allows editing only for owner role', () => {

@@ -52,6 +52,8 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasPrecision(5, 2)
             .IsRequired();
 
+        builder.Property(b => b.SupplierId);
+
         builder.Property(b => b.CreatedBy)
             .IsRequired();
 
@@ -61,6 +63,7 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .IsUnique();
 
         builder.HasIndex(b => new { b.ShopId, b.ExpiryDate });
+        builder.HasIndex(b => new { b.ShopId, b.SupplierId });
         builder.HasIndex(b => new { b.Id, b.ItemId, b.ShopId })
             .IsUnique();
 
@@ -74,5 +77,10 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasPrincipalKey(i => new { i.Id, i.ShopId })
             .HasForeignKey(b => new { b.ItemId, b.ShopId })
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Supplier>()
+            .WithMany()
+            .HasForeignKey(b => b.SupplierId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

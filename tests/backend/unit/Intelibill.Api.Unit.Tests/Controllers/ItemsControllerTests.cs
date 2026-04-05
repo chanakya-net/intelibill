@@ -49,7 +49,7 @@ public class ItemsControllerTests
 
         var items = (IReadOnlyList<ItemDto>)
         [
-            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, null),
+            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true),
         ];
 
         _bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
@@ -85,7 +85,7 @@ public class ItemsControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         var request = CreateRequest();
-        var dto = new ItemDto(Guid.NewGuid(), request.Name, request.Barcode, request.Description, request.Uom, request.IsActive, request.PreferredSupplierId);
+        var dto = new ItemDto(Guid.NewGuid(), request.Name, request.Barcode, request.Description, request.Uom, request.IsActive);
 
         _bus.InvokeAsync<ErrorOr<ItemDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
@@ -171,8 +171,8 @@ public class ItemsControllerTests
         _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
 
-        var item1 = Item.Create(shopId, "Milk", null, "ltr", "B001", true, null, userId);
-        var item2 = Item.Create(shopId, "Rice", "Premium", "kg", "B002", true, null, userId);
+        var item1 = Item.Create(shopId, "Milk", null, "ltr", "B001", true, userId);
+        var item2 = Item.Create(shopId, "Rice", "Premium", "kg", "B002", true, userId);
         _itemRepository.StreamByShopIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(AsyncItems(item1, item2));
 
@@ -229,8 +229,7 @@ public class ItemsControllerTests
             Barcode: "111",
             Description: "Premium",
             Uom: "kg",
-            IsActive: true,
-            PreferredSupplierId: null);
+            IsActive: true);
 
     private System.IO.MemoryStream SetResponseBody()
     {

@@ -26,6 +26,7 @@
     "@angular/service-worker": "^21.2.0",
     "@angular/ssr": "^21.2.4",
     "@ngneat/transloco": "^6.0.4",
+    "@ngrx/entity": "^21.1.0",
     "@ngrx/effects": "^21.1.0",
     "@ngrx/store": "^21.1.0",
     "@ngrx/store-devtools": "^21.1.0",

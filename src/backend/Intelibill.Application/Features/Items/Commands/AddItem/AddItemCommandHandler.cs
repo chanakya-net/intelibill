@@ -43,7 +43,6 @@ public sealed class AddItemCommandHandler(
             command.Uom,
             normalizedBarcode,
             command.IsActive,
-            command.PreferredSupplierId,
             command.ActorUserId);
 
         await itemRepository.AddAsync(item, cancellationToken);
@@ -55,7 +54,6 @@ public sealed class AddItemCommandHandler(
             item.Barcode,
             item.Description,
             item.Uom,
-            item.IsActive,
-            item.PreferredSupplierId);
+            item.IsActive);
     }
 }

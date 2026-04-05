@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
@@ -9,12 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { RootState } from '../../../core/state/app.state';
-import { SuppliersActions } from '../state/suppliers.actions';
-import {
-  selectSuppliersErrorMessage,
-  selectSuppliersSubmitting,
-} from '../state/suppliers.selectors';
+import { SuppliersFacade } from '../state/suppliers.facade';
 
 @Component({
   selector: 'app-add-supplier-overlay',
@@ -25,10 +19,10 @@ import {
 })
 export class AddSupplierOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
-  private readonly store = inject(Store<RootState>);
+  private readonly suppliersFacade = inject(SuppliersFacade);
 
-  readonly isSubmitting = this.store.selectSignal(selectSuppliersSubmitting);
-  readonly serverError = this.store.selectSignal(selectSuppliersErrorMessage);
+  readonly isSubmitting = this.suppliersFacade.isSubmitting;
+  readonly serverError = this.suppliersFacade.errorMessage;
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -47,8 +41,8 @@ export class AddSupplierOverlayComponent implements OnInit {
   constructor() {}
 
   ngOnInit(): void {
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
   }
 
   onClose(): void {
@@ -69,23 +63,19 @@ export class AddSupplierOverlayComponent implements OnInit {
       return;
     }
 
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
-    this.store.dispatch(
-      SuppliersActions.addSupplierRequested({
-        payload: {
-          name: this.form.controls.name.value.trim(),
-          contactPersonName: this.nullableTrimmed(this.form.controls.contactPersonName.value),
-          contactPersonPhone: this.nullableTrimmed(this.form.controls.contactPersonPhone.value),
-          address: this.form.controls.address.value.trim(),
-          city: this.form.controls.city.value.trim(),
-          state: this.form.controls.state.value.trim(),
-          pin: this.form.controls.pin.value.trim(),
-          isActive: this.form.controls.isActive.value,
-          isPreferred: this.form.controls.isPreferred.value,
-        },
-      })
-    );
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
+    this.suppliersFacade.addSupplier({
+      name: this.form.controls.name.value.trim(),
+      contactPersonName: this.nullableTrimmed(this.form.controls.contactPersonName.value),
+      contactPersonPhone: this.nullableTrimmed(this.form.controls.contactPersonPhone.value),
+      address: this.form.controls.address.value.trim(),
+      city: this.form.controls.city.value.trim(),
+      state: this.form.controls.state.value.trim(),
+      pin: this.form.controls.pin.value.trim(),
+      isActive: this.form.controls.isActive.value,
+      isPreferred: this.form.controls.isPreferred.value,
+    });
   }
 
   private nullableTrimmed(value: string): string | null {

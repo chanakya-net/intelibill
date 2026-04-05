@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
@@ -9,13 +8,8 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { RootState } from '../../../core/state/app.state';
 import { Supplier } from '../services/supplier.service';
-import { SuppliersActions } from '../state/suppliers.actions';
-import {
-  selectSuppliersErrorMessage,
-  selectSuppliersSubmitting,
-} from '../state/suppliers.selectors';
+import { SuppliersFacade } from '../state/suppliers.facade';
 
 @Component({
   selector: 'app-edit-supplier-overlay',
@@ -26,10 +20,10 @@ import {
 })
 export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   private readonly formBuilder = inject(FormBuilder);
-  private readonly store = inject(Store<RootState>);
+  private readonly suppliersFacade = inject(SuppliersFacade);
 
-  readonly isSubmitting = this.store.selectSignal(selectSuppliersSubmitting);
-  readonly serverError = this.store.selectSignal(selectSuppliersErrorMessage);
+  readonly isSubmitting = this.suppliersFacade.isSubmitting;
+  readonly serverError = this.suppliersFacade.errorMessage;
 
   @Input({ required: true }) supplier!: Supplier;
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -50,8 +44,8 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.patchForm();
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -80,24 +74,19 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
-    this.store.dispatch(SuppliersActions.clearError());
-    this.store.dispatch(SuppliersActions.clearMutationStatus());
-    this.store.dispatch(
-      SuppliersActions.editSupplierRequested({
-        supplierId: this.supplier.supplierId,
-        payload: {
-          name: this.form.controls.name.value.trim(),
-          contactPersonName: this.nullableTrimmed(this.form.controls.contactPersonName.value),
-          contactPersonPhone: this.nullableTrimmed(this.form.controls.contactPersonPhone.value),
-          address: this.form.controls.address.value.trim(),
-          city: this.form.controls.city.value.trim(),
-          state: this.form.controls.state.value.trim(),
-          pin: this.form.controls.pin.value.trim(),
-          isActive: this.form.controls.isActive.value,
-          isPreferred: this.form.controls.isPreferred.value,
-        },
-      })
-    );
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
+    this.suppliersFacade.editSupplier(this.supplier.supplierId, {
+      name: this.form.controls.name.value.trim(),
+      contactPersonName: this.nullableTrimmed(this.form.controls.contactPersonName.value),
+      contactPersonPhone: this.nullableTrimmed(this.form.controls.contactPersonPhone.value),
+      address: this.form.controls.address.value.trim(),
+      city: this.form.controls.city.value.trim(),
+      state: this.form.controls.state.value.trim(),
+      pin: this.form.controls.pin.value.trim(),
+      isActive: this.form.controls.isActive.value,
+      isPreferred: this.form.controls.isPreferred.value,
+    });
   }
 
   private patchForm(): void {

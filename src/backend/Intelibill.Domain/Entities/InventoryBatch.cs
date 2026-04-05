@@ -16,6 +16,7 @@ public sealed class InventoryBatch : BaseEntity
     public decimal TaxRatePercent { get; private set; }
     public DateOnly? ExpiryDate { get; private set; }
     public DateOnly? ManufacturingDate { get; private set; }
+    public Guid? SupplierId { get; private set; }
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
@@ -36,6 +37,7 @@ public sealed class InventoryBatch : BaseEntity
         decimal taxRatePercent,
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
+        Guid? supplierId,
         Guid createdBy)
     {
         var validation = ValidateBatch(batchNumber, quantity, salesPrice, minSalePrice, mrp, taxRatePercent);
@@ -57,6 +59,7 @@ public sealed class InventoryBatch : BaseEntity
             TaxRatePercent = taxRatePercent,
             ExpiryDate = expiryDate,
             ManufacturingDate = manufacturingDate,
+            SupplierId = supplierId,
             CreatedBy = createdBy,
         };
     }
@@ -71,6 +74,7 @@ public sealed class InventoryBatch : BaseEntity
         decimal taxRatePercent,
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
+        Guid? supplierId,
         Guid updatedBy)
     {
         var validation = ValidateBatch(batchNumber, quantity, salesPrice, minSalePrice, mrp, taxRatePercent);
@@ -88,6 +92,7 @@ public sealed class InventoryBatch : BaseEntity
         TaxRatePercent = taxRatePercent;
         ExpiryDate = expiryDate;
         ManufacturingDate = manufacturingDate;
+        SupplierId = supplierId;
         UpdatedBy = updatedBy;
 
         return Result.Success;

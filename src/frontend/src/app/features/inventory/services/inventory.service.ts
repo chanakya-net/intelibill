@@ -12,7 +12,6 @@ export interface Item {
   readonly description: string | null;
   readonly uom: string;
   readonly isActive: boolean;
-  readonly preferredSupplierId: string | null;
 }
 
 export interface AddItemRequest {
@@ -21,7 +20,6 @@ export interface AddItemRequest {
   readonly description: string | null;
   readonly uom: string;
   readonly isActive: boolean;
-  readonly preferredSupplierId: string | null;
 }
 
 export interface AddInventoryBatchRowRequest {
@@ -39,6 +37,7 @@ export interface AddInventoryBatchRowRequest {
   readonly taxRatePercent: number;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
+  readonly supplierId: string | null;
   readonly referenceNumber: string | null;
   readonly notes: string | null;
   readonly performedAt: string | null;

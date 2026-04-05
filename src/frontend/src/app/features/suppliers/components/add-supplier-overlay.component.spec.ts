@@ -1,52 +1,27 @@
-import { signal, Signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AddSupplierOverlayComponent } from './add-supplier-overlay.component';
-import { SuppliersActions } from '../state/suppliers.actions';
-import {
-  selectSuppliersErrorMessage,
-  selectSuppliersLastMutationSucceeded,
-  selectSuppliersLastMutationType,
-  selectSuppliersSubmitting,
-} from '../state/suppliers.selectors';
+import { SuppliersFacade } from '../state/suppliers.facade';
 
 describe('AddSupplierOverlayComponent', () => {
-  const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | null>(null);
-  const lastMutationSucceededSignal = signal(false);
 
-  const store = {
-    dispatch,
-    selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
-      if (selector === selectSuppliersSubmitting) {
-        return isSubmittingSignal;
-      }
-
-      if (selector === selectSuppliersErrorMessage) {
-        return errorSignal;
-      }
-
-      if (selector === selectSuppliersLastMutationType) {
-        return lastMutationTypeSignal;
-      }
-
-      if (selector === selectSuppliersLastMutationSucceeded) {
-        return lastMutationSucceededSignal;
-      }
-
-      return signal(undefined);
-    }),
+  const suppliersFacade = {
+    isSubmitting: isSubmittingSignal,
+    errorMessage: errorSignal,
+    clearError: vi.fn(),
+    clearMutationStatus: vi.fn(),
+    addSupplier: vi.fn(),
   };
 
   function setup(): AddSupplierOverlayComponent {
     TestBed.configureTestingModule({
       imports: [AddSupplierOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [{ provide: SuppliersFacade, useValue: suppliersFacade }],
     });
 
     const fixture = TestBed.createComponent(AddSupplierOverlayComponent);
@@ -55,12 +30,11 @@ describe('AddSupplierOverlayComponent', () => {
   }
 
   beforeEach(() => {
-    dispatch.mockReset();
-    store.selectSignal.mockClear();
+    suppliersFacade.clearError.mockReset();
+    suppliersFacade.clearMutationStatus.mockReset();
+    suppliersFacade.addSupplier.mockReset();
     isSubmittingSignal.set(false);
     errorSignal.set('');
-    lastMutationTypeSignal.set(null);
-    lastMutationSucceededSignal.set(false);
   });
 
   afterEach(() => {
@@ -80,9 +54,7 @@ describe('AddSupplierOverlayComponent', () => {
     component.onSubmit();
 
     expect(component.form.controls.contactPersonPhone.invalid).toBe(true);
-    expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: SuppliersActions.addSupplierRequested.type })
-    );
+    expect(suppliersFacade.addSupplier).not.toHaveBeenCalled();
   });
 
   it('dispatches add supplier request with trimmed payload', () => {
@@ -100,22 +72,18 @@ describe('AddSupplierOverlayComponent', () => {
 
     component.onSubmit();
 
-    expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearError());
-    expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearMutationStatus());
-    expect(dispatch).toHaveBeenCalledWith(
-      SuppliersActions.addSupplierRequested({
-        payload: {
-          name: 'Fresh Foods',
-          contactPersonName: 'Ramesh',
-          contactPersonPhone: '+919999999999',
-          address: '42 MG Road',
-          city: 'Bengaluru',
-          state: 'Karnataka',
-          pin: '560001',
-          isActive: true,
-          isPreferred: true,
-        },
-      })
-    );
+    expect(suppliersFacade.clearError).toHaveBeenCalled();
+    expect(suppliersFacade.clearMutationStatus).toHaveBeenCalled();
+    expect(suppliersFacade.addSupplier).toHaveBeenCalledWith({
+      name: 'Fresh Foods',
+      contactPersonName: 'Ramesh',
+      contactPersonPhone: '+919999999999',
+      address: '42 MG Road',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pin: '560001',
+      isActive: true,
+      isPreferred: true,
+    });
   });
 });
