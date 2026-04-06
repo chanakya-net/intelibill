@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, inject, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { BadgeModule } from 'primeng/badge';
 import { DialogModule } from 'primeng/dialog';
@@ -281,16 +282,20 @@ export class SupplierDetailComponent {
   private _tableEntries: Array<SupplierLedgerEntry & { entryTypeLabel: string; entryTypeClass: string }> = [];
   private _totalAmount = 0;
 
+  constructor() {
+    this.transloco.langChanges$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.rebuildTableEntries();
+      });
+  }
+
   private loadLedgerEntries(supplierId: string): void {
     this._isLoading = true;
     this.ledgerService.getSupplierLedgerEntries(supplierId).subscribe(
       (entries) => {
         this._entries = [...entries];
-        this._tableEntries = entries.map((entry) => ({
-          ...entry,
-          entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
-          entryTypeClass: this.getEntryTypeClass(entry.entryType),
-        }));
+        this.rebuildTableEntries();
         this._totalAmount = this._entries.reduce((sum, entry) => sum + entry.amount, 0);
         this._isLoading = false;
       },
@@ -301,6 +306,14 @@ export class SupplierDetailComponent {
         this._totalAmount = 0;
       }
     );
+  }
+
+  private rebuildTableEntries(): void {
+    this._tableEntries = this._entries.map((entry) => ({
+      ...entry,
+      entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
+      entryTypeClass: this.getEntryTypeClass(entry.entryType),
+    }));
   }
 
   getEntryTypeLabel(entryType: SupplierLedgerEntry['entryType']): string {

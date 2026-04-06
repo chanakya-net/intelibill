@@ -60,6 +60,7 @@ describe('SuppliersEffects', () => {
           status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
+          balanceDue: 1500,
         },
       ])
     );
@@ -83,6 +84,7 @@ describe('SuppliersEffects', () => {
             status: SupplierStatus.IWillReceive,
             isActive: true,
             isPreferred: false,
+            balanceDue: 1500,
           },
         ],
       })

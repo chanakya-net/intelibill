@@ -203,6 +203,7 @@
     "productDetailsLoaded": "उत्पाद विवरण सफलतापूर्वक लोड हुए।",
     "productDetailsLoadError": "उत्पाद विवरण लोड करने में विफल। कृपया पुनः प्रयास करें।",
     "productForm": "उत्पाद फॉर्म जोड़ें"
+  },
   "profile": {
     "account": "खाता",
     "updateProfile": "प्रोफाइल अपडेट करें",

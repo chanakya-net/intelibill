@@ -203,6 +203,7 @@
     "productDetailsLoaded": "ಉತ್ಪನ್ನ ವಿವರಗಳು ಯಶಸ್ವಿಯಾಗಿ ಲೋಡ್ ಆಗಿದೆ.",
     "productDetailsLoadError": "ಉತ್ಪನ್ನ ವಿವರಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲ. ದಯವಿಟ್ಟು ಮನೆ ಕೊಡಿ.",
     "productForm": "ಉತ್ಪನ್ನ ಫಾರ್ಮ್ ಸೇರಿಸಿ"
+  },
   "profile": {
     "account": "ಖಾತೆ",
     "updateProfile": "ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಿ",
