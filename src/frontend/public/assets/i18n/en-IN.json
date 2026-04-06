@@ -4,7 +4,8 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "clear": "Clear"
   },
   "languages": {
     "en-IN": "English",
@@ -118,6 +119,7 @@
     "pin": "PIN",
     "status": "Status",
     "supplier": "Supplier",
+    "details": "Details",
     "preferred": "Preferred",
     "actions": "Actions",
     "active": "Active",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "No suppliers found",
     "noSuppliersDescription": "Start by adding your first supplier.",
     "isActive": "Is Active",
-    "isPreferred": "Is Preferred"
+    "isPreferred": "Is Preferred",
+    "balance": "Balance",
+    "ledgerEntries": "Ledger Entries",
+    "entryType": "Entry Type",
+    "amount": "Amount",
+    "entryDate": "Entry Date",
+    "notes": "Notes",
+    "noEntriesFound": "No ledger entries found",
+    "searchEntries": "Search entries",
+    "searchEntryType": "Search entry type",
+    "searchAmount": "Search amount",
+    "searchEntryDate": "Search date",
+    "searchNotes": "Search notes",
+    "totalAmount": "Total Amount",
+    "entryTypes": {
+      "goodsReceived": "Goods Received",
+      "paymentMade": "Payment Made",
+      "recordAdjusted": "Record Adjusted"
+    },
+    "searchLedger": "Search ledger"
   },
   "inventory": {
     "directory": "Inventory Directory",

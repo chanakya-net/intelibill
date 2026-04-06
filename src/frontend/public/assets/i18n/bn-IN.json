@@ -4,7 +4,8 @@
     "firstName": "নামের প্রথম অংশ",
     "lastName": "নামের শেষ অংশ",
     "cancel": "বাতিল",
-    "close": "বন্ধ করুন"
+    "close": "বন্ধ করুন",
+    "clear": "পরিষ্কার করুন"
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -118,6 +119,7 @@
     "pin": "পিন",
     "status": "স্থিতি",
     "supplier": "Supplier",
+    "details": "বিস্তারিত",
     "preferred": "পছন্দের",
     "actions": "কার্যাবলি",
     "active": "সক্রিয়",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "কোনো সরবরাহকারী পাওয়া যায়নি",
     "noSuppliersDescription": "আপনার প্রথম সরবরাহকারী যোগ করে শুরু করুন।",
     "isActive": "সক্রিয় আছে",
-    "isPreferred": "পছন্দের আছে"
+    "isPreferred": "পছন্দের আছে",
+    "balance": "ব্যালেন্স",
+    "ledgerEntries": "লেজার এন্ট্রি",
+    "entryType": "এন্ট্রি ধরন",
+    "amount": "পরিমাণ",
+    "entryDate": "এন্ট্রি তারিখ",
+    "notes": "নোট",
+    "noEntriesFound": "কোনো লেজার এন্ট্রি পাওয়া যায়নি",
+    "searchEntries": "এন্ট্রি অনুসন্ধান",
+    "searchEntryType": "এন্ট্রি ধরন খুঁজুন",
+    "searchAmount": "পরিমাণ খুঁজুন",
+    "searchEntryDate": "তারিখ খুঁজুন",
+    "searchNotes": "নোট খুঁজুন",
+    "totalAmount": "মোট পরিমাণ",
+    "entryTypes": {
+      "goodsReceived": "পণ্য গ্রহণ",
+      "paymentMade": "পেমেন্ট করা হয়েছে",
+      "recordAdjusted": "রেকর্ড সমন্বয়"
+    },
+    "searchLedger": "খাতা খুঁজুন"
   },
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",
@@ -150,7 +171,7 @@
     "supplierIdOptional": "পছন্দের সরবরাহকারী আইডি (ঐচ্ছিক)",
     "addNewProduct": "নতুন পণ্য যোগ করুন",
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
-    "productForm": "পণ্য যোগ করার ফর্ম",
+    "productForm": "পণ্য ফর্ম যোগ করুন",
     "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
     "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
     "batchInboundTitle": "ইনভেন্টরি যোগ করুন",
@@ -182,8 +203,8 @@
     "batchLimitReached": "আপনি একবারে ১০০টি পর্যন্ত সারি সংরক্ষণ করতে পারবেন।",
     "removeFailed": "ব্যর্থ সারি পুনরায় চেষ্টা করার জন্য গ্রিডে থাকে।",
     "productDetailsLoaded": "পণ্য বিশদ সফলভাবে লোড হয়েছে।",
-    "productDetailsLoadError": "পণ্য বিশদ লোড করতে ব্যর্থ। দয়া করে আবার চেষ্টা করুন।",
-    "productForm": "পণ্য ফর্ম যোগ করুন"
+    "productDetailsLoadError": "পণ্য বিশদ লোড করতে ব্যর্থ। দয়া করে আবার চেষ্টা করুন।"
+  },
   "profile": {
     "account": "অ্যাকাউন্ট",
     "updateProfile": "প্রোফাইল আপডেট",

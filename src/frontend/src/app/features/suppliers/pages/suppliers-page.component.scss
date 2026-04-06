@@ -48,6 +48,12 @@ h1 {
   overflow: hidden;
 }
 
+.balance-button {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+
 .status-pill {
   display: inline-block;
   border-radius: 9999px;

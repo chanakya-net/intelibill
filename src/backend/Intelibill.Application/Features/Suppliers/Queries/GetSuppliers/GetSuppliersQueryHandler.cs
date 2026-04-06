@@ -9,7 +9,8 @@ namespace Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
 public sealed class GetSuppliersQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISupplierRepository supplierRepository)
+    ISupplierRepository supplierRepository,
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<SupplierDto>>> HandleAsync(GetSuppliersQuery query, CancellationToken cancellationToken)
     {
@@ -31,8 +32,11 @@ public sealed class GetSuppliersQueryHandler(
 
         var suppliers = await supplierRepository.GetByOwnerUserIdAsync(ownerMembership.UserId, cancellationToken);
 
-        return suppliers
-            .Select(s => new SupplierDto(
+        var result = new List<SupplierDto>();
+        foreach (var s in suppliers)
+        {
+            var balance = await supplierLedgerEntryRepository.GetSupplierBalanceAsync(query.ActiveShopId, s.Id, cancellationToken);
+            result.Add(new SupplierDto(
                 s.Id,
                 s.Name,
                 s.ContactPersonName,
@@ -44,7 +48,10 @@ public sealed class GetSuppliersQueryHandler(
                 s.Amount,
                 s.Status,
                 s.IsActive,
-                s.IsPreferred))
-            .ToList();
+                s.IsPreferred,
+                balance));
+        }
+
+        return result;
     }
 }

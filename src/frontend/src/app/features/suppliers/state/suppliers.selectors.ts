@@ -15,3 +15,7 @@ export const selectSuppliersLastMutationSucceeded = createSelector(
   selectSuppliersState,
   (state) => state.lastMutationSucceeded
 );
+
+export const selectLedgerEntries = createSelector(selectSuppliersState, (state) => state.ledgerEntries);
+export const selectLedgerLoading = createSelector(selectSuppliersState, (state) => state.loadingLedger);
+export const selectLedgerErrorMessage = createSelector(selectSuppliersState, (state) => state.ledgerErrorMessage);

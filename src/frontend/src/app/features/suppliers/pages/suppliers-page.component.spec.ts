@@ -23,6 +23,7 @@ describe('SuppliersPageComponent', () => {
       status: 0,
       isActive: true,
       isPreferred: true,
+      balanceDue: 0,
     },
   ]);
   const loadingSignal = signal(false);
@@ -80,6 +81,7 @@ describe('SuppliersPageComponent', () => {
         status: 0,
         isActive: true,
         isPreferred: true,
+        balanceDue: 0,
       },
     ]);
     loadingSignal.set(false);

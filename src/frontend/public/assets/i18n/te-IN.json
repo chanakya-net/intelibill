@@ -4,7 +4,8 @@
     "firstName": "మొదటి పేరు",
     "lastName": "చివరి పేరు",
     "cancel": "రద్దు",
-    "close": "మూసివేయి"
+    "close": "మూసివేయి",
+    "clear": "క్లియర్"
   },
   "languages": {
     "en-IN": "ఇంగ్లీష్",
@@ -118,6 +119,7 @@
     "pin": "పిన్",
     "status": "స్థితి",
     "supplier": "Supplier",
+    "details": "వివరాలు",
     "preferred": "ప్రాధాన్యమైనది",
     "actions": "చర్యలు",
     "active": "సక్రియం",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "సరఫరాదారులు లేరు",
     "noSuppliersDescription": "మీ మొదటి సరఫరాదారిని జోడించి ప్రారంభించండి.",
     "isActive": "సక్రియంగా ఉంది",
-    "isPreferred": "ప్రాధాన్యంగా ఉంది"
+    "isPreferred": "ప్రాధాన్యంగా ఉంది",
+    "balance": "బ్యాలెన్స్",
+    "ledgerEntries": "లెడ్జర్ ఎంట్రీలు",
+    "entryType": "ఎంట్రీ రకం",
+    "amount": "మొత్తం",
+    "entryDate": "ఎంట్రీ తేదీ",
+    "notes": "గమనికలు",
+    "noEntriesFound": "లెడ్జర్ ఎంట్రీలు కనబడలేదు",
+    "searchEntries": "ఎంట్రీలను వెతకండి",
+    "searchEntryType": "ఎంట్రీ రకం వెతకండి",
+    "searchAmount": "మొత్తం వెతకండి",
+    "searchEntryDate": "తేదీ వెతకండి",
+    "searchNotes": "గమనికలు వెతకండి",
+    "totalAmount": "మొత్తం మొత్తం",
+    "entryTypes": {
+      "goodsReceived": "సరుకు స్వీకరించబడింది",
+      "paymentMade": "చెల్లింపు చేయబడింది",
+      "recordAdjusted": "రికార్డు సవరించబడింది"
+    },
+    "searchLedger": "లెడ్జర్ శోధించు"
   },
   "inventory": {
     "directory": "ఇన్వెంటరీ డైరెక్టరీ",
@@ -150,7 +171,7 @@
     "supplierIdOptional": "ప్రాధాన్య సరఫరాదారు ఐడి (ఐచ్చికం)",
     "addNewProduct": "కొత్త ఉత్పత్తి జోడించండి",
     "addNewProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.",
-    "productForm": "ఉత్పత్తి జోడించే ఫారం",
+    "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి",
     "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
     "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి.",
     "batchInboundTitle": "ఇన్వెంటరీ జోడించండి",
@@ -182,8 +203,8 @@
     "batchLimitReached": "మీరు ఒకేసారి 100 వరుసల వరకు సేవ్ చేయవచ్చు.",
     "removeFailed": "విఫలమైన వరుసలు మళ్ళీ ప్రయత్నించడానికి గ్రిడ్‌లో ఉంటాయి.",
     "productDetailsLoaded": "ఉత్పత్తి వివరాలు విజయవంతంగా లోడ్ చేయబడ్డాయి.",
-    "productDetailsLoadError": "ఉత్పత్తి వివరాలను లోడ్ చేయడంలో విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
-    "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి"
+    "productDetailsLoadError": "ఉత్పత్తి వివరాలను లోడ్ చేయడంలో విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి."
+  },
   "profile": {
     "account": "ఖాతా",
     "updateProfile": "ప్రొఫైల్ నవీకరించండి",

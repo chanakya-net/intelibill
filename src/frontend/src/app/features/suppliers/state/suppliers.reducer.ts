@@ -1,6 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
+import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
 import { SupplierMutationType, SuppliersActions } from './suppliers.actions';
 
@@ -17,6 +18,10 @@ export interface SuppliersState extends EntityState<Supplier> {
   readonly errorMessage: string;
   readonly lastMutationType: SupplierMutationType | null;
   readonly lastMutationSucceeded: boolean;
+  readonly currentLedgerSupplierId: string | null;
+  readonly ledgerEntries: readonly SupplierLedgerEntry[];
+  readonly loadingLedger: boolean;
+  readonly ledgerErrorMessage: string;
 }
 
 const initialState: SuppliersState = suppliersAdapter.getInitialState({
@@ -25,6 +30,10 @@ const initialState: SuppliersState = suppliersAdapter.getInitialState({
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
+  currentLedgerSupplierId: null,
+  ledgerEntries: [],
+  loadingLedger: false,
+  ledgerErrorMessage: '',
 });
 
 export const suppliersReducer = createReducer(
@@ -99,6 +108,31 @@ export const suppliersReducer = createReducer(
     errorMessage,
     lastMutationType: 'edit-supplier',
     lastMutationSucceeded: false,
+  })),
+
+  on(SuppliersActions.loadSupplierLedgerRequested, (state, { supplierId }) => ({
+    ...state,
+    loadingLedger: true,
+    currentLedgerSupplierId: supplierId,
+    ledgerErrorMessage: '',
+  })),
+  on(SuppliersActions.loadSupplierLedgerSucceeded, (state, { entries }) => ({
+    ...state,
+    loadingLedger: false,
+    ledgerEntries: entries,
+  })),
+  on(SuppliersActions.loadSupplierLedgerFailed, (state, { errorMessage }) => ({
+    ...state,
+    loadingLedger: false,
+    ledgerEntries: [],
+    ledgerErrorMessage: errorMessage,
+  })),
+  on(SuppliersActions.clearLedger, (state) => ({
+    ...state,
+    currentLedgerSupplierId: null,
+    ledgerEntries: [],
+    loadingLedger: false,
+    ledgerErrorMessage: '',
   })),
 
   on(SuppliersActions.clearError, (state) => ({

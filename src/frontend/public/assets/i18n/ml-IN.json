@@ -4,7 +4,8 @@
     "firstName": "ആദ്യ പേര്",
     "lastName": "അവസാന പേര്",
     "cancel": "റദ്ദാക്കുക",
-    "close": "അടയ്‌ക്കുക"
+    "close": "അടയ്‌ക്കുക",
+    "clear": "മായ്ക്കുക"
   },
   "languages": {
     "en-IN": "ഇംഗ്ലീഷ്",
@@ -118,6 +119,7 @@
     "pin": "പിൻ",
     "status": "സ്ഥിതി",
     "supplier": "Supplier",
+    "details": "വിശദാംശങ്ങൾ",
     "preferred": "മുൻഗണന",
     "actions": "പ്രവർത്തനങ്ങൾ",
     "active": "സജീവം",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "വിതരണക്കാരെ കണ്ടെത്തിയില്ല",
     "noSuppliersDescription": "നിങ്ങളുടെ ആദ്യ വിതരണക്കാരനെ ചേർത്ത് ആരംഭിക്കുക.",
     "isActive": "സജീവമാണോ",
-    "isPreferred": "മുൻഗണനയാണോ"
+    "isPreferred": "മുൻഗണനയാണോ",
+    "balance": "ബാലൻസ്",
+    "ledgerEntries": "ലെഡ്ജർ എൻട്രികൾ",
+    "entryType": "എൻട്രി തരം",
+    "amount": "തുക",
+    "entryDate": "എൻട്രി തീയതി",
+    "notes": "കുറിപ്പുകൾ",
+    "noEntriesFound": "ലെഡ്ജർ എൻട്രികൾ ഒന്നും കണ്ടെത്തിയില്ല",
+    "searchEntries": "എൻട്രികൾ തിരയുക",
+    "searchEntryType": "എൻട്രി തരം തിരയുക",
+    "searchAmount": "തുക തിരയുക",
+    "searchEntryDate": "തീയതി തിരയുക",
+    "searchNotes": "കുറിപ്പുകൾ തിരയുക",
+    "totalAmount": "ആകെ തുക",
+    "entryTypes": {
+      "goodsReceived": "സാധനങ്ങൾ ലഭിച്ചു",
+      "paymentMade": "പേയ്മെന്റ് നടത്തി",
+      "recordAdjusted": "രേഖ തിരുത്തി"
+    },
+    "searchLedger": "ലെഡ്ജർ തിരയുക"
   },
   "inventory": {
     "directory": "ഇൻവെന്ററി ഡയറക്ടറി",
@@ -150,7 +171,7 @@
     "supplierIdOptional": "മുൻഗണന വിതരണക്കാരന്റെ ഐഡി (ഐച്ഛികം)",
     "addNewProduct": "പുതിയ ഉൽപ്പന്നം ചേർക്കുക",
     "addNewProductDescription": "നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പുമായി ബന്ധിപ്പിച്ച ഒരു ഉൽപ്പന്നം സൃഷ്ടിക്കുക.",
-    "productForm": "ഉൽപ്പന്ന ചേർക്കൽ ഫോം",
+    "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക",
     "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
     "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക.",
     "batchInboundTitle": "ഇൻവെന്ററി ചേർക്കുക",
@@ -182,8 +203,8 @@
     "batchLimitReached": "നിങ്ങൾക്ക് ഒരു സമയം 100 വരികൾ വരെ സൂക്ഷിക്കാം.",
     "removeFailed": "പരാജയപ്പെട്ട വരികൾ വീണ്ടും ശ്രമിക്കാൻ ഗ്രിഡിൽ തുടരുന്നു.",
     "productDetailsLoaded": "ഉത്പന്ന വിശദാംശങ്ങൾ വിജയകരമായി ലോഡ് ചെയ്തു.",
-    "productDetailsLoadError": "ഉത്പന്ന വിശദാംശങ്ങൾ ലോഡ് ചെയ്യാൻ വിഫലമായി. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
-    "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക"
+    "productDetailsLoadError": "ഉത്പന്ന വിശദാംശങ്ങൾ ലോഡ് ചെയ്യാൻ വിഫലമായി. ദയവായി വീണ്ടും ശ്രമിക്കുക."
+  },
   "profile": {
     "account": "അക്കൗണ്ട്",
     "updateProfile": "പ്രൊഫൈൽ അപ്‌ഡേറ്റ് ചെയ്യുക",

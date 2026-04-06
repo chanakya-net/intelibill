@@ -12,6 +12,7 @@ public class GetSuppliersQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
+    private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
 
     [Fact]
     public async Task HandleAsync_WhenCallerNotInActiveShop_ReturnsForbidden()
@@ -19,7 +20,7 @@ public class GetSuppliersQueryHandlerTests
         var caller = User.CreateWithEmail("member@test.com", "hash", "Member", "One");
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
 
-        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository);
+        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -42,17 +43,24 @@ public class GetSuppliersQueryHandlerTests
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
         _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
 
-        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, Arg.Any<CancellationToken>()).Returns([
+        var suppliers = new[]
+        {
             Supplier.Create(owner.Id, "A Supplier", null, null, "Address", "City", "State", "560001", 0m, SupplierStatus.IWillReceive, true, false),
             Supplier.Create(owner.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", 1000m, SupplierStatus.INeedToPay, true, true),
-        ]);
+        };
+        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(suppliers);
 
-        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository);
+        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[0].Id, Arg.Any<CancellationToken>()).Returns(0m);
+        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[1].Id, Arg.Any<CancellationToken>()).Returns(500m);
+
+        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(2, result.Value.Count);
         Assert.Equal("A Supplier", result.Value[0].Name);
         Assert.True(result.Value[1].IsPreferred);
+        Assert.Equal(0m, result.Value[0].BalanceDue);
+        Assert.Equal(500m, result.Value[1].BalanceDue);
     }
 }

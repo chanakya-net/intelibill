@@ -4,7 +4,8 @@
     "firstName": "पहला नाम",
     "lastName": "अंतिम नाम",
     "cancel": "रद्द करें",
-    "close": "बंद करें"
+    "close": "बंद करें",
+    "clear": "साफ़ करें"
   },
   "languages": {
     "en-IN": "अंग्रेज़ी",
@@ -118,6 +119,7 @@
     "pin": "पिन",
     "status": "स्थिति",
     "supplier": "Supplier",
+    "details": "विवरण",
     "preferred": "प्राथमिक",
     "actions": "क्रियाएं",
     "active": "सक्रिय",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "कोई आपूर्तिकर्ता नहीं मिला",
     "noSuppliersDescription": "अपना पहला आपूर्तिकर्ता जोड़कर शुरुआत करें।",
     "isActive": "सक्रिय है",
-    "isPreferred": "प्राथमिक है"
+    "isPreferred": "प्राथमिक है",
+    "balance": "शेष राशि",
+    "ledgerEntries": "लेजर प्रविष्टियाँ",
+    "entryType": "प्रविष्टि प्रकार",
+    "amount": "राशि",
+    "entryDate": "प्रविष्टि तिथि",
+    "notes": "टिप्पणियाँ",
+    "noEntriesFound": "कोई लेजर प्रविष्टि नहीं मिली",
+    "searchEntries": "प्रविष्टियाँ खोजें",
+    "searchEntryType": "प्रविष्टि प्रकार खोजें",
+    "searchAmount": "राशि खोजें",
+    "searchEntryDate": "तिथि खोजें",
+    "searchNotes": "टिप्पणियाँ खोजें",
+    "totalAmount": "कुल राशि",
+    "entryTypes": {
+      "goodsReceived": "माल प्राप्त",
+      "paymentMade": "भुगतान किया गया",
+      "recordAdjusted": "रिकॉर्ड समायोजित"
+    },
+    "searchLedger": "खाता खोजें"
   },
   "inventory": {
     "directory": "इन्वेंटरी निर्देशिका",
@@ -150,7 +171,7 @@
     "supplierIdOptional": "प्राथमिक आपूर्तिकर्ता आईडी (वैकल्पिक)",
     "addNewProduct": "नया उत्पाद जोड़ें",
     "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
-    "productForm": "उत्पाद जोड़ने का फॉर्म",
+    "productForm": "उत्पाद फॉर्म जोड़ें",
     "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
     "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।",
     "batchInboundTitle": "इन्वेंटरी जोड़ें",
@@ -182,8 +203,8 @@
     "batchLimitReached": "आप एक बार में 100 पंक्तियाँ तक सहेज सकते हैं।",
     "removeFailed": "विफल पंक्तियाँ पुनः प्रयास के लिए ग्रिड में रहती हैं।",
     "productDetailsLoaded": "उत्पाद विवरण सफलतापूर्वक लोड हुए।",
-    "productDetailsLoadError": "उत्पाद विवरण लोड करने में विफल। कृपया पुनः प्रयास करें।",
-    "productForm": "उत्पाद फॉर्म जोड़ें"
+    "productDetailsLoadError": "उत्पाद विवरण लोड करने में विफल। कृपया पुनः प्रयास करें।"
+  },
   "profile": {
     "account": "खाता",
     "updateProfile": "प्रोफाइल अपडेट करें",

@@ -9,6 +9,7 @@ import { TableModule } from 'primeng/table';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AddSupplierOverlayComponent } from '../components/add-supplier-overlay.component';
 import { EditSupplierOverlayComponent } from '../components/edit-supplier-overlay.component';
+import { SupplierDetailComponent } from '../components/supplier-detail.component';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 
@@ -22,6 +23,7 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     TableModule,
     AddSupplierOverlayComponent,
     EditSupplierOverlayComponent,
+    SupplierDetailComponent,
     TranslocoPipe,
   ],
   templateUrl: './suppliers-page.component.html',
@@ -40,7 +42,10 @@ export class SuppliersPageComponent {
 
   readonly showAddSupplierOverlay = signal(false);
   readonly showEditSupplierOverlay = signal(false);
+  readonly showDetailModal = signal(false);
   readonly editingSupplier = signal<Supplier | null>(null);
+  readonly detailSupplier = signal<Supplier | null>(null);
+  readonly detailSupplierId = signal<string | null>(null);
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -53,6 +58,23 @@ export class SuppliersPageComponent {
     return activeShop?.role ?? '';
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
+
+  getBalanceLabel(supplier: Supplier): string {
+    if (supplier.balanceDue > 0) {
+      return `Amount Due: ${this.formatCurrency(supplier.balanceDue)}`;
+    }
+    if (supplier.balanceDue < 0) {
+      return `Extra Payment: ${this.formatCurrency(Math.abs(supplier.balanceDue))}`;
+    }
+    return 'No Balance';
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount);
+  }
 
   constructor() {
     this.suppliersFacade.load();
@@ -101,5 +123,17 @@ export class SuppliersPageComponent {
   onCloseEditSupplier(): void {
     this.showEditSupplierOverlay.set(false);
     this.editingSupplier.set(null);
+  }
+
+  onOpenSupplierDetail(supplier: Supplier): void {
+    this.detailSupplier.set(supplier);
+    this.detailSupplierId.set(supplier.supplierId);
+    this.showDetailModal.set(true);
+  }
+
+  onCloseSupplierDetail(): void {
+    this.showDetailModal.set(false);
+    this.detailSupplierId.set(null);
+    this.detailSupplier.set(null);
   }
 }

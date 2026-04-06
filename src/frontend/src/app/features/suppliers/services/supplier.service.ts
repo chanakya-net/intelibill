@@ -23,6 +23,7 @@ export interface Supplier {
   readonly status: SupplierStatus;
   readonly isActive: boolean;
   readonly isPreferred: boolean;
+  readonly balanceDue: number;
 }
 
 export interface AddSupplierRequest {

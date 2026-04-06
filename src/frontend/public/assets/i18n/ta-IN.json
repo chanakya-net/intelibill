@@ -4,7 +4,8 @@
     "firstName": "முதல் பெயர்",
     "lastName": "கடைசி பெயர்",
     "cancel": "ரத்து செய்",
-    "close": "மூடு"
+    "close": "மூடு",
+    "clear": "அழி"
   },
   "languages": {
     "en-IN": "ஆங்கிலம்",
@@ -118,6 +119,7 @@
     "pin": "அஞ்சல் குறியீடு",
     "status": "நிலை",
     "supplier": "Supplier",
+    "details": "விவரங்கள்",
     "preferred": "முன்னுரிமை",
     "actions": "செயல்கள்",
     "active": "செயலில்",
@@ -133,7 +135,26 @@
     "noSuppliersFound": "விநியோகஸ்தர்கள் இல்லை",
     "noSuppliersDescription": "உங்கள் முதல் விநியோகஸ்தரை சேர்த்து தொடங்குங்கள்.",
     "isActive": "செயலில் உள்ளது",
-    "isPreferred": "முன்னுரிமை உள்ளது"
+    "isPreferred": "முன்னுரிமை உள்ளது",
+    "balance": "இருப்பு",
+    "ledgerEntries": "லெட்ஜர் பதிவுகள்",
+    "entryType": "பதிவு வகை",
+    "amount": "தொகை",
+    "entryDate": "பதிவு தேதி",
+    "notes": "குறிப்புகள்",
+    "noEntriesFound": "லெட்ஜர் பதிவுகள் எதுவும் இல்லை",
+    "searchEntries": "பதிவுகளைத் தேடு",
+    "searchEntryType": "பதிவு வகையைத் தேடு",
+    "searchAmount": "தொகையைத் தேடு",
+    "searchEntryDate": "தேதியைத் தேடு",
+    "searchNotes": "குறிப்புகளைத் தேடு",
+    "totalAmount": "மொத்த தொகை",
+    "entryTypes": {
+      "goodsReceived": "பொருட்கள் பெற்றல்",
+      "paymentMade": "பணம் செலுத்தப்பட்டது",
+      "recordAdjusted": "பதிவு திருத்தப்பட்டது"
+    },
+    "searchLedger": "கணக்கு தேடு"
   },
   "inventory": {
     "directory": "சரக்கு அடைவகம்",
@@ -150,7 +171,7 @@
     "supplierIdOptional": "முன்னுரிமை வழங்குநர் ஐடி (விருப்பம்)",
     "addNewProduct": "புதிய பொருள் சேர்க்க",
     "addNewProductDescription": "தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.",
-    "productForm": "பொருள் சேர்க்கும் படிவம்",
+    "productForm": "பொருள் படிவத்தைச் சேர்க்கவும்",
     "noItemsFound": "இன்னும் பொருட்கள் சேர்க்கப்படவில்லை",
     "noItemsDescription": "இந்த கடையில் உங்கள் முதல் பொருளை உருவாக்க புதிய பொருள் சேர்க்க பயன்பாட்டை பயன்படுத்தவும்.",
     "batchInboundTitle": "சரக்கு சேர்க்க",
@@ -182,8 +203,8 @@
     "batchLimitReached": "நீங்கள் ஒரே நேரத்தில் 100 வரிசைகள் வரை சேமிக்கலாம்.",
     "removeFailed": "தோல்வியடைந்த வரிசைகள் மறுமுயற்சிக்காக கட்டத்தில் உள்ளன.",
     "productDetailsLoaded": "பொருள் விவரங்கள் வெற்றிகரமாக ஏற்றப்பட்டன.",
-    "productDetailsLoadError": "பொருள் விவரங்கள் ஏற்றுவதில் தோல்வி. மீண்டும் முயற்சிக்கவும்.",
-    "productForm": "பொருள் படிவத்தைச் சேர்க்கவும்"
+    "productDetailsLoadError": "பொருள் விவரங்கள் ஏற்றுவதில் தோல்வி. மீண்டும் முயற்சிக்கவும்."
+  },
   "profile": {
     "account": "கணக்கு",
     "updateProfile": "சுயவிவரத்தை புதுப்பி",

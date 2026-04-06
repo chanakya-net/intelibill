@@ -32,6 +32,7 @@
           <th pSortableColumn="city">{{ 'suppliers.city' | transloco }} <p-sortIcon field="city" /></th>
           <th pSortableColumn="state">{{ 'suppliers.state' | transloco }} <p-sortIcon field="state" /></th>
           <th pSortableColumn="pin">{{ 'suppliers.pin' | transloco }} <p-sortIcon field="pin" /></th>
+          <th pSortableColumn="balanceDue">{{ 'suppliers.balance' | transloco }} <p-sortIcon field="balanceDue" /></th>
           <th pSortableColumn="isActive">{{ 'suppliers.status' | transloco }} <p-sortIcon field="isActive" /></th>
           <th pSortableColumn="isPreferred">{{ 'suppliers.preferred' | transloco }} <p-sortIcon field="isPreferred" /></th>
           <th *ngIf="canManageSuppliers()">{{ 'suppliers.actions' | transloco }}</th>
@@ -46,6 +47,19 @@
           <td>{{ supplier.city }}</td>
           <td>{{ supplier.state }}</td>
           <td>{{ supplier.pin }}</td>
+          <td>
+            <button
+              pButton
+              type="button"
+              [label]="(supplier.balanceDue | currency: 'INR':'symbol':'1.0-2') || ''"
+              [title]="getBalanceLabel(supplier)"
+              severity="info"
+              text
+              size="small"
+              (click)="onOpenSupplierDetail(supplier)"
+              class="balance-button"
+            ></button>
+          </td>
           <td>
             <span class="status-pill" [class.disabled]="!supplier.isActive">
               {{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}
@@ -72,7 +86,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td [attr.colspan]="canManageSuppliers() ? 9 : 8">
+          <td [attr.colspan]="canManageSuppliers() ? 10 : 9">
             <div class="empty-state">
               <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
               <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
@@ -93,4 +107,11 @@
     [supplier]="$any(editingSupplier())"
     (closeRequested)="onCloseEditSupplier()"
   ></app-edit-supplier-overlay>
+
+  <app-supplier-detail
+    *ngIf="showDetailModal() && detailSupplierId()"
+    [supplier]="detailSupplier()"
+    [supplierId]="detailSupplierId()"
+    (closeRequested)="onCloseSupplierDetail()"
+  ></app-supplier-detail>
 </section>

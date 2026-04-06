@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -21,4 +22,17 @@ internal sealed class SupplierLedgerEntryRepository(ApplicationDbContext context
             .OrderByDescending(e => e.EntryDate)
             .ThenByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
+
+    public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
+    {
+        var goodsReceived = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == SupplierLedgerEntryType.GoodsReceived)
+            .SumAsync(e => e.Amount, cancellationToken);
+
+        var paymentMade = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == SupplierLedgerEntryType.PaymentMade)
+            .SumAsync(e => e.Amount, cancellationToken);
+
+        return goodsReceived - paymentMade;
+    }
 }
