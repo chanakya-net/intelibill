@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
@@ -23,7 +24,7 @@ import {
 @Component({
   selector: 'app-inventory-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddProductOverlayComponent, TranslocoPipe],
+  imports: [CommonModule, BadgeModule, ButtonModule, ProgressSpinnerModule, TableModule, AddProductOverlayComponent, TranslocoPipe],
   templateUrl: './inventory-page.component.html',
   styleUrl: './inventory-page.component.scss',
 })
@@ -82,6 +83,12 @@ export class InventoryPageComponent {
     this.store.dispatch(InventoryActions.clearError());
     this.store.dispatch(InventoryActions.clearMutationStatus());
     this.showAddProductOverlay.set(true);
+  }
+
+  stockSeverity(stock: number): 'danger' | 'warn' | 'success' {
+    if (stock <= 5) return 'danger';
+    if (stock < 50) return 'warn';
+    return 'success';
   }
 
   onCloseAddProduct(): void {

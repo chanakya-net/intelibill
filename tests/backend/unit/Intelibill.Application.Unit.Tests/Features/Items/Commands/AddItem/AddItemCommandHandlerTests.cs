@@ -50,6 +50,7 @@ public class AddItemCommandHandlerTests
         Assert.False(result.IsError);
         Assert.Equal("Rice", result.Value.Name);
         Assert.Equal("111", result.Value.Barcode);
+        Assert.Equal(0m, result.Value.CurrentStock);
 
         await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i => i.Name == "Rice" && i.Barcode == "111"), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());

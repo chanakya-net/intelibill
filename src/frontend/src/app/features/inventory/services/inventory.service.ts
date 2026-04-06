@@ -12,6 +12,7 @@ export interface Item {
   readonly description: string | null;
   readonly uom: string;
   readonly isActive: boolean;
+  readonly currentStock: number;
 }
 
 export interface AddItemRequest {

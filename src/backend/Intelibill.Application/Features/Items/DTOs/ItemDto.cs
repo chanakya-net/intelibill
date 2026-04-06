@@ -6,4 +6,5 @@ public sealed record ItemDto(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive);
+    bool IsActive,
+    decimal CurrentStock);

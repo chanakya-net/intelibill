@@ -7,7 +7,8 @@ namespace Intelibill.Application.Features.Items.Queries.GetItems;
 
 public sealed class GetItemsQueryHandler(
     IUserRepository userRepository,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    IInventoryRepository inventoryRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<ItemDto>>> HandleAsync(GetItemsQuery query, CancellationToken cancellationToken)
     {
@@ -20,6 +21,7 @@ public sealed class GetItemsQueryHandler(
             return Errors.Shop.MembershipNotFound;
 
         var items = await itemRepository.GetByShopIdAsync(query.ActiveShopId, cancellationToken);
+        var quantities = await inventoryRepository.GetQuantitiesByShopIdAsync(query.ActiveShopId, cancellationToken);
 
         return items
             .Select(item => new ItemDto(
@@ -28,7 +30,8 @@ public sealed class GetItemsQueryHandler(
                 item.Barcode,
                 item.Description,
                 item.Uom,
-                item.IsActive))
+                item.IsActive,
+                quantities.GetValueOrDefault(item.Id, 0m)))
             .ToList();
     }
 }

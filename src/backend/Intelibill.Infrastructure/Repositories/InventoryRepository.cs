@@ -10,4 +10,9 @@ internal sealed class InventoryRepository(ApplicationDbContext context)
 {
     public async Task<Inventory?> GetByItemAsync(Guid shopId, Guid itemId, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.ItemId == itemId, cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetQuantitiesByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(i => i.ShopId == shopId)
+            .ToDictionaryAsync(i => i.ItemId, i => i.Quantity, cancellationToken);
 }
