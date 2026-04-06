@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
 import { INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
 
 export interface Item {
-  readonly itemId: string;
+  readonly id: string;
   readonly name: string;
   readonly barcode: string;
   readonly description: string | null;

@@ -1,5 +1,16 @@
 import { InventoryActions } from './inventory.actions';
 import { InventoryState, inventoryReducer } from './inventory.reducer';
+import { Item } from '../services/inventory.service';
+
+const milkItem: Item = {
+  id: 'item-1',
+  name: 'Milk',
+  barcode: 'B001',
+  description: null,
+  uom: 'ltr',
+  isActive: true,
+  currentStock: 10,
+};
 
 describe('inventoryReducer', () => {
   const initialState = inventoryReducer(undefined, { type: '@@INIT' } as never);
@@ -24,22 +35,40 @@ describe('inventoryReducer', () => {
         loadingItems: true,
       },
       InventoryActions.loadItemsSucceeded({
-        items: [
-          {
-            itemId: 'item-1',
-            name: 'Milk',
-            barcode: 'B001',
-            description: null,
-            uom: 'ltr',
-            isActive: true,
-            currentStock: 10,
-          },
-        ],
+        items: [milkItem],
       })
     );
 
     expect(next.loadingItems).toBe(false);
-    expect(next.items).toHaveLength(1);
+    expect(next.ids).toEqual(['item-1']);
+    expect(next.entities['item-1']).toEqual(milkItem);
+  });
+
+  it('keeps all unique items when multiple items are loaded', () => {
+    const breadItem: Item = {
+      id: 'item-2',
+      name: 'Bread',
+      barcode: 'B002',
+      description: null,
+      uom: 'pcs',
+      isActive: true,
+      currentStock: 8,
+    };
+
+    const next = inventoryReducer(
+      {
+        ...initialState,
+        loadingItems: true,
+      },
+      InventoryActions.loadItemsSucceeded({
+        items: [milkItem, breadItem],
+      })
+    );
+
+    expect(next.loadingItems).toBe(false);
+    expect(next.ids).toEqual(['item-1', 'item-2']);
+    expect(next.entities['item-1']).toEqual(milkItem);
+    expect(next.entities['item-2']).toEqual(breadItem);
   });
 
   it('sets error when load items fails', () => {
@@ -90,19 +119,15 @@ describe('inventoryReducer', () => {
       state,
       InventoryActions.addItemSucceeded({
         item: {
-          itemId: 'item-1',
-          name: 'Milk',
-          barcode: 'B001',
-          description: null,
-          uom: 'ltr',
-          isActive: true,
+          ...milkItem,
           currentStock: 0,
         },
       })
     );
 
     expect(next.submitting).toBe(false);
-    expect(next.items).toHaveLength(1);
+    expect(next.ids).toEqual(['item-1']);
+    expect(next.entities['item-1']?.currentStock).toBe(0);
     expect(next.lastMutationSucceeded).toBe(true);
   });
 

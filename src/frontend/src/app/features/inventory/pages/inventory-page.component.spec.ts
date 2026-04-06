@@ -20,12 +20,13 @@ import { InventoryPageComponent } from './inventory-page.component';
 describe('InventoryPageComponent', () => {
   const itemsSignal = signal([
     {
-      itemId: 'item-1',
+      id: 'item-1',
       name: 'Milk',
       barcode: 'B001',
       description: null,
       uom: 'ltr',
       isActive: true,
+      currentStock: 10,
     },
   ]);
   const submittingSignal = signal(false);
@@ -101,12 +102,13 @@ describe('InventoryPageComponent', () => {
     store.dispatch.mockReset();
     itemsSignal.set([
       {
-        itemId: 'item-1',
+        id: 'item-1',
         name: 'Milk',
         barcode: 'B001',
         description: null,
         uom: 'ltr',
         isActive: true,
+        currentStock: 10,
       },
     ]);
     submittingSignal.set(false);
@@ -171,5 +173,20 @@ describe('InventoryPageComponent', () => {
 
     expect(component.canManageInventory()).toBe(false);
     expect(component.showAddProductOverlay()).toBe(false);
+  });
+
+  it('clears table filters and search input', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance as unknown as {
+      searchValue: { set: (value: string) => void; (): string };
+      clearFilters: (table: { clear: () => void }) => void;
+    };
+    const table = { clear: vi.fn() };
+
+    component.searchValue.set('milk');
+    component.clearFilters(table);
+
+    expect(table.clear).toHaveBeenCalledTimes(1);
+    expect(component.searchValue()).toBe('');
   });
 });

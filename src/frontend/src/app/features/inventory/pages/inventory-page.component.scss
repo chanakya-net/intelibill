@@ -48,6 +48,14 @@ h1 {
   overflow: hidden;
 }
 
+.table-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
 
 .status-pill {
   display: inline-block;
@@ -76,4 +84,11 @@ h1 {
 .empty-state p {
   margin: 0.4rem 0 0;
   color: #57534e;
+}
+
+@media (max-width: 640px) {
+  .table-caption {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

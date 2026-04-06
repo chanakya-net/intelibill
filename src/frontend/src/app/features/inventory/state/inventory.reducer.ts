@@ -1,3 +1,4 @@
+import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
 import { Item } from '../services/inventory.service';
@@ -5,8 +6,11 @@ import { InventoryActions, ItemMutationType } from './inventory.actions';
 
 export const inventoryFeatureKey = 'inventory';
 
-export interface InventoryState {
-  readonly items: readonly Item[];
+export const inventoryAdapter = createEntityAdapter<Item>({
+  selectId: (item) => item.id,
+});
+
+export interface InventoryState extends EntityState<Item> {
   readonly loadingItems: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
@@ -14,14 +18,13 @@ export interface InventoryState {
   readonly lastMutationSucceeded: boolean;
 }
 
-const initialState: InventoryState = {
-  items: [],
+const initialState: InventoryState = inventoryAdapter.getInitialState({
   loadingItems: false,
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
-};
+});
 
 export const inventoryReducer = createReducer(
   initialState,
@@ -30,12 +33,13 @@ export const inventoryReducer = createReducer(
     loadingItems: true,
     errorMessage: '',
   })),
-  on(InventoryActions.loadItemsSucceeded, (state, { items }) => ({
-    ...state,
-    loadingItems: false,
-    items,
-    errorMessage: '',
-  })),
+  on(InventoryActions.loadItemsSucceeded, (state, { items }) =>
+    inventoryAdapter.setAll([...items], {
+      ...state,
+      loadingItems: false,
+      errorMessage: '',
+    })
+  ),
   on(InventoryActions.loadItemsFailed, (state, { errorMessage }) => ({
     ...state,
     loadingItems: false,
@@ -49,14 +53,19 @@ export const inventoryReducer = createReducer(
     lastMutationType: 'add-item',
     lastMutationSucceeded: false,
   })),
-  on(InventoryActions.addItemSucceeded, (state, { item }) => ({
-    ...state,
-    submitting: false,
-    errorMessage: '',
-    items: [item, ...state.items],
-    lastMutationType: 'add-item',
-    lastMutationSucceeded: true,
-  })),
+  on(InventoryActions.addItemSucceeded, (state, { item }) => {
+    const orderedExisting = state.ids
+      .map((id) => state.entities[id as string])
+      .filter((existing): existing is Item => Boolean(existing));
+
+    return inventoryAdapter.setAll([item, ...orderedExisting], {
+      ...state,
+      submitting: false,
+      errorMessage: '',
+      lastMutationType: 'add-item',
+      lastMutationSucceeded: true,
+    });
+  }),
   on(InventoryActions.addItemFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
