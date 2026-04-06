@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
+using Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -129,6 +130,40 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 failed));
     }
 
+    [HttpPut("batches/{inventoryBatchId:guid}")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> EditInventoryBatch(Guid inventoryBatchId, [FromBody] EditInventoryBatchRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<EditInventoryBatchResultDto>>(
+            new EditInventoryBatchCommand(
+                userId.Value,
+                activeShopId.Value,
+                inventoryBatchId,
+                request.BatchNumber,
+                request.Quantity,
+                request.CostPrice,
+                request.Mrp,
+                request.SalesPrice,
+                request.TaxRatePercent,
+                request.TaxIncluded,
+                request.ExpiryDate,
+                request.ManufacturingDate,
+                request.SupplierId,
+                request.Notes,
+                request.EntryDate),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -201,3 +236,17 @@ public sealed record AddInventoryBatchFailedRow(
     IReadOnlyList<AddInventoryBatchRowError> Errors);
 
 public sealed record AddInventoryBatchRowError(string Code, string Description);
+
+public sealed record EditInventoryBatchRequest(
+    string BatchNumber,
+    decimal Quantity,
+    decimal CostPrice,
+    decimal Mrp,
+    decimal SalesPrice,
+    decimal TaxRatePercent,
+    bool TaxIncluded,
+    DateOnly? ExpiryDate,
+    DateOnly? ManufacturingDate,
+    Guid? SupplierId,
+    string? Notes,
+    DateOnly? EntryDate);
