@@ -8,7 +8,8 @@ namespace Intelibill.Application.Features.Items.Queries.GetProductDetails;
 public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
-    IInventoryBatchRepository inventoryBatchRepository)
+    IInventoryBatchRepository inventoryBatchRepository,
+    ISupplierRepository supplierRepository)
 {
     public async Task<ErrorOr<ProductDetailsDto>> HandleAsync(
         GetProductDetailsByNameOrBarcodeQuery query,
@@ -43,11 +44,32 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
 
         var latestBatch = batches[0];
 
+        Guid? supplierId = null;
+        string? supplierName = null;
+        bool? taxIncluded = null;
+        decimal? taxRatePercent = null;
+
+        if (latestBatch.SupplierId.HasValue)
+        {
+            var supplier = await supplierRepository.GetByIdAsync(latestBatch.SupplierId.Value, cancellationToken);
+            if (supplier is not null && supplier.IsActive)
+            {
+                supplierId = supplier.Id;
+                supplierName = supplier.Name;
+                taxIncluded = latestBatch.TaxIncluded;
+                taxRatePercent = latestBatch.TaxRatePercent;
+            }
+        }
+
         return new ProductDetailsDto(
             item.Description ?? string.Empty,
             item.Uom,
             latestBatch.CostPrice,
             latestBatch.Mrp,
-            latestBatch.SalesPrice);
+            latestBatch.SalesPrice,
+            supplierId,
+            supplierName,
+            taxIncluded,
+            taxRatePercent);
     }
 }

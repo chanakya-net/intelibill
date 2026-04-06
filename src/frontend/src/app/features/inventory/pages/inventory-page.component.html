@@ -29,6 +29,7 @@
           <th pSortableColumn="name">{{ 'inventory.name' | transloco }} <p-sortIcon field="name" /></th>
           <th pSortableColumn="barcode">{{ 'inventory.barcode' | transloco }} <p-sortIcon field="barcode" /></th>
           <th pSortableColumn="uom">{{ 'inventory.uom' | transloco }} <p-sortIcon field="uom" /></th>
+          <th pSortableColumn="currentStock">{{ 'inventory.currentStock' | transloco }} <p-sortIcon field="currentStock" /></th>
           <th pSortableColumn="isActive">{{ 'inventory.status' | transloco }} <p-sortIcon field="isActive" /></th>
         </tr>
       </ng-template>
@@ -39,6 +40,9 @@
           <td>{{ item.barcode }}</td>
           <td>{{ item.uom }}</td>
           <td>
+            <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
+          </td>
+          <td>
             <span class="status-pill" [class.disabled]="!item.isActive">
               {{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}
             </span>
@@ -48,7 +52,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="4">
+          <td colspan="5">
             <div class="empty-state">
               <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
               <p>{{ 'inventory.noItemsDescription' | transloco }}</p>

@@ -363,12 +363,18 @@ export class InventoryBatchPageComponent {
     costPrice: number;
     mrp: number;
     salesPrice: number;
+    supplierName: string | null;
+    taxIncluded: boolean | null;
+    taxRatePercent: number | null;
   }): Partial<{
     itemDescription: string;
     uom: string;
     costPrice: number;
     mrp: number;
     salesPrice: number;
+    supplierName: string;
+    taxIncluded: boolean;
+    taxRatePercent: number;
   }> {
     const patch: Partial<{
       itemDescription: string;
@@ -376,6 +382,9 @@ export class InventoryBatchPageComponent {
       costPrice: number;
       mrp: number;
       salesPrice: number;
+      supplierName: string;
+      taxIncluded: boolean;
+      taxRatePercent: number;
     }> = {};
 
     if (!this.form.controls.itemDescription.dirty) {
@@ -396,6 +405,18 @@ export class InventoryBatchPageComponent {
 
     if (!this.form.controls.salesPrice.dirty) {
       patch.salesPrice = details.salesPrice;
+    }
+
+    if (!this.form.controls.supplierName.dirty && details.supplierName) {
+      patch.supplierName = details.supplierName;
+    }
+
+    if (!this.form.controls.taxIncluded.dirty && details.taxIncluded !== null) {
+      patch.taxIncluded = details.taxIncluded;
+    }
+
+    if (!this.form.controls.taxRatePercent.dirty && details.taxRatePercent !== null) {
+      patch.taxRatePercent = details.taxRatePercent;
     }
 
     return patch;

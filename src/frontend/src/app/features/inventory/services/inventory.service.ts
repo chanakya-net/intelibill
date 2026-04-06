@@ -12,6 +12,7 @@ export interface Item {
   readonly description: string | null;
   readonly uom: string;
   readonly isActive: boolean;
+  readonly currentStock: number;
 }
 
 export interface AddItemRequest {
@@ -77,6 +78,10 @@ export interface ProductDetailsDto {
   readonly costPrice: number;
   readonly mrp: number;
   readonly salesPrice: number;
+  readonly supplierId: string | null;
+  readonly supplierName: string | null;
+  readonly taxIncluded: boolean | null;
+  readonly taxRatePercent: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -49,7 +49,7 @@ public class ItemsControllerTests
 
         var items = (IReadOnlyList<ItemDto>)
         [
-            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true),
+            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m),
         ];
 
         _bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
@@ -85,7 +85,7 @@ public class ItemsControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         var request = CreateRequest();
-        var dto = new ItemDto(Guid.NewGuid(), request.Name, request.Barcode, request.Description, request.Uom, request.IsActive);
+        var dto = new ItemDto(Guid.NewGuid(), request.Name, request.Barcode, request.Description, request.Uom, request.IsActive, 0m);
 
         _bus.InvokeAsync<ErrorOr<ItemDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 

@@ -53,6 +53,7 @@ describe('InventoryService', () => {
       description: null,
       uom: 'packet',
       isActive: true,
+      currentStock: 0,
     });
 
     http.verify();
@@ -77,6 +78,7 @@ describe('InventoryService', () => {
         description: null,
         uom: 'packet',
         isActive: true,
+        currentStock: 10,
       },
     ]);
 

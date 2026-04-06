@@ -54,6 +54,7 @@ public sealed class AddItemCommandHandler(
             item.Barcode,
             item.Description,
             item.Uom,
-            item.IsActive);
+            item.IsActive,
+            CurrentStock: 0m);
     }
 }

@@ -143,6 +143,7 @@
     "barcode": "Barcode",
     "description": "Description",
     "uom": "UOM",
+    "currentStock": "Current Stock",
     "status": "Status",
     "supplier": "Supplier",
     "active": "Active",
