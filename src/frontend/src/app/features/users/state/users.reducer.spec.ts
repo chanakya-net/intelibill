@@ -1,5 +1,28 @@
 import { usersReducer, UsersState } from './users.reducer';
 import { UsersActions } from './users.actions';
+import { ShopUser } from '../services/user-account.service';
+
+const ownerUser: ShopUser = {
+  userId: 'u1',
+  firstName: 'Owner',
+  lastName: 'User',
+  email: 'owner@test.com',
+  phoneNumber: '+15551234567',
+  role: 'Owner',
+  isLoginEnabled: true,
+  shopIds: ['shop-1'],
+};
+
+const staffUser: ShopUser = {
+  userId: 'u2',
+  firstName: 'Sales',
+  lastName: 'Rep',
+  email: null,
+  phoneNumber: '+15557654321',
+  role: 'Staff',
+  isLoginEnabled: true,
+  shopIds: ['shop-1'],
+};
 
 describe('usersReducer', () => {
   const initialState = usersReducer(undefined, { type: '@@INIT' } as never);
@@ -40,28 +63,19 @@ describe('usersReducer', () => {
         loadingShopUsers: true,
       },
       UsersActions.loadShopUsersSucceeded({
-        users: [
-          {
-            userId: 'u1',
-            firstName: 'Owner',
-            lastName: 'User',
-            email: 'owner@test.com',
-            phoneNumber: '+15551234567',
-            role: 'Owner',
-            isLoginEnabled: true,
-            shopIds: ['shop-1'],
-          },
-        ],
+        users: [ownerUser],
       })
     );
 
     expect(next.loadingShopUsers).toBe(false);
-    expect(next.shopUsers).toHaveLength(1);
+    expect(next.ids).toEqual(['u1']);
+    expect(next.entities['u1']).toEqual(ownerUser);
   });
 
   it('sets success state when update profile succeeds', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: true,
       errorMessage: 'Old error',
@@ -79,7 +93,8 @@ describe('usersReducer', () => {
 
   it('sets failed state when update profile fails', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: true,
       errorMessage: '',
@@ -122,7 +137,8 @@ describe('usersReducer', () => {
 
   it('sets success state when change password succeeds', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: true,
       errorMessage: 'Old error',
@@ -140,7 +156,8 @@ describe('usersReducer', () => {
 
   it('sets failed state when change password fails', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: true,
       errorMessage: '',
@@ -164,7 +181,6 @@ describe('usersReducer', () => {
   it('appends user when add shop user succeeds', () => {
     const state: UsersState = {
       ...initialState,
-      shopUsers: [],
       submitting: true,
       lastMutationType: 'add-shop-user',
       lastMutationSucceeded: false,
@@ -173,40 +189,24 @@ describe('usersReducer', () => {
     const next = usersReducer(
       state,
       UsersActions.addShopUserSucceeded({
-        user: {
-          userId: 'u2',
-          firstName: 'Sales',
-          lastName: 'Rep',
-          email: null,
-          phoneNumber: '+15557654321',
-          role: 'Staff',
-          isLoginEnabled: true,
-          shopIds: ['shop-1'],
-        },
+        user: staffUser,
       })
     );
 
     expect(next.submitting).toBe(false);
     expect(next.lastMutationType).toBe('add-shop-user');
     expect(next.lastMutationSucceeded).toBe(true);
-    expect(next.shopUsers).toHaveLength(1);
+    expect(next.ids).toEqual(['u2']);
+    expect(next.entities['u2']).toEqual(staffUser);
   });
 
   it('replaces matching user when edit shop user succeeds', () => {
     const state: UsersState = {
       ...initialState,
-      shopUsers: [
-        {
-          userId: 'u2',
-          firstName: 'Sales',
-          lastName: 'Rep',
-          email: null,
-          phoneNumber: '+15557654321',
-          role: 'Staff',
-          isLoginEnabled: true,
-          shopIds: ['shop-1'],
-        },
-      ],
+      ids: ['u2'],
+      entities: {
+        u2: staffUser,
+      },
       submitting: true,
       lastMutationType: 'edit-shop-user',
       lastMutationSucceeded: false,
@@ -216,14 +216,10 @@ describe('usersReducer', () => {
       state,
       UsersActions.editShopUserSucceeded({
         user: {
-          userId: 'u2',
-          firstName: 'Sales',
+          ...staffUser,
           lastName: 'User',
-          email: null,
-          phoneNumber: '+15557654321',
           role: 'Manager',
           isLoginEnabled: false,
-          shopIds: ['shop-1'],
         },
       })
     );
@@ -231,13 +227,14 @@ describe('usersReducer', () => {
     expect(next.submitting).toBe(false);
     expect(next.lastMutationType).toBe('edit-shop-user');
     expect(next.lastMutationSucceeded).toBe(true);
-    expect(next.shopUsers[0].role).toBe('Manager');
-    expect(next.shopUsers[0].isLoginEnabled).toBe(false);
+    expect(next.entities['u2']?.role).toBe('Manager');
+    expect(next.entities['u2']?.isLoginEnabled).toBe(false);
   });
 
   it('clears only error message on clearError', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: false,
       errorMessage: 'Any error',
@@ -254,7 +251,8 @@ describe('usersReducer', () => {
 
   it('clears mutation status on clearMutationStatus', () => {
     const state: UsersState = {
-      shopUsers: [],
+      ids: [],
+      entities: {},
       loadingShopUsers: false,
       submitting: false,
       errorMessage: '',

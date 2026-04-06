@@ -1,3 +1,4 @@
+import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
 import { ShopUser } from '../services/user-account.service';
@@ -5,8 +6,12 @@ import { UserMutationType, UsersActions } from './users.actions';
 
 export const usersFeatureKey = 'users';
 
-export interface UsersState {
-  readonly shopUsers: readonly ShopUser[];
+export const usersAdapter = createEntityAdapter<ShopUser>({
+  selectId: (user) => user.userId,
+  sortComparer: (left, right) => left.firstName.localeCompare(right.firstName),
+});
+
+export interface UsersState extends EntityState<ShopUser> {
   readonly loadingShopUsers: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
@@ -14,14 +19,13 @@ export interface UsersState {
   readonly lastMutationSucceeded: boolean;
 }
 
-const initialState: UsersState = {
-  shopUsers: [],
+const initialState: UsersState = usersAdapter.getInitialState({
   loadingShopUsers: false,
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
-};
+});
 
 export const usersReducer = createReducer(
   initialState,
@@ -74,12 +78,13 @@ export const usersReducer = createReducer(
     loadingShopUsers: true,
     errorMessage: '',
   })),
-  on(UsersActions.loadShopUsersSucceeded, (state, { users }) => ({
-    ...state,
-    loadingShopUsers: false,
-    shopUsers: users,
-    errorMessage: '',
-  })),
+  on(UsersActions.loadShopUsersSucceeded, (state, { users }) =>
+    usersAdapter.setAll([...users], {
+      ...state,
+      loadingShopUsers: false,
+      errorMessage: '',
+    })
+  ),
   on(UsersActions.loadShopUsersFailed, (state, { errorMessage }) => ({
     ...state,
     loadingShopUsers: false,
@@ -93,14 +98,15 @@ export const usersReducer = createReducer(
     lastMutationType: 'add-shop-user',
     lastMutationSucceeded: false,
   })),
-  on(UsersActions.addShopUserSucceeded, (state, { user }) => ({
-    ...state,
-    submitting: false,
-    errorMessage: '',
-    shopUsers: [...state.shopUsers, user],
-    lastMutationType: 'add-shop-user',
-    lastMutationSucceeded: true,
-  })),
+  on(UsersActions.addShopUserSucceeded, (state, { user }) =>
+    usersAdapter.addOne(user, {
+      ...state,
+      submitting: false,
+      errorMessage: '',
+      lastMutationType: 'add-shop-user',
+      lastMutationSucceeded: true,
+    })
+  ),
   on(UsersActions.addShopUserFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
@@ -116,14 +122,21 @@ export const usersReducer = createReducer(
     lastMutationType: 'edit-shop-user',
     lastMutationSucceeded: false,
   })),
-  on(UsersActions.editShopUserSucceeded, (state, { user }) => ({
-    ...state,
-    submitting: false,
-    errorMessage: '',
-    shopUsers: state.shopUsers.map((existing) => (existing.userId === user.userId ? user : existing)),
-    lastMutationType: 'edit-shop-user',
-    lastMutationSucceeded: true,
-  })),
+  on(UsersActions.editShopUserSucceeded, (state, { user }) =>
+    usersAdapter.updateOne(
+      {
+        id: user.userId,
+        changes: user,
+      },
+      {
+        ...state,
+        submitting: false,
+        errorMessage: '',
+        lastMutationType: 'edit-shop-user',
+        lastMutationSucceeded: true,
+      }
+    )
+  ),
   on(UsersActions.editShopUserFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,

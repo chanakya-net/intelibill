@@ -1,10 +1,11 @@
 import { createSelector } from '@ngrx/store';
 
-import { inventoryFeature } from './inventory.reducer';
+import { inventoryAdapter, inventoryFeature } from './inventory.reducer';
 
 export const selectInventoryState = inventoryFeature.selectInventoryState;
+const inventoryEntitySelectors = inventoryAdapter.getSelectors(selectInventoryState);
 
-export const selectInventoryItems = createSelector(selectInventoryState, (state) => state.items);
+export const selectInventoryItems = inventoryEntitySelectors.selectAll;
 export const selectInventoryLoadingItems = createSelector(selectInventoryState, (state) => state.loadingItems);
 export const selectInventorySubmitting = createSelector(selectInventoryState, (state) => state.submitting);
 export const selectInventoryErrorMessage = createSelector(selectInventoryState, (state) => state.errorMessage);

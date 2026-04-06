@@ -1,10 +1,11 @@
 import { createSelector } from '@ngrx/store';
 
-import { usersFeature } from './users.reducer';
+import { usersAdapter, usersFeature } from './users.reducer';
 
 export const selectUsersState = usersFeature.selectUsersState;
+const userEntitySelectors = usersAdapter.getSelectors(selectUsersState);
 
-export const selectShopUsers = createSelector(selectUsersState, (state) => state.shopUsers);
+export const selectShopUsers = userEntitySelectors.selectAll;
 export const selectUsersLoadingShopUsers = createSelector(selectUsersState, (state) => state.loadingShopUsers);
 export const selectUsersSubmitting = createSelector(selectUsersState, (state) => state.submitting);
 export const selectUsersErrorMessage = createSelector(selectUsersState, (state) => state.errorMessage);
