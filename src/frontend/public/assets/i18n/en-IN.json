@@ -118,6 +118,7 @@
     "pin": "PIN",
     "status": "Status",
     "supplier": "Supplier",
+    "details": "Details",
     "preferred": "Preferred",
     "actions": "Actions",
     "active": "Active",
@@ -142,7 +143,16 @@
     "notes": "Notes",
     "noEntriesFound": "No ledger entries found",
     "searchEntries": "Search entries",
-    "totalAmount": "Total Amount"
+    "searchEntryType": "Search entry type",
+    "searchAmount": "Search amount",
+    "searchEntryDate": "Search date",
+    "searchNotes": "Search notes",
+    "totalAmount": "Total Amount",
+    "entryTypes": {
+      "goodsReceived": "Goods Received",
+      "paymentMade": "Payment Made",
+      "recordAdjusted": "Record Adjusted"
+    }
   },
   "inventory": {
     "directory": "Inventory Directory",

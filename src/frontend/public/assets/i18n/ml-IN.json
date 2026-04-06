@@ -118,6 +118,7 @@
     "pin": "പിൻ",
     "status": "സ്ഥിതി",
     "supplier": "Supplier",
+    "details": "വിശദാംശങ്ങൾ",
     "preferred": "മുൻഗണന",
     "actions": "പ്രവർത്തനങ്ങൾ",
     "active": "സജീവം",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "വിതരണക്കാരെ കണ്ടെത്തിയില്ല",
     "noSuppliersDescription": "നിങ്ങളുടെ ആദ്യ വിതരണക്കാരനെ ചേർത്ത് ആരംഭിക്കുക.",
     "isActive": "സജീവമാണോ",
-    "isPreferred": "മുൻഗണനയാണോ"
+    "isPreferred": "മുൻഗണനയാണോ",
+    "balance": "ബാലൻസ്",
+    "ledgerEntries": "ലെഡ്ജർ എൻട്രികൾ",
+    "entryType": "എൻട്രി തരം",
+    "amount": "തുക",
+    "entryDate": "എൻട്രി തീയതി",
+    "notes": "കുറിപ്പുകൾ",
+    "noEntriesFound": "ലെഡ്ജർ എൻട്രികൾ ഒന്നും കണ്ടെത്തിയില്ല",
+    "searchEntries": "എൻട്രികൾ തിരയുക",
+    "searchEntryType": "എൻട്രി തരം തിരയുക",
+    "searchAmount": "തുക തിരയുക",
+    "searchEntryDate": "തീയതി തിരയുക",
+    "searchNotes": "കുറിപ്പുകൾ തിരയുക",
+    "totalAmount": "ആകെ തുക",
+    "entryTypes": {
+      "goodsReceived": "സാധനങ്ങൾ ലഭിച്ചു",
+      "paymentMade": "പേയ്മെന്റ് നടത്തി",
+      "recordAdjusted": "രേഖ തിരുത്തി"
+    }
   },
   "inventory": {
     "directory": "ഇൻവെന്ററി ഡയറക്ടറി",

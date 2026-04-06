@@ -118,6 +118,7 @@
     "pin": "ಪಿನ್",
     "status": "ಸ್ಥಿತಿ",
     "supplier": "Supplier",
+    "details": "ವಿವರಗಳು",
     "preferred": "ಆದ್ಯತೆ",
     "actions": "ಕ್ರಿಯೆಗಳು",
     "active": "ಸಕ್ರಿಯ",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "ಯಾವುದೇ ಪೂರೈಕೆದಾರರು ಕಂಡುಬಂದಿಲ್ಲ",
     "noSuppliersDescription": "ನಿಮ್ಮ ಮೊದಲ ಪೂರೈಕೆದಾರರನ್ನು ಸೇರಿಸಿ ಪ್ರಾರಂಭಿಸಿ.",
     "isActive": "ಸಕ್ರಿಯವಾಗಿದೆ",
-    "isPreferred": "ಆದ್ಯತೆಯಾಗಿದೆ"
+    "isPreferred": "ಆದ್ಯತೆಯಾಗಿದೆ",
+    "balance": "ಬಾಕಿ",
+    "ledgerEntries": "ಲೆಡ್ಜರ್ ನಮೂದುಗಳು",
+    "entryType": "ನಮೂದು ಪ್ರಕಾರ",
+    "amount": "ಮೊತ್ತ",
+    "entryDate": "ನಮೂದು ದಿನಾಂಕ",
+    "notes": "ಟಿಪ್ಪಣಿಗಳು",
+    "noEntriesFound": "ಯಾವುದೇ ಲೆಡ್ಜರ್ ನಮೂದುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "searchEntries": "ನಮೂದುಗಳನ್ನು ಹುಡುಕಿ",
+    "searchEntryType": "ನಮೂದು ಪ್ರಕಾರ ಹುಡುಕಿ",
+    "searchAmount": "ಮೊತ್ತ ಹುಡುಕಿ",
+    "searchEntryDate": "ದಿನಾಂಕ ಹುಡುಕಿ",
+    "searchNotes": "ಟಿಪ್ಪಣಿಗಳು ಹುಡುಕಿ",
+    "totalAmount": "ಒಟ್ಟು ಮೊತ್ತ",
+    "entryTypes": {
+      "goodsReceived": "ಸರಕು ಸ್ವೀಕೃತ",
+      "paymentMade": "ಪಾವತಿ ಮಾಡಲಾಗಿದೆ",
+      "recordAdjusted": "ದಾಖಲೆ ಸರಿಹೊಂದಿಸಲಾಗಿದೆ"
+    }
   },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",

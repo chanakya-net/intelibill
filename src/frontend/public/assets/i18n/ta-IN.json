@@ -118,6 +118,7 @@
     "pin": "அஞ்சல் குறியீடு",
     "status": "நிலை",
     "supplier": "Supplier",
+    "details": "விவரங்கள்",
     "preferred": "முன்னுரிமை",
     "actions": "செயல்கள்",
     "active": "செயலில்",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "விநியோகஸ்தர்கள் இல்லை",
     "noSuppliersDescription": "உங்கள் முதல் விநியோகஸ்தரை சேர்த்து தொடங்குங்கள்.",
     "isActive": "செயலில் உள்ளது",
-    "isPreferred": "முன்னுரிமை உள்ளது"
+    "isPreferred": "முன்னுரிமை உள்ளது",
+    "balance": "இருப்பு",
+    "ledgerEntries": "லெட்ஜர் பதிவுகள்",
+    "entryType": "பதிவு வகை",
+    "amount": "தொகை",
+    "entryDate": "பதிவு தேதி",
+    "notes": "குறிப்புகள்",
+    "noEntriesFound": "லெட்ஜர் பதிவுகள் எதுவும் இல்லை",
+    "searchEntries": "பதிவுகளைத் தேடு",
+    "searchEntryType": "பதிவு வகையைத் தேடு",
+    "searchAmount": "தொகையைத் தேடு",
+    "searchEntryDate": "தேதியைத் தேடு",
+    "searchNotes": "குறிப்புகளைத் தேடு",
+    "totalAmount": "மொத்த தொகை",
+    "entryTypes": {
+      "goodsReceived": "பொருட்கள் பெற்றல்",
+      "paymentMade": "பணம் செலுத்தப்பட்டது",
+      "recordAdjusted": "பதிவு திருத்தப்பட்டது"
+    }
   },
   "inventory": {
     "directory": "சரக்கு அடைவகம்",

@@ -118,6 +118,7 @@
     "pin": "পিন",
     "status": "স্থিতি",
     "supplier": "Supplier",
+    "details": "বিস্তারিত",
     "preferred": "পছন্দের",
     "actions": "কার্যাবলি",
     "active": "সক্রিয়",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "কোনো সরবরাহকারী পাওয়া যায়নি",
     "noSuppliersDescription": "আপনার প্রথম সরবরাহকারী যোগ করে শুরু করুন।",
     "isActive": "সক্রিয় আছে",
-    "isPreferred": "পছন্দের আছে"
+    "isPreferred": "পছন্দের আছে",
+    "balance": "ব্যালেন্স",
+    "ledgerEntries": "লেজার এন্ট্রি",
+    "entryType": "এন্ট্রি ধরন",
+    "amount": "পরিমাণ",
+    "entryDate": "এন্ট্রি তারিখ",
+    "notes": "নোট",
+    "noEntriesFound": "কোনো লেজার এন্ট্রি পাওয়া যায়নি",
+    "searchEntries": "এন্ট্রি অনুসন্ধান",
+    "searchEntryType": "এন্ট্রি ধরন খুঁজুন",
+    "searchAmount": "পরিমাণ খুঁজুন",
+    "searchEntryDate": "তারিখ খুঁজুন",
+    "searchNotes": "নোট খুঁজুন",
+    "totalAmount": "মোট পরিমাণ",
+    "entryTypes": {
+      "goodsReceived": "পণ্য গ্রহণ",
+      "paymentMade": "পেমেন্ট করা হয়েছে",
+      "recordAdjusted": "রেকর্ড সমন্বয়"
+    }
   },
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",

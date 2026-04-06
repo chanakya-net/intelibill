@@ -118,6 +118,7 @@
     "pin": "पिन",
     "status": "स्थिति",
     "supplier": "Supplier",
+    "details": "विवरण",
     "preferred": "प्राथमिक",
     "actions": "क्रियाएं",
     "active": "सक्रिय",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "कोई आपूर्तिकर्ता नहीं मिला",
     "noSuppliersDescription": "अपना पहला आपूर्तिकर्ता जोड़कर शुरुआत करें।",
     "isActive": "सक्रिय है",
-    "isPreferred": "प्राथमिक है"
+    "isPreferred": "प्राथमिक है",
+    "balance": "शेष राशि",
+    "ledgerEntries": "लेजर प्रविष्टियाँ",
+    "entryType": "प्रविष्टि प्रकार",
+    "amount": "राशि",
+    "entryDate": "प्रविष्टि तिथि",
+    "notes": "टिप्पणियाँ",
+    "noEntriesFound": "कोई लेजर प्रविष्टि नहीं मिली",
+    "searchEntries": "प्रविष्टियाँ खोजें",
+    "searchEntryType": "प्रविष्टि प्रकार खोजें",
+    "searchAmount": "राशि खोजें",
+    "searchEntryDate": "तिथि खोजें",
+    "searchNotes": "टिप्पणियाँ खोजें",
+    "totalAmount": "कुल राशि",
+    "entryTypes": {
+      "goodsReceived": "माल प्राप्त",
+      "paymentMade": "भुगतान किया गया",
+      "recordAdjusted": "रिकॉर्ड समायोजित"
+    }
   },
   "inventory": {
     "directory": "इन्वेंटरी निर्देशिका",

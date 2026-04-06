@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, inject, output, signal } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { BadgeModule } from 'primeng/badge';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -43,6 +43,8 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
           </div>
         </div>
 
+        <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
+
         <div class="ledger-table-card">
           <p-table
             #ledgerTable
@@ -64,7 +66,7 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
                 <input
                   pInputText
                   type="text"
-                  [placeholder]="'Search entry type'"
+                  [placeholder]="'suppliers.searchEntryType' | transloco"
                   (input)="ledgerTable.filter($any($event.target).value, 'entryTypeLabel', 'contains')"
                 />
               </th>
@@ -72,7 +74,7 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
                 <input
                   pInputText
                   type="text"
-                  [placeholder]="'Search amount'"
+                  [placeholder]="'suppliers.searchAmount' | transloco"
                   (input)="ledgerTable.filter($any($event.target).value, 'amount', 'contains')"
                 />
               </th>
@@ -80,7 +82,7 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
                 <input
                   pInputText
                   type="text"
-                  [placeholder]="'Search date'"
+                  [placeholder]="'suppliers.searchEntryDate' | transloco"
                   (input)="ledgerTable.filter($any($event.target).value, 'entryDate', 'contains')"
                 />
               </th>
@@ -88,7 +90,7 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
                 <input
                   pInputText
                   type="text"
-                  [placeholder]="'Search notes'"
+                  [placeholder]="'suppliers.searchNotes' | transloco"
                   (input)="ledgerTable.filter($any($event.target).value, 'notes', 'contains')"
                 />
               </th>
@@ -143,16 +145,17 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
       .ledger-content {
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 0.75rem;
       }
 
       .supplier-info-header {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 1rem;
-        padding: 1rem;
-        background-color: var(--surface-50);
-        border-radius: 0.5rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid #fdba74;
+        border-radius: 0.75rem;
+        background: linear-gradient(160deg, #ffffff, #fff7ed);
       }
 
       .ledger-table-card {
@@ -160,6 +163,14 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
         border-radius: 1rem;
         background: linear-gradient(160deg, #ffffff, #fff7ed);
         overflow: hidden;
+      }
+
+      .details-heading {
+        margin: 0.25rem 0 0.35rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1f2937;
+        letter-spacing: 0.01em;
       }
 
       .table-caption {
@@ -177,18 +188,23 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
 
       .info-row {
         display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 0.35rem;
+        white-space: nowrap;
 
         .label {
           font-weight: 600;
-          font-size: 0.875rem;
+          font-size: 0.9rem;
           color: var(--text-color-secondary);
         }
 
         .value {
           color: var(--text-color);
           font-size: 0.95rem;
+          font-weight: 500;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       }
 
@@ -221,6 +237,16 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
         white-space: nowrap;
       }
 
+      @media (max-width: 900px) {
+        .supplier-info-header {
+          grid-template-columns: 1fr;
+        }
+
+        .info-row {
+          white-space: normal;
+        }
+      }
+
       input[pinputtext] {
         width: 100%;
       }
@@ -229,6 +255,7 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
 })
 export class SupplierDetailComponent {
   private readonly ledgerService = inject(SupplierLedgerService);
+  private readonly transloco = inject(TranslocoService);
 
   @Input() set supplier(value: Supplier | null) {
     this.currentSupplier.set(value);
@@ -280,13 +307,13 @@ export class SupplierDetailComponent {
     switch (entryType) {
       case 1:
       case 'GOODS_RECEIVED':
-        return 'Goods Received';
+        return this.transloco.translate('suppliers.entryTypes.goodsReceived');
       case 2:
       case 'PAYMENT_MADE':
-        return 'Payment Made';
+        return this.transloco.translate('suppliers.entryTypes.paymentMade');
       case 3:
       case 'RECORD_ADJUSTED':
-        return 'Record Adjusted';
+        return this.transloco.translate('suppliers.entryTypes.recordAdjusted');
       default:
         return String(entryType);
     }

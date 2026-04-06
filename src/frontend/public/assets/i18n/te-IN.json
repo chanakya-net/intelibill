@@ -118,6 +118,7 @@
     "pin": "పిన్",
     "status": "స్థితి",
     "supplier": "Supplier",
+    "details": "వివరాలు",
     "preferred": "ప్రాధాన్యమైనది",
     "actions": "చర్యలు",
     "active": "సక్రియం",
@@ -133,7 +134,25 @@
     "noSuppliersFound": "సరఫరాదారులు లేరు",
     "noSuppliersDescription": "మీ మొదటి సరఫరాదారిని జోడించి ప్రారంభించండి.",
     "isActive": "సక్రియంగా ఉంది",
-    "isPreferred": "ప్రాధాన్యంగా ఉంది"
+    "isPreferred": "ప్రాధాన్యంగా ఉంది",
+    "balance": "బ్యాలెన్స్",
+    "ledgerEntries": "లెడ్జర్ ఎంట్రీలు",
+    "entryType": "ఎంట్రీ రకం",
+    "amount": "మొత్తం",
+    "entryDate": "ఎంట్రీ తేదీ",
+    "notes": "గమనికలు",
+    "noEntriesFound": "లెడ్జర్ ఎంట్రీలు కనబడలేదు",
+    "searchEntries": "ఎంట్రీలను వెతకండి",
+    "searchEntryType": "ఎంట్రీ రకం వెతకండి",
+    "searchAmount": "మొత్తం వెతకండి",
+    "searchEntryDate": "తేదీ వెతకండి",
+    "searchNotes": "గమనికలు వెతకండి",
+    "totalAmount": "మొత్తం మొత్తం",
+    "entryTypes": {
+      "goodsReceived": "సరుకు స్వీకరించబడింది",
+      "paymentMade": "చెల్లింపు చేయబడింది",
+      "recordAdjusted": "రికార్డు సవరించబడింది"
+    }
   },
   "inventory": {
     "directory": "ఇన్వెంటరీ డైరెక్టరీ",
