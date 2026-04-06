@@ -78,6 +78,10 @@ export interface ProductDetailsDto {
   readonly costPrice: number;
   readonly mrp: number;
   readonly salesPrice: number;
+  readonly supplierId: string | null;
+  readonly supplierName: string | null;
+  readonly taxIncluded: boolean | null;
+  readonly taxRatePercent: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

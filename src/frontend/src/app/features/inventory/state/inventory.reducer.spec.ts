@@ -32,6 +32,7 @@ describe('inventoryReducer', () => {
             description: null,
             uom: 'ltr',
             isActive: true,
+            currentStock: 10,
           },
         ],
       })
@@ -95,6 +96,7 @@ describe('inventoryReducer', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          currentStock: 0,
         },
       })
     );

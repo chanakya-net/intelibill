@@ -51,6 +51,7 @@ describe('InventoryEffects', () => {
         description: null,
         uom: 'ltr',
         isActive: true,
+        currentStock: 0,
       })
     );
 
@@ -77,6 +78,7 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          currentStock: 0,
         },
       })
     );
@@ -118,6 +120,7 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          currentStock: 10,
         },
       ])
     );
@@ -136,6 +139,7 @@ describe('InventoryEffects', () => {
             description: null,
             uom: 'ltr',
             isActive: true,
+            currentStock: 10,
           },
         ],
       })

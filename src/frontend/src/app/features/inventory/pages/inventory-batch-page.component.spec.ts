@@ -19,6 +19,10 @@ describe('InventoryBatchPageComponent', () => {
     costPrice: 42,
     mrp: 50,
     salesPrice: 48,
+    supplierId: 'supplier-1',
+    supplierName: 'Acme Foods',
+    taxIncluded: true as boolean | null,
+    taxRatePercent: 18 as number | null,
   };
 
   const inventoryService = {
@@ -117,6 +121,9 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.form.controls.costPrice.value).toBe(productDetails.costPrice);
     expect(component.form.controls.mrp.value).toBe(productDetails.mrp);
     expect(component.form.controls.salesPrice.value).toBe(productDetails.salesPrice);
+    expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
+    expect(component.form.controls.taxIncluded.value).toBe(productDetails.taxIncluded);
+    expect(component.form.controls.taxRatePercent.value).toBe(productDetails.taxRatePercent);
   });
 
   it('keeps selection-triggered lookup and syncs item name from barcode', async () => {
@@ -177,5 +184,45 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.form.controls.costPrice.value).toBe(productDetails.costPrice);
     expect(component.form.controls.mrp.value).toBe(productDetails.mrp);
     expect(component.form.controls.salesPrice.value).toBe(productDetails.salesPrice);
+    expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
+    expect(component.form.controls.taxIncluded.value).toBe(productDetails.taxIncluded);
+    expect(component.form.controls.taxRatePercent.value).toBe(productDetails.taxRatePercent);
+  });
+
+  it('does not patch supplierName or taxIncluded when batch has no active supplier', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      of({ ...productDetails, supplierId: null, supplierName: null, taxIncluded: null, taxRatePercent: null }) as any,
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.form.controls.barcode.setValue('B001');
+
+    await component['fetchProductDetails']();
+
+    expect(component.form.controls.supplierName.value).toBe('');
+    expect(component.form.controls.taxIncluded.value).toBe(false);
+    expect(component.form.controls.taxRatePercent.value).toBe(0);
+  });
+
+  it('does not overwrite supplierName or taxIncluded already edited by user', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.form.controls.barcode.setValue('B001');
+    component.form.controls.supplierName.setValue('My Supplier');
+    component.form.controls.taxIncluded.setValue(false);
+
+    component.form.controls.supplierName.markAsDirty();
+    component.form.controls.taxIncluded.markAsDirty();
+
+    await component['fetchProductDetails']();
+
+    expect(component.form.controls.supplierName.value).toBe('My Supplier');
+    expect(component.form.controls.taxIncluded.value).toBe(false);
   });
 });
