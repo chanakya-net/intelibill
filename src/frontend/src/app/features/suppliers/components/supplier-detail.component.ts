@@ -272,15 +272,10 @@ export class SupplierDetailComponent {
   readonly currentSupplier = signal<Supplier | null>(null);
 
   readonly isOpen = true;
-  protected readonly isLoading = () => this._isLoading;
-  protected readonly entries = () => this._entries;
-  protected readonly tableEntries = () => this._tableEntries;
-  protected readonly totalAmount = () => this._totalAmount;
-
-  private _isLoading = false;
-  private _entries: SupplierLedgerEntry[] = [];
-  private _tableEntries: Array<SupplierLedgerEntry & { entryTypeLabel: string; entryTypeClass: string }> = [];
-  private _totalAmount = 0;
+  protected readonly isLoading = signal(false);
+  protected readonly entries = signal<SupplierLedgerEntry[]>([]);
+  protected readonly tableEntries = signal<Array<SupplierLedgerEntry & { entryTypeLabel: string; entryTypeClass: string }>>([]);
+  protected readonly totalAmount = signal(0);
 
   constructor() {
     this.transloco.langChanges$
@@ -291,29 +286,31 @@ export class SupplierDetailComponent {
   }
 
   private loadLedgerEntries(supplierId: string): void {
-    this._isLoading = true;
+    this.isLoading.set(true);
     this.ledgerService.getSupplierLedgerEntries(supplierId).subscribe(
-      (entries) => {
-        this._entries = [...entries];
+      (fetched) => {
+        this.entries.set([...fetched]);
         this.rebuildTableEntries();
-        this._totalAmount = this._entries.reduce((sum, entry) => sum + entry.amount, 0);
-        this._isLoading = false;
+        this.totalAmount.set(this.entries().reduce((sum: number, entry: SupplierLedgerEntry) => sum + entry.amount, 0));
+        this.isLoading.set(false);
       },
       () => {
-        this._isLoading = false;
-        this._entries = [];
-        this._tableEntries = [];
-        this._totalAmount = 0;
+        this.isLoading.set(false);
+        this.entries.set([]);
+        this.tableEntries.set([]);
+        this.totalAmount.set(0);
       }
     );
   }
 
   private rebuildTableEntries(): void {
-    this._tableEntries = this._entries.map((entry) => ({
-      ...entry,
-      entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
-      entryTypeClass: this.getEntryTypeClass(entry.entryType),
-    }));
+    this.tableEntries.set(
+      this.entries().map((entry: SupplierLedgerEntry) => ({
+        ...entry,
+        entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
+        entryTypeClass: this.getEntryTypeClass(entry.entryType),
+      }))
+    );
   }
 
   getEntryTypeLabel(entryType: SupplierLedgerEntry['entryType']): string {
