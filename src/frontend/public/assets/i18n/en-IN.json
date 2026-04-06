@@ -4,7 +4,8 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "clear": "Clear"
   },
   "languages": {
     "en-IN": "English",
@@ -152,7 +153,8 @@
       "goodsReceived": "Goods Received",
       "paymentMade": "Payment Made",
       "recordAdjusted": "Record Adjusted"
-    }
+    },
+    "searchLedger": "Search ledger"
   },
   "inventory": {
     "directory": "Inventory Directory",

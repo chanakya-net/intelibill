@@ -1,20 +1,37 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, inject, output, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, Input, computed, inject, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { BadgeModule } from 'primeng/badge';
+import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 
+import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
-import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier-ledger.service';
+import { SuppliersFacade } from '../state/suppliers.facade';
 
 @Component({
   selector: 'app-supplier-detail',
   standalone: true,
-  imports: [BadgeModule, CommonModule, DialogModule, InputTextModule, ProgressSpinnerModule, TableModule, TranslocoPipe],
+  imports: [
+    BadgeModule,
+    ButtonModule,
+    CommonModule,
+    DialogModule,
+    FormsModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
+    ProgressSpinnerModule,
+    TableModule,
+    TranslocoPipe,
+  ],
   template: `
     <p-dialog
       [(visible)]="isOpen"
@@ -50,85 +67,112 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
           <p-table
             #ledgerTable
             [value]="tableEntries()"
+            dataKey="id"
+            [rows]="10"
+            [rowsPerPageOptions]="[10, 25, 50]"
+            [paginator]="tableEntries().length > 10"
+            [globalFilterFields]="['entryTypeLabel', 'amount', 'entryDate', 'notes']"
             [sortField]="'entryDate'"
             [sortOrder]="-1"
             [tableStyle]="{ 'min-width': '56rem' }"
+            showGridlines
             class="p-datatable-sm"
           >
-          <ng-template pTemplate="header">
-            <tr>
-              <th pSortableColumn="entryTypeLabel">{{ 'suppliers.entryType' | transloco }} <p-sortIcon field="entryTypeLabel" /></th>
-              <th pSortableColumn="amount">{{ 'suppliers.amount' | transloco }} <p-sortIcon field="amount" /></th>
-              <th pSortableColumn="entryDate">{{ 'suppliers.entryDate' | transloco }} <p-sortIcon field="entryDate" /></th>
-              <th pSortableColumn="notes">{{ 'suppliers.notes' | transloco }} <p-sortIcon field="notes" /></th>
-            </tr>
-            <tr>
-              <th>
-                <input
-                  pInputText
-                  type="text"
-                  [placeholder]="'suppliers.searchEntryType' | transloco"
-                  (input)="ledgerTable.filter($any($event.target).value, 'entryTypeLabel', 'contains')"
+            <ng-template pTemplate="caption">
+              <div class="table-caption">
+                <p-button
+                  [label]="'common.clear' | transloco"
+                  [outlined]="true"
+                  icon="pi pi-filter-slash"
+                  (click)="clearFilters(ledgerTable)"
                 />
-              </th>
-              <th>
-                <input
-                  pInputText
-                  type="text"
-                  [placeholder]="'suppliers.searchAmount' | transloco"
-                  (input)="ledgerTable.filter($any($event.target).value, 'amount', 'contains')"
-                />
-              </th>
-              <th>
-                <input
-                  pInputText
-                  type="text"
-                  [placeholder]="'suppliers.searchEntryDate' | transloco"
-                  (input)="ledgerTable.filter($any($event.target).value, 'entryDate', 'contains')"
-                />
-              </th>
-              <th>
-                <input
-                  pInputText
-                  type="text"
-                  [placeholder]="'suppliers.searchNotes' | transloco"
-                  (input)="ledgerTable.filter($any($event.target).value, 'notes', 'contains')"
-                />
-              </th>
-            </tr>
-          </ng-template>
+                <p-iconfield iconPosition="left">
+                  <p-inputicon>
+                    <i class="pi pi-search"></i>
+                  </p-inputicon>
+                  <input
+                    pInputText
+                    type="text"
+                    [(ngModel)]="searchValue"
+                    (input)="ledgerTable.filterGlobal(searchValue(), 'contains')"
+                    [placeholder]="'suppliers.searchLedger' | transloco"
+                  />
+                </p-iconfield>
+              </div>
+            </ng-template>
 
-          <ng-template pTemplate="body" let-entry>
-            <tr>
-              <td>
-                <span class="entry-type" [ngClass]="entry.entryTypeClass">
-                  {{ entry.entryTypeLabel }}
-                </span>
-              </td>
-              <td>
-                <p-badge [value]="formatSignedAmount(entry.amount)" [severity]="amountSeverity(entry.amount)" />
-              </td>
-              <td>{{ entry.entryDate }}</td>
-              <td>{{ entry.notes || '-' }}</td>
-            </tr>
-          </ng-template>
+            <ng-template pTemplate="header">
+              <tr>
+                <th pSortableColumn="entryTypeLabel" style="min-width: 12rem">
+                  <div class="flex items-center justify-between">
+                    {{ 'suppliers.entryType' | transloco }}
+                    <div class="flex items-center gap-1">
+                      <p-sortIcon field="entryTypeLabel" />
+                      <p-columnFilter type="text" field="entryTypeLabel" display="menu" />
+                    </div>
+                  </div>
+                </th>
+                <th pSortableColumn="amount" style="min-width: 10rem">
+                  <div class="flex items-center justify-between">
+                    {{ 'suppliers.amount' | transloco }}
+                    <div class="flex items-center gap-1">
+                      <p-sortIcon field="amount" />
+                      <p-columnFilter type="numeric" field="amount" display="menu" currency="INR" />
+                    </div>
+                  </div>
+                </th>
+                <th pSortableColumn="entryDate" style="min-width: 10rem">
+                  <div class="flex items-center justify-between">
+                    {{ 'suppliers.entryDate' | transloco }}
+                    <div class="flex items-center gap-1">
+                      <p-sortIcon field="entryDate" />
+                      <p-columnFilter type="text" field="entryDate" display="menu" />
+                    </div>
+                  </div>
+                </th>
+                <th pSortableColumn="notes" style="min-width: 12rem">
+                  <div class="flex items-center justify-between">
+                    {{ 'suppliers.notes' | transloco }}
+                    <div class="flex items-center gap-1">
+                      <p-sortIcon field="notes" />
+                      <p-columnFilter type="text" field="notes" display="menu" />
+                    </div>
+                  </div>
+                </th>
+              </tr>
+            </ng-template>
 
-          <ng-template pTemplate="footer" *ngIf="entries().length > 0">
-            <tr class="total-row">
-              <td colspan="3">{{ 'suppliers.totalAmount' | transloco }}</td>
-              <td>{{ totalAmount() | currency: 'INR':'symbol':'1.0-2' }}</td>
-            </tr>
-          </ng-template>
+            <ng-template pTemplate="body" let-entry>
+              <tr>
+                <td>
+                  <span class="entry-type" [ngClass]="entry.entryTypeClass">
+                    {{ entry.entryTypeLabel }}
+                  </span>
+                </td>
+                <td>
+                  <p-badge [value]="formatSignedAmount(entry.amount)" [severity]="amountSeverity(entry.amount)" />
+                </td>
+                <td>{{ entry.entryDate }}</td>
+                <td>{{ entry.notes || '-' }}</td>
+              </tr>
+            </ng-template>
 
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td [attr.colspan]="4">
-                <div class="empty-state">
-                  <p>{{ 'suppliers.noEntriesFound' | transloco }}</p>
-                </div>
-              </td>
-            </tr>
-          </ng-template>
+            <ng-template pTemplate="footer" *ngIf="tableEntries().length > 0">
+              <tr class="total-row">
+                <td colspan="3">{{ 'suppliers.totalAmount' | transloco }}</td>
+                <td>{{ totalAmount() | currency: 'INR':'symbol':'1.0-2' }}</td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td [attr.colspan]="4">
+                  <div class="empty-state">
+                    <p>{{ 'suppliers.noEntriesFound' | transloco }}</p>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
           </p-table>
         </div>
       </div>
@@ -180,11 +224,6 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
         justify-content: space-between;
         gap: 0.75rem;
         padding: 0.75rem;
-      }
-
-      .search-label {
-        font-weight: 600;
-        color: #1f2937;
       }
 
       .info-row {
@@ -247,16 +286,13 @@ import { SupplierLedgerEntry, SupplierLedgerService } from '../services/supplier
           white-space: normal;
         }
       }
-
-      input[pinputtext] {
-        width: 100%;
-      }
     }
   `,
 })
 export class SupplierDetailComponent {
-  private readonly ledgerService = inject(SupplierLedgerService);
+  private readonly facade = inject(SuppliersFacade);
   private readonly transloco = inject(TranslocoService);
+  private readonly currentLang = toSignal(this.transloco.langChanges$, { initialValue: '' });
 
   @Input() set supplier(value: Supplier | null) {
     this.currentSupplier.set(value);
@@ -264,53 +300,33 @@ export class SupplierDetailComponent {
 
   @Input() set supplierId(value: string | null) {
     if (value) {
-      this.loadLedgerEntries(value);
+      this.facade.loadLedger(value);
     }
   }
 
   readonly closeRequested = output<void>();
   readonly currentSupplier = signal<Supplier | null>(null);
-
   readonly isOpen = true;
-  protected readonly isLoading = signal(false);
-  protected readonly entries = signal<SupplierLedgerEntry[]>([]);
-  protected readonly tableEntries = signal<Array<SupplierLedgerEntry & { entryTypeLabel: string; entryTypeClass: string }>>([]);
-  protected readonly totalAmount = signal(0);
+  protected readonly searchValue = signal('');
 
-  constructor() {
-    this.transloco.langChanges$
-      .pipe(takeUntilDestroyed())
-      .subscribe(() => {
-        this.rebuildTableEntries();
-      });
-  }
+  protected readonly isLoading = this.facade.ledgerIsLoading;
 
-  private loadLedgerEntries(supplierId: string): void {
-    this.isLoading.set(true);
-    this.ledgerService.getSupplierLedgerEntries(supplierId).subscribe(
-      (fetched) => {
-        this.entries.set([...fetched]);
-        this.rebuildTableEntries();
-        this.totalAmount.set(this.entries().reduce((sum: number, entry: SupplierLedgerEntry) => sum + entry.amount, 0));
-        this.isLoading.set(false);
-      },
-      () => {
-        this.isLoading.set(false);
-        this.entries.set([]);
-        this.tableEntries.set([]);
-        this.totalAmount.set(0);
-      }
-    );
-  }
+  protected readonly tableEntries = computed(() => {
+    this.currentLang(); // re-run on language change
+    return this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => ({
+      ...entry,
+      entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
+      entryTypeClass: this.getEntryTypeClass(entry.entryType),
+    }));
+  });
 
-  private rebuildTableEntries(): void {
-    this.tableEntries.set(
-      this.entries().map((entry: SupplierLedgerEntry) => ({
-        ...entry,
-        entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
-        entryTypeClass: this.getEntryTypeClass(entry.entryType),
-      }))
-    );
+  protected readonly totalAmount = computed(() =>
+    this.facade.ledgerEntries().reduce((sum: number, e: SupplierLedgerEntry) => sum + e.amount, 0)
+  );
+
+  clearFilters(table: Table): void {
+    table.clear();
+    this.searchValue.set('');
   }
 
   getEntryTypeLabel(entryType: SupplierLedgerEntry['entryType']): string {
@@ -365,21 +381,15 @@ export class SupplierDetailComponent {
   }
 
   amountSeverity(amount: number): 'danger' | 'success' | 'secondary' {
-    if (amount > 0) {
-      return 'danger';
-    }
-
-    if (amount < 0) {
-      return 'success';
-    }
-
+    if (amount > 0) return 'danger';
+    if (amount < 0) return 'success';
     return 'secondary';
   }
 
   onVisibilityChange(visible: boolean): void {
     if (!visible) {
+      this.facade.clearLedger();
       this.closeRequested.emit();
     }
   }
 }
-

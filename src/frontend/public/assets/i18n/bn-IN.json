@@ -4,7 +4,8 @@
     "firstName": "নামের প্রথম অংশ",
     "lastName": "নামের শেষ অংশ",
     "cancel": "বাতিল",
-    "close": "বন্ধ করুন"
+    "close": "বন্ধ করুন",
+    "clear": "পরিষ্কার করুন"
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -152,7 +153,8 @@
       "goodsReceived": "পণ্য গ্রহণ",
       "paymentMade": "পেমেন্ট করা হয়েছে",
       "recordAdjusted": "রেকর্ড সমন্বয়"
-    }
+    },
+    "searchLedger": "খাতা খুঁজুন"
   },
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",
@@ -169,7 +171,7 @@
     "supplierIdOptional": "পছন্দের সরবরাহকারী আইডি (ঐচ্ছিক)",
     "addNewProduct": "নতুন পণ্য যোগ করুন",
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
-    "productForm": "পণ্য যোগ করার ফর্ম",
+    "productForm": "পণ্য ফর্ম যোগ করুন",
     "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
     "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
     "batchInboundTitle": "ইনভেন্টরি যোগ করুন",
@@ -201,8 +203,7 @@
     "batchLimitReached": "আপনি একবারে ১০০টি পর্যন্ত সারি সংরক্ষণ করতে পারবেন।",
     "removeFailed": "ব্যর্থ সারি পুনরায় চেষ্টা করার জন্য গ্রিডে থাকে।",
     "productDetailsLoaded": "পণ্য বিশদ সফলভাবে লোড হয়েছে।",
-    "productDetailsLoadError": "পণ্য বিশদ লোড করতে ব্যর্থ। দয়া করে আবার চেষ্টা করুন।",
-    "productForm": "পণ্য ফর্ম যোগ করুন"
+    "productDetailsLoadError": "পণ্য বিশদ লোড করতে ব্যর্থ। দয়া করে আবার চেষ্টা করুন।"
   },
   "profile": {
     "account": "অ্যাকাউন্ট",
