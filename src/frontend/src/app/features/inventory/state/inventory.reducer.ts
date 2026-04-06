@@ -53,15 +53,19 @@ export const inventoryReducer = createReducer(
     lastMutationType: 'add-item',
     lastMutationSucceeded: false,
   })),
-  on(InventoryActions.addItemSucceeded, (state, { item }) =>
-    inventoryAdapter.addOne(item, {
+  on(InventoryActions.addItemSucceeded, (state, { item }) => {
+    const orderedExisting = state.ids
+      .map((id) => state.entities[id as string])
+      .filter((existing): existing is Item => Boolean(existing));
+
+    return inventoryAdapter.setAll([item, ...orderedExisting], {
       ...state,
       submitting: false,
       errorMessage: '',
       lastMutationType: 'add-item',
       lastMutationSucceeded: true,
-    })
-  ),
+    });
+  }),
   on(InventoryActions.addItemFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,

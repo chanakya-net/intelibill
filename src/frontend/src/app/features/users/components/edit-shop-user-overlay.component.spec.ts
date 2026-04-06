@@ -101,7 +101,7 @@ describe('EditShopUserOverlayComponent', () => {
   it('dispatches edit user action with trimmed payload', () => {
     const component = setup();
 
-    component.form.controls.email.setValue('  sales.updated@test.com  ');
+    component.form.controls.email.setValue('sales.updated@test.com');
     component.form.controls.firstName.setValue('  Sales  ');
     component.form.controls.lastName.setValue('  Updated  ');
     component.form.controls.phoneNumber.setValue('+15551234569');

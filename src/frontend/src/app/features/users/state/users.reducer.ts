@@ -8,7 +8,6 @@ export const usersFeatureKey = 'users';
 
 export const usersAdapter = createEntityAdapter<ShopUser>({
   selectId: (user) => user.userId,
-  sortComparer: (left, right) => left.firstName.localeCompare(right.firstName),
 });
 
 export interface UsersState extends EntityState<ShopUser> {
