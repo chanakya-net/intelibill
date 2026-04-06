@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -31,7 +30,6 @@ import {
 export class InventoryPageComponent {
   private readonly store = inject(Store<RootState>);
   private readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
 
   readonly items = this.store.selectSignal(selectInventoryItems);
   readonly tableItems = computed(() => [...this.items()]);
@@ -61,11 +59,7 @@ export class InventoryPageComponent {
 
   constructor() {
     this.store.dispatch(InventoryActions.loadItemsRequested());
-
-    const shouldOpenAddProduct = this.router.getCurrentNavigation()?.extras.state?.['openAddProduct'] === true;
-    if (shouldOpenAddProduct && this.canManageInventory()) {
-      this.onOpenAddProduct();
-    }
+    this.store.dispatch(InventoryActions.clearMutationStatus());
 
     effect(() => {
       if (!this.lastMutationSucceeded()) {
