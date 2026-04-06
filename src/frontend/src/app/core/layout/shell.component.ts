@@ -410,9 +410,7 @@ export class ShellComponent {
 
   onOpenAddProduct(): void {
     this.onCloseMenus();
-    void this.router.navigate(['/inventory'], {
-      state: { openAddProduct: true },
-    });
+    void this.router.navigate(['/inventory']);
   }
 
   onOpenInventoryBatch(): void {

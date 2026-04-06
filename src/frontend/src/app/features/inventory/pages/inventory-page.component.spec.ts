@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { Action } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -63,6 +64,17 @@ describe('InventoryPageComponent', () => {
       return signal(null);
     }),
   };
+
+  store.dispatch.mockImplementation((action: Action) => {
+    if (action.type === InventoryActions.clearMutationStatus.type) {
+      lastMutationTypeSignal.set(null);
+      lastMutationSucceededSignal.set(false);
+    }
+
+    if (action.type === InventoryActions.clearError.type) {
+      errorSignal.set('');
+    }
+  });
 
   const sessionSignal = signal({
     accessToken: 'access-token',
