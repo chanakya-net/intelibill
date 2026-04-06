@@ -59,5 +59,6 @@ public sealed class AddSupplierCommandHandler(
             supplier.Amount,
             supplier.Status,
             supplier.IsActive,
-            supplier.IsPreferred);
+            supplier.IsPreferred,
+            0m);
 }

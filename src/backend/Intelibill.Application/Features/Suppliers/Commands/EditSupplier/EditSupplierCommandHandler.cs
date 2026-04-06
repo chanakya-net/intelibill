@@ -60,6 +60,7 @@ public sealed class EditSupplierCommandHandler(
             supplier.Amount,
             supplier.Status,
             supplier.IsActive,
-            supplier.IsPreferred);
+            supplier.IsPreferred,
+            0m);
     }
 }

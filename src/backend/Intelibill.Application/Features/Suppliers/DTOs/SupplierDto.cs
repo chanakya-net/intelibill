@@ -14,4 +14,5 @@ public sealed record SupplierDto(
     decimal Amount,
     SupplierStatus Status,
     bool IsActive,
-    bool IsPreferred);
+    bool IsPreferred,
+    decimal BalanceDue);

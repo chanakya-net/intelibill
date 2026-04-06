@@ -7,6 +7,8 @@ using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
 using Intelibill.Application.Features.Suppliers.DTOs;
 using Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
+using Intelibill.Application.Features.SupplierLedger.DTOs;
+using Intelibill.Application.Features.SupplierLedger.Queries.GetSupplierEntries;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -31,6 +33,24 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
             new GetSuppliersQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{supplierId:guid}/ledger")]
+    public async Task<IActionResult> GetSupplierLedger(Guid supplierId, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierLedgerEntryDto>>>(
+            new GetSupplierEntriesQuery(userId.Value, activeShopId.Value, supplierId),
             cancellationToken);
 
         return result.ToActionResult(Ok);

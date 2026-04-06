@@ -67,7 +67,7 @@ public class SuppliersControllerTests
             true,
             false);
 
-        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.Amount, request.Status, request.IsActive, request.IsPreferred);
+        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.Amount, request.Status, request.IsActive, request.IsPreferred, 0m);
         _bus.InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
         var result = await _controller.AddSupplier(request, CancellationToken.None);
