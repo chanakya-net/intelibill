@@ -160,6 +160,7 @@
     "directory": "Inventory Directory",
     "title": "Inventory",
     "subtitle": "Add products for the active shop and keep your catalog ready for stock operations.",
+    "searchPlaceholder": "Search products",
     "name": "Product Name",
     "barcode": "Barcode",
     "description": "Description",

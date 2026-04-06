@@ -47,7 +47,7 @@ describe('InventoryService', () => {
     });
 
     request.flush({
-      itemId: 'item-1',
+      id: 'item-1',
       name: 'Premium Tea',
       barcode: 'ABC123',
       description: null,
@@ -72,7 +72,7 @@ describe('InventoryService', () => {
 
     request.flush([
       {
-        itemId: 'item-1',
+        id: 'item-1',
         name: 'Premium Tea',
         barcode: 'ABC123',
         description: null,

@@ -3,7 +3,7 @@ import { InventoryState, inventoryReducer } from './inventory.reducer';
 import { Item } from '../services/inventory.service';
 
 const milkItem: Item = {
-  itemId: 'item-1',
+  id: 'item-1',
   name: 'Milk',
   barcode: 'B001',
   description: null,
@@ -42,6 +42,33 @@ describe('inventoryReducer', () => {
     expect(next.loadingItems).toBe(false);
     expect(next.ids).toEqual(['item-1']);
     expect(next.entities['item-1']).toEqual(milkItem);
+  });
+
+  it('keeps all unique items when multiple items are loaded', () => {
+    const breadItem: Item = {
+      id: 'item-2',
+      name: 'Bread',
+      barcode: 'B002',
+      description: null,
+      uom: 'pcs',
+      isActive: true,
+      currentStock: 8,
+    };
+
+    const next = inventoryReducer(
+      {
+        ...initialState,
+        loadingItems: true,
+      },
+      InventoryActions.loadItemsSucceeded({
+        items: [milkItem, breadItem],
+      })
+    );
+
+    expect(next.loadingItems).toBe(false);
+    expect(next.ids).toEqual(['item-1', 'item-2']);
+    expect(next.entities['item-1']).toEqual(milkItem);
+    expect(next.entities['item-2']).toEqual(breadItem);
   });
 
   it('sets error when load items fails', () => {

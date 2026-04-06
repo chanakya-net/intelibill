@@ -45,7 +45,7 @@ describe('InventoryEffects', () => {
   it('dispatches addItemSucceeded on add success', async () => {
     inventoryService.addItem.mockReturnValue(
       of({
-        itemId: 'item-1',
+        id: 'item-1',
         name: 'Milk',
         barcode: 'B001',
         description: null,
@@ -72,7 +72,7 @@ describe('InventoryEffects', () => {
     await expect(output).resolves.toEqual(
       InventoryActions.addItemSucceeded({
         item: {
-          itemId: 'item-1',
+          id: 'item-1',
           name: 'Milk',
           barcode: 'B001',
           description: null,
@@ -114,7 +114,7 @@ describe('InventoryEffects', () => {
     inventoryService.getItems.mockReturnValue(
       of([
         {
-          itemId: 'item-1',
+          id: 'item-1',
           name: 'Milk',
           barcode: 'B001',
           description: null,
@@ -133,7 +133,7 @@ describe('InventoryEffects', () => {
       InventoryActions.loadItemsSucceeded({
         items: [
           {
-            itemId: 'item-1',
+            id: 'item-1',
             name: 'Milk',
             barcode: 'B001',
             description: null,

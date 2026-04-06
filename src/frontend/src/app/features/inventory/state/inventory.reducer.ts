@@ -7,7 +7,7 @@ import { InventoryActions, ItemMutationType } from './inventory.actions';
 export const inventoryFeatureKey = 'inventory';
 
 export const inventoryAdapter = createEntityAdapter<Item>({
-  selectId: (item) => item.itemId,
+  selectId: (item) => item.id,
 });
 
 export interface InventoryState extends EntityState<Item> {

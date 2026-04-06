@@ -10,7 +10,7 @@ import {
 } from './inventory.selectors';
 
 const itemOne: Item = {
-  itemId: 'item-1',
+  id: 'item-1',
   name: 'Milk',
   barcode: 'B001',
   description: null,
@@ -20,7 +20,7 @@ const itemOne: Item = {
 };
 
 const itemTwo: Item = {
-  itemId: 'item-2',
+  id: 'item-2',
   name: 'Bread',
   barcode: 'B002',
   description: null,

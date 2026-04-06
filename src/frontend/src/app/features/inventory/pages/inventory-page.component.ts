@@ -1,12 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
@@ -24,7 +28,19 @@ import {
 @Component({
   selector: 'app-inventory-page',
   standalone: true,
-  imports: [CommonModule, BadgeModule, ButtonModule, ProgressSpinnerModule, TableModule, AddProductOverlayComponent, TranslocoPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    BadgeModule,
+    ButtonModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
+    ProgressSpinnerModule,
+    TableModule,
+    AddProductOverlayComponent,
+    TranslocoPipe,
+  ],
   templateUrl: './inventory-page.component.html',
   styleUrl: './inventory-page.component.scss',
 })
@@ -40,6 +56,7 @@ export class InventoryPageComponent {
   readonly lastMutationType = this.store.selectSignal(selectInventoryLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectInventoryLastMutationSucceeded);
   readonly showAddProductOverlay = signal(false);
+  protected readonly searchValue = signal('');
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -97,5 +114,10 @@ export class InventoryPageComponent {
     }
 
     this.showAddProductOverlay.set(false);
+  }
+
+  clearFilters(table: Table): void {
+    table.clear();
+    this.searchValue.set('');
   }
 }
