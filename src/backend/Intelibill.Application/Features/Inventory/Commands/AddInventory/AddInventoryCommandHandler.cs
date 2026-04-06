@@ -14,6 +14,7 @@ public sealed class AddInventoryCommandHandler(
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork)
 {
@@ -74,6 +75,7 @@ public sealed class AddInventoryCommandHandler(
             command.BatchNumber,
             cancellationToken);
 
+        var isNewBatch = false;
         if (batch is null)
         {
             var batchResult = InventoryBatch.Create(
@@ -94,6 +96,7 @@ public sealed class AddInventoryCommandHandler(
             if (batchResult.IsError)
                 return batchResult.Errors;
 
+            isNewBatch = true;
             batch = batchResult.Value;
             await inventoryBatchRepository.AddAsync(batch, cancellationToken);
         }
@@ -125,6 +128,24 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
+        if (isNewBatch && batch.SupplierId is Guid supplierId)
+        {
+            var ledgerResult = SupplierLedgerEntry.Create(
+                command.ActiveShopId,
+                supplierId,
+                batch.Id,
+                SupplierLedgerEntryType.GoodsReceived,
+                ComputeLedgerAmount(command.CostPrice, command.Quantity),
+                DateOnly.FromDateTime(performedAt.UtcDateTime),
+                command.Notes,
+                command.ActorUserId);
+
+            if (ledgerResult.IsError)
+                return Errors.Inventory.SupplierLedgerEntryInvalid;
+
+            await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+        }
+
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, item.Id, cancellationToken);
         if (inventory is null)
         {
@@ -151,6 +172,9 @@ public sealed class AddInventoryCommandHandler(
             inventoryRepository.Update(inventory);
         }
 
+        if (inventory is null)
+            return Errors.Inventory.InventoryAggregateNotFound;
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AddInventoryResultDto(
@@ -165,4 +189,7 @@ public sealed class AddInventoryCommandHandler(
             stockTransaction.Id,
             stockTransaction.PerformedAt);
     }
+
+    private static decimal ComputeLedgerAmount(decimal costPrice, decimal quantity) =>
+        decimal.Round(costPrice * quantity, 2, MidpointRounding.AwayFromZero);
 }

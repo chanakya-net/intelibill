@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -59,12 +60,38 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         return body.GetProperty("accessToken").GetString()!;
     }
 
+    private static async Task<Guid> CreateSupplierAsync(HttpClient client, string token, string name)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            contactPersonName = "Supplier Contact",
+            contactPersonPhone = "+919999999999",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pin = "560001",
+            amount = 0m,
+            status = 0,
+            isActive = true,
+            isPreferred = true,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("supplierId").GetGuid();
+    }
+
     [Fact]
     public async Task AddInboundInventory_CreatesItemBatchTransactionAndInventoryAggregate()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Supplier 1");
         var barcode = $"INV-{Guid.NewGuid():N}";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
@@ -84,6 +111,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
             taxIncluded = false,
             expiryDate = (DateOnly?)null,
             manufacturingDate = (DateOnly?)null,
+            supplierId,
             referenceNumber = "PO-1001",
             notes = "Initial inbound",
             performedAt = (DateTimeOffset?)null,
@@ -115,6 +143,15 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         var inventory = await db.Inventory.FirstOrDefaultAsync(i => i.ItemId == itemId && i.ShopId == item.ShopId);
         Assert.NotNull(inventory);
         Assert.Equal(10.5m, inventory.Quantity);
+
+        var ledgerEntries = await db.SupplierLedgerEntries
+            .Where(e => e.BatchId == batchId)
+            .ToListAsync();
+
+        Assert.Single(ledgerEntries);
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, ledgerEntries[0].EntryType);
+        Assert.Equal(892.50m, ledgerEntries[0].Amount);
+        Assert.Equal(supplierId, ledgerEntries[0].SupplierId);
     }
 
     [Fact]
@@ -123,6 +160,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         using var client = CreateClient();
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Supplier 2");
         var barcode = $"INV-{Guid.NewGuid():N}";
 
         async Task<HttpResponseMessage> SendInbound(decimal quantity)
@@ -144,6 +182,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
                 taxIncluded = false,
                 expiryDate = (DateOnly?)null,
                 manufacturingDate = (DateOnly?)null,
+                supplierId,
                 referenceNumber = "PO-2002",
                 notes = "Restock",
                 performedAt = (DateTimeOffset?)null,
@@ -173,6 +212,52 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         var txCount = await db.StockTransactions.CountAsync(t => t.ItemId == itemId && t.InventoryBatchId == batchId);
         Assert.Equal(2, txCount);
+
+        var ledgerCount = await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == batchId && e.SupplierId == supplierId);
+        Assert.Equal(1, ledgerCount);
+    }
+
+    [Fact]
+    public async Task AddInboundInventory_WithoutSupplier_DoesNotCreateLedgerEntry()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = $"INV-{Guid.NewGuid():N}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            itemName = "Moong Dal",
+            barcode,
+            itemDescription = "Organic",
+            uom = "kg",
+            batchNumber = "B-NO-SUP",
+            quantity = 5m,
+            costPrice = 100m,
+            mrp = 140m,
+            salesPrice = 130m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = "PO-NA",
+            notes = "Inbound without supplier",
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var batchId = body.GetProperty("inventoryBatchId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var ledgerCount = await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == batchId);
+        Assert.Equal(0, ledgerCount);
     }
 
     [Fact]
@@ -244,5 +329,87 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var itemCount = await db.Items.CountAsync(i => i.Name == "Batch Rice");
         Assert.Equal(1, itemCount);
+    }
+
+    [Fact]
+    public async Task EditInventoryBatch_WhenQuantityOrCostCorrected_AppendsReversalAndCorrectedLedgerEntries()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Supplier 3");
+        var barcode = $"INV-{Guid.NewGuid():N}";
+
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = "Chana Dal",
+            barcode,
+            itemDescription = "Initial",
+            uom = "kg",
+            batchNumber = "B-EDIT-1",
+            quantity = 10m,
+            costPrice = 80m,
+            mrp = 120m,
+            salesPrice = 110m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId,
+            referenceNumber = "PO-EDIT-1",
+            notes = "Initial inbound",
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        Assert.Equal(HttpStatusCode.OK, inboundResponse.StatusCode);
+        var inboundBody = await inboundResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var editRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/inventory/batches/{batchId}");
+        editRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        editRequest.Content = JsonContent.Create(new
+        {
+            batchNumber = "B-EDIT-1",
+            quantity = 12m,
+            costPrice = 85m,
+            mrp = 120m,
+            salesPrice = 110m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId,
+            notes = "Correction",
+            entryDate = new DateOnly(2026, 4, 6),
+        });
+
+        var editResponse = await client.SendAsync(editRequest);
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var entries = (await db.SupplierLedgerEntries
+            .Where(e => e.SupplierId == supplierId)
+            .ToListAsync())
+            .OrderBy(e => e.CreatedAt)
+            .ToList();
+
+        Assert.Equal(3, entries.Count);
+
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entries[0].EntryType);
+        Assert.Equal(800m, entries[0].Amount);
+        Assert.Equal(batchId, entries[0].BatchId);
+
+        Assert.Equal(SupplierLedgerEntryType.RecordAdjusted, entries[1].EntryType);
+        Assert.Equal(-800m, entries[1].Amount);
+        Assert.Null(entries[1].BatchId);
+
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entries[2].EntryType);
+        Assert.Equal(1020m, entries[2].Amount);
+        Assert.Equal(batchId, entries[2].BatchId);
     }
 }

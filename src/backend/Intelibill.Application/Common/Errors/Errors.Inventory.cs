@@ -29,5 +29,14 @@ public static partial class Errors
 
         public static Error ItemNameBarcodeMismatch =>
             Error.Validation("Inventory.ItemNameBarcodeMismatch", "Provided name and barcode do not match the existing item.");
+
+        public static Error BatchNotFound =>
+            Error.NotFound("Inventory.BatchNotFound", "Inventory batch was not found.");
+
+        public static Error InventoryAggregateNotFound =>
+            Error.NotFound("Inventory.InventoryAggregateNotFound", "Inventory aggregate was not found for this item.");
+
+        public static Error SupplierLedgerEntryInvalid =>
+            Error.Validation("Inventory.SupplierLedgerEntryInvalid", "Supplier ledger entry is invalid.");
     }
 }
