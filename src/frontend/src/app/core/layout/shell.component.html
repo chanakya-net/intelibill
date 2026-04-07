@@ -2,9 +2,7 @@
   <header class="shell-header">
     <div class="shell-header-inner">
       <div class="shell-brand">
-        <div class="shell-logo">
-          OZ
-        </div>
+        <div class="shell-logo">OZ</div>
         <div class="shell-shop" #shopMenuRoot>
           <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
           <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
@@ -35,7 +33,12 @@
             <i class="pi pi-chevron-down" aria-hidden="true"></i>
           </button>
 
-          <div class="shop-menu" *ngIf="isShopMenuOpen()" role="menu" [attr.aria-label]="'shell.availableShops' | transloco">
+          <div
+            class="shop-menu"
+            *ngIf="isShopMenuOpen()"
+            role="menu"
+            [attr.aria-label]="'shell.availableShops' | transloco"
+          >
             <button
               type="button"
               role="menuitem"
@@ -50,8 +53,11 @@
           </div>
         </div>
 
-        <div class="shell-middle-zone" *ngIf="inventoryMenuItems().length > 0">
-          <div class="shell-primary-nav" #inventoryMenuRoot>
+        <div
+          class="shell-middle-zone"
+          *ngIf="inventoryMenuItems().length > 0 || canManageSuppliers()"
+        >
+          <div class="shell-primary-nav" #inventoryMenuRoot *ngIf="inventoryMenuItems().length > 0">
             <button
               type="button"
               class="inventory-trigger"
@@ -76,6 +82,18 @@
               (onHide)="isInventoryMenuOpen.set(false)"
             ></p-tieredMenu>
           </div>
+
+          <div class="shell-primary-nav" *ngIf="canManageSuppliers()">
+            <button
+              type="button"
+              class="suppliers-trigger"
+              [attr.aria-label]="'shell.manageSuppliers' | transloco"
+              (click)="onNavigateToSuppliers()"
+            >
+              <i class="pi pi-truck" aria-hidden="true"></i>
+              <span>{{ 'shell.manageSuppliers' | transloco }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -88,7 +106,12 @@
           [attr.aria-label]="'shell.appName' | transloco"
           (click)="onToggleMobileMenu()"
         >
-          <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
+          <i
+            class="pi"
+            [class.pi-bars]="!isMobileMenuOpen()"
+            [class.pi-times]="isMobileMenuOpen()"
+            aria-hidden="true"
+          ></i>
         </button>
 
         <button
@@ -121,9 +144,17 @@
 
     <nav class="mobile-nav" *ngIf="isMobileMenuOpen()" #mobileNavRef aria-label="Mobile navigation">
       <div class="mobile-nav-section" *ngIf="inventoryMenuItems().length > 0">
-        <button type="button" class="mobile-nav-section-toggle" (click)="onToggleMobileSection('inventory')">
+        <button
+          type="button"
+          class="mobile-nav-section-toggle"
+          (click)="onToggleMobileSection('inventory')"
+        >
           <span class="mobile-nav-section-label">{{ 'shell.manageInventory' | transloco }}</span>
-          <i class="pi pi-chevron-down mobile-nav-section-chevron" [class.rotated]="isMobileSectionExpanded('inventory')" aria-hidden="true"></i>
+          <i
+            class="pi pi-chevron-down mobile-nav-section-chevron"
+            [class.rotated]="isMobileSectionExpanded('inventory')"
+            aria-hidden="true"
+          ></i>
         </button>
         <div *ngIf="isMobileSectionExpanded('inventory')" class="mobile-nav-section-items">
           <button
@@ -139,41 +170,63 @@
         </div>
       </div>
 
+      <div class="mobile-nav-section" *ngIf="canManageSuppliers()">
+        <button
+          type="button"
+          class="mobile-nav-item"
+          (click)="onNavigateToSuppliers(); closeMobileMenu()"
+        >
+          <i class="pi pi-truck" aria-hidden="true"></i>
+          <span>{{ 'shell.manageSuppliers' | transloco }}</span>
+        </button>
+      </div>
+
       <div class="mobile-nav-section">
-        <button type="button" class="mobile-nav-section-toggle" (click)="onToggleMobileSection('profile')">
+        <button
+          type="button"
+          class="mobile-nav-section-toggle"
+          (click)="onToggleMobileSection('profile')"
+        >
           <span class="mobile-nav-section-label">{{ 'shell.profile' | transloco }}</span>
-          <i class="pi pi-chevron-down mobile-nav-section-chevron" [class.rotated]="isMobileSectionExpanded('profile')" aria-hidden="true"></i>
+          <i
+            class="pi pi-chevron-down mobile-nav-section-chevron"
+            [class.rotated]="isMobileSectionExpanded('profile')"
+            aria-hidden="true"
+          ></i>
         </button>
         <div *ngIf="isMobileSectionExpanded('profile')" class="mobile-nav-section-items">
-        <ng-container *ngFor="let item of profileMenuItems()">
-          <button
-            type="button"
-            class="mobile-nav-item"
-            [disabled]="item.disabled ?? false"
-            (click)="onMobileNavItemClick(item)"
-          >
-            <i [class]="item.icon" aria-hidden="true"></i>
-            <span>{{ item.label }}</span>
-            <i
-              *ngIf="item.items?.length"
-              class="pi pi-chevron-down mobile-nav-chevron"
-              [class.rotated]="expandedMobileSectionLabel() === item.label"
-              aria-hidden="true"
-            ></i>
-          </button>
-          <div class="mobile-nav-subitems" *ngIf="item.items?.length && expandedMobileSectionLabel() === item.label">
+          <ng-container *ngFor="let item of profileMenuItems()">
             <button
-              *ngFor="let sub of item.items"
               type="button"
-              class="mobile-nav-subitem"
-              [disabled]="sub.disabled ?? false"
-              (click)="onMobileNavItemClick(sub)"
+              class="mobile-nav-item"
+              [disabled]="item.disabled ?? false"
+              (click)="onMobileNavItemClick(item)"
             >
-              <i *ngIf="sub.icon" [class]="sub.icon" aria-hidden="true"></i>
-              <span>{{ sub.label }}</span>
+              <i [class]="item.icon" aria-hidden="true"></i>
+              <span>{{ item.label }}</span>
+              <i
+                *ngIf="item.items?.length"
+                class="pi pi-chevron-down mobile-nav-chevron"
+                [class.rotated]="expandedMobileSectionLabel() === item.label"
+                aria-hidden="true"
+              ></i>
             </button>
-          </div>
-        </ng-container>
+            <div
+              class="mobile-nav-subitems"
+              *ngIf="item.items?.length && expandedMobileSectionLabel() === item.label"
+            >
+              <button
+                *ngFor="let sub of item.items"
+                type="button"
+                class="mobile-nav-subitem"
+                [disabled]="sub.disabled ?? false"
+                (click)="onMobileNavItemClick(sub)"
+              >
+                <i *ngIf="sub.icon" [class]="sub.icon" aria-hidden="true"></i>
+                <span>{{ sub.label }}</span>
+              </button>
+            </div>
+          </ng-container>
         </div>
       </div>
     </nav>
@@ -204,5 +257,4 @@
     *ngIf="showChangePasswordOverlay()"
     (closeRequested)="onProfileOverlayClose()"
   ></app-change-password-overlay>
-
 </div>

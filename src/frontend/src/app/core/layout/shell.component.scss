@@ -39,6 +39,7 @@
   justify-content: flex-start;
   margin-left: 0.25rem;
   flex: 0 0 auto;
+  gap: 0.7rem;
 }
 
 .shell-logo {
@@ -96,7 +97,10 @@
   color: #7c2d12;
   padding: 0.28rem 0.58rem 0.28rem 0.3rem;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 
   &:hover {
     transform: translateY(-1px);
@@ -164,7 +168,11 @@
   line-height: 1;
   padding: 0.34rem 0.56rem;
   cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
 
   &:hover {
     background: #ffedd5;
@@ -218,7 +226,9 @@
   font-weight: 600;
   padding: 0.55rem 0.62rem;
   text-align: left;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 
   &:hover {
     background: rgba(251, 146, 60, 0.16);
@@ -238,7 +248,6 @@
     color: #7c2d12;
   }
 }
-
 
 .shell-actions {
   position: relative;
@@ -261,7 +270,9 @@
   font-size: 1.05rem;
   cursor: pointer;
   flex: 0 0 auto;
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
 
   &:hover {
     transform: translateY(-1px);
@@ -274,8 +285,14 @@
 }
 
 @keyframes mobile-nav-in {
-  from { opacity: 0; transform: translateY(-0.4rem); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mobile-nav-section {
@@ -331,7 +348,9 @@
   font-weight: 600;
   padding: 0.6rem 0.75rem;
   text-align: left;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 
   i:first-child {
     color: #9a3412;
@@ -380,7 +399,9 @@
   font-weight: 500;
   padding: 0.45rem 0.75rem;
   text-align: left;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 
   i {
     color: #b45309;
@@ -415,7 +436,40 @@
   line-height: 1;
   padding: 0.28rem 0.58rem 0.28rem 0.3rem;
   cursor: pointer;
-  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #fb923c;
+    box-shadow: 0 10px 20px rgba(194, 65, 12, 0.14);
+  }
+
+  .pi {
+    font-size: 0.76rem;
+  }
+}
+
+.suppliers-trigger {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--shell-header-pill-height);
+  gap: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.28rem 0.58rem 0.28rem 0.3rem;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
 
   &:hover {
     transform: translateY(-1px);
@@ -455,6 +509,10 @@
     display: none;
   }
 
+  .suppliers-trigger span {
+    display: none;
+  }
+
   .shell-middle-zone {
     margin-left: 0.15rem;
   }
@@ -464,6 +522,10 @@
   }
 
   .inventory-trigger {
+    padding: 0.24rem 0.46rem 0.24rem 0.28rem;
+  }
+
+  .suppliers-trigger {
     padding: 0.24rem 0.46rem 0.24rem 0.28rem;
   }
 }

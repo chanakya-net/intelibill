@@ -1,5 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { Store } from '@ngrx/store';
 import { Router, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -10,15 +18,23 @@ import { RootState } from '../state/app.state';
 import { CreateShopOverlayComponent } from '../../features/shops/components/create-shop-overlay.component';
 import { ManageShopOverlayComponent } from '../../features/shops/components/manage-shop-overlay.component';
 import { ShopsActions } from '../../features/shops/state/shops.actions';
-import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
+import {
+  selectShopDetailsEntities,
+  selectShops,
+  selectShopsSubmitting,
+} from '../../features/shops/state/shops.selectors';
 import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
 import { LocalizationService } from '../i18n/localization.service';
-import { DEFAULT_LANGUAGE, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES, SupportedLanguage } from '../i18n/language.constants';
+import {
+  DEFAULT_LANGUAGE,
+  NATIVE_LANGUAGE_NAMES,
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+} from '../i18n/language.constants';
 import { MenuItem } from 'primeng/api';
 import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
 import { UsersActions } from '../../features/users/state/users.actions';
-
 
 @Component({
   selector: 'app-shell',
@@ -68,7 +84,9 @@ export class ShellComponent {
   readonly shops = this.store.selectSignal(selectShops);
   readonly shopDetailsById = this.store.selectSignal(selectShopDetailsEntities);
   readonly isShopsSubmitting = this.store.selectSignal(selectShopsSubmitting);
-  readonly showCreateShopOverlay = computed(() => this.authService.needsShopSetup() || this.showCreateShopOverlayManual());
+  readonly showCreateShopOverlay = computed(
+    () => this.authService.needsShopSetup() || this.showCreateShopOverlayManual(),
+  );
   readonly activeShop = computed(() => this.shops().find((shop) => shop.isDefault) ?? null);
   readonly activeShopId = computed(() => this.activeShop()?.shopId ?? null);
   readonly activeShopLabel = computed(() => {
@@ -100,6 +118,14 @@ export class ShellComponent {
     const role = activeShop.role.toLowerCase();
     return role === 'owner' || role === 'manager';
   });
+  readonly canManageSuppliers = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+
+    return activeShop.role.toLowerCase() === 'owner';
+  });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
     if (!user) {
@@ -129,14 +155,6 @@ export class ShellComponent {
         command: () => {
           this.onCloseMenus();
           void this.router.navigate(['/users']);
-        },
-      },
-      {
-        label: this.localizationService.translate('shell.manageSuppliers'),
-        icon: 'pi pi-truck',
-        command: () => {
-          this.onCloseMenus();
-          void this.router.navigate(['/suppliers']);
         },
       },
       {
@@ -240,7 +258,11 @@ export class ShellComponent {
 
     const composedPath = event.composedPath?.() ?? [];
 
-    if (this.isShopMenuOpen() && this.shopMenuRoot && !this.isTargetInside(this.shopMenuRoot.nativeElement, target, composedPath)) {
+    if (
+      this.isShopMenuOpen() &&
+      this.shopMenuRoot &&
+      !this.isTargetInside(this.shopMenuRoot.nativeElement, target, composedPath)
+    ) {
       this.isShopMenuOpen.set(false);
     }
 
@@ -253,7 +275,11 @@ export class ShellComponent {
       this.inventoryMenu?.hide();
     }
 
-    if (this.isProfileMenuOpen() && this.profileMenuRoot && !this.isTargetInside(this.profileMenuRoot.nativeElement, target, composedPath)) {
+    if (
+      this.isProfileMenuOpen() &&
+      this.profileMenuRoot &&
+      !this.isTargetInside(this.profileMenuRoot.nativeElement, target, composedPath)
+    ) {
       this.isProfileMenuOpen.set(false);
       this.profileMenu?.hide();
     }
@@ -271,7 +297,11 @@ export class ShellComponent {
     }
   }
 
-  private isTargetInside(root: HTMLElement, target: Node, composedPath: readonly EventTarget[]): boolean {
+  private isTargetInside(
+    root: HTMLElement,
+    target: Node,
+    composedPath: readonly EventTarget[],
+  ): boolean {
     return root.contains(target) || composedPath.includes(root);
   }
 
@@ -379,8 +409,8 @@ export class ShellComponent {
       return;
     }
     if (item.items?.length) {
-      this.expandedMobileSectionLabel.update(
-        (current) => (current === item.label ? null : (item.label ?? null)),
+      this.expandedMobileSectionLabel.update((current) =>
+        current === item.label ? null : (item.label ?? null),
       );
       return;
     }
@@ -416,6 +446,11 @@ export class ShellComponent {
   onOpenInventoryBatch(): void {
     this.onCloseMenus();
     void this.router.navigate(['/inventory/batch']);
+  }
+
+  onNavigateToSuppliers(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/suppliers']);
   }
 
   onOpenManageShop(): void {
@@ -465,7 +500,7 @@ export class ShellComponent {
           lastName: user.lastName,
           language: language || user.language || DEFAULT_LANGUAGE,
         },
-      })
+      }),
     );
   }
 }
