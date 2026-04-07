@@ -34,6 +34,7 @@ import {
 } from '../i18n/language.constants';
 import { MenuItem } from 'primeng/api';
 import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
+import { MenubarModule } from 'primeng/menubar';
 import { UsersActions } from '../../features/users/state/users.actions';
 
 @Component({
@@ -47,12 +48,44 @@ import { UsersActions } from '../../features/users/state/users.actions';
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
     TieredMenuModule,
+    MenubarModule,
     TranslocoPipe,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
 export class ShellComponent {
+  readonly mainMenuItems = computed<MenuItem[]>(() => {
+    const items: MenuItem[] = [];
+    if (this.isOwnerOrManagerOfActiveShop()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageInventory'),
+        icon: 'pi pi-box',
+        items: [
+          {
+            label: this.localizationService.translate('shell.addNewProduct'),
+            icon: 'pi pi-plus-circle',
+            command: () => this.onOpenAddProduct(),
+          },
+          {
+            label: this.localizationService.translate('shell.batchInventoryInbound'),
+            icon: 'pi pi-list-check',
+            command: () => this.onOpenInventoryBatch(),
+          },
+        ],
+      });
+    }
+    if (this.canManageSuppliers()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageSuppliers'),
+        icon: 'pi pi-truck',
+        command: () => this.onNavigateToSuppliers(),
+      });
+    }
+    // Add more global menu items as needed
+    return items;
+  });
+
   private readonly authService = inject(AuthService);
   private readonly store = inject(Store<RootState>);
   private readonly router = inject(Router);

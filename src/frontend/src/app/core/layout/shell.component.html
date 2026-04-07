@@ -53,47 +53,8 @@
           </div>
         </div>
 
-        <div
-          class="shell-middle-zone"
-          *ngIf="inventoryMenuItems().length > 0 || canManageSuppliers()"
-        >
-          <div class="shell-primary-nav" #inventoryMenuRoot *ngIf="inventoryMenuItems().length > 0">
-            <button
-              type="button"
-              class="inventory-trigger"
-              [attr.aria-label]="'shell.manageInventory' | transloco"
-              [attr.aria-expanded]="isInventoryMenuOpen()"
-              aria-haspopup="menu"
-              (click)="onToggleInventoryMenu($event, inventoryMenu)"
-            >
-              <i class="pi pi-box" aria-hidden="true"></i>
-              <span>{{ 'shell.manageInventory' | transloco }}</span>
-              <i class="pi pi-chevron-down" aria-hidden="true"></i>
-            </button>
-
-            <p-tieredMenu
-              #inventoryMenu
-              [model]="inventoryMenuItems()"
-              [popup]="true"
-              [appendTo]="inventoryMenuRoot"
-              styleClass="inventory-prime-menu"
-              [attr.aria-label]="'shell.manageInventory' | transloco"
-              (onShow)="isInventoryMenuOpen.set(true)"
-              (onHide)="isInventoryMenuOpen.set(false)"
-            ></p-tieredMenu>
-          </div>
-
-          <div class="shell-primary-nav" *ngIf="canManageSuppliers()">
-            <button
-              type="button"
-              class="suppliers-trigger"
-              [attr.aria-label]="'shell.manageSuppliers' | transloco"
-              (click)="onNavigateToSuppliers()"
-            >
-              <i class="pi pi-truck" aria-hidden="true"></i>
-              <span>{{ 'shell.manageSuppliers' | transloco }}</span>
-            </button>
-          </div>
+        <div class="shell-middle-zone" *ngIf="mainMenuItems().length > 0">
+          <p-menubar [model]="mainMenuItems()"></p-menubar>
         </div>
       </div>
 

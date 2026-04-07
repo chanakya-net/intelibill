@@ -38,8 +38,35 @@
   align-items: center;
   justify-content: flex-start;
   margin-left: 0.25rem;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   gap: 0.7rem;
+  min-width: 0;
+}
+
+.shell-middle-zone > p-menubar {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+:host ::ng-deep .p-menubar {
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid rgba(234, 88, 12, 0.21);
+  box-shadow: 0 2px 8px rgba(251, 146, 60, 0.04);
+  font-size: 0.95rem;
+  color: #7c2d12;
+}
+:host ::ng-deep .p-menubar .p-menuitem-link {
+  padding: 0.4rem 1.3rem;
+}
+:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-menuitem-link:active {
+  background: rgba(251, 146, 60, 0.13);
+  color: #c2410c;
+}
+:host ::ng-deep .p-menubar .p-menuitem-link:hover {
+  background: rgba(251, 146, 60, 0.06);
+  color: #c2410c;
 }
 
 .shell-logo {
