@@ -82,6 +82,24 @@ export class SuppliersEffects {
     )
   );
 
+  readonly makePayment$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SuppliersActions.makePaymentRequested),
+      switchMap(({ supplierId, payload }) =>
+        this.ledgerService.makePayment(supplierId, payload).pipe(
+          map((entry) => SuppliersActions.makePaymentSucceeded({ entry })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              SuppliersActions.makePaymentFailed({
+                errorMessage: getPaymentErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   readonly reloadSuppliersAfterShopSwitch$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded),
@@ -92,6 +110,14 @@ export class SuppliersEffects {
 
 function getLoadSuppliersErrorMessage(_: ApiErrorPayload | undefined): string {
   return 'errors.suppliers.unableToLoadSuppliers';
+}
+
+function getPaymentErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'Supplier.UserIsNotOwnerOrManager') return 'errors.suppliers.onlyOwnerOrManagerCanMakePayment';
+  if (title === 'Supplier.SupplierNotFound') return 'errors.suppliers.supplierNotFound';
+  if (title === 'Supplier.PaymentAmountMustBePositive') return 'errors.suppliers.paymentAmountMustBePositive';
+  return 'errors.suppliers.unableToMakePayment';
 }
 
 function getSupplierMutationErrorMessage(error: ApiErrorPayload | undefined, isAdd: boolean): string {

@@ -118,4 +118,53 @@ describe('suppliersReducer', () => {
     expect(cleared.currentLedgerSupplierId).toBeNull();
     expect(cleared.ledgerEntries).toEqual([]);
   });
+
+  it('makePaymentRequested sets submitting state', () => {
+    const next = suppliersReducer(
+      initialState,
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      })
+    );
+
+    expect(next.submitting).toBe(true);
+    expect(next.lastMutationType).toBe('make-payment');
+    expect(next.lastMutationSucceeded).toBe(false);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('makePaymentSucceeded sets success state', () => {
+    const submitting = suppliersReducer(
+      initialState,
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      })
+    );
+
+    const next = suppliersReducer(
+      submitting,
+      SuppliersActions.makePaymentSucceeded({
+        entry: { id: 'e1', supplierId: 's1', entryType: 'PAYMENT_MADE', amount: 500, entryDate: '2026-04-07', notes: null },
+      })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.lastMutationType).toBe('make-payment');
+    expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('makePaymentFailed sets error state', () => {
+    const next = suppliersReducer(
+      initialState,
+      SuppliersActions.makePaymentFailed({ errorMessage: 'errors.suppliers.unableToMakePayment' })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.lastMutationType).toBe('make-payment');
+    expect(next.lastMutationSucceeded).toBe(false);
+    expect(next.errorMessage).toBe('errors.suppliers.unableToMakePayment');
+  });
 });

@@ -110,6 +110,28 @@ export const suppliersReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(SuppliersActions.makePaymentRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'make-payment' as const,
+    lastMutationSucceeded: false,
+  })),
+  on(SuppliersActions.makePaymentSucceeded, (state) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'make-payment' as const,
+    lastMutationSucceeded: true,
+  })),
+  on(SuppliersActions.makePaymentFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'make-payment' as const,
+    lastMutationSucceeded: false,
+  })),
+
   on(SuppliersActions.loadSupplierLedgerRequested, (state, { supplierId }) => ({
     ...state,
     loadingLedger: true,

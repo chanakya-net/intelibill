@@ -5,6 +5,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
+using Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 using Intelibill.Application.Features.Suppliers.DTOs;
 using Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
 using Intelibill.Application.Features.SupplierLedger.DTOs;
@@ -117,6 +118,31 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPost("{supplierId:guid}/payments")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> MakePayment(Guid supplierId, [FromBody] MakePaymentRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<SupplierLedgerEntryDto>>(
+            new MakeSupplierPaymentCommand(
+                userId.Value,
+                activeShopId.Value,
+                supplierId,
+                request.Amount,
+                request.PaymentDate,
+                request.Notes),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -153,3 +179,8 @@ public sealed record EditSupplierRequest(
     string Pin,
     bool IsActive,
     bool IsPreferred);
+
+public sealed record MakePaymentRequest(
+    decimal Amount,
+    DateOnly PaymentDate,
+    string? Notes);

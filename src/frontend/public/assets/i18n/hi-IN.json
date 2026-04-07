@@ -154,7 +154,15 @@
       "paymentMade": "भुगतान किया गया",
       "recordAdjusted": "रिकॉर्ड समायोजित"
     },
-    "searchLedger": "खाता खोजें"
+    "searchLedger": "खाता खोजें",
+    "makePayment": "भुगतान करें",
+    "makePaymentDescription": "{{name}} को किए गए भुगतान को दर्ज करें।",
+    "paymentForm": "भुगतान फॉर्म",
+    "paymentAmount": "राशि",
+    "paymentDate": "भुगतान तिथि",
+    "paymentNotes": "टिप्पणियाँ (वैकल्पिक)",
+    "recordPayment": "भुगतान दर्ज करें",
+    "paymentActions": "भुगतान"
   },
   "inventory": {
     "directory": "इन्वेंटरी निर्देशिका",
@@ -301,7 +309,10 @@
       "supplierNotFound": "आपूर्तिकर्ता अब मौजूद नहीं है।",
       "invalidContactPhone": "संपर्क व्यक्ति का फोन नंबर मान्य होना चाहिए।",
       "unableToAddSupplier": "अभी आपूर्तिकर्ता नहीं जोड़ा जा सका। कृपया फिर प्रयास करें।",
-      "unableToUpdateSupplier": "अभी आपूर्तिकर्ता अपडेट नहीं हो सका। कृपया फिर प्रयास करें।"
+      "unableToUpdateSupplier": "अभी आपूर्तिकर्ता अपडेट नहीं हो सका। कृपया फिर प्रयास करें।",
+      "onlyOwnerOrManagerCanMakePayment": "इस दुकान के लिए भुगतान केवल स्वामी या प्रबंधक ही दर्ज कर सकते हैं।",
+      "paymentAmountMustBePositive": "भुगतान राशि शून्य से अधिक होनी चाहिए।",
+      "unableToMakePayment": "अभी भुगतान दर्ज करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
     "items": {
       "activeShopNotSelected": "उत्पाद जोड़ने से पहले कृपया सक्रिय दुकान चुनें।",

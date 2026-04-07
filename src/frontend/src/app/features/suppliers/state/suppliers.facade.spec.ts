@@ -162,4 +162,15 @@ describe('SuppliersFacade', () => {
     );
     expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearLedger());
   });
+
+  it('dispatches makePaymentRequested when makePayment is called', () => {
+    const facade = TestBed.inject(SuppliersFacade);
+    const payload = { amount: 500, paymentDate: '2026-04-07', notes: null };
+
+    facade.makePayment('s1', payload);
+
+    expect(dispatch).toHaveBeenCalledWith(
+      SuppliersActions.makePaymentRequested({ supplierId: 's1', payload })
+    );
+  });
 });

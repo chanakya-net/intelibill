@@ -2,6 +2,7 @@ import { Injectable, Signal, inject } from '@angular/core';
 import { Dictionary } from '@ngrx/entity';
 import { Store } from '@ngrx/store';
 
+import { MakePaymentRequest } from '../services/supplier-ledger.service';
 import { AddSupplierRequest, EditSupplierRequest, Supplier } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 import {
@@ -26,7 +27,7 @@ export class SuppliersFacade {
   readonly isLoading: Signal<boolean> = this.store.selectSignal(selectSuppliersLoading);
   readonly isSubmitting: Signal<boolean> = this.store.selectSignal(selectSuppliersSubmitting);
   readonly errorMessage: Signal<string> = this.store.selectSignal(selectSuppliersErrorMessage);
-  readonly lastMutationType: Signal<'add-supplier' | 'edit-supplier' | null> =
+  readonly lastMutationType: Signal<'add-supplier' | 'edit-supplier' | 'make-payment' | null> =
     this.store.selectSignal(selectSuppliersLastMutationType);
   readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(selectSuppliersLastMutationSucceeded);
 
@@ -52,6 +53,10 @@ export class SuppliersFacade {
 
   editSupplier(supplierId: string, payload: EditSupplierRequest): void {
     this.store.dispatch(SuppliersActions.editSupplierRequested({ supplierId, payload }));
+  }
+
+  makePayment(supplierId: string, payload: MakePaymentRequest): void {
+    this.store.dispatch(SuppliersActions.makePaymentRequested({ supplierId, payload }));
   }
 
   loadLedger(supplierId: string): void {

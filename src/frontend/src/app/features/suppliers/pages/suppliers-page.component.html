@@ -36,6 +36,7 @@
           <th pSortableColumn="isActive">{{ 'suppliers.status' | transloco }} <p-sortIcon field="isActive" /></th>
           <th pSortableColumn="isPreferred">{{ 'suppliers.preferred' | transloco }} <p-sortIcon field="isPreferred" /></th>
           <th *ngIf="canManageSuppliers()">{{ 'suppliers.actions' | transloco }}</th>
+          <th *ngIf="canMakePayment()">{{ 'suppliers.paymentActions' | transloco }}</th>
         </tr>
       </ng-template>
 
@@ -81,12 +82,23 @@
               (click)="onOpenEditSupplier(supplier)"
             ></button>
           </td>
+          <td *ngIf="canMakePayment()">
+            <button
+              pButton
+              type="button"
+              [label]="'suppliers.makePayment' | transloco"
+              icon="pi pi-wallet"
+              size="small"
+              severity="success"
+              (click)="onOpenMakePayment(supplier)"
+            ></button>
+          </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td [attr.colspan]="canManageSuppliers() ? 10 : 9">
+          <td [attr.colspan]="9 + (canManageSuppliers() ? 1 : 0) + (canMakePayment() ? 1 : 0)">
             <div class="empty-state">
               <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
               <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
@@ -114,4 +126,10 @@
     [supplierId]="detailSupplierId()"
     (closeRequested)="onCloseSupplierDetail()"
   ></app-supplier-detail>
+
+  <app-make-payment-overlay
+    *ngIf="showMakePaymentOverlay() && paymentSupplier()"
+    [supplier]="$any(paymentSupplier())"
+    (closeRequested)="onCloseMakePayment()"
+  ></app-make-payment-overlay>
 </section>
