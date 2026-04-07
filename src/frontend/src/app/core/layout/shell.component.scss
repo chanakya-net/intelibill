@@ -56,17 +56,93 @@
   font-size: 0.95rem;
   color: #7c2d12;
 }
+:host ::ng-deep .p-menubar .p-menubar-root-list,
+:host ::ng-deep .p-menubar .p-menubar-submenu {
+  gap: 0.2rem;
+}
+:host ::ng-deep .p-menubar .p-menubar-item-content,
+:host ::ng-deep .p-menubar .p-menuitem-content {
+  border-radius: 0.78rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+:host ::ng-deep .p-menubar .p-menubar-item-link,
 :host ::ng-deep .p-menubar .p-menuitem-link {
-  padding: 0.4rem 1.3rem;
+  padding: 0.45rem 1.05rem;
+  border-radius: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  gap: 0.56rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
-:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-link,
-:host ::ng-deep .p-menubar .p-menuitem-link:active {
-  background: rgba(251, 146, 60, 0.13);
-  color: #c2410c;
+:host ::ng-deep .p-menubar .p-menubar-item-icon,
+:host ::ng-deep .p-menubar .p-menuitem-icon,
+:host ::ng-deep .p-menubar .p-submenu-icon {
+  color: #64748b;
+  transition: color 150ms ease;
 }
+:host ::ng-deep .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover,
+:host ::ng-deep .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover,
+:host ::ng-deep .p-menubar .p-menubar-item-link:hover,
 :host ::ng-deep .p-menubar .p-menuitem-link:hover {
-  background: rgba(251, 146, 60, 0.06);
-  color: #c2410c;
+  background: rgba(251, 146, 60, 0.09);
+}
+:host ::ng-deep .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover > .p-menubar-item-link,
+:host ::ng-deep .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover > .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-menubar-item-link:hover,
+:host ::ng-deep .p-menubar .p-menuitem-link:hover {
+  color: #1e293b;
+}
+:host ::ng-deep .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-menubar-item-icon,
+:host ::ng-deep .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-submenu-icon,
+:host ::ng-deep .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-menuitem-icon,
+:host ::ng-deep .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-submenu-icon {
+  color: #475569;
+}
+:host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content,
+:host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content,
+:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content,
+:host ::ng-deep .p-menubar .p-menubar-item-link:active,
+:host ::ng-deep .p-menubar .p-menuitem-link:active {
+  background: #e2e8f0;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+}
+:host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content > .p-menubar-item-link,
+:host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content > .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content > .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-menubar-item-icon,
+:host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-submenu-icon,
+:host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content .p-menuitem-icon,
+:host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content .p-submenu-icon,
+:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content .p-menuitem-icon,
+:host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content .p-submenu-icon {
+  color: #334155;
+}
+:host ::ng-deep .p-menubar .p-menubar-submenu,
+:host ::ng-deep .p-menubar .p-submenu-list {
+  margin-top: 0.4rem;
+  padding: 0.35rem;
+  min-width: 13rem;
+  border-radius: 0.86rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
+}
+:host ::ng-deep .p-menubar .p-menubar-submenu .p-menubar-item-content,
+:host ::ng-deep .p-menubar .p-menubar-submenu .p-menuitem-content,
+:host ::ng-deep .p-menubar .p-submenu-list .p-menuitem-content {
+  border-radius: 0.62rem;
+}
+:host ::ng-deep .p-menubar .p-menubar-submenu .p-menubar-item-link,
+:host ::ng-deep .p-menubar .p-menubar-submenu .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-submenu-list .p-menuitem-link {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 600;
 }
 
 .shell-logo {
