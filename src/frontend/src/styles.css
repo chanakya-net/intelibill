@@ -43,6 +43,117 @@ p {
   margin: 0;
 }
 
+/* ── Shell: PrimeNG menubar overrides ─────────────────────────────────────── */
+.app-shell .p-menubar .p-menubar-root-list,
+.app-shell .p-menubar .p-menubar-submenu {
+  gap: 0.2rem;
+}
+
+.app-shell .p-menubar .p-menubar-item-content,
+.app-shell .p-menubar .p-menuitem-content {
+  border-radius: 0.78rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.app-shell .p-menubar .p-menubar-item-link,
+.app-shell .p-menubar .p-menuitem-link {
+  padding: 0.45rem 1.05rem;
+  border-radius: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  gap: 0.56rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.app-shell .p-menubar .p-menubar-item-icon,
+.app-shell .p-menubar .p-menuitem-icon,
+.app-shell .p-menubar .p-submenu-icon {
+  color: #64748b;
+  transition: color 150ms ease;
+}
+
+.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover,
+.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover,
+.app-shell .p-menubar .p-menubar-item-link:hover,
+.app-shell .p-menubar .p-menuitem-link:hover {
+  background: rgba(251, 146, 60, 0.09);
+}
+
+.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover > .p-menubar-item-link,
+.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover > .p-menuitem-link,
+.app-shell .p-menubar .p-menubar-item-link:hover,
+.app-shell .p-menubar .p-menuitem-link:hover {
+  color: #1e293b;
+}
+
+.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-menubar-item-icon,
+.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-submenu-icon,
+.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-menuitem-icon,
+.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-submenu-icon {
+  color: #475569;
+}
+
+.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content,
+.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content,
+.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content,
+.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content,
+.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content,
+.app-shell .p-menubar .p-menubar-item-link:active,
+.app-shell .p-menubar .p-menuitem-link:active,
+.app-shell .p-menubar .p-menubar-item-link:focus-visible,
+.app-shell .p-menubar .p-menuitem-link:focus-visible {
+  background: rgba(251, 146, 60, 0.17) !important;
+  box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.28);
+}
+
+.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content > .p-menubar-item-link,
+.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content > .p-menubar-item-link,
+.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content > .p-menuitem-link,
+.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content > .p-menuitem-link,
+.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content > .p-menuitem-link,
+.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-menubar-item-icon,
+.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-menubar-item-icon,
+.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-submenu-icon,
+.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-submenu-icon,
+.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content .p-menuitem-icon,
+.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-menuitem-icon,
+.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content .p-submenu-icon,
+.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-submenu-icon,
+.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-menuitem-icon,
+.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-submenu-icon {
+  color: #7c2d12 !important;
+}
+
+.app-shell .p-menubar .p-menubar-submenu,
+.app-shell .p-menubar .p-submenu-list {
+  margin-top: 0.4rem;
+  padding: 0.35rem;
+  min-width: 13rem;
+  border-radius: 0.86rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
+}
+
+.app-shell .p-menubar .p-menubar-submenu .p-menubar-item-content,
+.app-shell .p-menubar .p-menubar-submenu .p-menuitem-content,
+.app-shell .p-menubar .p-submenu-list .p-menuitem-content {
+  border-radius: 0.62rem;
+}
+
+.app-shell .p-menubar .p-menubar-submenu .p-menubar-item-link,
+.app-shell .p-menubar .p-menubar-submenu .p-menuitem-link,
+.app-shell .p-menubar .p-submenu-list .p-menuitem-link {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 /* ── Shell: PrimeNG profile menu overrides ───────────────────────────────── */
 /* These must be global because PrimeNG renders the overlay outside the
    component's shadow DOM, so ::ng-deep in component styles has no effect
