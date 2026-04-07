@@ -12,6 +12,12 @@ export interface SupplierLedgerEntry {
   readonly notes: string | null;
 }
 
+export interface MakePaymentRequest {
+  readonly amount: number;
+  readonly paymentDate: string;
+  readonly notes: string | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -20,5 +26,9 @@ export class SupplierLedgerService {
 
   getSupplierLedgerEntries(supplierId: string): Observable<readonly SupplierLedgerEntry[]> {
     return this.http.get<readonly SupplierLedgerEntry[]>(`${SUPPLIER_ENDPOINTS.update(supplierId)}/ledger`);
+  }
+
+  makePayment(supplierId: string, payload: MakePaymentRequest): Observable<SupplierLedgerEntry> {
+    return this.http.post<SupplierLedgerEntry>(SUPPLIER_ENDPOINTS.payments(supplierId), payload);
   }
 }

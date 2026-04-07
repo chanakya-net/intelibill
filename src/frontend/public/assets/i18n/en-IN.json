@@ -154,7 +154,15 @@
       "paymentMade": "Payment Made",
       "recordAdjusted": "Record Adjusted"
     },
-    "searchLedger": "Search ledger"
+    "searchLedger": "Search ledger",
+    "makePayment": "Make Payment",
+    "makePaymentDescription": "Record a payment made to {{name}}.",
+    "paymentForm": "Payment form",
+    "paymentAmount": "Amount",
+    "paymentDate": "Payment Date",
+    "paymentNotes": "Notes (optional)",
+    "recordPayment": "Record Payment",
+    "paymentActions": "Payment"
   },
   "inventory": {
     "directory": "Inventory Directory",
@@ -302,7 +310,10 @@
       "supplierNotFound": "The supplier no longer exists.",
       "invalidContactPhone": "Contact person phone must be a valid phone number.",
       "unableToAddSupplier": "Unable to add supplier right now. Please try again.",
-      "unableToUpdateSupplier": "Unable to update supplier right now. Please try again."
+      "unableToUpdateSupplier": "Unable to update supplier right now. Please try again.",
+      "onlyOwnerOrManagerCanMakePayment": "Only owner or manager can record payments for this shop.",
+      "paymentAmountMustBePositive": "Payment amount must be greater than zero.",
+      "unableToMakePayment": "Unable to record payment right now. Please try again."
     },
     "items": {
       "activeShopNotSelected": "Please select an active shop before adding products.",

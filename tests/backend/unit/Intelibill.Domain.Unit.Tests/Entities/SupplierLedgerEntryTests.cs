@@ -57,4 +57,57 @@ public class SupplierLedgerEntryTests
         Assert.True(result.IsError);
         Assert.Equal("SupplierLedgerEntry.AmountZero", result.FirstError.Code);
     }
+
+    [Fact]
+    public void Create_PaymentMade_WithNullBatchAndPositiveAmount_Succeeds()
+    {
+        var result = SupplierLedgerEntry.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            SupplierLedgerEntryType.PaymentMade,
+            500m,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            "bank transfer",
+            Guid.NewGuid());
+
+        Assert.False(result.IsError);
+        Assert.Equal(500m, result.Value.Amount);
+        Assert.Null(result.Value.BatchId);
+        Assert.Equal("bank transfer", result.Value.Notes);
+    }
+
+    [Fact]
+    public void Create_PaymentMade_WithBatchId_ReturnsValidationError()
+    {
+        var result = SupplierLedgerEntry.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            SupplierLedgerEntryType.PaymentMade,
+            500m,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            null,
+            Guid.NewGuid());
+
+        Assert.True(result.IsError);
+        Assert.Equal("SupplierLedgerEntry.BatchNotAllowed", result.FirstError.Code);
+    }
+
+    [Fact]
+    public void Create_PaymentMade_WithWhitespaceNotes_NormalizesToNull()
+    {
+        var result = SupplierLedgerEntry.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            SupplierLedgerEntryType.PaymentMade,
+            250m,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            "   ",
+            Guid.NewGuid());
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.Notes);
+    }
 }

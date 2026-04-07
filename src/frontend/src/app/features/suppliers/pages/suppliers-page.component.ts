@@ -9,6 +9,7 @@ import { TableModule } from 'primeng/table';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AddSupplierOverlayComponent } from '../components/add-supplier-overlay.component';
 import { EditSupplierOverlayComponent } from '../components/edit-supplier-overlay.component';
+import { MakePaymentOverlayComponent } from '../components/make-payment-overlay.component';
 import { SupplierDetailComponent } from '../components/supplier-detail.component';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
@@ -23,6 +24,7 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     TableModule,
     AddSupplierOverlayComponent,
     EditSupplierOverlayComponent,
+    MakePaymentOverlayComponent,
     SupplierDetailComponent,
     TranslocoPipe,
   ],
@@ -42,8 +44,10 @@ export class SuppliersPageComponent {
 
   readonly showAddSupplierOverlay = signal(false);
   readonly showEditSupplierOverlay = signal(false);
+  readonly showMakePaymentOverlay = signal(false);
   readonly showDetailModal = signal(false);
   readonly editingSupplier = signal<Supplier | null>(null);
+  readonly paymentSupplier = signal<Supplier | null>(null);
   readonly detailSupplier = signal<Supplier | null>(null);
   readonly detailSupplierId = signal<string | null>(null);
 
@@ -58,6 +62,7 @@ export class SuppliersPageComponent {
     return activeShop?.role ?? '';
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
+  readonly canMakePayment = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
 
   getBalanceLabel(supplier: Supplier): string {
     if (supplier.balanceDue > 0) {
@@ -95,6 +100,14 @@ export class SuppliersPageComponent {
         this.showEditSupplierOverlay.set(false);
         this.editingSupplier.set(null);
         this.suppliersFacade.clearMutationStatus();
+        return;
+      }
+
+      if (mutationType === 'make-payment' && this.showMakePaymentOverlay()) {
+        this.showMakePaymentOverlay.set(false);
+        this.paymentSupplier.set(null);
+        this.suppliersFacade.clearMutationStatus();
+        this.suppliersFacade.load();
       }
     });
   }
@@ -123,6 +136,18 @@ export class SuppliersPageComponent {
   onCloseEditSupplier(): void {
     this.showEditSupplierOverlay.set(false);
     this.editingSupplier.set(null);
+  }
+
+  onOpenMakePayment(supplier: Supplier): void {
+    this.suppliersFacade.clearError();
+    this.suppliersFacade.clearMutationStatus();
+    this.paymentSupplier.set(supplier);
+    this.showMakePaymentOverlay.set(true);
+  }
+
+  onCloseMakePayment(): void {
+    this.showMakePaymentOverlay.set(false);
+    this.paymentSupplier.set(null);
   }
 
   onOpenSupplierDetail(supplier: Supplier): void {

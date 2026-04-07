@@ -30,6 +30,12 @@ public static partial class Errors
         public static Error UserIsNotOwner =>
             Error.Forbidden("Supplier.UserIsNotOwner", "Only the shop owner can manage suppliers.");
 
+        public static Error UserIsNotOwnerOrManager =>
+            Error.Forbidden("Supplier.UserIsNotOwnerOrManager", "Only owner or manager can record payments.");
+
+        public static Error PaymentAmountMustBePositive =>
+            Error.Validation("Supplier.PaymentAmountMustBePositive", "Payment amount must be greater than zero.");
+
         public static Error ShopOwnerNotFound =>
             Error.Unexpected("Supplier.ShopOwnerNotFound", "Unable to resolve the shop owner for supplier listing.");
     }

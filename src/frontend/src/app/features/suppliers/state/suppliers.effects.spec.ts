@@ -5,7 +5,8 @@ import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
-import { SupplierService, SupplierStatus } from '../services/supplier.service';
+import { SupplierLedgerService } from '../services/supplier-ledger.service';
+import { SupplierService } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 import { SuppliersEffects } from './suppliers.effects';
 
@@ -19,16 +20,24 @@ describe('SuppliersEffects', () => {
     editSupplier: vi.fn<SupplierService['editSupplier']>(),
   };
 
+  const ledgerService = {
+    getSupplierLedgerEntries: vi.fn<SupplierLedgerService['getSupplierLedgerEntries']>(),
+    makePayment: vi.fn<SupplierLedgerService['makePayment']>(),
+  };
+
   beforeEach(() => {
     actions$ = new Subject<Action>();
     supplierService.getSuppliers.mockReset();
     supplierService.addSupplier.mockReset();
     supplierService.editSupplier.mockReset();
+    ledgerService.getSupplierLedgerEntries.mockReset();
+    ledgerService.makePayment.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
         SuppliersEffects,
         { provide: SupplierService, useValue: supplierService },
+        { provide: SupplierLedgerService, useValue: ledgerService },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -56,8 +65,6 @@ describe('SuppliersEffects', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
-          amount: 1500,
-          status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
           balanceDue: 1500,
@@ -80,8 +87,6 @@ describe('SuppliersEffects', () => {
             city: 'City',
             state: 'State',
             pin: '560001',
-            amount: 1500,
-            status: SupplierStatus.IWillReceive,
             isActive: true,
             isPreferred: false,
             balanceDue: 1500,
@@ -107,8 +112,6 @@ describe('SuppliersEffects', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
-          amount: 0,
-          status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
         },
@@ -118,6 +121,62 @@ describe('SuppliersEffects', () => {
     await expect(output).resolves.toEqual(
       SuppliersActions.addSupplierFailed({
         errorMessage: 'errors.suppliers.onlyOwnerCanManageSuppliers',
+      })
+    );
+  });
+
+  it('dispatches makePaymentSucceeded on payment success', async () => {
+    const entry = {
+      id: 'e1',
+      supplierId: 's1',
+      entryType: 'PAYMENT_MADE' as const,
+      amount: 500,
+      entryDate: '2026-04-07',
+      notes: null,
+    };
+    ledgerService.makePayment.mockReturnValue(of(entry));
+
+    const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
+    actions$.next(SuppliersActions.makePaymentRequested({
+      supplierId: 's1',
+      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+    }));
+
+    await expect(output).resolves.toEqual(SuppliersActions.makePaymentSucceeded({ entry }));
+  });
+
+  it('maps authorization error on make payment failure', async () => {
+    ledgerService.makePayment.mockReturnValue(
+      throwError(() => ({ error: { title: 'Supplier.UserIsNotOwnerOrManager' } }))
+    );
+
+    const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
+    actions$.next(SuppliersActions.makePaymentRequested({
+      supplierId: 's1',
+      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+    }));
+
+    await expect(output).resolves.toEqual(
+      SuppliersActions.makePaymentFailed({
+        errorMessage: 'errors.suppliers.onlyOwnerOrManagerCanMakePayment',
+      })
+    );
+  });
+
+  it('maps generic error on make payment failure', async () => {
+    ledgerService.makePayment.mockReturnValue(
+      throwError(() => ({ error: { title: 'SomeUnknownError' } }))
+    );
+
+    const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
+    actions$.next(SuppliersActions.makePaymentRequested({
+      supplierId: 's1',
+      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+    }));
+
+    await expect(output).resolves.toEqual(
+      SuppliersActions.makePaymentFailed({
+        errorMessage: 'errors.suppliers.unableToMakePayment',
       })
     );
   });

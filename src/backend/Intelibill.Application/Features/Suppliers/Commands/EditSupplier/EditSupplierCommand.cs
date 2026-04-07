@@ -13,7 +13,5 @@ public sealed record EditSupplierCommand(
     string City,
     string State,
     string Pin,
-    decimal Amount,
-    SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);

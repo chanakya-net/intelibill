@@ -154,7 +154,15 @@
       "paymentMade": "ಪಾವತಿ ಮಾಡಲಾಗಿದೆ",
       "recordAdjusted": "ದಾಖಲೆ ಸರಿಹೊಂದಿಸಲಾಗಿದೆ"
     },
-    "searchLedger": "ಲೆಡ್ಜರ್ ಹುಡುಕಿ"
+    "searchLedger": "ಲೆಡ್ಜರ್ ಹುಡುಕಿ",
+    "makePayment": "ಪಾವತಿ ಮಾಡಿ",
+    "makePaymentDescription": "{{name}} ಗೆ ಮಾಡಿದ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಿ.",
+    "paymentForm": "ಪಾವತಿ ನಮೂನೆ",
+    "paymentAmount": "ಮೊತ್ತ",
+    "paymentDate": "ಪಾವತಿ ದಿನಾಂಕ",
+    "paymentNotes": "ಟಿಪ್ಪಣಿಗಳು (ಐಚ್ಛಿಕ)",
+    "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸಿ",
+    "paymentActions": "ಪಾವತಿ"
   },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",
@@ -301,7 +309,10 @@
       "supplierNotFound": "ಪೂರೈಕೆದಾರರು ಇನ್ನು ಲಭ್ಯವಿಲ್ಲ.",
       "invalidContactPhone": "ಸಂಪರ್ಕ ವ್ಯಕ್ತಿಯ ಫೋನ್ ಸಂಖ್ಯೆ ಮಾನ್ಯವಾಗಿರಬೇಕು.",
       "unableToAddSupplier": "ಈಗ ಪೂರೈಕೆದಾರರನ್ನು ಸೇರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
-      "unableToUpdateSupplier": "ಈಗ ಪೂರೈಕೆದಾರರನ್ನು ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+      "unableToUpdateSupplier": "ಈಗ ಪೂರೈಕೆದಾರರನ್ನು ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "onlyOwnerOrManagerCanMakePayment": "ಈ ಅಂಗಡಿಗಾಗಿ ಮಾಲೀಕರು ಅಥವಾ ನಿರ್ವಾಹಕರು ಮಾತ್ರ ಪಾವತಿಗಳನ್ನು ದಾಖಲಿಸಬಹುದು.",
+      "paymentAmountMustBePositive": "ಪಾವತಿ ಮೊತ್ತ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಾಗಿರಬೇಕು.",
+      "unableToMakePayment": "ಈಗ ಪಾವತಿ ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
     },
     "items": {
       "activeShopNotSelected": "ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸುವ ಮೊದಲು ದಯವಿಟ್ಟು ಸಕ್ರಿಯ ಅಂಗಡಿಯನ್ನು ಆರಿಸಿ.",

@@ -5,6 +5,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
+using Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 using Intelibill.Application.Features.Suppliers.DTOs;
 using Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
 using Intelibill.Application.Features.SupplierLedger.DTOs;
@@ -79,8 +80,6 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
                 request.City,
                 request.State,
                 request.Pin,
-                request.Amount,
-                request.Status,
                 request.IsActive,
                 request.IsPreferred),
             cancellationToken);
@@ -112,10 +111,33 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
                 request.City,
                 request.State,
                 request.Pin,
-                request.Amount,
-                request.Status,
                 request.IsActive,
                 request.IsPreferred),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("{supplierId:guid}/payments")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> MakePayment(Guid supplierId, [FromBody] MakePaymentRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<SupplierLedgerEntryDto>>(
+            new MakeSupplierPaymentCommand(
+                userId.Value,
+                activeShopId.Value,
+                supplierId,
+                request.Amount,
+                request.PaymentDate,
+                request.Notes),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -144,8 +166,6 @@ public sealed record AddSupplierRequest(
     string City,
     string State,
     string Pin,
-    decimal Amount,
-    Intelibill.Domain.Enums.SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);
 
@@ -157,7 +177,10 @@ public sealed record EditSupplierRequest(
     string City,
     string State,
     string Pin,
-    decimal Amount,
-    Intelibill.Domain.Enums.SupplierStatus Status,
     bool IsActive,
     bool IsPreferred);
+
+public sealed record MakePaymentRequest(
+    decimal Amount,
+    DateOnly PaymentDate,
+    string? Notes);

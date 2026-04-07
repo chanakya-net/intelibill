@@ -5,11 +5,6 @@ import { Observable } from 'rxjs';
 
 import { SUPPLIER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-export enum SupplierStatus {
-  IWillReceive = 0,
-  INeedToPay = 1,
-}
-
 export interface Supplier {
   readonly supplierId: string;
   readonly name: string;
@@ -19,8 +14,6 @@ export interface Supplier {
   readonly city: string;
   readonly state: string;
   readonly pin: string;
-  readonly amount: number;
-  readonly status: SupplierStatus;
   readonly isActive: boolean;
   readonly isPreferred: boolean;
   readonly balanceDue: number;
@@ -34,8 +27,6 @@ export interface AddSupplierRequest {
   readonly city: string;
   readonly state: string;
   readonly pin: string;
-  readonly amount: number;
-  readonly status: SupplierStatus;
   readonly isActive: boolean;
   readonly isPreferred: boolean;
 }
@@ -48,8 +39,6 @@ export interface EditSupplierRequest {
   readonly city: string;
   readonly state: string;
   readonly pin: string;
-  readonly amount: number;
-  readonly status: SupplierStatus;
   readonly isActive: boolean;
   readonly isPreferred: boolean;
 }

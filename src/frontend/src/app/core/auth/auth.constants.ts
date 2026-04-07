@@ -31,6 +31,7 @@ export const SUPPLIER_ENDPOINTS = {
   list: `${API_BASE_URL}/suppliers`,
   add: `${API_BASE_URL}/suppliers`,
   update: (supplierId: string) => `${API_BASE_URL}/suppliers/${supplierId}`,
+  payments: (supplierId: string) => `${API_BASE_URL}/suppliers/${supplierId}/payments`,
 } as const;
 
 export const ITEM_ENDPOINTS = {

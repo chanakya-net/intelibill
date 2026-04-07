@@ -154,7 +154,15 @@
       "paymentMade": "చెల్లింపు చేయబడింది",
       "recordAdjusted": "రికార్డు సవరించబడింది"
     },
-    "searchLedger": "లెడ్జర్ శోధించు"
+    "searchLedger": "లెడ్జర్ శోధించు",
+    "makePayment": "చెల్లింపు చేయి",
+    "makePaymentDescription": "{{name}} కి చేసిన చెల్లింపును నమోదు చేయండి.",
+    "paymentForm": "చెల్లింపు ఫారం",
+    "paymentAmount": "మొత్తం",
+    "paymentDate": "చెల్లింపు తేదీ",
+    "paymentNotes": "గమనికలు (ఐచ్ఛికం)",
+    "recordPayment": "చెల్లింపు నమోదు చేయి",
+    "paymentActions": "చెల్లింపు"
   },
   "inventory": {
     "directory": "ఇన్వెంటరీ డైరెక్టరీ",
@@ -301,7 +309,10 @@
       "supplierNotFound": "సరఫరాదారు ఇక అందుబాటులో లేడు.",
       "invalidContactPhone": "సంప్రదింపు వ్యక్తి ఫోన్ నంబర్ చెల్లుబాటు అయ్యినదై ఉండాలి.",
       "unableToAddSupplier": "సరఫరాదారిని ఇప్పుడు జోడించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
-      "unableToUpdateSupplier": "సరఫరాదారిని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+      "unableToUpdateSupplier": "సరఫరాదారిని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "onlyOwnerOrManagerCanMakePayment": "ఈ దుకాణం కోసం యజమాని లేదా మేనేజర్ మాత్రమే చెల్లింపులు నమోదు చేయగలరు.",
+      "paymentAmountMustBePositive": "చెల్లింపు మొత్తం సున్నా కంటే ఎక్కువగా ఉండాలి.",
+      "unableToMakePayment": "ఇప్పుడు చెల్లింపు నమోదు చేయలేకపోయాం. దయచేసి మళ్ళీ ప్రయత్నించండి."
     },
     "items": {
       "activeShopNotSelected": "ఉత్పత్తులు జోడించే ముందు దయచేసి యాక్టివ్ షాప్ ఎంచుకోండి.",

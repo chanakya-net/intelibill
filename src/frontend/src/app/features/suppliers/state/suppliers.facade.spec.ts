@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
-import { SupplierStatus } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 import { SuppliersFacade } from './suppliers.facade';
 import {
@@ -31,8 +30,6 @@ describe('SuppliersFacade', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
-      amount: 500,
-      status: SupplierStatus.IWillReceive,
       isActive: true,
       isPreferred: false,
       balanceDue: 500,
@@ -109,8 +106,6 @@ describe('SuppliersFacade', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
-      amount: 0,
-      status: SupplierStatus.IWillReceive,
       isActive: true,
       isPreferred: false,
     });
@@ -122,8 +117,6 @@ describe('SuppliersFacade', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
-      amount: 100,
-      status: SupplierStatus.INeedToPay,
       isActive: true,
       isPreferred: true,
     });
@@ -143,8 +136,6 @@ describe('SuppliersFacade', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
-          amount: 0,
-          status: SupplierStatus.IWillReceive,
           isActive: true,
           isPreferred: false,
         },
@@ -161,8 +152,6 @@ describe('SuppliersFacade', () => {
           city: 'City',
           state: 'State',
           pin: '560001',
-          amount: 100,
-          status: SupplierStatus.INeedToPay,
           isActive: true,
           isPreferred: true,
         },
@@ -172,5 +161,16 @@ describe('SuppliersFacade', () => {
       SuppliersActions.loadSupplierLedgerRequested({ supplierId: 's1' })
     );
     expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearLedger());
+  });
+
+  it('dispatches makePaymentRequested when makePayment is called', () => {
+    const facade = TestBed.inject(SuppliersFacade);
+    const payload = { amount: 500, paymentDate: '2026-04-07', notes: null };
+
+    facade.makePayment('s1', payload);
+
+    expect(dispatch).toHaveBeenCalledWith(
+      SuppliersActions.makePaymentRequested({ supplierId: 's1', payload })
+    );
   });
 });

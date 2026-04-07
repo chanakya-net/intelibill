@@ -143,14 +143,14 @@ import { SuppliersFacade } from '../state/suppliers.facade';
             </ng-template>
 
             <ng-template pTemplate="body" let-entry>
-              <tr>
+              <tr [ngClass]="{ 'payment-made-row': entry.isPayment }">
                 <td>
                   <span class="entry-type" [ngClass]="entry.entryTypeClass">
                     {{ entry.entryTypeLabel }}
                   </span>
                 </td>
                 <td>
-                  <p-badge [value]="formatSignedAmount(entry.amount)" [severity]="amountSeverity(entry.amount)" />
+                  <p-badge [value]="formatSignedAmount(entry.displayAmount)" [severity]="amountSeverity(entry.displayAmount)" />
                 </td>
                 <td>{{ entry.entryDate }}</td>
                 <td>{{ entry.notes || '-' }}</td>
@@ -256,17 +256,18 @@ import { SuppliersFacade } from '../state/suppliers.facade';
 
       .goods-received {
         color: var(--green-600);
-        font-weight: 600;
       }
 
       .payment-made {
-        color: var(--blue-600);
-        font-weight: 600;
+        color: var(--green-700);
+      }
+
+      ::ng-deep .payment-made-row td {
+        background-color: #dcfce7 !important;
       }
 
       .record-adjusted {
         color: var(--orange-600);
-        font-weight: 600;
       }
 
       .total-row td {
@@ -313,15 +314,23 @@ export class SupplierDetailComponent {
 
   protected readonly tableEntries = computed(() => {
     this.currentLang(); // re-run on language change
-    return this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => ({
-      ...entry,
-      entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
-      entryTypeClass: this.getEntryTypeClass(entry.entryType),
-    }));
+    return this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => {
+      const isPayment = entry.entryType === 2 || entry.entryType === 'PAYMENT_MADE';
+      return {
+        ...entry,
+        entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
+        entryTypeClass: this.getEntryTypeClass(entry.entryType),
+        isPayment,
+        displayAmount: isPayment ? -Math.abs(entry.amount) : entry.amount,
+      };
+    });
   });
 
   protected readonly totalAmount = computed(() =>
-    this.facade.ledgerEntries().reduce((sum: number, e: SupplierLedgerEntry) => sum + e.amount, 0)
+    this.facade.ledgerEntries().reduce((sum: number, e: SupplierLedgerEntry) => {
+      const isPayment = e.entryType === 2 || e.entryType === 'PAYMENT_MADE';
+      return sum + (isPayment ? -Math.abs(e.amount) : e.amount);
+    }, 0)
   );
 
   clearFilters(table: Table): void {
