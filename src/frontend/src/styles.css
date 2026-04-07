@@ -74,7 +74,9 @@ p {
 .app-shell .p-menubar .p-menuitem-icon,
 .app-shell .p-menubar .p-submenu-icon {
   color: #64748b;
-  transition: color 150ms ease;
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
 }
 
 .app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover,
@@ -96,6 +98,7 @@ p {
 .app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-menuitem-icon,
 .app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-submenu-icon {
   color: #475569;
+  transform: translateY(-0.5px);
 }
 
 .app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content,
@@ -127,6 +130,7 @@ p {
 .app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-menuitem-icon,
 .app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-submenu-icon {
   color: #7c2d12 !important;
+  transform: none;
 }
 
 .app-shell .p-menubar .p-menubar-submenu,
