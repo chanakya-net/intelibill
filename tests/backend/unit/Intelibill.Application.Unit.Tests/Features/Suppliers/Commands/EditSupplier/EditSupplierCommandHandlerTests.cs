@@ -36,8 +36,6 @@ public class EditSupplierCommandHandlerTests
             "City",
             "State",
             "560001",
-            0m,
-            SupplierStatus.IWillReceive,
             true,
             false), CancellationToken.None);
 
@@ -61,8 +59,6 @@ public class EditSupplierCommandHandlerTests
             "City",
             "State",
             "560001",
-            500.00m,
-            SupplierStatus.IWillReceive,
             true,
             false);
 
@@ -81,22 +77,16 @@ public class EditSupplierCommandHandlerTests
             "Bengaluru",
             "Karnataka",
             "560002",
-            2500.75m,
-            SupplierStatus.INeedToPay,
             false,
             true), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("Updated", result.Value.Name);
-        Assert.Equal(2500.75m, result.Value.Amount);
-        Assert.Equal(SupplierStatus.INeedToPay, result.Value.Status);
-        Assert.False(result.Value.IsActive);
         Assert.True(result.Value.IsPreferred);
+        Assert.False(result.Value.IsActive);
         _supplierRepository.Received(1).Update(Arg.Is<Supplier>(s =>
             s.Name == "Updated"
-            && s.Pin == "560002"
-            && s.Amount == 2500.75m
-            && s.Status == SupplierStatus.INeedToPay));
+            && s.Pin == "560002"));
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

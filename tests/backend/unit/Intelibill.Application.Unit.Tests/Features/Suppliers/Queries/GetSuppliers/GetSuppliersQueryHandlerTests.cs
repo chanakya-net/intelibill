@@ -45,8 +45,8 @@ public class GetSuppliersQueryHandlerTests
 
         var suppliers = new[]
         {
-            Supplier.Create(owner.Id, "A Supplier", null, null, "Address", "City", "State", "560001", 0m, SupplierStatus.IWillReceive, true, false),
-            Supplier.Create(owner.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", 1000m, SupplierStatus.INeedToPay, true, true),
+            Supplier.Create(owner.Id, "A Supplier", null, null, "Address", "City", "State", "560001", true, false),
+            Supplier.Create(owner.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", true, true),
         };
         _supplierRepository.GetByOwnerUserIdAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(suppliers);
 

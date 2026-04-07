@@ -22,6 +22,17 @@ public class SuppliersControllerTests
     public SuppliersControllerTests()
     {
         _controller = new SuppliersController(_bus);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+    }
+
+    private void SetUserClaims(params Claim[] claims)
+    {
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var principal = new ClaimsPrincipal(identity);
+        _controller.ControllerContext.HttpContext.User = principal;
     }
 
     [Fact]
@@ -62,12 +73,10 @@ public class SuppliersControllerTests
             "City",
             "State",
             "560001",
-            0m,
-            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
             true,
             false);
 
-        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.Amount, request.Status, request.IsActive, request.IsPreferred, 0m);
+        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.IsActive, request.IsPreferred, 0m);
         _bus.InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
         var result = await _controller.AddSupplier(request, CancellationToken.None);
@@ -95,25 +104,10 @@ public class SuppliersControllerTests
 
         var result = await _controller.EditSupplier(
             Guid.NewGuid(),
-            new EditSupplierRequest("Name", null, null, "Address", "City", "State", "560001", 0m, Intelibill.Domain.Enums.SupplierStatus.IWillReceive, true, false),
+            new EditSupplierRequest("Name", null, null, "Address", "City", "State", "560001", true, false),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
-    }
-
-    private void SetUserClaims(params Claim[] claims)
-    {
-        var identity = claims.Length == 0
-            ? new ClaimsIdentity()
-            : new ClaimsIdentity(claims, "TestAuthType");
-
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext
-            {
-                User = new ClaimsPrincipal(identity),
-            },
-        };
     }
 }

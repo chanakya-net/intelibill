@@ -82,8 +82,6 @@ describe('AddSupplierOverlayComponent', () => {
       city: 'Bengaluru',
       state: 'Karnataka',
       pin: '560001',
-      amount: 0,
-      status: 0,
       isActive: true,
       isPreferred: true,
     });

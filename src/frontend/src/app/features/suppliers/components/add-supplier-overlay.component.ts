@@ -6,17 +6,14 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { SuppliersFacade } from '../state/suppliers.facade';
-import { SupplierStatus } from '../services/supplier.service';
 
 @Component({
   selector: 'app-add-supplier-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe, SelectModule, InputNumberModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './add-supplier-overlay.component.html',
   styleUrl: './add-supplier-overlay.component.scss',
 })
@@ -29,21 +26,14 @@ export class AddSupplierOverlayComponent implements OnInit {
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly statusOptions = [
-    { label: 'I will receive', value: SupplierStatus.IWillReceive },
-    { label: 'I Need to pay', value: SupplierStatus.INeedToPay },
-  ];
-
   readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(180)]],
     contactPersonName: ['', [Validators.maxLength(120)]],
-    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
+    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
     address: ['', [Validators.required, Validators.maxLength(320)]],
     city: ['', [Validators.required, Validators.maxLength(120)]],
     state: ['', [Validators.required, Validators.maxLength(120)]],
     pin: ['', [Validators.required, Validators.maxLength(16)]],
-    amount: [0, [Validators.required, Validators.min(0)]],
-    status: [SupplierStatus.IWillReceive, [Validators.required]],
     isActive: [true],
     isPreferred: [false],
   });
@@ -59,7 +49,6 @@ export class AddSupplierOverlayComponent implements OnInit {
     if (this.isSubmitting()) {
       return;
     }
-
     this.closeRequested.emit();
   }
 
@@ -67,12 +56,10 @@ export class AddSupplierOverlayComponent implements OnInit {
     if (this.isSubmitting()) {
       return;
     }
-
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-
     this.suppliersFacade.clearError();
     this.suppliersFacade.clearMutationStatus();
     this.suppliersFacade.addSupplier({
@@ -83,8 +70,6 @@ export class AddSupplierOverlayComponent implements OnInit {
       city: this.form.controls.city.value.trim(),
       state: this.form.controls.state.value.trim(),
       pin: this.form.controls.pin.value.trim(),
-      amount: this.form.controls.amount.value,
-      status: this.form.controls.status.value,
       isActive: this.form.controls.isActive.value,
       isPreferred: this.form.controls.isPreferred.value,
     });

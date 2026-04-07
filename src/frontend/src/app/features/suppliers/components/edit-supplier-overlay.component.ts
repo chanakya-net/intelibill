@@ -6,17 +6,15 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { Supplier, SupplierStatus } from '../services/supplier.service';
+import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 
 @Component({
   selector: 'app-edit-supplier-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe, SelectModule, InputNumberModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './edit-supplier-overlay.component.html',
   styleUrl: './edit-supplier-overlay.component.scss',
 })
@@ -27,24 +25,17 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   readonly isSubmitting = this.suppliersFacade.isSubmitting;
   readonly serverError = this.suppliersFacade.errorMessage;
 
-  readonly statusOptions = [
-    { label: 'I will receive', value: SupplierStatus.IWillReceive },
-    { label: 'I Need to pay', value: SupplierStatus.INeedToPay },
-  ];
-
   @Input({ required: true }) supplier!: Supplier;
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(180)]],
     contactPersonName: ['', [Validators.maxLength(120)]],
-    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
+    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
     address: ['', [Validators.required, Validators.maxLength(320)]],
     city: ['', [Validators.required, Validators.maxLength(120)]],
     state: ['', [Validators.required, Validators.maxLength(120)]],
     pin: ['', [Validators.required, Validators.maxLength(16)]],
-    amount: [0, [Validators.required, Validators.min(0)]],
-    status: [SupplierStatus.IWillReceive, [Validators.required]],
     isActive: [true],
     isPreferred: [false],
   });
@@ -61,7 +52,6 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     if (!changes['supplier']) {
       return;
     }
-
     this.patchForm();
   }
 
@@ -69,7 +59,6 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     if (this.isSubmitting()) {
       return;
     }
-
     this.closeRequested.emit();
   }
 
@@ -77,12 +66,10 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     if (this.isSubmitting()) {
       return;
     }
-
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-
     this.suppliersFacade.clearError();
     this.suppliersFacade.clearMutationStatus();
     this.suppliersFacade.editSupplier(this.supplier.supplierId, {
@@ -93,8 +80,6 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
       city: this.form.controls.city.value.trim(),
       state: this.form.controls.state.value.trim(),
       pin: this.form.controls.pin.value.trim(),
-      amount: this.form.controls.amount.value,
-      status: this.form.controls.status.value,
       isActive: this.form.controls.isActive.value,
       isPreferred: this.form.controls.isPreferred.value,
     });
@@ -104,24 +89,20 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     if (!this.supplier) {
       return;
     }
-
     this.form.patchValue({
-      name: this.supplier.name,
+      name: this.supplier.name ?? '',
       contactPersonName: this.supplier.contactPersonName ?? '',
       contactPersonPhone: this.supplier.contactPersonPhone ?? '',
-      address: this.supplier.address,
-      city: this.supplier.city,
-      state: this.supplier.state,
-      pin: this.supplier.pin,
-      amount: this.supplier.amount,
-      status: this.supplier.status,
+      address: this.supplier.address ?? '',
+      city: this.supplier.city ?? '',
+      state: this.supplier.state ?? '',
+      pin: this.supplier.pin ?? '',
       isActive: this.supplier.isActive,
       isPreferred: this.supplier.isPreferred,
-    });
+    }, { emitEvent: false });
   }
 
-  private nullableTrimmed(value: string): string | null {
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
+  private nullableTrimmed(value: string | null): string | null {
+    return value && value.trim() !== '' ? value.trim() : null;
   }
 }

@@ -45,8 +45,6 @@ public sealed class GetSuppliersQueryHandler(
                 s.City,
                 s.State,
                 s.Pin,
-                s.Amount,
-                s.Status,
                 s.IsActive,
                 s.IsPreferred,
                 balance));

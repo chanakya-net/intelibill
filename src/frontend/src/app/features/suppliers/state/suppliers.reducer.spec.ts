@@ -1,5 +1,5 @@
 import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
-import { Supplier, SupplierStatus } from '../services/supplier.service';
+import { Supplier } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 import { suppliersReducer } from './suppliers.reducer';
 
@@ -12,8 +12,6 @@ const supplierA: Supplier = {
   city: 'City',
   state: 'State',
   pin: '560001',
-  amount: 1500,
-  status: SupplierStatus.IWillReceive,
   isActive: true,
   isPreferred: false,
   balanceDue: 1500,
@@ -28,8 +26,6 @@ const supplierB: Supplier = {
   city: 'City',
   state: 'State',
   pin: '560002',
-  amount: 100,
-  status: SupplierStatus.INeedToPay,
   isActive: true,
   isPreferred: true,
   balanceDue: 100,
@@ -69,8 +65,6 @@ describe('suppliersReducer', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
-      amount: 0,
-      status: SupplierStatus.IWillReceive,
       isActive: true,
       isPreferred: false,
     } }));

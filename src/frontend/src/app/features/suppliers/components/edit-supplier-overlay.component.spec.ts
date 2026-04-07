@@ -4,7 +4,6 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { EditSupplierOverlayComponent } from './edit-supplier-overlay.component';
-import { SupplierStatus } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 
 describe('EditSupplierOverlayComponent', () => {
@@ -35,8 +34,6 @@ describe('EditSupplierOverlayComponent', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
-      amount: 1500,
-      status: SupplierStatus.IWillReceive,
       isActive: true,
       isPreferred: false,
       balanceDue: 1500,
@@ -77,8 +74,6 @@ describe('EditSupplierOverlayComponent', () => {
     component.form.controls.city.setValue(' Bengaluru ');
     component.form.controls.state.setValue(' Karnataka ');
     component.form.controls.pin.setValue(' 560001 ');
-    component.form.controls.amount.setValue(1000);
-    component.form.controls.status.setValue(SupplierStatus.INeedToPay);
     component.form.controls.isActive.setValue(false);
     component.form.controls.isPreferred.setValue(true);
 
@@ -94,8 +89,6 @@ describe('EditSupplierOverlayComponent', () => {
       city: 'Bengaluru',
       state: 'Karnataka',
       pin: '560001',
-      amount: 1000,
-      status: SupplierStatus.INeedToPay,
       isActive: false,
       isPreferred: true,
     });

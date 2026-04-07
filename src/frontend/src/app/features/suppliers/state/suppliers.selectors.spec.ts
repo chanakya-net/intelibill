@@ -1,5 +1,5 @@
 import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
-import { Supplier, SupplierStatus } from '../services/supplier.service';
+import { Supplier } from '../services/supplier.service';
 import { SuppliersState } from './suppliers.reducer';
 import {
   selectLedgerEntries,
@@ -23,8 +23,6 @@ const supplierA: Supplier = {
   city: 'City',
   state: 'State',
   pin: '560001',
-  amount: 500,
-  status: SupplierStatus.IWillReceive,
   isActive: true,
   isPreferred: false,
   balanceDue: 500,
@@ -39,8 +37,6 @@ const supplierB: Supplier = {
   city: 'City',
   state: 'State',
   pin: '560002',
-  amount: 200,
-  status: SupplierStatus.INeedToPay,
   isActive: true,
   isPreferred: true,
   balanceDue: 200,

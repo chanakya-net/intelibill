@@ -49,20 +49,10 @@
         <input pInputText type="text" formControlName="pin" />
       </label>
 
-      <label>
-        <span>{{ 'suppliers.amount' | transloco }}</span>
-        <p-inputNumber formControlName="amount" [minFractionDigits]="2" [maxFractionDigits]="2"></p-inputNumber>
-      </label>
-
-      <label>
-        <span>{{ 'suppliers.status' | transloco }}</span>
-        <p-select [options]="statusOptions" formControlName="status" optionLabel="label" optionValue="value"></p-select>
-      </label>
-
-      <label class="toggle-row" for="isActiveEdit">
-        <p-checkbox inputId="isActiveEdit" formControlName="isActive" [binary]="true"></p-checkbox>
-        <span>{{ 'suppliers.isActive' | transloco }}</span>
-      </label>
+       <label class="toggle-row" for="isActiveEdit">
+         <p-checkbox inputId="isActiveEdit" formControlName="isActive" [binary]="true"></p-checkbox>
+         <span>{{ 'suppliers.isActive' | transloco }}</span>
+       </label>
 
       <label class="toggle-row" for="isPreferredEdit">
         <p-checkbox inputId="isPreferredEdit" formControlName="isPreferred" [binary]="true"></p-checkbox>

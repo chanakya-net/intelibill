@@ -18,8 +18,6 @@ public class SupplierTests
             "  Bengaluru  ",
             "  Karnataka  ",
             "  560001  ",
-            1500.50m,
-            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
             true,
             false);
 
@@ -47,8 +45,6 @@ public class SupplierTests
             "City",
             "State",
             "560001",
-            0m,
-            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
             true,
             true);
 
@@ -68,8 +64,6 @@ public class SupplierTests
             "City",
             "State",
             "560001",
-            0m,
-            Intelibill.Domain.Enums.SupplierStatus.IWillReceive,
             true,
             false);
 
@@ -81,8 +75,6 @@ public class SupplierTests
             "  Mysuru  ",
             "  Karnataka  ",
             "  570001  ",
-            2500.75m,
-            Intelibill.Domain.Enums.SupplierStatus.INeedToPay,
             false,
             true);
 
@@ -93,8 +85,6 @@ public class SupplierTests
         Assert.Equal("Mysuru", supplier.City);
         Assert.Equal("Karnataka", supplier.State);
         Assert.Equal("570001", supplier.Pin);
-        Assert.Equal(2500.75m, supplier.Amount);
-        Assert.Equal(Intelibill.Domain.Enums.SupplierStatus.INeedToPay, supplier.Status);
         Assert.False(supplier.IsActive);
         Assert.True(supplier.IsPreferred);
     }

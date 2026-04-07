@@ -34,8 +34,6 @@ public class AddSupplierCommandHandlerTests
             "City",
             "State",
             "560001",
-            0m,
-            SupplierStatus.IWillReceive,
             true,
             false), CancellationToken.None);
 
@@ -63,23 +61,17 @@ public class AddSupplierCommandHandlerTests
             "  Bengaluru  ",
             "  Karnataka  ",
             "  560001  ",
-            1500.00m,
-            SupplierStatus.IWillReceive,
             true,
             true), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("Fresh Foods", result.Value.Name);
-        Assert.Equal(1500.00m, result.Value.Amount);
-        Assert.Equal(SupplierStatus.IWillReceive, result.Value.Status);
         Assert.True(result.Value.IsPreferred);
 
         await _supplierRepository.Received(1).AddAsync(Arg.Is<Supplier>(s =>
             s.OwnerUserId == actor.Id
             && s.Name == "Fresh Foods"
             && s.City == "Bengaluru"
-            && s.Amount == 1500.00m
-            && s.Status == SupplierStatus.IWillReceive
             && s.IsPreferred), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
