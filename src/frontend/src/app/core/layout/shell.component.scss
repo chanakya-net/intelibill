@@ -104,23 +104,33 @@
   color: #475569;
 }
 :host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content,
+:host ::ng-deep .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content,
 :host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content,
+:host ::ng-deep .p-menubar .p-menuitem.p-focus > .p-menuitem-content,
 :host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content,
 :host ::ng-deep .p-menubar .p-menubar-item-link:active,
-:host ::ng-deep .p-menubar .p-menuitem-link:active {
-  background: #e2e8f0;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+:host ::ng-deep .p-menubar .p-menuitem-link:active,
+:host ::ng-deep .p-menubar .p-menubar-item-link:focus-visible,
+:host ::ng-deep .p-menubar .p-menuitem-link:focus-visible {
+  background: rgba(251, 146, 60, 0.17) !important;
+  box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.28);
 }
 :host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content > .p-menubar-item-link,
+:host ::ng-deep .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content > .p-menubar-item-link,
 :host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content > .p-menuitem-link,
+:host ::ng-deep .p-menubar .p-menuitem.p-focus > .p-menuitem-content > .p-menuitem-link,
 :host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content > .p-menuitem-link,
 :host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-menubar-item-icon,
+:host ::ng-deep .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-menubar-item-icon,
 :host ::ng-deep .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-submenu-icon,
+:host ::ng-deep .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-submenu-icon,
 :host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content .p-menuitem-icon,
+:host ::ng-deep .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-menuitem-icon,
 :host ::ng-deep .p-menubar .p-menubar-item-active > .p-menuitem-content .p-submenu-icon,
+:host ::ng-deep .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-submenu-icon,
 :host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content .p-menuitem-icon,
 :host ::ng-deep .p-menubar .p-menuitem-active > .p-menuitem-content .p-submenu-icon {
-  color: #334155;
+  color: #7c2d12 !important;
 }
 :host ::ng-deep .p-menubar .p-menubar-submenu,
 :host ::ng-deep .p-menubar .p-submenu-list {
