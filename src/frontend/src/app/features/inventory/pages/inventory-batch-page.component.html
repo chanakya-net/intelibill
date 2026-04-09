@@ -189,16 +189,28 @@
           <td>{{ row.quantity }}</td>
           <td>{{ row.salesPrice }}</td>
           <td>
-            <button
-              pButton
-              type="button"
-              severity="danger"
-              size="small"
-              [label]="'inventory.remove' | transloco"
-              icon="pi pi-trash"
-              (click)="onRemoveRow(row.clientRowId)"
-              [disabled]="isSaving()"
-            ></button>
+            <div class="row-actions">
+              <button
+                pButton
+                type="button"
+                class="edit-row-button"
+                size="small"
+                [label]="'inventory.edit' | transloco"
+                icon="pi pi-pencil"
+                (click)="onEditRow(row.clientRowId)"
+                [disabled]="isSaving()"
+              ></button>
+              <button
+                pButton
+                type="button"
+                severity="danger"
+                size="small"
+                [label]="'inventory.remove' | transloco"
+                icon="pi pi-trash"
+                (click)="onRemoveRow(row.clientRowId)"
+                [disabled]="isSaving()"
+              ></button>
+            </div>
           </td>
         </tr>
       </ng-template>

@@ -203,6 +203,7 @@
     "notes": "टिप्पणियाँ",
     "performedAt": "किया गया",
     "actions": "क्रियाएं",
+    "edit": "संपादित करें",
     "remove": "हटाएं",
     "noPendingRows": "कोई लंबित पंक्ति नहीं",
     "noPendingRowsDescription": "पंक्तियाँ जोड़ने के लिए ऊपर दिए फॉर्म का उपयोग करें।",

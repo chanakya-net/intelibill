@@ -48,7 +48,7 @@ describe('InventoryBatchPageComponent', () => {
   };
 
   const suppliersFacade = {
-    suppliers: signal([]),
+    suppliers: signal<any[]>([]),
     load: vi.fn(),
   };
 
@@ -334,5 +334,81 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.scannerSessionCount()).toBe(1);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionAdded');
     expect(audioService.beep).toHaveBeenCalledTimes(1);
+  });
+
+  it('populates form and removes row when editing a pending row', async () => {
+    suppliersFacade.suppliers.set([
+      {
+        supplierId: 'supplier-1',
+        name: 'Acme Foods',
+        email: null,
+        contactPerson: null,
+        mobileNumber: null,
+        gstin: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        state: null,
+        country: null,
+        postalCode: null,
+        notes: null,
+        isActive: true,
+      },
+    ]);
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.pendingRows.set([
+      {
+        clientRowId: 'row-edit-1',
+        itemName: 'Milk',
+        barcode: 'B010',
+        itemDescription: 'Fresh milk pack',
+        uom: 'ltr',
+        batchNumber: 'BN-EDIT-1',
+        quantity: 3,
+        costPrice: 42,
+        mrp: 50,
+        salesPrice: 48,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        expiryDate: '2026-12-31',
+        manufacturingDate: '2026-01-01',
+        supplierId: 'supplier-1',
+        referenceNumber: 'REF-001',
+        notes: 'Handle with care',
+        performedAt: new Date().toISOString(),
+      },
+    ]);
+
+    component.onEditRow('row-edit-1');
+
+    expect(component.pendingRows()).toHaveLength(0);
+    expect(component.form.controls.itemName.value).toBe('Milk');
+    expect(component.form.controls.barcode.value).toBe('B010');
+    expect(component.form.controls.itemDescription.value).toBe('Fresh milk pack');
+    expect(component.form.controls.batchNumber.value).toBe('BN-EDIT-1');
+    expect(component.form.controls.quantity.value).toBe(3);
+    expect(component.form.controls.supplierName.value).toBe('Acme Foods');
+    expect(draftStorage.clearRows).toHaveBeenCalled();
+  });
+
+  it('closes scanner when scanned product cannot be added as a row', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    productCatalogSync.findByBarcode.mockReturnValue(undefined);
+    component.isScannerOpen.set(true);
+
+    await component.handleScannedBarcode({
+      value: 'UNKNOWN-001',
+      format: 'CODE-128',
+      engine: 'zxing',
+    });
+
+    expect(component.pendingRows()).toHaveLength(0);
+    expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
+    expect(component.isScannerOpen()).toBe(false);
   });
 });

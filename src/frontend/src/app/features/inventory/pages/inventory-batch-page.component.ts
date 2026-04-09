@@ -245,6 +245,7 @@ export class InventoryBatchPageComponent {
 
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
+    this.isScannerOpen.set(false);
   }
 
   private async fetchProductDetails(): Promise<void> {
@@ -311,6 +312,37 @@ export class InventoryBatchPageComponent {
 
   onRemoveRow(clientRowId: string): void {
     const updatedRows = this.pendingRows().filter((row) => row.clientRowId !== clientRowId);
+    this.saveSummary.set(null);
+    this.pendingRows.set(updatedRows);
+    void this.persistRows(this.activeShopId(), updatedRows);
+  }
+
+  onEditRow(clientRowId: string): void {
+    const row = this.pendingRows().find((candidate) => candidate.clientRowId === clientRowId);
+    if (!row) {
+      return;
+    }
+
+    this.form.setValue({
+      itemName: row.itemName,
+      barcode: row.barcode,
+      itemDescription: row.itemDescription ?? '',
+      uom: row.uom,
+      batchNumber: row.batchNumber,
+      quantity: row.quantity,
+      costPrice: row.costPrice,
+      mrp: row.mrp,
+      salesPrice: row.salesPrice,
+      taxRatePercent: row.taxRatePercent,
+      taxIncluded: row.taxIncluded,
+      expiryDate: row.expiryDate ?? '',
+      manufacturingDate: row.manufacturingDate ?? '',
+      supplierName: this.getSupplierDisplayName(row.supplierId) === '-' ? '' : this.getSupplierDisplayName(row.supplierId),
+      referenceNumber: row.referenceNumber ?? '',
+      notes: row.notes ?? '',
+    });
+
+    const updatedRows = this.pendingRows().filter((candidate) => candidate.clientRowId !== clientRowId);
     this.saveSummary.set(null);
     this.pendingRows.set(updatedRows);
     void this.persistRows(this.activeShopId(), updatedRows);

@@ -127,6 +127,12 @@ h1 {
   min-height: 120px;
 }
 
+.row-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 @media (max-width: 768px) {
   .inventory-batch-page {
     gap: 0.75rem;
@@ -295,6 +301,22 @@ h1 {
   border-radius: 0;
   min-width: 2.75rem;
   height: 100%;
+}
+
+:host ::ng-deep .row-actions .edit-row-button.p-button {
+  background: #fff7ed;
+  border: 1px solid #f59e0b;
+  color: #9a3412;
+}
+
+:host ::ng-deep .row-actions .edit-row-button.p-button:not(:disabled):hover {
+  background: #ffedd5;
+  border-color: #d97706;
+  color: #7c2d12;
+}
+
+:host ::ng-deep .row-actions .edit-row-button.p-button:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgba(217, 119, 6, 0.22);
 }
 
 :host ::ng-deep .sales-price-group {
