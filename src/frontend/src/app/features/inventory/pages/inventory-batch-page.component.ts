@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -25,6 +26,9 @@ import {
   InventoryDraftIndexedDbService,
   InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
+import { AudioService } from '../../../core/services/audio.service';
+import { BarcodeDetection, BarcodeDetectorService } from '../../../core/services/barcode-detector.service';
+import { CameraStreamService } from '../../../core/services/camera-stream.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
@@ -38,6 +42,7 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
     TranslocoPipe,
     AutoCompleteModule,
     ButtonModule,
+    DialogModule,
     InputGroupAddonModule,
     InputGroupModule,
     InputNumberModule,
@@ -55,6 +60,9 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 export class InventoryBatchPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authService = inject(AuthService);
+  private readonly audioService = inject(AudioService);
+  private readonly barcodeDetectorService = inject(BarcodeDetectorService);
+  private readonly cameraStreamService = inject(CameraStreamService);
   private readonly inventoryService = inject(InventoryService);
   private readonly draftStorage = inject(InventoryDraftIndexedDbService);
   private readonly messageService = inject(MessageService);
@@ -63,18 +71,31 @@ export class InventoryBatchPageComponent {
   private readonly suppliersFacade = inject(SuppliersFacade);
 
   readonly isSaving = signal(false);
+  readonly isScannerOpen = signal(false);
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
   readonly loadingProduct = signal(false);
+  readonly scannerError = signal('');
+  readonly scannerInitializing = signal(false);
+  readonly scannerLastValue = signal('');
+  readonly scannerLastFormat = signal('');
+  readonly scannerLastAction = signal('');
+  readonly scannerLastEngineLabel = signal('');
+  readonly scannerSessionCount = signal(0);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
+  readonly highlightedRowId = signal<string | null>(null);
   readonly supplierSuggestions = signal<string[]>([]);
   readonly taxModeOptions = signal([
     { label: 'With Tax', value: true },
     { label: 'Without Tax', value: false },
   ]);
   readonly suppliers = this.suppliersFacade.suppliers;
+  readonly scannerVideo = viewChild<ElementRef<HTMLVideoElement>>('scannerVideo');
+  readonly scannerEngineLabel = computed(
+    () => this.scannerLastEngineLabel() || this.barcodeDetectorService.preferredEngineLabel,
+  );
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly tableRows = computed(() => [...this.pendingRows()]);
@@ -106,6 +127,11 @@ export class InventoryBatchPageComponent {
     notes: ['', [Validators.maxLength(320)]],
   });
 
+  private scannerStopHandler: (() => void) | null = null;
+  private lastDetectedBarcode = '';
+  private lastDetectedAt = 0;
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     effect(() => {
       const shopId = this.activeShopId();
@@ -119,6 +145,21 @@ export class InventoryBatchPageComponent {
     });
 
     this.form.controls.batchNumber.setValue(this.generateBatchNumber());
+
+    effect((onCleanup) => {
+      const videoRef = this.scannerVideo();
+      const isScannerOpen = this.isScannerOpen();
+
+      if (!isScannerOpen || !videoRef) {
+        return;
+      }
+
+      void this.startScannerSession(videoRef.nativeElement);
+
+      onCleanup(() => {
+        void this.stopScannerSession(videoRef.nativeElement);
+      });
+    });
   }
 
   onFilterName(event: AutoCompleteCompleteEvent): void {
@@ -146,6 +187,66 @@ export class InventoryBatchPageComponent {
 
   onBarcodeFocusOut(): void {
     void this.fetchProductDetails();
+  }
+
+  openScanner(): void {
+    this.scannerError.set('');
+    this.scannerLastAction.set('');
+    this.scannerLastValue.set('');
+    this.scannerLastFormat.set('');
+    this.scannerSessionCount.set(0);
+    this.scannerLastEngineLabel.set(this.barcodeDetectorService.preferredEngineLabel);
+    this.isScannerOpen.set(true);
+    void this.audioService.prime();
+  }
+
+  onScannerVisibilityChange(visible: boolean): void {
+    this.isScannerOpen.set(visible);
+    if (!visible) {
+      this.scannerError.set('');
+    }
+  }
+
+  async handleScannedBarcode(detection: BarcodeDetection): Promise<void> {
+    const barcode = detection.value.trim();
+    if (!barcode || this.shouldIgnoreScan(barcode)) {
+      return;
+    }
+
+    this.scannerLastValue.set(barcode);
+    this.scannerLastFormat.set(detection.format);
+    this.scannerLastEngineLabel.set(
+      detection.engine === 'native' ? 'inventory.scannerEngineNative' : 'inventory.scannerEngineZxing',
+    );
+    this.scannerSessionCount.update((count) => count + 1);
+
+    const mergedRow = await this.incrementExistingRowQuantity(barcode);
+    if (mergedRow) {
+      this.scannerLastAction.set('inventory.scannerActionIncremented');
+      this.showScannerToast('inventory.scannerMerged', barcode, mergedRow.quantity);
+      void this.audioService.beep();
+      return;
+    }
+
+    const catalogEntry = this.catalogSync.findByBarcode(barcode);
+    this.form.controls.barcode.setValue(barcode);
+    this.form.controls.barcode.markAsDirty();
+
+    if (catalogEntry) {
+      this.form.controls.itemName.setValue(catalogEntry.name);
+    }
+
+    await this.fetchProductDetails();
+
+    if (this.tryAddScannedRow()) {
+      this.scannerLastAction.set('inventory.scannerActionAdded');
+      this.showScannerToast('inventory.scannerAdded', barcode, 1);
+      void this.audioService.beep();
+      return;
+    }
+
+    this.scannerLastAction.set('inventory.scannerActionReview');
+    this.showWarn('inventory.scannerNeedsReview');
   }
 
   private async fetchProductDetails(): Promise<void> {
@@ -205,64 +306,9 @@ export class InventoryBatchPageComponent {
   }
 
   onAddRow(): void {
-    if (this.form.invalid) {
+    if (!this.tryAddScannedRow()) {
       this.form.markAllAsTouched();
-      return;
     }
-
-    if (this.pendingRows().length >= 100) {
-      this.showWarn('inventory.batchLimitReached');
-      return;
-    }
-
-    const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
-
-    const row: InventoryInboundDraftRow = {
-      clientRowId: this.createRowId(),
-      itemName: this.form.controls.itemName.value.trim(),
-      barcode: this.form.controls.barcode.value.trim(),
-      itemDescription: this.nullable(this.form.controls.itemDescription.value),
-      uom: this.form.controls.uom.value.trim(),
-      batchNumber: this.form.controls.batchNumber.value.trim(),
-      quantity: Number(this.form.controls.quantity.value),
-      costPrice: Number(this.form.controls.costPrice.value),
-      mrp: Number(this.form.controls.mrp.value),
-      salesPrice: Number(this.form.controls.salesPrice.value),
-      taxRatePercent: Number(this.form.controls.taxRatePercent.value),
-      taxIncluded: this.form.controls.taxIncluded.value,
-      expiryDate: this.nullable(this.form.controls.expiryDate.value),
-      manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
-      supplierId,
-      referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
-      notes: this.nullable(this.form.controls.notes.value),
-      performedAt: new Date().toISOString(),
-    };
-
-    const updatedRows = [...this.pendingRows(), row];
-    this.saveSummary.set(null);
-    this.pendingRows.set(updatedRows);
-    void this.persistRows(this.activeShopId(), updatedRows);
-
-    this.form.reset({
-      itemName: '',
-      barcode: '',
-      itemDescription: '',
-      uom: '',
-      batchNumber: '',
-      quantity: 1,
-      costPrice: 0,
-      mrp: 0,
-      salesPrice: 0,
-      taxRatePercent: 0,
-      taxIncluded: false,
-      expiryDate: '',
-      manufacturingDate: '',
-      supplierName: '',
-      referenceNumber: '',
-      notes: '',
-    });
-
-    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
   }
 
   onRemoveRow(clientRowId: string): void {
@@ -449,6 +495,160 @@ export class InventoryBatchPageComponent {
     return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
   }
 
+  private async startScannerSession(videoElement: HTMLVideoElement): Promise<void> {
+    if (this.scannerStopHandler) {
+      return;
+    }
+
+    this.scannerInitializing.set(true);
+    this.scannerError.set('');
+    this.scannerLastEngineLabel.set(this.barcodeDetectorService.preferredEngineLabel);
+
+    try {
+      const stream = await this.cameraStreamService.startPreferredCamera();
+      await this.cameraStreamService.attachToVideo(stream, videoElement);
+      this.scannerStopHandler = await this.barcodeDetectorService.start(
+        videoElement,
+        (detection) => {
+          void this.handleScannedBarcode(detection);
+        },
+        () => {
+          this.scannerError.set(this.translate('inventory.scannerDetectionError'));
+        },
+      );
+    } catch (error) {
+      this.scannerError.set(error instanceof Error ? error.message : this.translate('inventory.scannerOpenError'));
+      this.isScannerOpen.set(false);
+    } finally {
+      this.scannerInitializing.set(false);
+    }
+  }
+
+  private async stopScannerSession(videoElement?: HTMLVideoElement): Promise<void> {
+    this.scannerStopHandler?.();
+    this.scannerStopHandler = null;
+
+    if (videoElement) {
+      this.cameraStreamService.detachVideo(videoElement);
+    }
+
+    this.cameraStreamService.stopCurrentStream();
+  }
+
+  private shouldIgnoreScan(barcode: string): boolean {
+    const now = Date.now();
+    if (this.lastDetectedBarcode === barcode && now - this.lastDetectedAt < 1200) {
+      return true;
+    }
+
+    this.lastDetectedBarcode = barcode;
+    this.lastDetectedAt = now;
+    return false;
+  }
+
+  private async incrementExistingRowQuantity(barcode: string): Promise<InventoryInboundDraftRow | null> {
+    const matchingRow = this.pendingRows().find((row) => row.barcode === barcode);
+    if (!matchingRow) {
+      return null;
+    }
+
+    const updatedRow = {
+      ...matchingRow,
+      quantity: Number((matchingRow.quantity + 1).toFixed(3)),
+    } satisfies InventoryInboundDraftRow;
+    const updatedRows = this.pendingRows().map((row) => (row.clientRowId === matchingRow.clientRowId ? updatedRow : row));
+
+    this.saveSummary.set(null);
+    this.pendingRows.set(updatedRows);
+    this.flashRow(updatedRow.clientRowId);
+    await this.persistRows(this.activeShopId(), updatedRows);
+    return updatedRow;
+  }
+
+  private tryAddScannedRow(): boolean {
+    const row = this.buildDraftRow();
+    if (!row) {
+      return false;
+    }
+
+    const updatedRows = [...this.pendingRows(), row];
+    this.saveSummary.set(null);
+    this.pendingRows.set(updatedRows);
+    this.flashRow(row.clientRowId);
+    void this.persistRows(this.activeShopId(), updatedRows);
+    this.resetForm();
+    return true;
+  }
+
+  private buildDraftRow(): InventoryInboundDraftRow | null {
+    if (this.form.invalid) {
+      return null;
+    }
+
+    if (this.pendingRows().length >= 100) {
+      this.showWarn('inventory.batchLimitReached');
+      return null;
+    }
+
+    const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
+
+    return {
+      clientRowId: this.createRowId(),
+      itemName: this.form.controls.itemName.value.trim(),
+      barcode: this.form.controls.barcode.value.trim(),
+      itemDescription: this.nullable(this.form.controls.itemDescription.value),
+      uom: this.form.controls.uom.value.trim(),
+      batchNumber: this.form.controls.batchNumber.value.trim(),
+      quantity: Number(this.form.controls.quantity.value),
+      costPrice: Number(this.form.controls.costPrice.value),
+      mrp: Number(this.form.controls.mrp.value),
+      salesPrice: Number(this.form.controls.salesPrice.value),
+      taxRatePercent: Number(this.form.controls.taxRatePercent.value),
+      taxIncluded: this.form.controls.taxIncluded.value,
+      expiryDate: this.nullable(this.form.controls.expiryDate.value),
+      manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
+      supplierId,
+      referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
+      notes: this.nullable(this.form.controls.notes.value),
+      performedAt: new Date().toISOString(),
+    };
+  }
+
+  private resetForm(): void {
+    this.form.reset({
+      itemName: '',
+      barcode: '',
+      itemDescription: '',
+      uom: '',
+      batchNumber: '',
+      quantity: 1,
+      costPrice: 0,
+      mrp: 0,
+      salesPrice: 0,
+      taxRatePercent: 0,
+      taxIncluded: false,
+      expiryDate: '',
+      manufacturingDate: '',
+      supplierName: '',
+      referenceNumber: '',
+      notes: '',
+    });
+
+    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
+  }
+
+  private flashRow(clientRowId: string): void {
+    this.highlightedRowId.set(clientRowId);
+    if (this.highlightTimer) {
+      clearTimeout(this.highlightTimer);
+    }
+
+    this.highlightTimer = setTimeout(() => {
+      this.highlightedRowId.set(null);
+      this.highlightTimer = null;
+    }, 1600);
+  }
+
   private generateBatchNumber(): string {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -489,6 +689,15 @@ export class InventoryBatchPageComponent {
       severity: 'error',
       summary: this.translate(messageKey),
       life: 3500,
+    });
+  }
+
+  private showScannerToast(summaryKey: string, barcode: string, quantity: number): void {
+    this.messageService.add({
+      severity: 'success',
+      summary: this.translate(summaryKey),
+      detail: `${barcode} • Qty ${quantity}`,
+      life: 2200,
     });
   }
 

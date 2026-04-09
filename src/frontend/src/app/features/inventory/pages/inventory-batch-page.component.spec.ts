@@ -4,8 +4,12 @@ import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MessageService } from 'primeng/api';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { AudioService } from '../../../core/services/audio.service';
+import { BarcodeDetectorService } from '../../../core/services/barcode-detector.service';
+import { CameraStreamService } from '../../../core/services/camera-stream.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryDraftIndexedDbService } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
@@ -48,6 +52,23 @@ describe('InventoryBatchPageComponent', () => {
     load: vi.fn(),
   };
 
+  const audioService = {
+    prime: vi.fn(async () => undefined),
+    beep: vi.fn(async () => undefined),
+  };
+
+  const barcodeDetectorService = {
+    preferredEngineLabel: 'Native detector',
+    start: vi.fn(async () => vi.fn()),
+  };
+
+  const cameraStreamService = {
+    startPreferredCamera: vi.fn(),
+    attachToVideo: vi.fn(),
+    detachVideo: vi.fn(),
+    stopCurrentStream: vi.fn(),
+  };
+
   const authService = {
     session: signal({
       accessToken: 'access-token',
@@ -76,6 +97,9 @@ describe('InventoryBatchPageComponent', () => {
         { provide: InventoryDraftIndexedDbService, useValue: draftStorage },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
         { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: AudioService, useValue: audioService },
+        { provide: BarcodeDetectorService, useValue: barcodeDetectorService },
+        { provide: CameraStreamService, useValue: cameraStreamService },
       ],
     });
 
@@ -97,6 +121,13 @@ describe('InventoryBatchPageComponent', () => {
     productCatalogSync.filterByBarcode.mockClear();
     productCatalogSync.findByName.mockClear();
     productCatalogSync.findByBarcode.mockClear();
+    audioService.prime.mockClear();
+    audioService.beep.mockClear();
+    barcodeDetectorService.start.mockClear();
+    cameraStreamService.startPreferredCamera.mockClear();
+    cameraStreamService.attachToVideo.mockClear();
+    cameraStreamService.detachVideo.mockClear();
+    cameraStreamService.stopCurrentStream.mockClear();
   });
 
   afterEach(() => {
@@ -224,5 +255,84 @@ describe('InventoryBatchPageComponent', () => {
 
     expect(component.form.controls.supplierName.value).toBe('My Supplier');
     expect(component.form.controls.taxIncluded.value).toBe(false);
+  });
+
+  it('opens scanner from embedded barcode camera button', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    const button = fixture.debugElement.query(By.css('.barcode-camera-addon button'));
+    button.triggerEventHandler('click');
+    fixture.detectChanges();
+
+    expect(component.isScannerOpen()).toBe(true);
+    expect(audioService.prime).toHaveBeenCalledTimes(1);
+  });
+
+  it('increments quantity when scanned barcode already exists in pending rows', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
+
+    component.pendingRows.set([
+      {
+        clientRowId: 'row-1',
+        itemName: 'Milk',
+        barcode: 'B001',
+        itemDescription: null,
+        uom: 'ltr',
+        batchNumber: 'BN-1',
+        quantity: 2,
+        costPrice: 42,
+        mrp: 50,
+        salesPrice: 48,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        expiryDate: null,
+        manufacturingDate: null,
+        supplierId: null,
+        referenceNumber: null,
+        notes: null,
+        performedAt: new Date().toISOString(),
+      },
+    ]);
+
+    await component.handleScannedBarcode({
+      value: 'B001',
+      format: 'CODE-128',
+      engine: 'native',
+    });
+
+    expect(component.pendingRows()[0].quantity).toBe(3);
+    expect(component.highlightedRowId()).toBe('row-1');
+    expect(draftStorage.saveRows).toHaveBeenCalledTimes(1);
+    expect(audioService.beep).toHaveBeenCalledTimes(1);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'success', detail: expect.stringContaining('B001') }),
+    );
+  });
+
+  it('adds a new pending row when a scanned barcode resolves to a known product', async () => {
+    productCatalogSync.findByBarcode.mockReturnValue({
+      name: 'Tea',
+      barcode: 'B002',
+    });
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    await component.handleScannedBarcode({
+      value: 'B002',
+      format: 'CODE-128',
+      engine: 'zxing',
+    });
+
+    expect(component.pendingRows()).toHaveLength(1);
+    expect(component.pendingRows()[0].barcode).toBe('B002');
+    expect(component.pendingRows()[0].itemName).toBe('Tea');
+    expect(component.scannerSessionCount()).toBe(1);
+    expect(component.scannerLastAction()).toBe('inventory.scannerActionAdded');
+    expect(audioService.beep).toHaveBeenCalledTimes(1);
   });
 });

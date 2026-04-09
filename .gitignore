@@ -247,3 +247,4 @@ appsettings.Local.json
 secrets.json
 *.pfx
 *.p12
+.aider*
