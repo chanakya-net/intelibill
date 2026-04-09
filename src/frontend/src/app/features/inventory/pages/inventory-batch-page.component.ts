@@ -81,7 +81,7 @@ export class InventoryBatchPageComponent {
   readonly scannerLastValue = signal('');
   readonly scannerLastFormat = signal('');
   readonly scannerLastAction = signal('');
-  readonly scannerLastEngineLabel = signal('');
+  readonly scannerLastEngineKey = signal('');
   readonly scannerSessionCount = signal(0);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
@@ -94,7 +94,7 @@ export class InventoryBatchPageComponent {
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly scannerVideo = viewChild<ElementRef<HTMLVideoElement>>('scannerVideo');
   readonly scannerEngineLabel = computed(
-    () => this.scannerLastEngineLabel() || this.barcodeDetectorService.preferredEngineLabel,
+    () => this.scannerLastEngineKey() || this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
   );
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
@@ -195,7 +195,7 @@ export class InventoryBatchPageComponent {
     this.scannerLastValue.set('');
     this.scannerLastFormat.set('');
     this.scannerSessionCount.set(0);
-    this.scannerLastEngineLabel.set(this.barcodeDetectorService.preferredEngineLabel);
+    this.scannerLastEngineKey.set(this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine));
     this.isScannerOpen.set(true);
     void this.audioService.prime();
   }
@@ -215,9 +215,7 @@ export class InventoryBatchPageComponent {
 
     this.scannerLastValue.set(barcode);
     this.scannerLastFormat.set(detection.format);
-    this.scannerLastEngineLabel.set(
-      detection.engine === 'native' ? 'inventory.scannerEngineNative' : 'inventory.scannerEngineZxing',
-    );
+    this.scannerLastEngineKey.set(this.toScannerEngineKey(detection.engine));
     this.scannerSessionCount.update((count) => count + 1);
 
     const mergedRow = await this.incrementExistingRowQuantity(barcode);
@@ -502,7 +500,7 @@ export class InventoryBatchPageComponent {
 
     this.scannerInitializing.set(true);
     this.scannerError.set('');
-    this.scannerLastEngineLabel.set(this.barcodeDetectorService.preferredEngineLabel);
+    this.scannerLastEngineKey.set(this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine));
 
     try {
       const stream = await this.cameraStreamService.startPreferredCamera();
@@ -699,6 +697,10 @@ export class InventoryBatchPageComponent {
       detail: `${barcode} • Qty ${quantity}`,
       life: 2200,
     });
+  }
+
+  private toScannerEngineKey(engine: 'native' | 'zxing'): string {
+    return engine === 'native' ? 'inventory.scannerEngineNative' : 'inventory.scannerEngineZxing';
   }
 
   private translate(key: string): string {

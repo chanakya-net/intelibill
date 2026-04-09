@@ -56,6 +56,10 @@ export class BarcodeDetectorService {
 
   private lastEngine: DetectionEngine = this.supportsNativeDetection() ? 'native' : 'zxing';
 
+  get preferredEngine(): DetectionEngine {
+    return this.lastEngine;
+  }
+
   get preferredEngineLabel(): string {
     return this.lastEngine === 'native' ? 'Native detector' : 'ZXing fallback';
   }
