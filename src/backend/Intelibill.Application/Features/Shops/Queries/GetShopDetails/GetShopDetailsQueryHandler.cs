@@ -30,6 +30,11 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
             shop.Pincode,
             shop.ContactPerson,
             shop.MobileNumber,
-            shop.GstNumber);
+            shop.GstNumber,
+            shop.BankName,
+            shop.BankAccountNumber,
+            shop.BankAccountType?.ToString(),
+            shop.IfscCode,
+            shop.AccountHolderName);
     }
 }

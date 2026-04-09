@@ -1,9 +1,9 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import { UserShop } from '../../../core/auth/auth.models';
-import { CreateShopRequest, ShopDetails } from '../services/shop.service';
+import { CreateShopRequest, ShopDetails, UpdateBankDetailsRequest } from '../services/shop.service';
 
-export type ShopMutationType = 'create' | 'update' | 'set-default';
+export type ShopMutationType = 'create' | 'update' | 'update-bank-details' | 'set-default';
 
 export const ShopsActions = createActionGroup({
   source: 'Shops',
@@ -29,6 +29,10 @@ export const ShopsActions = createActionGroup({
     'Set Default Shop Requested': props<{ shopId: string }>(),
     'Set Default Shop Succeeded': emptyProps(),
     'Set Default Shop Failed': props<{ errorMessage: string }>(),
+
+    'Update Shop Bank Details Requested': props<{ shopId: string; payload: UpdateBankDetailsRequest }>(),
+    'Update Shop Bank Details Succeeded': props<{ details: ShopDetails }>(),
+    'Update Shop Bank Details Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

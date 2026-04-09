@@ -41,5 +41,11 @@ public static partial class Errors
 
         public static Error ActiveShopNotSelected =>
             Error.Validation("Shop.ActiveShopNotSelected", "No active shop is selected for this session.");
+
+        public static Error IfscCodeInvalid =>
+            Error.Validation("Shop.IfscCodeInvalid", "IFSC code must be a valid Indian bank IFSC code.");
+
+        public static Error BankAccountTypeInvalid =>
+            Error.Validation("Shop.BankAccountTypeInvalid", "Bank account type must be Savings or Current.");
     }
 }

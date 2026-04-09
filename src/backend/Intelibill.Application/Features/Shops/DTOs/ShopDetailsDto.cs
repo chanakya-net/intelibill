@@ -9,4 +9,9 @@ public sealed record ShopDetailsDto(
     string Pincode,
     string? ContactPerson,
     string? MobileNumber,
-    string? GstNumber);
+    string? GstNumber,
+    string? BankName,
+    string? BankAccountNumber,
+    string? BankAccountType,
+    string? IfscCode,
+    string? AccountHolderName);

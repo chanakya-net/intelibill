@@ -4,6 +4,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.DTOs;
@@ -125,6 +126,28 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPut("{shopId:guid}/bank-details")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
+            new UpdateShopBankDetailsCommand(
+                userId.Value,
+                shopId,
+                request.BankName,
+                request.BankAccountNumber,
+                request.BankAccountType,
+                request.IfscCode,
+                request.AccountHolderName),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -153,3 +176,10 @@ public sealed record UpdateShopRequest(
     string? ContactPerson,
     string? MobileNumber,
     string? GstNumber);
+
+public sealed record UpdateShopBankDetailsRequest(
+    string? BankName,
+    string? BankAccountNumber,
+    string? BankAccountType,
+    string? IfscCode,
+    string? AccountHolderName);

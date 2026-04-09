@@ -271,12 +271,28 @@
     "gstNumberOptional": "GST எண் (விருப்பம்)",
     "createShop": "கடை உருவாக்கு",
     "creatingShop": "கடை உருவாகிறது...",
+    "nextStep": "அடுத்து",
     "saveShopChanges": "கடை மாற்றங்களை சேமி",
     "savingChanges": "மாற்றங்களை சேமிக்கிறது...",
     "selectShop": "கடையைத் தேர்ந்தெடு",
     "selectedShopRoleIs": "தேர்ந்தெடுக்கப்பட்ட கடையின் பங்கு",
     "unknown": "தெரியவில்லை",
     "onlyOwnersCanSave": "உரிமையாளர்கள் மட்டுமே மாற்றங்களைச் சேமிக்க முடியும்.",
+    "bankDetails": "வங்கி விவரங்கள்",
+    "bankDetailsOptional": "வங்கி விவரங்கள் விரும்பினால் மட்டுமே. நீங்கள் இதை தவிர்த்து பின்னர் சேர்க்கலாம்.",
+    "bankName": "வங்கி பெயர்",
+    "accountNumber": "கணக்கு எண்",
+    "accountType": "கணக்கு வகை",
+    "savings": "சேமிப்பு",
+    "current": "நடப்பு",
+    "ifscCode": "IFSC குறியீடு",
+    "accountHolderName": "கணக்கு வைத்திருப்பவர் பெயர்",
+    "saveBankDetails": "வங்கி விவரங்களை சேமி",
+    "savingBankDetails": "வங்கி விவரங்களை சேமிக்கிறது...",
+    "skipBankDetails": "இப்போது தவிர்",
+    "shopCreated": "கடை வெற்றிகரமாக உருவாக்கப்பட்டது",
+    "shopCreatedDescription": "உங்கள் கடை தயாராக உள்ளது. இப்போது இன்வெண்டரி பணிப்பாய்வுகளை அணுகலாம்.",
+    "done": "முடிந்தது",
     "placeholders": {
       "shopName": "உதா: Downtown Electronics",
       "address": "உதா: 42 MG Road",
@@ -285,7 +301,12 @@
       "pincode": "உதா: 560001",
       "contactPerson": "உதா: Chandra",
       "mobileNumber": "உதா: 9876543210",
-      "gst": "உதா: 27AAPFU0939F1ZV"
+      "gst": "உதா: 27AAPFU0939F1ZV",
+      "bankName": "உதா: State Bank of India",
+      "accountNumber": "உதா: 1234567890",
+      "accountType": "கணக்கு வகையை தேர்வுசெய்க",
+      "ifscCode": "உதா: SBIN0001234",
+      "accountHolderName": "உதா: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "கடை பெயர் அவசியம்.",
@@ -294,7 +315,8 @@
       "cityRequired": "நகரம் அவசியம்.",
       "stateRequired": "மாநிலம் அவசியம்.",
       "pincodeRequired": "அஞ்சல் குறியீடு அவசியம்.",
-      "gstInvalid": "சரியான இந்திய GSTIN ஐ உள்ளிடவும்."
+      "gstInvalid": "சரியான இந்திய GSTIN ஐ உள்ளிடவும்.",
+      "ifscInvalid": "சரியான இந்திய IFSC குறியீட்டை உள்ளிடவும் (உதா: SBIN0001234)."
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "கடை நகரம் அவசியம்.",
       "stateRequired": "கடை மாநிலம் அவசியம்.",
       "pincodeRequired": "கடை அஞ்சல் குறியீடு அவசியம்.",
-      "unableToUpdateShop": "இப்போது கடையை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."
+      "unableToUpdateShop": "இப்போது கடையை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "unableToUpdateBankDetails": "இப்போது வங்கி விவரங்களை சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      "ifscCodeInvalid": "சரியான இந்திய IFSC குறியீட்டை உள்ளிடவும்.",
+      "bankAccountTypeInvalid": "கணக்கு வகை சேமிப்பு அல்லது நடப்பாக இருக்க வேண்டும்."
     }
   }
 }

@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -40,6 +41,22 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
 
         builder.Property(s => s.GstNumber)
             .HasMaxLength(20);
+
+        builder.Property(s => s.BankName)
+            .HasMaxLength(120);
+
+        builder.Property(s => s.BankAccountNumber)
+            .HasMaxLength(50);
+
+        builder.Property(s => s.BankAccountType)
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Property(s => s.IfscCode)
+            .HasMaxLength(20);
+
+        builder.Property(s => s.AccountHolderName)
+            .HasMaxLength(120);
 
         builder.HasMany(s => s.Memberships)
             .WithOne(sm => sm.Shop)

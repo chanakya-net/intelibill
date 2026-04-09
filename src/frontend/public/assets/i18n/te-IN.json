@@ -271,12 +271,28 @@
     "gstNumberOptional": "GST నంబర్ (ఐచ్చికం)",
     "createShop": "దుకాణం సృష్టించండి",
     "creatingShop": "దుకాణం సృష్టిస్తోంది...",
+    "nextStep": "తదుపరి",
     "saveShopChanges": "దుకాణ మార్పులను సేవ్ చేయండి",
     "savingChanges": "మార్పులను సేవ్ చేస్తోంది...",
     "selectShop": "దుకాణం ఎంచుకోండి",
     "selectedShopRoleIs": "ఎంచుకున్న దుకాణ పాత్ర",
     "unknown": "తెలియదు",
     "onlyOwnersCanSave": "మార్పులను యజమానులు మాత్రమే సేవ్ చేయగలరు.",
+    "bankDetails": "బ్యాంకు వివరాలు",
+    "bankDetailsOptional": "బ్యాంకు వివరాలు ఐచ్ఛికం. మీరు దాటవేసి తర్వాత జోడించవచ్చు.",
+    "bankName": "బ్యాంకు పేరు",
+    "accountNumber": "ఖాతా సంఖ్య",
+    "accountType": "ఖాతా రకం",
+    "savings": "పొదుపు",
+    "current": "కరెంట్",
+    "ifscCode": "IFSC కోడ్",
+    "accountHolderName": "ఖాతాదారు పేరు",
+    "saveBankDetails": "బ్యాంకు వివరాలను సేవ్ చేయండి",
+    "savingBankDetails": "బ్యాంకు వివరాలను సేవ్ చేస్తోంది...",
+    "skipBankDetails": "ఇప్పుడు దాటవేయి",
+    "shopCreated": "దుకాణం విజయవంతంగా సృష్టించబడింది",
+    "shopCreatedDescription": "మీ దుకాణం సిద్ధంగా ఉంది. ఇప్పుడు ఇన్వెంటరీ వర్క్‌ఫ్లోలను యాక్సెస్ చేయవచ్చు.",
+    "done": "పూర్తయింది",
     "placeholders": {
       "shopName": "ఉదా: Downtown Electronics",
       "address": "ఉదా: 42 MG Road",
@@ -285,7 +301,12 @@
       "pincode": "ఉదా: 560001",
       "contactPerson": "ఉదా: Chandra",
       "mobileNumber": "ఉదా: 9876543210",
-      "gst": "ఉదా: 27AAPFU0939F1ZV"
+      "gst": "ఉదా: 27AAPFU0939F1ZV",
+      "bankName": "ఉదా: State Bank of India",
+      "accountNumber": "ఉదా: 1234567890",
+      "accountType": "ఖాతా రకం ఎంచుకోండి",
+      "ifscCode": "ఉదా: SBIN0001234",
+      "accountHolderName": "ఉదా: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "దుకాణ పేరు అవసరం.",
@@ -294,7 +315,8 @@
       "cityRequired": "నగరం అవసరం.",
       "stateRequired": "రాష్ట్రం అవసరం.",
       "pincodeRequired": "పిన్‌కోడ్ అవసరం.",
-      "gstInvalid": "చెల్లుబాటు అయ్యే భారతీయ GSTIN నమోదు చేయండి."
+      "gstInvalid": "చెల్లుబాటు అయ్యే భారతీయ GSTIN నమోదు చేయండి.",
+      "ifscInvalid": "చెల్లుబాటు అయ్యే భారతీయ IFSC కోడ్ నమోదు చేయండి (ఉదా: SBIN0001234)."
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "దుకాణ నగరం అవసరం.",
       "stateRequired": "దుకాణ రాష్ట్రం అవసరం.",
       "pincodeRequired": "దుకాణ పిన్‌కోడ్ అవసరం.",
-      "unableToUpdateShop": "దుకాణాన్ని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి."
+      "unableToUpdateShop": "దుకాణాన్ని ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "unableToUpdateBankDetails": "బ్యాంకు వివరాలను ఇప్పుడు సేవ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
+      "ifscCodeInvalid": "చెల్లుబాటు అయ్యే భారతీయ IFSC కోడ్ నమోదు చేయండి.",
+      "bankAccountTypeInvalid": "ఖాతా రకం పొదుపు లేదా కరెంట్ అయి ఉండాలి."
     }
   }
 }

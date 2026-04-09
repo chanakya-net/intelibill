@@ -1,19 +1,25 @@
 using ErrorOr;
+using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
+namespace Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 
-public sealed class UpdateShopCommandHandler(
+public sealed class UpdateShopBankDetailsCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IValidator<UpdateShopBankDetailsCommand>? validator = null)
 {
-    public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopCommand command, CancellationToken cancellationToken)
+    public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopBankDetailsCommand command, CancellationToken cancellationToken)
     {
+        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationResult is not null) return validationResult.Value.Errors;
+
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
@@ -29,15 +35,19 @@ public sealed class UpdateShopCommandHandler(
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        shop.UpdateDetails(
-            command.Name,
-            command.Address,
-            command.City,
-            command.State,
-            command.Pincode,
-            command.ContactPerson,
-            command.MobileNumber,
-            command.GstNumber);
+        BankAccountType? accountType = null;
+        if (!string.IsNullOrWhiteSpace(command.BankAccountType) &&
+            Enum.TryParse<BankAccountType>(command.BankAccountType, ignoreCase: true, out var parsed))
+        {
+            accountType = parsed;
+        }
+
+        shop.UpdateBankDetails(
+            command.BankName,
+            command.BankAccountNumber,
+            accountType,
+            command.IfscCode,
+            command.AccountHolderName);
 
         shopRepository.Update(shop);
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -271,12 +271,28 @@
     "gstNumberOptional": "GST നമ്പർ (ഐച്ഛികം)",
     "createShop": "കട സൃഷ്ടിക്കുക",
     "creatingShop": "കട സൃഷ്ടിക്കുന്നു...",
+    "nextStep": "അടുത്തത്",
     "saveShopChanges": "കടയിലെ മാറ്റങ്ങൾ സേവ് ചെയ്യുക",
     "savingChanges": "മാറ്റങ്ങൾ സേവ് ചെയ്യുന്നു...",
     "selectShop": "കട തിരഞ്ഞെടുക്കുക",
     "selectedShopRoleIs": "തിരഞ്ഞെടുത്ത കടയുടെ റോൾ",
     "unknown": "അജ്ഞാതം",
     "onlyOwnersCanSave": "മാറ്റങ്ങൾ ഉടമകൾക്ക് മാത്രമേ സേവ് ചെയ്യാൻ കഴിയൂ.",
+    "bankDetails": "ബാങ്ക് വിവരങ്ങൾ",
+    "bankDetailsOptional": "ബാങ്ക് വിവരങ്ങൾ ഐച്ഛികമാണ്. ഇത് ഒഴിവാക്കി പിന്നീട് ചേർക്കാം.",
+    "bankName": "ബാങ്കിന്റെ പേര്",
+    "accountNumber": "അക്കൗണ്ട് നമ്പർ",
+    "accountType": "അക്കൗണ്ട് തരം",
+    "savings": "സേവിംഗ്സ്",
+    "current": "കറൻ്റ്",
+    "ifscCode": "IFSC കോഡ്",
+    "accountHolderName": "അക്കൗണ്ട് ഉടമയുടെ പേര്",
+    "saveBankDetails": "ബാങ്ക് വിവരങ്ങൾ സേവ് ചെയ്യുക",
+    "savingBankDetails": "ബാങ്ക് വിവരങ്ങൾ സേവ് ചെയ്യുന്നു...",
+    "skipBankDetails": "ഇപ്പോൾ ഒഴിവാക്കുക",
+    "shopCreated": "കട വിജയകരമായി സൃഷ്ടിച്ചു",
+    "shopCreatedDescription": "നിങ്ങളുടെ കട തയ്യാറാണ്. ഇപ്പോൾ ഇൻവെൻ്ററി വർക്ക്ഫ്ലോകൾ ആക്സസ് ചെയ്യാം.",
+    "done": "പൂർത്തിയായി",
     "placeholders": {
       "shopName": "ഉദാ: Downtown Electronics",
       "address": "ഉദാ: 42 MG Road",
@@ -285,7 +301,12 @@
       "pincode": "ഉദാ: 560001",
       "contactPerson": "ഉദാ: Chandra",
       "mobileNumber": "ഉദാ: 9876543210",
-      "gst": "ഉദാ: 27AAPFU0939F1ZV"
+      "gst": "ഉദാ: 27AAPFU0939F1ZV",
+      "bankName": "ഉദാ: State Bank of India",
+      "accountNumber": "ഉദാ: 1234567890",
+      "accountType": "അക്കൗണ്ട് തരം തിരഞ്ഞെടുക്കുക",
+      "ifscCode": "ഉദാ: SBIN0001234",
+      "accountHolderName": "ഉദാ: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "കടയുടെ പേര് ആവശ്യമാണ്.",
@@ -294,7 +315,8 @@
       "cityRequired": "നഗരം ആവശ്യമാണ്.",
       "stateRequired": "സംസ്ഥാനം ആവശ്യമാണ്.",
       "pincodeRequired": "പിൻകോഡ് ആവശ്യമാണ്.",
-      "gstInvalid": "സാധുവായ ഇന്ത്യൻ GSTIN നൽകുക."
+      "gstInvalid": "സാധുവായ ഇന്ത്യൻ GSTIN നൽകുക.",
+      "ifscInvalid": "സാധുവായ ഇന്ത്യൻ IFSC കോഡ് നൽകുക (ഉദാ: SBIN0001234)."
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "കടയുടെ നഗരം ആവശ്യമാണ്.",
       "stateRequired": "കടയുടെ സംസ്ഥാനം ആവശ്യമാണ്.",
       "pincodeRequired": "കടയുടെ പിൻകോഡ് ആവശ്യമാണ്.",
-      "unableToUpdateShop": "ഇപ്പോൾ കട അപ്‌ഡേറ്റ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക."
+      "unableToUpdateShop": "ഇപ്പോൾ കട അപ്‌ഡേറ്റ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
+      "unableToUpdateBankDetails": "ഇപ്പോൾ ബാങ്ക് വിവരങ്ങൾ സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
+      "ifscCodeInvalid": "സാധുവായ ഇന്ത്യൻ IFSC കോഡ് നൽകുക.",
+      "bankAccountTypeInvalid": "അക്കൗണ്ട് തരം സേവിംഗ്സ് അല്ലെങ്കിൽ കറൻ്റ് ആയിരിക്കണം."
     }
   }
 }

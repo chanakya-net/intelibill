@@ -115,9 +115,32 @@ export class ShopsEffects {
     )
   );
 
+  readonly updateShopBankDetails$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ShopsActions.updateShopBankDetailsRequested),
+      switchMap(({ shopId, payload }) =>
+        this.shopService.updateBankDetails(shopId, payload).pipe(
+          map((details) => ShopsActions.updateShopBankDetailsSucceeded({ details })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              ShopsActions.updateShopBankDetailsFailed({
+                errorMessage: getBankDetailsErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   readonly refreshShopsAfterMutation$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded, ShopsActions.updateShopSucceeded),
+      ofType(
+        ShopsActions.createShopSucceeded,
+        ShopsActions.setDefaultShopSucceeded,
+        ShopsActions.updateShopSucceeded,
+        ShopsActions.updateShopBankDetailsSucceeded
+      ),
       map(() => ShopsActions.loadShopsRequested())
     )
   );
@@ -135,6 +158,28 @@ function getShopDetailsErrorMessage(error: ApiErrorPayload | undefined): string 
   }
 
   return 'errors.shops.unableToLoadDetails';
+}
+
+function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
+    return 'errors.auth.sessionVerificationFailed';
+  }
+
+  if (title === 'Shop.UserIsNotOwner') {
+    return 'errors.shops.onlyOwnersCanUpdate';
+  }
+
+  if (title === 'Shop.IfscCodeInvalid') {
+    return 'errors.shops.ifscCodeInvalid';
+  }
+
+  if (title === 'Shop.BankAccountTypeInvalid') {
+    return 'errors.shops.bankAccountTypeInvalid';
+  }
+
+  return 'errors.shops.unableToUpdateBankDetails';
 }
 
 function getShopMutationErrorMessage(error: ApiErrorPayload | undefined): string {

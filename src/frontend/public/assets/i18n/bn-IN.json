@@ -271,12 +271,28 @@
     "gstNumberOptional": "GST নম্বর (ঐচ্ছিক)",
     "createShop": "দোকান তৈরি করুন",
     "creatingShop": "দোকান তৈরি হচ্ছে...",
+    "nextStep": "পরবর্তী",
     "saveShopChanges": "দোকানের পরিবর্তন সংরক্ষণ করুন",
     "savingChanges": "পরিবর্তন সংরক্ষণ হচ্ছে...",
     "selectShop": "দোকান নির্বাচন করুন",
     "selectedShopRoleIs": "নির্বাচিত দোকানের ভূমিকা",
     "unknown": "অজানা",
     "onlyOwnersCanSave": "শুধুমাত্র মালিকরাই পরিবর্তন সংরক্ষণ করতে পারবেন।",
+    "bankDetails": "ব্যাংক বিবরণ",
+    "bankDetailsOptional": "ব্যাংক বিবরণ ঐচ্ছিক। আপনি এটি এড়িয়ে পরে যোগ করতে পারেন।",
+    "bankName": "ব্যাংকের নাম",
+    "accountNumber": "অ্যাকাউন্ট নম্বর",
+    "accountType": "অ্যাকাউন্টের ধরন",
+    "savings": "সঞ্চয়",
+    "current": "চলতি",
+    "ifscCode": "IFSC কোড",
+    "accountHolderName": "অ্যাকাউন্টধারীর নাম",
+    "saveBankDetails": "ব্যাংক বিবরণ সংরক্ষণ করুন",
+    "savingBankDetails": "ব্যাংক বিবরণ সংরক্ষণ হচ্ছে...",
+    "skipBankDetails": "এখন এড়িয়ে যান",
+    "shopCreated": "দোকান সফলভাবে তৈরি হয়েছে",
+    "shopCreatedDescription": "আপনার দোকান প্রস্তুত। এখন ইনভেন্টরি ওয়ার্কফ্লো অ্যাক্সেস করতে পারবেন।",
+    "done": "সম্পন্ন",
     "placeholders": {
       "shopName": "যেমন: Downtown Electronics",
       "address": "যেমন: 42 MG Road",
@@ -285,7 +301,12 @@
       "pincode": "যেমন: 560001",
       "contactPerson": "যেমন: Chandra",
       "mobileNumber": "যেমন: 9876543210",
-      "gst": "যেমন: 27AAPFU0939F1ZV"
+      "gst": "যেমন: 27AAPFU0939F1ZV",
+      "bankName": "যেমন: State Bank of India",
+      "accountNumber": "যেমন: 1234567890",
+      "accountType": "অ্যাকাউন্টের ধরন নির্বাচন করুন",
+      "ifscCode": "যেমন: SBIN0001234",
+      "accountHolderName": "যেমন: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "দোকানের নাম আবশ্যক।",
@@ -294,7 +315,8 @@
       "cityRequired": "শহর আবশ্যক।",
       "stateRequired": "রাজ্য আবশ্যক।",
       "pincodeRequired": "পিনকোড আবশ্যক।",
-      "gstInvalid": "সঠিক ভারতীয় GSTIN দিন।"
+      "gstInvalid": "সঠিক ভারতীয় GSTIN দিন।",
+      "ifscInvalid": "সঠিক ভারতীয় IFSC কোড দিন (যেমন: SBIN0001234)।"
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "দোকানের শহর আবশ্যক।",
       "stateRequired": "দোকানের রাজ্য আবশ্যক।",
       "pincodeRequired": "দোকানের পিনকোড আবশ্যক।",
-      "unableToUpdateShop": "এই মুহূর্তে দোকান আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।"
+      "unableToUpdateShop": "এই মুহূর্তে দোকান আপডেট করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "unableToUpdateBankDetails": "এই মুহূর্তে ব্যাংক বিবরণ সংরক্ষণ করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "ifscCodeInvalid": "সঠিক ভারতীয় IFSC কোড দিন।",
+      "bankAccountTypeInvalid": "অ্যাকাউন্টের ধরন সঞ্চয় বা চলতি হতে হবে।"
     }
   }
 }
