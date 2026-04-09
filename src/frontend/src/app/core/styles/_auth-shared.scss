@@ -132,19 +132,23 @@
   z-index: 10;
 }
 
-:host ::ng-deep .auth-spinner .p-progressspinner-circle {
+.auth-spinner-root {
   animation: p-progress-spinner-dash 1.4s ease-in-out infinite,
     p-progress-spinner-color 6s ease-in-out infinite;
-  stroke: #ffffff;
+
+  :global(.p-progressspinner-circle) {
+    stroke: #ffffff;
+  }
 }
 
-:host ::ng-deep .p-password,
-:host ::ng-deep .p-password input {
+// Login page inputs
+.login-password-root,
+.login-password-root input {
   width: 100%;
 }
 
-:host ::ng-deep input.p-inputtext,
-:host ::ng-deep .p-password input {
+.login-email-input,
+.login-password-root input {
   @include controls.text-input(
     $border: rgba(249, 115, 22, 0.35),
     $background: #ffffff,
@@ -152,16 +156,43 @@
     $padding: 0.83rem 0.9rem,
     $transition: (box-shadow 160ms ease, border-color 160ms ease)
   );
+
+  &::placeholder {
+    @include controls.text-input-placeholder(#9a7b66);
+  }
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
 }
 
-:host ::ng-deep input.p-inputtext::placeholder,
-:host ::ng-deep .p-password input::placeholder {
-  @include controls.text-input-placeholder(#9a7b66);
+// Register page inputs
+.register-first-name-input,
+.register-last-name-input,
+.register-email-input,
+.register-password-root,
+.register-confirm-password-root {
+  @include controls.text-input(
+    $border: rgba(249, 115, 22, 0.35),
+    $background: #ffffff,
+    $text: #1e293b,
+    $padding: 0.83rem 0.9rem,
+    $transition: (box-shadow 160ms ease, border-color 160ms ease)
+  );
+
+  &::placeholder {
+    @include controls.text-input-placeholder(#9a7b66);
+  }
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
 }
 
-:host ::ng-deep input.p-inputtext:enabled:focus,
-:host ::ng-deep .p-password input:enabled:focus {
-  @include controls.text-input-focus;
+// Password input containers
+.register-password-root,
+.register-confirm-password-root {
+  width: 100%;
 }
 
 .visual-panel {

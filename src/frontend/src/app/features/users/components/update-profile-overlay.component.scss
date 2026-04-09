@@ -119,12 +119,20 @@
   background: rgba(15, 23, 42, 0.22);
 }
 
-:host ::ng-deep input.p-inputtext {
+// Text input styling
+input.p-inputtext {
   @include controls.text-input;
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
 }
 
-:host ::ng-deep input.p-inputtext:enabled:focus {
-  @include controls.text-input-focus;
+// Progress spinner styling
+.update-profile-spinner-root {
+  :global(.p-progressspinner-circle) {
+    stroke: #f8fafc;
+  }
 }
 
 @media (max-width: 640px) {

@@ -26,8 +26,9 @@
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
         <div class="barcode-field-wrapper" [style.position]="'relative'">
-          <p-inputgroup class="barcode-input-group">
+          <p-inputgroup [pt]="barcodeInputGroupPt">
             <p-autocomplete
+              [pt]="barcodeAutocomplePt"
               formControlName="barcode"
               [suggestions]="barcodeSuggestions()"
               (completeMethod)="onFilterBarcode($event)"
@@ -36,13 +37,14 @@
               appendTo="body"
               [fluid]="true"
             ></p-autocomplete>
-            <p-inputgroup-addon class="barcode-camera-addon">
+            <p-inputgroup-addon [pt]="cameraddonPt">
               <button
                 pButton
                 type="button"
                 icon="pi pi-camera"
                 severity="secondary"
                 text
+                [pt]="cameraButtonPt"
                 (click)="openScanner()"
                 [attr.aria-label]="'inventory.openScanner' | transloco"
               ></button>
@@ -104,7 +106,7 @@
 
       <label class="sales-price-field">
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputgroup class="sales-price-group">
+        <p-inputgroup [pt]="salesPriceGroupPt">
           <p-inputgroup-addon>₹</p-inputgroup-addon>
           <p-inputNumber
             formControlName="salesPrice"
@@ -116,7 +118,7 @@
             [minFractionDigits]="2"
           ></p-inputNumber>
           <p-select
-            class="sales-price-tax-mode"
+            [pt]="salesPriceTaxModePt"
             formControlName="taxIncluded"
             [options]="taxModeOptions()"
             optionLabel="label"
@@ -193,7 +195,7 @@
               <button
                 pButton
                 type="button"
-                class="edit-row-button"
+                [pt]="editButtonPt"
                 size="small"
                 [label]="'inventory.edit' | transloco"
                 icon="pi pi-pencil"
@@ -203,6 +205,7 @@
               <button
                 pButton
                 type="button"
+                [pt]="removeButtonPt"
                 severity="danger"
                 size="small"
                 [label]="'inventory.remove' | transloco"

@@ -59,6 +59,10 @@ export class ManageShopOverlayComponent implements OnInit {
     gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
   });
 
+  readonly progressSpinnerPt = {
+    root: { class: 'manage-shop-spinner-root' },
+  };
+
   constructor() {
     effect(() => {
       const details = this.selectedShopDetails();

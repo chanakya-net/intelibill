@@ -287,59 +287,75 @@ h1 {
   opacity: 0.7;
 }
 
-:host ::ng-deep .barcode-input-group .p-autocomplete {
-  flex: 1 1 auto;
+// Barcode input group styling via PassThrough
+.barcode-input-group {
+  .p-autocomplete {
+    flex: 1 1 auto;
+  }
+
+  .p-autocomplete,
+  .p-autocomplete-input,
+  .p-inputtext {
+    width: 100%;
+  }
 }
 
-:host ::ng-deep .barcode-input-group .p-autocomplete,
-:host ::ng-deep .barcode-input-group .p-autocomplete-input,
-:host ::ng-deep .barcode-input-group .p-inputtext {
-  width: 100%;
-}
-
-:host ::ng-deep .barcode-camera-addon .p-button {
+// Camera button styling via PassThrough
+.camera-button {
   border-radius: 0;
   min-width: 2.75rem;
   height: 100%;
 }
 
-:host ::ng-deep .row-actions .edit-row-button.p-button {
+// Camera addon styling via PassThrough
+.camera-addon {
+  padding: 0;
+}
+
+// Edit button styling via PassThrough
+.edit-row-button {
   background: #fff7ed;
   border: 1px solid #f59e0b;
   color: #9a3412;
+
+  &:not(:disabled):hover {
+    background: #ffedd5;
+    border-color: #d97706;
+    color: #7c2d12;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 0.2rem rgba(217, 119, 6, 0.22);
+  }
 }
 
-:host ::ng-deep .row-actions .edit-row-button.p-button:not(:disabled):hover {
-  background: #ffedd5;
-  border-color: #d97706;
-  color: #7c2d12;
+.remove-row-button {
+  // Uses default PrimeNG severity="danger" styling
 }
 
-:host ::ng-deep .row-actions .edit-row-button.p-button:focus-visible {
-  box-shadow: 0 0 0 0.2rem rgba(217, 119, 6, 0.22);
-}
-
-:host ::ng-deep .sales-price-group {
+// Sales price group styling via PassThrough
+.sales-price-group {
   width: 100%;
+
+  .p-inputnumber {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
-:host ::ng-deep .sales-price-group .p-inputnumber {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-:host ::ng-deep .sales-price-group .sales-price-tax-mode {
+// Sales price tax mode styling via PassThrough
+.sales-price-tax-mode {
   flex: 0 0 8.5rem;
-}
 
-:host ::ng-deep .sales-price-group .sales-price-tax-mode .p-select {
-  width: 100%;
-}
+  .p-select {
+    width: 100%;
+  }
 
-:host ::ng-deep .sales-price-group .sales-price-tax-mode .p-select-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  .p-select-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 @keyframes scanned-row-flash {

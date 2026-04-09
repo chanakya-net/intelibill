@@ -42,6 +42,10 @@ export class ChangePasswordOverlayComponent implements OnInit {
     confirmNewPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
   }, { validators: [passwordsMatchValidator] });
 
+  readonly progressSpinnerPt = {
+    root: { class: 'change-password-spinner-root' },
+  };
+
   constructor() {
     effect(() => {
       const isChangePasswordSuccess = this.lastMutationType() === 'change-password' && this.lastMutationSucceeded();

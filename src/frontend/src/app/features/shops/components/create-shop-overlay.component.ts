@@ -49,6 +49,10 @@ export class CreateShopOverlayComponent implements OnInit {
     gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
   });
 
+  readonly progressSpinnerPt = {
+    root: { class: 'create-shop-spinner-root' },
+  };
+
   constructor() {
     effect(() => {
       const isCreateSuccess = this.lastMutationType() === 'create' && this.lastMutationSucceeded();

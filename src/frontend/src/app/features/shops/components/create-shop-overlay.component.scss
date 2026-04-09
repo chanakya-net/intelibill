@@ -128,20 +128,24 @@
   background: rgba(15, 23, 42, 0.22);
 }
 
-:host ::ng-deep input.p-inputtext {
+// Text input styling
+input.p-inputtext {
   @include controls.text-input($transition: (box-shadow 160ms ease, border-color 160ms ease));
+
+  &::placeholder {
+    @include controls.text-input-placeholder;
+  }
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
 }
 
-:host ::ng-deep input.p-inputtext::placeholder {
-  @include controls.text-input-placeholder;
-}
-
-:host ::ng-deep input.p-inputtext:enabled:focus {
-  @include controls.text-input-focus;
-}
-
-:host ::ng-deep .create-shop-spinner .p-progressspinner-circle {
-  stroke: #f8fafc;
+// Progress spinner styling
+.create-shop-spinner-root {
+  :global(.p-progressspinner-circle) {
+    stroke: #f8fafc;
+  }
 }
 
 @media (max-width: 640px) {

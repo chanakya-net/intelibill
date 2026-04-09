@@ -19,12 +19,12 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="field-wrap space-y-1.5">
             <label for="firstName">{{ 'common.firstName' | transloco }}</label>
-            <input id="firstName" type="text" pInputText formControlName="firstName" autocomplete="given-name" class="w-full" />
+            <input id="firstName" type="text" pInputText formControlName="firstName" autocomplete="given-name" class="w-full" [pt]="firstNameInputPt" />
           </div>
 
           <div class="field-wrap space-y-1.5">
             <label for="lastName">{{ 'common.lastName' | transloco }}</label>
-            <input id="lastName" type="text" pInputText formControlName="lastName" autocomplete="family-name" class="w-full" />
+            <input id="lastName" type="text" pInputText formControlName="lastName" autocomplete="family-name" class="w-full" [pt]="lastNameInputPt" />
           </div>
         </div>
 
@@ -38,6 +38,7 @@
             autocomplete="email"
             class="w-full"
             [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            [pt]="emailInputPt"
           />
           <p class="field-error" *ngIf="form.controls.email.invalid && form.controls.email.touched">{{ 'auth.validation.emailInvalid' | transloco }}</p>
         </div>
@@ -52,6 +53,7 @@
             styleClass="w-full"
             inputStyleClass="w-full"
             autocomplete="new-password"
+            [pt]="passwordInputPt"
           ></p-password>
           <p class="field-error" *ngIf="form.controls.password.invalid && form.controls.password.touched">
             {{ 'register.validation.passwordLength' | transloco }}
@@ -68,6 +70,7 @@
             styleClass="w-full"
             inputStyleClass="w-full"
             autocomplete="new-password"
+            [pt]="confirmPasswordInputPt"
           ></p-password>
           <p class="field-error" *ngIf="form.controls.confirmPassword.invalid && form.controls.confirmPassword.touched">
             {{ 'register.validation.confirmPasswordRequired' | transloco }}
@@ -114,7 +117,7 @@
       </form>
 
       <div class="form-overlay" *ngIf="isSubmitting()">
-        <p-progressSpinner strokeWidth="4" styleClass="auth-spinner"></p-progressSpinner>
+        <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
       </div>
     </article>
 
