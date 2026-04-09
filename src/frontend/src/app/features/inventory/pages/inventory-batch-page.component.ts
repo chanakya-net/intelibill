@@ -93,6 +93,47 @@ export class InventoryBatchPageComponent {
   ]);
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly scannerVideo = viewChild<ElementRef<HTMLVideoElement>>('scannerVideo');
+  // PassThrough configurations for PrimeNG components
+  readonly editButtonPt = {
+    root: {
+      class: 'edit-row-button',
+    },
+  };
+  readonly removeButtonPt = {
+    root: {
+      class: 'remove-row-button',
+    },
+  };
+  readonly cameraButtonPt = {
+    root: {
+      class: 'camera-button',
+    },
+  };
+  readonly barcodeAutocomplePt = {
+    root: {
+      class: 'barcode-autocomplete',
+    },
+  };
+  readonly barcodeInputGroupPt = {
+    root: {
+      class: 'barcode-input-group',
+    },
+  };
+  readonly cameraddonPt = {
+    root: {
+      class: 'camera-addon',
+    },
+  };
+  readonly salesPriceGroupPt = {
+    root: {
+      class: 'sales-price-group',
+    },
+  };
+  readonly salesPriceTaxModePt = {
+    root: {
+      class: 'sales-price-tax-mode',
+    },
+  };
   readonly scannerEngineLabel = computed(
     () => this.scannerLastEngineKey() || this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
   );

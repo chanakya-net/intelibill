@@ -55,6 +55,18 @@ export class LoginPageComponent implements OnInit {
     rememberMe: [true],
   });
 
+  readonly emailInputPt = {
+    root: { class: 'login-email-input' },
+  };
+
+  readonly passwordInputPt = {
+    root: { class: 'login-password-root' },
+  };
+
+  readonly progressSpinnerPt = {
+    root: { class: 'auth-spinner-root' },
+  };
+
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
       void this.router.navigateByUrl('/');

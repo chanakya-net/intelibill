@@ -256,6 +256,17 @@ export class ShellComponent {
     ];
   });
 
+  readonly menubarPt = {
+    root: { class: 'menubar-root' },
+    menu: { class: 'menubar-menu' },
+    menuitem: { class: 'menubar-item' },
+    itemlink: { class: 'menubar-item-link' },
+    itemlabel: { class: 'menubar-item-label' },
+    itemicon: { class: 'menubar-item-icon' },
+    submenuicon: { class: 'menubar-submenu-icon' },
+    submenu: { class: 'menubar-submenu' },
+  };
+
   constructor() {
     this.store.dispatch(ShopsActions.loadShopsRequested());
   }

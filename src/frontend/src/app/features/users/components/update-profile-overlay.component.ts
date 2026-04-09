@@ -47,6 +47,10 @@ export class UpdateProfileOverlayComponent {
     phoneNumber: ['', [Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
   });
 
+  readonly progressSpinnerPt = {
+    root: { class: 'update-profile-spinner-root' },
+  };
+
   constructor() {
     effect(() => {
       const isUpdateProfileSuccess = this.lastMutationType() === 'update-profile' && this.lastMutationSucceeded();

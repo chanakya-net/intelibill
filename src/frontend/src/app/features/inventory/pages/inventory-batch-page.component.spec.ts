@@ -261,7 +261,7 @@ describe('InventoryBatchPageComponent', () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
 
-    const button = fixture.debugElement.query(By.css('.barcode-camera-addon button'));
+    const button = fixture.debugElement.query(By.css('.camera-addon button'));
     button.triggerEventHandler('click');
     fixture.detectChanges();
 

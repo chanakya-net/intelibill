@@ -54,6 +54,30 @@ export class RegisterPageComponent implements OnInit {
     rememberMe: [true],
   }, { validators: passwordsMatchValidator });
 
+  readonly firstNameInputPt = {
+    root: { class: 'register-first-name-input' },
+  };
+
+  readonly lastNameInputPt = {
+    root: { class: 'register-last-name-input' },
+  };
+
+  readonly emailInputPt = {
+    root: { class: 'register-email-input' },
+  };
+
+  readonly passwordInputPt = {
+    root: { class: 'register-password-root' },
+  };
+
+  readonly confirmPasswordInputPt = {
+    root: { class: 'register-confirm-password-root' },
+  };
+
+  readonly progressSpinnerPt = {
+    root: { class: 'auth-spinner-root' },
+  };
+
   ngOnInit(): void {
     this.store.dispatch(RegisterActions.clearError());
   }
