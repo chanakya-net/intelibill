@@ -48,6 +48,31 @@ export class InventoryEffects {
     )
   );
 
+  readonly updateItem$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(InventoryActions.updateItemRequested),
+      switchMap(({ itemId, payload }) =>
+        this.inventoryService.updateItem(itemId, payload).pipe(
+          map(() => InventoryActions.updateItemSucceeded()),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              InventoryActions.updateItemFailed({
+                errorMessage: getUpdateItemErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly reloadItemsAfterUpdate$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(InventoryActions.updateItemSucceeded),
+      map(() => InventoryActions.loadItemsRequested())
+    )
+  );
+
   readonly reloadItemsAfterShopSwitch$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded),
@@ -84,4 +109,38 @@ function getAddItemErrorMessage(error: ApiErrorPayload | undefined): string {
   }
 
   return 'errors.items.unableToAddItem';
+}
+
+function getUpdateItemErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  if (title === 'Shop.ActiveShopNotSelected') {
+    return 'errors.items.activeShopNotSelected';
+  }
+
+  if (title === 'Item.UserIsNotOwnerOrManager') {
+    return 'errors.items.onlyOwnerOrManagerCanManageItems';
+  }
+
+  if (title === 'Item.ItemNotFound') {
+    return 'errors.items.itemNotFound';
+  }
+
+  if (title === 'Item.BarcodeAlreadyExists') {
+    return 'errors.items.barcodeAlreadyExists';
+  }
+
+  if (title === 'Item.NameRequired') {
+    return 'errors.items.nameRequired';
+  }
+
+  if (title === 'Item.BarcodeRequired') {
+    return 'errors.items.barcodeRequired';
+  }
+
+  if (title === 'Item.UomRequired') {
+    return 'errors.items.uomRequired';
+  }
+
+  return 'errors.items.unableToUpdateItem';
 }

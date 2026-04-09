@@ -5,6 +5,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
+using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
@@ -136,6 +137,35 @@ public sealed class ItemsController(
         return result.ToActionResult(Ok);
     }
 
+    [HttpPatch("{itemId:guid}")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> UpdateItem(Guid itemId, [FromBody] UpdateItemRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new UpdateItemCommand(
+                userId.Value,
+                activeShopId.Value,
+                itemId,
+                request.Name,
+                request.Barcode,
+                request.Description,
+                request.Uom),
+            cancellationToken);
+
+        if (result.IsError)
+            return result.Errors.ToList().ToProblemResult();
+
+        return NoContent();
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -157,5 +187,12 @@ public sealed record AddItemRequest(
     string? Description,
     string Uom,
     bool IsActive);
+
+public sealed record UpdateItemRequest(
+    string Name,
+    string Barcode,
+    string? Description,
+    string Uom);
+
 
 internal sealed record ItemCatalogEntry(Guid ItemId, string Name, string Barcode);

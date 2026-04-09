@@ -23,6 +23,13 @@ export interface AddItemRequest {
   readonly isActive: boolean;
 }
 
+export interface UpdateItemRequest {
+  readonly name: string;
+  readonly barcode: string;
+  readonly description: string | null;
+  readonly uom: string;
+}
+
 export interface AddInventoryBatchRowRequest {
   readonly clientRowId: string;
   readonly itemName: string;
@@ -94,6 +101,10 @@ export class InventoryService {
 
   addItem(payload: AddItemRequest): Observable<Item> {
     return this.http.post<Item>(ITEM_ENDPOINTS.add, payload);
+  }
+
+  updateItem(itemId: string, payload: UpdateItemRequest): Observable<void> {
+    return this.http.patch<void>(ITEM_ENDPOINTS.update(itemId), payload);
   }
 
   getProductDetailsByNameOrBarcode(name: string | undefined, barcode: string | undefined): Observable<ProductDetailsDto> {
