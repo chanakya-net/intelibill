@@ -31,10 +31,10 @@ Paths are relative to this file (repo root).
 
 | Path | Purpose |
 |---|---|
-| `src/backend/Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
-| `src/backend/Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
-| `src/backend/Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
-| `src/backend/Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
+| `/backend/Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
+| `/backend/Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
+| `/backend/Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
+| `/backend/Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
 | `tests/backend/unit/` | Domain and Application unit tests |
 | `tests/backend/integration/` | Integration tests referencing the API project |
 | `Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |

@@ -102,6 +102,10 @@ h1 {
   background: #fff1f2;
 }
 
+.scanned-row {
+  animation: scanned-row-flash 1.4s ease;
+}
+
 .empty-state {
   text-align: center;
   padding: 1.5rem;
@@ -180,6 +184,91 @@ h1 {
   position: relative;
 }
 
+.barcode-input-group {
+  width: 100%;
+}
+
+.barcode-camera-addon {
+  padding: 0;
+}
+
+.scanner-dialog-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.scanner-subtitle {
+  margin: 0;
+  color: #57534e;
+}
+
+.scanner-preview-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid #fdba74;
+  background: radial-gradient(circle at top, #1f2937, #111827 60%);
+  min-height: 18rem;
+}
+
+.scanner-video {
+  display: block;
+  width: 100%;
+  height: min(58vh, 24rem);
+  object-fit: cover;
+}
+
+.scanner-guides {
+  position: absolute;
+  inset: 12% 10%;
+  border: 2px solid rgba(251, 191, 36, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 0 0 999px rgba(17, 24, 39, 0.28);
+  pointer-events: none;
+}
+
+.scanner-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(17, 24, 39, 0.32);
+}
+
+.scanner-status-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid #fdba74;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+}
+
+.scanner-status-card > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.scanner-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #78716c;
+}
+
+.scanner-feedback {
+  margin: 0;
+  color: #166534;
+  font-weight: 600;
+}
+
+.scanner-error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .barcode-loading-overlay {
   position: absolute;
   top: 0;
@@ -190,6 +279,22 @@ h1 {
   justify-content: center;
   pointer-events: none;
   opacity: 0.7;
+}
+
+:host ::ng-deep .barcode-input-group .p-autocomplete {
+  flex: 1 1 auto;
+}
+
+:host ::ng-deep .barcode-input-group .p-autocomplete,
+:host ::ng-deep .barcode-input-group .p-autocomplete-input,
+:host ::ng-deep .barcode-input-group .p-inputtext {
+  width: 100%;
+}
+
+:host ::ng-deep .barcode-camera-addon .p-button {
+  border-radius: 0;
+  min-width: 2.75rem;
+  height: 100%;
 }
 
 :host ::ng-deep .sales-price-group {
@@ -213,4 +318,24 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@keyframes scanned-row-flash {
+  0% {
+    background: #fef3c7;
+  }
+
+  100% {
+    background: transparent;
+  }
+}
+
+@media (max-width: 640px) {
+  .scanner-status-card {
+    grid-template-columns: 1fr;
+  }
+
+  .scanner-video {
+    height: min(56vh, 20rem);
+  }
 }

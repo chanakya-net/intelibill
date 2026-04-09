@@ -26,15 +26,28 @@
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
         <div class="barcode-field-wrapper" [style.position]="'relative'">
-          <p-autocomplete
-            formControlName="barcode"
-            [suggestions]="barcodeSuggestions()"
-            (completeMethod)="onFilterBarcode($event)"
-            (onSelect)="onBarcodeSelected($event.value)"
-            (focusout)="onBarcodeFocusOut()"
-            appendTo="body"
-            [fluid]="true"
-          ></p-autocomplete>
+          <p-inputgroup class="barcode-input-group">
+            <p-autocomplete
+              formControlName="barcode"
+              [suggestions]="barcodeSuggestions()"
+              (completeMethod)="onFilterBarcode($event)"
+              (onSelect)="onBarcodeSelected($event.value)"
+              (focusout)="onBarcodeFocusOut()"
+              appendTo="body"
+              [fluid]="true"
+            ></p-autocomplete>
+            <p-inputgroup-addon class="barcode-camera-addon">
+              <button
+                pButton
+                type="button"
+                icon="pi pi-camera"
+                severity="secondary"
+                text
+                (click)="openScanner()"
+                [attr.aria-label]="'inventory.openScanner' | transloco"
+              ></button>
+            </p-inputgroup-addon>
+          </p-inputgroup>
           <div *ngIf="loadingProduct()" class="barcode-loading-overlay">
             <p-progressSpinner styleClass="h-6 w-6" strokeWidth="6"></p-progressSpinner>
           </div>
@@ -168,7 +181,7 @@
       </ng-template>
 
       <ng-template pTemplate="body" let-row>
-        <tr [class.failed-row]="failedClientRowIds().has(row.clientRowId)">
+        <tr [class.failed-row]="failedClientRowIds().has(row.clientRowId)" [class.scanned-row]="highlightedRowId() === row.clientRowId">
           <td>{{ row.itemName }}</td>
           <td>{{ row.barcode }}</td>
           <td>{{ row.batchNumber }}</td>
@@ -222,4 +235,48 @@
       ></button>
     </div>
   </div>
+
+  <p-dialog
+    [visible]="isScannerOpen()"
+    (visibleChange)="onScannerVisibilityChange($event)"
+    [header]="'inventory.scannerTitle' | transloco"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '100%', maxWidth: '42rem' }"
+  >
+    <div class="scanner-dialog-content">
+      <p class="scanner-subtitle">{{ 'inventory.scannerSubtitle' | transloco }}</p>
+
+      <div class="scanner-preview-shell">
+        <video #scannerVideo class="scanner-video" autoplay muted playsinline></video>
+        <div class="scanner-guides"></div>
+        <div class="scanner-loading" *ngIf="scannerInitializing()">
+          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        </div>
+      </div>
+
+      <div class="scanner-status-card">
+        <div>
+          <span class="scanner-label">{{ 'inventory.scannerEngine' | transloco }}</span>
+          <strong>{{ scannerEngineLabel() | transloco }}</strong>
+        </div>
+        <div>
+          <span class="scanner-label">{{ 'inventory.scannerLastCode' | transloco }}</span>
+          <strong>{{ scannerLastValue() || ('inventory.scannerIdle' | transloco) }}</strong>
+        </div>
+        <div>
+          <span class="scanner-label">{{ 'inventory.scannerScanCount' | transloco }}</span>
+          <strong>{{ scannerSessionCount() }}</strong>
+        </div>
+      </div>
+
+      <p class="scanner-feedback" *ngIf="scannerLastAction()">
+        {{ scannerLastAction() | transloco }}
+        <span *ngIf="scannerLastValue()">: {{ scannerLastValue() }}</span>
+        <span *ngIf="scannerLastFormat()"> ({{ scannerLastFormat() }})</span>
+      </p>
+
+      <p class="scanner-error" *ngIf="scannerError()">{{ scannerError() }}</p>
+    </div>
+  </p-dialog>
 </section>
