@@ -201,6 +201,7 @@
     "notes": "Notes",
     "performedAt": "Performed At",
     "actions": "Actions",
+    "edit": "Edit",
     "remove": "Remove",
     "noPendingRows": "No pending rows",
     "noPendingRowsDescription": "Use the form above to add inbound rows.",

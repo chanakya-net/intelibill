@@ -203,6 +203,7 @@
     "notes": "নোট",
     "performedAt": "সম্পাদিত হয়েছে",
     "actions": "কার্যক্রম",
+    "edit": "সম্পাদনা",
     "remove": "সরান",
     "noPendingRows": "কোনো মুলতুবি সারি নেই",
     "noPendingRowsDescription": "সারি যোগ করতে উপরের ফর্ম ব্যবহার করুন।",
