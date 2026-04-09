@@ -56,6 +56,9 @@ import { UsersActions } from '../../features/users/state/users.actions';
 })
 export class ShellComponent {
   readonly mainMenuItems = computed<MenuItem[]>(() => {
+    // Track language changes to re-evaluate menu labels
+    this.currentLanguage();
+
     const items: MenuItem[] = [];
     if (this.isOwnerOrManagerOfActiveShop()) {
       items.push({
@@ -238,6 +241,9 @@ export class ShellComponent {
     return items;
   });
   readonly inventoryMenuItems = computed<MenuItem[]>(() => {
+    // Track language changes to re-evaluate menu labels
+    this.currentLanguage();
+
     if (!this.isOwnerOrManagerOfActiveShop()) {
       return [];
     }

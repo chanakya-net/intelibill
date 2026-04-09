@@ -105,6 +105,11 @@
               </div>
             </div>
           </th>
+          <th style="min-width: 6rem">
+            <div class="flex items-center justify-center">
+              {{ 'common.actions' | transloco }}
+            </div>
+          </th>
         </tr>
       </ng-template>
 
@@ -121,12 +126,27 @@
               {{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}
             </span>
           </td>
+          <td>
+            <div class="action-buttons">
+              <button
+                pButton
+                type="button"
+                [icon]="'pi pi-pencil'"
+                [rounded]="true"
+                [text]="true"
+                [attr.aria-label]="'common.edit' | transloco"
+                *ngIf="canManageInventory()"
+                (click)="onEditItem(item)"
+                [disabled]="isSubmitting()"
+              ></button>
+            </div>
+          </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="5">
+          <td colspan="6">
             <div class="empty-state">
               <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
               <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
@@ -141,4 +161,10 @@
     *ngIf="showAddProductOverlay()"
     (closeRequested)="onCloseAddProduct()"
   ></app-add-product-overlay>
+
+  <app-edit-item-overlay
+    *ngIf="showEditItemOverlay() && selectedItemForEdit()"
+    [item]="selectedItemForEdit()!"
+    (closeRequested)="onCloseEditItem()"
+  ></app-edit-item-overlay>
 </section>

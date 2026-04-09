@@ -5,6 +5,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
+using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.Items.Queries.StreamItems;
@@ -223,6 +224,83 @@ public class ItemsControllerTests
         Assert.Empty(body.Trim());
     }
 
+    [Fact]
+    public async Task UpdateItem_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+        var itemId = Guid.NewGuid();
+
+        var result = await _controller.UpdateItem(itemId, CreateUpdateRequest(), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenValid_ReturnsNoContent()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateUpdateRequest();
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+
+        var result = await _controller.UpdateItem(itemId, request, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<UpdateItemCommand>(c =>
+                c.ActorUserId == userId &&
+                c.ActiveShopId == shopId &&
+                c.ItemId == itemId &&
+                c.Name == request.Name &&
+                c.Barcode == request.Barcode),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenItemNotFound_ReturnsNotFound()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Item.ItemNotFound);
+
+        var result = await _controller.UpdateItem(itemId, CreateUpdateRequest(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenBarcodeConflict_ReturnsConflict()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Item.BarcodeAlreadyExists);
+
+        var result = await _controller.UpdateItem(itemId, CreateUpdateRequest(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+    }
+
     private static AddItemRequest CreateRequest() =>
         new(
             Name: "Rice",
@@ -230,6 +308,13 @@ public class ItemsControllerTests
             Description: "Premium",
             Uom: "kg",
             IsActive: true);
+
+    private static UpdateItemRequest CreateUpdateRequest() =>
+        new(
+            Name: "Premium Rice",
+            Barcode: "112",
+            Description: "High Quality",
+            Uom: "kg");
 
     private System.IO.MemoryStream SetResponseBody()
     {

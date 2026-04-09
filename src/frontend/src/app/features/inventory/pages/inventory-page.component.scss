@@ -48,6 +48,13 @@ h1 {
   overflow: hidden;
 }
 
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 .table-caption {
   display: flex;
   align-items: center;

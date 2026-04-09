@@ -38,6 +38,7 @@ export const ITEM_ENDPOINTS = {
   list: `${API_BASE_URL}/items`,
   add: `${API_BASE_URL}/items`,
   stream: `${API_BASE_URL}/items/stream`,
+  update: (itemId: string) => `${API_BASE_URL}/items/${itemId}`,
 } as const;
 
 export const INVENTORY_ENDPOINTS = {

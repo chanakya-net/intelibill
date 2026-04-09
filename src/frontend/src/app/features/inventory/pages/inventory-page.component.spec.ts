@@ -1,8 +1,8 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Action } from '@ngrx/store';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { Action } from '@ngrx/store';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -18,6 +18,23 @@ import {
 import { InventoryPageComponent } from './inventory-page.component';
 
 describe('InventoryPageComponent', () => {
+  const ownerSession = {
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+    rememberMe: true,
+    user: {
+      id: 'owner-1',
+      email: 'owner@test.com',
+      phoneNumber: null,
+      firstName: 'Owner',
+      lastName: 'One',
+    },
+    activeShopId: 'shop-1',
+    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+  };
+
   const itemsSignal = signal([
     {
       id: 'item-1',
@@ -32,7 +49,7 @@ describe('InventoryPageComponent', () => {
   const submittingSignal = signal(false);
   const loadingItemsSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'add-item' | null>(null);
+  const lastMutationTypeSignal = signal<'add-item' | 'update-item' | null>(null);
   const lastMutationSucceededSignal = signal(false);
 
   const store = {
@@ -77,22 +94,7 @@ describe('InventoryPageComponent', () => {
     }
   });
 
-  const sessionSignal = signal({
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
-    accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-    refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
-    rememberMe: true,
-    user: {
-      id: 'owner-1',
-      email: 'owner@test.com',
-      phoneNumber: null,
-      firstName: 'Owner',
-      lastName: 'One',
-    },
-    activeShopId: 'shop-1',
-    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
-  });
+  const sessionSignal = signal(ownerSession);
 
   const authService = {
     session: sessionSignal,
@@ -116,6 +118,7 @@ describe('InventoryPageComponent', () => {
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
+    sessionSignal.set(ownerSession);
 
     TestBed.configureTestingModule({
       imports: [InventoryPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
@@ -173,6 +176,74 @@ describe('InventoryPageComponent', () => {
 
     expect(component.canManageInventory()).toBe(false);
     expect(component.showAddProductOverlay()).toBe(false);
+  });
+
+  it('opens edit overlay for owner/manager', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const item = itemsSignal()[0];
+
+    component.onEditItem(item);
+
+    expect(component.showEditItemOverlay()).toBe(true);
+    expect(component.selectedItemForEdit()).toEqual(item);
+  });
+
+  it('does not allow staff to open edit overlay', () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null }],
+    });
+
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const item = itemsSignal()[0];
+
+    component.onEditItem(item);
+
+    expect(component.canManageInventory()).toBe(false);
+    expect(component.showEditItemOverlay()).toBe(false);
+  });
+
+  it('closes edit overlay when requested', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const item = itemsSignal()[0];
+
+    component.onEditItem(item);
+    expect(component.showEditItemOverlay()).toBe(true);
+
+    component.onCloseEditItem();
+
+    expect(component.showEditItemOverlay()).toBe(false);
+  });
+
+  it('closes edit overlay on successful update mutation', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const item = itemsSignal()[0];
+
+    component.onEditItem(item);
+    expect(component.showEditItemOverlay()).toBe(true);
+
+    lastMutationTypeSignal.set('update-item');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(component.showEditItemOverlay()).toBe(false);
+    expect(component.selectedItemForEdit()).toBe(null);
+    expect(store.dispatch).toHaveBeenCalledWith(InventoryActions.clearMutationStatus());
+  });
+
+  it('does not close edit overlay when submitting', () => {
+    submittingSignal.set(true);
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.showEditItemOverlay.set(true);
+    component.onCloseEditItem();
+
+    expect(component.showEditItemOverlay()).toBe(true);
   });
 
   it('clears table filters and search input', () => {

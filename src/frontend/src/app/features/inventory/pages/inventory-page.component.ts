@@ -15,6 +15,8 @@ import { Table, TableModule } from 'primeng/table';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddProductOverlayComponent } from '../components/add-product-overlay.component';
+import { EditItemOverlayComponent } from '../components/edit-item-overlay.component';
+import { Item } from '../services/inventory.service';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
@@ -39,6 +41,7 @@ import {
     ProgressSpinnerModule,
     TableModule,
     AddProductOverlayComponent,
+    EditItemOverlayComponent,
     TranslocoPipe,
   ],
   templateUrl: './inventory-page.component.html',
@@ -55,7 +58,6 @@ export class InventoryPageComponent {
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectInventoryLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectInventoryLastMutationSucceeded);
-  readonly showAddProductOverlay = signal(false);
   protected readonly searchValue = signal('');
 
   readonly session = this.authService.session;
@@ -74,6 +76,9 @@ export class InventoryPageComponent {
     const role = this.activeShopRole().toLowerCase();
     return role === 'owner' || role === 'manager';
   });
+  readonly showAddProductOverlay = signal(false);
+  readonly showEditItemOverlay = signal(false);
+  readonly selectedItemForEdit = signal<Item | null>(null);
 
   constructor() {
     this.store.dispatch(InventoryActions.loadItemsRequested());
@@ -87,6 +92,12 @@ export class InventoryPageComponent {
       const mutationType = this.lastMutationType();
       if (mutationType === 'add-item' && this.showAddProductOverlay()) {
         this.showAddProductOverlay.set(false);
+        this.store.dispatch(InventoryActions.clearMutationStatus());
+      }
+
+      if (mutationType === 'update-item' && this.showEditItemOverlay()) {
+        this.showEditItemOverlay.set(false);
+        this.selectedItemForEdit.set(null);
         this.store.dispatch(InventoryActions.clearMutationStatus());
       }
     });
@@ -114,6 +125,25 @@ export class InventoryPageComponent {
     }
 
     this.showAddProductOverlay.set(false);
+  }
+
+  onEditItem(item: Item): void {
+    if (!this.canManageInventory()) {
+      return;
+    }
+
+    this.store.dispatch(InventoryActions.clearError());
+    this.store.dispatch(InventoryActions.clearMutationStatus());
+    this.selectedItemForEdit.set(item);
+    this.showEditItemOverlay.set(true);
+  }
+
+  onCloseEditItem(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
+
+    this.showEditItemOverlay.set(false);
   }
 
   clearFilters(table: Table): void {

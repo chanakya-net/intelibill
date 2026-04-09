@@ -23,5 +23,8 @@ public static partial class Errors
 
         public static Error UserIsNotOwnerOrManager =>
             Error.Forbidden("Item.UserIsNotOwnerOrManager", "Only owner or manager can add items.");
+
+        public static Error ItemNotFound =>
+            Error.NotFound("Item.ItemNotFound", "Item not found.");
     }
 }

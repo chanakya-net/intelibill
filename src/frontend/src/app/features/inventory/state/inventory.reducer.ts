@@ -74,6 +74,28 @@ export const inventoryReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(InventoryActions.updateItemRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'update-item',
+    lastMutationSucceeded: false,
+  })),
+  on(InventoryActions.updateItemSucceeded, (state) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'update-item',
+    lastMutationSucceeded: true,
+  })),
+  on(InventoryActions.updateItemFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'update-item',
+    lastMutationSucceeded: false,
+  })),
+
   on(InventoryActions.clearError, (state) => ({
     ...state,
     errorMessage: '',

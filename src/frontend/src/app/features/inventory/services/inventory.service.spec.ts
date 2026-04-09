@@ -84,4 +84,30 @@ describe('InventoryService', () => {
 
     http.verify();
   });
+
+  it('sends update item request to item update endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .updateItem('item-1', {
+        name: 'Updated Tea',
+        barcode: 'ABC999',
+        description: 'Updated description',
+        uom: 'box',
+      })
+      .subscribe();
+
+    const request = http.expectOne(ITEM_ENDPOINTS.update('item-1'));
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({
+      name: 'Updated Tea',
+      barcode: 'ABC999',
+      description: 'Updated description',
+      uom: 'box',
+    });
+
+    request.flush(null);
+
+    http.verify();
+  });
 });
