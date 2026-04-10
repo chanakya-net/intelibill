@@ -84,6 +84,22 @@ public class ItemsControllerTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
+    public async Task StreamItems_AsOwner_ReturnsNdjsonAnd200()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/items/stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/x-ndjson; charset=utf-8", response.Content.Headers.ContentType?.ToString());
+    }
+
+    [Fact]
     public async Task AddItem_WithDuplicateBarcode_Returns409()
     {
         using var client = CreateClient();

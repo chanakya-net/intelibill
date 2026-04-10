@@ -274,4 +274,36 @@ public class AuthControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GoogleCallbackRelay_RedirectsToFrontend()
+    {
+        using var client = CreateClient();
+        var response = await client.GetAsync("/auth/google/callback?code=123");
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/auth/callback?code=123", response.Headers.Location?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task FacebookCallbackRelay_RedirectsToFrontend()
+    {
+        using var client = CreateClient();
+        var response = await client.GetAsync("/auth/facebook/callback?code=456");
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/auth/callback?code=456", response.Headers.Location?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task ExternalLogin_WithInvalidProviderToken_ReturnsError()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login/external", new
+        {
+            provider = 1, // Google
+            token = "invalid-token"
+        });
+
+        Assert.False(response.IsSuccessStatusCode);
+    }
 }
