@@ -21,243 +21,339 @@
       <p>{{ 'shops.manageShopDescription' | transloco }}</p>
     </header>
 
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
-      <div class="field-wrap space-y-1.5">
-        <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
-        <select
-          id="manage-shop-id"
-          formControlName="shopId"
-          class="shop-select"
-          [disabled]="isSubmitting() || isLoadingDetails()"
-          (change)="onShopSelectionChange()"
-        >
-          <option *ngFor="let shop of shops" [value]="shop.shopId">
-            {{ shop.shopName }} ({{ shop.role }})
-          </option>
-        </select>
-      </div>
+    <p-stepper [(value)]="activeStep" class="overlay-stepper">
+      <p-step-list>
+        <p-step [value]="1">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+            >
+              <i class="pi pi-shop"></i>
+            </span>
+          </ng-template>
+        </p-step>
+        <p-step [value]="2">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+            >
+              <i class="pi pi-credit-card"></i>
+            </span>
+          </ng-template>
+        </p-step>
+        <p-step [value]="3">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+            >
+              <i class="pi pi-check"></i>
+            </span>
+          </ng-template>
+        </p-step>
+      </p-step-list>
 
-      <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
-        {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}
-      </p>
+      <p-step-panels>
+        <p-step-panel [value]="1">
+          <ng-template #content>
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
+              <div class="field-wrap space-y-1.5">
+                <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
+                <select
+                  id="manage-shop-id"
+                  formControlName="shopId"
+                  class="shop-select"
+                  [disabled]="isSubmitting() || isLoadingDetails()"
+                  (change)="onShopSelectionChange()"
+                >
+                  <option *ngFor="let shop of shops" [value]="shop.shopId">
+                    {{ shop.shopName }} ({{ shop.role }})
+                  </option>
+                </select>
+              </div>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
-        <input
-          id="shop-name"
-          type="text"
-          pInputText
-          formControlName="name"
-          autocomplete="organization"
-          class="w-full"
-          [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
-        />
-        <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
-          {{ 'shops.validation.shopNameRequired' | transloco }}
-        </p>
-      </div>
+              <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
+                {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
+                {{ 'shops.onlyOwnersCanSave' | transloco }}
+              </p>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="shop-address">{{ 'shops.address' | transloco }}</label>
-        <input
-          id="shop-address"
-          type="text"
-          pInputText
-          formControlName="address"
-          autocomplete="street-address"
-          class="w-full"
-          [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
-        />
-        <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
-          {{ 'shops.validation.addressRequired' | transloco }}
-        </p>
-      </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
+                <input
+                  id="shop-name"
+                  type="text"
+                  pInputText
+                  formControlName="name"
+                  autocomplete="organization"
+                  class="w-full"
+                  [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
+                />
+                <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
+                  {{ 'shops.validation.shopNameRequired' | transloco }}
+                </p>
+              </div>
 
-      <div class="field-grid">
-        <div class="field-wrap space-y-1.5">
-          <label for="shop-city">{{ 'shops.city' | transloco }}</label>
-          <input
-            id="shop-city"
-            type="text"
-            pInputText
-            formControlName="city"
-            autocomplete="address-level2"
-            class="w-full"
-            [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
-          />
-          <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
-            {{ 'shops.validation.cityRequired' | transloco }}
-          </p>
-        </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-address">{{ 'shops.address' | transloco }}</label>
+                <input
+                  id="shop-address"
+                  type="text"
+                  pInputText
+                  formControlName="address"
+                  autocomplete="street-address"
+                  class="w-full"
+                  [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
+                />
+                <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
+                  {{ 'shops.validation.addressRequired' | transloco }}
+                </p>
+              </div>
 
-        <div class="field-wrap space-y-1.5">
-          <label for="shop-state">{{ 'shops.state' | transloco }}</label>
-          <input
-            id="shop-state"
-            type="text"
-            pInputText
-            formControlName="state"
-            autocomplete="address-level1"
-            class="w-full"
-            [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
-          />
-          <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
-            {{ 'shops.validation.stateRequired' | transloco }}
-          </p>
-        </div>
-      </div>
+              <div class="field-grid">
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-city">{{ 'shops.city' | transloco }}</label>
+                  <input
+                    id="shop-city"
+                    type="text"
+                    pInputText
+                    formControlName="city"
+                    autocomplete="address-level2"
+                    class="w-full"
+                    [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
+                  />
+                  <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
+                    {{ 'shops.validation.cityRequired' | transloco }}
+                  </p>
+                </div>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
-        <input
-          id="shop-pincode"
-          type="text"
-          pInputText
-          formControlName="pincode"
-          autocomplete="postal-code"
-          class="w-full"
-          [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
-        />
-        <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
-          {{ 'shops.validation.pincodeRequired' | transloco }}
-        </p>
-      </div>
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-state">{{ 'shops.state' | transloco }}</label>
+                  <input
+                    id="shop-state"
+                    type="text"
+                    pInputText
+                    formControlName="state"
+                    autocomplete="address-level1"
+                    class="w-full"
+                    [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
+                  />
+                  <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
+                    {{ 'shops.validation.stateRequired' | transloco }}
+                  </p>
+                </div>
+              </div>
 
-      <div class="field-grid">
-        <div class="field-wrap space-y-1.5">
-          <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
-          <input
-            id="shop-contact-person"
-            type="text"
-            pInputText
-            formControlName="contactPerson"
-            autocomplete="name"
-            class="w-full"
-          />
-        </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
+                <input
+                  id="shop-pincode"
+                  type="text"
+                  pInputText
+                  formControlName="pincode"
+                  autocomplete="postal-code"
+                  class="w-full"
+                  [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
+                />
+                <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
+                  {{ 'shops.validation.pincodeRequired' | transloco }}
+                </p>
+              </div>
 
-        <div class="field-wrap space-y-1.5">
-          <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
-          <input
-            id="shop-mobile"
-            type="text"
-            pInputText
-            formControlName="mobileNumber"
-            autocomplete="tel"
-            class="w-full"
-          />
-        </div>
-      </div>
+              <div class="field-grid">
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
+                  <input
+                    id="shop-contact-person"
+                    type="text"
+                    pInputText
+                    formControlName="contactPerson"
+                    autocomplete="name"
+                    class="w-full"
+                  />
+                </div>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
-        <input
-          id="shop-gst"
-          type="text"
-          pInputText
-          formControlName="gstNumber"
-          class="w-full"
-          [placeholder]="'shops.placeholders.gst' | transloco"
-          [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
-        />
-        <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
-          {{ 'shops.validation.gstInvalid' | transloco }}
-        </p>
-      </div>
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
+                  <input
+                    id="shop-mobile"
+                    type="text"
+                    pInputText
+                    formControlName="mobileNumber"
+                    autocomplete="tel"
+                    class="w-full"
+                  />
+                </div>
+              </div>
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
+                <input
+                  id="shop-gst"
+                  type="text"
+                  pInputText
+                  formControlName="gstNumber"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.gst' | transloco"
+                  [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
+                />
+                <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
+                  {{ 'shops.validation.gstInvalid' | transloco }}
+                </p>
+              </div>
 
-      <button
-        pButton
-        type="submit"
-        [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.saveShopChanges' | transloco)"
-        [loading]="isSubmitting()"
-        [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
-        class="save-button w-full"
-      ></button>
-    </form>
+              <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
 
-    <hr class="my-4" />
+              <div class="flex pt-4 justify-end">
+                <button
+                  pButton
+                  type="submit"
+                  [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)"
+                  [loading]="isSubmitting()"
+                  [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="save-button"
+                ></button>
+              </div>
+            </form>
+          </ng-template>
+        </p-step-panel>
 
-    <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
-      <p class="text-sm font-semibold">{{ 'shops.bankDetails' | transloco }}</p>
+        <p-step-panel [value]="2">
+          <ng-template #content>
+            <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
+              <p class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</p>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="manage-bank-name">{{ 'shops.bankName' | transloco }}</label>
-        <input
-          id="manage-bank-name"
-          type="text"
-          pInputText
-          formControlName="bankName"
-          class="w-full"
-          [placeholder]="'shops.placeholders.bankName' | transloco"
-        />
-      </div>
+              <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
+                {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
+                {{ 'shops.onlyOwnersCanSave' | transloco }}
+              </p>
 
-      <div class="field-grid">
-        <div class="field-wrap space-y-1.5">
-          <label for="manage-account-number">{{ 'shops.accountNumber' | transloco }}</label>
-          <input
-            id="manage-account-number"
-            type="text"
-            pInputText
-            formControlName="accountNumber"
-            class="w-full"
-            [placeholder]="'shops.placeholders.accountNumber' | transloco"
-          />
-        </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="manage-bank-name">{{ 'shops.bankName' | transloco }}</label>
+                <input
+                  id="manage-bank-name"
+                  type="text"
+                  pInputText
+                  formControlName="bankName"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.bankName' | transloco"
+                />
+              </div>
 
-        <div class="field-wrap space-y-1.5">
-          <label for="manage-account-type">{{ 'shops.accountType' | transloco }}</label>
-          <p-select
-            id="manage-account-type"
-            formControlName="accountType"
-            [options]="accountTypeOptions"
-            optionLabel="label"
-            optionValue="value"
-            [placeholder]="'shops.placeholders.accountType' | transloco"
-            class="w-full"
-          ></p-select>
-        </div>
-      </div>
+              <div class="field-grid">
+                <div class="field-wrap space-y-1.5">
+                  <label for="manage-account-number">{{ 'shops.accountNumber' | transloco }}</label>
+                  <input
+                    id="manage-account-number"
+                    type="text"
+                    pInputText
+                    formControlName="accountNumber"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.accountNumber' | transloco"
+                  />
+                </div>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="manage-ifsc-code">{{ 'shops.ifscCode' | transloco }}</label>
-        <input
-          id="manage-ifsc-code"
-          type="text"
-          pInputText
-          formControlName="ifscCode"
-          class="w-full"
-          [placeholder]="'shops.placeholders.ifscCode' | transloco"
-          [class.ng-invalid]="bankForm.controls.ifscCode.invalid && bankForm.controls.ifscCode.touched"
-        />
-        @if (bankForm.controls.ifscCode.hasError('pattern') && bankForm.controls.ifscCode.touched) {
-          <p class="field-error">{{ 'shops.validation.ifscInvalid' | transloco }}</p>
-        }
-      </div>
+                <div class="field-wrap space-y-1.5">
+                  <label for="manage-account-type">{{ 'shops.accountType' | transloco }}</label>
+                  <p-select
+                    id="manage-account-type"
+                    formControlName="accountType"
+                    [options]="accountTypeOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    [placeholder]="'shops.placeholders.accountType' | transloco"
+                    class="w-full"
+                  ></p-select>
+                </div>
+              </div>
 
-      <div class="field-wrap space-y-1.5">
-        <label for="manage-account-holder-name">{{ 'shops.accountHolderName' | transloco }}</label>
-        <input
-          id="manage-account-holder-name"
-          type="text"
-          pInputText
-          formControlName="accountHolderName"
-          class="w-full"
-          [placeholder]="'shops.placeholders.accountHolderName' | transloco"
-        />
-      </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="manage-ifsc-code">{{ 'shops.ifscCode' | transloco }}</label>
+                <input
+                  id="manage-ifsc-code"
+                  type="text"
+                  pInputText
+                  formControlName="ifscCode"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.ifscCode' | transloco"
+                  [class.ng-invalid]="bankForm.controls.ifscCode.invalid && bankForm.controls.ifscCode.touched"
+                />
+                @if (bankForm.controls.ifscCode.hasError('pattern') && bankForm.controls.ifscCode.touched) {
+                  <p class="field-error">{{ 'shops.validation.ifscInvalid' | transloco }}</p>
+                }
+              </div>
 
-      <button
-        pButton
-        type="submit"
-        [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)"
-        [loading]="isSubmitting()"
-        [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
-        class="save-button w-full"
-      ></button>
-    </form>
+              <div class="field-wrap space-y-1.5">
+                <label for="manage-account-holder-name">{{ 'shops.accountHolderName' | transloco }}</label>
+                <input
+                  id="manage-account-holder-name"
+                  type="text"
+                  pInputText
+                  formControlName="accountHolderName"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.accountHolderName' | transloco"
+                />
+              </div>
+
+              <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
+
+              <div class="flex pt-4 justify-between">
+                <p-button
+                  type="button"
+                  [label]="'shops.skipBankDetails' | transloco"
+                  severity="secondary"
+                  [text]="true"
+                  [disabled]="isSubmitting()"
+                  (onClick)="onSkipBankDetails()"
+                />
+                <button
+                  pButton
+                  type="submit"
+                  [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)"
+                  [loading]="isSubmitting()"
+                  [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
+                  class="save-button"
+                ></button>
+              </div>
+            </form>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="3">
+          <ng-template #content>
+            <div class="flex flex-col items-center gap-4 py-8">
+              <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
+                <i class="pi pi-check text-3xl"></i>
+              </span>
+              <div class="text-center">
+                <h3 class="text-lg font-semibold mb-1">{{ 'shops.saveShopChanges' | transloco }}</h3>
+                <p class="text-sm text-muted">{{ 'shops.manageShopDescription' | transloco }}</p>
+              </div>
+              <button
+                pButton
+                type="button"
+                [label]="'shops.done' | transloco"
+                icon="pi pi-check"
+                class="save-button mt-2"
+                (click)="onDone()"
+              ></button>
+            </div>
+          </ng-template>
+        </p-step-panel>
+      </p-step-panels>
+    </p-stepper>
 
     @if (isSubmitting() || isLoadingDetails()) {
       <div class="submit-overlay">

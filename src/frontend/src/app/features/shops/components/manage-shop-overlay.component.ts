@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
+import { StepperModule } from 'primeng/stepper';
 
 import { UserShop } from '../../../core/auth/auth.models';
 import { RootState } from '../../../core/state/app.state';
@@ -28,7 +29,7 @@ const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
 @Component({
   selector: 'app-manage-shop-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, SelectModule, TranslocoPipe],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, SelectModule, StepperModule, TranslocoPipe],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',
 })
@@ -44,6 +45,7 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly lastMutationSucceeded = this.store.selectSignal(selectShopsLastMutationSucceeded);
 
   readonly selectedShopRole = signal<string>('');
+  readonly activeStep = signal(1);
   readonly isUpdatePending = signal(false);
   readonly isBankDetailsPending = signal(false);
 
@@ -115,7 +117,7 @@ export class ManageShopOverlayComponent implements OnInit {
 
       this.isUpdatePending.set(false);
       this.store.dispatch(ShopsActions.clearMutationStatus());
-      this.closeRequested.emit();
+      this.activeStep.set(2);
     });
 
     effect(() => {
@@ -126,7 +128,7 @@ export class ManageShopOverlayComponent implements OnInit {
 
       this.isBankDetailsPending.set(false);
       this.store.dispatch(ShopsActions.clearMutationStatus());
-      this.closeRequested.emit();
+      this.activeStep.set(3);
     });
   }
 
@@ -160,6 +162,7 @@ export class ManageShopOverlayComponent implements OnInit {
     }
 
     this.updateSelectedRole(shopId);
+    this.activeStep.set(1);
     this.store.dispatch(ShopsActions.selectShop({ shopId }));
     this.store.dispatch(ShopsActions.loadShopDetailsRequested({ shopId }));
   }
@@ -243,6 +246,15 @@ export class ManageShopOverlayComponent implements OnInit {
     };
 
     this.store.dispatch(ShopsActions.updateShopBankDetailsRequested({ shopId, payload }));
+  }
+
+  onSkipBankDetails(): void {
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.activeStep.set(3);
+  }
+
+  onDone(): void {
+    this.closeRequested.emit();
   }
 
   isSelectedShopOwner(): boolean {

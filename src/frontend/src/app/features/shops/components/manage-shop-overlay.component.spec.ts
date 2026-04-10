@@ -192,11 +192,8 @@ describe('ManageShopOverlayComponent', () => {
     );
   });
 
-  it('dispatches update action with trimmed values and closes on success', () => {
+  it('dispatches update action with trimmed values and moves to step 2 on success', () => {
     const { component, fixture } = setup();
-    const closeSpy = vi.fn();
-
-    component.closeRequested.subscribe(closeSpy);
     component.form.controls.name.setValue('  Updated Shop  ');
     component.form.controls.address.setValue('  10 New Road  ');
     component.form.controls.city.setValue('  Bengaluru  ');
@@ -228,14 +225,13 @@ describe('ManageShopOverlayComponent', () => {
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
 
-    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(component.activeStep()).toBe(2);
   });
 
-  it('dispatches bank details action with trimmed values and closes on success', () => {
+  it('dispatches bank details action with trimmed values and moves to step 3 on success', () => {
     const { component, fixture } = setup();
-    const closeSpy = vi.fn();
 
-    component.closeRequested.subscribe(closeSpy);
+    component.activeStep.set(2);
     component.bankForm.controls.bankName.setValue('  State Bank of India  ');
     component.bankForm.controls.accountNumber.setValue('  987654321012  ');
     component.bankForm.controls.accountType.setValue('Current');
@@ -261,7 +257,7 @@ describe('ManageShopOverlayComponent', () => {
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
 
-    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(component.activeStep()).toBe(3);
   });
 
   it('does not dispatch bank details when role is not owner', () => {
@@ -296,6 +292,8 @@ describe('ManageShopOverlayComponent', () => {
   it('dispatches bank details with undefined optionals when fields are blank', () => {
     const { component } = setup();
 
+    component.activeStep.set(2);
+
     component.bankForm.controls.bankName.setValue('   ');
     component.bankForm.controls.accountNumber.setValue('');
     component.bankForm.controls.accountType.setValue('');
@@ -316,6 +314,36 @@ describe('ManageShopOverlayComponent', () => {
         },
       })
     );
+  });
+
+  it('resets to step 1 when selected shop changes', () => {
+    const { component } = setup();
+    component.activeStep.set(2);
+    component.form.controls.shopId.setValue('shop-2');
+
+    component.onShopSelectionChange();
+
+    expect(component.activeStep()).toBe(1);
+  });
+
+  it('skips bank details and moves to step 3', () => {
+    const { component } = setup();
+    component.activeStep.set(2);
+
+    component.onSkipBankDetails();
+
+    expect(component.activeStep()).toBe(3);
+    expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
+  });
+
+  it('emits closeRequested when done is clicked', () => {
+    const { component } = setup();
+    const closeSpy = vi.fn();
+
+    component.closeRequested.subscribe(closeSpy);
+    component.onDone();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('reads server error from selector', () => {
