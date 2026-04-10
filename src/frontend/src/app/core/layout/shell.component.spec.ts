@@ -86,6 +86,11 @@ describe('ShellComponent', () => {
       contactPerson: null,
       mobileNumber: null,
       gstNumber: null,
+      bankName: null,
+      bankAccountNumber: null,
+      bankAccountType: null,
+      ifscCode: null,
+      accountHolderName: null,
     },
   });
 
@@ -145,6 +150,11 @@ describe('ShellComponent', () => {
         contactPerson: null,
         mobileNumber: null,
         gstNumber: null,
+        bankName: null,
+        bankAccountNumber: null,
+        bankAccountType: null,
+        ifscCode: null,
+        accountHolderName: null,
       },
     });
     shopsSubmittingSignal.set(false);
@@ -273,6 +283,11 @@ describe('ShellComponent', () => {
         contactPerson: null,
         mobileNumber: null,
         gstNumber: null,
+        bankName: null,
+        bankAccountNumber: null,
+        bankAccountType: null,
+        ifscCode: null,
+        accountHolderName: null,
       },
       'shop-2': {
         shopId: 'shop-2',
@@ -284,6 +299,11 @@ describe('ShellComponent', () => {
         contactPerson: null,
         mobileNumber: null,
         gstNumber: null,
+        bankName: null,
+        bankAccountNumber: null,
+        bankAccountType: null,
+        ifscCode: null,
+        accountHolderName: null,
       },
     });
     fixture.detectChanges();

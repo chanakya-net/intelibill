@@ -3,19 +3,20 @@ using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
-namespace Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
+namespace Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
 
-public sealed class UpdateShopBankDetailsCommandHandler(
+public sealed class AddShopBankAccountCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IUnitOfWork unitOfWork,
-    IValidator<UpdateShopBankDetailsCommand>? validator = null)
+    IValidator<AddShopBankAccountCommand>? validator = null)
 {
-    public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopBankDetailsCommand command, CancellationToken cancellationToken)
+    public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(AddShopBankAccountCommand command, CancellationToken cancellationToken)
     {
         var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
         if (validationResult is not null) return validationResult.Value.Errors;
@@ -35,21 +36,17 @@ public sealed class UpdateShopBankDetailsCommandHandler(
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        BankAccountType? accountType = null;
-        if (!string.IsNullOrWhiteSpace(command.BankAccountType) &&
-            Enum.TryParse<BankAccountType>(command.BankAccountType, ignoreCase: true, out var parsed))
+        BankAccount? newAccount = null;
+        if (!string.IsNullOrWhiteSpace(command.BankName) && !string.IsNullOrWhiteSpace(command.AccountNumber))
         {
-            accountType = parsed;
+            BankAccountType? accountType = Enum.TryParse<BankAccountType>(command.AccountType, true, out var parsed)
+                ? parsed
+                : null;
+
+            newAccount = BankAccount.Create(shop.Id, command.BankName, command.AccountNumber, accountType, command.IfscCode, command.AccountHolderName);
+            await shopRepository.AddBankAccountAsync(newAccount, cancellationToken);
         }
 
-        shop.UpdateBankDetails(
-            command.BankName,
-            command.BankAccountNumber,
-            accountType,
-            command.IfscCode,
-            command.AccountHolderName);
-
-        shopRepository.Update(shop);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ShopDetailsDto(
@@ -62,10 +59,11 @@ public sealed class UpdateShopBankDetailsCommandHandler(
             shop.ContactPerson,
             shop.MobileNumber,
             shop.GstNumber,
-            shop.BankName,
-            shop.BankAccountNumber,
-            shop.BankAccountType?.ToString(),
-            shop.IfscCode,
-            shop.AccountHolderName);
+            newAccount?.BankName,
+            newAccount?.AccountNumber,
+            newAccount?.AccountType?.ToString(),
+            newAccount?.IfscCode,
+            newAccount?.AccountHolderName
+        );
     }
 }

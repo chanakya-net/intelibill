@@ -68,8 +68,8 @@ export class CreateShopOverlayComponent implements OnInit {
 
   readonly bankForm = this.formBuilder.nonNullable.group({
     bankName: ['', [Validators.maxLength(120)]],
-    bankAccountNumber: ['', [Validators.maxLength(50)]],
-    bankAccountType: [''],
+    accountNumber: ['', [Validators.maxLength(50)]],
+    accountType: [''],
     ifscCode: ['', [Validators.maxLength(20), Validators.pattern(INDIA_IFSC_REGEX)]],
     accountHolderName: ['', [Validators.maxLength(120)]],
   });
@@ -163,8 +163,8 @@ export class CreateShopOverlayComponent implements OnInit {
 
     const payload = {
       bankName: this.toOptionalValue(this.bankForm.controls.bankName.value),
-      bankAccountNumber: this.toOptionalValue(this.bankForm.controls.bankAccountNumber.value),
-      bankAccountType: this.toOptionalValue(this.bankForm.controls.bankAccountType.value) ?? undefined,
+      accountNumber: this.toOptionalValue(this.bankForm.controls.accountNumber.value),
+      accountType: this.toOptionalValue(this.bankForm.controls.accountType.value) ?? undefined,
       ifscCode: this.toOptionalValue(this.bankForm.controls.ifscCode.value),
       accountHolderName: this.toOptionalValue(this.bankForm.controls.accountHolderName.value),
     };

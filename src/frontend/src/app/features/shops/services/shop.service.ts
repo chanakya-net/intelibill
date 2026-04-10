@@ -37,8 +37,8 @@ export interface ShopDetails {
 
 export interface UpdateBankDetailsRequest {
   readonly bankName?: string;
-  readonly bankAccountNumber?: string;
-  readonly bankAccountType?: string;
+  readonly accountNumber?: string;
+  readonly accountType?: string;
   readonly ifscCode?: string;
   readonly accountHolderName?: string;
 }
@@ -82,6 +82,6 @@ export class ShopService {
   }
 
   updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {
-    return this.http.put<ShopDetails>(SHOP_ENDPOINTS.bankDetails(shopId), payload);
+    return this.http.post<ShopDetails>(SHOP_ENDPOINTS.addBankAccount(shopId), payload);
   }
 }

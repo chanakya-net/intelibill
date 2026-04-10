@@ -32,8 +32,13 @@ describe('ManageShopOverlayComponent', () => {
     contactPerson: 'Chandra',
     mobileNumber: '9876543210',
     gstNumber: '27AAPFU0939F1ZV',
+    bankName: 'SBI',
+    bankAccountNumber: '123456789012',
+    bankAccountType: 'Savings',
+    ifscCode: 'SBIN0001234',
+    accountHolderName: 'Chandra Kumar',
   });
-  const lastMutationTypeSignal = signal<'create' | 'update' | 'set-default' | null>(null);
+  const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'set-default' | null>(null);
   const lastMutationSucceededSignal = signal(false);
 
   const store = {
@@ -101,6 +106,11 @@ describe('ManageShopOverlayComponent', () => {
       contactPerson: 'Chandra',
       mobileNumber: '9876543210',
       gstNumber: '27AAPFU0939F1ZV',
+      bankName: 'SBI',
+      bankAccountNumber: '123456789012',
+      bankAccountType: 'Savings',
+      ifscCode: 'SBIN0001234',
+      accountHolderName: 'Chandra Kumar',
     });
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
@@ -118,6 +128,43 @@ describe('ManageShopOverlayComponent', () => {
     expect(component.form.controls.name.value).toBe('Main');
     expect(component.form.controls.gstNumber.value).toBe('27AAPFU0939F1ZV');
     expect(component.selectedShopRole()).toBe('Owner');
+  });
+
+  it('pre-populates bank form from selected shop details', () => {
+    const { component } = setup();
+
+    expect(component.bankForm.controls.bankName.value).toBe('SBI');
+    expect(component.bankForm.controls.accountNumber.value).toBe('123456789012');
+    expect(component.bankForm.controls.accountType.value).toBe('Savings');
+    expect(component.bankForm.controls.ifscCode.value).toBe('SBIN0001234');
+    expect(component.bankForm.controls.accountHolderName.value).toBe('Chandra Kumar');
+  });
+
+  it('pre-populates bank form with empty strings when bank details are null', () => {
+    selectedDetailsSignal.set({
+      shopId: 'shop-1',
+      name: 'Main',
+      address: '42 MG Road',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560001',
+      contactPerson: null,
+      mobileNumber: null,
+      gstNumber: null,
+      bankName: null,
+      bankAccountNumber: null,
+      bankAccountType: null,
+      ifscCode: null,
+      accountHolderName: null,
+    });
+
+    const { component } = setup();
+
+    expect(component.bankForm.controls.bankName.value).toBe('');
+    expect(component.bankForm.controls.accountNumber.value).toBe('');
+    expect(component.bankForm.controls.accountType.value).toBe('');
+    expect(component.bankForm.controls.ifscCode.value).toBe('');
+    expect(component.bankForm.controls.accountHolderName.value).toBe('');
   });
 
   it('dispatches detail load when selected shop changes', () => {
@@ -182,6 +229,93 @@ describe('ManageShopOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches bank details action with trimmed values and closes on success', () => {
+    const { component, fixture } = setup();
+    const closeSpy = vi.fn();
+
+    component.closeRequested.subscribe(closeSpy);
+    component.bankForm.controls.bankName.setValue('  State Bank of India  ');
+    component.bankForm.controls.accountNumber.setValue('  987654321012  ');
+    component.bankForm.controls.accountType.setValue('Current');
+    component.bankForm.controls.ifscCode.setValue('SBIN0005678');
+    component.bankForm.controls.accountHolderName.setValue('  Priya Kumar  ');
+
+    component.onSaveBankDetails();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.updateShopBankDetailsRequested({
+        shopId: 'shop-1',
+        payload: {
+          bankName: 'State Bank of India',
+          accountNumber: '987654321012',
+          accountType: 'Current',
+          ifscCode: 'SBIN0005678',
+          accountHolderName: 'Priya Kumar',
+        },
+      })
+    );
+
+    lastMutationTypeSignal.set('update-bank-details');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch bank details when role is not owner', () => {
+    const { component } = setup();
+
+    component.form.controls.shopId.setValue('shop-2');
+    component.onShopSelectionChange();
+    component.onSaveBankDetails();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.updateShopBankDetailsFailed({
+        errorMessage: 'errors.shops.onlyOwnersCanUpdate',
+      })
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+    );
+  });
+
+  it('does not dispatch bank details when ifsc code is invalid', () => {
+    const { component } = setup();
+
+    component.bankForm.controls.ifscCode.setValue('INVALID');
+    component.onSaveBankDetails();
+
+    expect(component.bankForm.controls.ifscCode.invalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+    );
+  });
+
+  it('dispatches bank details with undefined optionals when fields are blank', () => {
+    const { component } = setup();
+
+    component.bankForm.controls.bankName.setValue('   ');
+    component.bankForm.controls.accountNumber.setValue('');
+    component.bankForm.controls.accountType.setValue('');
+    component.bankForm.controls.ifscCode.setValue('');
+    component.bankForm.controls.accountHolderName.setValue('  ');
+
+    component.onSaveBankDetails();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.updateShopBankDetailsRequested({
+        shopId: 'shop-1',
+        payload: {
+          bankName: undefined,
+          accountNumber: undefined,
+          accountType: undefined,
+          ifscCode: undefined,
+          accountHolderName: undefined,
+        },
+      })
+    );
   });
 
   it('reads server error from selector', () => {

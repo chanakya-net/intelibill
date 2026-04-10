@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ShopService } from './shop.service';
+import { ShopDetails, ShopService } from './shop.service';
 
 describe('ShopService', () => {
   const authService = {
@@ -99,6 +99,52 @@ describe('ShopService', () => {
       mobileNumber: '9876543210',
       gstNumber: '27AAPFU0939F1ZV',
     });
+
+    http.verify();
+  });
+
+  it('sends add bank account request via POST to the bank-accounts endpoint', () => {
+    const { service, http } = setup();
+
+    const shopDetailsResponse: ShopDetails = {
+      shopId: 'shop-1',
+      name: 'Main',
+      address: '42 MG Road',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560001',
+      contactPerson: null,
+      mobileNumber: null,
+      gstNumber: null,
+      bankName: 'SBI',
+      bankAccountNumber: '123456789012',
+      bankAccountType: 'Savings',
+      ifscCode: 'SBIN0001234',
+      accountHolderName: 'Chandra Kumar',
+    };
+
+    service.updateBankDetails('shop-1', {
+      bankName: 'SBI',
+      accountNumber: '123456789012',
+      accountType: 'Savings',
+      ifscCode: 'SBIN0001234',
+      accountHolderName: 'Chandra Kumar',
+    }).subscribe((response) => {
+      expect(response.bankName).toBe('SBI');
+      expect(response.bankAccountNumber).toBe('123456789012');
+      expect(response.bankAccountType).toBe('Savings');
+    });
+
+    const request = http.expectOne(SHOP_ENDPOINTS.addBankAccount('shop-1'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      bankName: 'SBI',
+      accountNumber: '123456789012',
+      accountType: 'Savings',
+      ifscCode: 'SBIN0001234',
+      accountHolderName: 'Chandra Kumar',
+    });
+    request.flush(shopDetailsResponse);
 
     http.verify();
   });

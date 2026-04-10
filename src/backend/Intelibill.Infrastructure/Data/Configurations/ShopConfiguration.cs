@@ -42,25 +42,14 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
         builder.Property(s => s.GstNumber)
             .HasMaxLength(20);
 
-        builder.Property(s => s.BankName)
-            .HasMaxLength(120);
-
-        builder.Property(s => s.BankAccountNumber)
-            .HasMaxLength(50);
-
-        builder.Property(s => s.BankAccountType)
-            .HasMaxLength(16)
-            .HasConversion<string>();
-
-        builder.Property(s => s.IfscCode)
-            .HasMaxLength(20);
-
-        builder.Property(s => s.AccountHolderName)
-            .HasMaxLength(120);
-
         builder.HasMany(s => s.Memberships)
             .WithOne(sm => sm.Shop)
             .HasForeignKey(sm => sm.ShopId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(s => s.BankAccounts)
+            .WithOne()
+            .HasForeignKey(ba => ba.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

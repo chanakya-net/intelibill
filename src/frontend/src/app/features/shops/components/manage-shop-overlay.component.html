@@ -177,8 +177,92 @@
       ></button>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting() || isLoadingDetails()">
-      <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
-    </div>
+    <hr class="my-4" />
+
+    <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
+      <p class="text-sm font-semibold">{{ 'shops.bankDetails' | transloco }}</p>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="manage-bank-name">{{ 'shops.bankName' | transloco }}</label>
+        <input
+          id="manage-bank-name"
+          type="text"
+          pInputText
+          formControlName="bankName"
+          class="w-full"
+          [placeholder]="'shops.placeholders.bankName' | transloco"
+        />
+      </div>
+
+      <div class="field-grid">
+        <div class="field-wrap space-y-1.5">
+          <label for="manage-account-number">{{ 'shops.accountNumber' | transloco }}</label>
+          <input
+            id="manage-account-number"
+            type="text"
+            pInputText
+            formControlName="accountNumber"
+            class="w-full"
+            [placeholder]="'shops.placeholders.accountNumber' | transloco"
+          />
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="manage-account-type">{{ 'shops.accountType' | transloco }}</label>
+          <p-select
+            id="manage-account-type"
+            formControlName="accountType"
+            [options]="accountTypeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [placeholder]="'shops.placeholders.accountType' | transloco"
+            class="w-full"
+          ></p-select>
+        </div>
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="manage-ifsc-code">{{ 'shops.ifscCode' | transloco }}</label>
+        <input
+          id="manage-ifsc-code"
+          type="text"
+          pInputText
+          formControlName="ifscCode"
+          class="w-full"
+          [placeholder]="'shops.placeholders.ifscCode' | transloco"
+          [class.ng-invalid]="bankForm.controls.ifscCode.invalid && bankForm.controls.ifscCode.touched"
+        />
+        @if (bankForm.controls.ifscCode.hasError('pattern') && bankForm.controls.ifscCode.touched) {
+          <p class="field-error">{{ 'shops.validation.ifscInvalid' | transloco }}</p>
+        }
+      </div>
+
+      <div class="field-wrap space-y-1.5">
+        <label for="manage-account-holder-name">{{ 'shops.accountHolderName' | transloco }}</label>
+        <input
+          id="manage-account-holder-name"
+          type="text"
+          pInputText
+          formControlName="accountHolderName"
+          class="w-full"
+          [placeholder]="'shops.placeholders.accountHolderName' | transloco"
+        />
+      </div>
+
+      <button
+        pButton
+        type="submit"
+        [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)"
+        [loading]="isSubmitting()"
+        [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
+        class="save-button w-full"
+      ></button>
+    </form>
+
+    @if (isSubmitting() || isLoadingDetails()) {
+      <div class="submit-overlay">
+        <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
+      </div>
+    }
   </article>
 </section>

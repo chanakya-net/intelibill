@@ -20,7 +20,9 @@ public sealed class Shop : BaseEntity
     public string? AccountHolderName { get; private set; }
 
     private readonly List<ShopMembership> _memberships = [];
+    private readonly List<BankAccount> _bankAccounts = [];
     public IReadOnlyList<ShopMembership> Memberships => _memberships.AsReadOnly();
+    public IReadOnlyList<BankAccount> BankAccounts => _bankAccounts.AsReadOnly();
 
     private Shop() { }
 
@@ -84,6 +86,11 @@ public sealed class Shop : BaseEntity
         BankAccountType = bankAccountType;
         IfscCode = NormalizeOptional(ifscCode);
         AccountHolderName = NormalizeOptional(accountHolderName);
+    }
+
+    public void AddBankAccount(BankAccount bankAccount)
+    {
+        _bankAccounts.Add(bankAccount);
     }
 
     public void AddMembership(ShopMembership membership)
