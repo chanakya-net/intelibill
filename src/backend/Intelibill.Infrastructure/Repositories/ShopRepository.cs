@@ -78,4 +78,7 @@ internal sealed class ShopRepository(ApplicationDbContext context)
 
     public void RemoveMembership(ShopMembership membership) =>
         _context.ShopMemberships.Remove(membership);
+
+    public async Task AddBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default) =>
+        await _context.BankAccounts.AddAsync(bankAccount, cancellationToken);
 }

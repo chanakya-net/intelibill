@@ -1,9 +1,12 @@
 using FluentValidation;
 using System.Text.RegularExpressions;
 
-namespace Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
+namespace Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
 
-public sealed class UpdateShopBankDetailsCommandValidator : AbstractValidator<UpdateShopBankDetailsCommand>
+using FluentValidation;
+using System.Text.RegularExpressions;
+
+public sealed class AddShopBankAccountCommandValidator : AbstractValidator<AddShopBankAccountCommand>
 {
     private static readonly Regex IndiaIfscRegex = new(
         "^[A-Z]{4}0[A-Z0-9]{6}$",
@@ -12,15 +15,19 @@ public sealed class UpdateShopBankDetailsCommandValidator : AbstractValidator<Up
 
     private static readonly string[] ValidAccountTypes = ["Savings", "Current"];
 
-    public UpdateShopBankDetailsCommandValidator()
+    public AddShopBankAccountCommandValidator()
     {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.ShopId).NotEmpty();
         RuleFor(x => x.BankName)
-            .MaximumLength(120);
+            .MaximumLength(120)
+            .When(x => x.BankName is not null);
 
-        RuleFor(x => x.BankAccountNumber)
-            .MaximumLength(50);
+        RuleFor(x => x.AccountNumber)
+            .MaximumLength(50)
+            .When(x => x.AccountNumber is not null);
 
-        RuleFor(x => x.BankAccountType)
+        RuleFor(x => x.AccountType)
             .Must(value => string.IsNullOrWhiteSpace(value) || ValidAccountTypes.Contains(value, StringComparer.OrdinalIgnoreCase))
             .WithErrorCode("Shop.BankAccountTypeInvalid")
             .WithMessage("Bank account type must be Savings or Current.");

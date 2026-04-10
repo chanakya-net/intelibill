@@ -262,6 +262,70 @@ public class ShopsControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // ── GET /api/shops/me — multi-shop ──────────────────────────────────────────
+
+    [Fact]
+    public async Task GetMyShops_AfterCreatingTwoShops_ReturnsBothShops()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken1) = await CreateShopAsync(client, token, "Shop Alpha");
+        var (_, ownerToken2) = await CreateShopAsync(client, ownerToken1, "Shop Beta");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/shops/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken2);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.GetArrayLength() >= 2);
+    }
+
+    // ── POST /api/shops — validation ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateShop_WithEmptyName_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name = "",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560001"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateShop_WithInvalidGstNumber_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name = "GST Test Shop",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560001",
+            gstNumber = "INVALID-GST"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     // ── PUT /api/shops/{shopId} ──────────────────────────────────────────────────
 
     [Fact]
@@ -327,5 +391,211 @@ public class ShopsControllerTests : IClassFixture<ApiWebApplicationFactory>
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShop_WithEmptyRequiredFields_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{shopId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            name = "",
+            address = "",
+            city = "Mumbai",
+            state = "Maharashtra",
+            pincode = "400001"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // ── POST /api/shops/default — isDefault flag ──────────────────────────────────
+
+    [Fact]
+    public async Task SetDefaultShop_SecondShop_UpdatesIsDefaultFlag()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId1, ownerToken1) = await CreateShopAsync(client, token, "First Shop");
+        var (shopId2, ownerToken2) = await CreateShopAsync(client, ownerToken1, "Second Shop");
+
+        // Set shop2 as default
+        using var setDefault = new HttpRequestMessage(HttpMethod.Post, "/api/shops/default");
+        setDefault.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken2);
+        setDefault.Content = JsonContent.Create(new { shopId = shopId2 });
+        var setResponse = await client.SendAsync(setDefault);
+        Assert.Equal(HttpStatusCode.OK, setResponse.StatusCode);
+        var newToken = (await setResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+
+        // Verify shop2 is now default in /me
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/shops/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newToken);
+        var meResponse = await client.SendAsync(meRequest);
+        Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+        var shops = await meResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        var shop2Entry = Enumerable.Range(0, shops.GetArrayLength())
+            .Select(i => shops[i])
+            .FirstOrDefault(s => s.GetProperty("shopId").GetString() == shopId2.ToString());
+        Assert.True(shop2Entry.GetProperty("isDefault").GetBoolean());
+
+        var shop1Entry = Enumerable.Range(0, shops.GetArrayLength())
+            .Select(i => shops[i])
+            .FirstOrDefault(s => s.GetProperty("shopId").GetString() == shopId1.ToString());
+        Assert.False(shop1Entry.GetProperty("isDefault").GetBoolean());
+    }
+
+    // ── POST /api/shops/{shopId}/bank-accounts ───────────────────────────────────
+
+    [Fact]
+    public async Task AddBankAccount_WithoutAuth_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync($"/api/shops/{Guid.NewGuid()}/bank-accounts", new
+        {
+            bankName = "HDFC", accountNumber = "12345678901234", accountType = "Savings",
+            ifscCode = "HDFC0001234", accountHolderName = "Test Owner"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WithoutOwnerClaim_Returns403()
+    {
+        using var client = CreateClient();
+        var noShopToken = await RegisterAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{Guid.NewGuid()}/bank-accounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", noShopToken);
+        request.Content = JsonContent.Create(new
+        {
+            bankName = "HDFC", accountNumber = "12345678901234", accountType = "Savings",
+            ifscCode = "HDFC0001234", accountHolderName = "Test Owner"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_ForNonMemberShop_Returns403()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{Guid.NewGuid()}/bank-accounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            bankName = "HDFC", accountNumber = "12345678901234", accountType = "Savings",
+            ifscCode = "HDFC0001234", accountHolderName = "Test Owner"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WithValidData_Returns200WithBankDetails()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+
+        using var addRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{shopId}/bank-accounts");
+        addRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        addRequest.Content = JsonContent.Create(new
+        {
+            bankName = "HDFC Bank",
+            accountNumber = "12345678901234",
+            accountType = "Savings",
+            ifscCode = "HDFC0001234",
+            accountHolderName = "Test Owner"
+        });
+        var addResponse = await client.SendAsync(addRequest);
+
+        Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+        var body = await addResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("HDFC Bank", body.GetProperty("bankName").GetString());
+        Assert.Equal("Savings", body.GetProperty("bankAccountType").GetString());
+        Assert.Equal("HDFC0001234", body.GetProperty("ifscCode").GetString());
+        Assert.Equal("Test Owner", body.GetProperty("accountHolderName").GetString());
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WithCurrentAccountType_Returns200()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{shopId}/bank-accounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            bankName = "SBI",
+            accountNumber = "98765432101234",
+            accountType = "Current",
+            ifscCode = "SBIN0001234",
+            accountHolderName = "Business Account"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Current", body.GetProperty("bankAccountType").GetString());
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WithInvalidIfscCode_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{shopId}/bank-accounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            bankName = "HDFC Bank",
+            accountNumber = "12345678901234",
+            accountType = "Savings",
+            ifscCode = "INVALID-IFSC",
+            accountHolderName = "Test Owner"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WithInvalidAccountType_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{shopId}/bank-accounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            bankName = "HDFC Bank",
+            accountNumber = "12345678901234",
+            accountType = "InvalidType",
+            ifscCode = "HDFC0001234",
+            accountHolderName = "Test Owner"
+        });
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

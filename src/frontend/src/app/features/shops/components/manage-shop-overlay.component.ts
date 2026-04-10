@@ -7,10 +7,12 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
+import { StepperModule } from 'primeng/stepper';
 
 import { UserShop } from '../../../core/auth/auth.models';
 import { RootState } from '../../../core/state/app.state';
-import { CreateShopRequest } from '../services/shop.service';
+import { CreateShopRequest, UpdateBankDetailsRequest } from '../services/shop.service';
 import { ShopsActions } from '../state/shops.actions';
 import {
   selectSelectedShopDetails,
@@ -22,11 +24,12 @@ import {
 } from '../state/shops.selectors';
 
 const INDIA_GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
+const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
 
 @Component({
   selector: 'app-manage-shop-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, SelectModule, StepperModule, TranslocoPipe],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',
 })
@@ -42,7 +45,14 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly lastMutationSucceeded = this.store.selectSignal(selectShopsLastMutationSucceeded);
 
   readonly selectedShopRole = signal<string>('');
+  readonly activeStep = signal(1);
   readonly isUpdatePending = signal(false);
+  readonly isBankDetailsPending = signal(false);
+
+  readonly accountTypeOptions = [
+    { label: 'Savings', value: 'Savings' },
+    { label: 'Current', value: 'Current' },
+  ];
 
   @Input({ required: true }) shops: readonly UserShop[] = [];
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -57,6 +67,14 @@ export class ManageShopOverlayComponent implements OnInit {
     contactPerson: ['', [Validators.maxLength(120)]],
     mobileNumber: ['', [Validators.maxLength(32)]],
     gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
+  });
+
+  readonly bankForm = this.formBuilder.nonNullable.group({
+    bankName: ['', [Validators.maxLength(120)]],
+    accountNumber: ['', [Validators.maxLength(50)]],
+    accountType: [''],
+    ifscCode: ['', [Validators.maxLength(20), Validators.pattern(INDIA_IFSC_REGEX)]],
+    accountHolderName: ['', [Validators.maxLength(120)]],
   });
 
   readonly progressSpinnerPt = {
@@ -81,6 +99,14 @@ export class ManageShopOverlayComponent implements OnInit {
         mobileNumber: details.mobileNumber ?? '',
         gstNumber: details.gstNumber ?? '',
       });
+
+      this.bankForm.patchValue({
+        bankName: details.bankName ?? '',
+        accountNumber: details.bankAccountNumber ?? '',
+        accountType: details.bankAccountType ?? '',
+        ifscCode: details.ifscCode ?? '',
+        accountHolderName: details.accountHolderName ?? '',
+      });
     });
 
     effect(() => {
@@ -91,7 +117,18 @@ export class ManageShopOverlayComponent implements OnInit {
 
       this.isUpdatePending.set(false);
       this.store.dispatch(ShopsActions.clearMutationStatus());
-      this.closeRequested.emit();
+      this.activeStep.set(2);
+    });
+
+    effect(() => {
+      const isBankSuccess = this.lastMutationType() === 'update-bank-details' && this.lastMutationSucceeded();
+      if (!this.isBankDetailsPending() || !isBankSuccess || this.isSubmitting()) {
+        return;
+      }
+
+      this.isBankDetailsPending.set(false);
+      this.store.dispatch(ShopsActions.clearMutationStatus());
+      this.activeStep.set(3);
     });
   }
 
@@ -125,6 +162,7 @@ export class ManageShopOverlayComponent implements OnInit {
     }
 
     this.updateSelectedRole(shopId);
+    this.activeStep.set(1);
     this.store.dispatch(ShopsActions.selectShop({ shopId }));
     this.store.dispatch(ShopsActions.loadShopDetailsRequested({ shopId }));
   }
@@ -169,6 +207,79 @@ export class ManageShopOverlayComponent implements OnInit {
     };
 
     this.store.dispatch(ShopsActions.updateShopRequested({ shopId, payload }));
+  }
+
+  onSaveBankDetails(): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) {
+      return;
+    }
+
+    if (!this.isSelectedShopOwner()) {
+      this.store.dispatch(
+        ShopsActions.updateShopBankDetailsFailed({
+          errorMessage: 'errors.shops.onlyOwnersCanUpdate',
+        })
+      );
+      return;
+    }
+
+    if (this.bankForm.invalid) {
+      this.bankForm.markAllAsTouched();
+      return;
+    }
+
+    const shopId = this.form.controls.shopId.value;
+    if (!shopId) {
+      return;
+    }
+
+    this.store.dispatch(ShopsActions.clearError());
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.isBankDetailsPending.set(true);
+
+    const payload: UpdateBankDetailsRequest = {
+      bankName: this.toOptionalValue(this.bankForm.controls.bankName.value),
+      accountNumber: this.toOptionalValue(this.bankForm.controls.accountNumber.value),
+      accountType: this.toOptionalValue(this.bankForm.controls.accountType.value),
+      ifscCode: this.toOptionalValue(this.bankForm.controls.ifscCode.value),
+      accountHolderName: this.toOptionalValue(this.bankForm.controls.accountHolderName.value),
+    };
+
+    this.store.dispatch(ShopsActions.updateShopBankDetailsRequested({ shopId, payload }));
+  }
+
+  onSkipBankDetails(): void {
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.activeStep.set(3);
+  }
+
+  onPreviousStep(): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) {
+      return;
+    }
+
+    const previousStep = this.activeStep() - 1;
+    if (previousStep < 1) {
+      return;
+    }
+
+    this.activeStep.set(previousStep);
+  }
+
+  onStepIconClick(targetStep: number): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) {
+      return;
+    }
+
+    if (targetStep >= this.activeStep() || targetStep < 1) {
+      return;
+    }
+
+    this.activeStep.set(targetStep);
+  }
+
+  onDone(): void {
+    this.closeRequested.emit();
   }
 
   isSelectedShopOwner(): boolean {

@@ -17,7 +17,7 @@ export const SHOP_ENDPOINTS = {
   setDefault: `${API_BASE_URL}/shops/default`,
   details: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
-  bankDetails: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/bank-details`,
+  addBankAccount: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/bank-accounts`,
 } as const;
 
 export const USER_ENDPOINTS = {

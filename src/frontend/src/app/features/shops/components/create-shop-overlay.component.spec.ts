@@ -12,13 +12,15 @@ import {
   selectShopsLastMutationType,
   selectShopsSubmitting,
 } from '../state/shops.selectors';
+import { AuthService } from '../../../core/auth/auth.service';
 
 describe('CreateShopOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'create' | 'update' | 'set-default' | null>(null);
+  const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'set-default' | null>(null);
   const lastMutationSucceededSignal = signal(false);
+  const sessionSignal = signal<{ activeShopId: string } | null>(null);
 
   const store = {
     dispatch,
@@ -43,10 +45,17 @@ describe('CreateShopOverlayComponent', () => {
     }),
   };
 
+  const authService = {
+    session: sessionSignal,
+  };
+
   function setup(): { component: CreateShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<CreateShopOverlayComponent>> } {
     TestBed.configureTestingModule({
       imports: [CreateShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: AuthService, useValue: authService },
+      ],
     });
 
     const fixture = TestBed.createComponent(CreateShopOverlayComponent);
@@ -61,24 +70,27 @@ describe('CreateShopOverlayComponent', () => {
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
+    sessionSignal.set(null);
   });
 
   afterEach(() => {
     TestBed.resetTestingModule();
   });
 
+  // --- Step 1: Shop Info ---
+
   it('does not submit when required fields are missing', () => {
     const { component } = setup();
 
-    component.form.controls.name.setValue('');
-    component.form.controls.address.setValue('');
-    component.form.controls.city.setValue('');
-    component.form.controls.state.setValue('');
-    component.form.controls.pincode.setValue('');
+    component.shopForm.controls.name.setValue('');
+    component.shopForm.controls.address.setValue('');
+    component.shopForm.controls.city.setValue('');
+    component.shopForm.controls.state.setValue('');
+    component.shopForm.controls.pincode.setValue('');
 
-    component.onSubmit();
+    component.onNextFromStep1();
 
-    expect(component.form.touched).toBe(true);
+    expect(component.shopForm.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: ShopsActions.createShopRequested.type })
     );
@@ -87,16 +99,16 @@ describe('CreateShopOverlayComponent', () => {
   it('dispatches create action with trimmed values and blank optionals omitted', () => {
     const { component } = setup();
 
-    component.form.controls.name.setValue('  Main Shop  ');
-    component.form.controls.address.setValue('  42 MG Road  ');
-    component.form.controls.city.setValue('  Bengaluru  ');
-    component.form.controls.state.setValue('  Karnataka  ');
-    component.form.controls.pincode.setValue('  560001  ');
-    component.form.controls.contactPerson.setValue('   ');
-    component.form.controls.mobileNumber.setValue('  ');
-    component.form.controls.gstNumber.setValue('');
+    component.shopForm.controls.name.setValue('  Main Shop  ');
+    component.shopForm.controls.address.setValue('  42 MG Road  ');
+    component.shopForm.controls.city.setValue('  Bengaluru  ');
+    component.shopForm.controls.state.setValue('  Karnataka  ');
+    component.shopForm.controls.pincode.setValue('  560001  ');
+    component.shopForm.controls.contactPerson.setValue('   ');
+    component.shopForm.controls.mobileNumber.setValue('  ');
+    component.shopForm.controls.gstNumber.setValue('');
 
-    component.onSubmit();
+    component.onNextFromStep1();
 
     expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearError());
     expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
@@ -119,71 +131,163 @@ describe('CreateShopOverlayComponent', () => {
   it('does not submit when gstNumber is present but invalid', () => {
     const { component } = setup();
 
-    component.form.controls.name.setValue('Main Shop');
-    component.form.controls.address.setValue('42 MG Road');
-    component.form.controls.city.setValue('Bengaluru');
-    component.form.controls.state.setValue('Karnataka');
-    component.form.controls.pincode.setValue('560001');
-    component.form.controls.gstNumber.setValue('123');
+    component.shopForm.controls.name.setValue('Main Shop');
+    component.shopForm.controls.address.setValue('42 MG Road');
+    component.shopForm.controls.city.setValue('Bengaluru');
+    component.shopForm.controls.state.setValue('Karnataka');
+    component.shopForm.controls.pincode.setValue('560001');
+    component.shopForm.controls.gstNumber.setValue('123');
 
-    component.onSubmit();
+    component.onNextFromStep1();
 
-    expect(component.form.controls.gstNumber.invalid).toBe(true);
+    expect(component.shopForm.controls.gstNumber.invalid).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: ShopsActions.createShopRequested.type })
     );
   });
 
-  it('submits when gstNumber is empty', () => {
-    const { component } = setup();
-
-    component.form.controls.name.setValue('Main Shop');
-    component.form.controls.address.setValue('42 MG Road');
-    component.form.controls.city.setValue('Bengaluru');
-    component.form.controls.state.setValue('Karnataka');
-    component.form.controls.pincode.setValue('560001');
-    component.form.controls.gstNumber.setValue('');
-
-    component.onSubmit();
-
-    expect(dispatch).toHaveBeenCalledWith(
-      ShopsActions.createShopRequested({
-        payload: {
-          name: 'Main Shop',
-          address: '42 MG Road',
-          city: 'Bengaluru',
-          state: 'Karnataka',
-          pincode: '560001',
-          contactPerson: undefined,
-          mobileNumber: undefined,
-          gstNumber: undefined,
-        },
-      })
-    );
-  });
-
-  it('emits close after create mutation succeeds', () => {
+  it('advances to step 2 after create mutation succeeds', () => {
     const { component, fixture } = setup();
-    const closeSpy = vi.fn();
 
-    component.closeRequested.subscribe(closeSpy);
+    component.shopForm.controls.name.setValue('Main Shop');
+    component.shopForm.controls.address.setValue('42 MG Road');
+    component.shopForm.controls.city.setValue('Bengaluru');
+    component.shopForm.controls.state.setValue('Karnataka');
+    component.shopForm.controls.pincode.setValue('560001');
 
-    component.form.controls.name.setValue('Main Shop');
-    component.form.controls.address.setValue('42 MG Road');
-    component.form.controls.city.setValue('Bengaluru');
-    component.form.controls.state.setValue('Karnataka');
-    component.form.controls.pincode.setValue('560001');
-
-    component.onSubmit();
+    component.onNextFromStep1();
 
     lastMutationTypeSignal.set('create');
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
 
+    expect(component.activeStep()).toBe(2);
+  });
+
+  // --- Step 2: Bank Details ---
+
+  it('dispatches bank details action with correct payload', () => {
+    const { component } = setup();
+    sessionSignal.set({ activeShopId: 'shop-1' });
+
+    component.bankForm.controls.bankName.setValue('SBI');
+    component.bankForm.controls.accountNumber.setValue('123456789012');
+    component.bankForm.controls.accountType.setValue('Savings');
+    component.bankForm.controls.ifscCode.setValue('SBIN0001234');
+    component.bankForm.controls.accountHolderName.setValue('Chandra Kumar');
+
+    component.onSaveFromStep2();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.updateShopBankDetailsRequested({
+        shopId: 'shop-1',
+        payload: {
+          bankName: 'SBI',
+          accountNumber: '123456789012',
+          accountType: 'Savings',
+          ifscCode: 'SBIN0001234',
+          accountHolderName: 'Chandra Kumar',
+        },
+      })
+    );
+  });
+
+  it('advances to step 3 after bank details mutation succeeds', () => {
+    const { component, fixture } = setup();
+    sessionSignal.set({ activeShopId: 'shop-1' });
+
+    component.bankForm.controls.bankName.setValue('SBI');
+    component.bankForm.controls.accountNumber.setValue('123456789012');
+
+    component.onSaveFromStep2();
+
+    lastMutationTypeSignal.set('update-bank-details');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(component.activeStep()).toBe(3);
+  });
+
+  it('skips to step 3 when no active shop is set', () => {
+    const { component } = setup();
+    sessionSignal.set(null);
+
+    component.onSaveFromStep2();
+
+    expect(component.activeStep()).toBe(3);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+    );
+  });
+
+  it('does not submit bank details when ifsc code is invalid', () => {
+    const { component } = setup();
+    sessionSignal.set({ activeShopId: 'shop-1' });
+
+    component.bankForm.controls.ifscCode.setValue('INVALID');
+
+    component.onSaveFromStep2();
+
+    expect(component.bankForm.controls.ifscCode.invalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+    );
+  });
+
+  it('skips bank details and advances to step 3 on skip', () => {
+    const { component } = setup();
+
+    component.onSkipStep2();
+
+    expect(component.activeStep()).toBe(3);
+    expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
+  });
+
+  it('moves one step back when previous is triggered', () => {
+    const { component } = setup();
+
+    component.activeStep.set(3);
+    component.onPreviousStep();
+
+    expect(component.activeStep()).toBe(2);
+  });
+
+  it('moves to clicked previous icon step only', () => {
+    const { component } = setup();
+
+    component.activeStep.set(3);
+    component.onStepIconClick(2);
+    expect(component.activeStep()).toBe(2);
+
+    component.onStepIconClick(3);
+    expect(component.activeStep()).toBe(2);
+  });
+
+  it('does not move back while submitting', () => {
+    const { component } = setup();
+
+    component.activeStep.set(2);
+    isSubmittingSignal.set(true);
+
+    component.onPreviousStep();
+    component.onStepIconClick(1);
+
+    expect(component.activeStep()).toBe(2);
+  });
+
+  // --- Step 3: Done ---
+
+  it('emits closeRequested when done is clicked', () => {
+    const { component } = setup();
+    const closeSpy = vi.fn();
+
+    component.closeRequested.subscribe(closeSpy);
+    component.onDone();
+
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('emits closeRequested when close is clicked', () => {
+  it('emits closeRequested when close button is clicked', () => {
     const { component } = setup();
     const closeSpy = vi.fn();
 

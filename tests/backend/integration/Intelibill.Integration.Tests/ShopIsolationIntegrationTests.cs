@@ -467,6 +467,9 @@ public class ShopIsolationIntegrationTests
 
         public void RemoveMembership(ShopMembership membership) { }
 
+        public Task AddBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<Shop?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.FromResult<Shop?>(null);
 

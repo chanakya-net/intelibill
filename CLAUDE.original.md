@@ -4,13 +4,13 @@ AI-powered inventory management system backend.
 
 ## Current Backend Snapshot (March 2026)
 
-- Multi-shop tenancy implemented.
-- Users have memberships across shops with per-shop role (`Owner`, `Manager`, `Staff`).
-- Default shop + active shop switching supported.
-- JWT carries `active_shop_id`; shop switch returns new scoped token.
-- PostgreSQL migration + RLS policies for `shops` and `shop_memberships`.
-- Error mapping includes `Forbidden -> 403`.
-- Test suite covers domain, API, application, integration.
+- Multi-shop tenancy support is implemented.
+- A user can have memberships across many shops with per-shop role (`Owner`, `Manager`, `Staff`).
+- Default shop and active shop switching are supported.
+- JWT now carries `active_shop_id`; switching shop returns a new scoped token.
+- PostgreSQL migration and RLS policies are in place for `shops` and `shop_memberships`.
+- Error mapping now includes `Forbidden -> 403`.
+- Test suite includes expanded domain, API, application, and integration coverage.
 
 ## Tech Stack
 
@@ -27,7 +27,7 @@ AI-powered inventory management system backend.
 
 ## Key Directories
 
-Paths relative to repo root.
+Paths are relative to this file (repo root).
 
 | Path | Purpose |
 |---|---|
@@ -38,7 +38,7 @@ Paths relative to repo root.
 | `tests/backend/unit/` | Domain and Application unit tests |
 | `tests/backend/integration/` | Integration tests referencing the API project |
 | `Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
-| `Directory.Packages.props` | Central Package Management — all NuGet versions declared here |
+| `Directory.Packages.props` | Central Package Management — all NuGet versions are declared here |
 | `global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
 
 ## Multi-Shop Architecture Notes
@@ -48,7 +48,7 @@ Paths relative to repo root.
 - `Shop`
 - `ShopMembership`
 - `ShopRole` enum
-- `User` tracks shop memberships
+- `User` now tracks shop memberships
 
 ### Application
 
@@ -81,7 +81,7 @@ Paths relative to repo root.
 
 ## Build & Test
 
-Commands from **repo root** unless noted. Solution: `src/backend/Intelibill.slnx`.
+Commands run from the **repo root** unless noted. Solution file: `src/backend/Intelibill.slnx`.
 
 ```bash
 # Build
@@ -108,7 +108,7 @@ dotnet ef database update \
   --startup-project src/backend/Intelibill.Api
 ```
 
-Test snapshot:
+Current passing test snapshot:
 
 - `Intelibill.Domain.Unit.Tests`: 22
 - `Intelibill.Application.Unit.Tests`: 25
@@ -118,17 +118,17 @@ Test snapshot:
 
 ## Configuration
 
-DB credentials use Options Pattern bound to `"Database"` config section.
+Database credentials use the Options Pattern bound to the `"Database"` config section.
 See `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
 
 - `src/backend/Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
 - `src/backend/Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
-- Production — supply via env vars or secrets manager
+- Production — supply values via environment variables or secrets manager
 
 ## Adding NuGet Packages
 
 1. Add `<PackageVersion Include="..." Version="..." />` to `Directory.Packages.props`
-2. Add `<PackageReference Include="..." />` (no version) to relevant `.csproj`
+2. Add `<PackageReference Include="..." />` (no version) to the relevant `.csproj`
 
 ## Additional Documentation
 

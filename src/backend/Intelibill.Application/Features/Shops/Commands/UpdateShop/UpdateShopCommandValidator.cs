@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
 
-internal sealed class UpdateShopCommandValidator : AbstractValidator<UpdateShopCommand>
+public sealed class UpdateShopCommandValidator : AbstractValidator<UpdateShopCommand>
 {
     private static readonly Regex IndiaGstRegex = new(
         "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$",

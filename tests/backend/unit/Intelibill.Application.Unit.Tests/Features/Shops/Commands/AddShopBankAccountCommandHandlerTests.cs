@@ -1,22 +1,22 @@
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
+using Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
-namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.UpdateShopBankDetails;
+namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.AddShopBankAccount;
 
-public class UpdateShopBankDetailsCommandHandlerTests
+public class AddShopBankAccountCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
-    private UpdateShopBankDetailsCommandHandler CreateHandler(bool withValidator = false) =>
+    private AddShopBankAccountCommandHandler CreateHandler(bool withValidator = false) =>
         new(_userRepository, _shopRepository, _unitOfWork,
-            withValidator ? new UpdateShopBankDetailsCommandValidator() : null);
+            withValidator ? new AddShopBankAccountCommandValidator() : null);
 
     [Fact]
     public async Task HandleAsync_OwnerWithValidData_UpdatesBankDetails()
@@ -30,7 +30,7 @@ public class UpdateShopBankDetailsCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
-        var command = new UpdateShopBankDetailsCommand(
+        var command = new AddShopBankAccountCommand(
             user.Id,
             shop.Id,
             "State Bank of India",
@@ -48,7 +48,15 @@ public class UpdateShopBankDetailsCommandHandlerTests
         Assert.Equal("SBIN0001234", result.Value.IfscCode);
         Assert.Equal("Chandra Kumar", result.Value.AccountHolderName);
 
-        _shopRepository.Received(1).Update(shop);
+        await _shopRepository.Received(1).AddBankAccountAsync(
+            Arg.Is<BankAccount>(ba =>
+                ba.ShopId == shop.Id
+                && ba.BankName == "State Bank of India"
+                && ba.AccountNumber == "123456789012"
+                && ba.AccountType == BankAccountType.Savings
+                && ba.IfscCode == "SBIN0001234"
+                && ba.AccountHolderName == "Chandra Kumar"),
+            Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -64,19 +72,19 @@ public class UpdateShopBankDetailsCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
-        var command = new UpdateShopBankDetailsCommand(user.Id, shop.Id, "SBI", null, null, null, null);
+        var command = new AddShopBankAccountCommand(user.Id, shop.Id, "SBI", null, null, null, null);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Shop.UserIsNotOwner", result.FirstError.Code);
-        _shopRepository.DidNotReceive().Update(Arg.Any<Shop>());
+        await _shopRepository.DidNotReceive().AddBankAccountAsync(Arg.Any<BankAccount>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task HandleAsync_WhenIfscInvalid_ReturnsValidationError()
     {
-        var command = new UpdateShopBankDetailsCommand(
+        var command = new AddShopBankAccountCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
@@ -95,7 +103,7 @@ public class UpdateShopBankDetailsCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAccountTypeInvalid_ReturnsValidationError()
     {
-        var command = new UpdateShopBankDetailsCommand(
+        var command = new AddShopBankAccountCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
@@ -124,7 +132,7 @@ public class UpdateShopBankDetailsCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
 
-        var command = new UpdateShopBankDetailsCommand(user.Id, shop.Id, null, null, null, null, null);
+        var command = new AddShopBankAccountCommand(user.Id, shop.Id, null, null, null, null, null);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
