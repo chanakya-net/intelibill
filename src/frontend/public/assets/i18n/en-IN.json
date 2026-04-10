@@ -272,12 +272,28 @@
     "gstNumberOptional": "GST Number (Optional)",
     "createShop": "Create Shop",
     "creatingShop": "Creating shop...",
+    "nextStep": "Next",
     "saveShopChanges": "Save Shop Changes",
     "savingChanges": "Saving changes...",
     "selectShop": "Select Shop",
     "selectedShopRoleIs": "Selected shop role is",
     "unknown": "Unknown",
     "onlyOwnersCanSave": "Only owners can save updates.",
+    "bankDetails": "Bank Details",
+    "bankDetailsOptional": "Bank details are optional. You can skip and add them later.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "savings": "Savings",
+    "current": "Current",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "saveBankDetails": "Save Bank Details",
+    "savingBankDetails": "Saving bank details...",
+    "skipBankDetails": "Skip for now",
+    "shopCreated": "Shop created successfully",
+    "shopCreatedDescription": "Your shop is ready. You can now access inventory workflows.",
+    "done": "Done",
     "placeholders": {
       "shopName": "Ex: Downtown Electronics",
       "address": "Ex: 42 MG Road",
@@ -286,7 +302,12 @@
       "pincode": "Ex: 560001",
       "contactPerson": "Ex: Chandra",
       "mobileNumber": "Ex: 9876543210",
-      "gst": "Ex: 27AAPFU0939F1ZV"
+      "gst": "Ex: 27AAPFU0939F1ZV",
+      "bankName": "Ex: State Bank of India",
+      "accountNumber": "Ex: 1234567890",
+      "accountType": "Select account type",
+      "ifscCode": "Ex: SBIN0001234",
+      "accountHolderName": "Ex: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "Shop name is required.",
@@ -295,7 +316,8 @@
       "cityRequired": "City is required.",
       "stateRequired": "State is required.",
       "pincodeRequired": "Pincode is required.",
-      "gstInvalid": "Enter a valid Indian GSTIN."
+      "gstInvalid": "Enter a valid Indian GSTIN.",
+      "ifscInvalid": "Enter a valid Indian IFSC code (e.g. SBIN0001234)."
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "Shop city is required.",
       "stateRequired": "Shop state is required.",
       "pincodeRequired": "Shop pincode is required.",
-      "unableToUpdateShop": "Unable to update shop right now. Please try again."
+      "unableToUpdateShop": "Unable to update shop right now. Please try again.",
+      "unableToUpdateBankDetails": "Unable to save bank details right now. Please try again.",
+      "ifscCodeInvalid": "Enter a valid Indian IFSC code.",
+      "bankAccountTypeInvalid": "Account type must be Savings or Current."
     }
   }
 }

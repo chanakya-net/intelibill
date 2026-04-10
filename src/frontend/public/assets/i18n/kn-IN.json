@@ -271,12 +271,28 @@
     "gstNumberOptional": "ಜಿಎಸ್‌ಟಿ ನಂಬರ್ (ಐಚ್ಛಿಕ)",
     "createShop": "ಅಂಗಡಿ ರಚಿಸಿ",
     "creatingShop": "ಅಂಗಡಿ ರಚಿಸಲಾಗುತ್ತಿದೆ...",
+    "nextStep": "ಮುಂದೆ",
     "saveShopChanges": "ಅಂಗಡಿ ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
     "savingChanges": "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಲಾಗುತ್ತಿದೆ...",
     "selectShop": "ಅಂಗಡಿ ಆಯ್ಕೆ ಮಾಡಿ",
     "selectedShopRoleIs": "ಆಯ್ಕೆ ಮಾಡಿದ ಅಂಗಡಿ ಪಾತ್ರ",
     "unknown": "ಅಜ್ಞಾತ",
     "onlyOwnersCanSave": "ಮಾಲೀಕರು ಮಾತ್ರ ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಬಹುದು.",
+    "bankDetails": "ಬ್ಯಾಂಕ್ ವಿವರಗಳು",
+    "bankDetailsOptional": "ಬ್ಯಾಂಕ್ ವಿವರಗಳು ಐಚ್ಛಿಕ. ನೀವು ಇದನ್ನು ಬಿಟ್ಟು ನಂತರ ಸೇರಿಸಬಹುದು.",
+    "bankName": "ಬ್ಯಾಂಕ್ ಹೆಸರು",
+    "accountNumber": "ಖಾತೆ ಸಂಖ್ಯೆ",
+    "accountType": "ಖಾತೆ ಪ್ರಕಾರ",
+    "savings": "ಉಳಿತಾಯ",
+    "current": "ಚಾಲ್ತಿ",
+    "ifscCode": "IFSC ಕೋಡ್",
+    "accountHolderName": "ಖಾತೆದಾರರ ಹೆಸರು",
+    "saveBankDetails": "ಬ್ಯಾಂಕ್ ವಿವರಗಳನ್ನು ಉಳಿಸಿ",
+    "savingBankDetails": "ಬ್ಯಾಂಕ್ ವಿವರಗಳನ್ನು ಉಳಿಸಲಾಗುತ್ತಿದೆ...",
+    "skipBankDetails": "ಈಗ ಬಿಟ್ಟುಬಿಡಿ",
+    "shopCreated": "ಅಂಗಡಿ ಯಶಸ್ವಿಯಾಗಿ ರಚಿಸಲಾಗಿದೆ",
+    "shopCreatedDescription": "ನಿಮ್ಮ ಅಂಗಡಿ ಸಿದ್ಧವಾಗಿದೆ. ಈಗ ಇನ್ವೆಂಟರಿ ವರ್ಕ್‌ಫ್ಲೋಗಳನ್ನು ಪ್ರವೇಶಿಸಬಹುದು.",
+    "done": "ಮುಗಿದಿದೆ",
     "placeholders": {
       "shopName": "ಉದಾ: ಡೌನ್‌ಟೌನ್ ಎಲೆಕ್ಟ್ರಾನಿಕ್ಸ್",
       "address": "ಉದಾ: 42 ಎಂಜಿ ರಸ್ತೆ",
@@ -285,7 +301,12 @@
       "pincode": "ಉದಾ: 560001",
       "contactPerson": "ಉದಾ: ಚಂದ್ರ",
       "mobileNumber": "ಉದಾ: 9876543210",
-      "gst": "ಉದಾ: 27AAPFU0939F1ZV"
+      "gst": "ಉದಾ: 27AAPFU0939F1ZV",
+      "bankName": "ಉದಾ: State Bank of India",
+      "accountNumber": "ಉದಾ: 1234567890",
+      "accountType": "ಖಾತೆ ಪ್ರಕಾರ ಆಯ್ಕೆಮಾಡಿ",
+      "ifscCode": "ಉದಾ: SBIN0001234",
+      "accountHolderName": "ಉದಾ: Chandra Kumar"
     },
     "validation": {
       "shopNameRequired": "ಅಂಗಡಿ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
@@ -294,7 +315,8 @@
       "cityRequired": "ನಗರ ಅಗತ್ಯವಿದೆ.",
       "stateRequired": "ರಾಜ್ಯ ಅಗತ್ಯವಿದೆ.",
       "pincodeRequired": "ಪಿನ್‌ಕೋಡ್ ಅಗತ್ಯವಿದೆ.",
-      "gstInvalid": "ಮಾನ್ಯ ಭಾರತೀಯ GSTIN ನಮೂದಿಸಿ."
+      "gstInvalid": "ಮಾನ್ಯ ಭಾರತೀಯ GSTIN ನಮೂದಿಸಿ.",
+      "ifscInvalid": "ಮಾನ್ಯ ಭಾರತೀಯ IFSC ಕೋಡ್ ನಮೂದಿಸಿ (ಉದಾ: SBIN0001234)."
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "ಅಂಗಡಿ ನಗರ ಅಗತ್ಯವಿದೆ.",
       "stateRequired": "ಅಂಗಡಿ ರಾಜ್ಯ ಅಗತ್ಯವಿದೆ.",
       "pincodeRequired": "ಅಂಗಡಿ ಪಿನ್‌ಕೋಡ್ ಅಗತ್ಯವಿದೆ.",
-      "unableToUpdateShop": "ಈಗ ಅಂಗಡಿ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+      "unableToUpdateShop": "ಈಗ ಅಂಗಡಿ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "unableToUpdateBankDetails": "ಈಗ ಬ್ಯಾಂಕ್ ವಿವರಗಳನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "ifscCodeInvalid": "ಮಾನ್ಯ ಭಾರತೀಯ IFSC ಕೋಡ್ ನಮೂದಿಸಿ.",
+      "bankAccountTypeInvalid": "ಖಾತೆ ಪ್ರಕಾರ ಉಳಿತಾಯ ಅಥವಾ ಚಾಲ್ತಿ ಆಗಿರಬೇಕು."
     }
   }
 }

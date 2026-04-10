@@ -144,6 +144,32 @@ export const shopsReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(ShopsActions.updateShopBankDetailsRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'update-bank-details' as const,
+    lastMutationSucceeded: false,
+  })),
+  on(ShopsActions.updateShopBankDetailsSucceeded, (state, { details }) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'update-bank-details' as const,
+    lastMutationSucceeded: true,
+    detailsById: {
+      ...state.detailsById,
+      [details.shopId]: details,
+    },
+  })),
+  on(ShopsActions.updateShopBankDetailsFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'update-bank-details' as const,
+    lastMutationSucceeded: false,
+  })),
+
   on(ShopsActions.clearError, (state) => ({
     ...state,
     errorMessage: '',

@@ -8,6 +8,7 @@ using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
@@ -275,7 +276,7 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210", "27AAPFU0939F1ZV");
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210", "27AAPFU0939F1ZV", null, null, null, null, null);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.GetShopDetails(shopId, CancellationToken.None);
@@ -320,7 +321,7 @@ public class ShopsControllerTests
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
         var request = new UpdateShopRequest("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", "Chandra", "9876543210", "27AAPFU0939F1ZV");
-        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber, request.GstNumber);
+        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber, request.GstNumber, null, null, null, null, null);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.UpdateShop(shopId, request, CancellationToken.None);
@@ -386,6 +387,77 @@ public class ShopsControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShopBankDetails_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.UpdateShopBankDetails(
+            Guid.NewGuid(),
+            new UpdateShopBankDetailsRequest(null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateShopBankDetails_WhenSuccessful_ReturnsOkAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        var request = new UpdateShopBankDetailsRequest("SBI", "123456789012", "Savings", "SBIN0001234", "Chandra Kumar");
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", null, null, null,
+            request.BankName, request.BankAccountNumber, request.BankAccountType, request.IfscCode, request.AccountHolderName);
+        ArrangeBusResponse<ShopDetailsDto>(details);
+
+        var result = await _controller.UpdateShopBankDetails(shopId, request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(details, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<ShopDetailsDto>>(
+            Arg.Is<UpdateShopBankDetailsCommand>(c =>
+                c.UserId == userId
+                && c.ShopId == shopId
+                && c.BankName == request.BankName
+                && c.BankAccountNumber == request.BankAccountNumber
+                && c.BankAccountType == request.BankAccountType
+                && c.IfscCode == request.IfscCode
+                && c.AccountHolderName == request.AccountHolderName),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateShopBankDetails_WhenUserIsNotOwner_ReturnsForbidden()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.UserIsNotOwner);
+
+        var result = await _controller.UpdateShopBankDetails(
+            Guid.NewGuid(),
+            new UpdateShopBankDetailsRequest(null, null, null, null, null),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateShopBankDetails_WhenIfscInvalid_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        ArrangeBusResponse<ShopDetailsDto>(Errors.Shop.IfscCodeInvalid);
+
+        var result = await _controller.UpdateShopBankDetails(
+            Guid.NewGuid(),
+            new UpdateShopBankDetailsRequest(null, null, null, "INVALID", null),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
     }
 
     private void ArrangeBusResponse<T>(ErrorOr<T> response)

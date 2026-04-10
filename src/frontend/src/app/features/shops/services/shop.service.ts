@@ -28,6 +28,19 @@ export interface ShopDetails {
   readonly contactPerson: string | null;
   readonly mobileNumber: string | null;
   readonly gstNumber: string | null;
+  readonly bankName: string | null;
+  readonly bankAccountNumber: string | null;
+  readonly bankAccountType: string | null;
+  readonly ifscCode: string | null;
+  readonly accountHolderName: string | null;
+}
+
+export interface UpdateBankDetailsRequest {
+  readonly bankName?: string;
+  readonly bankAccountNumber?: string;
+  readonly bankAccountType?: string;
+  readonly ifscCode?: string;
+  readonly accountHolderName?: string;
 }
 
 interface SetDefaultShopRequest {
@@ -66,5 +79,9 @@ export class ShopService {
 
   updateShop(shopId: string, payload: CreateShopRequest): Observable<ShopDetails> {
     return this.http.put<ShopDetails>(SHOP_ENDPOINTS.update(shopId), payload);
+  }
+
+  updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {
+    return this.http.put<ShopDetails>(SHOP_ENDPOINTS.bankDetails(shopId), payload);
   }
 }

@@ -271,12 +271,28 @@
     "gstNumberOptional": "जीएसटी नंबर (वैकल्पिक)",
     "createShop": "दुकान बनाएं",
     "creatingShop": "दुकान बनाई जा रही है...",
+    "nextStep": "अगला",
     "saveShopChanges": "दुकान परिवर्तन सहेजें",
     "savingChanges": "परिवर्तन सहेजे जा रहे हैं...",
     "selectShop": "दुकान चुनें",
     "selectedShopRoleIs": "चुनी गई दुकान की भूमिका है",
     "unknown": "अज्ञात",
     "onlyOwnersCanSave": "केवल स्वामी ही परिवर्तन सहेज सकते हैं।",
+    "bankDetails": "बैंक विवरण",
+    "bankDetailsOptional": "बैंक विवरण वैकल्पिक है। आप इसे छोड़ सकते हैं और बाद में जोड़ सकते हैं।",
+    "bankName": "बैंक का नाम",
+    "accountNumber": "खाता संख्या",
+    "accountType": "खाते का प्रकार",
+    "savings": "बचत",
+    "current": "चालू",
+    "ifscCode": "IFSC कोड",
+    "accountHolderName": "खाताधारक का नाम",
+    "saveBankDetails": "बैंक विवरण सहेजें",
+    "savingBankDetails": "बैंक विवरण सहेजे जा रहे हैं...",
+    "skipBankDetails": "अभी छोड़ें",
+    "shopCreated": "दुकान सफलतापूर्वक बनाई गई",
+    "shopCreatedDescription": "आपकी दुकान तैयार है। अब आप इन्वेंटरी वर्कफ्लो एक्सेस कर सकते हैं।",
+    "done": "पूर्ण",
     "placeholders": {
       "shopName": "उदा: डाउनटाउन इलेक्ट्रॉनिक्स",
       "address": "उदा: 42 एमजी रोड",
@@ -285,7 +301,12 @@
       "pincode": "उदा: 560001",
       "contactPerson": "उदा: चंद्रा",
       "mobileNumber": "उदा: 9876543210",
-      "gst": "उदा: 27AAPFU0939F1ZV"
+      "gst": "उदा: 27AAPFU0939F1ZV",
+      "bankName": "उदा: भारतीय स्टेट बैंक",
+      "accountNumber": "उदा: 1234567890",
+      "accountType": "खाते का प्रकार चुनें",
+      "ifscCode": "उदा: SBIN0001234",
+      "accountHolderName": "उदा: चंद्र कुमार"
     },
     "validation": {
       "shopNameRequired": "दुकान का नाम आवश्यक है।",
@@ -294,7 +315,8 @@
       "cityRequired": "शहर आवश्यक है।",
       "stateRequired": "राज्य आवश्यक है।",
       "pincodeRequired": "पिनकोड आवश्यक है।",
-      "gstInvalid": "मान्य भारतीय GSTIN दर्ज करें।"
+      "gstInvalid": "मान्य भारतीय GSTIN दर्ज करें।",
+      "ifscInvalid": "मान्य भारतीय IFSC कोड दर्ज करें (जैसे SBIN0001234)।"
     }
   },
   "notFound": {
@@ -362,7 +384,10 @@
       "cityRequired": "दुकान का शहर आवश्यक है।",
       "stateRequired": "दुकान का राज्य आवश्यक है।",
       "pincodeRequired": "दुकान का पिनकोड आवश्यक है।",
-      "unableToUpdateShop": "अभी दुकान अपडेट नहीं हो सकी। कृपया फिर प्रयास करें।"
+      "unableToUpdateShop": "अभी दुकान अपडेट नहीं हो सकी। कृपया फिर प्रयास करें।",
+      "unableToUpdateBankDetails": "अभी बैंक विवरण सहेजा नहीं जा सका। कृपया फिर प्रयास करें।",
+      "ifscCodeInvalid": "मान्य भारतीय IFSC कोड दर्ज करें।",
+      "bankAccountTypeInvalid": "खाते का प्रकार बचत या चालू होना चाहिए।"
     }
   }
 }
