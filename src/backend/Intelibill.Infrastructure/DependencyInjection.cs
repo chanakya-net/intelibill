@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Postgres;
 
 namespace Intelibill.Infrastructure;
 
@@ -70,6 +71,25 @@ public static class DependencyInjection
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.
         services.AddMemoryCache();
+
+        services.AddOptions<DistributedCacheOptions>()
+            .Bind(configuration.GetSection(DistributedCacheOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddDistributedPostgresCache(options =>
+        {
+            var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>()
+                ?? throw new InvalidOperationException("DatabaseOptions not configured.");
+            var cacheOptions = configuration.GetSection(DistributedCacheOptions.SectionName).Get<DistributedCacheOptions>()
+                ?? new DistributedCacheOptions();
+
+            options.ConnectionString = dbOptions.ToConnectionString();
+            options.SchemaName = cacheOptions.SchemaName;
+            options.TableName = cacheOptions.TableName;
+            options.CreateIfNotExists = cacheOptions.CreateIfNotExists;
+            options.ExpiredItemsDeletionInterval = cacheOptions.ExpiredItemsDeletionInterval;
+        });
+
         services.AddHttpClient(nameof(GoogleAuthProvider));
         services.AddHttpClient(nameof(FacebookAuthProvider));
         services.AddHttpClient(nameof(TwitterAuthProvider));
