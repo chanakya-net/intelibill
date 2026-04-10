@@ -31,6 +31,12 @@
                 'bg-primary text-primary-contrast border-primary': value <= activeStep(),
                 'border-surface': value > activeStep()
               }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
             >
               <i class="pi pi-shop"></i>
             </span>
@@ -44,6 +50,12 @@
                 'bg-primary text-primary-contrast border-primary': value <= activeStep(),
                 'border-surface': value > activeStep()
               }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
             >
               <i class="pi pi-credit-card"></i>
             </span>
@@ -57,6 +69,12 @@
                 'bg-primary text-primary-contrast border-primary': value <= activeStep(),
                 'border-surface': value > activeStep()
               }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
             >
               <i class="pi pi-check"></i>
             </span>
@@ -310,14 +328,25 @@
               <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
 
               <div class="flex pt-4 justify-between">
-                <p-button
-                  type="button"
-                  [label]="'shops.skipBankDetails' | transloco"
-                  severity="secondary"
-                  [text]="true"
-                  [disabled]="isSubmitting()"
-                  (onClick)="onSkipBankDetails()"
-                />
+                <div class="flex gap-2">
+                  <p-button
+                    type="button"
+                    [label]="'shops.previousStep' | transloco"
+                    icon="pi pi-arrow-left"
+                    severity="secondary"
+                    [text]="true"
+                    [disabled]="isSubmitting() || isLoadingDetails()"
+                    (onClick)="onPreviousStep()"
+                  />
+                  <p-button
+                    type="button"
+                    [label]="'shops.skipBankDetails' | transloco"
+                    severity="secondary"
+                    [text]="true"
+                    [disabled]="isSubmitting()"
+                    (onClick)="onSkipBankDetails()"
+                  />
+                </div>
                 <button
                   pButton
                   type="submit"
@@ -341,6 +370,15 @@
                 <h3 class="text-lg font-semibold mb-1">{{ 'shops.saveShopChanges' | transloco }}</h3>
                 <p class="text-sm text-muted">{{ 'shops.manageShopDescription' | transloco }}</p>
               </div>
+              <button
+                pButton
+                type="button"
+                [label]="'shops.previousStep' | transloco"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                [text]="true"
+                (click)="onPreviousStep()"
+              ></button>
               <button
                 pButton
                 type="button"

@@ -253,6 +253,31 @@ export class ManageShopOverlayComponent implements OnInit {
     this.activeStep.set(3);
   }
 
+  onPreviousStep(): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) {
+      return;
+    }
+
+    const previousStep = this.activeStep() - 1;
+    if (previousStep < 1) {
+      return;
+    }
+
+    this.activeStep.set(previousStep);
+  }
+
+  onStepIconClick(targetStep: number): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) {
+      return;
+    }
+
+    if (targetStep >= this.activeStep() || targetStep < 1) {
+      return;
+    }
+
+    this.activeStep.set(targetStep);
+  }
+
   onDone(): void {
     this.closeRequested.emit();
   }

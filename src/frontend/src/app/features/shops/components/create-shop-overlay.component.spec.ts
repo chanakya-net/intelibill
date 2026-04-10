@@ -243,6 +243,38 @@ describe('CreateShopOverlayComponent', () => {
     expect(dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
   });
 
+  it('moves one step back when previous is triggered', () => {
+    const { component } = setup();
+
+    component.activeStep.set(3);
+    component.onPreviousStep();
+
+    expect(component.activeStep()).toBe(2);
+  });
+
+  it('moves to clicked previous icon step only', () => {
+    const { component } = setup();
+
+    component.activeStep.set(3);
+    component.onStepIconClick(2);
+    expect(component.activeStep()).toBe(2);
+
+    component.onStepIconClick(3);
+    expect(component.activeStep()).toBe(2);
+  });
+
+  it('does not move back while submitting', () => {
+    const { component } = setup();
+
+    component.activeStep.set(2);
+    isSubmittingSignal.set(true);
+
+    component.onPreviousStep();
+    component.onStepIconClick(1);
+
+    expect(component.activeStep()).toBe(2);
+  });
+
   // --- Step 3: Done ---
 
   it('emits closeRequested when done is clicked', () => {
