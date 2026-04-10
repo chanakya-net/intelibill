@@ -1,4 +1,5 @@
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
@@ -24,7 +25,9 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Registration ─────────────────────────────────────────────────────────
 
     [HttpPost("register/email")]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
     public async Task<IActionResult> RegisterWithEmail(
+
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
     {
@@ -50,7 +53,9 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Login ────────────────────────────────────────────────────────────
 
     [HttpPost("login/email")]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
     public async Task<IActionResult> LoginWithEmail(
+
         [FromBody] LoginWithEmailRequest request,
         CancellationToken cancellationToken)
     {
