@@ -598,4 +598,18 @@ public class ShopsControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task RemoveShopBankAccount_AsOwner_Returns200()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+        
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/shops/{shopId}/bank-accounts/{Guid.NewGuid()}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+        
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }

@@ -66,6 +66,16 @@ public class SuppliersControllerTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetSupplierLedger_WithoutAuth_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync($"/api/suppliers/{Guid.NewGuid()}/ledger");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AddSupplier_AsOwner_Returns201_AndListReturnsSupplier()
     {
         using var client = CreateClient();
