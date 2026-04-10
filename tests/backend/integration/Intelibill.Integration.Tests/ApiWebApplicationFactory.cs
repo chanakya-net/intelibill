@@ -67,6 +67,8 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             // the expiry filter client-side.
             services.RemoveAll<IRefreshTokenRepository>();
             services.AddScoped<IRefreshTokenRepository, SqliteRefreshTokenRepository>();
+            services.RemoveAll<ISupplierLedgerEntryRepository>();
+            services.AddScoped<ISupplierLedgerEntryRepository, SqliteSupplierLedgerEntryRepository>();
         });
     }
 
@@ -108,5 +110,50 @@ internal sealed class SqliteRefreshTokenRepository(ApplicationDbContext context)
 
         foreach (var t in tokens)
             t.Revoke();
+    }
+}
+
+/// <summary>
+/// SQLite-compatible supplier ledger entry repository that evaluates DateTimeOffset
+/// ordering on the client side, since SQLite cannot translate DateTimeOffset in ORDER BY clauses.
+/// </summary>
+internal sealed class SqliteSupplierLedgerEntryRepository(ApplicationDbContext context)
+    : RepositoryBase<SupplierLedgerEntry>(context), ISupplierLedgerEntryRepository
+{
+    public async Task<IReadOnlyList<SupplierLedgerEntry>> GetBySupplierAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
+    {
+        var entries = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId)
+            .ToListAsync(cancellationToken);
+
+        return entries
+            .OrderByDescending(e => e.EntryDate)
+            .ThenByDescending(e => e.CreatedAt)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<SupplierLedgerEntry>> GetByBatchAsync(Guid shopId, Guid batchId, CancellationToken cancellationToken = default)
+    {
+        var entries = await DbSet
+            .Where(e => e.ShopId == shopId && e.BatchId == batchId)
+            .ToListAsync(cancellationToken);
+
+        return entries
+            .OrderByDescending(e => e.EntryDate)
+            .ThenByDescending(e => e.CreatedAt)
+            .ToList();
+    }
+
+    public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
+    {
+        var goodsReceived = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == Intelibill.Domain.Enums.SupplierLedgerEntryType.GoodsReceived)
+            .SumAsync(e => e.Amount, cancellationToken);
+
+        var paymentMade = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == Intelibill.Domain.Enums.SupplierLedgerEntryType.PaymentMade)
+            .SumAsync(e => e.Amount, cancellationToken);
+
+        return goodsReceived - paymentMade;
     }
 }

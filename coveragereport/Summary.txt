@@ -1,0 +1,258 @@
+Summary
+  Generated on: 11/04/2026 - 12:44:18 AM
+  Coverage date: 05/04/2026 - 2:46:49 AM - 11/04/2026 - 12:41:16 AM
+  Parser: MultiReport (16x Cobertura)
+  Assemblies: 4
+  Classes: 230
+  Files: 218
+  Line coverage: 85.8%
+  Covered lines: 16589
+  Uncovered lines: 2742
+  Coverable lines: 19331
+  Total lines: 23704
+  Branch coverage: 60.4% (816 of 1350)
+  Covered branches: 816
+  Total branches: 1350
+  Method coverage: 86.3% (1173 of 1358)
+  Full method coverage: 81% (1101 of 1358)
+  Covered methods: 1173
+  Fully covered methods: 1101
+  Total methods: 1358
+
+Intelibill.Api                                                                                                      80.3%
+  Intelibill.Api.Controllers.AddInventoryBatchFailedRow                                                              100%
+  Intelibill.Api.Controllers.AddInventoryBatchRequest                                                                100%
+  Intelibill.Api.Controllers.AddInventoryBatchResponse                                                               100%
+  Intelibill.Api.Controllers.AddInventoryBatchRowError                                                               100%
+  Intelibill.Api.Controllers.AddInventoryBatchRowRequest                                                             100%
+  Intelibill.Api.Controllers.AddInventoryBatchSucceededRow                                                           100%
+  Intelibill.Api.Controllers.AddInventoryRequest                                                                     100%
+  Intelibill.Api.Controllers.AddItemRequest                                                                          100%
+  Intelibill.Api.Controllers.AddShopBankAccountRequest                                                               100%
+  Intelibill.Api.Controllers.AddShopUserRequest                                                                      100%
+  Intelibill.Api.Controllers.AddSupplierRequest                                                                      100%
+  Intelibill.Api.Controllers.AuthController                                                                          100%
+  Intelibill.Api.Controllers.ChangeMyPasswordRequest                                                                 100%
+  Intelibill.Api.Controllers.CreateShopRequest                                                                       100%
+  Intelibill.Api.Controllers.EditInventoryBatchRequest                                                               100%
+  Intelibill.Api.Controllers.EditShopUserRequest                                                                     100%
+  Intelibill.Api.Controllers.EditSupplierRequest                                                                     100%
+  Intelibill.Api.Controllers.ExternalLoginCallbackRequest                                                            100%
+  Intelibill.Api.Controllers.ExternalLoginInitRequest                                                                100%
+  Intelibill.Api.Controllers.ExternalLoginRequest                                                                    100%
+  Intelibill.Api.Controllers.InventoryController                                                                    94.9%
+  Intelibill.Api.Controllers.ItemCatalogEntry                                                                        100%
+  Intelibill.Api.Controllers.ItemsController                                                                          95%
+  Intelibill.Api.Controllers.LoginWithEmailRequest                                                                   100%
+  Intelibill.Api.Controllers.MakePaymentRequest                                                                      100%
+  Intelibill.Api.Controllers.RefreshTokenRequest                                                                     100%
+  Intelibill.Api.Controllers.RegisterWithEmailRequest                                                                100%
+  Intelibill.Api.Controllers.RegisterWithPhoneRequest                                                                100%
+  Intelibill.Api.Controllers.RequestPasswordResetRequest                                                             100%
+  Intelibill.Api.Controllers.ResetPasswordRequest                                                                    100%
+  Intelibill.Api.Controllers.RevokeTokenRequest                                                                      100%
+  Intelibill.Api.Controllers.SetDefaultShopRequest                                                                   100%
+  Intelibill.Api.Controllers.ShopsController                                                                        97.5%
+  Intelibill.Api.Controllers.SuppliersController                                                                    96.7%
+  Intelibill.Api.Controllers.SwitchActiveShopRequest                                                                 100%
+  Intelibill.Api.Controllers.UpdateItemRequest                                                                       100%
+  Intelibill.Api.Controllers.UpdateMyProfileRequest                                                                  100%
+  Intelibill.Api.Controllers.UpdateShopRequest                                                                       100%
+  Intelibill.Api.Controllers.UsersController                                                                        96.2%
+  Intelibill.Api.Extensions.ErrorOrExtensions                                                                        100%
+  Intelibill.Api.Extensions.HttpCurrentSessionContext                                                               87.5%
+  Intelibill.Api.Middleware.ExceptionHandlingMiddleware                                                              100%
+  Intelibill.Api.Options.AppOptions                                                                                  100%
+  Intelibill.Api.WeatherForecast                                                                                       0%
+  Microsoft.AspNetCore.OpenApi.Generated                                                                            35.4%
+  Program                                                                                                            100%
+  System.Runtime.CompilerServices                                                                                      0%
+
+Intelibill.Application                                                                                              80.4%
+  Intelibill.Application.Common.Behaviours.ValidationMiddleware                                                        0%
+  Intelibill.Application.Common.Errors.Errors                                                                       53.9%
+  Intelibill.Application.Common.Extensions.ValidationExtensions                                                      100%
+  Intelibill.Application.Common.Models.ExternalOAuthInitResult                                                       100%
+  Intelibill.Application.Common.Models.ExternalOAuthTokenResult                                                      100%
+  Intelibill.Application.Common.Models.ExternalUserInfo                                                              100%
+  Intelibill.Application.DependencyInjection                                                                         100%
+  Intelibill.Application.Features.Auth.Commands.ExternalLogin.ExternalLoginCommand                                   100%
+  Intelibill.Application.Features.Auth.Commands.ExternalLogin.ExternalLoginCommandHandler                             96%
+  Intelibill.Application.Features.Auth.Commands.ExternalLogin.ExternalLoginCommandValidator                            0%
+  Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommand                                 100%
+  Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommandHandler                          100%
+  Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommandValidator                          0%
+  Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommand                                     100%
+  Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommandHandler                              100%
+  Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommandValidator                              0%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommand                           100%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommandHandler                    100%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommandValidator                    0%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommand                           100%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommandHandler                    100%
+  Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommandValidator                    0%
+  Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommand                     100%
+  Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommandHandler              100%
+  Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommandValidator              0%
+  Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommand                                   100%
+  Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommandHandler                           95.8%
+  Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommandValidator                            0%
+  Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommand                                       100%
+  Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommandHandler                                100%
+  Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommandValidator                                0%
+  Intelibill.Application.Features.Auth.DTOs.AuthResult                                                               100%
+  Intelibill.Application.Features.Auth.DTOs.AuthShopSelection                                                         90%
+  Intelibill.Application.Features.Auth.DTOs.UserDto                                                                  100%
+  Intelibill.Application.Features.Auth.DTOs.UserShopDto                                                              100%
+  Intelibill.Application.Features.Inventory.Commands.AddInventory.AddInventoryCommand                                100%
+  Intelibill.Application.Features.Inventory.Commands.AddInventory.AddInventoryCommandHandler                        93.4%
+  Intelibill.Application.Features.Inventory.Commands.AddInventory.AddInventoryCommandValidator                         0%
+  Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch.EditInventoryBatchCommand                    100%
+  Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch.EditInventoryBatchCommandHandler              92%
+  Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch.EditInventoryBatchCommandValidator             0%
+  Intelibill.Application.Features.Inventory.DTOs.AddInventoryResultDto                                               100%
+  Intelibill.Application.Features.Inventory.DTOs.EditInventoryBatchResultDto                                         100%
+  Intelibill.Application.Features.Items.Commands.AddItem.AddItemCommand                                              100%
+  Intelibill.Application.Features.Items.Commands.AddItem.AddItemCommandHandler                                      90.6%
+  Intelibill.Application.Features.Items.Commands.AddItem.AddItemCommandValidator                                       0%
+  Intelibill.Application.Features.Items.Commands.UpdateItem.UpdateItemCommand                                        100%
+  Intelibill.Application.Features.Items.Commands.UpdateItem.UpdateItemCommandHandler                                94.4%
+  Intelibill.Application.Features.Items.Commands.UpdateItem.UpdateItemCommandValidator                               100%
+  Intelibill.Application.Features.Items.DTOs.ItemDto                                                                 100%
+  Intelibill.Application.Features.Items.DTOs.ProductDetailsDto                                                       100%
+  Intelibill.Application.Features.Items.Queries.GetItems.GetItemsQuery                                               100%
+  Intelibill.Application.Features.Items.Queries.GetItems.GetItemsQueryHandler                                       95.8%
+  Intelibill.Application.Features.Items.Queries.GetProductDetails.GetProductDetailsByNameOrBarcodeQuery              100%
+  Intelibill.Application.Features.Items.Queries.GetProductDetails.GetProductDetailsByNameOrBarcodeQueryHandler      74.5%
+  Intelibill.Application.Features.Items.Queries.StreamItems.StreamItemsQuery                                         100%
+  Intelibill.Application.Features.Items.Queries.StreamItems.StreamItemsQueryHandler                                  100%
+  Intelibill.Application.Features.Shops.Commands.AddShopBankAccount.AddShopBankAccountCommand                        100%
+  Intelibill.Application.Features.Shops.Commands.AddShopBankAccount.AddShopBankAccountCommandHandler                95.6%
+  Intelibill.Application.Features.Shops.Commands.AddShopBankAccount.AddShopBankAccountCommandValidator               100%
+  Intelibill.Application.Features.Shops.Commands.CreateShop.CreateShopCommand                                        100%
+  Intelibill.Application.Features.Shops.Commands.CreateShop.CreateShopCommandHandler                                 100%
+  Intelibill.Application.Features.Shops.Commands.CreateShop.CreateShopCommandValidator                               100%
+  Intelibill.Application.Features.Shops.Commands.SetDefaultShop.SetDefaultShopCommand                                100%
+  Intelibill.Application.Features.Shops.Commands.SetDefaultShop.SetDefaultShopCommandHandler                         100%
+  Intelibill.Application.Features.Shops.Commands.SwitchActiveShop.SwitchActiveShopCommand                            100%
+  Intelibill.Application.Features.Shops.Commands.SwitchActiveShop.SwitchActiveShopCommandHandler                    96.5%
+  Intelibill.Application.Features.Shops.Commands.UpdateShop.UpdateShopCommand                                        100%
+  Intelibill.Application.Features.Shops.Commands.UpdateShop.UpdateShopCommandHandler                                 100%
+  Intelibill.Application.Features.Shops.Commands.UpdateShop.UpdateShopCommandValidator                              86.6%
+  Intelibill.Application.Features.Shops.DTOs.ShopDetailsDto                                                          100%
+  Intelibill.Application.Features.Shops.Queries.GetMyShops.GetMyShopsQuery                                           100%
+  Intelibill.Application.Features.Shops.Queries.GetMyShops.GetMyShopsQueryHandler                                    100%
+  Intelibill.Application.Features.Shops.Queries.GetShopDetails.GetShopDetailsQuery                                   100%
+  Intelibill.Application.Features.Shops.Queries.GetShopDetails.GetShopDetailsQueryHandler                           92.5%
+  Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment.MakeSupplierPaymentCommand             100%
+  Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment.MakeSupplierPaymentCommandHandler     92.5%
+  Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment.MakeSupplierPaymentCommandValidator      0%
+  Intelibill.Application.Features.SupplierLedger.DTOs.SupplierLedgerEntryDto                                         100%
+  Intelibill.Application.Features.SupplierLedger.Queries.GetSupplierEntries.GetSupplierEntriesQuery                  100%
+  Intelibill.Application.Features.SupplierLedger.Queries.GetSupplierEntries.GetSupplierEntriesQueryHandler          52.9%
+  Intelibill.Application.Features.Suppliers.Commands.AddSupplier.AddSupplierCommand                                  100%
+  Intelibill.Application.Features.Suppliers.Commands.AddSupplier.AddSupplierCommandHandler                            95%
+  Intelibill.Application.Features.Suppliers.Commands.AddSupplier.AddSupplierCommandValidator                           0%
+  Intelibill.Application.Features.Suppliers.Commands.EditSupplier.EditSupplierCommand                                100%
+  Intelibill.Application.Features.Suppliers.Commands.EditSupplier.EditSupplierCommandHandler                        90.6%
+  Intelibill.Application.Features.Suppliers.Commands.EditSupplier.EditSupplierCommandValidator                         0%
+  Intelibill.Application.Features.Suppliers.DTOs.SupplierDto                                                         100%
+  Intelibill.Application.Features.Suppliers.Queries.GetSuppliers.GetSuppliersQuery                                   100%
+  Intelibill.Application.Features.Suppliers.Queries.GetSuppliers.GetSuppliersQueryHandler                           93.1%
+  Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommand                                      100%
+  Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommandHandler                              94.1%
+  Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommandValidator                               0%
+  Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommand                            100%
+  Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommandHandler                     100%
+  Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommandValidator                     0%
+  Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommand                                    100%
+  Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommandHandler                            92.5%
+  Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommandValidator                             0%
+  Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommand                              100%
+  Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommandHandler                       100%
+  Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommandValidator                       0%
+  Intelibill.Application.Features.Users.DTOs.ShopUserDto                                                             100%
+  Intelibill.Application.Features.Users.Queries.GetShopUsers.GetShopUsersQuery                                       100%
+  Intelibill.Application.Features.Users.Queries.GetShopUsers.GetShopUsersQueryHandler                                 96%
+
+Intelibill.Domain                                                                                                   89.4%
+  Intelibill.Domain.Common.BaseEntity                                                                               85.7%
+  Intelibill.Domain.Common.ValueObject                                                                                 0%
+  Intelibill.Domain.Entities.BankAccount                                                                             100%
+  Intelibill.Domain.Entities.Inventory                                                                              78.7%
+  Intelibill.Domain.Entities.InventoryBatch                                                                         82.1%
+  Intelibill.Domain.Entities.Item                                                                                   86.5%
+  Intelibill.Domain.Entities.PasswordResetToken                                                                      100%
+  Intelibill.Domain.Entities.RefreshToken                                                                            100%
+  Intelibill.Domain.Entities.Shop                                                                                   95.2%
+  Intelibill.Domain.Entities.ShopMembership                                                                          100%
+  Intelibill.Domain.Entities.StockTransaction                                                                       79.6%
+  Intelibill.Domain.Entities.Supplier                                                                                100%
+  Intelibill.Domain.Entities.SupplierLedgerEntry                                                                    95.3%
+  Intelibill.Domain.Entities.User                                                                                   96.5%
+  Intelibill.Domain.Entities.UserExternalLogin                                                                       100%
+  Intelibill.Domain.Events.PasswordResetRequestedEvent                                                                 0%
+  Intelibill.Domain.Events.UserRegisteredEvent                                                                       100%
+  Intelibill.Domain.Exceptions.DomainException                                                                         0%
+
+Intelibill.Infrastructure                                                                                           86.9%
+  Intelibill.Infrastructure.Data.ApplicationDbContext                                                                 91%
+  Intelibill.Infrastructure.Data.Configurations.BankAccountConfiguration                                             100%
+  Intelibill.Infrastructure.Data.Configurations.InventoryBatchConfiguration                                          100%
+  Intelibill.Infrastructure.Data.Configurations.InventoryConfiguration                                               100%
+  Intelibill.Infrastructure.Data.Configurations.ItemConfiguration                                                    100%
+  Intelibill.Infrastructure.Data.Configurations.PasswordResetTokenConfiguration                                      100%
+  Intelibill.Infrastructure.Data.Configurations.RefreshTokenConfiguration                                            100%
+  Intelibill.Infrastructure.Data.Configurations.ShopConfiguration                                                    100%
+  Intelibill.Infrastructure.Data.Configurations.ShopMembershipConfiguration                                          100%
+  Intelibill.Infrastructure.Data.Configurations.StockTransactionConfiguration                                       81.5%
+  Intelibill.Infrastructure.Data.Configurations.SupplierConfiguration                                                100%
+  Intelibill.Infrastructure.Data.Configurations.SupplierLedgerEntryConfiguration                                      95%
+  Intelibill.Infrastructure.Data.Configurations.UserConfiguration                                                    100%
+  Intelibill.Infrastructure.Data.Configurations.UserExternalLoginConfiguration                                       100%
+  Intelibill.Infrastructure.Data.Interceptors.PostgresSessionContextInterceptor                                        0%
+  Intelibill.Infrastructure.Data.UnitOfWork                                                                          100%
+  Intelibill.Infrastructure.DependencyInjection                                                                     86.9%
+  Intelibill.Infrastructure.Migrations.AddAmountAndStatusToSupplier                                                 99.1%
+  Intelibill.Infrastructure.Migrations.AddBankAccountEntity                                                         95.8%
+  Intelibill.Infrastructure.Migrations.AddGstNumberToShop                                                           98.7%
+  Intelibill.Infrastructure.Migrations.AddInventoryFoundation                                                       91.2%
+  Intelibill.Infrastructure.Migrations.AddShopBankDetails                                                           98.4%
+  Intelibill.Infrastructure.Migrations.AddShopDetailsFields                                                         95.5%
+  Intelibill.Infrastructure.Migrations.AddShopIsolation                                                             89.5%
+  Intelibill.Infrastructure.Migrations.AddSupplierLedgerEntries                                                     96.7%
+  Intelibill.Infrastructure.Migrations.AddSupplierOwnerScope                                                        99.2%
+  Intelibill.Infrastructure.Migrations.AddTaxIncludedToInventoryBatches                                             99.4%
+  Intelibill.Infrastructure.Migrations.AddUserLanguagePreference                                                    98.7%
+  Intelibill.Infrastructure.Migrations.AddUserLoginEnabledFlag                                                      98.7%
+  Intelibill.Infrastructure.Migrations.ApplicationDbContextModelSnapshot                                               0%
+  Intelibill.Infrastructure.Migrations.InitialAuthSchema                                                            97.3%
+  Intelibill.Infrastructure.Migrations.MoveSupplierReferenceFromItemToBatch                                         95.3%
+  Intelibill.Infrastructure.Migrations.RemoveAmountAndStatusFromSupplier                                            98.6%
+  Intelibill.Infrastructure.Migrations.RemoveMinSalePriceFromInventoryBatches                                       98.5%
+  Intelibill.Infrastructure.Options.DatabaseOptions                                                                 83.3%
+  Intelibill.Infrastructure.Options.ExternalAuthOptions                                                              100%
+  Intelibill.Infrastructure.Options.ExternalAuthOptionsValidator                                                    28.5%
+  Intelibill.Infrastructure.Options.JwtOptions                                                                       100%
+  Intelibill.Infrastructure.Repositories.InventoryBatchRepository                                                    100%
+  Intelibill.Infrastructure.Repositories.InventoryRepository                                                         100%
+  Intelibill.Infrastructure.Repositories.ItemRepository                                                             71.4%
+  Intelibill.Infrastructure.Repositories.PasswordResetTokenRepository                                                8.3%
+  Intelibill.Infrastructure.Repositories.RefreshTokenRepository                                                        0%
+  Intelibill.Infrastructure.Repositories.RepositoryBase<T>                                                          62.5%
+  Intelibill.Infrastructure.Repositories.ShopRepository                                                             25.6%
+  Intelibill.Infrastructure.Repositories.StockTransactionRepository                                                 11.1%
+  Intelibill.Infrastructure.Repositories.SupplierLedgerEntryRepository                                                75%
+  Intelibill.Infrastructure.Repositories.SupplierRepository                                                          100%
+  Intelibill.Infrastructure.Repositories.UserRepository                                                             74.2%
+  Intelibill.Infrastructure.Services.Auth.BcryptPasswordHasher                                                       100%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.AppleAuthProvider                                               0%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.ExternalOAuthFlowService                                       30%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.ExternalOAuthState                                              0%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.FacebookAuthProvider                                          6.4%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.GoogleAuthProvider                                            8.8%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.InMemoryExternalOAuthStateStore                              53.8%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.MicrosoftAuthProvider                                           0%
+  Intelibill.Infrastructure.Services.Auth.ExternalAuth.TwitterAuthProvider                                             0%
+  Intelibill.Infrastructure.Services.Auth.NoOpEmailService                                                           7.6%
+  Intelibill.Infrastructure.Services.Auth.TokenService                                                               100%
