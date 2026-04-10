@@ -1,4 +1,9 @@
-<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'users.editShopUser' | transloco">
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'users.editShopUser' | transloco"
+>
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
@@ -8,7 +13,12 @@
         <h2>{{ 'users.editUser' | transloco }}</h2>
         <p class="description">{{ 'users.editUserDescription' | transloco }}</p>
       </div>
-      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
@@ -19,17 +29,21 @@
         <p class="shop-selection-description">{{ 'users.selectShopsForAccess' | transloco }}</p>
 
         <div class="shop-options">
-          <label class="shop-option" *ngFor="let shop of availableShops()">
-            <input
-              type="checkbox"
-              [checked]="isShopSelected(shop.shopId)"
-              (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
-            />
-            <span>
-              {{ shop.shopName }}
-              <small *ngIf="shop.isDefault">{{ 'users.default' | transloco }}</small>
-            </span>
-          </label>
+          @for (shop of availableShops(); track shop) {
+            <label class="shop-option">
+              <input
+                type="checkbox"
+                [checked]="isShopSelected(shop.shopId)"
+                (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+              />
+              <span>
+                {{ shop.shopName }}
+                @if (shop.isDefault) {
+                  <small>{{ 'users.default' | transloco }}</small>
+                }
+              </span>
+            </label>
+          }
         </div>
       </fieldset>
 
@@ -62,20 +76,40 @@
       </label>
 
       <label class="toggle-row" for="isLoginEnabled">
-        <p-checkbox inputId="isLoginEnabled" formControlName="isLoginEnabled" [binary]="true"></p-checkbox>
+        <p-checkbox
+          inputId="isLoginEnabled"
+          formControlName="isLoginEnabled"
+          [binary]="true"
+        ></p-checkbox>
         <span>{{ 'users.allowUserLogin' | transloco }}</span>
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
 
       <div class="actions">
-        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" [label]="'users.saveChanges' | transloco" [disabled]="isSubmitting()"></button>
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'users.saveChanges' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
       </div>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
   </div>
 </section>

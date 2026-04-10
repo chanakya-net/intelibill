@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
@@ -27,7 +26,10 @@ import {
   InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { AudioService } from '../../../core/services/audio.service';
-import { BarcodeDetection, BarcodeDetectorService } from '../../../core/services/barcode-detector.service';
+import {
+  BarcodeDetection,
+  BarcodeDetectorService,
+} from '../../../core/services/barcode-detector.service';
 import { CameraStreamService } from '../../../core/services/camera-stream.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
@@ -37,7 +39,6 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
   selector: 'app-inventory-batch-page',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
     AutoCompleteModule,
@@ -135,7 +136,9 @@ export class InventoryBatchPageComponent {
     },
   };
   readonly scannerEngineLabel = computed(
-    () => this.scannerLastEngineKey() || this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
+    () =>
+      this.scannerLastEngineKey() ||
+      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
   );
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
@@ -208,7 +211,9 @@ export class InventoryBatchPageComponent {
   }
 
   onFilterBarcode(event: AutoCompleteCompleteEvent): void {
-    this.barcodeSuggestions.set(this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode));
+    this.barcodeSuggestions.set(
+      this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode),
+    );
   }
 
   onNameSelected(name: string): void {
@@ -236,7 +241,9 @@ export class InventoryBatchPageComponent {
     this.scannerLastValue.set('');
     this.scannerLastFormat.set('');
     this.scannerSessionCount.set(0);
-    this.scannerLastEngineKey.set(this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine));
+    this.scannerLastEngineKey.set(
+      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
+    );
     this.isScannerOpen.set(true);
     void this.audioService.prime();
   }
@@ -378,12 +385,17 @@ export class InventoryBatchPageComponent {
       taxIncluded: row.taxIncluded,
       expiryDate: row.expiryDate ?? '',
       manufacturingDate: row.manufacturingDate ?? '',
-      supplierName: this.getSupplierDisplayName(row.supplierId) === '-' ? '' : this.getSupplierDisplayName(row.supplierId),
+      supplierName:
+        this.getSupplierDisplayName(row.supplierId) === '-'
+          ? ''
+          : this.getSupplierDisplayName(row.supplierId),
       referenceNumber: row.referenceNumber ?? '',
       notes: row.notes ?? '',
     });
 
-    const updatedRows = this.pendingRows().filter((candidate) => candidate.clientRowId !== clientRowId);
+    const updatedRows = this.pendingRows().filter(
+      (candidate) => candidate.clientRowId !== clientRowId,
+    );
     this.saveSummary.set(null);
     this.pendingRows.set(updatedRows);
     void this.persistRows(this.activeShopId(), updatedRows);
@@ -429,7 +441,11 @@ export class InventoryBatchPageComponent {
         if (response.failedCount === 0) {
           this.pendingRows.set([]);
           void this.draftStorage.clearRows(this.activeShopId());
-          this.showSuccess('inventory.savedSuccess', response.successCount, response.requestedCount);
+          this.showSuccess(
+            'inventory.savedSuccess',
+            response.successCount,
+            response.requestedCount,
+          );
         } else {
           const failedIds = new Set(response.failed.map((row) => row.clientRowId));
           const remainingRows = this.pendingRows().filter((row) => failedIds.has(row.clientRowId));
@@ -461,7 +477,10 @@ export class InventoryBatchPageComponent {
     }
   }
 
-  private async persistRows(shopId: string, rows: readonly InventoryInboundDraftRow[]): Promise<void> {
+  private async persistRows(
+    shopId: string,
+    rows: readonly InventoryInboundDraftRow[],
+  ): Promise<void> {
     if (!shopId) {
       return;
     }
@@ -558,7 +577,9 @@ export class InventoryBatchPageComponent {
       return '-';
     }
 
-    return this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId;
+    return (
+      this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId
+    );
   }
 
   private findSupplierByName(name: string): Supplier | undefined {
@@ -573,7 +594,9 @@ export class InventoryBatchPageComponent {
 
     this.scannerInitializing.set(true);
     this.scannerError.set('');
-    this.scannerLastEngineKey.set(this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine));
+    this.scannerLastEngineKey.set(
+      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
+    );
 
     try {
       const stream = await this.cameraStreamService.startPreferredCamera();
@@ -588,7 +611,9 @@ export class InventoryBatchPageComponent {
         },
       );
     } catch (error) {
-      this.scannerError.set(error instanceof Error ? error.message : this.translate('inventory.scannerOpenError'));
+      this.scannerError.set(
+        error instanceof Error ? error.message : this.translate('inventory.scannerOpenError'),
+      );
       this.isScannerOpen.set(false);
     } finally {
       this.scannerInitializing.set(false);
@@ -617,7 +642,9 @@ export class InventoryBatchPageComponent {
     return false;
   }
 
-  private async incrementExistingRowQuantity(barcode: string): Promise<InventoryInboundDraftRow | null> {
+  private async incrementExistingRowQuantity(
+    barcode: string,
+  ): Promise<InventoryInboundDraftRow | null> {
     const matchingRow = this.pendingRows().find((row) => row.barcode === barcode);
     if (!matchingRow) {
       return null;
@@ -627,7 +654,9 @@ export class InventoryBatchPageComponent {
       ...matchingRow,
       quantity: Number((matchingRow.quantity + 1).toFixed(3)),
     } satisfies InventoryInboundDraftRow;
-    const updatedRows = this.pendingRows().map((row) => (row.clientRowId === matchingRow.clientRowId ? updatedRow : row));
+    const updatedRows = this.pendingRows().map((row) =>
+      row.clientRowId === matchingRow.clientRowId ? updatedRow : row,
+    );
 
     this.saveSummary.set(null);
     this.pendingRows.set(updatedRows);

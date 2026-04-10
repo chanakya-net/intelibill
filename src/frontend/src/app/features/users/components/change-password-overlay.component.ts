@@ -1,6 +1,11 @@
-import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -20,7 +25,13 @@ import {
 @Component({
   selector: 'app-change-password-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule, PasswordModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    PasswordModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './change-password-overlay.component.html',
   styleUrl: './change-password-overlay.component.scss',
 })
@@ -36,11 +47,17 @@ export class ChangePasswordOverlayComponent implements OnInit {
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly form = this.formBuilder.nonNullable.group({
-    currentPassword: ['', [Validators.required]],
-    newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-    confirmNewPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-  }, { validators: [passwordsMatchValidator] });
+  readonly form = this.formBuilder.nonNullable.group(
+    {
+      currentPassword: ['', [Validators.required]],
+      newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+      confirmNewPassword: [
+        '',
+        [Validators.required, Validators.minLength(8), Validators.maxLength(100)],
+      ],
+    },
+    { validators: [passwordsMatchValidator] },
+  );
 
   readonly progressSpinnerPt = {
     root: { class: 'change-password-spinner-root' },
@@ -48,7 +65,8 @@ export class ChangePasswordOverlayComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      const isChangePasswordSuccess = this.lastMutationType() === 'change-password' && this.lastMutationSucceeded();
+      const isChangePasswordSuccess =
+        this.lastMutationType() === 'change-password' && this.lastMutationSucceeded();
       if (!this.isChangePasswordPending() || !isChangePasswordSuccess || this.isSubmitting()) {
         return;
       }

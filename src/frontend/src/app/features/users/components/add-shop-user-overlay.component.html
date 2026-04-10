@@ -1,4 +1,9 @@
-<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'users.addUserToShop' | transloco">
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'users.addUserToShop' | transloco"
+>
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
@@ -8,7 +13,12 @@
         <h2>{{ 'users.addUser' | transloco }}</h2>
         <p class="description">{{ 'users.addUserDescription' | transloco }}</p>
       </div>
-      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
@@ -19,17 +29,21 @@
         <p class="shop-selection-description">{{ 'users.selectOneOrMoreShops' | transloco }}</p>
 
         <div class="shop-options">
-          <label class="shop-option" *ngFor="let shop of availableShops()">
-            <input
-              type="checkbox"
-              [checked]="isShopSelected(shop.shopId)"
-              (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
-            />
-            <span>
-              {{ shop.shopName }}
-              <small *ngIf="shop.isDefault">{{ 'users.default' | transloco }}</small>
-            </span>
-          </label>
+          @for (shop of availableShops(); track shop) {
+            <label class="shop-option">
+              <input
+                type="checkbox"
+                [checked]="isShopSelected(shop.shopId)"
+                (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+              />
+              <span>
+                {{ shop.shopName }}
+                @if (shop.isDefault) {
+                  <small>{{ 'users.default' | transloco }}</small>
+                }
+              </span>
+            </label>
+          }
         </div>
       </fieldset>
 
@@ -55,12 +69,26 @@
 
       <label>
         <span>{{ 'auth.password' | transloco }}</span>
-        <p-password formControlName="password" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
+        <p-password
+          formControlName="password"
+          [toggleMask]="true"
+          [feedback]="false"
+          autocomplete="new-password"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        ></p-password>
       </label>
 
       <label>
         <span>{{ 'register.confirmPassword' | transloco }}</span>
-        <p-password formControlName="confirmPassword" [toggleMask]="true" [feedback]="false" autocomplete="new-password" styleClass="w-full" inputStyleClass="w-full"></p-password>
+        <p-password
+          formControlName="confirmPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+          autocomplete="new-password"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        ></p-password>
       </label>
 
       <label>
@@ -71,22 +99,42 @@
         </select>
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
-      <p class="error-message" *ngIf="form.hasError('passwordMismatch') && form.controls.confirmPassword.touched">
-        {{ 'users.validation.passwordConfirmationMustMatch' | transloco }}
-      </p>
-      <p class="error-message" *ngIf="form.controls.shopIds.invalid && form.controls.shopIds.touched">
-        {{ 'users.validation.selectAtLeastOneShop' | transloco }}
-      </p>
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+      @if (form.hasError('passwordMismatch') && form.controls.confirmPassword.touched) {
+        <p class="error-message">
+          {{ 'users.validation.passwordConfirmationMustMatch' | transloco }}
+        </p>
+      }
+      @if (form.controls.shopIds.invalid && form.controls.shopIds.touched) {
+        <p class="error-message">
+          {{ 'users.validation.selectAtLeastOneShop' | transloco }}
+        </p>
+      }
 
       <div class="actions">
-        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" [label]="'users.addUser' | transloco" [disabled]="isSubmitting()"></button>
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'users.addUser' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
       </div>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
   </div>
 </section>

@@ -6,165 +6,174 @@
       <p class="subtitle">{{ 'inventory.subtitle' | transloco }}</p>
     </div>
 
-    <button
-      pButton
-      type="button"
-      [label]="'inventory.addNewProduct' | transloco"
-      icon="pi pi-plus"
-      *ngIf="canManageInventory()"
-      (click)="onOpenAddProduct()"
-    ></button>
+    @if (canManageInventory()) {
+      <button
+        pButton
+        type="button"
+        [label]="'inventory.addNewProduct' | transloco"
+        icon="pi pi-plus"
+        (click)="onOpenAddProduct()"
+      ></button>
+    }
   </header>
 
-  <p class="error" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
 
-  <div class="loading" *ngIf="isLoadingItems() || isSubmitting()">
-    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-  </div>
+  @if (isLoadingItems() || isSubmitting()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
 
-  <div class="inventory-table-card" *ngIf="!isLoadingItems() && !isSubmitting()">
-    <p-table
-      #inventoryTable
-      [value]="tableItems()"
-      dataKey="id"
-      [rows]="10"
-      [rowsPerPageOptions]="[10, 25, 50]"
-      [paginator]="tableItems().length > 10"
-      [globalFilterFields]="['name', 'barcode', 'uom', 'currentStock', 'isActive']"
-      [sortField]="'name'"
-      [sortOrder]="1"
-      class="p-datatable-sm"
-    >
-      <ng-template pTemplate="caption">
-        <div class="table-caption">
-          <p-button
-            [label]="'common.clear' | transloco"
-            [outlined]="true"
-            icon="pi pi-filter-slash"
-            (click)="clearFilters(inventoryTable)"
-          />
-          <p-iconfield iconPosition="left">
-            <p-inputicon>
-              <i class="pi pi-search"></i>
-            </p-inputicon>
-            <input
-              pInputText
-              type="text"
-              [(ngModel)]="searchValue"
-              (input)="inventoryTable.filterGlobal(searchValue(), 'contains')"
-              [placeholder]="'inventory.searchPlaceholder' | transloco"
+  @if (!isLoadingItems() && !isSubmitting()) {
+    <div class="inventory-table-card">
+      <p-table
+        #inventoryTable
+        [value]="tableItems()"
+        dataKey="id"
+        [rows]="10"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        [paginator]="tableItems().length > 10"
+        [globalFilterFields]="['name', 'barcode', 'uom', 'currentStock', 'isActive']"
+        [sortField]="'name'"
+        [sortOrder]="1"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="caption">
+          <div class="table-caption">
+            <p-button
+              [label]="'common.clear' | transloco"
+              [outlined]="true"
+              icon="pi pi-filter-slash"
+              (click)="clearFilters(inventoryTable)"
             />
-          </p-iconfield>
-        </div>
-      </ng-template>
-
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="name" style="min-width: 12rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.name' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="name" />
-                <p-columnFilter type="text" field="name" display="menu" />
+            <p-iconfield iconPosition="left">
+              <p-inputicon>
+                <i class="pi pi-search"></i>
+              </p-inputicon>
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="searchValue"
+                (input)="inventoryTable.filterGlobal(searchValue(), 'contains')"
+                [placeholder]="'inventory.searchPlaceholder' | transloco"
+              />
+            </p-iconfield>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name" style="min-width: 12rem">
+              <div class="flex items-center justify-between">
+                {{ 'inventory.name' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="name" />
+                  <p-columnFilter type="text" field="name" display="menu" />
+                </div>
               </div>
-            </div>
-          </th>
-          <th pSortableColumn="barcode" style="min-width: 10rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.barcode' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="barcode" />
-                <p-columnFilter type="text" field="barcode" display="menu" />
+            </th>
+            <th pSortableColumn="barcode" style="min-width: 10rem">
+              <div class="flex items-center justify-between">
+                {{ 'inventory.barcode' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="barcode" />
+                  <p-columnFilter type="text" field="barcode" display="menu" />
+                </div>
               </div>
-            </div>
-          </th>
-          <th pSortableColumn="uom" style="min-width: 8rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.uom' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="uom" />
-                <p-columnFilter type="text" field="uom" display="menu" />
+            </th>
+            <th pSortableColumn="uom" style="min-width: 8rem">
+              <div class="flex items-center justify-between">
+                {{ 'inventory.uom' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="uom" />
+                  <p-columnFilter type="text" field="uom" display="menu" />
+                </div>
               </div>
-            </div>
-          </th>
-          <th pSortableColumn="currentStock" style="min-width: 10rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.currentStock' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="currentStock" />
-                <p-columnFilter type="numeric" field="currentStock" display="menu" />
+            </th>
+            <th pSortableColumn="currentStock" style="min-width: 10rem">
+              <div class="flex items-center justify-between">
+                {{ 'inventory.currentStock' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="currentStock" />
+                  <p-columnFilter type="numeric" field="currentStock" display="menu" />
+                </div>
               </div>
-            </div>
-          </th>
-          <th pSortableColumn="isActive" style="min-width: 9rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.status' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="isActive" />
-                <p-columnFilter type="boolean" field="isActive" display="menu" />
+            </th>
+            <th pSortableColumn="isActive" style="min-width: 9rem">
+              <div class="flex items-center justify-between">
+                {{ 'inventory.status' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isActive" />
+                  <p-columnFilter type="boolean" field="isActive" display="menu" />
+                </div>
               </div>
-            </div>
-          </th>
-          <th style="min-width: 6rem">
-            <div class="flex items-center justify-center">
-              {{ 'common.actions' | transloco }}
-            </div>
-          </th>
-        </tr>
-      </ng-template>
+            </th>
+            <th style="min-width: 6rem">
+              <div class="flex items-center justify-center">
+                {{ 'common.actions' | transloco }}
+              </div>
+            </th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.barcode }}</td>
+            <td>{{ item.uom }}</td>
+            <td>
+              <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
+            </td>
+            <td>
+              <span class="status-pill" [class.disabled]="!item.isActive">
+                {{
+                  item.isActive
+                    ? ('inventory.active' | transloco)
+                    : ('inventory.inactive' | transloco)
+                }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                @if (canManageInventory()) {
+                  <button
+                    pButton
+                    type="button"
+                    [icon]="'pi pi-pencil'"
+                    [rounded]="true"
+                    [text]="true"
+                    [attr.aria-label]="'common.edit' | transloco"
+                    (click)="onEditItem(item)"
+                    [disabled]="isSubmitting()"
+                  ></button>
+                }
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
+                <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
 
-      <ng-template pTemplate="body" let-item>
-        <tr>
-          <td>{{ item.name }}</td>
-          <td>{{ item.barcode }}</td>
-          <td>{{ item.uom }}</td>
-          <td>
-            <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
-          </td>
-          <td>
-            <span class="status-pill" [class.disabled]="!item.isActive">
-              {{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}
-            </span>
-          </td>
-          <td>
-            <div class="action-buttons">
-              <button
-                pButton
-                type="button"
-                [icon]="'pi pi-pencil'"
-                [rounded]="true"
-                [text]="true"
-                [attr.aria-label]="'common.edit' | transloco"
-                *ngIf="canManageInventory()"
-                (click)="onEditItem(item)"
-                [disabled]="isSubmitting()"
-              ></button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
+  @if (showAddProductOverlay()) {
+    <app-add-product-overlay (closeRequested)="onCloseAddProduct()"></app-add-product-overlay>
+  }
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="6">
-            <div class="empty-state">
-              <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
-              <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
-
-  <app-add-product-overlay
-    *ngIf="showAddProductOverlay()"
-    (closeRequested)="onCloseAddProduct()"
-  ></app-add-product-overlay>
-
-  <app-edit-item-overlay
-    *ngIf="showEditItemOverlay() && selectedItemForEdit()"
-    [item]="selectedItemForEdit()!"
-    (closeRequested)="onCloseEditItem()"
-  ></app-edit-item-overlay>
+  @if (showEditItemOverlay() && selectedItemForEdit()) {
+    <app-edit-item-overlay
+      [item]="selectedItemForEdit()!"
+      (closeRequested)="onCloseEditItem()"
+    ></app-edit-item-overlay>
+  }
 </section>

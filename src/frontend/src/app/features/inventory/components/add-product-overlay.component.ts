@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -13,13 +12,15 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { RootState } from '../../../core/state/app.state';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryActions } from '../state/inventory.actions';
-import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state/inventory.selectors';
+import {
+  selectInventoryErrorMessage,
+  selectInventorySubmitting,
+} from '../state/inventory.selectors';
 
 @Component({
   selector: 'app-add-product-overlay',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     AutoCompleteModule,
     InputTextModule,
@@ -61,7 +62,9 @@ export class AddProductOverlayComponent implements OnInit {
   }
 
   onFilterBarcode(event: AutoCompleteCompleteEvent): void {
-    this.barcodeSuggestions.set(this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode));
+    this.barcodeSuggestions.set(
+      this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode),
+    );
   }
 
   onNameSelected(name: string): void {
@@ -107,7 +110,7 @@ export class AddProductOverlayComponent implements OnInit {
           uom: this.form.controls.uom.value.trim(),
           isActive: this.form.controls.isActive.value,
         },
-      })
+      }),
     );
   }
 

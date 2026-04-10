@@ -95,16 +95,20 @@
                   [disabled]="isSubmitting() || isLoadingDetails()"
                   (change)="onShopSelectionChange()"
                 >
-                  <option *ngFor="let shop of shops" [value]="shop.shopId">
-                    {{ shop.shopName }} ({{ shop.role }})
-                  </option>
+                  @for (shop of shops; track shop.shopId) {
+                    <option [value]="shop.shopId">
+                      {{ shop.shopName }} ({{ shop.role }})
+                    </option>
+                  }
                 </select>
               </div>
 
-              <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
-                {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
-                {{ 'shops.onlyOwnersCanSave' | transloco }}
-              </p>
+              @if (!isSelectedShopOwner()) {
+                <p class="owner-hint">
+                  {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
+                  {{ 'shops.onlyOwnersCanSave' | transloco }}
+                </p>
+              }
 
               <div class="field-wrap space-y-1.5">
                 <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
@@ -117,9 +121,9 @@
                   class="w-full"
                   [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
                 />
-                <p class="field-error" *ngIf="form.controls.name.hasError('required') && form.controls.name.touched">
-                  {{ 'shops.validation.shopNameRequired' | transloco }}
-                </p>
+                @if (form.controls.name.hasError('required') && form.controls.name.touched) {
+                  <p class="field-error">{{ 'shops.validation.shopNameRequired' | transloco }}</p>
+                }
               </div>
 
               <div class="field-wrap space-y-1.5">
@@ -133,9 +137,9 @@
                   class="w-full"
                   [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
                 />
-                <p class="field-error" *ngIf="form.controls.address.hasError('required') && form.controls.address.touched">
-                  {{ 'shops.validation.addressRequired' | transloco }}
-                </p>
+                @if (form.controls.address.hasError('required') && form.controls.address.touched) {
+                  <p class="field-error">{{ 'shops.validation.addressRequired' | transloco }}</p>
+                }
               </div>
 
               <div class="field-grid">
@@ -150,9 +154,9 @@
                     class="w-full"
                     [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
                   />
-                  <p class="field-error" *ngIf="form.controls.city.hasError('required') && form.controls.city.touched">
-                    {{ 'shops.validation.cityRequired' | transloco }}
-                  </p>
+                  @if (form.controls.city.hasError('required') && form.controls.city.touched) {
+                    <p class="field-error">{{ 'shops.validation.cityRequired' | transloco }}</p>
+                  }
                 </div>
 
                 <div class="field-wrap space-y-1.5">
@@ -166,9 +170,9 @@
                     class="w-full"
                     [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
                   />
-                  <p class="field-error" *ngIf="form.controls.state.hasError('required') && form.controls.state.touched">
-                    {{ 'shops.validation.stateRequired' | transloco }}
-                  </p>
+                  @if (form.controls.state.hasError('required') && form.controls.state.touched) {
+                    <p class="field-error">{{ 'shops.validation.stateRequired' | transloco }}</p>
+                  }
                 </div>
               </div>
 
@@ -183,9 +187,9 @@
                   class="w-full"
                   [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
                 />
-                <p class="field-error" *ngIf="form.controls.pincode.hasError('required') && form.controls.pincode.touched">
-                  {{ 'shops.validation.pincodeRequired' | transloco }}
-                </p>
+                @if (form.controls.pincode.hasError('required') && form.controls.pincode.touched) {
+                  <p class="field-error">{{ 'shops.validation.pincodeRequired' | transloco }}</p>
+                }
               </div>
 
               <div class="field-grid">
@@ -225,12 +229,14 @@
                   [placeholder]="'shops.placeholders.gst' | transloco"
                   [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
                 />
-                <p class="field-error" *ngIf="form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched">
-                  {{ 'shops.validation.gstInvalid' | transloco }}
-                </p>
+                @if (form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched) {
+                  <p class="field-error">{{ 'shops.validation.gstInvalid' | transloco }}</p>
+                }
               </div>
 
-              <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
+              @if (serverError()) {
+                <p class="server-error">{{ serverError() | transloco }}</p>
+              }
 
               <div class="flex pt-4 justify-end">
                 <button
@@ -253,10 +259,12 @@
             <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
               <p class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</p>
 
-              <p class="owner-hint" *ngIf="!isSelectedShopOwner()">
-                {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
-                {{ 'shops.onlyOwnersCanSave' | transloco }}
-              </p>
+              @if (!isSelectedShopOwner()) {
+                <p class="owner-hint">
+                  {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
+                  {{ 'shops.onlyOwnersCanSave' | transloco }}
+                </p>
+              }
 
               <div class="field-wrap space-y-1.5">
                 <label for="manage-bank-name">{{ 'shops.bankName' | transloco }}</label>
@@ -325,7 +333,9 @@
                 />
               </div>
 
-              <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
+              @if (serverError()) {
+                <p class="server-error">{{ serverError() | transloco }}</p>
+              }
 
               <div class="flex pt-4 justify-between">
                 <div class="flex gap-2">

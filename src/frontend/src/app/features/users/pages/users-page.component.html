@@ -6,87 +6,112 @@
       <p class="subtitle">{{ 'users.subtitle' | transloco }}</p>
     </div>
 
-    <button
-      pButton
-      type="button"
-      [label]="'users.addUser' | transloco"
-      icon="pi pi-user-plus"
-      *ngIf="canAddUsers()"
-      (click)="onOpenAddUser()"
-    ></button>
+    @if (canAddUsers()) {
+      <button
+        pButton
+        type="button"
+        [label]="'users.addUser' | transloco"
+        icon="pi pi-user-plus"
+        (click)="onOpenAddUser()"
+      ></button>
+    }
   </header>
 
-  <p class="error" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
 
-  <div class="loading" *ngIf="isLoading()">
-    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-  </div>
+  @if (isLoading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
 
-  <div class="users-table-card" *ngIf="!isLoading()">
-    <p-table
-      [value]="tableUsers()"
-      [sortField]="'firstName'"
-      [sortOrder]="1"
-      class="p-datatable-sm"
-    >
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="firstName">{{ 'users.name' | transloco }} <p-sortIcon field="firstName" /></th>
-          <th pSortableColumn="phoneNumber">{{ 'users.mobile' | transloco }} <p-sortIcon field="phoneNumber" /></th>
-          <th pSortableColumn="email">{{ 'users.email' | transloco }} <p-sortIcon field="email" /></th>
-          <th pSortableColumn="role">{{ 'users.role' | transloco }} <p-sortIcon field="role" /></th>
-          <th pSortableColumn="isLoginEnabled">{{ 'users.login' | transloco }} <p-sortIcon field="isLoginEnabled" /></th>
-          <th *ngIf="canEditUsers()">{{ 'users.actions' | transloco }}</th>
-        </tr>
-      </ng-template>
+  @if (!isLoading()) {
+    <div class="users-table-card">
+      <p-table
+        [value]="tableUsers()"
+        [sortField]="'firstName'"
+        [sortOrder]="1"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="firstName">
+              {{ 'users.name' | transloco }} <p-sortIcon field="firstName" />
+            </th>
+            <th pSortableColumn="phoneNumber">
+              {{ 'users.mobile' | transloco }} <p-sortIcon field="phoneNumber" />
+            </th>
+            <th pSortableColumn="email">
+              {{ 'users.email' | transloco }} <p-sortIcon field="email" />
+            </th>
+            <th pSortableColumn="role">
+              {{ 'users.role' | transloco }} <p-sortIcon field="role" />
+            </th>
+            <th pSortableColumn="isLoginEnabled">
+              {{ 'users.login' | transloco }} <p-sortIcon field="isLoginEnabled" />
+            </th>
+            @if (canEditUsers()) {
+              <th>{{ 'users.actions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-user>
+          <tr>
+            <td>{{ user.firstName }} {{ user.lastName }}</td>
+            <td>{{ user.phoneNumber || '-' }}</td>
+            <td>{{ user.email || '-' }}</td>
+            <td>
+              <span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span>
+            </td>
+            <td>
+              <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
+                {{
+                  user.isLoginEnabled
+                    ? ('users.enabled' | transloco)
+                    : ('users.disabled' | transloco)
+                }}
+              </span>
+            </td>
+            @if (canEditUsers()) {
+              <td>
+                <button
+                  pButton
+                  type="button"
+                  [label]="'users.edit' | transloco"
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  [disabled]="!canEditRole(user.role)"
+                  (click)="onOpenEditUser(user)"
+                ></button>
+              </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="canEditUsers() ? 6 : 5">
+              <div class="empty-state">
+                <h2>{{ 'users.noUsersFound' | transloco }}</h2>
+                <p>{{ 'users.noUsersDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
 
-      <ng-template pTemplate="body" let-user>
-        <tr>
-          <td>{{ user.firstName }} {{ user.lastName }}</td>
-          <td>{{ user.phoneNumber || '-' }}</td>
-          <td>{{ user.email || '-' }}</td>
-          <td><span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span></td>
-          <td>
-            <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
-              {{ user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco) }}
-            </span>
-          </td>
-          <td *ngIf="canEditUsers()">
-            <button
-              pButton
-              type="button"
-              [label]="'users.edit' | transloco"
-              icon="pi pi-pencil"
-              size="small"
-              severity="secondary"
-              [disabled]="!canEditRole(user.role)"
-              (click)="onOpenEditUser(user)"
-            ></button>
-          </td>
-        </tr>
-      </ng-template>
+  @if (showAddUserOverlay()) {
+    <app-add-shop-user-overlay (closeRequested)="onCloseAddUser()"></app-add-shop-user-overlay>
+  }
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td [attr.colspan]="canEditUsers() ? 6 : 5">
-            <div class="empty-state">
-              <h2>{{ 'users.noUsersFound' | transloco }}</h2>
-              <p>{{ 'users.noUsersDescription' | transloco }}</p>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
-
-  <app-add-shop-user-overlay
-    *ngIf="showAddUserOverlay()"
-    (closeRequested)="onCloseAddUser()"
-  ></app-add-shop-user-overlay>
-
-  <app-edit-shop-user-overlay
-    *ngIf="showEditUserOverlay() && editingUser()"
-    [user]="$any(editingUser())"
-    (closeRequested)="onCloseEditUser()"
-  ></app-edit-shop-user-overlay>
+  @if (showEditUserOverlay() && editingUser()) {
+    <app-edit-shop-user-overlay
+      [user]="$any(editingUser())"
+      (closeRequested)="onCloseEditUser()"
+    ></app-edit-shop-user-overlay>
+  }
 </section>

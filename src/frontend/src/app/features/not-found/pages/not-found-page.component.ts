@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -8,7 +7,7 @@ import { ButtonModule } from 'primeng/button';
 @Component({
   selector: 'app-not-found-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ButtonModule, TranslocoPipe],
+  imports: [RouterLink, ButtonModule, TranslocoPipe],
   template: `
     <section class="mx-auto grid min-h-[60vh] max-w-xl place-content-center gap-4 text-center">
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">404</p>
