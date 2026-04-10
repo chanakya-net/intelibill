@@ -25,39 +25,73 @@
       <div class="field-grid">
         <div class="field-wrap space-y-1.5">
           <label for="first-name">{{ 'common.firstName' | transloco }}</label>
-          <input id="first-name" pInputText type="text" formControlName="firstName" class="w-full" autocomplete="given-name" />
+          <input
+            id="first-name"
+            pInputText
+            type="text"
+            formControlName="firstName"
+            class="w-full"
+            autocomplete="given-name"
+          />
         </div>
 
         <div class="field-wrap space-y-1.5">
           <label for="last-name">{{ 'common.lastName' | transloco }}</label>
-          <input id="last-name" pInputText type="text" formControlName="lastName" class="w-full" autocomplete="family-name" />
+          <input
+            id="last-name"
+            pInputText
+            type="text"
+            formControlName="lastName"
+            class="w-full"
+            autocomplete="family-name"
+          />
         </div>
       </div>
 
       <div class="field-wrap space-y-1.5">
         <label for="email">{{ 'users.email' | transloco }}</label>
-        <input id="email" pInputText type="email" formControlName="email" class="w-full" autocomplete="email" />
+        <input
+          id="email"
+          pInputText
+          type="email"
+          formControlName="email"
+          class="w-full"
+          autocomplete="email"
+        />
       </div>
 
       <div class="field-wrap space-y-1.5">
         <label for="phone">{{ 'users.mobileNumber' | transloco }}</label>
-        <input id="phone" pInputText type="text" formControlName="phoneNumber" class="w-full" autocomplete="tel" />
+        <input
+          id="phone"
+          pInputText
+          type="text"
+          formControlName="phoneNumber"
+          class="w-full"
+          autocomplete="tel"
+        />
       </div>
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() | transloco }}</p>
+      @if (serverError()) {
+        <p class="server-error">{{ serverError() | transloco }}</p>
+      }
 
       <button
         pButton
         type="submit"
-        [label]="isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)"
+        [label]="
+          isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)
+        "
         [loading]="isSubmitting()"
         [disabled]="form.invalid || isSubmitting()"
         class="submit-button w-full"
       ></button>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
+      </div>
+    }
   </article>
 </section>

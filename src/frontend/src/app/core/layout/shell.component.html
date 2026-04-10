@@ -7,55 +7,63 @@
           <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
           <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
 
-          <button
-            type="button"
-            class="active-shop-trigger active-shop-trigger-desktop"
-            *ngIf="activeShopLabel() as activeShopCaption"
-            [attr.aria-expanded]="isShopMenuOpen()"
-            aria-haspopup="menu"
-            [attr.aria-label]="'shell.switchActiveShop' | transloco"
-            (click)="onToggleShopMenu()"
-          >
-            <span class="active-shop-caption">{{ activeShopCaption }}</span>
-            <i class="pi pi-chevron-down" aria-hidden="true"></i>
-          </button>
-
-          <button
-            type="button"
-            class="active-shop-trigger active-shop-trigger-mobile"
-            *ngIf="activeShopLabel() as activeShopCaption"
-            [attr.aria-expanded]="isShopMenuOpen()"
-            aria-haspopup="menu"
-            [attr.aria-label]="'shell.switchActiveShop' | transloco"
-            (click)="onToggleShopMenu()"
-          >
-            <span class="active-shop-caption">{{ activeShopCaption }}</span>
-            <i class="pi pi-chevron-down" aria-hidden="true"></i>
-          </button>
-
-          <div
-            class="shop-menu"
-            *ngIf="isShopMenuOpen()"
-            role="menu"
-            [attr.aria-label]="'shell.availableShops' | transloco"
-          >
+          @if (activeShopLabel(); as activeShopCaption) {
             <button
               type="button"
-              role="menuitem"
-              *ngFor="let shop of shops()"
-              class="shop-menu-item"
-              [class.is-current]="shop.shopId === activeShopId()"
-              (click)="onSelectShop(shop.shopId)"
+              class="active-shop-trigger active-shop-trigger-desktop"
+              [attr.aria-expanded]="isShopMenuOpen()"
+              aria-haspopup="menu"
+              [attr.aria-label]="'shell.switchActiveShop' | transloco"
+              (click)="onToggleShopMenu()"
             >
-              {{ getShopDisplayLabel(shop) }}
-              <span *ngIf="shop.shopId === activeShopId()">{{ 'shell.active' | transloco }}</span>
+              <span class="active-shop-caption">{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
             </button>
-          </div>
+          }
+
+          @if (activeShopLabel(); as activeShopCaption) {
+            <button
+              type="button"
+              class="active-shop-trigger active-shop-trigger-mobile"
+              [attr.aria-expanded]="isShopMenuOpen()"
+              aria-haspopup="menu"
+              [attr.aria-label]="'shell.switchActiveShop' | transloco"
+              (click)="onToggleShopMenu()"
+            >
+              <span class="active-shop-caption">{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
+            </button>
+          }
+
+          @if (isShopMenuOpen()) {
+            <div
+              class="shop-menu"
+              role="menu"
+              [attr.aria-label]="'shell.availableShops' | transloco"
+            >
+              @for (shop of shops(); track shop) {
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="shop-menu-item"
+                  [class.is-current]="shop.shopId === activeShopId()"
+                  (click)="onSelectShop(shop.shopId)"
+                >
+                  {{ getShopDisplayLabel(shop) }}
+                  @if (shop.shopId === activeShopId()) {
+                    <span>{{ 'shell.active' | transloco }}</span>
+                  }
+                </button>
+              }
+            </div>
+          }
         </div>
 
-        <div class="shell-middle-zone" *ngIf="mainMenuItems().length > 0">
-          <p-menubar [model]="mainMenuItems()" [pt]="menubarPt"></p-menubar>
-        </div>
+        @if (mainMenuItems().length > 0) {
+          <div class="shell-middle-zone">
+            <p-menubar [model]="mainMenuItems()" [pt]="menubarPt"></p-menubar>
+          </div>
+        }
       </div>
 
       <div class="shell-actions" #profileMenuRoot>
@@ -103,119 +111,137 @@
       </div>
     </div>
 
-    <nav class="mobile-nav" *ngIf="isMobileMenuOpen()" #mobileNavRef aria-label="Mobile navigation">
-      <div class="mobile-nav-section" *ngIf="inventoryMenuItems().length > 0">
-        <button
-          type="button"
-          class="mobile-nav-section-toggle"
-          (click)="onToggleMobileSection('inventory')"
-        >
-          <span class="mobile-nav-section-label">{{ 'shell.manageInventory' | transloco }}</span>
-          <i
-            class="pi pi-chevron-down mobile-nav-section-chevron"
-            [class.rotated]="isMobileSectionExpanded('inventory')"
-            aria-hidden="true"
-          ></i>
-        </button>
-        <div *ngIf="isMobileSectionExpanded('inventory')" class="mobile-nav-section-items">
-          <button
-            *ngFor="let item of inventoryMenuItems()"
-            type="button"
-            class="mobile-nav-item"
-            [disabled]="item.disabled ?? false"
-            (click)="onMobileNavItemClick(item)"
-          >
-            <i [class]="item.icon" aria-hidden="true"></i>
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="mobile-nav-section" *ngIf="canManageSuppliers()">
-        <button
-          type="button"
-          class="mobile-nav-item"
-          (click)="onNavigateToSuppliers(); closeMobileMenu()"
-        >
-          <i class="pi pi-truck" aria-hidden="true"></i>
-          <span>{{ 'shell.manageSuppliers' | transloco }}</span>
-        </button>
-      </div>
-
-      <div class="mobile-nav-section">
-        <button
-          type="button"
-          class="mobile-nav-section-toggle"
-          (click)="onToggleMobileSection('profile')"
-        >
-          <span class="mobile-nav-section-label">{{ 'shell.profile' | transloco }}</span>
-          <i
-            class="pi pi-chevron-down mobile-nav-section-chevron"
-            [class.rotated]="isMobileSectionExpanded('profile')"
-            aria-hidden="true"
-          ></i>
-        </button>
-        <div *ngIf="isMobileSectionExpanded('profile')" class="mobile-nav-section-items">
-          <ng-container *ngFor="let item of profileMenuItems()">
+    @if (isMobileMenuOpen()) {
+      <nav class="mobile-nav" #mobileNavRef aria-label="Mobile navigation">
+        @if (inventoryMenuItems().length > 0) {
+          <div class="mobile-nav-section">
             <button
               type="button"
-              class="mobile-nav-item"
-              [disabled]="item.disabled ?? false"
-              (click)="onMobileNavItemClick(item)"
+              class="mobile-nav-section-toggle"
+              (click)="onToggleMobileSection('inventory')"
             >
-              <i [class]="item.icon" aria-hidden="true"></i>
-              <span>{{ item.label }}</span>
+              <span class="mobile-nav-section-label">{{
+                'shell.manageInventory' | transloco
+              }}</span>
               <i
-                *ngIf="item.items?.length"
-                class="pi pi-chevron-down mobile-nav-chevron"
-                [class.rotated]="expandedMobileSectionLabel() === item.label"
+                class="pi pi-chevron-down mobile-nav-section-chevron"
+                [class.rotated]="isMobileSectionExpanded('inventory')"
                 aria-hidden="true"
               ></i>
             </button>
-            <div
-              class="mobile-nav-subitems"
-              *ngIf="item.items?.length && expandedMobileSectionLabel() === item.label"
+            @if (isMobileSectionExpanded('inventory')) {
+              <div class="mobile-nav-section-items">
+                @for (item of inventoryMenuItems(); track item) {
+                  <button
+                    type="button"
+                    class="mobile-nav-item"
+                    [disabled]="item.disabled ?? false"
+                    (click)="onMobileNavItemClick(item)"
+                  >
+                    <i [class]="item.icon" aria-hidden="true"></i>
+                    <span>{{ item.label }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+        @if (canManageSuppliers()) {
+          <div class="mobile-nav-section">
+            <button
+              type="button"
+              class="mobile-nav-item"
+              (click)="onNavigateToSuppliers(); closeMobileMenu()"
             >
-              <button
-                *ngFor="let sub of item.items"
-                type="button"
-                class="mobile-nav-subitem"
-                [disabled]="sub.disabled ?? false"
-                (click)="onMobileNavItemClick(sub)"
-              >
-                <i *ngIf="sub.icon" [class]="sub.icon" aria-hidden="true"></i>
-                <span>{{ sub.label }}</span>
-              </button>
+              <i class="pi pi-truck" aria-hidden="true"></i>
+              <span>{{ 'shell.manageSuppliers' | transloco }}</span>
+            </button>
+          </div>
+        }
+        <div class="mobile-nav-section">
+          <button
+            type="button"
+            class="mobile-nav-section-toggle"
+            (click)="onToggleMobileSection('profile')"
+          >
+            <span class="mobile-nav-section-label">{{ 'shell.profile' | transloco }}</span>
+            <i
+              class="pi pi-chevron-down mobile-nav-section-chevron"
+              [class.rotated]="isMobileSectionExpanded('profile')"
+              aria-hidden="true"
+            ></i>
+          </button>
+          @if (isMobileSectionExpanded('profile')) {
+            <div class="mobile-nav-section-items">
+              @for (item of profileMenuItems(); track item) {
+                <button
+                  type="button"
+                  class="mobile-nav-item"
+                  [disabled]="item.disabled ?? false"
+                  (click)="onMobileNavItemClick(item)"
+                >
+                  <i [class]="item.icon" aria-hidden="true"></i>
+                  <span>{{ item.label }}</span>
+                  @if (item.items?.length) {
+                    <i
+                      class="pi pi-chevron-down mobile-nav-chevron"
+                      [class.rotated]="expandedMobileSectionLabel() === item.label"
+                      aria-hidden="true"
+                    ></i>
+                  }
+                </button>
+                @if (item.items?.length && expandedMobileSectionLabel() === item.label) {
+                  <div class="mobile-nav-subitems">
+                    @for (sub of item.items; track sub) {
+                      <button
+                        type="button"
+                        class="mobile-nav-subitem"
+                        [disabled]="sub.disabled ?? false"
+                        (click)="onMobileNavItemClick(sub)"
+                      >
+                        @if (sub.icon) {
+                          <i [class]="sub.icon" aria-hidden="true"></i>
+                        }
+                        <span>{{ sub.label }}</span>
+                      </button>
+                    }
+                  </div>
+                }
+              }
             </div>
-          </ng-container>
+          }
         </div>
-      </div>
-    </nav>
+      </nav>
+    }
   </header>
 
   <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
     <router-outlet></router-outlet>
   </main>
 
-  <app-create-shop-overlay
-    *ngIf="showCreateShopOverlay()"
-    (closeRequested)="onCreateShopOverlayClose()"
-  ></app-create-shop-overlay>
+  @if (showCreateShopOverlay()) {
+    <app-create-shop-overlay
+      (closeRequested)="onCreateShopOverlayClose()"
+    ></app-create-shop-overlay>
+  }
 
-  <app-manage-shop-overlay
-    *ngIf="showManageShopOverlay()"
-    [shops]="shops()"
-    (closeRequested)="onManageShopOverlayClose()"
-  ></app-manage-shop-overlay>
+  @if (showManageShopOverlay()) {
+    <app-manage-shop-overlay
+      [shops]="shops()"
+      (closeRequested)="onManageShopOverlayClose()"
+    ></app-manage-shop-overlay>
+  }
 
-  <app-update-profile-overlay
-    *ngIf="showUpdateProfileOverlay() && session()?.user"
-    [user]="session()!.user"
-    (closeRequested)="onProfileOverlayClose()"
-  ></app-update-profile-overlay>
+  @if (showUpdateProfileOverlay() && session()?.user) {
+    <app-update-profile-overlay
+      [user]="session()!.user"
+      (closeRequested)="onProfileOverlayClose()"
+    ></app-update-profile-overlay>
+  }
 
-  <app-change-password-overlay
-    *ngIf="showChangePasswordOverlay()"
-    (closeRequested)="onProfileOverlayClose()"
-  ></app-change-password-overlay>
+  @if (showChangePasswordOverlay()) {
+    <app-change-password-overlay
+      (closeRequested)="onProfileOverlayClose()"
+    ></app-change-password-overlay>
+  }
 </div>

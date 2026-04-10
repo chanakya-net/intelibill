@@ -22,23 +22,28 @@
     </header>
 
     <div class="overlay-form space-y-3">
-      <button
-        *ngFor="let shop of shops"
-        pButton
-        type="button"
-        severity="secondary"
-        [outlined]="shop.shopId !== activeShopId"
-        [label]="shop.shopName"
-        [disabled]="isSubmitting()"
-        class="shop-option w-full"
-        (click)="onSetDefault(shop.shopId)"
-      ></button>
+      @for (shop of shops; track shop) {
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="shop.shopId !== activeShopId"
+          [label]="shop.shopName"
+          [disabled]="isSubmitting()"
+          class="shop-option w-full"
+          (click)="onSetDefault(shop.shopId)"
+        ></button>
+      }
 
-      <p *ngIf="serverError()" class="server-error">{{ serverError() }}</p>
+      @if (serverError()) {
+        <p class="server-error">{{ serverError() }}</p>
+      }
     </div>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner strokeWidth="4" styleClass="overlay-spinner"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner strokeWidth="4" styleClass="overlay-spinner"></p-progressSpinner>
+      </div>
+    }
   </article>
 </section>

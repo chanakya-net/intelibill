@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -13,7 +12,14 @@ import { SuppliersFacade } from '../state/suppliers.facade';
 @Component({
   selector: 'app-add-supplier-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    CheckboxModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './add-supplier-overlay.component.html',
   styleUrl: './add-supplier-overlay.component.scss',
 })

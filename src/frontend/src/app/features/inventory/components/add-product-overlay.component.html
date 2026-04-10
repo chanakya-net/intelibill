@@ -1,4 +1,9 @@
-<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'inventory.productForm' | transloco">
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'inventory.productForm' | transloco"
+>
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
@@ -8,7 +13,12 @@
         <h2>{{ 'inventory.addNewProduct' | transloco }}</h2>
         <p class="description">{{ 'inventory.addNewProductDescription' | transloco }}</p>
       </div>
-      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
@@ -53,16 +63,32 @@
         <span>{{ 'inventory.isActive' | transloco }}</span>
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
 
       <div class="actions">
-        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" [label]="'inventory.addNewProduct' | transloco" [disabled]="isSubmitting()"></button>
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'inventory.addNewProduct' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
       </div>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
   </div>
 </section>

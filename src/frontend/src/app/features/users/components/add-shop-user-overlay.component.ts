@@ -1,6 +1,11 @@
-import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -12,15 +17,19 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { UsersActions } from '../state/users.actions';
-import {
-  selectUsersErrorMessage,
-  selectUsersSubmitting,
-} from '../state/users.selectors';
+import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
 
 @Component({
   selector: 'app-add-shop-user-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, PasswordModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    PasswordModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './add-shop-user-overlay.component.html',
   styleUrl: './add-shop-user-overlay.component.scss',
 })
@@ -35,16 +44,22 @@ export class AddShopUserOverlayComponent implements OnInit {
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly form = this.formBuilder.nonNullable.group({
-    shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
-    firstName: ['', [Validators.required, Validators.maxLength(100)]],
-    lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
-    password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-    confirmPassword: ['', [Validators.required]],
-    role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
-  }, { validators: passwordsMatchValidator });
+  readonly form = this.formBuilder.nonNullable.group(
+    {
+      shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
+      email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
+      firstName: ['', [Validators.required, Validators.maxLength(100)]],
+      lastName: ['', [Validators.required, Validators.maxLength(100)]],
+      phoneNumber: [
+        '',
+        [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)],
+      ],
+      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+      confirmPassword: ['', [Validators.required]],
+      role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
+    },
+    { validators: passwordsMatchValidator },
+  );
 
   constructor() {}
 
@@ -85,7 +100,7 @@ export class AddShopUserOverlayComponent implements OnInit {
           confirmPassword: this.form.controls.confirmPassword.value,
           role: this.form.controls.role.value,
         },
-      })
+      }),
     );
   }
 

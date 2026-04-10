@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -41,7 +40,6 @@ import { UsersActions } from '../../features/users/state/users.actions';
   selector: 'app-shell',
   standalone: true,
   imports: [
-    CommonModule,
     RouterOutlet,
     CreateShopOverlayComponent,
     ManageShopOverlayComponent,

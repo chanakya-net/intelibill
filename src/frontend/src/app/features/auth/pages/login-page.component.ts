@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,7 +19,6 @@ import { RootState } from '../../../core/state/app.state';
   selector: 'app-login-page',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     InputTextModule,
     PasswordModule,
@@ -117,7 +115,9 @@ export class LoginPageComponent implements OnInit {
     }
 
     try {
-      const pendingExternalAuth = sessionStorage.getItem(LoginPageComponent.ExternalPendingStorageKey);
+      const pendingExternalAuth = sessionStorage.getItem(
+        LoginPageComponent.ExternalPendingStorageKey,
+      );
       if (pendingExternalAuth) {
         this.serverError.set('External sign-in did not complete. Please try again.');
         sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);

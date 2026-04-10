@@ -1,4 +1,4 @@
-import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser } from '@angular/common';
 import { Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -11,7 +11,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 @Component({
   selector: 'app-auth-callback-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ButtonModule, ProgressSpinnerModule],
+  imports: [RouterLink, ButtonModule, ProgressSpinnerModule],
   templateUrl: './auth-callback.component.html',
 })
 export class AuthCallbackComponent implements OnInit {
@@ -41,7 +41,9 @@ export class AuthCallbackComponent implements OnInit {
       const providerError = params.get('error');
       if (providerError) {
         const providerErrorDescription = params.get('error_description');
-        this.fail(providerErrorDescription ?? 'External provider returned an error. Please try again.');
+        this.fail(
+          providerErrorDescription ?? 'External provider returned an error. Please try again.',
+        );
         return;
       }
 

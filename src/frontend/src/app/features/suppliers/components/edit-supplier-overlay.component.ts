@@ -1,5 +1,13 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -14,7 +22,14 @@ import { SuppliersFacade } from '../state/suppliers.facade';
 @Component({
   selector: 'app-edit-supplier-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    CheckboxModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './edit-supplier-overlay.component.html',
   styleUrl: './edit-supplier-overlay.component.scss',
 })
@@ -89,17 +104,20 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     if (!this.supplier) {
       return;
     }
-    this.form.patchValue({
-      name: this.supplier.name ?? '',
-      contactPersonName: this.supplier.contactPersonName ?? '',
-      contactPersonPhone: this.supplier.contactPersonPhone ?? '',
-      address: this.supplier.address ?? '',
-      city: this.supplier.city ?? '',
-      state: this.supplier.state ?? '',
-      pin: this.supplier.pin ?? '',
-      isActive: this.supplier.isActive,
-      isPreferred: this.supplier.isPreferred,
-    }, { emitEvent: false });
+    this.form.patchValue(
+      {
+        name: this.supplier.name ?? '',
+        contactPersonName: this.supplier.contactPersonName ?? '',
+        contactPersonPhone: this.supplier.contactPersonPhone ?? '',
+        address: this.supplier.address ?? '',
+        city: this.supplier.city ?? '',
+        state: this.supplier.state ?? '',
+        pin: this.supplier.pin ?? '',
+        isActive: this.supplier.isActive,
+        isPreferred: this.supplier.isPreferred,
+      },
+      { emitEvent: false },
+    );
   }
 
   private nullableTrimmed(value: string | null): string | null {

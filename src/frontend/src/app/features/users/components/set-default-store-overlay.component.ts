@@ -1,5 +1,13 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnInit,
+  Output,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { Store } from '@ngrx/store';
 
 import { ButtonModule } from 'primeng/button';
@@ -18,7 +26,7 @@ import {
 @Component({
   selector: 'app-set-default-store-overlay',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule],
+  imports: [ButtonModule, ProgressSpinnerModule],
   templateUrl: './set-default-store-overlay.component.html',
   styleUrl: './set-default-store-overlay.component.scss',
 })
@@ -37,7 +45,8 @@ export class SetDefaultStoreOverlayComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      const isSetDefaultSuccess = this.lastMutationType() === 'set-default' && this.lastMutationSucceeded();
+      const isSetDefaultSuccess =
+        this.lastMutationType() === 'set-default' && this.lastMutationSucceeded();
       if (!this.isSetDefaultPending() || !isSetDefaultSuccess || this.isSubmitting()) {
         return;
       }

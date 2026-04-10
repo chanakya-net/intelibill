@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -31,7 +30,6 @@ import {
   selector: 'app-inventory-page',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     BadgeModule,
     ButtonModule,

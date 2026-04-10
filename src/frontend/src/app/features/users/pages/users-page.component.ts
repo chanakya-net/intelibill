@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -24,7 +23,14 @@ import {
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, AddShopUserOverlayComponent, EditShopUserOverlayComponent, TranslocoPipe],
+  imports: [
+    ButtonModule,
+    ProgressSpinnerModule,
+    TableModule,
+    AddShopUserOverlayComponent,
+    EditShopUserOverlayComponent,
+    TranslocoPipe,
+  ],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
 })
@@ -49,7 +55,9 @@ export class UsersPageComponent {
       return '';
     }
 
-    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId) ?? session.shops.find((shop) => shop.isDefault);
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
   readonly canAddUsers = computed(() => this.activeShopRole().toLowerCase() === 'owner');

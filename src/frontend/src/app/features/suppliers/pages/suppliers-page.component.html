@@ -6,130 +6,176 @@
       <p class="subtitle">{{ 'suppliers.subtitle' | transloco }}</p>
     </div>
 
-    <button
-      pButton
-      type="button"
-      [label]="'suppliers.addSupplier' | transloco"
-      icon="pi pi-plus"
-      *ngIf="canManageSuppliers()"
-      (click)="onOpenAddSupplier()"
-    ></button>
+    @if (canManageSuppliers()) {
+      <button
+        pButton
+        type="button"
+        [label]="'suppliers.addSupplier' | transloco"
+        icon="pi pi-plus"
+        (click)="onOpenAddSupplier()"
+      ></button>
+    }
   </header>
 
-  <p class="error" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
 
-  <div class="loading" *ngIf="isLoading()">
-    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-  </div>
+  @if (isLoading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
 
-  <div class="suppliers-table-card" *ngIf="!isLoading()">
-    <p-table [value]="tableSuppliers()" [sortField]="'name'" [sortOrder]="1" class="p-datatable-sm">
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="name">{{ 'suppliers.name' | transloco }} <p-sortIcon field="name" /></th>
-          <th pSortableColumn="contactPersonName">{{ 'suppliers.contactPerson' | transloco }} <p-sortIcon field="contactPersonName" /></th>
-          <th pSortableColumn="contactPersonPhone">{{ 'suppliers.contactPhone' | transloco }} <p-sortIcon field="contactPersonPhone" /></th>
-          <th pSortableColumn="city">{{ 'suppliers.city' | transloco }} <p-sortIcon field="city" /></th>
-          <th pSortableColumn="state">{{ 'suppliers.state' | transloco }} <p-sortIcon field="state" /></th>
-          <th pSortableColumn="pin">{{ 'suppliers.pin' | transloco }} <p-sortIcon field="pin" /></th>
-          <th pSortableColumn="balanceDue">{{ 'suppliers.balance' | transloco }} <p-sortIcon field="balanceDue" /></th>
-          <th pSortableColumn="isActive">{{ 'suppliers.status' | transloco }} <p-sortIcon field="isActive" /></th>
-          <th pSortableColumn="isPreferred">{{ 'suppliers.preferred' | transloco }} <p-sortIcon field="isPreferred" /></th>
-          <th *ngIf="canManageSuppliers()">{{ 'suppliers.actions' | transloco }}</th>
-          <th *ngIf="canMakePayment()">{{ 'suppliers.paymentActions' | transloco }}</th>
-        </tr>
-      </ng-template>
+  @if (!isLoading()) {
+    <div class="suppliers-table-card">
+      <p-table
+        [value]="tableSuppliers()"
+        [sortField]="'name'"
+        [sortOrder]="1"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name">
+              {{ 'suppliers.name' | transloco }} <p-sortIcon field="name" />
+            </th>
+            <th pSortableColumn="contactPersonName">
+              {{ 'suppliers.contactPerson' | transloco }} <p-sortIcon field="contactPersonName" />
+            </th>
+            <th pSortableColumn="contactPersonPhone">
+              {{ 'suppliers.contactPhone' | transloco }} <p-sortIcon field="contactPersonPhone" />
+            </th>
+            <th pSortableColumn="city">
+              {{ 'suppliers.city' | transloco }} <p-sortIcon field="city" />
+            </th>
+            <th pSortableColumn="state">
+              {{ 'suppliers.state' | transloco }} <p-sortIcon field="state" />
+            </th>
+            <th pSortableColumn="pin">
+              {{ 'suppliers.pin' | transloco }} <p-sortIcon field="pin" />
+            </th>
+            <th pSortableColumn="balanceDue">
+              {{ 'suppliers.balance' | transloco }} <p-sortIcon field="balanceDue" />
+            </th>
+            <th pSortableColumn="isActive">
+              {{ 'suppliers.status' | transloco }} <p-sortIcon field="isActive" />
+            </th>
+            <th pSortableColumn="isPreferred">
+              {{ 'suppliers.preferred' | transloco }} <p-sortIcon field="isPreferred" />
+            </th>
+            @if (canManageSuppliers()) {
+              <th>{{ 'suppliers.actions' | transloco }}</th>
+            }
+            @if (canMakePayment()) {
+              <th>{{ 'suppliers.paymentActions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-supplier>
+          <tr>
+            <td>{{ supplier.name }}</td>
+            <td>{{ supplier.contactPersonName || '-' }}</td>
+            <td>{{ supplier.contactPersonPhone || '-' }}</td>
+            <td>{{ supplier.city }}</td>
+            <td>{{ supplier.state }}</td>
+            <td>{{ supplier.pin }}</td>
+            <td>
+              <button
+                pButton
+                type="button"
+                [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
+                [title]="getBalanceLabel(supplier)"
+                severity="info"
+                text
+                size="small"
+                (click)="onOpenSupplierDetail(supplier)"
+                class="balance-button"
+              ></button>
+            </td>
+            <td>
+              <span class="status-pill" [class.disabled]="!supplier.isActive">
+                {{
+                  supplier.isActive
+                    ? ('suppliers.active' | transloco)
+                    : ('suppliers.inactive' | transloco)
+                }}
+              </span>
+            </td>
+            <td>
+              <span class="preferred-pill" [class.disabled]="!supplier.isPreferred">
+                {{
+                  supplier.isPreferred
+                    ? ('suppliers.yes' | transloco)
+                    : ('suppliers.no' | transloco)
+                }}
+              </span>
+            </td>
+            @if (canManageSuppliers()) {
+              <td>
+                <button
+                  pButton
+                  type="button"
+                  [label]="'suppliers.editSupplier' | transloco"
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  (click)="onOpenEditSupplier(supplier)"
+                ></button>
+              </td>
+            }
+            @if (canMakePayment()) {
+              <td>
+                <button
+                  pButton
+                  type="button"
+                  [label]="'suppliers.makePayment' | transloco"
+                  icon="pi pi-wallet"
+                  size="small"
+                  severity="success"
+                  (click)="onOpenMakePayment(supplier)"
+                ></button>
+              </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="9 + (canManageSuppliers() ? 1 : 0) + (canMakePayment() ? 1 : 0)">
+              <div class="empty-state">
+                <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+                <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
 
-      <ng-template pTemplate="body" let-supplier>
-        <tr>
-          <td>{{ supplier.name }}</td>
-          <td>{{ supplier.contactPersonName || '-' }}</td>
-          <td>{{ supplier.contactPersonPhone || '-' }}</td>
-          <td>{{ supplier.city }}</td>
-          <td>{{ supplier.state }}</td>
-          <td>{{ supplier.pin }}</td>
-          <td>
-            <button
-              pButton
-              type="button"
-              [label]="(supplier.balanceDue | currency: 'INR':'symbol':'1.0-2') || ''"
-              [title]="getBalanceLabel(supplier)"
-              severity="info"
-              text
-              size="small"
-              (click)="onOpenSupplierDetail(supplier)"
-              class="balance-button"
-            ></button>
-          </td>
-          <td>
-            <span class="status-pill" [class.disabled]="!supplier.isActive">
-              {{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}
-            </span>
-          </td>
-          <td>
-            <span class="preferred-pill" [class.disabled]="!supplier.isPreferred">
-              {{ supplier.isPreferred ? ('suppliers.yes' | transloco) : ('suppliers.no' | transloco) }}
-            </span>
-          </td>
-          <td *ngIf="canManageSuppliers()">
-            <button
-              pButton
-              type="button"
-              [label]="'suppliers.editSupplier' | transloco"
-              icon="pi pi-pencil"
-              size="small"
-              severity="secondary"
-              (click)="onOpenEditSupplier(supplier)"
-            ></button>
-          </td>
-          <td *ngIf="canMakePayment()">
-            <button
-              pButton
-              type="button"
-              [label]="'suppliers.makePayment' | transloco"
-              icon="pi pi-wallet"
-              size="small"
-              severity="success"
-              (click)="onOpenMakePayment(supplier)"
-            ></button>
-          </td>
-        </tr>
-      </ng-template>
+  @if (showAddSupplierOverlay()) {
+    <app-add-supplier-overlay (closeRequested)="onCloseAddSupplier()"></app-add-supplier-overlay>
+  }
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td [attr.colspan]="9 + (canManageSuppliers() ? 1 : 0) + (canMakePayment() ? 1 : 0)">
-            <div class="empty-state">
-              <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
-              <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
+  @if (showEditSupplierOverlay() && editingSupplier()) {
+    <app-edit-supplier-overlay
+      [supplier]="$any(editingSupplier())"
+      (closeRequested)="onCloseEditSupplier()"
+    ></app-edit-supplier-overlay>
+  }
 
-  <app-add-supplier-overlay
-    *ngIf="showAddSupplierOverlay()"
-    (closeRequested)="onCloseAddSupplier()"
-  ></app-add-supplier-overlay>
+  @if (showDetailModal() && detailSupplierId()) {
+    <app-supplier-detail
+      [supplier]="detailSupplier()"
+      [supplierId]="detailSupplierId()"
+      (closeRequested)="onCloseSupplierDetail()"
+    ></app-supplier-detail>
+  }
 
-  <app-edit-supplier-overlay
-    *ngIf="showEditSupplierOverlay() && editingSupplier()"
-    [supplier]="$any(editingSupplier())"
-    (closeRequested)="onCloseEditSupplier()"
-  ></app-edit-supplier-overlay>
-
-  <app-supplier-detail
-    *ngIf="showDetailModal() && detailSupplierId()"
-    [supplier]="detailSupplier()"
-    [supplierId]="detailSupplierId()"
-    (closeRequested)="onCloseSupplierDetail()"
-  ></app-supplier-detail>
-
-  <app-make-payment-overlay
-    *ngIf="showMakePaymentOverlay() && paymentSupplier()"
-    [supplier]="$any(paymentSupplier())"
-    (closeRequested)="onCloseMakePayment()"
-  ></app-make-payment-overlay>
+  @if (showMakePaymentOverlay() && paymentSupplier()) {
+    <app-make-payment-overlay
+      [supplier]="$any(paymentSupplier())"
+      (closeRequested)="onCloseMakePayment()"
+    ></app-make-payment-overlay>
+  }
 </section>

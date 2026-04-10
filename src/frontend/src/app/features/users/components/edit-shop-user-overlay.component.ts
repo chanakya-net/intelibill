@@ -1,5 +1,14 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  computed,
+  inject,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -13,15 +22,19 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
-import {
-  selectUsersErrorMessage,
-  selectUsersSubmitting,
-} from '../state/users.selectors';
+import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
 
 @Component({
   selector: 'app-edit-shop-user-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    CheckboxModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './edit-shop-user-overlay.component.html',
   styleUrl: './edit-shop-user-overlay.component.scss',
 })
@@ -43,7 +56,10 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
+    phoneNumber: [
+      '',
+      [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)],
+    ],
     role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
     isLoginEnabled: [true],
   });
@@ -97,7 +113,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
           isLoginEnabled: this.form.controls.isLoginEnabled.value,
           shopIds: [...this.selectedShopIds],
         },
-      })
+      }),
     );
   }
 

@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -22,7 +21,13 @@ import {
 @Component({
   selector: 'app-update-profile-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './update-profile-overlay.component.html',
   styleUrl: './update-profile-overlay.component.scss',
 })
@@ -53,7 +58,8 @@ export class UpdateProfileOverlayComponent {
 
   constructor() {
     effect(() => {
-      const isUpdateProfileSuccess = this.lastMutationType() === 'update-profile' && this.lastMutationSucceeded();
+      const isUpdateProfileSuccess =
+        this.lastMutationType() === 'update-profile' && this.lastMutationSucceeded();
       if (!this.isUpdateProfilePending() || !isUpdateProfileSuccess || this.isSubmitting()) {
         return;
       }

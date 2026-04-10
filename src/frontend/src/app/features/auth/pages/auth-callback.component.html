@@ -1,15 +1,13 @@
 <section class="min-h-screen flex items-center justify-center p-6 bg-slate-100">
   <article class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg text-center space-y-4">
-    <ng-container *ngIf="isBusy(); else errorState">
+    @if (isBusy()) {
       <p-progressSpinner strokeWidth="4"></p-progressSpinner>
       <h2 class="text-xl font-semibold">Signing you in...</h2>
       <p class="text-slate-600">Finishing external authentication.</p>
-    </ng-container>
-
-    <ng-template #errorState>
+    } @else {
       <h2 class="text-xl font-semibold text-rose-700">Could not sign in</h2>
       <p class="text-slate-600">{{ errorMessage() }}</p>
       <a pButton routerLink="/login" label="Back to login"></a>
-    </ng-template>
+    }
   </article>
 </section>

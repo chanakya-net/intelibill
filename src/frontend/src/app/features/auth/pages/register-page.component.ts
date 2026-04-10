@@ -1,6 +1,11 @@
-import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,7 +26,6 @@ import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/r
   selector: 'app-register-page',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     InputTextModule,
     PasswordModule,
@@ -45,14 +49,17 @@ export class RegisterPageComponent implements OnInit {
   readonly currentLanguage = this.localizationService.currentLanguage;
   readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
 
-  readonly form = this.formBuilder.nonNullable.group({
-    firstName: ['', [Validators.required, Validators.maxLength(100)]],
-    lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-    confirmPassword: ['', [Validators.required]],
-    rememberMe: [true],
-  }, { validators: passwordsMatchValidator });
+  readonly form = this.formBuilder.nonNullable.group(
+    {
+      firstName: ['', [Validators.required, Validators.maxLength(100)]],
+      lastName: ['', [Validators.required, Validators.maxLength(100)]],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+      confirmPassword: ['', [Validators.required]],
+      rememberMe: [true],
+    },
+    { validators: passwordsMatchValidator },
+  );
 
   readonly firstNameInputPt = {
     root: { class: 'register-first-name-input' },
@@ -98,7 +105,7 @@ export class RegisterPageComponent implements OnInit {
         email: email.trim(),
         password,
         rememberMe,
-      })
+      }),
     );
   }
 

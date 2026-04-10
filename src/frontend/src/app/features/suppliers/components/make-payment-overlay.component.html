@@ -1,4 +1,9 @@
-<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'suppliers.paymentForm' | transloco">
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'suppliers.paymentForm' | transloco"
+>
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
@@ -6,9 +11,16 @@
       <div>
         <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
         <h2>{{ 'suppliers.makePayment' | transloco }}</h2>
-        <p class="description">{{ 'suppliers.makePaymentDescription' | transloco: { name: supplier.name } }}</p>
+        <p class="description">
+          {{ 'suppliers.makePaymentDescription' | transloco: { name: supplier.name } }}
+        </p>
       </div>
-      <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="onClose()">
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
@@ -42,16 +54,32 @@
         <input pInputText type="text" formControlName="notes" />
       </label>
 
-      <p class="error-message" *ngIf="serverError()">{{ serverError() | transloco }}</p>
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
 
       <div class="actions">
-        <button pButton type="button" [label]="'common.cancel' | transloco" severity="secondary" [disabled]="isSubmitting()" (click)="onClose()"></button>
-        <button pButton type="submit" [label]="'suppliers.recordPayment' | transloco" [disabled]="isSubmitting()"></button>
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'suppliers.recordPayment' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
       </div>
     </form>
 
-    <div class="submit-overlay" *ngIf="isSubmitting()">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
   </div>
 </section>
