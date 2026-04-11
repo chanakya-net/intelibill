@@ -127,6 +127,12 @@ public sealed class InventoryBatch : BaseEntity
         UpdatedBy = updatedBy;
     }
 
+    public void AssignSupplier(Guid supplierId, Guid updatedBy)
+    {
+        SupplierId = supplierId;
+        UpdatedBy = updatedBy;
+    }
+
     public decimal GetTaxAmountPerUnit()
     {
         return SalesPrice * (TaxRatePercent / 100m);

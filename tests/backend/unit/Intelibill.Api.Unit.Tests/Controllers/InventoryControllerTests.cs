@@ -5,6 +5,7 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -197,6 +198,33 @@ public class InventoryControllerTests
 
         var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
         Assert.Equal("Only 100 items are allowed in a batch.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task ReassignBatchSupplier_WhenValid_DispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var newSupplierId = Guid.NewGuid();
+
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success);
+
+        var result = await _controller.ReassignBatchSupplier(batchId, new ReassignBatchSupplierRequest(newSupplierId), CancellationToken.None);
+
+        Assert.IsType<OkResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<ReassignBatchSupplierCommand>(c =>
+                c.ActorUserId == userId
+                && c.ActiveShopId == shopId
+                && c.BatchId == batchId
+                && c.NewSupplierId == newSupplierId),
+            Arg.Any<CancellationToken>());
     }
 
     private static AddInventoryRequest CreateRequest() =>

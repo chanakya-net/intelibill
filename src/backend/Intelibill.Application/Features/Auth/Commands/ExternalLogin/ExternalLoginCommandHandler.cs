@@ -11,6 +11,7 @@ namespace Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 public sealed class ExternalLoginCommandHandler(
     IEnumerable<IExternalAuthProvider> authProviders,
     IUserRepository userRepository,
+    ISupplierRepository supplierRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
@@ -50,6 +51,7 @@ public sealed class ExternalLoginCommandHandler(
 
                 user = User.CreateFromExternalProvider(userInfo.Email, firstName, lastName);
                 await userRepository.AddAsync(user, cancellationToken);
+                await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(user.Id), cancellationToken);
             }
 
             // Link the external login to the user.

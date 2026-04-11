@@ -42,7 +42,7 @@ public class SuppliersControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.GetSuppliers(CancellationToken.None);
+        var result = await _controller.GetSuppliers(false, CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -52,10 +52,30 @@ public class SuppliersControllerTests
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
 
-        var result = await _controller.GetSuppliers(CancellationToken.None);
+        var result = await _controller.GetSuppliers(false, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSuppliers_DefaultsIncludeSystemToFalse()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<IReadOnlyList<SupplierDto>>)Array.Empty<SupplierDto>());
+
+        var result = await _controller.GetSuppliers(cancellationToken: CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
+            Arg.Is<GetSuppliersQuery>(q => q.UserId == userId && q.ActiveShopId == shopId && !q.IncludeSystem),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -78,7 +98,7 @@ public class SuppliersControllerTests
             true,
             false);
 
-        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, request.IsActive, request.IsPreferred, 0m);
+        var dto = new SupplierDto(Guid.NewGuid(), request.Name, request.ContactPersonName, request.ContactPersonPhone, request.Address, request.City, request.State, request.Pin, false, request.IsActive, request.IsPreferred, 0m);
         _bus.InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
         var result = await _controller.AddSupplier(request, CancellationToken.None);
@@ -177,5 +197,24 @@ public class SuppliersControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteSupplier_WhenSystemSupplier_ReturnsConflict()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Supplier.CannotModifySystemSupplier);
+
+        var result = await _controller.DeleteSupplier(supplierId, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
     }
 }

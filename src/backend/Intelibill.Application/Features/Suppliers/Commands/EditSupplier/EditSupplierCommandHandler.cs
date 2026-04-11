@@ -32,6 +32,9 @@ public sealed class EditSupplierCommandHandler(
         if (supplier.OwnerUserId != command.ActorUserId)
             return Errors.Supplier.SupplierNotFound;
 
+        if (supplier.IsSystem)
+            return Errors.Supplier.CannotModifySystemSupplier;
+
         supplier.Update(
             command.Name,
             command.ContactPersonName,
@@ -55,6 +58,7 @@ public sealed class EditSupplierCommandHandler(
             supplier.City,
             supplier.State,
             supplier.Pin,
+            supplier.IsSystem,
             supplier.IsActive,
             supplier.IsPreferred,
             0m);

@@ -36,7 +36,8 @@ public sealed class AddSupplierCommandHandler(
             command.State,
             command.Pin,
             command.IsActive,
-            command.IsPreferred);
+            command.IsPreferred,
+            isSystem: false);
 
         await supplierRepository.AddAsync(supplier, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -54,6 +55,7 @@ public sealed class AddSupplierCommandHandler(
             supplier.City,
             supplier.State,
             supplier.Pin,
+            supplier.IsSystem,
             supplier.IsActive,
             supplier.IsPreferred,
             0m);

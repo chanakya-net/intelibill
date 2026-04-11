@@ -11,6 +11,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RegisterWithE
 public class RegisterWithEmailCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
@@ -19,7 +20,7 @@ public class RegisterWithEmailCommandHandlerTests
 
     public RegisterWithEmailCommandHandlerTests()
     {
-        _handler = new RegisterWithEmailCommandHandler(_userRepository, _refreshTokenRepository, _passwordHasher, _tokenService, _unitOfWork);
+        _handler = new RegisterWithEmailCommandHandler(_userRepository, _supplierRepository, _refreshTokenRepository, _passwordHasher, _tokenService, _unitOfWork);
     }
 
     [Fact]
@@ -56,6 +57,7 @@ public class RegisterWithEmailCommandHandlerTests
         Assert.Equal("First", result.Value.User.FirstName);
 
         await _userRepository.Received(1).AddAsync(Arg.Is<User>(u => string.Equals(u.Email, command.Email, StringComparison.OrdinalIgnoreCase) && u.PasswordHash == "hashedPassword"), Arg.Any<CancellationToken>());
+        await _supplierRepository.Received(1).AddAsync(Arg.Is<Supplier>(s => s.IsSystem && s.OwnerUserId != Guid.Empty), Arg.Any<CancellationToken>());
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

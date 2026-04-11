@@ -48,7 +48,7 @@ public class GetSuppliersQueryHandlerTests
             Supplier.Create(owner.Id, "A Supplier", null, null, "Address", "City", "State", "560001", true, false),
             Supplier.Create(owner.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", true, true),
         };
-        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(suppliers);
+        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, false, Arg.Any<CancellationToken>()).Returns(suppliers);
 
         _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[0].Id, Arg.Any<CancellationToken>()).Returns(0m);
         _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[1].Id, Arg.Any<CancellationToken>()).Returns(500m);

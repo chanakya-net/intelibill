@@ -23,14 +23,13 @@ flowchart TD
     M --> O[Lookup batch by shop_id item_id batch_number]
     N --> O
 
-    O --> P{Batch exists}
+    O --> P{Active batch exists is_voided=false}
+    P -- Yes --> P1[409 BatchNumberAlreadyExists]
     P -- No --> Q[Create batch and insert inventory_batches]
-    P -- Yes --> R[Add quantity and update inventory_batches]
 
     Q --> S[Create IN stock transaction and insert stock_transactions]
-    R --> S
 
-    S --> T{isNewBatch and supplier_id present}
+    S --> T{supplier_id present}
     T -- Yes --> U[Create GOODS_RECEIVED ledger and insert supplier_ledger_entries]
     T -- No --> V[Skip ledger insert]
     U --> W[Lookup inventory aggregate by shop_id item_id]
@@ -45,12 +44,17 @@ flowchart TD
     AA --> AB[200 OK AddInventoryResultDto]
 
     subgraph BatchEndpoint
-      BA[POST api/inventory/inbound/batch] --> BB{Rows count <= 100}
-      BB -- No --> BB1[400 Inventory.BatchLimitExceeded: Only 100 items are allowed in a batch]
+      BA[POST api/inventory/inbound/batch] --> BB{Rows count > 0 and <= 100}
+      BB -- No --> BB1[400 Inventory.BatchEmpty or Inventory.BatchLimitExceeded]
       BB -- Yes --> BC[Map rows to AddInventoryBatchCommand and invoke once]
       BC --> BD[Validate actor once and validate each row]
-      BD --> BE[Process rows independently and collect succeeded/failed]
-      BE --> BF[Stage valid row entities]
-      BF --> BG[Single unitOfWork SaveChangesAsync for valid rows]
-      BG --> BH[200 OK partial success payload]
+      BD --> BE[Per row process: same item or create item then enforce active-batch uniqueness]
+      BE --> BF[Collect succeeded and failed rows]
+      BF --> BG{Any succeeded rows}
+      BG -- Yes --> BH[Single unitOfWork SaveChangesAsync]
+      BG -- No --> BI[Skip SaveChangesAsync]
+      BH --> BJ{Any failed rows}
+      BI --> BJ
+      BJ -- No --> BK[200 OK AddInventoryBatchResponse]
+      BJ -- Yes --> BL[207 Multi-Status AddInventoryBatchResponse]
     end

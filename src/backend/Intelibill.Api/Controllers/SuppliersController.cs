@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
+using Intelibill.Application.Features.Suppliers.Commands.DeleteSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
 using Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 using Intelibill.Application.Features.Suppliers.DTOs;
@@ -22,7 +23,7 @@ namespace Intelibill.Api.Controllers;
 public sealed class SuppliersController(IMessageBus bus) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetSuppliers(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSuppliers([FromQuery(Name = "include_system")] bool includeSystem = false, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         if (userId is null)
@@ -33,7 +34,7 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
             return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
-            new GetSuppliersQuery(userId.Value, activeShopId.Value),
+            new GetSuppliersQuery(userId.Value, activeShopId.Value, includeSystem),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -116,6 +117,28 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
             cancellationToken);
 
         return result.ToActionResult(Ok);
+    }
+
+    [HttpDelete("{supplierId:guid}")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> DeleteSupplier(Guid supplierId, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new DeleteSupplierCommand(userId.Value, activeShopId.Value, supplierId),
+            cancellationToken);
+
+        if (result.IsError)
+            return result.Errors.ToList().ToProblemResult();
+
+        return NoContent();
     }
 
     [HttpPost("{supplierId:guid}/payments")]

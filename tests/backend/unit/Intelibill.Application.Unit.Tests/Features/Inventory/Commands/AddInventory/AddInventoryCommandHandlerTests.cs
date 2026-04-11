@@ -12,6 +12,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInven
 public class AddInventoryCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
@@ -22,6 +23,7 @@ public class AddInventoryCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Staff, true));
@@ -39,6 +41,7 @@ public class AddInventoryCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenNameAndBarcodeMapToDifferentItems_ReturnsValidationError()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
@@ -61,6 +64,7 @@ public class AddInventoryCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenNewItemAndBatch_CreatesAllRecords()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
@@ -73,17 +77,22 @@ public class AddInventoryCommandHandlerTests
             .Returns((InventoryBatch?)null);
 
         var supplierId = Guid.NewGuid();
+        var knownSupplier = Supplier.Create(actor.Id, "Known Supplier", null, null, null, null, null, null, true, false, false);
+
+        _supplierRepository.GetByIdAsync(supplierId, Arg.Any<CancellationToken>())
+            .Returns(knownSupplier);
+
         var handler = CreateHandler();
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, supplierId), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.BatchQuantity);
         Assert.Equal(10m, result.Value.TotalQuantity);
-        Assert.Equal(supplierId, result.Value.SupplierId);
+        Assert.Equal(knownSupplier.Id, result.Value.SupplierId);
 
         await _itemRepository.Received(1).AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
         await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => 
-            b.SupplierId == supplierId && 
+            b.SupplierId == knownSupplier.Id && 
             b.OriginalQuantity == 10m && 
             b.Quantity == 10m &&
             !b.IsVoided), Arg.Any<CancellationToken>());
@@ -92,7 +101,7 @@ public class AddInventoryCommandHandlerTests
             Arg.Is<SupplierLedgerEntry>(e =>
                 e.EntryType == SupplierLedgerEntryType.GoodsReceived
                 && e.BatchId.HasValue
-                && e.SupplierId == supplierId
+                && e.SupplierId == knownSupplier.Id
                 && e.Amount == 800m),
             Arg.Any<CancellationToken>());
         await _inventoryRepository.Received(1).AddAsync(Arg.Any<DomainInventory>(), Arg.Any<CancellationToken>());
@@ -102,6 +111,7 @@ public class AddInventoryCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenExistingActiveBatch_ReturnsConflict()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
@@ -138,6 +148,7 @@ public class AddInventoryCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenExistingVoidedBatch_CreatesNewBatch()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
@@ -180,8 +191,67 @@ public class AddInventoryCommandHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenSupplierMissingInRequest_UsesSystemSupplierAndReceiptNote()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(actor.Id);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _supplierRepository.GetSystemByOwnerUserIdAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, supplierId: null), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(systemSupplier.Id, result.Value.SupplierId);
+
+        await _supplierLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<SupplierLedgerEntry>(e =>
+                e.SupplierId == systemSupplier.Id
+                && e.EntryType == SupplierLedgerEntryType.GoodsReceived
+                && e.Notes == "Receipt with no supplier assigned"
+                && e.BatchId.HasValue),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSystemSupplierMissing_ReturnsSystemSupplierNotFound()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _supplierRepository.GetSystemByOwnerUserIdAsync(actor.Id, Arg.Any<CancellationToken>()).Returns((Supplier?)null);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, supplierId: null), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Supplier.SystemSupplierNotFound.Code, result.FirstError.Code);
+    }
+
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _inventoryRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _inventoryRepository, _unitOfWork);
+
+    private void SetupSystemSupplierLookup()
+    {
+        _supplierRepository.GetSystemByOwnerUserIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
+    }
 
     private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null) =>
         new(

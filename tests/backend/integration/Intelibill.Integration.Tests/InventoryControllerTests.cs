@@ -199,7 +199,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task AddInboundInventory_WithoutSupplier_DoesNotCreateLedgerEntry()
+    public async Task AddInboundInventory_WithoutSupplier_CreatesLedgerEntryWithSystemSupplier()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
@@ -237,8 +237,12 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var ledgerCount = await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == batchId);
-        Assert.Equal(0, ledgerCount);
+        var ledgerEntry = await db.SupplierLedgerEntries.SingleAsync(e => e.BatchId == batchId);
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, ledgerEntry.EntryType);
+        Assert.Equal("Receipt with no supplier assigned", ledgerEntry.Notes);
+
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == batchId);
+        Assert.NotNull(batch.SupplierId);
     }
 
     [Fact]

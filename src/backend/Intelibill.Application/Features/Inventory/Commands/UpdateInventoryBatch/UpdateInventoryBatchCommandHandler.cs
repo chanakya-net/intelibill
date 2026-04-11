@@ -11,6 +11,7 @@ namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatc
 public sealed class UpdateInventoryBatchCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
+    ISupplierRepository supplierRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
     IStockTransactionRepository stockTransactionRepository,
@@ -59,6 +60,11 @@ public sealed class UpdateInventoryBatchCommandHandler(
         var oldQuantity = originalBatch.Quantity;
         var oldCostPrice = originalBatch.CostPrice;
         var oldSupplierId = originalBatch.SupplierId;
+        var effectiveSupplierIdOrError = await ResolveEffectiveSupplierIdAsync(command.SupplierId, command.UserId, cancellationToken);
+        if (effectiveSupplierIdOrError.IsError)
+            return effectiveSupplierIdOrError.Errors;
+
+        var effectiveSupplierId = effectiveSupplierIdOrError.Value;
 
         // 2. Void the original batch
         originalBatch.Void(command.UserId);
@@ -77,7 +83,7 @@ public sealed class UpdateInventoryBatchCommandHandler(
             command.TaxIncluded,
             command.ExpiryDate,
             command.ManufacturingDate,
-            command.SupplierId,
+            effectiveSupplierId,
             command.UserId);
 
         if (newBatchResult.IsError)
@@ -135,9 +141,9 @@ public sealed class UpdateInventoryBatchCommandHandler(
 
         // 5. Adjust Supplier Ledger
         var costChanged = command.CostPrice != oldCostPrice;
-        var supplierChanged = command.SupplierId != oldSupplierId;
+        var supplierChanged = effectiveSupplierId != oldSupplierId;
 
-        if ((quantityDifference != 0 || costChanged || supplierChanged) && (oldSupplierId.HasValue || command.SupplierId.HasValue))
+        if ((quantityDifference != 0 || costChanged || supplierChanged) && (oldSupplierId.HasValue || effectiveSupplierId.HasValue))
         {
             // Reverse old entry if it exists using RecordAdjusted with negative amount
             if (oldSupplierId.HasValue)
@@ -165,14 +171,14 @@ public sealed class UpdateInventoryBatchCommandHandler(
             }
 
             // Create new entry for new supplier/amount
-            if (command.SupplierId.HasValue)
+            if (effectiveSupplierId.HasValue)
             {
                 var newAmount = command.Quantity * command.CostPrice;
                 if (newAmount > 0)
                 {
                     var newEntry = SupplierLedgerEntry.Create(
                         command.ShopId,
-                        command.SupplierId.Value,
+                        effectiveSupplierId.Value,
                         newBatch.Id,
                         SupplierLedgerEntryType.GoodsReceived,
                         newAmount,
@@ -190,5 +196,21 @@ public sealed class UpdateInventoryBatchCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success;
+    }
+
+    private async Task<ErrorOr<Guid?>> ResolveEffectiveSupplierIdAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        if (requestedSupplierId.HasValue)
+        {
+            return requestedSupplierId;
+        }
+
+        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        if (systemSupplier is null)
+        {
+            return Errors.Supplier.SystemSupplierNotFound;
+        }
+
+        return systemSupplier.Id;
     }
 }

@@ -89,4 +89,36 @@ public class EditSupplierCommandHandlerTests
             && s.Pin == "560002"));
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_WhenSystemSupplier_ReturnsCannotModifySystemSupplier()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(actor.Id);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
+
+        var handler = new EditSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var result = await handler.HandleAsync(new EditSupplierCommand(
+            actor.Id,
+            shop.Id,
+            systemSupplier.Id,
+            "Updated",
+            null,
+            null,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            true,
+            false), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Supplier.CannotModifySystemSupplier.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

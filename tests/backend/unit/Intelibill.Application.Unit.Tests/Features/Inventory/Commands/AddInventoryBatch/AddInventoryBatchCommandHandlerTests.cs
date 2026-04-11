@@ -12,6 +12,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInven
 public class AddInventoryBatchCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
@@ -22,6 +23,7 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenMoreThanHundredRows_ReturnsValidationError()
     {
+        SetupSystemSupplierLookup();
         var command = new AddInventoryBatchCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -41,6 +43,7 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Staff, true));
@@ -60,6 +63,7 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenOneRowFails_PersistsSucceededRows()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
@@ -100,6 +104,7 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAllRowsSucceed_CommitsEverything()
     {
+        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
@@ -130,12 +135,19 @@ public class AddInventoryBatchCommandHandlerTests
     private AddInventoryBatchCommandHandler CreateHandler() =>
         new(
             _userRepository,
+            _supplierRepository,
             _itemRepository,
             _inventoryBatchRepository,
             _stockTransactionRepository,
             _supplierLedgerEntryRepository,
             _inventoryRepository,
             _unitOfWork);
+
+    private void SetupSystemSupplierLookup()
+    {
+        _supplierRepository.GetSystemByOwnerUserIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
+    }
 
     private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode) =>
         new(
