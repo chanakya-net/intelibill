@@ -102,6 +102,14 @@ h1 {
   background: #fff1f2;
 }
 
+.row-error-text {
+  display: block;
+  margin-top: 0.2rem;
+  color: #b91c1c;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
 .scanned-row {
   animation: scanned-row-flash 1.4s ease;
 }

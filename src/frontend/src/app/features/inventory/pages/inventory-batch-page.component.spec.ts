@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageService } from 'primeng/api';
 
@@ -411,4 +411,200 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
   });
+
+  it('splits save requests into chunks of 100 when more than 100 rows exist', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    const rows = Array.from({ length: 205 }, (_, index) =>
+      createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+    );
+
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) =>
+        of({
+          requestedCount: payload.items.length,
+          successCount: payload.items.length,
+          failedCount: 0,
+          succeeded: payload.items.map((item) => ({
+            clientRowId: item.clientRowId,
+            result: createResult(item.clientRowId),
+          })),
+          failed: [],
+        }),
+    );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(3);
+    expect(inventoryService.addInventoryBatch.mock.calls[0][0].items).toHaveLength(100);
+    expect(inventoryService.addInventoryBatch.mock.calls[1][0].items).toHaveLength(100);
+    expect(inventoryService.addInventoryBatch.mock.calls[2][0].items).toHaveLength(5);
+    expect(component.pendingRows()).toHaveLength(0);
+    expect(component.saveSummary()?.requestedCount).toBe(205);
+    expect(component.saveSummary()?.successCount).toBe(205);
+    expect(component.saveSummary()?.failedCount).toBe(0);
+    expect(draftStorage.clearRows).toHaveBeenCalled();
+  });
+
+  it('retains failed rows across chunks and persists only failed rows', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    const rows = Array.from({ length: 205 }, (_, index) =>
+      createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+    );
+
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 100,
+          successCount: 99,
+          failedCount: 1,
+          succeeded: rows.slice(1, 100).map((row) => ({
+            clientRowId: row.clientRowId,
+            result: createResult(row.clientRowId),
+          })),
+          failed: [
+            {
+              clientRowId: rows[0].clientRowId,
+              itemName: rows[0].itemName,
+              barcode: rows[0].barcode,
+              errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 1' }],
+            },
+          ],
+        }),
+      )
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 100,
+          successCount: 99,
+          failedCount: 1,
+          succeeded: rows.slice(101, 200).map((row) => ({
+            clientRowId: row.clientRowId,
+            result: createResult(row.clientRowId),
+          })),
+          failed: [
+            {
+              clientRowId: rows[100].clientRowId,
+              itemName: rows[100].itemName,
+              barcode: rows[100].barcode,
+              errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 2' }],
+            },
+          ],
+        }),
+      )
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 5,
+          successCount: 5,
+          failedCount: 0,
+          succeeded: rows.slice(200).map((row) => ({
+            clientRowId: row.clientRowId,
+            result: createResult(row.clientRowId),
+          })),
+          failed: [],
+        }),
+      );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.pendingRows().map((row) => row.clientRowId)).toEqual([
+      rows[0].clientRowId,
+      rows[100].clientRowId,
+    ]);
+    expect(component.saveSummary()?.requestedCount).toBe(205);
+    expect(component.saveSummary()?.successCount).toBe(203);
+    expect(component.saveSummary()?.failedCount).toBe(2);
+    expect(draftStorage.saveRows).toHaveBeenCalled();
+    expect(draftStorage.clearRows).not.toHaveBeenCalled();
+  });
+
+  it('keeps unsent rows when a later chunk request fails', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    const rows = Array.from({ length: 205 }, (_, index) =>
+      createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+    );
+
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 100,
+          successCount: 99,
+          failedCount: 1,
+          succeeded: rows.slice(1, 100).map((row) => ({
+            clientRowId: row.clientRowId,
+            result: createResult(row.clientRowId),
+          })),
+          failed: [
+            {
+              clientRowId: rows[0].clientRowId,
+              itemName: rows[0].itemName,
+              barcode: rows[0].barcode,
+              errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 1' }],
+            },
+          ],
+        }),
+      )
+      .mockReturnValueOnce(
+        throwError(() => ({
+          error: {
+            errors: [{ code: 'Inventory.ServerError', description: 'Chunk failed unexpectedly' }],
+          },
+        })),
+      );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.pendingRows()).toHaveLength(106);
+    expect(component.pendingRows()[0].clientRowId).toBe(rows[0].clientRowId);
+    expect(component.saveSummary()?.successCount).toBe(99);
+    expect(component.saveSummary()?.failedCount).toBe(1);
+  });
+
+  function createDraftRow(clientRowId: string, itemName: string, barcode: string) {
+    return {
+      clientRowId,
+      itemName,
+      barcode,
+      itemDescription: null,
+      uom: 'unit',
+      batchNumber: 'BN-20260101-ABCDE',
+      quantity: 1,
+      costPrice: 10,
+      mrp: 12,
+      salesPrice: 11,
+      taxRatePercent: 5,
+      taxIncluded: false,
+      expiryDate: null,
+      manufacturingDate: null,
+      supplierId: null,
+      referenceNumber: null,
+      notes: null,
+      performedAt: new Date().toISOString(),
+    };
+  }
+
+  function createResult(suffix: string) {
+    return {
+      itemId: `item-${suffix}`,
+      itemName: `Item ${suffix}`,
+      barcode: `BC-${suffix}`,
+      batchId: `batch-${suffix}`,
+      batchNumber: 'BN-20260101-ABCDE',
+      batchQuantity: 1,
+      totalQuantity: 1,
+      supplierId: null,
+      stockTransactionId: `tx-${suffix}`,
+      performedAt: new Date().toISOString(),
+    };
+  }
 });

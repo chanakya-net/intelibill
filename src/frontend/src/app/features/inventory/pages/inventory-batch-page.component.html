@@ -229,7 +229,12 @@
             [class.failed-row]="failedClientRowIds().has(row.clientRowId)"
             [class.scanned-row]="highlightedRowId() === row.clientRowId"
           >
-            <td>{{ row.itemName }}</td>
+            <td>
+              <div>{{ row.itemName }}</div>
+              @if (failedRowErrorTextById().get(row.clientRowId); as rowErrorText) {
+                <small class="row-error-text">{{ rowErrorText }}</small>
+              }
+            </td>
             <td>{{ row.barcode }}</td>
             <td>{{ row.batchNumber }}</td>
             <td>{{ getSupplierDisplayName(row.supplierId) }}</td>

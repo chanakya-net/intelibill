@@ -15,10 +15,14 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
 
+import { firstValueFrom } from 'rxjs';
+
 import { AuthService } from '../../../core/auth/auth.service';
 import {
+  AddInventoryBatchFailedRow,
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
+  AddInventoryBatchSucceededRow,
   InventoryService,
 } from '../services/inventory.service';
 import {
@@ -150,6 +154,19 @@ export class InventoryBatchPageComponent {
     }
 
     return new Set(summary.failed.map((row) => row.clientRowId));
+  });
+  readonly failedRowErrorTextById = computed(() => {
+    const summary = this.saveSummary();
+    if (!summary) {
+      return new Map<string, string>();
+    }
+
+    const entries = summary.failed.map((row) => [
+      row.clientRowId,
+      row.errors.map((error) => error.description).join(', '),
+    ] as const);
+
+    return new Map<string, string>(entries);
   });
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -413,8 +430,93 @@ export class InventoryBatchPageComponent {
     }
 
     this.isSaving.set(true);
+    void this.saveRowsInChunks();
+  }
 
-    const payload: readonly AddInventoryBatchRowRequest[] = this.pendingRows().map((row) => ({
+  private async saveRowsInChunks(): Promise<void> {
+    const rows = [...this.pendingRows()];
+    const chunkSize = 100;
+    const succeeded: AddInventoryBatchSucceededRow[] = [];
+    const failed: AddInventoryBatchFailedRow[] = [];
+
+    try {
+      for (let index = 0; index < rows.length; index += chunkSize) {
+        const chunk = rows.slice(index, index + chunkSize);
+        const payload = this.mapRowsToRequest(chunk);
+        const response = await firstValueFrom(
+          this.inventoryService.addInventoryBatch({ items: payload }),
+        );
+
+        succeeded.push(...response.succeeded);
+        failed.push(...response.failed);
+      }
+
+      const summary: AddInventoryBatchResponse = {
+        requestedCount: rows.length,
+        successCount: succeeded.length,
+        failedCount: failed.length,
+        succeeded,
+        failed,
+      };
+
+      this.saveSummary.set(summary);
+      if (summary.failedCount === 0) {
+        this.pendingRows.set([]);
+        await this.draftStorage.clearRows(this.activeShopId());
+        this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
+        return;
+      }
+
+      const failedIds = new Set(summary.failed.map((row) => row.clientRowId));
+      const remainingRows = rows.filter((row) => failedIds.has(row.clientRowId));
+      this.pendingRows.set(remainingRows);
+      await this.persistRows(this.activeShopId(), remainingRows);
+      this.showWarn('inventory.savedPartial');
+    } catch (error) {
+      const succeededIds = new Set(succeeded.map((row) => row.clientRowId));
+      const failedIds = new Set(failed.map((row) => row.clientRowId));
+      const remainingRows = rows.filter(
+        (row) => !succeededIds.has(row.clientRowId) || failedIds.has(row.clientRowId),
+      );
+
+      this.pendingRows.set(remainingRows);
+      await this.persistRows(this.activeShopId(), remainingRows);
+
+      if (succeeded.length > 0 || failed.length > 0) {
+        this.saveSummary.set({
+          requestedCount: rows.length,
+          successCount: succeeded.length,
+          failedCount: failed.length,
+          succeeded,
+          failed,
+        });
+      }
+
+      const apiErrors = this.extractApiErrors(error);
+      const hasBatchLimitError = apiErrors.some(
+        (apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded',
+      );
+
+      if (hasBatchLimitError) {
+        this.showWarn('inventory.batchLimitReached');
+      } else {
+        const firstDetail = apiErrors
+          .map((apiError) => this.getErrorDescription(apiError))
+          .find((detail) => detail.length > 0);
+
+        if (firstDetail) {
+          this.showErrorWithDetail('inventory.saveFailed', firstDetail);
+        } else {
+          this.showError('inventory.saveFailed');
+        }
+      }
+    } finally {
+      this.isSaving.set(false);
+    }
+  }
+
+  private mapRowsToRequest(rows: readonly InventoryInboundDraftRow[]): readonly AddInventoryBatchRowRequest[] {
+    return rows.map((row) => ({
       clientRowId: row.clientRowId,
       itemName: row.itemName,
       barcode: row.barcode,
@@ -434,34 +536,6 @@ export class InventoryBatchPageComponent {
       notes: row.notes,
       performedAt: new Date().toISOString(),
     }));
-
-    this.inventoryService.addInventoryBatch({ items: payload }).subscribe({
-      next: (response) => {
-        this.saveSummary.set(response);
-        if (response.failedCount === 0) {
-          this.pendingRows.set([]);
-          void this.draftStorage.clearRows(this.activeShopId());
-          this.showSuccess(
-            'inventory.savedSuccess',
-            response.successCount,
-            response.requestedCount,
-          );
-        } else {
-          const failedIds = new Set(response.failed.map((row) => row.clientRowId));
-          const remainingRows = this.pendingRows().filter((row) => failedIds.has(row.clientRowId));
-          this.pendingRows.set(remainingRows);
-          void this.persistRows(this.activeShopId(), remainingRows);
-          this.showWarn('inventory.savedPartial');
-        }
-      },
-      error: () => {
-        this.showError('inventory.saveFailed');
-        this.isSaving.set(false);
-      },
-      complete: () => {
-        this.isSaving.set(false);
-      },
-    });
   }
 
   private async loadDraftRows(shopId: string): Promise<void> {
@@ -685,11 +759,6 @@ export class InventoryBatchPageComponent {
       return null;
     }
 
-    if (this.pendingRows().length >= 100) {
-      this.showWarn('inventory.batchLimitReached');
-      return null;
-    }
-
     const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
 
     return {
@@ -790,6 +859,45 @@ export class InventoryBatchPageComponent {
       summary: this.translate(messageKey),
       life: 3500,
     });
+  }
+
+  private showErrorWithDetail(messageKey: string, detail: string): void {
+    this.messageService.add({
+      severity: 'error',
+      summary: this.translate(messageKey),
+      detail,
+      life: 3500,
+    });
+  }
+
+  private extractApiErrors(error: unknown): readonly Record<string, unknown>[] {
+    if (!error || typeof error !== 'object') {
+      return [];
+    }
+
+    const candidate = (error as { error?: unknown }).error;
+    if (!candidate || typeof candidate !== 'object') {
+      return [];
+    }
+
+    const rawErrors = (candidate as { errors?: unknown }).errors;
+    if (!Array.isArray(rawErrors)) {
+      return [];
+    }
+
+    return rawErrors.filter(
+      (entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object',
+    );
+  }
+
+  private getErrorCode(apiError: Record<string, unknown>): string {
+    const code = apiError['code'] ?? apiError['Code'];
+    return typeof code === 'string' ? code : '';
+  }
+
+  private getErrorDescription(apiError: Record<string, unknown>): string {
+    const description = apiError['description'] ?? apiError['Description'];
+    return typeof description === 'string' ? description : '';
   }
 
   private showScannerToast(summaryKey: string, barcode: string, quantity: number): void {

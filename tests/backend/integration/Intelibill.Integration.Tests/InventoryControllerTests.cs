@@ -325,10 +325,77 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(1, body.GetProperty("successCount").GetInt32());
         Assert.Equal(1, body.GetProperty("failedCount").GetInt32());
 
+        var succeeded = body.GetProperty("succeeded");
+        Assert.Equal(1, succeeded.GetArrayLength());
+        Assert.Equal("row-1", succeeded[0].GetProperty("clientRowId").GetString());
+        Assert.Equal(5m, succeeded[0].GetProperty("result").GetProperty("batchQuantity").GetDecimal());
+        Assert.Equal(5m, succeeded[0].GetProperty("result").GetProperty("totalQuantity").GetDecimal());
+
+        var failed = body.GetProperty("failed");
+        Assert.Equal(1, failed.GetArrayLength());
+        Assert.Equal("row-2", failed[0].GetProperty("clientRowId").GetString());
+        Assert.Equal("Inventory.ItemNameBarcodeMismatch", failed[0].GetProperty("errors")[0].GetProperty("code").GetString());
+
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
         var itemCount = await db.Items.CountAsync(i => i.Name == "Batch Rice");
         Assert.Equal(1, itemCount);
+
+        var invalidItemCount = await db.Items.CountAsync(i => i.Name == "Different Name Same Barcode");
+        Assert.Equal(0, invalidItemCount);
+
+        var item = await db.Items.SingleAsync(i => i.Barcode == sharedBarcode);
+        var batchCount = await db.InventoryBatches.CountAsync(b => b.ItemId == item.Id);
+        Assert.Equal(1, batchCount);
+
+        var txCount = await db.StockTransactions.CountAsync(t => t.ItemId == item.Id);
+        Assert.Equal(1, txCount);
+
+        var inventory = await db.Inventory.SingleAsync(i => i.ItemId == item.Id);
+        Assert.Equal(5m, inventory.Quantity);
+    }
+
+    [Fact]
+    public async Task AddInboundInventoryBatch_WhenMoreThanHundredRows_ReturnsClearLimitMessage()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var items = Enumerable.Range(1, 101)
+            .Select(index => (object)new
+            {
+                clientRowId = $"row-{index}",
+                itemName = $"Item-{index}",
+                barcode = $"BC-{index}",
+                itemDescription = "Bulk",
+                uom = "kg",
+                batchNumber = $"B-{index}",
+                quantity = 1m,
+                costPrice = 10m,
+                mrp = 20m,
+                salesPrice = 15m,
+                taxRatePercent = 5m,
+                taxIncluded = false,
+                expiryDate = (DateOnly?)null,
+                manufacturingDate = (DateOnly?)null,
+                supplierId = (Guid?)null,
+                referenceNumber = $"PO-{index}",
+                notes = "Bulk inbound",
+                performedAt = (DateTimeOffset?)null,
+            })
+            .ToArray();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { items });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Only 100 items are allowed in a batch.", body.GetProperty("detail").GetString());
     }
 
     [Fact]

@@ -8,6 +8,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -69,6 +70,11 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.AddScoped<IRefreshTokenRepository, SqliteRefreshTokenRepository>();
             services.RemoveAll<ISupplierLedgerEntryRepository>();
             services.AddScoped<ISupplierLedgerEntryRepository, SqliteSupplierLedgerEntryRepository>();
+
+            // Replace Postgres-backed distributed cache in tests so rate-limit
+            // checks on auth endpoints do not depend on external infrastructure.
+            services.RemoveAll<IDistributedCache>();
+            services.AddSingleton<IDistributedCache, NoOpDistributedCache>();
         });
     }
 
@@ -156,4 +162,31 @@ internal sealed class SqliteSupplierLedgerEntryRepository(ApplicationDbContext c
 
         return goodsReceived - paymentMade;
     }
+}
+
+internal sealed class NoOpDistributedCache : IDistributedCache
+{
+    public byte[]? Get(string key) => null;
+
+    public Task<byte[]?> GetAsync(string key, CancellationToken token = default) =>
+        Task.FromResult<byte[]?>(null);
+
+    public void Refresh(string key)
+    {
+    }
+
+    public Task RefreshAsync(string key, CancellationToken token = default) => Task.CompletedTask;
+
+    public void Remove(string key)
+    {
+    }
+
+    public Task RemoveAsync(string key, CancellationToken token = default) => Task.CompletedTask;
+
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
+    {
+    }
+
+    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) =>
+        Task.CompletedTask;
 }

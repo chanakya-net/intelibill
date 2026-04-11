@@ -1,0 +1,56 @@
+flowchart TD
+    A[POST api/inventory/inbound] --> B[Auth policy OwnerOrManager]
+    B --> C{JWT valid and active_shop_id present}
+    C -- No --> C1[401 or 403 or ActiveShopNotSelected]
+    C -- Yes --> D[Map request to AddInventoryCommand]
+    D --> E[FluentValidation]
+    E -- Fail --> E1[400 validation errors]
+    E -- Pass --> F[Load actor user with memberships]
+    F --> G{Member of active shop}
+    G -- No --> G1[MembershipNotFound]
+    G -- Yes --> H{Role owner or manager}
+    H -- No --> H1[UserIsNotOwnerOrManager]
+    H -- Yes --> I[Normalize item name and barcode]
+
+    I --> J[Lookup item by barcode and by name in same shop]
+    J --> K{Identity conflict}
+    K -- Yes --> K1[ItemIdentityConflict]
+    K -- No --> L{Existing item found}
+
+    L -- Existing --> M[Use existing item]
+    L -- None --> N[Create item and insert items]
+
+    M --> O[Lookup batch by shop_id item_id batch_number]
+    N --> O
+
+    O --> P{Batch exists}
+    P -- No --> Q[Create batch and insert inventory_batches]
+    P -- Yes --> R[Add quantity and update inventory_batches]
+
+    Q --> S[Create IN stock transaction and insert stock_transactions]
+    R --> S
+
+    S --> T{isNewBatch and supplier_id present}
+    T -- Yes --> U[Create GOODS_RECEIVED ledger and insert supplier_ledger_entries]
+    T -- No --> V[Skip ledger insert]
+    U --> W[Lookup inventory aggregate by shop_id item_id]
+    V --> W
+
+    W --> X{Inventory exists}
+    X -- No --> Y[Create aggregate with request quantity and insert inventory]
+    X -- Yes --> Z[Add quantity and update inventory]
+
+    Y --> AA[unitOfWork SaveChangesAsync]
+    Z --> AA
+    AA --> AB[200 OK AddInventoryResultDto]
+
+    subgraph BatchEndpoint
+      BA[POST api/inventory/inbound/batch] --> BB{Rows count <= 100}
+      BB -- No --> BB1[400 Inventory.BatchLimitExceeded: Only 100 items are allowed in a batch]
+      BB -- Yes --> BC[Map rows to AddInventoryBatchCommand and invoke once]
+      BC --> BD[Validate actor once and validate each row]
+      BD --> BE[Process rows independently and collect succeeded/failed]
+      BE --> BF[Stage valid row entities]
+      BF --> BG[Single unitOfWork SaveChangesAsync for valid rows]
+      BG --> BH[200 OK partial success payload]
+    end
