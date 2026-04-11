@@ -524,11 +524,12 @@ public class ShopsControllerTests : IClassFixture<ApiWebApplicationFactory>
         var addResponse = await client.SendAsync(addRequest);
 
         Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
-        var body = await addResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("HDFC Bank", body.GetProperty("bankName").GetString());
-        Assert.Equal("Savings", body.GetProperty("bankAccountType").GetString());
-        Assert.Equal("HDFC0001234", body.GetProperty("ifscCode").GetString());
-        Assert.Equal("Test Owner", body.GetProperty("accountHolderName").GetString());
+        var body = JsonSerializer.Deserialize<JsonElement>(await addResponse.Content.ReadAsStringAsync());
+        var bankAccount = body.GetProperty("bankAccounts").EnumerateArray().Single();
+        Assert.Equal("HDFC Bank", bankAccount.GetProperty("bankName").GetString());
+        Assert.Equal("Savings", bankAccount.GetProperty("accountType").GetString());
+        Assert.Equal("HDFC0001234", bankAccount.GetProperty("ifscCode").GetString());
+        Assert.Equal("Test Owner", bankAccount.GetProperty("accountHolderName").GetString());
     }
 
     [Fact]
@@ -551,8 +552,9 @@ public class ShopsControllerTests : IClassFixture<ApiWebApplicationFactory>
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Current", body.GetProperty("bankAccountType").GetString());
+        var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
+        var bankAccount = body.GetProperty("bankAccounts").EnumerateArray().Single();
+        Assert.Equal("Current", bankAccount.GetProperty("accountType").GetString());
     }
 
     [Fact]

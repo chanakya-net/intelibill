@@ -7,6 +7,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using System.Linq;
 
 namespace Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
 
@@ -32,18 +33,18 @@ public sealed class AddShopBankAccountCommandHandler(
         if (membership.Role != ShopRole.Owner)
             return Errors.Shop.UserIsNotOwner;
 
-        var shop = membership.Shop ?? await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
+        var shop = await shopRepository.GetByIdWithBankAccountsAsync(command.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        BankAccount? newAccount = null;
         if (!string.IsNullOrWhiteSpace(command.BankName) && !string.IsNullOrWhiteSpace(command.AccountNumber))
         {
             BankAccountType? accountType = Enum.TryParse<BankAccountType>(command.AccountType, true, out var parsed)
                 ? parsed
                 : null;
 
-            newAccount = BankAccount.Create(shop.Id, command.BankName, command.AccountNumber, accountType, command.IfscCode, command.AccountHolderName);
+            var newAccount = BankAccount.Create(shop.Id, command.BankName, command.AccountNumber, accountType, command.IfscCode, command.AccountHolderName);
+            shop.AddBankAccount(newAccount);
             await shopRepository.AddBankAccountAsync(newAccount, cancellationToken);
         }
 
@@ -59,11 +60,6 @@ public sealed class AddShopBankAccountCommandHandler(
             shop.ContactPerson,
             shop.MobileNumber,
             shop.GstNumber,
-            newAccount?.BankName,
-            newAccount?.AccountNumber,
-            newAccount?.AccountType?.ToString(),
-            newAccount?.IfscCode,
-            newAccount?.AccountHolderName
-        );
+            shop.BankAccounts.Select(ba => new BankAccountDto(ba.Id, ba.BankName, ba.AccountNumber, ba.AccountType?.ToString(), ba.IfscCode, ba.AccountHolderName)).ToList());
     }
 }

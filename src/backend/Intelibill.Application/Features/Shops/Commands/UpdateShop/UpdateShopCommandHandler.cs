@@ -6,6 +6,7 @@ using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using System.Linq;
 
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
 
@@ -31,7 +32,7 @@ public sealed class UpdateShopCommandHandler(
         if (membership.Role != ShopRole.Owner)
             return Errors.Shop.UserIsNotOwner;
 
-        var shop = membership.Shop ?? await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
+        var shop = await shopRepository.GetByIdWithBankAccountsAsync(command.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
@@ -58,10 +59,6 @@ public sealed class UpdateShopCommandHandler(
             shop.ContactPerson,
             shop.MobileNumber,
             shop.GstNumber,
-            shop.BankName,
-            shop.BankAccountNumber,
-            shop.BankAccountType?.ToString(),
-            shop.IfscCode,
-            shop.AccountHolderName);
+            shop.BankAccounts.Select(ba => new BankAccountDto(ba.Id, ba.BankName, ba.AccountNumber, ba.AccountType?.ToString(), ba.IfscCode, ba.AccountHolderName)).ToList());
     }
 }

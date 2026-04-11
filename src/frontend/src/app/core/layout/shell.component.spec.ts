@@ -253,6 +253,22 @@ describe('ShellComponent', () => {
     expect(component.isProfileMenuOpen()).toBe(false);
   });
 
+  it('keeps create-shop overlay open until explicitly closed after setup becomes optional', () => {
+    authService.needsShopSetup.set(true);
+    const component = setup();
+
+    expect(component.showCreateShopOverlay()).toBe(true);
+
+    authService.needsShopSetup.set(false);
+
+    expect(component.showCreateShopOverlay()).toBe(true);
+
+    component.onCreateShopOverlayClose();
+
+    expect(component.showCreateShopOverlay()).toBe(false);
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+  });
+
   it('opens manage shop overlay from profile actions', () => {
     const component = setup();
 

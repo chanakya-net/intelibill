@@ -29,6 +29,8 @@ public class AddShopBankAccountCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
+        _shopRepository.GetByIdWithBankAccountsAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns(shop);
 
         var command = new AddShopBankAccountCommand(
             user.Id,
@@ -42,11 +44,12 @@ public class AddShopBankAccountCommandHandlerTests
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal("State Bank of India", result.Value.BankName);
-        Assert.Equal("123456789012", result.Value.BankAccountNumber);
-        Assert.Equal("Savings", result.Value.BankAccountType);
-        Assert.Equal("SBIN0001234", result.Value.IfscCode);
-        Assert.Equal("Chandra Kumar", result.Value.AccountHolderName);
+        var bankAccount = Assert.Single(result.Value.BankAccounts);
+        Assert.Equal("State Bank of India", bankAccount.BankName);
+        Assert.Equal("123456789012", bankAccount.AccountNumber);
+        Assert.Equal("Savings", bankAccount.AccountType);
+        Assert.Equal("SBIN0001234", bankAccount.IfscCode);
+        Assert.Equal("Chandra Kumar", bankAccount.AccountHolderName);
 
         await _shopRepository.Received(1).AddBankAccountAsync(
             Arg.Is<BankAccount>(ba =>
@@ -120,27 +123,25 @@ public class AddShopBankAccountCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_AllNullBankDetails_ClearsBankFields()
+    public async Task HandleAsync_NullBankDetails_NoNewAccountAdded_ReturnsExistingAccounts()
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
         var shop = Shop.Create("Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null);
-        shop.UpdateBankDetails("SBI", "12345", BankAccountType.Savings, "SBIN0001234", "Chandra");
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
         shop.AddMembership(membership);
         user.AddShopMembership(membership);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
+        _shopRepository.GetByIdWithBankAccountsAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns(shop);
 
         var command = new AddShopBankAccountCommand(user.Id, shop.Id, null, null, null, null, null);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Null(result.Value.BankName);
-        Assert.Null(result.Value.BankAccountNumber);
-        Assert.Null(result.Value.BankAccountType);
-        Assert.Null(result.Value.IfscCode);
-        Assert.Null(result.Value.AccountHolderName);
+        Assert.Empty(result.Value.BankAccounts);
+        await _shopRepository.DidNotReceive().AddBankAccountAsync(Arg.Any<BankAccount>(), Arg.Any<CancellationToken>());
     }
 }

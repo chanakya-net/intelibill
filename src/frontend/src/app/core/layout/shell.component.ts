@@ -4,6 +4,7 @@ import {
   HostListener,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -113,6 +114,7 @@ export class ShellComponent {
   readonly expandedMobileSectionLabel = signal<string | null>(null);
   readonly expandedMobileSections = signal<Set<string>>(new Set(['inventory', 'profile']));
   readonly showCreateShopOverlayManual = signal(false);
+  readonly showCreateShopOverlayAuto = signal(false);
   readonly showManageShopOverlay = signal(false);
   readonly showUpdateProfileOverlay = signal(false);
   readonly showChangePasswordOverlay = signal(false);
@@ -124,7 +126,7 @@ export class ShellComponent {
   readonly shopDetailsById = this.store.selectSignal(selectShopDetailsEntities);
   readonly isShopsSubmitting = this.store.selectSignal(selectShopsSubmitting);
   readonly showCreateShopOverlay = computed(
-    () => this.authService.needsShopSetup() || this.showCreateShopOverlayManual(),
+    () => this.showCreateShopOverlayAuto() || this.showCreateShopOverlayManual(),
   );
   readonly activeShop = computed(() => this.shops().find((shop) => shop.isDefault) ?? null);
   readonly activeShopId = computed(() => this.activeShop()?.shopId ?? null);
@@ -282,6 +284,12 @@ export class ShellComponent {
   };
 
   constructor() {
+    effect(() => {
+      if (this.authService.needsShopSetup()) {
+        this.showCreateShopOverlayAuto.set(true);
+      }
+    });
+
     this.store.dispatch(ShopsActions.loadShopsRequested());
   }
 
@@ -531,6 +539,7 @@ export class ShellComponent {
   }
 
   onCreateShopOverlayClose(): void {
+    this.showCreateShopOverlayAuto.set(false);
     this.showCreateShopOverlayManual.set(false);
 
     if (!this.authService.needsShopSetup()) {

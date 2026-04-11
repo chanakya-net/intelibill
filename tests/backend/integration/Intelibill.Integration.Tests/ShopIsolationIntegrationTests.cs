@@ -323,7 +323,7 @@ public class ShopIsolationIntegrationTests
         user.AddShopMembership(membership);
 
         var userRepository = new InMemoryUserRepository(user);
-        var shopRepository = new InMemoryShopRepository();
+        var shopRepository = new InMemoryShopRepository(shop);
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new UpdateShopCommandHandler(
@@ -434,9 +434,12 @@ public class ShopIsolationIntegrationTests
         public void Remove(User entity) { }
     }
 
-    private sealed class InMemoryShopRepository : IShopRepository
+    private sealed class InMemoryShopRepository(Shop? existingShop = null) : IShopRepository
     {
         public List<Shop> AddedShops { get; } = [];
+
+        public Task<Shop?> GetByIdWithBankAccountsAsync(Guid shopId, CancellationToken cancellationToken = default)
+            => Task.FromResult(existingShop?.Id == shopId ? existingShop : null);
 
         public Task<IReadOnlyList<ShopMembership>> GetMembershipsForUserAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ShopMembership>>([]);
