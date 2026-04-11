@@ -5,6 +5,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
@@ -210,6 +211,28 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         return Ok();
     }
 
+    [HttpPost("batches/{batchId:guid}/reassign-supplier")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> ReassignBatchSupplier(Guid batchId, [FromBody] ReassignBatchSupplierRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new ReassignBatchSupplierCommand(userId.Value, activeShopId.Value, batchId, request.NewSupplierId),
+            cancellationToken);
+
+        if (result.IsError)
+            return result.Errors.ToList().ToProblemResult();
+
+        return Ok();
+    }
+
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -286,6 +309,8 @@ public sealed record UpdateInventoryBatchRequest(
     Guid? SupplierId,
     string? Notes,
     DateOnly? EntryDate);
+
+public sealed record ReassignBatchSupplierRequest(Guid NewSupplierId);
 
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 

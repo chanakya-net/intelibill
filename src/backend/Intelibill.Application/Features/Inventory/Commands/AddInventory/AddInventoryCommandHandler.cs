@@ -11,6 +11,7 @@ namespace Intelibill.Application.Features.Inventory.Commands.AddInventory;
 
 public sealed class AddInventoryCommandHandler(
     IUserRepository userRepository,
+    ISupplierRepository supplierRepository,
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
@@ -80,6 +81,13 @@ public sealed class AddInventoryCommandHandler(
             return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
+        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(command.SupplierId, command.ActorUserId, cancellationToken);
+        if (effectiveSupplierOrError.IsError)
+            return effectiveSupplierOrError.Errors;
+
+        var effectiveSupplier = effectiveSupplierOrError.Value;
+        var isSystemSupplier = command.SupplierId is null;
+
         var batchResult = InventoryBatch.Create(
             command.ActiveShopId,
             item.Id,
@@ -92,7 +100,7 @@ public sealed class AddInventoryCommandHandler(
             command.TaxIncluded,
             command.ExpiryDate,
             command.ManufacturingDate,
-            command.SupplierId,
+            effectiveSupplier.Id,
             command.ActorUserId);
 
         if (batchResult.IsError)
@@ -120,23 +128,20 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        if (batch.SupplierId is Guid supplierId)
-        {
-            var ledgerResult = SupplierLedgerEntry.Create(
-                command.ActiveShopId,
-                supplierId,
-                batch.Id,
-                SupplierLedgerEntryType.GoodsReceived,
-                ComputeLedgerAmount(command.CostPrice, command.Quantity),
-                DateOnly.FromDateTime(performedAt.UtcDateTime),
-                command.Notes ?? "Inbound inventory",
-                command.ActorUserId);
+        var ledgerResult = SupplierLedgerEntry.Create(
+            command.ActiveShopId,
+            effectiveSupplier.Id,
+            batch.Id,
+            SupplierLedgerEntryType.GoodsReceived,
+            ComputeLedgerAmount(command.CostPrice, command.Quantity),
+            DateOnly.FromDateTime(performedAt.UtcDateTime),
+            isSystemSupplier ? "Receipt with no supplier assigned" : null,
+            command.ActorUserId);
 
-            if (ledgerResult.IsError)
-                return Errors.Inventory.SupplierLedgerEntryInvalid;
+        if (ledgerResult.IsError)
+            return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-            await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
-        }
+        await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, item.Id, cancellationToken);
         if (inventory is null)
@@ -180,6 +185,28 @@ public sealed class AddInventoryCommandHandler(
             batch.SupplierId,
             stockTransaction.Id,
             stockTransaction.PerformedAt);
+    }
+
+    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        if (requestedSupplierId is Guid supplierId)
+        {
+            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            if (supplier is null || supplier.OwnerUserId != actorUserId)
+            {
+                return Errors.Supplier.SupplierNotFound;
+            }
+
+            return supplier;
+        }
+
+        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        if (systemSupplier is null)
+        {
+            return Errors.Supplier.SystemSupplierNotFound;
+        }
+
+        return systemSupplier;
     }
 
     private static decimal ComputeLedgerAmount(decimal costPrice, decimal quantity) =>

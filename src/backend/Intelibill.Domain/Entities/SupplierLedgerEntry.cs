@@ -73,4 +73,9 @@ public sealed class SupplierLedgerEntry : BaseEntity
 
         return Result.Success;
     }
+
+    public void ReassignSupplier(Guid supplierId)
+    {
+        SupplierId = supplierId;
+    }
 }

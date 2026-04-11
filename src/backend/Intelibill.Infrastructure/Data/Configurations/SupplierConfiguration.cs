@@ -19,6 +19,10 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
             .IsRequired()
             .HasMaxLength(180);
 
+        builder.Property(s => s.IsSystem)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(s => s.ContactPersonName)
             .HasMaxLength(120);
 
@@ -26,19 +30,15 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
             .HasMaxLength(32);
 
         builder.Property(s => s.Address)
-            .IsRequired()
             .HasMaxLength(320);
 
         builder.Property(s => s.City)
-            .IsRequired()
             .HasMaxLength(120);
 
         builder.Property(s => s.State)
-            .IsRequired()
             .HasMaxLength(120);
 
         builder.Property(s => s.Pin)
-            .IsRequired()
             .HasMaxLength(16);
 
         builder.Property(s => s.IsActive)
@@ -49,6 +49,9 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
 
         builder.HasIndex(s => s.OwnerUserId);
         builder.HasIndex(s => new { s.OwnerUserId, s.IsActive });
+        builder.HasIndex(s => new { s.OwnerUserId, s.IsSystem })
+            .IsUnique()
+            .HasFilter("is_system = true");
 
         builder.HasOne<User>()
             .WithMany()

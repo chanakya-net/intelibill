@@ -10,6 +10,7 @@ namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 
 public sealed class RegisterWithPhoneCommandHandler(
     IUserRepository userRepository,
+    ISupplierRepository supplierRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
@@ -25,6 +26,7 @@ public sealed class RegisterWithPhoneCommandHandler(
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
 
         await userRepository.AddAsync(user, cancellationToken);
+        await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(user.Id), cancellationToken);
 
         var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);

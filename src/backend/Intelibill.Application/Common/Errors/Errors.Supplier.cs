@@ -38,5 +38,14 @@ public static partial class Errors
 
         public static Error ShopOwnerNotFound =>
             Error.Unexpected("Supplier.ShopOwnerNotFound", "Unable to resolve the shop owner for supplier listing.");
+
+        public static Error CannotModifySystemSupplier =>
+            Error.Conflict("Supplier.CannotModifySystemSupplier", "System supplier cannot be modified.");
+
+        public static Error CannotReassignFromRealSupplier =>
+            Error.Conflict("Supplier.CannotReassignFromRealSupplier", "Reassignment is only allowed when current supplier is system-generated.");
+
+        public static Error SystemSupplierNotFound =>
+            Error.Unexpected("Supplier.SystemSupplierNotFound", "System supplier not found for user. User registration may be incomplete.");
     }
 }

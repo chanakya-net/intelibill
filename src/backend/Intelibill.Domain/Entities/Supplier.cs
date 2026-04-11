@@ -9,10 +9,11 @@ public sealed class Supplier : BaseEntity
     public string Name { get; private set; } = string.Empty;
     public string? ContactPersonName { get; private set; }
     public string? ContactPersonPhone { get; private set; }
-    public string Address { get; private set; } = string.Empty;
-    public string City { get; private set; } = string.Empty;
-    public string State { get; private set; } = string.Empty;
-    public string Pin { get; private set; } = string.Empty;
+    public string? Address { get; private set; }
+    public string? City { get; private set; }
+    public string? State { get; private set; }
+    public string? Pin { get; private set; }
+    public bool IsSystem { get; private set; }
     public bool IsActive { get; private set; }
     public bool IsPreferred { get; private set; }
 
@@ -23,12 +24,13 @@ public sealed class Supplier : BaseEntity
         string name,
         string? contactPersonName,
         string? contactPersonPhone,
-        string address,
-        string city,
-        string state,
-        string pin,
+        string? address,
+        string? city,
+        string? state,
+        string? pin,
         bool isActive,
-        bool isPreferred)
+        bool isPreferred,
+        bool isSystem = false)
     {
         return new Supplier
         {
@@ -36,33 +38,50 @@ public sealed class Supplier : BaseEntity
             Name = name.Trim(),
             ContactPersonName = NormalizeOptional(contactPersonName),
             ContactPersonPhone = NormalizeOptional(contactPersonPhone),
-            Address = address.Trim(),
-            City = city.Trim(),
-            State = state.Trim(),
-            Pin = pin.Trim(),
+            Address = NormalizeOptional(address),
+            City = NormalizeOptional(city),
+            State = NormalizeOptional(state),
+            Pin = NormalizeOptional(pin),
+            IsSystem = isSystem,
             IsActive = isActive,
             IsPreferred = isPreferred,
         };
+    }
+
+    public static Supplier CreateUnknownSystemSupplier(Guid ownerUserId)
+    {
+        return Create(
+            ownerUserId,
+            "Unknown Supplier",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            isActive: true,
+            isPreferred: false,
+            isSystem: true);
     }
 
     public void Update(
         string name,
         string? contactPersonName,
         string? contactPersonPhone,
-        string address,
-        string city,
-        string state,
-        string pin,
+        string? address,
+        string? city,
+        string? state,
+        string? pin,
         bool isActive,
         bool isPreferred)
     {
         Name = name.Trim();
         ContactPersonName = NormalizeOptional(contactPersonName);
         ContactPersonPhone = NormalizeOptional(contactPersonPhone);
-        Address = address.Trim();
-        City = city.Trim();
-        State = state.Trim();
-        Pin = pin.Trim();
+        Address = NormalizeOptional(address);
+        City = NormalizeOptional(city);
+        State = NormalizeOptional(state);
+        Pin = NormalizeOptional(pin);
         IsActive = isActive;
         IsPreferred = isPreferred;
     }

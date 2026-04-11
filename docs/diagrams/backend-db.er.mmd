@@ -131,11 +131,13 @@ erDiagram
         uuid item_id FK
         string batch_number
         decimal quantity
+        decimal original_quantity
         decimal cost_price
         decimal mrp
         decimal sales_price
         decimal tax_rate_percent
         bool tax_included
+        bool is_voided
         date expiry_date
         date manufacturing_date
         uuid supplier_id FK

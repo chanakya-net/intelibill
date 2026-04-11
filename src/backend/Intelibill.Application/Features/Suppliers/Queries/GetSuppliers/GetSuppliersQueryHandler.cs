@@ -30,7 +30,7 @@ public sealed class GetSuppliersQueryHandler(
         if (ownerMembership is null)
             return Errors.Supplier.ShopOwnerNotFound;
 
-        var suppliers = await supplierRepository.GetByOwnerUserIdAsync(ownerMembership.UserId, cancellationToken);
+        var suppliers = await supplierRepository.GetByOwnerUserIdAsync(ownerMembership.UserId, query.IncludeSystem, cancellationToken);
 
         var result = new List<SupplierDto>();
         foreach (var s in suppliers)
@@ -38,13 +38,14 @@ public sealed class GetSuppliersQueryHandler(
             var balance = await supplierLedgerEntryRepository.GetSupplierBalanceAsync(query.ActiveShopId, s.Id, cancellationToken);
             result.Add(new SupplierDto(
                 s.Id,
-                s.Name,
+                s.IsSystem ? "Unassigned" : s.Name,
                 s.ContactPersonName,
                 s.ContactPersonPhone,
                 s.Address,
                 s.City,
                 s.State,
                 s.Pin,
+                s.IsSystem,
                 s.IsActive,
                 s.IsPreferred,
                 balance));

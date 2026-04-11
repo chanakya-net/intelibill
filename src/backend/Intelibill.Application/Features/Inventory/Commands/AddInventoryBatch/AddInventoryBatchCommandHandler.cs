@@ -13,6 +13,7 @@ namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 
 public sealed class AddInventoryBatchCommandHandler(
     IUserRepository userRepository,
+    ISupplierRepository supplierRepository,
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
@@ -192,6 +193,13 @@ public sealed class AddInventoryBatchCommandHandler(
             return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
+        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(row.SupplierId, command.ActorUserId, cancellationToken);
+        if (effectiveSupplierOrError.IsError)
+            return effectiveSupplierOrError.Errors;
+
+        var effectiveSupplier = effectiveSupplierOrError.Value;
+        var isSystemSupplier = row.SupplierId is null;
+
         var batchResult = InventoryBatch.Create(
             command.ActiveShopId,
             item.Id,
@@ -204,7 +212,7 @@ public sealed class AddInventoryBatchCommandHandler(
             row.TaxIncluded,
             row.ExpiryDate,
             row.ManufacturingDate,
-            row.SupplierId,
+            effectiveSupplier.Id,
             command.ActorUserId);
 
         if (batchResult.IsError)
@@ -231,23 +239,20 @@ public sealed class AddInventoryBatchCommandHandler(
 
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
-        if (batch.SupplierId is Guid supplierId)
-        {
-            var ledgerResult = SupplierLedgerEntry.Create(
-                command.ActiveShopId,
-                supplierId,
-                batch.Id,
-                SupplierLedgerEntryType.GoodsReceived,
-                ComputeLedgerAmount(row.CostPrice, row.Quantity),
-                DateOnly.FromDateTime(performedAt.UtcDateTime),
-                row.Notes ?? "Inbound inventory",
-                command.ActorUserId);
+        var ledgerResult = SupplierLedgerEntry.Create(
+            command.ActiveShopId,
+            effectiveSupplier.Id,
+            batch.Id,
+            SupplierLedgerEntryType.GoodsReceived,
+            ComputeLedgerAmount(row.CostPrice, row.Quantity),
+            DateOnly.FromDateTime(performedAt.UtcDateTime),
+            isSystemSupplier ? "Receipt with no supplier assigned" : null,
+            command.ActorUserId);
 
-            if (ledgerResult.IsError)
-                return Errors.Inventory.SupplierLedgerEntryInvalid;
+        if (ledgerResult.IsError)
+            return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-            await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
-        }
+        await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
 
         if (!inventoryCache.TryGetValue(item.Id, out var inventory))
         {
@@ -308,4 +313,26 @@ public sealed class AddInventoryBatchCommandHandler(
 
     private static decimal ComputeLedgerAmount(decimal costPrice, decimal quantity) =>
         decimal.Round(costPrice * quantity, 2, MidpointRounding.AwayFromZero);
+
+    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    {
+        if (requestedSupplierId is Guid supplierId)
+        {
+            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            if (supplier is null || supplier.OwnerUserId != actorUserId)
+            {
+                return Errors.Supplier.SupplierNotFound;
+            }
+
+            return supplier;
+        }
+
+        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        if (systemSupplier is null)
+        {
+            return Errors.Supplier.SystemSupplierNotFound;
+        }
+
+        return systemSupplier;
+    }
 }
