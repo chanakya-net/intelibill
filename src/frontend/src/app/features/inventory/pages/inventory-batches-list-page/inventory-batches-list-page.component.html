@@ -93,19 +93,44 @@
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.costPrice' | transloco }}</label>
-        <p-inputNumber formControlName="costPrice" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="costPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+          ></p-inputNumber>
+        </p-inputgroup>
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.mrp' | transloco }}</label>
-        <p-inputNumber formControlName="mrp" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+        <p-inputgroup>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="mrp"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+          ></p-inputNumber>
+        </p-inputgroup>
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.salesPrice' | transloco }}</label>
         <p-inputgroup class="w-full">
-          <p-inputNumber formControlName="salesPrice" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="salesPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+          ></p-inputNumber>
           <p-select
             formControlName="taxIncluded"
             [options]="taxModeOptions()"
