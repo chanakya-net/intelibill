@@ -27,13 +27,12 @@ flowchart TD
     P -- Yes --> P1[409 BatchNumberAlreadyExists]
     P -- No --> Q[Create batch and insert inventory_batches]
 
-    Q --> S[Create IN stock transaction and insert stock_transactions]
-
-    S --> T{supplier_id present}
-    T -- Yes --> U[Create GOODS_RECEIVED ledger and insert supplier_ledger_entries]
-    T -- No --> V[Skip ledger insert]
-    U --> W[Lookup inventory aggregate by shop_id item_id]
-    V --> W
+    Q --> S[Resolve effective supplier: requested supplier or owner system Unknown Supplier]
+    S --> T{Supplier resolution valid}
+    T -- No --> T1[SupplierNotFound or SystemSupplierNotFound]
+    T -- Yes --> U[Create IN stock transaction and insert stock_transactions]
+    U --> V[Create GOODS_RECEIVED ledger and insert supplier_ledger_entries]
+    V --> W[Lookup inventory aggregate by shop_id item_id]
 
     W --> X{Inventory exists}
     X -- No --> Y[Create aggregate with request quantity and insert inventory]
@@ -48,7 +47,7 @@ flowchart TD
       BB -- No --> BB1[400 Inventory.BatchEmpty or Inventory.BatchLimitExceeded]
       BB -- Yes --> BC[Map rows to AddInventoryBatchCommand and invoke once]
       BC --> BD[Validate actor once and validate each row]
-      BD --> BE[Per row process: same item or create item then enforce active-batch uniqueness]
+      BD --> BE[Per row process: same item or create item, enforce active-batch uniqueness, resolve effective supplier]
       BE --> BF[Collect succeeded and failed rows]
       BF --> BG{Any succeeded rows}
       BG -- Yes --> BH[Single unitOfWork SaveChangesAsync]
