@@ -1,10 +1,14 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Update;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInventory;
@@ -242,6 +246,97 @@ public class AddInventoryCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SystemSupplierNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenConcurrencyConflictOnFirstAttempt_RetriesAndSucceeds()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
+
+        // First attempt sees qty=10, second attempt (after simulated reload) sees qty=12
+        var inventory1 = DomainInventory.Create(shop.Id, item.Id, 10m, 0m, 0m, actor.Id).Value;
+        var inventory2 = DomainInventory.Create(shop.Id, item.Id, 12m, 0m, 0m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(item);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, item.Id, "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
+            .Returns(inventory1, inventory2);
+
+        // First SaveChanges throws concurrency; second succeeds
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(
+                _ => Task.FromException<int>(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>())),
+                _ => Task.FromResult(1));
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        // inventory2 (qty=12) + command qty (10) = 22
+        Assert.Equal(22m, result.Value.TotalQuantity);
+
+        // Batch/stock tx/ledger added exactly once — not repeated on retry
+        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Any<InventoryBatch>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.Received(1).AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenConcurrencyExhaustsAllRetries_ThrowsInventoryUpdateConflictException()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
+
+        var inventory = DomainInventory.Create(shop.Id, item.Id, 10m, 0m, 0m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(item);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, item.Id, "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, item.Id, Arg.Any<CancellationToken>()).Returns(inventory);
+
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
+
+        var handler = CreateHandler();
+        await Assert.ThrowsAsync<InventoryUpdateConflictException>(
+            () => handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None));
+
+        await _unitOfWork.Received(3).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSingleRequest_CompletesInOneAttempt()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private AddInventoryCommandHandler CreateHandler() =>

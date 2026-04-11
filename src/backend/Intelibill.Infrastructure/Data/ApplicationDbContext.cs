@@ -29,6 +29,16 @@ public class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        if (Database.IsNpgsql())
+        {
+            modelBuilder.Entity<Inventory>()
+                .Property<uint>("xmin")
+                .IsRowVersion()
+                .HasColumnName("xmin")
+                .HasColumnType("xid");
+        }
+
         base.OnModelCreating(modelBuilder);
     }
 

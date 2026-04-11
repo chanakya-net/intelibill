@@ -1,10 +1,14 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Update;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.VoidBatch;
@@ -181,6 +185,64 @@ public class VoidBatchCommandHandlerTests
 
         var handler = CreateHandler();
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenConcurrencyConflictOnVoid_RetriesAndSucceeds()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+
+        // First attempt sees qty=30, second attempt (simulated reload after concurrent inbound) sees qty=35
+        var inventory1 = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
+        var inventory2 = DomainInventory.Create(shop.Id, itemId, 35m, 2m, 50m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>())
+            .Returns(inventory1, inventory2);
+
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(
+                _ => Task.FromException<int>(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>())),
+                _ => Task.FromResult(1));
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        // inventory2 (35) - batch.Quantity (10) = 25
+        Assert.Equal(25m, inventory2.Quantity);
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenVoidConcurrencyExhaustsAllRetries_ThrowsInventoryUpdateConflictException()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
+
+        var handler = CreateHandler();
+        await Assert.ThrowsAsync<InventoryUpdateConflictException>(
+            () => handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None));
+
+        await _unitOfWork.Received(3).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private VoidBatchCommandHandler CreateHandler() =>

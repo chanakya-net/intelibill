@@ -1,10 +1,12 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 
@@ -83,21 +85,54 @@ public sealed class VoidBatchCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, itemId, cancellationToken);
-        if (inventory is null)
-        {
-             throw new InvalidOperationException("Inventory aggregate inconsistency detected on void");
-        }
-
-        inventory.SubtractQuantity(remainingQuantity, command.ActorUserId);
-        inventoryRepository.Update(inventory);
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await SubtractInventoryWithRetryAsync(
+            command.ActiveShopId,
+            itemId,
+            remainingQuantity,
+            command.ActorUserId,
+            cancellationToken);
 
         return new VoidBatchResultDto(
             batch.Id,
             originalQuantity,
             remainingQuantity,
             ledgerReversalAmount);
+    }
+
+    private async Task SubtractInventoryWithRetryAsync(
+        Guid shopId,
+        Guid itemId,
+        decimal quantityToSubtract,
+        Guid actorUserId,
+        CancellationToken ct,
+        int maxRetries = 3)
+    {
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                var inventory = await inventoryRepository.GetByItemAsync(shopId, itemId, ct);
+                if (inventory is null)
+                    throw new InvalidOperationException("Inventory aggregate inconsistency detected on void");
+
+                inventory.SubtractQuantity(quantityToSubtract, actorUserId);
+                inventoryRepository.Update(inventory);
+
+                await unitOfWork.SaveChangesAsync(ct);
+                return;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                if (attempt == maxRetries - 1)
+                    throw new InventoryUpdateConflictException(
+                        "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
+
+                foreach (var entry in ex.Entries)
+                    await entry.ReloadAsync(ct);
+            }
+        }
+
+        throw new InventoryUpdateConflictException(
+            "Inventory aggregate could not be updated after max retries.");
     }
 }

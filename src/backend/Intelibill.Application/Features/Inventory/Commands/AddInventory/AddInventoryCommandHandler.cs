@@ -1,10 +1,12 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventory;
@@ -143,36 +145,17 @@ public sealed class AddInventoryCommandHandler(
 
         await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
 
-        var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, item.Id, cancellationToken);
-        if (inventory is null)
-        {
-            var inventoryResult = DomainInventory.Create(
-                command.ActiveShopId,
-                item.Id,
-                command.Quantity,
-                reorderLevel: 0,
-                maxLevel: 0,
-                createdBy: command.ActorUserId);
+        var inventoryResult = await UpsertInventoryWithRetryAsync(
+            command.ActiveShopId,
+            item.Id,
+            command.Quantity,
+            command.ActorUserId,
+            cancellationToken);
 
-            if (inventoryResult.IsError)
-                return inventoryResult.Errors;
+        if (inventoryResult.IsError)
+            return inventoryResult.Errors;
 
-            inventory = inventoryResult.Value;
-            await inventoryRepository.AddAsync(inventory, cancellationToken);
-        }
-        else
-        {
-            var addQuantityResult = inventory.AddQuantity(command.Quantity, command.ActorUserId);
-            if (addQuantityResult.IsError)
-                return addQuantityResult.Errors;
-
-            inventoryRepository.Update(inventory);
-        }
-
-        if (inventory is null)
-            return Errors.Inventory.InventoryAggregateNotFound;
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        var inventory = inventoryResult.Value;
 
         return new AddInventoryResultDto(
             item.Id,
@@ -185,6 +168,56 @@ public sealed class AddInventoryCommandHandler(
             batch.SupplierId,
             stockTransaction.Id,
             stockTransaction.PerformedAt);
+    }
+
+    private async Task<ErrorOr<DomainInventory>> UpsertInventoryWithRetryAsync(
+        Guid shopId,
+        Guid itemId,
+        decimal quantityToAdd,
+        Guid createdBy,
+        CancellationToken ct,
+        int maxRetries = 3)
+    {
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                var inventory = await inventoryRepository.GetByItemAsync(shopId, itemId, ct);
+
+                if (inventory is null)
+                {
+                    var createResult = DomainInventory.Create(shopId, itemId, quantityToAdd, reorderLevel: 0, maxLevel: 0, createdBy);
+                    if (createResult.IsError)
+                        return createResult.Errors;
+
+                    inventory = createResult.Value;
+                    await inventoryRepository.AddAsync(inventory, ct);
+                }
+                else
+                {
+                    var addResult = inventory.AddQuantity(quantityToAdd, createdBy);
+                    if (addResult.IsError)
+                        return addResult.Errors;
+
+                    inventoryRepository.Update(inventory);
+                }
+
+                await unitOfWork.SaveChangesAsync(ct);
+                return inventory;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                if (attempt == maxRetries - 1)
+                    throw new InventoryUpdateConflictException(
+                        "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
+
+                foreach (var entry in ex.Entries)
+                    await entry.ReloadAsync(ct);
+            }
+        }
+
+        throw new InventoryUpdateConflictException(
+            "Inventory aggregate could not be updated after max retries.");
     }
 
     private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
