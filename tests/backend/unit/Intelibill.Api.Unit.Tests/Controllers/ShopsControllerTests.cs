@@ -276,7 +276,7 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210", "27AAPFU0939F1ZV", null, null, null, null, null);
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", "Owner", "9876543210", "27AAPFU0939F1ZV", []);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.GetShopDetails(shopId, CancellationToken.None);
@@ -321,7 +321,7 @@ public class ShopsControllerTests
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
         var request = new UpdateShopRequest("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", "Chandra", "9876543210", "27AAPFU0939F1ZV");
-        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber, request.GstNumber, null, null, null, null, null);
+        var details = new ShopDetailsDto(shopId, request.Name, request.Address, request.City, request.State, request.Pincode, request.ContactPerson, request.MobileNumber, request.GstNumber, []);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.UpdateShop(shopId, request, CancellationToken.None);
@@ -409,8 +409,8 @@ public class ShopsControllerTests
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
         var request = new AddShopBankAccountRequest("SBI", "123456789012", "Savings", "SBIN0001234", "Chandra Kumar");
-        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", null, null, null,
-            request.BankName, request.AccountNumber, request.AccountType, request.IfscCode, request.AccountHolderName);
+        var bankAccount = new BankAccountDto(Guid.NewGuid(), request.BankName!, request.AccountNumber!, request.AccountType, request.IfscCode, request.AccountHolderName);
+        var details = new ShopDetailsDto(shopId, "Main", "Address", "City", "State", "560001", null, null, null, [bankAccount]);
         ArrangeBusResponse<ShopDetailsDto>(details);
 
         var result = await _controller.AddShopBankAccount(shopId, request, CancellationToken.None);

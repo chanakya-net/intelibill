@@ -1,5 +1,4 @@
 using Intelibill.Domain.Common;
-using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Entities;
 
@@ -13,11 +12,6 @@ public sealed class Shop : BaseEntity
     public string? ContactPerson { get; private set; }
     public string? MobileNumber { get; private set; }
     public string? GstNumber { get; private set; }
-    public string? BankName { get; private set; }
-    public string? BankAccountNumber { get; private set; }
-    public BankAccountType? BankAccountType { get; private set; }
-    public string? IfscCode { get; private set; }
-    public string? AccountHolderName { get; private set; }
 
     private readonly List<ShopMembership> _memberships = [];
     private readonly List<BankAccount> _bankAccounts = [];
@@ -72,20 +66,6 @@ public sealed class Shop : BaseEntity
         ContactPerson = NormalizeOptional(contactPerson);
         MobileNumber = NormalizeOptional(mobileNumber);
         GstNumber = NormalizeOptional(gstNumber);
-    }
-
-    public void UpdateBankDetails(
-        string? bankName,
-        string? bankAccountNumber,
-        BankAccountType? bankAccountType,
-        string? ifscCode,
-        string? accountHolderName)
-    {
-        BankName = NormalizeOptional(bankName);
-        BankAccountNumber = NormalizeOptional(bankAccountNumber);
-        BankAccountType = bankAccountType;
-        IfscCode = NormalizeOptional(ifscCode);
-        AccountHolderName = NormalizeOptional(accountHolderName);
     }
 
     public void AddBankAccount(BankAccount bankAccount)

@@ -86,35 +86,6 @@ public class ShopTests
     }
 
     [Fact]
-    public void UpdateBankDetails_SetsBankFields()
-    {
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-
-        shop.UpdateBankDetails("SBI", "123456789012", BankAccountType.Savings, "SBIN0001234", "  Chandra Kumar  ");
-
-        Assert.Equal("SBI", shop.BankName);
-        Assert.Equal("123456789012", shop.BankAccountNumber);
-        Assert.Equal(BankAccountType.Savings, shop.BankAccountType);
-        Assert.Equal("SBIN0001234", shop.IfscCode);
-        Assert.Equal("Chandra Kumar", shop.AccountHolderName);
-    }
-
-    [Fact]
-    public void UpdateBankDetails_EmptyValues_NormalizesToNull()
-    {
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        shop.UpdateBankDetails("SBI", "123", BankAccountType.Current, "SBIN0001234", "Chandra");
-
-        shop.UpdateBankDetails("   ", "  ", null, "  ", null);
-
-        Assert.Null(shop.BankName);
-        Assert.Null(shop.BankAccountNumber);
-        Assert.Null(shop.BankAccountType);
-        Assert.Null(shop.IfscCode);
-        Assert.Null(shop.AccountHolderName);
-    }
-
-    [Fact]
     public void AddMembership_AttachesShopToMembership()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");

@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
+using System.Linq;
 
 namespace Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 
@@ -17,7 +18,7 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var shop = membership.Shop ?? await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
+        var shop = await shopRepository.GetByIdWithBankAccountsAsync(query.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
@@ -31,10 +32,6 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
             shop.ContactPerson,
             shop.MobileNumber,
             shop.GstNumber,
-            shop.BankName,
-            shop.BankAccountNumber,
-            shop.BankAccountType?.ToString(),
-            shop.IfscCode,
-            shop.AccountHolderName);
+            shop.BankAccounts.Select(ba => new BankAccountDto(ba.Id, ba.BankName, ba.AccountNumber, ba.AccountType?.ToString(), ba.IfscCode, ba.AccountHolderName)).ToList());
     }
 }

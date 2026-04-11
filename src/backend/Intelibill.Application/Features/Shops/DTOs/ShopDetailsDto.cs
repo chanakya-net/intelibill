@@ -10,8 +10,12 @@ public sealed record ShopDetailsDto(
     string? ContactPerson,
     string? MobileNumber,
     string? GstNumber,
-    string? BankName,
-    string? BankAccountNumber,
-    string? BankAccountType,
+    IReadOnlyList<BankAccountDto> BankAccounts);
+
+public sealed record BankAccountDto(
+    Guid Id,
+    string BankName,
+    string AccountNumber,
+    string? AccountType,
     string? IfscCode,
     string? AccountHolderName);
