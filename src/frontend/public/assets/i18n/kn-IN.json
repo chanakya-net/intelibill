@@ -8,7 +8,8 @@
     "clear": "ತೆರವುಗೊಳಿಸಿ",
     "actions": "ಕ್ರಿಯೆಗಳು",
     "edit": "ಸಂಪಾದಿಸಿ",
-    "save": "ಉಳಿಸಿ"
+    "save": "ಉಳಿಸಿ",
+    "currencySymbol": "₹"
   },
   "languages": {
     "en-IN": "ಇಂಗ್ಲಿಷ್",
@@ -31,7 +32,9 @@
     "google": "ಗೂಗಲ್",
     "notMember": "ಸದಸ್ಯರಲ್ಲವೇ?",
     "signupNow": "ಈಗ ಸೈನ್ ಅಪ್ ಮಾಡಿ",
-    "rememberMe": "ನನ್ನನ್ನು ನೆನಪಿಡಿ",
+    "rememberMe": "ನನ್ನನ್ನು ನೆനಪಿಡಿ",
+    "finishingExternalAuth": "ಬಾಹ್ಯ ದೃಢೀಕರಣವನ್ನು ಪೂರ್ಣಗೊಳಿಸಲಾಗುತ್ತಿದೆ.",
+    "couldNotSignIn": "ಸೈನ್ ಇನ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ",
     "validation": {
       "emailInvalid": "ಮಾನ್ಯ ಇಮೇಲ್ ವಿಳಾಸ ನಮೂದಿಸಿ.",
       "passwordRequired": "ಪಾಸ್‌ವರ್ಡ್ ಅಗತ್ಯವಿದೆ."
@@ -336,7 +339,15 @@
       "phoneAlreadyInUseByAnother": "ಈ ಮೊಬೈಲ್ ನಂಬರ್ ಈಗಾಗಲೇ ಮತ್ತೊಂದು ಖಾತೆಯಲ್ಲಿ ಬಳಕೆಯಾಗುತ್ತಿದೆ.",
       "invalidCurrentPassword": "ಪ್ರಸ್ತುತ ಪಾಸ್‌ವರ್ಡ್ ತಪ್ಪಾಗಿದೆ.",
       "passwordNotSet": "ಈ ಖಾತೆಗಾಗಿ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಲಾಗಿಲ್ಲ.",
-      "sessionVerificationFailed": "ಅಂಗಡಿ ಕಾರ್ಯಾಚರಣೆಗಾಗಿ ನಿಮ್ಮ ಸೆಷನ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ."
+      "sessionVerificationFailed": "ಅಂಗಡಿ ಕಾರ್ಯಾಚರಣೆಗಾಗಿ ನಿಮ್ಮ ಸೆಷನ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.",
+      "externalProviderError": "External provider returned an error. Please try again.",
+      "missingCallbackData": "Missing callback code or state. Please retry sign-in.",
+      "noSessionEstablished": "Sign-in completed but no session was established. Please try again.",
+      "signInTimeout": "Sign-in timed out. Please try again.",
+      "externalStateInvalid": "Your sign-in session expired. Please try again.",
+      "unsupportedProvider": "This login provider is not enabled.",
+      "unableToCompleteExternalSignIn": "Unable to complete external sign-in.",
+      "externalSignInIncomplete": "ಬಾಹ್ಯ ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
     },
     "users": {
       "unableToUpdateProfile": "ಈಗ ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",

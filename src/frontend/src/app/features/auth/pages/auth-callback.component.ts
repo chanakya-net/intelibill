@@ -1,6 +1,7 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TimeoutError, take, timeout } from 'rxjs';
@@ -11,8 +12,9 @@ import { AuthService } from '../../../core/auth/auth.service';
 @Component({
   selector: 'app-auth-callback-page',
   standalone: true,
-  imports: [RouterLink, ButtonModule, ProgressSpinnerModule],
+  imports: [RouterLink, ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './auth-callback.component.html',
+  styleUrl: './auth-callback.component.scss',
 })
 export class AuthCallbackComponent implements OnInit {
   private static readonly ExternalErrorStorageKey = 'inventory.auth.external.error';
@@ -40,10 +42,7 @@ export class AuthCallbackComponent implements OnInit {
     this.route.queryParamMap.pipe(take(1)).subscribe((params) => {
       const providerError = params.get('error');
       if (providerError) {
-        const providerErrorDescription = params.get('error_description');
-        this.fail(
-          providerErrorDescription ?? 'External provider returned an error. Please try again.',
-        );
+        this.fail('errors.auth.externalProviderError');
         return;
       }
 
@@ -51,7 +50,7 @@ export class AuthCallbackComponent implements OnInit {
       const state = params.get('state') ?? '';
 
       if (!code || !state) {
-        this.fail('Missing callback code or state. Please retry sign-in.');
+        this.fail('errors.auth.missingCallbackData');
         return;
       }
 
@@ -61,7 +60,7 @@ export class AuthCallbackComponent implements OnInit {
         .subscribe({
           next: () => {
             if (!this.authService.isAuthenticated()) {
-              this.fail('Sign-in completed but no session was established. Please try again.');
+              this.fail('errors.auth.noSessionEstablished');
               return;
             }
 
@@ -71,7 +70,7 @@ export class AuthCallbackComponent implements OnInit {
           },
           error: (error: { error?: ApiErrorPayload } | TimeoutError) => {
             if (error instanceof TimeoutError) {
-              this.fail('Sign-in timed out. Please try again.');
+              this.fail('errors.auth.signInTimeout');
               return;
             }
 
@@ -81,19 +80,19 @@ export class AuthCallbackComponent implements OnInit {
     });
   }
 
-  private fail(message: string): void {
-    this.errorMessage.set(message);
+  private fail(messageKey: string): void {
+    this.errorMessage.set(messageKey);
     this.isBusy.set(false);
 
     try {
-      sessionStorage.setItem(AuthCallbackComponent.ExternalErrorStorageKey, message);
+      sessionStorage.setItem(AuthCallbackComponent.ExternalErrorStorageKey, messageKey);
     } catch {
-      // Ignore storage failures and fall back to query parameter only.
+      // Ignore storage failures.
     }
 
     this.clearExternalPendingMarker();
 
-    void this.router.navigateByUrl(`/login?externalAuthError=${encodeURIComponent(message)}`);
+    void this.router.navigateByUrl(`/login?externalAuthError=${encodeURIComponent(messageKey)}`);
   }
 
   private clearExternalPendingMarker(): void {
@@ -109,12 +108,12 @@ function mapCallbackError(error: ApiErrorPayload | undefined): string {
   const title = error?.title ?? '';
 
   if (title === 'Auth.ExternalStateInvalid') {
-    return 'Your sign-in session expired. Please try again.';
+    return 'errors.auth.externalStateInvalid';
   }
 
   if (title === 'Auth.UnsupportedProvider') {
-    return 'This login provider is not enabled.';
+    return 'errors.auth.unsupportedProvider';
   }
 
-  return 'Unable to complete external sign-in.';
+  return 'errors.auth.unableToCompleteExternalSignIn';
 }

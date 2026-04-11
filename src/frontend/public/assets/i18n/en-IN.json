@@ -8,7 +8,8 @@
     "clear": "Clear",
     "actions": "Actions",
     "edit": "Edit",
-    "save": "Save"
+    "save": "Save",
+    "currencySymbol": "₹"
   },
   "languages": {
     "en-IN": "English",
@@ -32,6 +33,8 @@
     "notMember": "Not a member?",
     "signupNow": "Signup now",
     "rememberMe": "Remember me",
+    "finishingExternalAuth": "Finishing external authentication.",
+    "couldNotSignIn": "Could not sign in",
     "validation": {
       "emailInvalid": "Enter a valid email address.",
       "passwordRequired": "Password is required."
@@ -337,7 +340,15 @@
       "phoneAlreadyInUseByAnother": "This mobile number is already used by another account.",
       "invalidCurrentPassword": "Current password is incorrect.",
       "passwordNotSet": "Password is not set for this account.",
-      "sessionVerificationFailed": "Your session could not be verified for shop operation. Please sign in again."
+      "sessionVerificationFailed": "Your session could not be verified for shop operation. Please sign in again.",
+      "externalProviderError": "External provider returned an error. Please try again.",
+      "missingCallbackData": "Missing callback code or state. Please retry sign-in.",
+      "noSessionEstablished": "Sign-in completed but no session was established. Please try again.",
+      "signInTimeout": "Sign-in timed out. Please try again.",
+      "externalStateInvalid": "Your sign-in session expired. Please try again.",
+      "unsupportedProvider": "This login provider is not enabled.",
+      "unableToCompleteExternalSignIn": "Unable to complete external sign-in.",
+      "externalSignInIncomplete": "External sign-in did not complete. Please try again."
     },
     "users": {
       "unableToUpdateProfile": "Unable to update profile right now. Please try again.",

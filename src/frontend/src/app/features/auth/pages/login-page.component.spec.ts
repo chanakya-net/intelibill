@@ -134,20 +134,20 @@ describe('LoginPageComponent', () => {
     component.onFacebookLogin();
 
     expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Facebook);
-    expect(component.serverError()).toBe('Google login is not enabled on the server.');
+    expect(component.serverError()).toBe('errors.auth.unsupportedProvider');
   });
 
   it('reads external auth error from query string', () => {
-    const { component } = setup({ externalAuthError: 'Sign-in timed out. Please try again.' });
+    const { component } = setup({ externalAuthError: 'errors.auth.signInTimeout' });
 
-    expect(component.serverError()).toBe('Sign-in timed out. Please try again.');
+    expect(component.serverError()).toBe('errors.auth.signInTimeout');
   });
 
   it('reads external auth error from session storage fallback', () => {
-    sessionStorage.setItem('inventory.auth.external.error', 'External sign-in failed.');
+    sessionStorage.setItem('inventory.auth.external.error', 'errors.auth.externalProviderError');
     const { component } = setup();
 
-    expect(component.serverError()).toBe('External sign-in failed.');
+    expect(component.serverError()).toBe('errors.auth.externalProviderError');
     expect(sessionStorage.getItem('inventory.auth.external.error')).toBeNull();
   });
 
@@ -155,7 +155,7 @@ describe('LoginPageComponent', () => {
     sessionStorage.setItem('inventory.auth.external.pending', ExternalAuthProvider.Google.toString());
     const { component } = setup();
 
-    expect(component.serverError()).toBe('External sign-in did not complete. Please try again.');
+    expect(component.serverError()).toBe('errors.auth.externalSignInIncomplete');
     expect(sessionStorage.getItem('inventory.auth.external.pending')).toBeNull();
   });
 });

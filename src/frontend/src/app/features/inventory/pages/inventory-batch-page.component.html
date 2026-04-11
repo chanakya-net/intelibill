@@ -99,7 +99,7 @@
       <label>
         <span>{{ 'inventory.costPrice' | transloco }}</span>
         <p-inputgroup>
-          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="costPrice"
             [min]="0"
@@ -113,7 +113,7 @@
       <label>
         <span>{{ 'inventory.mrp' | transloco }}</span>
         <p-inputgroup>
-          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="mrp"
             [min]="0"
@@ -127,7 +127,7 @@
       <label class="sales-price-field">
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
         <p-inputgroup [pt]="salesPriceGroupPt">
-          <p-inputgroup-addon>₹</p-inputgroup-addon>
+          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="salesPrice"
             [min]="0"
