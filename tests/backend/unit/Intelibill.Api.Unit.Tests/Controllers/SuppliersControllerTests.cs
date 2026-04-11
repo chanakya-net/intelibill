@@ -59,7 +59,7 @@ public class SuppliersControllerTests
     }
 
     [Fact]
-    public async Task GetSuppliers_DefaultsIncludeSystemToFalse()
+    public async Task GetSuppliers_DefaultsIncludeSystemToTrue()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
@@ -74,7 +74,7 @@ public class SuppliersControllerTests
 
         Assert.IsType<OkObjectResult>(result);
         await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
-            Arg.Is<GetSuppliersQuery>(q => q.UserId == userId && q.ActiveShopId == shopId && !q.IncludeSystem),
+            Arg.Is<GetSuppliersQuery>(q => q.UserId == userId && q.ActiveShopId == shopId && q.IncludeSystem),
             Arg.Any<CancellationToken>());
     }
 
