@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
+using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -126,20 +127,30 @@ public class InventoryControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        _bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+        var rowResult = new AddInventoryResultDto(
+            Guid.NewGuid(),
+            "Rice",
+            "111",
+            Guid.NewGuid(),
+            "B-1",
+            10m,
+            10m,
+            null,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow);
+
+        _bus.InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(
-                _ => (ErrorOr<AddInventoryResultDto>)new AddInventoryResultDto(
-                    Guid.NewGuid(),
-                    "Rice",
-                    "111",
-                    Guid.NewGuid(),
-                    "B-1",
-                    10m,
-                    10m,
-                    null,
-                    Guid.NewGuid(),
-                    DateTimeOffset.UtcNow),
-                _ => (ErrorOr<AddInventoryResultDto>)Errors.Inventory.ItemIdentityConflict);
+                new AddInventoryBatchResultDto(
+                    2,
+                    1,
+                    1,
+                    [new AddInventoryBatchSucceededRowDto("row-1", rowResult)],
+                    [new AddInventoryBatchFailedRowDto(
+                        "row-2",
+                        "Dal",
+                        "222",
+                        [new AddInventoryBatchRowErrorDto(Errors.Inventory.ItemIdentityConflict.Code, Errors.Inventory.ItemIdentityConflict.Description)])]));
 
         var request = new AddInventoryBatchRequest(
             new[]
@@ -159,6 +170,32 @@ public class InventoryControllerTests
         Assert.Single(payload.Succeeded);
         Assert.Single(payload.Failed);
         Assert.Equal("row-2", payload.Failed[0].ClientRowId);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(
+            Arg.Any<AddInventoryBatchCommand>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddInventoryBatch_WhenMoreThanHundredRows_ReturnsClearLimitMessage()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var rows = Enumerable.Range(1, 101)
+            .Select(index => CreateBatchRow($"row-{index}", $"Item-{index}", $"BC-{index}"))
+            .ToArray();
+
+        var result = await _controller.AddInventoryBatch(new AddInventoryBatchRequest(rows), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Only 100 items are allowed in a batch.", problem.Detail);
     }
 
     private static AddInventoryRequest CreateRequest() =>

@@ -62,6 +62,18 @@ export interface AddInventoryBatchRowError {
 
 export interface AddInventoryBatchSucceededRow {
   readonly clientRowId: string;
+  readonly result: {
+    readonly itemId: string;
+    readonly itemName: string;
+    readonly barcode: string;
+    readonly batchId: string;
+    readonly batchNumber: string;
+    readonly batchQuantity: number;
+    readonly totalQuantity: number;
+    readonly supplierId: string | null;
+    readonly stockTransactionId: string;
+    readonly performedAt: string;
+  };
 }
 
 export interface AddInventoryBatchFailedRow {

@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
+using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -76,58 +77,55 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         if (request.Items.Count > 100)
             return new List<Error>
             {
-                Error.Validation("Inventory.BatchLimitExceeded", "A maximum of 100 inventory rows can be saved at once.")
+                Error.Validation("Inventory.BatchLimitExceeded", "Only 100 items are allowed in a batch.")
             }.ToProblemResult();
 
-        var succeeded = new List<AddInventoryBatchSucceededRow>();
-        var failed = new List<AddInventoryBatchFailedRow>();
-
-        foreach (var row in request.Items)
-        {
-            var result = await bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(
-                new AddInventoryCommand(
-                    userId.Value,
-                    activeShopId.Value,
-                    row.ItemName,
-                    row.Barcode,
-                    row.ItemDescription,
-                    row.Uom,
-                    row.BatchNumber,
-                    row.Quantity,
-                    row.CostPrice,
-                    row.Mrp,
-                    row.SalesPrice,
-                    row.TaxRatePercent,
-                    row.TaxIncluded,
-                    row.ExpiryDate,
-                    row.ManufacturingDate,
-                    row.SupplierId,
-                    row.ReferenceNumber,
-                    row.Notes,
-                    row.PerformedAt),
-                cancellationToken);
-
-            if (result.IsError)
-            {
-                failed.Add(
-                    new AddInventoryBatchFailedRow(
+        var result = await bus.InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(
+            new AddInventoryBatchCommand(
+                userId.Value,
+                activeShopId.Value,
+                request.Items.Select(
+                    row => new AddInventoryBatchRowCommand(
                         row.ClientRowId,
                         row.ItemName,
                         row.Barcode,
-                        result.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()));
-                continue;
-            }
+                        row.ItemDescription,
+                        row.Uom,
+                        row.BatchNumber,
+                        row.Quantity,
+                        row.CostPrice,
+                        row.Mrp,
+                        row.SalesPrice,
+                        row.TaxRatePercent,
+                        row.TaxIncluded,
+                        row.ExpiryDate,
+                        row.ManufacturingDate,
+                        row.SupplierId,
+                        row.ReferenceNumber,
+                        row.Notes,
+                        row.PerformedAt))
+                    .ToArray()),
+            cancellationToken);
 
-            succeeded.Add(new AddInventoryBatchSucceededRow(row.ClientRowId, result.Value));
-        }
+        if (result.IsError)
+            return result.Errors.ToList().ToProblemResult();
 
         return Ok(
             new AddInventoryBatchResponse(
-                request.Items.Count,
-                succeeded.Count,
-                failed.Count,
-                succeeded,
-                failed));
+                result.Value.RequestedCount,
+                result.Value.SuccessCount,
+                result.Value.FailedCount,
+                result.Value.Succeeded
+                    .Select(row => new AddInventoryBatchSucceededRow(row.ClientRowId, row.Result))
+                    .ToArray(),
+                result.Value.Failed
+                    .Select(
+                        row => new AddInventoryBatchFailedRow(
+                            row.ClientRowId,
+                            row.ItemName,
+                            row.Barcode,
+                            row.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()))
+                    .ToArray()));
     }
 
     [HttpPut("batches/{inventoryBatchId:guid}")]

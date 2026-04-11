@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { InventoryService } from './inventory.service';
 
 describe('InventoryService', () => {
@@ -107,6 +107,71 @@ describe('InventoryService', () => {
     });
 
     request.flush(null);
+
+    http.verify();
+  });
+
+  it('sends add inventory batch request to inbound batch endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .addInventoryBatch({
+        items: [
+          {
+            clientRowId: 'row-1',
+            itemName: 'Premium Tea',
+            barcode: 'ABC123',
+            itemDescription: null,
+            uom: 'packet',
+            batchNumber: 'BN-1',
+            quantity: 5,
+            costPrice: 80,
+            mrp: 100,
+            salesPrice: 95,
+            taxRatePercent: 5,
+            taxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            referenceNumber: null,
+            notes: null,
+            performedAt: null,
+          },
+        ],
+      })
+      .subscribe((response) => {
+        expect(response.requestedCount).toBe(1);
+        expect(response.successCount).toBe(1);
+        expect(response.failedCount).toBe(0);
+      });
+
+    const request = http.expectOne(INVENTORY_ENDPOINTS.inboundBatch);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.items).toHaveLength(1);
+
+    request.flush({
+      requestedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      succeeded: [
+        {
+          clientRowId: 'row-1',
+          result: {
+            itemId: 'item-1',
+            itemName: 'Premium Tea',
+            barcode: 'ABC123',
+            batchId: 'batch-1',
+            batchNumber: 'BN-1',
+            batchQuantity: 5,
+            totalQuantity: 5,
+            supplierId: null,
+            stockTransactionId: 'tx-1',
+            performedAt: '2026-04-11T00:00:00.000Z',
+          },
+        },
+      ],
+      failed: [],
+    });
 
     http.verify();
   });
