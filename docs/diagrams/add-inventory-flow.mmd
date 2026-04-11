@@ -38,9 +38,15 @@ flowchart TD
     X -- No --> Y[Create aggregate with request quantity and insert inventory]
     X -- Yes --> Z[Add quantity and update inventory]
 
-    Y --> AA[unitOfWork SaveChangesAsync]
+    Y --> AA[Upsert inventory and SaveChangesAsync]
     Z --> AA
-    AA --> AB[200 OK AddInventoryResultDto]
+    AA --> AB{DbUpdateConcurrencyException}
+    AB -- No --> AC[200 OK AddInventoryResultDto]
+    AB -- Yes --> AD{Retry attempts < 3}
+    AD -- Yes --> AE[Reload conflicted entries and retry upsert]
+    AE --> AA
+    AD -- No --> AF[Throw InventoryUpdateConflictException]
+    AF --> AG[Exception middleware maps to 409 Conflict]
 
     subgraph BatchEndpoint
       BA[POST api/inventory/inbound/batch] --> BB{Rows count > 0 and <= 100}
