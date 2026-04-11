@@ -195,26 +195,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
         var second = await SendInbound(6m);
-        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-
-        var body = await second.Content.ReadFromJsonAsync<JsonElement>();
-        var itemId = body.GetProperty("itemId").GetGuid();
-        var batchId = body.GetProperty("inventoryBatchId").GetGuid();
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == batchId);
-        Assert.Equal(10m, batch.Quantity);
-
-        var inventory = await db.Inventory.SingleAsync(i => i.ItemId == itemId);
-        Assert.Equal(10m, inventory.Quantity);
-
-        var txCount = await db.StockTransactions.CountAsync(t => t.ItemId == itemId && t.InventoryBatchId == batchId);
-        Assert.Equal(2, txCount);
-
-        var ledgerCount = await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == batchId && e.SupplierId == supplierId);
-        Assert.Equal(1, ledgerCount);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
     [Fact]
@@ -319,7 +300,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.MultiStatus, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(2, body.GetProperty("requestedCount").GetInt32());
         Assert.Equal(1, body.GetProperty("successCount").GetInt32());
@@ -439,7 +420,7 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         editRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         editRequest.Content = JsonContent.Create(new
         {
-            batchNumber = "B-EDIT-1",
+            newBatchNumber = "B-EDIT-CORRECTED",
             quantity = 12m,
             costPrice = 85m,
             mrp = 120m,
@@ -459,6 +440,13 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+        var oldBatch = await db.InventoryBatches.FindAsync(batchId);
+        Assert.True(oldBatch!.IsVoided);
+
+        var newBatch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.BatchNumber == "B-EDIT-CORRECTED");
+        Assert.NotNull(newBatch);
+        Assert.Equal(12m, newBatch.Quantity);
+
         var entries = (await db.SupplierLedgerEntries
             .Where(e => e.SupplierId == supplierId)
             .ToListAsync())
@@ -477,6 +465,6 @@ public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
 
         Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entries[2].EntryType);
         Assert.Equal(1020m, entries[2].Amount);
-        Assert.Equal(batchId, entries[2].BatchId);
+        Assert.Equal(newBatch.Id, entries[2].BatchId);
     }
 }

@@ -69,45 +69,37 @@ public sealed class AddInventoryCommandHandler(
             await itemRepository.AddAsync(item, cancellationToken);
         }
 
-        var batch = await inventoryBatchRepository.GetByBatchNumberAsync(
+        var existingBatch = await inventoryBatchRepository.GetByBatchNumberAsync(
             command.ActiveShopId,
             item.Id,
             command.BatchNumber,
             cancellationToken);
 
-        var isNewBatch = false;
-        if (batch is null)
+        if (existingBatch is not null && !existingBatch.IsVoided)
         {
-            var batchResult = InventoryBatch.Create(
-                command.ActiveShopId,
-                item.Id,
-                command.BatchNumber,
-                command.Quantity,
-                command.CostPrice,
-                command.Mrp,
-                command.SalesPrice,
-                command.TaxRatePercent,
-                command.TaxIncluded,
-                command.ExpiryDate,
-                command.ManufacturingDate,
-                command.SupplierId,
-                command.ActorUserId);
-
-            if (batchResult.IsError)
-                return batchResult.Errors;
-
-            isNewBatch = true;
-            batch = batchResult.Value;
-            await inventoryBatchRepository.AddAsync(batch, cancellationToken);
+            return Errors.Inventory.BatchNumberAlreadyExists;
         }
-        else
-        {
-            var addQuantityResult = batch.AddQuantity(command.Quantity, command.ActorUserId);
-            if (addQuantityResult.IsError)
-                return addQuantityResult.Errors;
 
-            inventoryBatchRepository.Update(batch);
-        }
+        var batchResult = InventoryBatch.Create(
+            command.ActiveShopId,
+            item.Id,
+            command.BatchNumber,
+            command.Quantity,
+            command.CostPrice,
+            command.Mrp,
+            command.SalesPrice,
+            command.TaxRatePercent,
+            command.TaxIncluded,
+            command.ExpiryDate,
+            command.ManufacturingDate,
+            command.SupplierId,
+            command.ActorUserId);
+
+        if (batchResult.IsError)
+            return batchResult.Errors;
+
+        var batch = batchResult.Value;
+        await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
         var performedAt = command.PerformedAt ?? DateTimeOffset.UtcNow;
         var stockTransactionResult = StockTransaction.Create(
@@ -128,7 +120,7 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        if (isNewBatch && batch.SupplierId is Guid supplierId)
+        if (batch.SupplierId is Guid supplierId)
         {
             var ledgerResult = SupplierLedgerEntry.Create(
                 command.ActiveShopId,
@@ -137,7 +129,7 @@ public sealed class AddInventoryCommandHandler(
                 SupplierLedgerEntryType.GoodsReceived,
                 ComputeLedgerAmount(command.CostPrice, command.Quantity),
                 DateOnly.FromDateTime(performedAt.UtcDateTime),
-                command.Notes,
+                command.Notes ?? "Inbound inventory",
                 command.ActorUserId);
 
             if (ledgerResult.IsError)

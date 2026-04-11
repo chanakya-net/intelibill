@@ -66,9 +66,9 @@ public sealed class SupplierLedgerEntry : BaseEntity
             return Error.Validation("SupplierLedgerEntry.BatchRequired", "Batch is required for goods received entries.");
         }
 
-        if (entryType != SupplierLedgerEntryType.GoodsReceived && batchId is not null)
+        if (entryType != SupplierLedgerEntryType.GoodsReceived && entryType != SupplierLedgerEntryType.Reversal && batchId is not null)
         {
-            return Error.Validation("SupplierLedgerEntry.BatchNotAllowed", "Batch can only be set for goods received entries.");
+            return Error.Validation("SupplierLedgerEntry.BatchNotAllowed", "Batch can only be set for goods received or reversal entries.");
         }
 
         return Result.Success;

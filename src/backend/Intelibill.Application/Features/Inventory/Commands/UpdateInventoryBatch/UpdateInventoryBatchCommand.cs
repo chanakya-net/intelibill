@@ -1,10 +1,12 @@
-namespace Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch;
+using ErrorOr;
 
-public sealed record EditInventoryBatchCommand(
-    Guid ActorUserId,
-    Guid ActiveShopId,
-    Guid InventoryBatchId,
-    string BatchNumber,
+namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
+
+public sealed record UpdateInventoryBatchCommand(
+    Guid BatchId,
+    Guid UserId,
+    Guid ShopId,
+    string? NewBatchNumber,
     decimal Quantity,
     decimal CostPrice,
     decimal Mrp,

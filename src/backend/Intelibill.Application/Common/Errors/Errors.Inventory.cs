@@ -24,6 +24,9 @@ public static partial class Errors
         public static Error UserIsNotOwnerOrManager =>
             Error.Forbidden("Inventory.UserIsNotOwnerOrManager", "Only owner or manager can add inventory.");
 
+        public static Error UserIsNotOwner =>
+            Error.Forbidden("Inventory.UserIsNotOwner", "Only shop owner can perform this operation.");
+
         public static Error ItemIdentityConflict =>
             Error.Validation("Inventory.ItemIdentityConflict", "Provided name and barcode refer to different items.");
 
@@ -32,6 +35,12 @@ public static partial class Errors
 
         public static Error BatchNotFound =>
             Error.NotFound("Inventory.BatchNotFound", "Inventory batch was not found.");
+
+        public static Error BatchAlreadyVoided =>
+            Error.Validation("Inventory.BatchAlreadyVoided", "Inventory batch is already voided.");
+
+        public static Error BatchNumberAlreadyExists =>
+            Error.Conflict("Inventory.BatchNumberAlreadyExists", "An active batch with this number already exists for this item.");
 
         public static Error InventoryAggregateNotFound =>
             Error.NotFound("Inventory.InventoryAggregateNotFound", "Inventory aggregate was not found for this item.");

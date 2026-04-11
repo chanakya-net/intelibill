@@ -58,15 +58,17 @@ public class AddInventoryBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenOneRowFails_ReturnsPartialSuccessAndSavesOnce()
+    public async Task HandleAsync_WhenOneRowFails_PersistsSucceededRows()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
+        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(existingItem);
         _itemRepository.GetByNameAsync(shop.Id, "Different Name", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
             .Returns((InventoryBatch?)null);
@@ -88,8 +90,39 @@ public class AddInventoryBatchCommandHandlerTests
         Assert.Equal(2, result.Value.RequestedCount);
         Assert.Equal(1, result.Value.SuccessCount);
         Assert.Equal(1, result.Value.FailedCount);
+        Assert.Single(result.Value.Succeeded);
         Assert.Equal("row-2", result.Value.Failed[0].ClientRowId);
         Assert.Equal(Errors.Inventory.ItemNameBarcodeMismatch.Code, result.Value.Failed[0].Errors[0].Code);
+
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenAllRowsSucceed_CommitsEverything()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Item?)null);
+
+        var command = new AddInventoryBatchCommand(
+            actor.Id,
+            shop.Id,
+            [
+                CreateRow("row-1", "Rice", "111"),
+                CreateRow("row-2", "Sugar", "222")
+            ]);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.SuccessCount);
+        Assert.Equal(0, result.Value.FailedCount);
+        Assert.Equal(2, result.Value.Succeeded.Count);
 
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

@@ -161,8 +161,9 @@ public class InventoryControllerTests
 
         var result = await _controller.AddInventoryBatch(request, CancellationToken.None);
 
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var payload = Assert.IsType<AddInventoryBatchResponse>(ok.Value);
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(207, objectResult.StatusCode);
+        var payload = Assert.IsType<AddInventoryBatchResponse>(objectResult.Value);
 
         Assert.Equal(2, payload.RequestedCount);
         Assert.Equal(1, payload.SuccessCount);

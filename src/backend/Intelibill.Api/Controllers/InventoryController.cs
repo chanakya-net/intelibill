@@ -5,8 +5,10 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
-using Intelibill.Application.Features.Inventory.Commands.EditInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -18,6 +20,24 @@ namespace Intelibill.Api.Controllers;
 [Authorize]
 public sealed class InventoryController(IMessageBus bus) : ControllerBase
 {
+    [HttpGet("batches")]
+    public async Task<IActionResult> GetInventoryBatches(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<InventoryBatchDto>>>(
+            new GetInventoryBatchesQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPost("inbound")]
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> AddInventory([FromBody] AddInventoryRequest request, CancellationToken cancellationToken)
@@ -110,27 +130,33 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         if (result.IsError)
             return result.Errors.ToList().ToProblemResult();
 
-        return Ok(
-            new AddInventoryBatchResponse(
-                result.Value.RequestedCount,
-                result.Value.SuccessCount,
-                result.Value.FailedCount,
-                result.Value.Succeeded
-                    .Select(row => new AddInventoryBatchSucceededRow(row.ClientRowId, row.Result))
-                    .ToArray(),
-                result.Value.Failed
-                    .Select(
-                        row => new AddInventoryBatchFailedRow(
-                            row.ClientRowId,
-                            row.ItemName,
-                            row.Barcode,
-                            row.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()))
-                    .ToArray()));
+        var response = new AddInventoryBatchResponse(
+            result.Value.RequestedCount,
+            result.Value.SuccessCount,
+            result.Value.FailedCount,
+            result.Value.Succeeded
+                .Select(row => new AddInventoryBatchSucceededRow(row.ClientRowId, row.Result))
+                .ToArray(),
+            result.Value.Failed
+                .Select(
+                    row => new AddInventoryBatchFailedRow(
+                        row.ClientRowId,
+                        row.ItemName,
+                        row.Barcode,
+                        row.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()))
+                .ToArray());
+
+        if (result.Value.FailedCount > 0)
+        {
+            return new ObjectResult(response) { StatusCode = 207 };
+        }
+
+        return Ok(response);
     }
 
-    [HttpPut("batches/{inventoryBatchId:guid}")]
-    [Authorize(Policy = "OwnerOrManager")]
-    public async Task<IActionResult> EditInventoryBatch(Guid inventoryBatchId, [FromBody] EditInventoryBatchRequest request, CancellationToken cancellationToken)
+    [HttpPost("batches/{batchId:guid}/void")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> VoidBatch(Guid batchId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId is null)
@@ -140,12 +166,31 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         if (activeShopId is null)
             return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
-        var result = await bus.InvokeAsync<ErrorOr<EditInventoryBatchResultDto>>(
-            new EditInventoryBatchCommand(
+        var result = await bus.InvokeAsync<ErrorOr<VoidBatchResultDto>>(
+            new VoidBatchCommand(batchId, userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPut("batches/{batchId:guid}")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> UpdateInventoryBatch(Guid batchId, [FromBody] UpdateInventoryBatchRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+            new UpdateInventoryBatchCommand(
+                batchId,
                 userId.Value,
                 activeShopId.Value,
-                inventoryBatchId,
-                request.BatchNumber,
+                request.NewBatchNumber,
                 request.Quantity,
                 request.CostPrice,
                 request.Mrp,
@@ -159,7 +204,10 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 request.EntryDate),
             cancellationToken);
 
-        return result.ToActionResult(Ok);
+        if (result.IsError)
+            return result.Errors.ToList().ToProblemResult();
+
+        return Ok();
     }
 
     private Guid? GetCurrentUserId()
@@ -225,18 +273,8 @@ public sealed record AddInventoryBatchResponse(
     IReadOnlyList<AddInventoryBatchSucceededRow> Succeeded,
     IReadOnlyList<AddInventoryBatchFailedRow> Failed);
 
-public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
-
-public sealed record AddInventoryBatchFailedRow(
-    string ClientRowId,
-    string ItemName,
-    string Barcode,
-    IReadOnlyList<AddInventoryBatchRowError> Errors);
-
-public sealed record AddInventoryBatchRowError(string Code, string Description);
-
-public sealed record EditInventoryBatchRequest(
-    string BatchNumber,
+public sealed record UpdateInventoryBatchRequest(
+    string? NewBatchNumber,
     decimal Quantity,
     decimal CostPrice,
     decimal Mrp,
@@ -248,3 +286,13 @@ public sealed record EditInventoryBatchRequest(
     Guid? SupplierId,
     string? Notes,
     DateOnly? EntryDate);
+
+public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
+
+public sealed record AddInventoryBatchFailedRow(
+    string ClientRowId,
+    string ItemName,
+    string Barcode,
+    IReadOnlyList<AddInventoryBatchRowError> Errors);
+
+public sealed record AddInventoryBatchRowError(string Code, string Description);

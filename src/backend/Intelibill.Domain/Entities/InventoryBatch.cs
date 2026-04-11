@@ -9,6 +9,7 @@ public sealed class InventoryBatch : BaseEntity
     public Guid ItemId { get; private set; }
     public string BatchNumber { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; }
+    public decimal OriginalQuantity { get; private set; }
     public decimal CostPrice { get; private set; }
     public decimal Mrp { get; private set; }
     public decimal SalesPrice { get; private set; }
@@ -17,6 +18,7 @@ public sealed class InventoryBatch : BaseEntity
     public DateOnly? ExpiryDate { get; private set; }
     public DateOnly? ManufacturingDate { get; private set; }
     public Guid? SupplierId { get; private set; }
+    public bool IsVoided { get; private set; }
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
@@ -52,6 +54,7 @@ public sealed class InventoryBatch : BaseEntity
             ItemId = itemId,
             BatchNumber = batchNumber.Trim(),
             Quantity = quantity,
+            OriginalQuantity = quantity,
             CostPrice = costPrice,
             Mrp = mrp,
             SalesPrice = salesPrice,
@@ -60,8 +63,16 @@ public sealed class InventoryBatch : BaseEntity
             ExpiryDate = expiryDate,
             ManufacturingDate = manufacturingDate,
             SupplierId = supplierId,
+            IsVoided = false,
             CreatedBy = createdBy,
         };
+    }
+
+    public void Void(Guid updatedBy)
+    {
+        Quantity = 0;
+        IsVoided = true;
+        UpdatedBy = updatedBy;
     }
 
     public ErrorOr<Success> Update(
@@ -111,14 +122,14 @@ public sealed class InventoryBatch : BaseEntity
         return Result.Success;
     }
 
-    public decimal GetTaxAmountPerUnit()
-    {
-        return SalesPrice * (TaxRatePercent / 100m);
-    }
-
     public void MarkUpdatedBy(Guid updatedBy)
     {
         UpdatedBy = updatedBy;
+    }
+
+    public decimal GetTaxAmountPerUnit()
+    {
+        return SalesPrice * (TaxRatePercent / 100m);
     }
 
     private static ErrorOr<Success> ValidateBatch(
