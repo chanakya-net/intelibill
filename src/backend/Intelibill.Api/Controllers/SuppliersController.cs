@@ -23,7 +23,7 @@ namespace Intelibill.Api.Controllers;
 public sealed class SuppliersController(IMessageBus bus) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetSuppliers([FromQuery(Name = "include_system")] bool includeSystem = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetSuppliers([FromQuery(Name = "include_system")] bool includeSystem = true, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         if (userId is null)
