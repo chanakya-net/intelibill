@@ -8,7 +8,8 @@
     "clear": "క్లియర్",
     "actions": "చర్యలు",
     "edit": "సవరించు",
-    "save": "సేవ్ చేయి"
+    "save": "సేవ్ చేయి",
+    "currencySymbol": "₹"
   },
   "languages": {
     "en-IN": "ఇంగ్లీష్",
@@ -32,6 +33,8 @@
     "notMember": "సభ్యులు కాదా?",
     "signupNow": "ఇప్పుడే సైన్ అప్ చేయండి",
     "rememberMe": "నన్ను గుర్తుంచుకో",
+    "finishingExternalAuth": "బాహ్య ప్రామాణీకరణను ముగిస్తోంది.",
+    "couldNotSignIn": "సైన్ ఇన్ చేయడం సాధ్యం కాలేదు",
     "validation": {
       "emailInvalid": "చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.",
       "passwordRequired": "పాస్‌వర్డ్ అవసరం."
@@ -336,7 +339,15 @@
       "phoneAlreadyInUseByAnother": "ఈ మొబైల్ నంబర్ ఇప్పటికే మరో ఖాతాలో ఉపయోగంలో ఉంది.",
       "invalidCurrentPassword": "ప్రస్తుత పాస్‌వర్డ్ తప్పు.",
       "passwordNotSet": "ఈ ఖాతాకు పాస్‌వర్డ్ సెట్ చేయలేదు.",
-      "sessionVerificationFailed": "దుకాణ చర్య కోసం మీ సెషన్ ధృవీకరించబడలేదు. మళ్లీ సైన్-ఇన్ చేయండి."
+      "sessionVerificationFailed": "దుకాణ చర్య కోసం మీ సెషన్ ధృవీకరించబడలేదు. మళ్లీ సైన్-ఇన్ చేయండి.",
+      "externalProviderError": "External provider returned an error. Please try again.",
+      "missingCallbackData": "Missing callback code or state. Please retry sign-in.",
+      "noSessionEstablished": "Sign-in completed but no session was established. Please try again.",
+      "signInTimeout": "Sign-in timed out. Please try again.",
+      "externalStateInvalid": "Your sign-in session expired. Please try again.",
+      "unsupportedProvider": "This login provider is not enabled.",
+      "unableToCompleteExternalSignIn": "Unable to complete external sign-in.",
+      "externalSignInIncomplete": "బాహ్య సైన్-ఇన్ పూర్తి కాలేదు. దయచేసి మళ్ళీ ప్రయత్నించండి."
     },
     "users": {
       "unableToUpdateProfile": "ప్రొఫైల్‌ను ఇప్పుడు నవీకరించలేకపోయాం. మళ్లీ ప్రయత్నించండి.",

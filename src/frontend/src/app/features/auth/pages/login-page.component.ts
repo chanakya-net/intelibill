@@ -119,7 +119,7 @@ export class LoginPageComponent implements OnInit {
         LoginPageComponent.ExternalPendingStorageKey,
       );
       if (pendingExternalAuth) {
-        this.serverError.set('External sign-in did not complete. Please try again.');
+        this.serverError.set('errors.auth.externalSignInIncomplete');
         sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);
       }
     } catch {
@@ -213,11 +213,11 @@ function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
   }
 
   if (title === 'Auth.UnsupportedProvider') {
-    return 'Google login is not enabled on the server.';
+    return 'errors.auth.unsupportedProvider';
   }
 
   if (title === 'Auth.ExternalProviderError') {
-    return error?.detail ?? 'External login configuration is invalid on the server.';
+    return 'errors.auth.externalProviderError';
   }
 
   return 'errors.auth.unableToSignIn';
@@ -227,12 +227,12 @@ function getExternalCallbackErrorMessage(error: ApiErrorPayload | undefined): st
   const title = error?.title ?? '';
 
   if (title === 'Auth.ExternalStateInvalid') {
-    return 'Your sign-in session expired. Please try again.';
+    return 'errors.auth.externalStateInvalid';
   }
 
   if (title === 'Auth.ExternalProviderError') {
-    return error?.detail ?? 'Unable to complete external sign-in.';
+    return 'errors.auth.externalProviderError';
   }
 
-  return 'Unable to complete external sign-in.';
+  return 'errors.auth.unableToCompleteExternalSignIn';
 }

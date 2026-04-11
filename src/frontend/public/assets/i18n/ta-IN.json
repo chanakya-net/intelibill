@@ -8,7 +8,8 @@
     "clear": "அழி",
     "actions": "செயல்கள்",
     "edit": "திருத்து",
-    "save": "சேமி"
+    "save": "சேமி",
+    "currencySymbol": "₹"
   },
   "languages": {
     "en-IN": "ஆங்கிலம்",
@@ -32,6 +33,8 @@
     "notMember": "உறுப்பினராக இல்லையா?",
     "signupNow": "இப்போது பதிவு செய்யவும்",
     "rememberMe": "என்னை நினைவில் கொள்",
+    "finishingExternalAuth": "வெளிப்புற அங்கீகாரத்தை முடிக்கிறது.",
+    "couldNotSignIn": "உள்நுழைய முடியவில்லை",
     "validation": {
       "emailInvalid": "சரியான மின்னஞ்சலை உள்ளிடவும்.",
       "passwordRequired": "கடவுச்சொல் அவசியம்."
@@ -336,7 +339,15 @@
       "phoneAlreadyInUseByAnother": "இந்த மொபைல் எண் மற்றொரு கணக்கில் ஏற்கனவே பயன்படுத்தப்படுகிறது.",
       "invalidCurrentPassword": "தற்போதைய கடவுச்சொல் தவறானது.",
       "passwordNotSet": "இந்த கணக்கிற்கு கடவுச்சொல் அமைக்கப்படவில்லை.",
-      "sessionVerificationFailed": "கடை செயல்பாட்டிற்கு உங்கள் அமர்வு சரிபார்க்கப்படவில்லை. மீண்டும் உள்நுழையவும்."
+      "sessionVerificationFailed": "கடை செயல்பாட்டிற்கு உங்கள் அமர்வு சரிபார்க்கப்படவில்லை. மீண்டும் உள்நுழையவும்.",
+      "externalProviderError": "External provider returned an error. Please try again.",
+      "missingCallbackData": "Missing callback code or state. Please retry sign-in.",
+      "noSessionEstablished": "Sign-in completed but no session was established. Please try again.",
+      "signInTimeout": "Sign-in timed out. Please try again.",
+      "externalStateInvalid": "Your sign-in session expired. Please try again.",
+      "unsupportedProvider": "This login provider is not enabled.",
+      "unableToCompleteExternalSignIn": "Unable to complete external sign-in.",
+      "externalSignInIncomplete": "வெளிப்புற உள்நுழைவு நிறைவடையவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்."
     },
     "users": {
       "unableToUpdateProfile": "இப்போது சுயவிவரத்தை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
