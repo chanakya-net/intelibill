@@ -52,8 +52,8 @@ describe('InventoryBatchesListPageComponent', () => {
         HttpClientTestingModule,
         NoopAnimationsModule,
         TranslocoTestingModule.forRoot({
-          langs: { 'en-IN': {} },
-          defaultLang: 'en-IN',
+          langs: {},
+          preloadLangs: true,
         }),
       ],
       providers: [
