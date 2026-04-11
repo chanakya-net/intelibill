@@ -1,15 +1,18 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
 import { TagModule } from 'primeng/tag';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
@@ -29,11 +32,14 @@ import { Supplier } from '../../../suppliers/services/supplier.service';
   selector: 'app-inventory-batches-list-page',
   standalone: true,
   imports: [
+    FormsModule,
     ReactiveFormsModule,
     TranslocoPipe,
     DecimalPipe,
     ButtonModule,
     DialogModule,
+    IconFieldModule,
+    InputIconModule,
     InputGroupAddonModule,
     InputGroupModule,
     InputNumberModule,
@@ -56,11 +62,13 @@ export class InventoryBatchesListPageComponent {
   private readonly translocoService = inject(TranslocoService);
 
   readonly batches = signal<InventoryBatchDto[]>([]);
+  readonly tableBatches = computed(() => [...this.batches()]);
   readonly loading = signal(false);
   readonly isEditDialogOpen = signal(false);
   readonly isSaving = signal(false);
   readonly selectedBatch = signal<InventoryBatchDto | null>(null);
   readonly supplierSuggestions = signal<string[]>([]);
+  readonly searchValue = signal('');
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly taxModeOptions = signal([
     { label: 'With Tax', value: true },
@@ -215,5 +223,10 @@ export class InventoryBatchesListPageComponent {
 
   private translate(key: string): string {
     return this.translocoService.translate(key);
+  }
+
+  clearFilters(table: Table): void {
+    table.clear();
+    this.searchValue.set('');
   }
 }

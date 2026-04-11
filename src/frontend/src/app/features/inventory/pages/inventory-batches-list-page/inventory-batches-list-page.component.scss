@@ -9,6 +9,17 @@
   border-radius: 8px;
 }
 
+.table-caption {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.table-caption input {
+  min-width: 14rem;
+}
+
 :host ::v-deep {
   .p-datatable-sm {
     .p-datatable-thead > tr > th {
@@ -28,6 +39,15 @@
 }
 
 @media screen and (max-width: 960px) {
+  .table-caption {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .table-caption input {
+    width: 100%;
+  }
+
   :host ::v-deep {
     .p-datatable.p-datatable-stack {
       .p-datatable-tbody > tr > td {

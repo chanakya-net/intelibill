@@ -8,23 +8,101 @@
 
   <div class="card p-4 bg-white shadow rounded-lg">
     <p-table
-      [value]="batches()"
+      #batchesTable
+      [value]="tableBatches()"
       [loading]="loading()"
-      [paginator]="true"
+      [paginator]="tableBatches().length > 10"
       [rows]="10"
-      responsiveLayout="stack"
-      [breakpoint]="'960px'"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [globalFilterFields]="['itemName', 'barcode', 'batchNumber', 'quantity', 'salesPrice', 'isVoided']"
+      [sortField]="'itemName'"
+      [sortOrder]="1"
+      [scrollable]="true"
       styleClass="p-datatable-sm"
     >
+      <ng-template pTemplate="caption">
+        <div class="table-caption">
+          <p-button
+            [label]="'common.clear' | transloco"
+            [outlined]="true"
+            icon="pi pi-filter-slash"
+            (click)="clearFilters(batchesTable)"
+          />
+          <p-iconfield iconPosition="left">
+            <p-inputicon>
+              <i class="pi pi-search"></i>
+            </p-inputicon>
+            <input
+              pInputText
+              type="text"
+              [(ngModel)]="searchValue"
+              (input)="batchesTable.filterGlobal(searchValue(), 'contains')"
+              [placeholder]="'inventory.searchPlaceholder' | transloco"
+            />
+          </p-iconfield>
+        </div>
+      </ng-template>
       <ng-template pTemplate="header">
         <tr>
-          <th>{{ 'inventory.item' | transloco }}</th>
-          <th>{{ 'inventory.barcode' | transloco }}</th>
-          <th>{{ 'inventory.batchNumber' | transloco }}</th>
-          <th>{{ 'inventory.quantity' | transloco }}</th>
-          <th>{{ 'inventory.salesPrice' | transloco }}</th>
-          <th>{{ 'inventory.status' | transloco }}</th>
-          <th>{{ 'inventory.actions' | transloco }}</th>
+          <th pSortableColumn="itemName" style="min-width: 12rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.item' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="itemName" />
+                <p-columnFilter type="text" field="itemName" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="barcode" style="min-width: 10rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.barcode' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="barcode" />
+                <p-columnFilter type="text" field="barcode" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="batchNumber" style="min-width: 10rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.batchNumber' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="batchNumber" />
+                <p-columnFilter type="text" field="batchNumber" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="quantity" style="min-width: 8rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.quantity' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="quantity" />
+                <p-columnFilter type="numeric" field="quantity" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="salesPrice" style="min-width: 9rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.salesPrice' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="salesPrice" />
+                <p-columnFilter type="numeric" field="salesPrice" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="isVoided" style="min-width: 8rem">
+            <div class="flex items-center justify-between">
+              {{ 'inventory.status' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="isVoided" />
+                <p-columnFilter type="boolean" field="isVoided" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th style="min-width: 7rem">
+            <div class="flex items-center justify-center">
+              {{ 'common.actions' | transloco }}
+            </div>
+          </th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-batch>
