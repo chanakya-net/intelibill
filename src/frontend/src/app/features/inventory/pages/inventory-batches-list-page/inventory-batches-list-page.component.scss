@@ -1,0 +1,42 @@
+:host {
+  display: block;
+  background-color: var(--surface-ground);
+  min-height: 100vh;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+:host ::v-deep {
+  .p-datatable-sm {
+    .p-datatable-thead > tr > th {
+      background: var(--surface-section);
+      font-weight: 600;
+    }
+  }
+
+  .p-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+.text-secondary {
+  color: var(--text-color-secondary);
+}
+
+@media screen and (max-width: 960px) {
+  :host ::v-deep {
+    .p-datatable.p-datatable-stack {
+      .p-datatable-tbody > tr > td {
+        .p-column-title {
+          font-weight: 600;
+          min-width: 120px;
+          display: inline-block;
+        }
+      }
+    }
+  }
+}

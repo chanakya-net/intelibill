@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
 
-import { INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { API_BASE_URL, INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
 
 export interface Item {
   readonly id: string;
@@ -91,6 +91,44 @@ export interface AddInventoryBatchResponse {
   readonly failed: readonly AddInventoryBatchFailedRow[];
 }
 
+export interface InventoryBatchDto {
+  readonly id: string;
+  readonly shopId: string;
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly barcode: string;
+  readonly batchNumber: string;
+  readonly quantity: number;
+  readonly originalQuantity: number;
+  readonly costPrice: number;
+  readonly mrp: number;
+  readonly salesPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly expiryDate: string | null;
+  readonly manufacturingDate: string | null;
+  readonly supplierId: string | null;
+  readonly supplierName: string | null;
+  readonly isVoided: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string | null;
+}
+
+export interface UpdateInventoryBatchRequest {
+  readonly newBatchNumber: string | null;
+  readonly quantity: number;
+  readonly costPrice: number;
+  readonly mrp: number;
+  readonly salesPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly expiryDate: string | null;
+  readonly manufacturingDate: string | null;
+  readonly supplierId: string | null;
+  readonly notes: string | null;
+  readonly entryDate: string | null;
+}
+
 export interface ProductDetailsDto {
   readonly description: string;
   readonly uom: string;
@@ -132,5 +170,17 @@ export class InventoryService {
 
   addInventoryBatch(payload: AddInventoryBatchRequest): Observable<AddInventoryBatchResponse> {
     return this.http.post<AddInventoryBatchResponse>(INVENTORY_ENDPOINTS.inboundBatch, payload);
+  }
+
+  getInventoryBatches(): Observable<readonly InventoryBatchDto[]> {
+    return this.http.get<readonly InventoryBatchDto[]>(`${API_BASE_URL}/inventory/batches`);
+  }
+
+  updateInventoryBatch(batchId: string, payload: UpdateInventoryBatchRequest): Observable<void> {
+    return this.http.put<void>(`${API_BASE_URL}/inventory/batches/${batchId}`, payload);
+  }
+
+  voidInventoryBatch(batchId: string): Observable<void> {
+    return this.http.post<void>(`${API_BASE_URL}/inventory/batches/${batchId}/void`, {});
   }
 }

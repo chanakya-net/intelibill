@@ -22,4 +22,11 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
             b => b.ShopId == shopId && b.ItemId == itemId && b.BatchNumber == normalizedBatchNumber,
             cancellationToken);
     }
+
+    public async Task<IReadOnlyList<InventoryBatch>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(b => b.Item)
+            .Where(b => b.ShopId == shopId)
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
 }

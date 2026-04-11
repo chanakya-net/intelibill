@@ -47,7 +47,6 @@ public sealed class AddInventoryBatchCommandHandler(
 
         var itemByBarcodeCache = new Dictionary<string, Item>(StringComparer.Ordinal);
         var itemByNameCache = new Dictionary<string, Item>(StringComparer.Ordinal);
-        var batchCache = new Dictionary<string, InventoryBatch>(StringComparer.Ordinal);
         var inventoryCache = new Dictionary<Guid, DomainInventory>();
 
         foreach (var row in command.Items)
@@ -64,7 +63,6 @@ public sealed class AddInventoryBatchCommandHandler(
                 row,
                 itemByBarcodeCache,
                 itemByNameCache,
-                batchCache,
                 inventoryCache,
                 cancellationToken);
 
@@ -78,7 +76,9 @@ public sealed class AddInventoryBatchCommandHandler(
         }
 
         if (succeeded.Count > 0)
+        {
             await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         return new AddInventoryBatchResultDto(
             command.Items.Count,
@@ -125,7 +125,6 @@ public sealed class AddInventoryBatchCommandHandler(
         AddInventoryBatchRowCommand row,
         Dictionary<string, Item> itemByBarcodeCache,
         Dictionary<string, Item> itemByNameCache,
-        Dictionary<string, InventoryBatch> batchCache,
         Dictionary<Guid, DomainInventory> inventoryCache,
         CancellationToken cancellationToken)
     {
@@ -135,22 +134,21 @@ public sealed class AddInventoryBatchCommandHandler(
         var cacheBarcodeKey = BuildItemCacheKey(command.ActiveShopId, normalizedBarcode);
         var cacheNameKey = BuildItemCacheKey(command.ActiveShopId, normalizedName);
 
-        itemByBarcodeCache.TryGetValue(cacheBarcodeKey, out var itemByBarcode);
-        itemByNameCache.TryGetValue(cacheNameKey, out var itemByName);
+        if (!itemByBarcodeCache.TryGetValue(cacheBarcodeKey, out var itemByBarcode))
+        {
+            itemByBarcode = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, normalizedBarcode, cancellationToken);
+            if (itemByBarcode is not null) itemByBarcodeCache[cacheBarcodeKey] = itemByBarcode;
+        }
 
-        itemByBarcode ??= await itemRepository.GetByBarcodeAsync(command.ActiveShopId, normalizedBarcode, cancellationToken);
-        itemByName ??= await itemRepository.GetByNameAsync(command.ActiveShopId, normalizedName, cancellationToken);
-
-        if (itemByBarcode is not null)
-            itemByBarcodeCache[cacheBarcodeKey] = itemByBarcode;
-
-        if (itemByName is not null)
-            itemByNameCache[cacheNameKey] = itemByName;
+        if (!itemByNameCache.TryGetValue(cacheNameKey, out var itemByName))
+        {
+            itemByName = await itemRepository.GetByNameAsync(command.ActiveShopId, normalizedName, cancellationToken);
+            if (itemByName is not null) itemByNameCache[cacheNameKey] = itemByName;
+        }
 
         if (itemByBarcode is not null && itemByName is not null && itemByBarcode.Id != itemByName.Id)
             return Errors.Inventory.ItemIdentityConflict;
 
-        var isNewItem = false;
         Item item;
         if (itemByBarcode is not null)
         {
@@ -177,56 +175,43 @@ public sealed class AddInventoryBatchCommandHandler(
                 isActive: true,
                 createdBy: command.ActorUserId);
 
-            isNewItem = true;
+            await itemRepository.AddAsync(item, cancellationToken);
             itemByBarcodeCache[cacheBarcodeKey] = item;
             itemByNameCache[cacheNameKey] = item;
         }
 
         var normalizedBatchNumber = row.BatchNumber.Trim();
-        var batchKey = BuildBatchCacheKey(command.ActiveShopId, item.Id, normalizedBatchNumber);
-        if (!batchCache.TryGetValue(batchKey, out var batch))
-        {
-            batch = await inventoryBatchRepository.GetByBatchNumberAsync(
-                command.ActiveShopId,
-                item.Id,
-                normalizedBatchNumber,
-                cancellationToken);
+        var existingBatch = await inventoryBatchRepository.GetByBatchNumberAsync(
+            command.ActiveShopId,
+            item.Id,
+            normalizedBatchNumber,
+            cancellationToken);
 
-            if (batch is not null)
-                batchCache[batchKey] = batch;
+        if (existingBatch is not null && !existingBatch.IsVoided)
+        {
+            return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
-        var isNewBatch = false;
-        if (batch is null)
-        {
-            var batchResult = InventoryBatch.Create(
-                command.ActiveShopId,
-                item.Id,
-                normalizedBatchNumber,
-                row.Quantity,
-                row.CostPrice,
-                row.Mrp,
-                row.SalesPrice,
-                row.TaxRatePercent,
-                row.TaxIncluded,
-                row.ExpiryDate,
-                row.ManufacturingDate,
-                row.SupplierId,
-                command.ActorUserId);
+        var batchResult = InventoryBatch.Create(
+            command.ActiveShopId,
+            item.Id,
+            normalizedBatchNumber,
+            row.Quantity,
+            row.CostPrice,
+            row.Mrp,
+            row.SalesPrice,
+            row.TaxRatePercent,
+            row.TaxIncluded,
+            row.ExpiryDate,
+            row.ManufacturingDate,
+            row.SupplierId,
+            command.ActorUserId);
 
-            if (batchResult.IsError)
-                return batchResult.Errors;
+        if (batchResult.IsError)
+            return batchResult.Errors;
 
-            isNewBatch = true;
-            batch = batchResult.Value;
-            batchCache[batchKey] = batch;
-        }
-        else
-        {
-            var addQuantityResult = batch.AddQuantity(row.Quantity, command.ActorUserId);
-            if (addQuantityResult.IsError)
-                return addQuantityResult.Errors;
-        }
+        var batch = batchResult.Value;
+        await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
         var performedAt = row.PerformedAt ?? DateTimeOffset.UtcNow;
         var stockTransactionResult = StockTransaction.Create(
@@ -244,8 +229,9 @@ public sealed class AddInventoryBatchCommandHandler(
         if (stockTransactionResult.IsError)
             return stockTransactionResult.Errors;
 
-        SupplierLedgerEntry? ledgerEntry = null;
-        if (isNewBatch && batch.SupplierId is Guid supplierId)
+        await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
+
+        if (batch.SupplierId is Guid supplierId)
         {
             var ledgerResult = SupplierLedgerEntry.Create(
                 command.ActiveShopId,
@@ -254,13 +240,13 @@ public sealed class AddInventoryBatchCommandHandler(
                 SupplierLedgerEntryType.GoodsReceived,
                 ComputeLedgerAmount(row.CostPrice, row.Quantity),
                 DateOnly.FromDateTime(performedAt.UtcDateTime),
-                row.Notes,
+                row.Notes ?? "Inbound inventory",
                 command.ActorUserId);
 
             if (ledgerResult.IsError)
                 return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-            ledgerEntry = ledgerResult.Value;
+            await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
         if (!inventoryCache.TryGetValue(item.Id, out var inventory))
@@ -270,7 +256,6 @@ public sealed class AddInventoryBatchCommandHandler(
                 inventoryCache[item.Id] = inventory;
         }
 
-        var isNewInventory = false;
         if (inventory is null)
         {
             var inventoryResult = DomainInventory.Create(
@@ -284,8 +269,8 @@ public sealed class AddInventoryBatchCommandHandler(
             if (inventoryResult.IsError)
                 return inventoryResult.Errors;
 
-            isNewInventory = true;
             inventory = inventoryResult.Value;
+            await inventoryRepository.AddAsync(inventory, cancellationToken);
             inventoryCache[item.Id] = inventory;
         }
         else
@@ -293,25 +278,9 @@ public sealed class AddInventoryBatchCommandHandler(
             var addQuantityResult = inventory.AddQuantity(row.Quantity, command.ActorUserId);
             if (addQuantityResult.IsError)
                 return addQuantityResult.Errors;
-        }
 
-        if (isNewItem)
-            await itemRepository.AddAsync(item, cancellationToken);
-
-        if (isNewBatch)
-            await inventoryBatchRepository.AddAsync(batch, cancellationToken);
-        else
-            inventoryBatchRepository.Update(batch);
-
-        await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
-
-        if (ledgerEntry is not null)
-            await supplierLedgerEntryRepository.AddAsync(ledgerEntry, cancellationToken);
-
-        if (isNewInventory)
-            await inventoryRepository.AddAsync(inventory, cancellationToken);
-        else
             inventoryRepository.Update(inventory);
+        }
 
         return new AddInventoryResultDto(
             item.Id,

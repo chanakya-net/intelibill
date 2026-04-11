@@ -6,9 +6,7 @@ internal static class AuthShopSelection
 {
     public static (Guid? ActiveShopId, string? ActiveShopRole, IReadOnlyList<UserShopDto> Shops) Resolve(User user, Guid? preferredShopId = null)
     {
-        var memberships = user.ShopMemberships
-            .Where(sm => sm.Shop is not null)
-            .ToList();
+        var memberships = user.ShopMemberships.ToList();
 
         if (memberships.Count == 0)
             return (null, null, []);
@@ -35,7 +33,7 @@ internal static class AuthShopSelection
             .ThenByDescending(sm => sm.LastUsedAt)
             .Select(sm => new UserShopDto(
                 sm.ShopId,
-                sm.Shop.Name,
+                sm.Shop?.Name ?? "Unknown Shop",
                 sm.Role.ToString(),
                 sm.IsDefault,
                 sm.LastUsedAt))

@@ -31,6 +31,10 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasPrecision(18, 3)
             .IsRequired();
 
+        builder.Property(b => b.OriginalQuantity)
+            .HasPrecision(18, 3)
+            .IsRequired();
+
         builder.Property(b => b.CostPrice)
             .HasPrecision(18, 2)
             .IsRequired();
@@ -51,6 +55,10 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(b => b.IsVoided)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(b => b.SupplierId);
 
         builder.Property(b => b.CreatedBy)
@@ -59,7 +67,8 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
         builder.Property(b => b.UpdatedBy);
 
         builder.HasIndex(b => new { b.ShopId, b.ItemId, b.BatchNumber })
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("is_voided = false");
 
         builder.HasIndex(b => new { b.ShopId, b.ExpiryDate });
         builder.HasIndex(b => new { b.ShopId, b.SupplierId });

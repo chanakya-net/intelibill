@@ -70,9 +70,14 @@ export class ShellComponent {
           },
           {
             label: this.localizationService.translate('shell.batchInventoryInbound'),
-            icon: 'pi pi-list-check',
+            icon: 'pi pi-plus',
             command: () => this.onOpenInventoryBatch(),
-          },
+            },
+            {
+            label: this.localizationService.translate('shell.inventoryBatchesOverview'),
+            icon: 'pi pi-list',
+            command: () => this.onOpenInventoryBatchesOverview(),
+            },
         ],
       });
     }
@@ -254,9 +259,14 @@ export class ShellComponent {
       },
       {
         label: this.localizationService.translate('shell.batchInventoryInbound'),
-        icon: 'pi pi-list-check',
+        icon: 'pi pi-plus',
         command: () => this.onOpenInventoryBatch(),
-      },
+        },
+        {
+        label: this.localizationService.translate('shell.inventoryBatchesOverview'),
+        icon: 'pi pi-list',
+        command: () => this.onOpenInventoryBatchesOverview(),
+        },
     ];
   });
 
@@ -494,6 +504,11 @@ export class ShellComponent {
   onOpenInventoryBatch(): void {
     this.onCloseMenus();
     void this.router.navigate(['/inventory/batch']);
+  }
+
+  onOpenInventoryBatchesOverview(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/inventory/batches']);
   }
 
   onNavigateToSuppliers(): void {

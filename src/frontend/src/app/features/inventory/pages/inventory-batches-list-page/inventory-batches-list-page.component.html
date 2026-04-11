@@ -1,0 +1,168 @@
+<p-toast></p-toast>
+
+<section class="p-6">
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold">{{ 'inventory.batchListTitle' | transloco }}</h1>
+    <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
+  </header>
+
+  <div class="card p-4 bg-white shadow rounded-lg">
+    <p-table
+      [value]="batches()"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="10"
+      responsiveLayout="stack"
+      [breakpoint]="'960px'"
+      styleClass="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'inventory.item' | transloco }}</th>
+          <th>{{ 'inventory.barcode' | transloco }}</th>
+          <th>{{ 'inventory.batchNumber' | transloco }}</th>
+          <th>{{ 'inventory.quantity' | transloco }}</th>
+          <th>{{ 'inventory.salesPrice' | transloco }}</th>
+          <th>{{ 'inventory.status' | transloco }}</th>
+          <th>{{ 'inventory.actions' | transloco }}</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-batch>
+        <tr [class.opacity-50]="batch.isVoided">
+          <td>{{ batch.itemName }}</td>
+          <td>{{ batch.barcode }}</td>
+          <td>{{ batch.batchNumber }}</td>
+          <td>{{ batch.quantity }}</td>
+          <td>{{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number:'1.2-2' }}</td>
+          <td>
+            @if (batch.isVoided) {
+              <p-tag severity="danger" [value]="'inventory.voided' | transloco"></p-tag>
+            } @else {
+              <p-tag severity="success" [value]="'inventory.active' | transloco"></p-tag>
+            }
+          </td>
+          <td>
+            <div class="flex gap-2">
+              <button
+                pButton
+                icon="pi pi-pencil"
+                class="p-button-text p-button-sm"
+                (click)="onEditBatch(batch)"
+                [disabled]="batch.isVoided"
+                [attr.aria-label]="'common.edit' | transloco"
+              ></button>
+              <button
+                pButton
+                icon="pi pi-trash"
+                class="p-button-text p-button-danger p-button-sm"
+                (click)="onVoidBatch(batch.id)"
+                [disabled]="batch.isVoided"
+                [attr.aria-label]="'common.void' | transloco"
+              ></button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</section>
+
+<p-dialog
+  [header]="'inventory.correctBatch' | transloco"
+  [(visible)]="isEditDialogOpen"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '600px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2">
+    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">{{ 'inventory.originalBatch' | transloco }}</span>
+      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.newBatchNumber' | transloco }}</label>
+      <input pInputText formControlName="newBatchNumber" [placeholder]="'inventory.leaveEmptyToAutoGenerate' | transloco" />
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
+        <p-inputNumber formControlName="quantity" [min]="0" [fluid]="true"></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.costPrice' | transloco }}</label>
+        <p-inputNumber formControlName="costPrice" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.mrp' | transloco }}</label>
+        <p-inputNumber formControlName="mrp" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.salesPrice' | transloco }}</label>
+        <p-inputgroup class="w-full">
+          <p-inputNumber formControlName="salesPrice" [min]="0" [fluid]="true" mode="currency" currency="INR"></p-inputNumber>
+          <p-select
+            formControlName="taxIncluded"
+            [options]="taxModeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            class="w-32"
+          ></p-select>
+        </p-inputgroup>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.taxRatePercent' | transloco }}</label>
+        <p-inputNumber formControlName="taxRatePercent" [min]="0" [max]="100" [fluid]="true" suffix="%"></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.supplier' | transloco }}</label>
+        <p-autocomplete
+          formControlName="supplierName"
+          [suggestions]="supplierSuggestions()"
+          (completeMethod)="onFilterSupplier($event)"
+          [fluid]="true"
+        ></p-autocomplete>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.expiryDate' | transloco }}</label>
+        <input pInputText type="date" formControlName="expiryDate" class="w-full" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.manufacturingDate' | transloco }}</label>
+        <input pInputText type="date" formControlName="manufacturingDate" class="w-full" />
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.correctionNotes' | transloco }}</label>
+      <input pInputText formControlName="notes" [placeholder]="'inventory.correctionNotesPlaceholder' | transloco" />
+    </div>
+
+    <div class="flex justify-end gap-2 mt-4">
+      <button
+        pButton
+        [label]="'common.cancel' | transloco"
+        class="p-button-text"
+        (click)="isEditDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        [label]="'common.save' | transloco"
+        [loading]="isSaving()"
+        (click)="onSaveEdit()"
+        [disabled]="editForm.invalid"
+      ></button>
+    </div>
+  </form>
+</p-dialog>

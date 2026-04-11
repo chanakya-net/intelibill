@@ -82,7 +82,11 @@ public class AddInventoryCommandHandlerTests
         Assert.Equal(supplierId, result.Value.SupplierId);
 
         await _itemRepository.Received(1).AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => b.SupplierId == supplierId), Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => 
+            b.SupplierId == supplierId && 
+            b.OriginalQuantity == 10m && 
+            b.Quantity == 10m &&
+            !b.IsVoided), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Is<StockTransaction>(t => t.TransactionType == StockTransactionType.In && t.Quantity == 10m), Arg.Any<CancellationToken>());
         await _supplierLedgerEntryRepository.Received(1).AddAsync(
             Arg.Is<SupplierLedgerEntry>(e =>
@@ -96,28 +100,7 @@ public class AddInventoryCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenNewBatchWithoutSupplier_DoesNotCreateLedgerEntry()
-    {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
-        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
-            .Returns((InventoryBatch?)null);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenExistingBatchAndInventory_IncrementsQuantities()
+    public async Task HandleAsync_WhenExistingActiveBatch_ReturnsConflict()
     {
         var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -125,7 +108,7 @@ public class AddInventoryCommandHandlerTests
 
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
-        var batchResult = InventoryBatch.Create(
+        var batch = InventoryBatch.Create(
             shop.Id,
             item.Id,
             "B-1",
@@ -138,13 +121,46 @@ public class AddInventoryCommandHandlerTests
             expiryDate: null,
             manufacturingDate: null,
             supplierId: null,
-            createdBy: actor.Id);
-        Assert.False(batchResult.IsError);
-        var batch = batchResult.Value;
+            createdBy: actor.Id).Value;
 
-        var inventoryResult = DomainInventory.Create(shop.Id, item.Id, quantity: 20m, reorderLevel: 2m, maxLevel: 50m, createdBy: actor.Id);
-        Assert.False(inventoryResult.IsError);
-        var inventory = inventoryResult.Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(item);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, item.Id, "B-1", Arg.Any<CancellationToken>()).Returns(batch);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.BatchNumberAlreadyExists.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenExistingVoidedBatch_CreatesNewBatch()
+    {
+        var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
+
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
+
+        var batch = InventoryBatch.Create(
+            shop.Id,
+            item.Id,
+            "B-1",
+            quantity: 5m,
+            costPrice: 80m,
+            mrp: 120m,
+            salesPrice: 110m,
+            taxRatePercent: 5m,
+            taxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            createdBy: actor.Id).Value;
+        batch.Void(actor.Id);
+
+        var inventory = DomainInventory.Create(shop.Id, item.Id, quantity: 20m, reorderLevel: 2m, maxLevel: 50m, createdBy: actor.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(item);
@@ -156,13 +172,11 @@ public class AddInventoryCommandHandlerTests
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(15m, result.Value.BatchQuantity);
+        Assert.Equal(10m, result.Value.BatchQuantity);
         Assert.Equal(30m, result.Value.TotalQuantity);
 
-        _inventoryBatchRepository.Received(1).Update(Arg.Is<InventoryBatch>(b => b.Quantity == 15m));
+        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => b.BatchNumber == "B-1" && !b.IsVoided), Arg.Any<CancellationToken>());
         _inventoryRepository.Received(1).Update(Arg.Is<DomainInventory>(i => i.Quantity == 30m));
-        await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
-        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

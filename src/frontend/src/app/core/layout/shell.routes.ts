@@ -32,6 +32,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'inventory/batches',
+				loadComponent: () =>
+					import(
+						'../../features/inventory/pages/inventory-batches-list-page/inventory-batches-list-page.component'
+					).then((m) => m.InventoryBatchesListPageComponent),
+			},
+			{
 				path: 'inventory',
 				loadComponent: () =>
 					import('../../features/inventory/pages/inventory-page.component').then(
