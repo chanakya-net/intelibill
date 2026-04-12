@@ -6,16 +6,27 @@ using Intelibill.Application;
 using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure;
+using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using Wolverine;
+using Wolverine.FluentValidation;
+using Wolverine.Http;
 
 var builder = WebApplication.CreateBuilder(args);
+var configuration = builder.Configuration;
 
+// ── Observability — must precede AddInteliBillSerilog so IOptions<ObservabilityOptions>
+//    is resolvable when Serilog's UseSerilog callback fires at host build time.
+builder.Services.AddObservabilityOptions(configuration);
+builder.AddInteliBillSerilog();
+builder.Services.AddInteliBillOpenTelemetry(configuration);
+
+// ── Core services ─────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
@@ -27,26 +38,24 @@ builder.Services.AddCors(options =>
     {
         policy
             .WithOrigins(
-                "http://localhost:4200", "https://localhost:4200",  // local dev (ng serve)
-                "http://localhost:4000", "https://localhost:4000"   // Docker frontend
-            )
+                "http://localhost:4200", "https://localhost:4200",
+                "http://localhost:4000", "https://localhost:4000")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(configuration);
+builder.Services.AddWolverineHttp();
 
 // ── App options ───────────────────────────────────────────────────────────────
 builder.Services.AddOptions<AppOptions>()
-    .Bind(builder.Configuration.GetSection(AppOptions.SectionName))
+    .Bind(configuration.GetSection(AppOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
-// Configure JwtBearerOptions via the Options Pattern so the JWT secret comes
-// from the validated JwtOptions rather than raw IConfiguration.
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
@@ -83,17 +92,18 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
-// Register ValidationMiddleware - Wolverine will auto-discover BeforeAsync methods from DI
-builder.Services.AddScoped<ValidationMiddleware>();
-
-builder.Host.UseWolverine(opts =>
+builder.Services.AddWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);
+    opts.UseFluentValidation();
+    // ErrorOrResultMiddleware: IErrorOr-typed After() params are not resolvable in
+    // WolverineFx 5.24.0 without a custom variable source — omitted until redesigned.
+    opts.Policies.AddMiddleware<W3CInboundEnvelopeMiddleware>();
+    opts.Policies.AllSenders(s => s.CustomizeOutgoing(new W3COutboundEnvelopeModifier().Modify));
 });
 
 var app = builder.Build();
 
-// Apply migrations
 await app.Services.ApplyMigrationsAsync();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -106,9 +116,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendDev");
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<JwtContextEnrichmentMiddleware>();
+app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
+app.MapWolverineEndpoints();
 
 app.Run();
 

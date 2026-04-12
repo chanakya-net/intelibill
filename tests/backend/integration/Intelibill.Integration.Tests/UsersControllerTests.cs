@@ -22,7 +22,7 @@ public class UsersControllerTests : IClassFixture<ApiWebApplicationFactory>
     });
 
     private static string UniqueEmail() => $"users-{Guid.NewGuid():N}@test.com";
-    private static string UniquePhone() => $"+919{Guid.NewGuid().ToString("N")[..9]}";
+    private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     private static async Task<(string AccessToken, string Email)> RegisterAsync(HttpClient client)
     {

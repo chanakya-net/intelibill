@@ -21,7 +21,7 @@ public class AuthControllerTests : IClassFixture<ApiWebApplicationFactory>
     });
 
     private static string UniqueEmail() => $"auth-{Guid.NewGuid():N}@test.com";
-    private static string UniquePhone() => $"+919{Guid.NewGuid().ToString("N")[..9]}";
+    private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     [Fact]
     public async Task RegisterWithEmail_ValidRequest_Returns201WithTokens()
