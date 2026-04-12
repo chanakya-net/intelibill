@@ -1,5 +1,6 @@
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace Intelibill.Api.Extensions;
 
@@ -36,6 +37,30 @@ public static class ErrorOrExtensions
             Detail = first.Description,
             Extensions = { ["errors"] = errors.Select(e => new { e.Code, e.Description }) }
         };
+
+        if (first.Type == ErrorType.Validation)
+        {
+            Log.Warning(
+                "Validation failed. Codes={Codes} Descriptions={Descriptions}",
+                errors.Select(static e => e.Code).ToArray(),
+                errors.Select(static e => e.Description).ToArray());
+        }
+        else if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
+            Log.Error(
+                "Request failed with server error result. Type={ErrorType} Codes={Codes} Descriptions={Descriptions}",
+                first.Type,
+                errors.Select(static e => e.Code).ToArray(),
+                errors.Select(static e => e.Description).ToArray());
+        }
+        else
+        {
+            Log.Warning(
+                "Request failed with client error result. Type={ErrorType} Codes={Codes} Descriptions={Descriptions}",
+                first.Type,
+                errors.Select(static e => e.Code).ToArray(),
+                errors.Select(static e => e.Description).ToArray());
+        }
 
         return new ObjectResult(problemDetails) { StatusCode = statusCode };
     }
