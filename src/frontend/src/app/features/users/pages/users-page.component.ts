@@ -1,8 +1,12 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
@@ -24,7 +28,11 @@ import {
   selector: 'app-users-page',
   standalone: true,
   imports: [
+    FormsModule,
     ButtonModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
     ProgressSpinnerModule,
     TableModule,
     AddShopUserOverlayComponent,
@@ -40,6 +48,17 @@ export class UsersPageComponent {
 
   readonly users = this.store.selectSignal(selectShopUsers);
   readonly tableUsers = computed(() => [...this.users()]);
+  readonly searchValue = signal('');
+  readonly filteredUsers = computed(() => {
+    const q = this.searchValue().toLowerCase();
+    if (!q) return [...this.users()];
+    return this.users().filter(
+      (u) =>
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+        (u.phoneNumber ?? '').toLowerCase().includes(q) ||
+        (u.email ?? '').toLowerCase().includes(q),
+    );
+  });
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
@@ -110,6 +129,25 @@ export class UsersPageComponent {
   onCloseEditUser(): void {
     this.showEditUserOverlay.set(false);
     this.editingUser.set(null);
+  }
+
+  userInitials(firstName: string, lastName: string): string {
+    const f = (firstName ?? '').trim();
+    const l = (lastName ?? '').trim();
+    if (f && l) return (f[0] + l[0]).toUpperCase();
+    if (f) return f.substring(0, 2).toUpperCase();
+    return '?';
+  }
+
+  userAvatarColor(firstName: string, lastName: string): string {
+    const colors = [
+      '#b45309', '#0369a1', '#15803d', '#7c3aed',
+      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+    ];
+    const name = `${firstName}${lastName}`;
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   }
 
   getRoleLabel(role: string): string {

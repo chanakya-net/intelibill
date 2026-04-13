@@ -28,7 +28,71 @@
   }
 
   @if (!isLoading()) {
-    <div class="users-table-card">
+    <!-- Mobile 2-column user grid (≤640px) -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            [placeholder]="'users.name' | transloco"
+            class="w-full"
+          />
+        </p-iconfield>
+      </div>
+      <div class="user-grid">
+        @for (user of filteredUsers(); track user.userId) {
+          <div class="user-card">
+            <div
+              class="user-avatar"
+              [style.background-color]="userAvatarColor(user.firstName, user.lastName)"
+            >
+              <span>{{ userInitials(user.firstName, user.lastName) }}</span>
+            </div>
+            <div class="user-info">
+              <p class="user-name">{{ user.firstName }} {{ user.lastName }}</p>
+              @if (user.phoneNumber) {
+                <p class="user-meta">{{ user.phoneNumber }}</p>
+              }
+              <span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span>
+              <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
+                {{
+                  user.isLoginEnabled
+                    ? ('users.enabled' | transloco)
+                    : ('users.disabled' | transloco)
+                }}
+              </span>
+            </div>
+            @if (canEditUsers() && canEditRole(user.role)) {
+              <button
+                pButton
+                type="button"
+                icon="pi pi-pencil"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                class="user-card-edit"
+                (click)="onOpenEditUser(user)"
+                [attr.aria-label]="'users.edit' | transloco"
+              ></button>
+            }
+          </div>
+        }
+        @if (filteredUsers().length === 0) {
+          <div class="mobile-empty-state">
+            <h2>{{ 'users.noUsersFound' | transloco }}</h2>
+            <p>{{ 'users.noUsersDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="users-table-card desktop-table">
       <p-table
         [value]="tableUsers()"
         [sortField]="'firstName'"

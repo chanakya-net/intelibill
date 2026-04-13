@@ -28,7 +28,103 @@
   }
 
   @if (!isLoading()) {
-    <div class="suppliers-table-card">
+    <!-- Mobile 2-column supplier grid (≤640px) -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            [placeholder]="'suppliers.name' | transloco"
+            class="w-full"
+          />
+        </p-iconfield>
+      </div>
+      <div class="supplier-grid">
+        @for (supplier of filteredSuppliers(); track supplier.supplierId) {
+          <div class="supplier-card" [class.supplier-card--inactive]="!supplier.isActive">
+            <div
+              class="supplier-avatar"
+              [style.background-color]="supplierAvatarColor(supplier.name)"
+            >
+              <span>{{ supplierInitials(supplier.name) }}</span>
+            </div>
+            <div class="supplier-info">
+              <p class="supplier-name">{{ supplier.name }}</p>
+              @if (supplier.city) {
+                <p class="supplier-meta">{{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}</p>
+              }
+              @if (supplier.contactPersonName) {
+                <p class="supplier-meta">{{ supplier.contactPersonName }}</p>
+              }
+              <button
+                pButton
+                type="button"
+                [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
+                [title]="getBalanceLabel(supplier)"
+                severity="info"
+                text
+                size="small"
+                (click)="onOpenSupplierDetail(supplier)"
+                class="balance-button supplier-balance"
+              ></button>
+              <div class="supplier-pills">
+                <span class="status-pill" [class.disabled]="!supplier.isActive">
+                  {{
+                    supplier.isActive
+                      ? ('suppliers.active' | transloco)
+                      : ('suppliers.inactive' | transloco)
+                  }}
+                </span>
+                @if (supplier.isPreferred) {
+                  <span class="preferred-pill">{{ 'suppliers.yes' | transloco }}</span>
+                }
+              </div>
+            </div>
+            <div class="supplier-card-actions">
+              @if (canManageSuppliers()) {
+                <button
+                  pButton
+                  type="button"
+                  icon="pi pi-pencil"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  (click)="onOpenEditSupplier(supplier)"
+                  [attr.aria-label]="'suppliers.editSupplier' | transloco"
+                ></button>
+              }
+              @if (canMakePayment()) {
+                <button
+                  pButton
+                  type="button"
+                  icon="pi pi-wallet"
+                  [text]="true"
+                  [rounded]="true"
+                  severity="success"
+                  size="small"
+                  (click)="onOpenMakePayment(supplier)"
+                  [attr.aria-label]="'suppliers.makePayment' | transloco"
+                ></button>
+              }
+            </div>
+          </div>
+        }
+        @if (filteredSuppliers().length === 0) {
+          <div class="mobile-empty-state">
+            <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+            <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="suppliers-table-card desktop-table">
       <p-table
         [value]="tableSuppliers()"
         [sortField]="'name'"

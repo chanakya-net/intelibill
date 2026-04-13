@@ -66,7 +66,55 @@ import { SuppliersFacade } from '../state/suppliers.facade';
             </div>
           }
           <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
-          <div class="ledger-table-card">
+
+          <!-- Mobile timeline list (≤640px) -->
+          <div class="mobile-ledger-container">
+            <p-iconfield iconPosition="left" class="mobile-search-field">
+              <p-inputicon>
+                <i class="pi pi-search"></i>
+              </p-inputicon>
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="searchValue"
+                [placeholder]="'suppliers.searchLedger' | transloco"
+                class="w-full"
+              />
+            </p-iconfield>
+            <div class="ledger-timeline">
+              @for (entry of filteredEntries(); track entry.id) {
+                <div class="ledger-entry-card" [class.ledger-entry-card--payment]="entry.isPayment">
+                  <div class="ledger-entry-date">{{ entry.entryDate }}</div>
+                  <div class="ledger-entry-body">
+                    <span class="entry-type" [ngClass]="entry.entryTypeClass">
+                      {{ entry.entryTypeLabel }}
+                    </span>
+                    <p-badge
+                      [value]="formatSignedAmount(entry.displayAmount)"
+                      [severity]="amountSeverity(entry.displayAmount)"
+                    />
+                    @if (entry.notes) {
+                      <p class="ledger-entry-notes">{{ entry.notes }}</p>
+                    }
+                  </div>
+                </div>
+              }
+              @if (filteredEntries().length === 0) {
+                <div class="empty-state">
+                  <p>{{ 'suppliers.noEntriesFound' | transloco }}</p>
+                </div>
+              }
+              @if (filteredEntries().length > 0) {
+                <div class="ledger-total-row">
+                  <span>{{ 'suppliers.totalAmount' | transloco }}</span>
+                  <strong>{{ totalAmount() | currency: 'INR' : 'symbol' : '1.0-2' }}</strong>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Desktop table -->
+          <div class="ledger-table-card desktop-ledger">
             <p-table
               #ledgerTable
               [value]="tableEntries()"
@@ -288,6 +336,86 @@ import { SuppliersFacade } from '../state/suppliers.facade';
         white-space: nowrap;
       }
 
+      /* Mobile timeline — hidden on desktop */
+      .mobile-ledger-container {
+        display: none;
+      }
+
+      .desktop-ledger {
+        display: block;
+      }
+
+      @media (max-width: 640px) {
+        .mobile-ledger-container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+
+        .desktop-ledger {
+          display: none;
+        }
+
+        .mobile-search-field {
+          width: 100%;
+        }
+
+        .ledger-timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .ledger-entry-card {
+          display: flex;
+          gap: 0.65rem;
+          padding: 0.65rem 0.75rem;
+          border: 1px solid #fdba74;
+          border-radius: 0.75rem;
+          background: linear-gradient(160deg, #ffffff, #fff7ed);
+
+          &--payment {
+            background: linear-gradient(160deg, #ffffff, #f0fdf4);
+            border-color: #86efac;
+          }
+        }
+
+        .ledger-entry-date {
+          flex-shrink: 0;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #78716c;
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          letter-spacing: 0.04em;
+          align-self: center;
+        }
+
+        .ledger-entry-body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .ledger-entry-notes {
+          margin: 0;
+          font-size: 0.72rem;
+          color: #57534e;
+        }
+
+        .ledger-total-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.6rem 0.75rem;
+          border-top: 2px solid #fdba74;
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #1f2937;
+        }
+      }
+
       @media (max-width: 900px) {
         .supplier-info-header {
           grid-template-columns: 1fr;
@@ -321,6 +449,22 @@ export class SupplierDetailComponent {
   protected readonly searchValue = signal('');
 
   protected readonly isLoading = this.facade.ledgerIsLoading;
+
+  protected readonly filteredEntries = computed(() => {
+    const q = this.searchValue().toLowerCase();
+    const entries = this.tableEntries();
+    const filtered = q
+      ? entries.filter(
+          (e) =>
+            e.entryTypeLabel.toLowerCase().includes(q) ||
+            (e.notes ?? '').toLowerCase().includes(q) ||
+            (e.entryDate ?? '').includes(q),
+        )
+      : entries;
+    return [...filtered].sort((a, b) =>
+      (b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1,
+    );
+  });
 
   protected readonly tableEntries = computed(() => {
     this.currentLang(); // re-run on language change

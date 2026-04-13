@@ -141,6 +141,101 @@ h1 {
   align-items: center;
 }
 
+/* Mobile pending-rows list — hidden on desktop */
+.mobile-rows-list {
+  display: none;
+}
+
+.desktop-pending-table {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .mobile-rows-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .desktop-pending-table {
+    display: none;
+  }
+
+  .pending-row-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #fff;
+    position: relative;
+
+    &--failed {
+      background: #fff1f2;
+      border-color: #fca5a5;
+    }
+
+    &--scanned {
+      animation: scanned-row-flash 1.4s ease;
+    }
+  }
+
+  .pending-row-avatar {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.04em;
+  }
+
+  .pending-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .pending-row-name {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pending-row-barcode {
+    margin: 0;
+    font-size: 0.7rem;
+    color: #78716c;
+    font-family: monospace;
+  }
+
+  .pending-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    font-size: 0.7rem;
+    color: #57534e;
+  }
+
+  .pending-row-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    flex-shrink: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .inventory-batch-page {
     gap: 0.75rem;
