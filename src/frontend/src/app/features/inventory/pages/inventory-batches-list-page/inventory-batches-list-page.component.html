@@ -6,7 +6,80 @@
     <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
   </header>
 
-  <div class="card p-4 bg-white shadow rounded-lg">
+  <!-- Mobile 2-column batch grid (≤640px) -->
+  <div class="mobile-grid-container">
+    <div class="mobile-search-bar">
+      <p-iconfield iconPosition="left" class="mobile-search-field">
+        <p-inputicon>
+          <i class="pi pi-search"></i>
+        </p-inputicon>
+        <input
+          pInputText
+          type="text"
+          [(ngModel)]="searchValue"
+          [placeholder]="'inventory.searchPlaceholder' | transloco"
+          class="w-full"
+        />
+      </p-iconfield>
+    </div>
+    <div class="batch-grid">
+      @for (batch of filteredBatches(); track batch.id) {
+        <div class="batch-card" [class.batch-card--voided]="batch.isVoided">
+          <div class="batch-avatar" [style.background-color]="productAvatarColor(batch.itemName)">
+            <span class="batch-initials">{{ productInitials(batch.itemName) }}</span>
+          </div>
+          <div class="batch-info">
+            <p class="batch-name">{{ batch.itemName }}</p>
+            <p class="batch-meta">{{ batch.batchNumber }}</p>
+            <div class="batch-row">
+              <span class="batch-label">Qty</span>
+              <span class="batch-value">{{ batch.quantity }}</span>
+            </div>
+            <div class="batch-row">
+              <span class="batch-label">{{ 'common.currencySymbol' | transloco }}</span>
+              <span class="batch-value">{{ batch.salesPrice | number:'1.2-2' }}</span>
+            </div>
+            @if (batch.isVoided) {
+              <p-tag severity="danger" [value]="'inventory.voided' | transloco"></p-tag>
+            } @else {
+              <p-tag severity="success" [value]="'inventory.active' | transloco"></p-tag>
+            }
+          </div>
+          <div class="batch-card-actions">
+            <button
+              pButton
+              icon="pi pi-pencil"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              (click)="onEditBatch(batch)"
+              [disabled]="batch.isVoided"
+              [attr.aria-label]="'common.edit' | transloco"
+            ></button>
+            <button
+              pButton
+              icon="pi pi-trash"
+              [text]="true"
+              [rounded]="true"
+              severity="danger"
+              size="small"
+              (click)="onVoidBatch(batch.id)"
+              [disabled]="batch.isVoided"
+              [attr.aria-label]="'common.void' | transloco"
+            ></button>
+          </div>
+        </div>
+      }
+      @if (filteredBatches().length === 0) {
+        <div class="mobile-empty-state">
+          <p>{{ 'inventory.noItemsFound' | transloco }}</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Desktop table -->
+  <div class="card p-4 bg-white shadow rounded-lg desktop-table">
     <p-table
       #batchesTable
       [value]="tableBatches()"

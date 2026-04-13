@@ -1,8 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
@@ -19,7 +23,11 @@ import { SuppliersFacade } from '../state/suppliers.facade';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ButtonModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
     ProgressSpinnerModule,
     TableModule,
     AddSupplierOverlayComponent,
@@ -37,6 +45,17 @@ export class SuppliersPageComponent {
 
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly tableSuppliers = computed(() => [...this.suppliers()]);
+  readonly searchValue = signal('');
+  readonly filteredSuppliers = computed(() => {
+    const q = this.searchValue().toLowerCase();
+    if (!q) return [...this.suppliers()];
+    return this.suppliers().filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.city ?? '').toLowerCase().includes(q) ||
+        (s.contactPersonName ?? '').toLowerCase().includes(q),
+    );
+  });
   readonly isLoading = this.suppliersFacade.isLoading;
   readonly serverError = this.suppliersFacade.errorMessage;
   readonly lastMutationType = this.suppliersFacade.lastMutationType;
@@ -63,6 +82,22 @@ export class SuppliersPageComponent {
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
   readonly canMakePayment = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+
+  supplierInitials(name: string): string {
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  supplierAvatarColor(name: string): string {
+    const colors = [
+      '#b45309', '#0369a1', '#15803d', '#7c3aed',
+      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
 
   getBalanceLabel(supplier: Supplier): string {
     if (supplier.balanceDue > 0) {

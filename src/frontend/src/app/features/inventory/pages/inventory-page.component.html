@@ -28,7 +28,68 @@
   }
 
   @if (!isLoadingItems() && !isSubmitting()) {
-    <div class="inventory-table-card">
+    <!-- Mobile 2-column product grid (≤640px) -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            [placeholder]="'inventory.searchPlaceholder' | transloco"
+            class="w-full"
+          />
+        </p-iconfield>
+      </div>
+      <div class="product-grid">
+        @for (item of filteredItems(); track item.id) {
+          <div class="product-card">
+            <div class="product-avatar" [style.background-color]="productAvatarColor(item.name)">
+              <span class="product-initials">{{ productInitials(item.name) }}</span>
+            </div>
+            <div class="product-info">
+              <p class="product-name">{{ item.name }}</p>
+              <p class="product-meta">{{ item.uom }}</p>
+              <div class="product-stock">
+                <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
+              </div>
+              <span class="status-pill" [class.disabled]="!item.isActive">
+                {{
+                  item.isActive
+                    ? ('inventory.active' | transloco)
+                    : ('inventory.inactive' | transloco)
+                }}
+              </span>
+            </div>
+            @if (canManageInventory()) {
+              <button
+                pButton
+                type="button"
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                class="card-edit-btn"
+                [attr.aria-label]="'common.edit' | transloco"
+                (click)="onEditItem(item)"
+                [disabled]="isSubmitting()"
+              ></button>
+            }
+          </div>
+        }
+        @if (filteredItems().length === 0) {
+          <div class="mobile-empty-state">
+            <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
+            <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="inventory-table-card desktop-table">
       <p-table
         #inventoryTable
         [value]="tableItems()"

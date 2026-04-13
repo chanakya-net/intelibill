@@ -51,6 +51,16 @@ export class InventoryPageComponent {
 
   readonly items = this.store.selectSignal(selectInventoryItems);
   readonly tableItems = computed(() => [...this.items()]);
+  readonly filteredItems = computed(() => {
+    const q = this.searchValue().toLowerCase();
+    if (!q) return [...this.items()];
+    return this.items().filter(
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        i.barcode.toLowerCase().includes(q) ||
+        i.uom.toLowerCase().includes(q),
+    );
+  });
   readonly isLoadingItems = this.store.selectSignal(selectInventoryLoadingItems);
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
@@ -109,6 +119,22 @@ export class InventoryPageComponent {
     this.store.dispatch(InventoryActions.clearError());
     this.store.dispatch(InventoryActions.clearMutationStatus());
     this.showAddProductOverlay.set(true);
+  }
+
+  productInitials(name: string): string {
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  productAvatarColor(name: string): string {
+    const colors = [
+      '#b45309', '#0369a1', '#15803d', '#7c3aed',
+      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   }
 
   stockSeverity(stock: number): 'danger' | 'warn' | 'success' {

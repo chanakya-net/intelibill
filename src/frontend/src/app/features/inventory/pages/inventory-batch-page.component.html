@@ -207,9 +207,71 @@
     }
 
     @if (!loadingDraft()) {
+      <!-- Mobile card list (≤640px) -->
+      <div class="mobile-rows-list">
+        @for (row of tableRows(); track row.clientRowId) {
+          <div
+            class="pending-row-card"
+            [class.pending-row-card--failed]="failedClientRowIds().has(row.clientRowId)"
+            [class.pending-row-card--scanned]="highlightedRowId() === row.clientRowId"
+          >
+            <div
+              class="pending-row-avatar"
+              [style.background-color]="pendingRowAvatarColor(row.itemName)"
+            >
+              <span>{{ pendingRowInitials(row.itemName) }}</span>
+            </div>
+            <div class="pending-row-body">
+              <p class="pending-row-name">{{ row.itemName }}</p>
+              <p class="pending-row-barcode">{{ row.barcode }}</p>
+              <div class="pending-row-meta">
+                <span>{{ 'inventory.batchNumber' | transloco }}: {{ row.batchNumber }}</span>
+                <span>{{ 'inventory.quantity' | transloco }}: {{ row.quantity }}</span>
+                <span>{{ 'inventory.salesPrice' | transloco }}: {{ row.salesPrice }}</span>
+              </div>
+              @if (failedRowErrorTextById().get(row.clientRowId); as errText) {
+                <small class="row-error-text">{{ errText }}</small>
+              }
+            </div>
+            <div class="pending-row-actions">
+              <button
+                pButton
+                type="button"
+                icon="pi pi-pencil"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                (click)="onEditRow(row.clientRowId)"
+                [disabled]="isSaving()"
+                [attr.aria-label]="'inventory.edit' | transloco"
+              ></button>
+              <button
+                pButton
+                type="button"
+                icon="pi pi-trash"
+                [text]="true"
+                [rounded]="true"
+                severity="danger"
+                size="small"
+                (click)="onRemoveRow(row.clientRowId)"
+                [disabled]="isSaving()"
+                [attr.aria-label]="'inventory.remove' | transloco"
+              ></button>
+            </div>
+          </div>
+        }
+        @if (tableRows().length === 0) {
+          <div class="empty-state">
+            <h3>{{ 'inventory.noPendingRows' | transloco }}</h3>
+            <p>{{ 'inventory.noPendingRowsDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Desktop table -->
       <p-table
+        class="desktop-pending-table p-datatable-sm"
         [value]="tableRows()"
-        class="p-datatable-sm"
         [scrollable]="true"
         scrollHeight="420px"
       >

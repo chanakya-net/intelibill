@@ -375,6 +375,22 @@ export class InventoryBatchPageComponent {
     }
   }
 
+  pendingRowInitials(name: string): string {
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  pendingRowAvatarColor(name: string): string {
+    const colors = [
+      '#b45309', '#0369a1', '#15803d', '#7c3aed',
+      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
+
   onRemoveRow(clientRowId: string): void {
     const updatedRows = this.pendingRows().filter((row) => row.clientRowId !== clientRowId);
     this.saveSummary.set(null);

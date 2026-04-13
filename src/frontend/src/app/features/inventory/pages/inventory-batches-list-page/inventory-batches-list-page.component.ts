@@ -63,6 +63,16 @@ export class InventoryBatchesListPageComponent {
 
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly tableBatches = computed(() => [...this.batches()]);
+  readonly filteredBatches = computed(() => {
+    const q = this.searchValue().toLowerCase();
+    if (!q) return [...this.batches()];
+    return this.batches().filter(
+      (b) =>
+        b.itemName.toLowerCase().includes(q) ||
+        b.barcode.toLowerCase().includes(q) ||
+        b.batchNumber.toLowerCase().includes(q),
+    );
+  });
   readonly loading = signal(false);
   readonly isEditDialogOpen = signal(false);
   readonly isSaving = signal(false);
@@ -223,6 +233,22 @@ export class InventoryBatchesListPageComponent {
 
   private translate(key: string): string {
     return this.translocoService.translate(key);
+  }
+
+  productInitials(name: string): string {
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  productAvatarColor(name: string): string {
+    const colors = [
+      '#b45309', '#0369a1', '#15803d', '#7c3aed',
+      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   }
 
   clearFilters(table: Table): void {
