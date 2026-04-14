@@ -1,0 +1,176 @@
+<section class="customers-page">
+  <header class="customers-header">
+    <div>
+      <p class="eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
+      <h1>{{ 'customers.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'customers.subtitle' | transloco }}</p>
+    </div>
+
+    <button
+      pButton
+      type="button"
+      [label]="'customers.addCustomer' | transloco"
+      icon="pi pi-plus"
+      (click)="onOpenAddCustomer()"
+    ></button>
+  </header>
+
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
+
+  @if (isLoading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!isLoading()) {
+    <!-- Mobile Stacked List (≤1023px) -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            [placeholder]="'customers.name' | transloco"
+            class="w-full"
+          />
+        </p-iconfield>
+      </div>
+      
+      <div class="customer-list flex flex-col gap-3 px-1">
+        @for (customer of filteredCustomers(); track customer.customerId) {
+          <p-card class="customer-card-item" [class.opacity-50]="!customer.isActive" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar -->
+              <p-avatar 
+                [label]="customerInitials(customer.name)" 
+                [style]="{'background-color': customerAvatarColor(customer.name), 'color': '#ffffff'}"
+                shape="circle" 
+                size="large"
+                class="shadow-sm flex-shrink-0"
+              />
+
+              <!-- Center: Info -->
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ customer.name }}
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                    {{ customer.phoneNumber }}
+                  </span>
+                  <span class="text-slate-300">•</span>
+                  <p-tag [severity]="customer.isActive ? 'success' : 'danger'" [value]="customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco)"></p-tag>
+                </div>
+              </div>
+
+              <!-- Right: Actions -->
+              <div class="flex flex-col items-end gap-3">
+                <div class="flex gap-1.5">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [outlined]="true"
+                    severity="secondary"
+                    [pt]="{
+                      root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                    }"
+                    (click)="onOpenEditCustomer(customer)"
+                    [attr.aria-label]="'customers.editCustomer' | transloco"
+                  />
+                </div>
+              </div>
+            </div>
+          </p-card>
+        }
+        
+        @if (filteredCustomers().length === 0) {
+          <div class="mobile-empty-state">
+            <h2 class="text-xl font-bold text-slate-700">{{ 'customers.noCustomersFound' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'customers.noCustomersDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="customers-table-card desktop-table">
+      <p-table
+        [value]="tableCustomers()"
+        [sortField]="'name'"
+        [sortOrder]="1"
+        [scrollable]="true"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name">
+              {{ 'customers.name' | transloco }} <p-sortIcon field="name" />
+            </th>
+            <th pSortableColumn="phoneNumber">
+              {{ 'customers.phoneNumber' | transloco }} <p-sortIcon field="phoneNumber" />
+            </th>
+            <th pSortableColumn="address">
+              {{ 'customers.address' | transloco }} <p-sortIcon field="address" />
+            </th>
+            <th pSortableColumn="isActive">
+              {{ 'customers.status' | transloco }} <p-sortIcon field="isActive" />
+            </th>
+            <th>{{ 'customers.actions' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-customer>
+          <tr>
+            <td>{{ customer.name }}</td>
+            <td>{{ customer.phoneNumber }}</td>
+            <td>{{ customer.address || '-' }}</td>
+            <td>
+              <p-tag [severity]="customer.isActive ? 'success' : 'danger'" [value]="customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco)"></p-tag>
+            </td>
+            <td>
+              <button
+                pButton
+                type="button"
+                [label]="'customers.editCustomer' | transloco"
+                icon="pi pi-pencil"
+                size="small"
+                severity="secondary"
+                (click)="onOpenEditCustomer(customer)"
+              ></button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <h2>{{ 'customers.noCustomersFound' | transloco }}</h2>
+                <p>{{ 'customers.noCustomersDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
+
+  @if (showAddCustomerOverlay()) {
+    <app-add-customer-overlay (closeRequested)="onCloseAddCustomer()"></app-add-customer-overlay>
+  }
+
+  @if (showEditCustomerOverlay() && editingCustomer()) {
+    <app-edit-customer-overlay
+      [customer]="$any(editingCustomer())"
+      (closeRequested)="onCloseEditCustomer()"
+    ></app-edit-customer-overlay>
+  }
+</section>

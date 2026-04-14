@@ -175,6 +175,27 @@
     "recordPayment": "Record Payment",
     "paymentActions": "Payment"
   },
+  "customers": {
+    "customerDirectory": "Customer Directory",
+    "title": "Customers",
+    "subtitle": "Customers added by you are available across all your shops.",
+    "name": "Name",
+    "phoneNumber": "Phone Number",
+    "address": "Address",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "addCustomer": "Add Customer",
+    "editCustomer": "Edit Customer",
+    "addCustomerDescription": "Create a customer record for your workspace.",
+    "editCustomerDescription": "Update customer contact details.",
+    "customerForm": "Customer form",
+    "saveChanges": "Save Changes",
+    "noCustomersFound": "No customers found",
+    "noCustomersDescription": "Start by adding your first customer.",
+    "isActive": "Is Active",
+    "actions": "Actions"
+  },
   "inventory": {
     "directory": "Inventory Directory",
     "title": "Inventory",

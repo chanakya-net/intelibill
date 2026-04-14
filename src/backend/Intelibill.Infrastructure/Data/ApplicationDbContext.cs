@@ -17,6 +17,7 @@ public class ApplicationDbContext(
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<ShopMembership> ShopMemberships => Set<ShopMembership>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Item> Items => Set<Item>();
     public DbSet<Inventory> Inventory => Set<Inventory>();
     public DbSet<InventoryBatch> InventoryBatches => Set<InventoryBatch>();

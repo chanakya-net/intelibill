@@ -174,6 +174,27 @@
     "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸಿ",
     "paymentActions": "ಪಾವತಿ"
   },
+  "customers": {
+    "customerDirectory": "ಗ್ರಾಹಕರ ಡೈರೆಕ್ಟರಿ",
+    "title": "ಗ್ರಾಹಕರು",
+    "subtitle": "ನೀವು ಸೇರಿಸಿದ ಗ್ರಾಹಕರು ನಿಮ್ಮ ಎಲ್ಲಾ ಅಂಗಡಿಗಳಲ್ಲಿ ಲಭ್ಯವಿರುತ್ತಾರೆ.",
+    "name": "ಹೆಸರು",
+    "phoneNumber": "ಫೋನ್ ಸಂಖ್ಯೆ",
+    "address": "ವಿಳಾಸ",
+    "status": "ಸ್ಥಿತಿ",
+    "active": "ಸಕ್ರಿಯ",
+    "inactive": "ನಿಷ್ಕ್ರಿಯ",
+    "addCustomer": "ಗ್ರಾಹಕರನ್ನು ಸೇರಿಸಿ",
+    "editCustomer": "ಗ್ರಾಹಕರನ್ನು ಸಂಪಾದಿಸಿ",
+    "addCustomerDescription": "ನಿಮ್ಮ ಕಾರ್ಯಕ್ಷೇತ್ರಕ್ಕಾಗಿ ಗ್ರಾಹಕ ದಾಖಲೆಯನ್ನು ರಚಿಸಿ.",
+    "editCustomerDescription": "ಗ್ರಾಹಕರ ಸಂಪರ್ಕ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ.",
+    "customerForm": "ಗ್ರಾಹಕ ಫಾರ್ಮ್",
+    "saveChanges": "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
+    "noCustomersFound": "ಯಾವುದೇ ಗ್ರಾಹಕರು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noCustomersDescription": "ನಿಮ್ಮ ಮೊದಲ ಗ್ರಾಹಕರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
+    "isActive": "ಸಕ್ರಿಯವಾಗಿದೆ",
+    "actions": "ಕ್ರಿಯೆಗಳು"
+  },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",
     "title": "ಇನ್‌ವೆಂಟರಿ",
