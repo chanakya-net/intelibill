@@ -28,7 +28,7 @@
   }
 
   @if (!isLoading()) {
-    <!-- Mobile 2-column supplier grid (≤640px) -->
+    <!-- Mobile Stacked List (≤1023px) -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
         <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -44,80 +44,87 @@
           />
         </p-iconfield>
       </div>
-      <div class="supplier-grid">
+      
+      <div class="supplier-list flex flex-col gap-3 px-1">
         @for (supplier of filteredSuppliers(); track supplier.supplierId) {
-          <div class="supplier-card" [class.supplier-card--inactive]="!supplier.isActive">
-            <div
-              class="supplier-avatar"
-              [style.background-color]="supplierAvatarColor(supplier.name)"
-            >
-              <span>{{ supplierInitials(supplier.name) }}</span>
-            </div>
-            <div class="supplier-info">
-              <p class="supplier-name">{{ supplier.name }}</p>
-              @if (supplier.city) {
-                <p class="supplier-meta">{{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}</p>
-              }
-              @if (supplier.contactPersonName) {
-                <p class="supplier-meta">{{ supplier.contactPersonName }}</p>
-              }
-              <button
-                pButton
-                type="button"
-                [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
-                [title]="getBalanceLabel(supplier)"
-                severity="info"
-                text
-                size="small"
-                (click)="onOpenSupplierDetail(supplier)"
-                class="balance-button supplier-balance"
-              ></button>
-              <div class="supplier-pills">
-                <span class="status-pill" [class.disabled]="!supplier.isActive">
-                  {{
-                    supplier.isActive
-                      ? ('suppliers.active' | transloco)
-                      : ('suppliers.inactive' | transloco)
-                  }}
-                </span>
-                @if (supplier.isPreferred) {
-                  <span class="preferred-pill">{{ 'suppliers.yes' | transloco }}</span>
-                }
+          <p-card class="supplier-card-item" [class.opacity-50]="!supplier.isActive" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar -->
+              <p-avatar 
+                [label]="supplierInitials(supplier.name)" 
+                [style]="{'background-color': supplierAvatarColor(supplier.name), 'color': '#ffffff'}"
+                shape="circle" 
+                size="large"
+                class="shadow-sm flex-shrink-0"
+              />
+
+              <!-- Center: Info -->
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ supplier.name }}
+                </div>
+                <div class="flex items-center gap-2">
+                  @if (supplier.city) {
+                    <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                      {{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}
+                    </span>
+                    <span class="text-slate-300">•</span>
+                  }
+                  <p-tag [severity]="supplier.isActive ? 'success' : 'danger'" [value]="supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco)"></p-tag>
+                </div>
+              </div>
+
+              <!-- Right: Balance & Actions -->
+              <div class="flex flex-col items-end gap-3">
+                <p-button
+                  [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
+                  [title]="getBalanceLabel(supplier)"
+                  severity="info"
+                  [text]="true"
+                  size="small"
+                  (click)="onOpenSupplierDetail(supplier)"
+                  class="p-0 h-auto text-[11px] font-extrabold"
+                />
+                
+                <div class="flex gap-1.5">
+                  @if (canManageSuppliers()) {
+                    <p-button
+                      icon="pi pi-pencil"
+                      [outlined]="true"
+                      severity="secondary"
+                      [pt]="{
+                        root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                      }"
+                      (click)="onOpenEditSupplier(supplier)"
+                      [attr.aria-label]="'suppliers.editSupplier' | transloco"
+                    />
+                  }
+                  @if (canMakePayment()) {
+                    <p-button
+                      icon="pi pi-wallet"
+                      [outlined]="true"
+                      severity="success"
+                      [pt]="{
+                        root: { class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50' }
+                      }"
+                      (click)="onOpenMakePayment(supplier)"
+                      [attr.aria-label]="'suppliers.makePayment' | transloco"
+                    />
+                  }
+                </div>
               </div>
             </div>
-            <div class="supplier-card-actions">
-              @if (canManageSuppliers()) {
-                <button
-                  pButton
-                  type="button"
-                  icon="pi pi-pencil"
-                  [text]="true"
-                  [rounded]="true"
-                  size="small"
-                  (click)="onOpenEditSupplier(supplier)"
-                  [attr.aria-label]="'suppliers.editSupplier' | transloco"
-                ></button>
-              }
-              @if (canMakePayment()) {
-                <button
-                  pButton
-                  type="button"
-                  icon="pi pi-wallet"
-                  [text]="true"
-                  [rounded]="true"
-                  severity="success"
-                  size="small"
-                  (click)="onOpenMakePayment(supplier)"
-                  [attr.aria-label]="'suppliers.makePayment' | transloco"
-                ></button>
-              }
-            </div>
-          </div>
+          </p-card>
         }
+        
         @if (filteredSuppliers().length === 0) {
           <div class="mobile-empty-state">
-            <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
-            <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
+            <h2 class="text-xl font-bold text-slate-700">{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
           </div>
         }
       </div>
@@ -191,22 +198,10 @@
               ></button>
             </td>
             <td>
-              <span class="status-pill" [class.disabled]="!supplier.isActive">
-                {{
-                  supplier.isActive
-                    ? ('suppliers.active' | transloco)
-                    : ('suppliers.inactive' | transloco)
-                }}
-              </span>
+              <p-tag [severity]="supplier.isActive ? 'success' : 'danger'" [value]="supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco)"></p-tag>
             </td>
             <td>
-              <span class="preferred-pill" [class.disabled]="!supplier.isPreferred">
-                {{
-                  supplier.isPreferred
-                    ? ('suppliers.yes' | transloco)
-                    : ('suppliers.no' | transloco)
-                }}
-              </span>
+              <p-tag [severity]="supplier.isPreferred ? 'info' : 'warn'" [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"></p-tag>
             </td>
             @if (canManageSuppliers()) {
               <td>

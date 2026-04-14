@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { AvatarModule } from 'primeng/avatar';
+import { TagModule } from 'primeng/tag';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
@@ -25,6 +28,9 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     CommonModule,
     FormsModule,
     ButtonModule,
+    CardModule,
+    AvatarModule,
+    TagModule,
     IconFieldModule,
     InputIconModule,
     InputTextModule,

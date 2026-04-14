@@ -5,6 +5,8 @@ import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { AvatarModule } from 'primeng/avatar';
 import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
@@ -37,6 +39,8 @@ import { Supplier } from '../../../suppliers/services/supplier.service';
     TranslocoPipe,
     DecimalPipe,
     ButtonModule,
+    CardModule,
+    AvatarModule,
     DialogModule,
     IconFieldModule,
     InputIconModule,
