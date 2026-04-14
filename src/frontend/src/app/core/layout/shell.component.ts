@@ -89,6 +89,13 @@ export class ShellComponent {
         command: () => this.onNavigateToSuppliers(),
       });
     }
+    if (this.canManageCustomers()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageCustomers'),
+        icon: 'pi pi-address-book',
+        command: () => this.onNavigateToCustomers(),
+      });
+    }
     if (this.canManageSales()) {
       items.push({
         label: this.localizationService.translate('shell.manageSales'),
@@ -184,6 +191,14 @@ export class ShellComponent {
     }
 
     return activeShop.role.toLowerCase() === 'owner';
+  });
+  readonly canManageCustomers = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+
+    return activeShop.role.toLowerCase() === 'owner' || activeShop.role.toLowerCase() === 'manager';
   });
   readonly canManageSales = computed(() => {
     const activeShop = this.activeShop();
@@ -571,6 +586,11 @@ export class ShellComponent {
   onNavigateToSuppliers(): void {
     this.onCloseMenus();
     void this.router.navigate(['/suppliers']);
+  }
+
+  onNavigateToCustomers(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/customers']);
   }
 
   onOpenNewSale(): void {

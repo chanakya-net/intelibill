@@ -191,6 +191,18 @@
             </button>
           </div>
         }
+        @if (canManageCustomers()) {
+          <div class="mobile-nav-section">
+            <button
+              type="button"
+              class="mobile-nav-item"
+              (click)="onNavigateToCustomers(); closeMobileMenu()"
+            >
+              <i class="pi pi-address-book" aria-hidden="true"></i>
+              <span>{{ 'shell.manageCustomers' | transloco }}</span>
+            </button>
+          </div>
+        }
         <div class="mobile-nav-section">
           <button
             type="button"

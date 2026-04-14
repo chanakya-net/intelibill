@@ -244,6 +244,28 @@ describe('ShellComponent', () => {
     expect(managerItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
   });
 
+  it('shows customers menu for manager and owner, but hides for staff', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(false);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(false);
+  });
+
   it('opens update profile overlay from profile actions', () => {
     const component = setup();
 

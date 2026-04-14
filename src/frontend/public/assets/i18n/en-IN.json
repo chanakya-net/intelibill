@@ -66,6 +66,7 @@
     "userFallback": "User",
     "manageUsers": "Manage Users",
     "manageSuppliers": "Suppliers",
+    "manageCustomers": "Customers",
     "manageSales": "Sales",
     "newSale": "New Sale",
     "salesHistory": "History",
