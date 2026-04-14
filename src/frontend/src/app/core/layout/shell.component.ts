@@ -89,6 +89,24 @@ export class ShellComponent {
         command: () => this.onNavigateToSuppliers(),
       });
     }
+    if (this.canManageSales()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageSales'),
+        icon: 'pi pi-shopping-cart',
+        items: [
+          {
+            label: this.localizationService.translate('shell.newSale'),
+            icon: 'pi pi-plus-circle',
+            command: () => this.onOpenNewSale(),
+          },
+          {
+            label: this.localizationService.translate('shell.salesHistory'),
+            icon: 'pi pi-list',
+            command: () => this.onOpenSalesHistory(),
+          },
+        ],
+      });
+    }
     // Add more global menu items as needed
     return items;
   });
@@ -112,7 +130,7 @@ export class ShellComponent {
   readonly isShopMenuOpen = signal(false);
   readonly isMobileMenuOpen = signal(false);
   readonly expandedMobileSectionLabel = signal<string | null>(null);
-  readonly expandedMobileSections = signal<Set<string>>(new Set(['inventory', 'profile']));
+  readonly expandedMobileSections = signal<Set<string>>(new Set(['inventory', 'profile', 'sales']));
   readonly showCreateShopOverlayManual = signal(false);
   readonly showCreateShopOverlayAuto = signal(false);
   readonly showManageShopOverlay = signal(false);
@@ -166,6 +184,16 @@ export class ShellComponent {
     }
 
     return activeShop.role.toLowerCase() === 'owner';
+  });
+  readonly canManageSales = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+
+    // All roles (Owner, Manager, Staff) can manage sales
+    const role = activeShop.role.toLowerCase();
+    return role === 'owner' || role === 'manager' || role === 'staff';
   });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
@@ -269,6 +297,27 @@ export class ShellComponent {
         icon: 'pi pi-list',
         command: () => this.onOpenInventoryBatchesOverview(),
         },
+    ];
+  });
+  readonly salesMenuItems = computed<MenuItem[]>(() => {
+    // Track language changes to re-evaluate menu labels
+    this.currentLanguage();
+
+    if (!this.canManageSales()) {
+      return [];
+    }
+
+    return [
+      {
+        label: this.localizationService.translate('shell.newSale'),
+        icon: 'pi pi-plus-circle',
+        command: () => this.onOpenNewSale(),
+      },
+      {
+        label: this.localizationService.translate('shell.salesHistory'),
+        icon: 'pi pi-list',
+        command: () => this.onOpenSalesHistory(),
+      },
     ];
   });
 
@@ -522,6 +571,16 @@ export class ShellComponent {
   onNavigateToSuppliers(): void {
     this.onCloseMenus();
     void this.router.navigate(['/suppliers']);
+  }
+
+  onOpenNewSale(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/sales/new']);
+  }
+
+  onOpenSalesHistory(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/sales/history']);
   }
 
   onOpenManageShop(): void {

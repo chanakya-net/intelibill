@@ -146,6 +146,39 @@
             }
           </div>
         }
+        @if (salesMenuItems().length > 0) {
+          <div class="mobile-nav-section">
+            <button
+              type="button"
+              class="mobile-nav-section-toggle"
+              (click)="onToggleMobileSection('sales')"
+            >
+              <span class="mobile-nav-section-label">{{
+                'shell.manageSales' | transloco
+              }}</span>
+              <i
+                class="pi pi-chevron-down mobile-nav-section-chevron"
+                [class.rotated]="isMobileSectionExpanded('sales')"
+                aria-hidden="true"
+              ></i>
+            </button>
+            @if (isMobileSectionExpanded('sales')) {
+              <div class="mobile-nav-section-items">
+                @for (item of salesMenuItems(); track item) {
+                  <button
+                    type="button"
+                    class="mobile-nav-item"
+                    [disabled]="item.disabled ?? false"
+                    (click)="onMobileNavItemClick(item)"
+                  >
+                    <i [class]="item.icon" aria-hidden="true"></i>
+                    <span>{{ item.label }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
         @if (canManageSuppliers()) {
           <div class="mobile-nav-section">
             <button
