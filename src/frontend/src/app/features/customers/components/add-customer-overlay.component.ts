@@ -1,0 +1,76 @@
+import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslocoPipe } from '@ngneat/transloco';
+
+import { CheckboxModule } from 'primeng/checkbox';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
+
+import { CustomersFacade } from '../state/customers.facade';
+
+@Component({
+  selector: 'app-add-customer-overlay',
+  standalone: true,
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    CheckboxModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
+  templateUrl: './add-customer-overlay.component.html',
+  styleUrl: './add-customer-overlay.component.scss',
+})
+export class AddCustomerOverlayComponent implements OnInit {
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly customersFacade = inject(CustomersFacade);
+
+  readonly isSubmitting = this.customersFacade.submitting;
+  readonly serverError = this.customersFacade.errorMessage;
+
+  @Output() readonly closeRequested = new EventEmitter<void>();
+
+  readonly form = this.formBuilder.nonNullable.group({
+    name: ['', [Validators.required, Validators.maxLength(180)]],
+    phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
+    address: ['', [Validators.maxLength(320)]],
+    isActive: [true],
+  });
+
+  ngOnInit(): void {
+    this.customersFacade.clearError();
+    this.customersFacade.clearMutationStatus();
+  }
+
+  onClose(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
+    this.closeRequested.emit();
+  }
+
+  onSubmit(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.customersFacade.clearError();
+    this.customersFacade.clearMutationStatus();
+    this.customersFacade.addCustomer({
+      name: this.form.controls.name.value.trim(),
+      phoneNumber: this.form.controls.phoneNumber.value.trim(),
+      address: this.nullableTrimmed(this.form.controls.address.value),
+      isActive: this.form.controls.isActive.value,
+    });
+  }
+
+  private nullableTrimmed(value: string): string | null {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+}

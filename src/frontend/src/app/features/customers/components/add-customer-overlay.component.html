@@ -1,0 +1,75 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'customers.customerForm' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'customers.title' | transloco }}</p>
+        <h2>{{ 'customers.addCustomer' | transloco }}</h2>
+        <p class="description">{{ 'customers.addCustomerDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'customers.name' | transloco }}</span>
+        <input pInputText type="text" formControlName="name" />
+      </label>
+
+      <label>
+        <span>{{ 'customers.phoneNumber' | transloco }}</span>
+        <input pInputText type="text" formControlName="phoneNumber" />
+      </label>
+
+      <label>
+        <span>{{ 'customers.address' | transloco }}</span>
+        <input pInputText type="text" formControlName="address" />
+      </label>
+
+      <label class="toggle-row" for="isActive">
+        <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
+        <span>{{ 'customers.isActive' | transloco }}</span>
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'customers.addCustomer' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
+  </div>
+</section>

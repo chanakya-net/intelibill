@@ -4,7 +4,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { vi, beforeAll } from 'vitest';
+import { vi, beforeAll, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -224,6 +224,46 @@ describe('ShellComponent', () => {
 
     const staffItems = component.inventoryMenuItems();
     expect(staffItems).toHaveLength(0);
+  });
+
+  it('shows sales menu for all roles including staff', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+
+    const staffItems = component.salesMenuItems();
+    expect(staffItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+
+    const managerItems = component.salesMenuItems();
+    expect(managerItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
+  });
+
+  it('shows customers menu for manager and owner, but hides for staff', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageCustomers()).toBe(false);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(false);
   });
 
   it('opens update profile overlay from profile actions', () => {
