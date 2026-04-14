@@ -40,126 +40,34 @@
 
 /* Mobile grid — hidden on desktop */
 .mobile-grid-container {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1rem;
 }
 
 .desktop-table {
-  display: block;
+  display: none;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 1024px) {
   .mobile-grid-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0 1rem;
-  }
-
-  .desktop-table {
     display: none;
   }
 
-  .mobile-search-bar {
-    /* full width already via .mobile-search-field */
+  .desktop-table {
+    display: block;
   }
+}
 
+@media (max-width: 1023px) {
   .mobile-search-field {
     width: 100%;
   }
 
-  .batch-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-  }
-
   .mobile-empty-state {
-    grid-column: 1 / -1;
+    padding: 3rem 1rem;
     text-align: center;
-    padding: 2rem;
-    color: #57534e;
-  }
-
-  .batch-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background: #ffffff;
-    overflow: hidden;
-
-    &--voided {
-      opacity: 0.55;
-    }
-  }
-
-  .batch-avatar {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .batch-initials {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 0.05em;
-  }
-
-  .batch-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    padding: 0.5rem;
-  }
-
-  .batch-name {
-    margin: 0;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #1f2937;
-    line-height: 1.2;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .batch-meta {
-    margin: 0;
-    font-size: 0.7rem;
-    color: #78716c;
-    font-family: monospace;
-  }
-
-  .batch-row {
-    display: flex;
-    gap: 0.3rem;
-    font-size: 0.72rem;
-  }
-
-  .batch-label {
-    color: #78716c;
-  }
-
-  .batch-value {
-    font-weight: 600;
-    color: #1f2937;
-  }
-
-  .batch-card-actions {
-    position: absolute;
-    top: 0.2rem;
-    right: 0.2rem;
-    display: flex;
-    gap: 0.1rem;
-
-    .p-button {
-      color: #fff !important;
-    }
   }
 }
 

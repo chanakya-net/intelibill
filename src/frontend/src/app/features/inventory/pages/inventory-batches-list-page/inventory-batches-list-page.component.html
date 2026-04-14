@@ -6,7 +6,7 @@
     <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
   </header>
 
-  <!-- Mobile 2-column batch grid (≤640px) -->
+  <!-- Mobile Stacked List (≤1023px) -->
   <div class="mobile-grid-container">
     <div class="mobile-search-bar">
       <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -22,57 +22,80 @@
         />
       </p-iconfield>
     </div>
-    <div class="batch-grid">
+
+    <div class="batch-list flex flex-col gap-3 px-1">
       @for (batch of filteredBatches(); track batch.id) {
-        <div class="batch-card" [class.batch-card--voided]="batch.isVoided">
-          <div class="batch-avatar" [style.background-color]="productAvatarColor(batch.itemName)">
-            <span class="batch-initials">{{ productInitials(batch.itemName) }}</span>
-          </div>
-          <div class="batch-info">
-            <p class="batch-name">{{ batch.itemName }}</p>
-            <p class="batch-meta">{{ batch.batchNumber }}</p>
-            <div class="batch-row">
-              <span class="batch-label">Qty</span>
-              <span class="batch-value">{{ batch.quantity }}</span>
+        <p-card class="batch-card-item" [class.opacity-50]="batch.isVoided" [pt]="{
+          root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+          body: { class: 'p-3' },
+          content: { class: 'p-0' }
+        }">
+          <div class="flex items-center gap-4">
+            <!-- Left: Avatar -->
+            <p-avatar 
+              [label]="productInitials(batch.itemName)" 
+              [style]="{'background-color': productAvatarColor(batch.itemName), 'color': '#ffffff'}"
+              shape="circle" 
+              size="large"
+              class="shadow-sm flex-shrink-0"
+            />
+
+            <!-- Center: Info -->
+            <div class="flex-1 flex flex-col gap-1 min-w-0">
+              <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                {{ batch.itemName }}
+              </div>
+              <div class="flex flex-col gap-0.5 mt-0.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Batch</span>
+                  <span class="text-slate-500 font-mono text-xs tracking-tighter truncate leading-none">{{ batch.batchNumber }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Qty</span>
+                  <span class="text-xs font-bold text-slate-700 leading-none">{{ batch.quantity }}</span>
+                </div>
+              </div>
             </div>
-            <div class="batch-row">
-              <span class="batch-label">{{ 'common.currencySymbol' | transloco }}</span>
-              <span class="batch-value">{{ batch.salesPrice | number:'1.2-2' }}</span>
+
+            <!-- Right: Price & Actions -->
+            <div class="flex flex-col items-end gap-3">
+              <div class="flex flex-col items-end">
+                <span class="text-[10px] text-slate-400 font-bold uppercase leading-none">{{ 'common.currencySymbol' | transloco }}</span>
+                <span class="text-sm font-extrabold text-slate-800 leading-none">{{ batch.salesPrice | number:'1.2-2' }}</span>
+              </div>
+
+              <div class="flex gap-1.5">
+                <p-button
+                  icon="pi pi-pencil"
+                  [outlined]="true"
+                  severity="secondary"
+                  [pt]="{
+                    root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                  }"
+                  (click)="onEditBatch(batch)"
+                  [disabled]="batch.isVoided"
+                  [attr.aria-label]="'common.edit' | transloco"
+                />
+                <p-button
+                  icon="pi pi-trash"
+                  [outlined]="true"
+                  severity="danger"
+                  [pt]="{
+                    root: { class: 'w-8 h-8 p-0 border-red-200 text-red-500 hover:bg-red-50' }
+                  }"
+                  (click)="onVoidBatch(batch.id)"
+                  [disabled]="batch.isVoided"
+                  [attr.aria-label]="'common.void' | transloco"
+                />
+              </div>
             </div>
-            @if (batch.isVoided) {
-              <p-tag severity="danger" [value]="'inventory.voided' | transloco"></p-tag>
-            } @else {
-              <p-tag severity="success" [value]="'inventory.active' | transloco"></p-tag>
-            }
           </div>
-          <div class="batch-card-actions">
-            <button
-              pButton
-              icon="pi pi-pencil"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (click)="onEditBatch(batch)"
-              [disabled]="batch.isVoided"
-              [attr.aria-label]="'common.edit' | transloco"
-            ></button>
-            <button
-              pButton
-              icon="pi pi-trash"
-              [text]="true"
-              [rounded]="true"
-              severity="danger"
-              size="small"
-              (click)="onVoidBatch(batch.id)"
-              [disabled]="batch.isVoided"
-              [attr.aria-label]="'common.void' | transloco"
-            ></button>
-          </div>
-        </div>
+        </p-card>
       }
+
       @if (filteredBatches().length === 0) {
         <div class="mobile-empty-state">
-          <p>{{ 'inventory.noItemsFound' | transloco }}</p>
+          <p class="text-slate-500 italic">{{ 'inventory.noItemsFound' | transloco }}</p>
         </div>
       }
     </div>

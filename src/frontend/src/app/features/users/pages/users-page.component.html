@@ -28,7 +28,7 @@
   }
 
   @if (!isLoading()) {
-    <!-- Mobile 2-column user grid (≤640px) -->
+    <!-- Mobile Stacked List (≤1023px) -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
         <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -44,48 +44,62 @@
           />
         </p-iconfield>
       </div>
-      <div class="user-grid">
+      
+      <div class="user-list flex flex-col gap-3 px-1">
         @for (user of filteredUsers(); track user.userId) {
-          <div class="user-card">
-            <div
-              class="user-avatar"
-              [style.background-color]="userAvatarColor(user.firstName, user.lastName)"
-            >
-              <span>{{ userInitials(user.firstName, user.lastName) }}</span>
+          <p-card class="user-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar -->
+              <p-avatar 
+                [label]="userInitials(user.firstName, user.lastName)" 
+                [style]="{'background-color': userAvatarColor(user.firstName, user.lastName), 'color': '#ffffff'}"
+                shape="circle" 
+                size="large"
+                class="shadow-sm flex-shrink-0"
+              />
+
+              <!-- Center: Info -->
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ user.firstName }} {{ user.lastName }}
+                </div>
+                <div class="flex items-center gap-2">
+                  @if (user.phoneNumber) {
+                    <span class="text-slate-500 text-xs font-mono tracking-tighter">{{ user.phoneNumber }}</span>
+                    <span class="text-slate-300">•</span>
+                  }
+                  <p-tag severity="secondary" [value]="getRoleLabel(user.role) | transloco"></p-tag>
+                </div>
+              </div>
+
+              <!-- Right: Status & Actions -->
+              <div class="flex flex-col items-end gap-3">
+                <p-tag [severity]="user.isLoginEnabled ? 'success' : 'danger'" [value]="user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco)"></p-tag>
+                @if (canEditUsers() && canEditRole(user.role)) {
+                  <p-button
+                    icon="pi pi-pencil"
+                    [outlined]="true"
+                    severity="secondary"
+                    [pt]="{
+                      root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                    }"
+                    (click)="onOpenEditUser(user)"
+                    [attr.aria-label]="'users.edit' | transloco"
+                  />
+                }
+              </div>
             </div>
-            <div class="user-info">
-              <p class="user-name">{{ user.firstName }} {{ user.lastName }}</p>
-              @if (user.phoneNumber) {
-                <p class="user-meta">{{ user.phoneNumber }}</p>
-              }
-              <span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span>
-              <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
-                {{
-                  user.isLoginEnabled
-                    ? ('users.enabled' | transloco)
-                    : ('users.disabled' | transloco)
-                }}
-              </span>
-            </div>
-            @if (canEditUsers() && canEditRole(user.role)) {
-              <button
-                pButton
-                type="button"
-                icon="pi pi-pencil"
-                [text]="true"
-                [rounded]="true"
-                size="small"
-                class="user-card-edit"
-                (click)="onOpenEditUser(user)"
-                [attr.aria-label]="'users.edit' | transloco"
-              ></button>
-            }
-          </div>
+          </p-card>
         }
+        
         @if (filteredUsers().length === 0) {
           <div class="mobile-empty-state">
-            <h2>{{ 'users.noUsersFound' | transloco }}</h2>
-            <p>{{ 'users.noUsersDescription' | transloco }}</p>
+            <h2 class="text-xl font-bold text-slate-700">{{ 'users.noUsersFound' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'users.noUsersDescription' | transloco }}</p>
           </div>
         }
       </div>
@@ -128,16 +142,10 @@
             <td>{{ user.phoneNumber || '-' }}</td>
             <td>{{ user.email || '-' }}</td>
             <td>
-              <span class="role-pill">{{ getRoleLabel(user.role) | transloco }}</span>
+              <p-tag severity="secondary" [value]="getRoleLabel(user.role) | transloco"></p-tag>
             </td>
             <td>
-              <span class="status-pill" [class.disabled]="!user.isLoginEnabled">
-                {{
-                  user.isLoginEnabled
-                    ? ('users.enabled' | transloco)
-                    : ('users.disabled' | transloco)
-                }}
-              </span>
+              <p-tag [severity]="user.isLoginEnabled ? 'success' : 'danger'" [value]="user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco)"></p-tag>
             </td>
             @if (canEditUsers()) {
               <td>

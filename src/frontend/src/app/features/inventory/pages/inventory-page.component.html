@@ -28,7 +28,7 @@
   }
 
   @if (!isLoadingItems() && !isSubmitting()) {
-    <!-- Mobile 2-column product grid (≤640px) -->
+    <!-- Mobile Stacked List (≤1023px) -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
         <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -44,45 +44,60 @@
           />
         </p-iconfield>
       </div>
-      <div class="product-grid">
+      
+      <div class="product-list flex flex-col gap-3 px-1">
         @for (item of filteredItems(); track item.id) {
-          <div class="product-card">
-            <div class="product-avatar" [style.background-color]="productAvatarColor(item.name)">
-              <span class="product-initials">{{ productInitials(item.name) }}</span>
-            </div>
-            <div class="product-info">
-              <p class="product-name">{{ item.name }}</p>
-              <p class="product-meta">{{ item.uom }}</p>
-              <div class="product-stock">
-                <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
+          <p-card class="product-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar -->
+              <p-avatar 
+                [label]="productInitials(item.name)" 
+                [style]="{'background-color': productAvatarColor(item.name), 'color': '#ffffff'}"
+                shape="circle" 
+                size="large"
+                class="shadow-sm flex-shrink-0"
+              />
+
+              <!-- Center: Info -->
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ item.name }}
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 text-xs font-medium uppercase tracking-wider">{{ item.uom }}</span>
+                  <span class="text-slate-300">•</span>
+                  <p-tag [severity]="item.isActive ? 'success' : 'danger'" [value]="item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco)"></p-tag>
+                </div>
               </div>
-              <span class="status-pill" [class.disabled]="!item.isActive">
-                {{
-                  item.isActive
-                    ? ('inventory.active' | transloco)
-                    : ('inventory.inactive' | transloco)
-                }}
-              </span>
+
+              <!-- Right: Stock & Actions -->
+              <div class="flex flex-col items-end gap-3">
+                <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
+                @if (canManageInventory()) {
+                  <p-button
+                    icon="pi pi-pencil"
+                    [outlined]="true"
+                    severity="secondary"
+                    [pt]="{
+                      root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                    }"
+                    (click)="onEditItem(item)"
+                    [disabled]="isSubmitting()"
+                  />
+                }
+              </div>
             </div>
-            @if (canManageInventory()) {
-              <button
-                pButton
-                type="button"
-                icon="pi pi-pencil"
-                [rounded]="true"
-                [text]="true"
-                class="card-edit-btn"
-                [attr.aria-label]="'common.edit' | transloco"
-                (click)="onEditItem(item)"
-                [disabled]="isSubmitting()"
-              ></button>
-            }
-          </div>
+          </p-card>
         }
+        
         @if (filteredItems().length === 0) {
           <div class="mobile-empty-state">
-            <h2>{{ 'inventory.noItemsFound' | transloco }}</h2>
-            <p>{{ 'inventory.noItemsDescription' | transloco }}</p>
+            <h2 class="text-xl font-bold text-slate-700">{{ 'inventory.noItemsFound' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'inventory.noItemsDescription' | transloco }}</p>
           </div>
         }
       </div>
@@ -188,13 +203,7 @@
               <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
             </td>
             <td>
-              <span class="status-pill" [class.disabled]="!item.isActive">
-                {{
-                  item.isActive
-                    ? ('inventory.active' | transloco)
-                    : ('inventory.inactive' | transloco)
-                }}
-              </span>
+              <p-tag [severity]="item.isActive ? 'success' : 'danger'" [value]="item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco)"></p-tag>
             </td>
             <td>
               <div class="action-buttons">
