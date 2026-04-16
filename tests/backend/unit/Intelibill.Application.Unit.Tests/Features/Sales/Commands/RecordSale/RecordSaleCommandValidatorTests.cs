@@ -108,4 +108,24 @@ public class RecordSaleCommandValidatorTests
 
         result.ShouldNotHaveAnyValidationErrors();
     }
+
+    [Fact]
+    public void Validate_WhenSalesPriceIsNegative_ReturnsError()
+    {
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, -1m, 120m, 18m, false)]);
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor("Items[0].SalesPrice");
+    }
+
+    [Fact]
+    public void Validate_WhenMrpIsNegative_ReturnsError()
+    {
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, -1m, 18m, false)]);
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor("Items[0].Mrp");
+    }
 }
