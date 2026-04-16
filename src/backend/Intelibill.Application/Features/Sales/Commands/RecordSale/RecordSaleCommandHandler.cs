@@ -87,7 +87,8 @@ public sealed class RecordSaleCommandHandler(
 
         foreach (var (cmdItem, item, batch, inventory, hasMismatch) in validatedLines)
         {
-            batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+            var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+            if (batchResult.IsError) return batchResult.Errors;
             inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
 
             var txResult = StockTransaction.Create(

@@ -144,12 +144,71 @@ namespace Intelibill.Infrastructure.Migrations
                 name: "ix_sales_shop_id_sold_at",
                 table: "sales",
                 columns: new[] { "shop_id", "sold_at" });
+
+            if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                migrationBuilder.Sql(
+                    """
+                    ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+                    ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
+
+                    CREATE POLICY sales_shop_membership_policy
+                        ON sales
+                        USING (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = sales.shop_id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
+                        )
+                        WITH CHECK (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = sales.shop_id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
+                        );
+
+                    CREATE POLICY sale_items_shop_membership_policy
+                        ON sale_items
+                        USING (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = sale_items.shop_id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
+                        )
+                        WITH CHECK (
+                            EXISTS (
+                                SELECT 1
+                                FROM shop_memberships sm
+                                WHERE sm.shop_id = sale_items.shop_id
+                                  AND sm.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+                            )
+                        );
+                    """);
+            }
         }
 #pragma warning restore CA1861
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                migrationBuilder.Sql(
+                    """
+                    DROP POLICY IF EXISTS sale_items_shop_membership_policy ON sale_items;
+                    DROP POLICY IF EXISTS sales_shop_membership_policy ON sales;
+
+                    ALTER TABLE sale_items DISABLE ROW LEVEL SECURITY;
+                    ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+                    """);
+            }
+
             migrationBuilder.DropTable(
                 name: "sale_items");
 
