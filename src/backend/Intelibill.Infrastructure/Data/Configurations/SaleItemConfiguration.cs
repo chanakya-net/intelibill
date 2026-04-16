@@ -51,7 +51,6 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
             .IsRequired()
             .HasDefaultValue(false);
 
-        builder.HasIndex(si => si.SaleId);
         builder.HasIndex(si => si.ShopId);
         builder.HasIndex(si => new { si.ShopId, si.ItemId });
 
