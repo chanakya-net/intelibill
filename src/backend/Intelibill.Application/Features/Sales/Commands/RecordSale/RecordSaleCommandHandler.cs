@@ -70,6 +70,9 @@ public sealed class RecordSaleCommandHandler(
             if (hasMismatch)
                 warnings.Add($"Price mismatch for item '{item.Name}' (barcode: {item.Barcode}, batch: {batch.BatchNumber}).");
 
+            if (!string.Equals(cmdItem.ItemName.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
+                warnings.Add($"Item name mismatch for barcode '{cmdItem.Barcode}': provided '{cmdItem.ItemName}', found '{item.Name}'.");
+
             validatedLines.Add((cmdItem, item, batch, inventory, hasMismatch));
         }
 
