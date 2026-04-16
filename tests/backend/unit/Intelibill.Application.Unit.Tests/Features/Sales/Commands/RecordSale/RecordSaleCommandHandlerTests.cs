@@ -187,6 +187,34 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenItemNameMismatch_SaleSucceedsWithWarning()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001", "Rice"); // actual item name = "Rice"
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        _itemRepository.GetByBarcodesAsync(shopId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        _batchRepository.GetByItemIdsAndBatchNumbersAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([batch]);
+        _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        // Command sends "Wheat" but the item is "Rice"
+        var command = new RecordSaleCommand(
+            Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Cash,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Wheat", 1m, 80m, 100m, 120m, 18m, false)]);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotEmpty(result.Value.Warnings);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WithMultipleItems_CallsSaveChangesOnce()
     {
         var shopId = Guid.NewGuid();
@@ -295,7 +323,8 @@ public class RecordSaleCommandHandlerTests
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
         Sale? capturedSale = null;
-        await _saleRepository.AddAsync(Arg.Do<Sale>(s => capturedSale = s), Arg.Any<CancellationToken>());
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>()))
+            .Do(ci => capturedSale = ci.Arg<Sale>());
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -330,7 +359,8 @@ public class RecordSaleCommandHandlerTests
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
         Sale? capturedSale = null;
-        await _saleRepository.AddAsync(Arg.Do<Sale>(s => capturedSale = s), Arg.Any<CancellationToken>());
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>()))
+            .Do(ci => capturedSale = ci.Arg<Sale>());
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
