@@ -28,4 +28,9 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             .Where(i => i.ShopId == shopId)
             .OrderBy(i => i.Name)
             .AsAsyncEnumerable();
+
+    public async Task<IReadOnlyList<Item>> GetByBarcodesAsync(Guid shopId, IReadOnlyList<string> barcodes, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(i => i.ShopId == shopId && barcodes.Contains(i.Barcode))
+            .ToListAsync(cancellationToken);
 }

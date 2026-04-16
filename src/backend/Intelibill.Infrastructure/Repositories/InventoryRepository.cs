@@ -15,4 +15,9 @@ internal sealed class InventoryRepository(ApplicationDbContext context)
         await DbSet
             .Where(i => i.ShopId == shopId)
             .ToDictionaryAsync(i => i.ItemId, i => i.Quantity, cancellationToken);
+
+    public async Task<IReadOnlyList<Inventory>> GetByItemIdsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(i => i.ShopId == shopId && itemIds.Contains(i.ItemId))
+            .ToListAsync(cancellationToken);
 }

@@ -23,6 +23,8 @@ public class ApplicationDbContext(
     public DbSet<InventoryBatch> InventoryBatches => Set<InventoryBatch>();
     public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
     public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
+    public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleItem> SaleItems => Set<SaleItem>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
