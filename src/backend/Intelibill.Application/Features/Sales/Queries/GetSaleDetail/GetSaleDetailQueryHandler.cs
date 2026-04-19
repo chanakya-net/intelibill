@@ -8,7 +8,8 @@ namespace Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 public sealed class GetSaleDetailQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISaleRepository saleRepository)
+    ISaleRepository saleRepository,
+    IItemRepository itemRepository)
 {
     public async Task<ErrorOr<SaleDto>> Handle(
         GetSaleDetailQuery query,
@@ -30,6 +31,10 @@ public sealed class GetSaleDetailQueryHandler(
         if (sale is null)
             return Error.NotFound("Sale.NotFound", $"Sale '{query.SaleId}' was not found.");
 
+        var itemIds = sale.Items.Select(i => i.ItemId).Distinct().ToList();
+        var items = await itemRepository.GetByIdsAsync(query.ShopId, itemIds, cancellationToken);
+        var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
+
         return new SaleDto(
             sale.Id,
             sale.InvoiceNumber,
@@ -40,10 +45,12 @@ public sealed class GetSaleDetailQueryHandler(
             sale.Items.Select(si => new SaleItemDto(
                 si.Id,
                 si.ItemId,
+                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
                 si.InventoryBatchId,
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,
+                si.IsPriceIncludingTax,
                 si.HasPriceMismatch)).ToList(),
             []);
     }

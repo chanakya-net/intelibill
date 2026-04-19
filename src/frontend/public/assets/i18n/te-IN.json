@@ -490,8 +490,12 @@
       "total": "మొత్తం మొత్తం",
       "qty": "పరిమాణం",
       "price": "ధర",
+      "pricePerUnit": "యూనిట్ ధర",
+      "itemTotal": "మొత్తం ఐటెమ్ ధర",
       "tax": "పన్ను %",
-      "taxAmount": "పన్ను మొత్తం"
+      "taxAmount": "పన్ను మొత్తం",
+      "totalPrice": "మొత్తం ధర",
+      "unknownItem": "తెలియని ఐటెమ్"
     }
   }
 }

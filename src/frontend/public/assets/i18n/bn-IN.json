@@ -490,8 +490,12 @@
       "total": "গ্র্যান্ড টোটাল",
       "qty": "পরিমাণ",
       "price": "মূল্য",
+      "pricePerUnit": "প্রতি ইউনিট মূল্য",
+      "itemTotal": "মোট আইটেম মূল্য",
       "tax": "কর %",
-      "taxAmount": "কর পরিমাণ"
+      "taxAmount": "কর পরিমাণ",
+      "totalPrice": "মোট মূল্য",
+      "unknownItem": "অজানা আইটেম"
     }
   }
 }

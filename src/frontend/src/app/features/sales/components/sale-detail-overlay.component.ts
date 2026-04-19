@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -10,6 +10,7 @@ import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
 import { SalesFacade } from '../state/sales.facade';
+import { SaleItemDto } from '../services/sale.service';
 
 @Component({
   selector: 'app-sale-detail-overlay',
@@ -24,79 +25,7 @@ import { SalesFacade } from '../state/sales.facade';
     TableModule,
     TranslocoPipe,
   ],
-  template: `
-    <p-dialog
-      [visible]="visible"
-      (visibleChange)="onClose()"
-      [modal]="true"
-      [style]="{ width: '90vw', maxWidth: '640px' }"
-      [draggable]="false"
-      [resizable]="false"
-      [closeOnEscape]="true"
-      [header]="'sales.detail.title' | transloco"
-    >
-      @if (isLoading()) {
-        <div class="flex justify-center py-8">
-          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
-        </div>
-      }
-
-      @if (!isLoading() && sale()) {
-        <div class="flex flex-col gap-4">
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.invoiceNumber' | transloco }}</p>
-              <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.date' | transloco }}</p>
-              <p class="text-slate-700">{{ sale()!.soldAt | date:'dd MMM yyyy, h:mm a' }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.payment' | transloco }}</p>
-              <p-tag [severity]="paymentMethodSeverity(sale()!.paymentMethod)" [value]="paymentMethodLabel(sale()!.paymentMethod)" />
-            </div>
-            <div>
-              <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.total' | transloco }}</p>
-              <p class="font-bold text-orange-600 text-base">₹{{ sale()!.totalAmount | number:'1.2-2' }}</p>
-            </div>
-          </div>
-
-          <p-divider />
-
-          <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>{{ 'sales.detail.qty' | transloco }}</th>
-                <th>{{ 'sales.detail.price' | transloco }}</th>
-                <th>{{ 'sales.detail.tax' | transloco }}</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-item>
-              <tr>
-                <td>{{ item.quantity }}</td>
-                <td>₹{{ item.salesPrice | number:'1.2-2' }}</td>
-                <td>{{ item.taxRatePercent }}%</td>
-              </tr>
-            </ng-template>
-          </p-table>
-
-          <div class="flex justify-between items-center pt-2 border-t border-slate-100">
-            <span class="text-sm text-slate-500">{{ 'sales.detail.taxAmount' | transloco }}</span>
-            <span class="font-medium text-slate-700">₹{{ sale()!.totalTaxAmount | number:'1.2-2' }}</span>
-          </div>
-        </div>
-      }
-
-      <ng-template pTemplate="footer">
-        <p-button
-          [label]="'common.close' | transloco"
-          severity="secondary"
-          (click)="onClose()"
-        />
-      </ng-template>
-    </p-dialog>
-  `,
+  templateUrl: './sale-detail-overlay.component.html',
 })
 export class SaleDetailOverlayComponent {
   private readonly salesFacade = inject(SalesFacade);
@@ -106,6 +35,85 @@ export class SaleDetailOverlayComponent {
 
   readonly sale = this.salesFacade.selectedSale;
   readonly isLoading = this.salesFacade.loadingSaleDetail;
+  readonly inferredTaxIncludedForMissingItems = computed(() => {
+    const detail = this.sale();
+    if (!detail || detail.items.length === 0) {
+      return true;
+    }
+
+    const hasMissing = detail.items.some((item) => item.isPriceIncludingTax === undefined || item.isPriceIncludingTax === null);
+    if (!hasMissing) {
+      return true;
+    }
+
+    const includedTaxTotal = detail.items
+      .reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, true), 0);
+    const excludedTaxTotal = detail.items
+      .reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, false), 0);
+
+    const includedDelta = Math.abs(includedTaxTotal - detail.totalTaxAmount);
+    const excludedDelta = Math.abs(excludedTaxTotal - detail.totalTaxAmount);
+    return includedDelta <= excludedDelta;
+  });
+
+  getUnitSubtotal(item: SaleItemDto): number {
+    if (item.taxRatePercent <= 0) {
+      return item.salesPrice;
+    }
+
+    if (!this.isPriceIncludingTax(item)) {
+      return item.salesPrice;
+    }
+
+    return item.salesPrice / (1 + item.taxRatePercent / 100);
+  }
+
+  getLineTaxAmount(item: SaleItemDto): number {
+    return this.getLineTaxAmountForMode(item, this.isPriceIncludingTax(item));
+  }
+
+  getLineTotal(item: SaleItemDto): number {
+    // Match backend sale aggregation logic: total amount always qty * salesPrice.
+    return item.quantity * item.salesPrice;
+  }
+
+  isPriceIncludingTax(item: SaleItemDto): boolean {
+    if (typeof item.isPriceIncludingTax === 'boolean') {
+      return item.isPriceIncludingTax;
+    }
+
+    return this.inferredTaxIncludedForMissingItems();
+  }
+
+  private getLineTaxAmountForMode(item: SaleItemDto, isPriceIncludingTax: boolean): number {
+    if (item.taxRatePercent <= 0) {
+      return 0;
+    }
+
+    if (isPriceIncludingTax) {
+      return item.quantity * item.salesPrice * item.taxRatePercent / (100 + item.taxRatePercent);
+    }
+
+    return item.quantity * item.salesPrice * item.taxRatePercent / 100;
+  }
+
+  subtotalAmount(): number {
+    const detail = this.sale();
+    if (!detail) {
+      return 0;
+    }
+
+    return detail.totalAmount - detail.totalTaxAmount;
+  }
+
+  totalPrice(): number {
+    const detail = this.sale();
+    if (!detail) {
+      return 0;
+    }
+
+    return this.subtotalAmount() + detail.totalTaxAmount;
+  }
 
   onClose(): void {
     this.visibleChange.emit(false);

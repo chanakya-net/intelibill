@@ -10,7 +10,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 
 import { SaleListItemDto } from '../services/sale.service';
@@ -93,5 +93,10 @@ export class SalesPageComponent {
     this.showDetailOverlay.set(false);
     this.viewingSaleId.set(null);
     this.salesFacade.clearSaleDetail();
+  }
+
+  clearFilters(table: Table): void {
+    table.clear();
+    this.searchValue.set('');
   }
 }

@@ -489,7 +489,11 @@
       "total": "कुल राशि",
       "qty": "मात्रा",
       "price": "मूल्य",
+      "pricePerUnit": "प्रति यूनिट मूल्य",
+      "itemTotal": "कुल आइटम मूल्य",
       "tax": "कर %",
-      "taxAmount": "कर राशि"
+      "taxAmount": "कर राशि",
+      "totalPrice": "कुल मूल्य",
+      "unknownItem": "अज्ञात आइटम"
     }  }
 }

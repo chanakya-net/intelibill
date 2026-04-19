@@ -490,8 +490,12 @@
       "total": "ആകെ തുക",
       "qty": "അളവ്",
       "price": "വില",
+      "pricePerUnit": "യൂണിറ്റ് വില",
+      "itemTotal": "ആകെ ഇനം വില",
       "tax": "നികുതി %",
-      "taxAmount": "നികുതി തുക"
+      "taxAmount": "നികുതി തുക",
+      "totalPrice": "മൊത്തം വില",
+      "unknownItem": "അറിയാത്ത ഇനം"
     }
   }
 }

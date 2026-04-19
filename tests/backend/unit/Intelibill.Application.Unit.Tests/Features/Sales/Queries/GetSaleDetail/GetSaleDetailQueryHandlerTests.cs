@@ -13,9 +13,10 @@ public class GetSaleDetailQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
     private GetSaleDetailQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _itemRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("test@test.com", "hash", "Test", "User");
@@ -95,5 +96,50 @@ public class GetSaleDetailQueryHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal("Sale.NotFound", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSaleFound_ReturnsItemNamesInDetail()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = SaleItem.Create(
+            shop.Id,
+            item.Id,
+            Guid.NewGuid(),
+            quantity: 2m,
+            costPrice: 80m,
+            salesPrice: 100m,
+            mrp: 120m,
+            taxRatePercent: 10m,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            totalAmount: 220m,
+            totalTaxAmount: 20m,
+            [saleItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value.Items);
+        Assert.Equal("Rice", result.Value.Items[0].ItemName);
     }
 }
