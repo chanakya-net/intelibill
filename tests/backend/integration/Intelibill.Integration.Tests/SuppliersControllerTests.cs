@@ -266,4 +266,75 @@ public class SuppliersControllerTests : IClassFixture<ApiWebApplicationFactory>
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetSuppliers_BalanceDue_ReflectsPaymentMadeEntries()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+
+        using var addRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
+        addRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        addRequest.Content = JsonContent.Create(new
+        {
+            name = "Balance Test Supplier",
+            contactPersonName = (string?)null,
+            contactPersonPhone = (string?)null,
+            address = "1 Test St",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pin = "560001",
+            isActive = true,
+            isPreferred = false,
+        });
+        var addResponse = await client.SendAsync(addRequest);
+        addResponse.EnsureSuccessStatusCode();
+
+        using var listRequest1 = new HttpRequestMessage(HttpMethod.Get, "/api/suppliers?include_system=false");
+        listRequest1.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var listResponse1 = await client.SendAsync(listRequest1);
+        var suppliers1 = await listResponse1.Content.ReadFromJsonAsync<JsonElement>();
+        var supplierId = suppliers1[0].GetProperty("supplierId").GetGuid();
+
+        // Balance with no entries should be 0
+        Assert.Equal(0m, suppliers1[0].GetProperty("balanceDue").GetDecimal());
+
+        using var paymentRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/suppliers/{supplierId}/payments");
+        paymentRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        paymentRequest.Content = JsonContent.Create(new
+        {
+            amount = 750m,
+            paymentDate = "2026-04-01",
+            notes = "Test payment"
+        });
+        var paymentResponse = await client.SendAsync(paymentRequest);
+        paymentResponse.EnsureSuccessStatusCode();
+
+        using var listRequest2 = new HttpRequestMessage(HttpMethod.Get, "/api/suppliers?include_system=false");
+        listRequest2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var listResponse2 = await client.SendAsync(listRequest2);
+        var suppliers2 = await listResponse2.Content.ReadFromJsonAsync<JsonElement>();
+
+        // PaymentMade reduces balance → -750
+        Assert.Equal(-750m, suppliers2[0].GetProperty("balanceDue").GetDecimal());
+
+        // Ledger total must equal balanceDue
+        using var ledgerRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/suppliers/{supplierId}/ledger");
+        ledgerRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var ledgerResponse = await client.SendAsync(ledgerRequest);
+        ledgerResponse.EnsureSuccessStatusCode();
+        var ledger = await ledgerResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        // entryType 2 = PaymentMade (stored positive, represents debit → negate for net balance)
+        var ledgerTotal = ledger.EnumerateArray()
+            .Sum(e =>
+            {
+                var amount = e.GetProperty("amount").GetDecimal();
+                var entryType = e.GetProperty("entryType").GetInt32();
+                return entryType == 2 ? -amount : amount;
+            });
+
+        Assert.Equal(suppliers2[0].GetProperty("balanceDue").GetDecimal(), ledgerTotal);
+    }
 }

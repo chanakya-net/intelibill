@@ -25,14 +25,11 @@ internal sealed class SupplierLedgerEntryRepository(ApplicationDbContext context
 
     public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
     {
-        var goodsReceived = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == SupplierLedgerEntryType.GoodsReceived)
-            .SumAsync(e => e.Amount, cancellationToken);
+        var entries = await DbSet
+            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId)
+            .Select(e => new { e.EntryType, e.Amount })
+            .ToListAsync(cancellationToken);
 
-        var paymentMade = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == SupplierLedgerEntryType.PaymentMade)
-            .SumAsync(e => e.Amount, cancellationToken);
-
-        return goodsReceived - paymentMade;
+        return entries.Sum(e => e.EntryType == SupplierLedgerEntryType.PaymentMade ? -e.Amount : e.Amount);
     }
 }

@@ -28,6 +28,40 @@ public class GetSuppliersQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenSupplierHasRecordAdjustedEntries_ReturnsReducedBalanceDue()
+    {
+        // RecordAdjusted entries (stored as negative amounts) must reduce BalanceDue.
+        // Old bug: GetSupplierBalanceAsync ignored RecordAdjusted, so balance was too high.
+        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        var caller = User.CreateWithEmail("caller@test.com", "hash", "Caller", "One");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+
+        var ownerMembership = ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true);
+        var callerMembership = ShopMembership.Create(shop.Id, caller.Id, ShopRole.Manager, false);
+        shop.AddMembership(ownerMembership);
+        shop.AddMembership(callerMembership);
+        caller.AddShopMembership(callerMembership);
+
+        _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
+        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+
+        var supplier = Supplier.Create(owner.Id, "Test Supplier", null, null, "Addr", "City", "State", "560001", true, false);
+        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, false, Arg.Any<CancellationToken>())
+            .Returns(new[] { supplier });
+
+        // Scenario: GoodsReceived=8700, PaymentMade=1400, RecordAdjusted=-700 → net=6600
+        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, supplier.Id, Arg.Any<CancellationToken>())
+            .Returns(6600m);
+
+        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
+        var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value);
+        Assert.Equal(6600m, result.Value[0].BalanceDue);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenValid_ReturnsOwnerSuppliers()
     {
         var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
