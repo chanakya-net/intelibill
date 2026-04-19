@@ -3,14 +3,13 @@ using System.Security.Claims;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
-using Intelibill.Application.Features.Items.Queries.StreamItems;
-using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -22,7 +21,7 @@ namespace Intelibill.Api.Controllers;
 [Authorize]
 public sealed class ItemsController(
     IMessageBus bus,
-    IItemRepository itemRepository) : ControllerBase
+    IItemCatalogStreamingService itemCatalogStreamingService) : ControllerBase
 {
     [HttpGet("stream")]
     public async Task StreamItems(CancellationToken cancellationToken)
@@ -41,8 +40,9 @@ public sealed class ItemsController(
             return;
         }
 
-        var validation = await bus.InvokeAsync<ErrorOr<Success>>(
-            new StreamItemsQuery(userId.Value, activeShopId.Value),
+        var validation = await itemCatalogStreamingService.ValidateAccessAsync(
+            userId.Value,
+            activeShopId.Value,
             cancellationToken);
 
         if (validation.IsError)
@@ -57,9 +57,9 @@ public sealed class ItemsController(
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var count = 0;
 
-        await foreach (var item in itemRepository.StreamByShopIdAsync(activeShopId.Value, cancellationToken))
+        await foreach (var item in itemCatalogStreamingService.StreamByShopAsync(activeShopId.Value, cancellationToken).WithCancellation(cancellationToken))
         {
-            var line = JsonSerializer.Serialize(new ItemCatalogEntry(item.Id, item.Name, item.Barcode), jsonOptions) + "\n";
+            var line = JsonSerializer.Serialize(item, jsonOptions) + "\n";
             await Response.WriteAsync(line, cancellationToken);
             count++;
             if (count % 50 == 0)
@@ -193,6 +193,3 @@ public sealed record UpdateItemRequest(
     string Barcode,
     string? Description,
     string Uom);
-
-
-internal sealed record ItemCatalogEntry(Guid ItemId, string Name, string Barcode);
