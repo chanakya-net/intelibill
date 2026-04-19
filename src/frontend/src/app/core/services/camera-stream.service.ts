@@ -75,9 +75,24 @@ export class CameraStreamService {
     await videoElement.play().catch(() => undefined);
   }
 
-  detachVideo(videoElement: HTMLVideoElement): void {
-    videoElement.pause();
-    videoElement.srcObject = null;
+  detachVideo(videoElement: HTMLVideoElement | null | undefined): void {
+    if (!videoElement) {
+      return;
+    }
+
+    try {
+      if (typeof videoElement.pause === 'function') {
+        videoElement.pause();
+      }
+    } catch {
+      // Ignore cleanup failures during view teardown.
+    }
+
+    try {
+      videoElement.srcObject = null;
+    } catch {
+      // Ignore cleanup failures during view teardown.
+    }
   }
 
   stopCurrentStream(): void {

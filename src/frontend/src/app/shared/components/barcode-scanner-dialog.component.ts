@@ -193,11 +193,13 @@ export class BarcodeScannerDialogComponent implements OnChanges, OnDestroy {
   }
 
   private async stopScannerSession(videoElement?: HTMLVideoElement): Promise<void> {
-    this.scannerStopHandler?.();
-    this.scannerStopHandler = null;
+    try {
+      this.scannerStopHandler?.();
+      this.scannerStopHandler = null;
 
-    if (videoElement) {
       this.cameraStreamService.detachVideo(videoElement);
+    } catch {
+      // Ignore teardown errors while closing dialog or destroying view.
     }
 
     this.cameraStreamService.stopCurrentStream();
