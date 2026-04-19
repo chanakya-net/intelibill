@@ -478,6 +478,8 @@
       "selectPayment": "చెల్లింపు పద్ధతి ఎంచుకోండి",
       "tax": "పన్ను",
       "totalDue": "చెల్లించవలసిన మొత్తం",
+      "taxIncludedPrice": "పన్నుతో కూడిన ధర",
+      "taxExcludedPrice": "పన్ను లేకుండా ధర",
       "recordSale": "అమ్మకం నమోదు చేయి"
     },
     "detail": {

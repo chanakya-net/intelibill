@@ -498,6 +498,8 @@
       "selectPayment": "Select payment method",
       "tax": "Tax",
       "totalDue": "Total Due",
+      "taxIncludedPrice": "Tax Included",
+      "taxExcludedPrice": "Tax Excluded",
       "recordSale": "Record Sale"
     },
     "detail": {

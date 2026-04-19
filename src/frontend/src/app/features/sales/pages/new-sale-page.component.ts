@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DividerModule } from 'primeng/divider';
@@ -16,32 +17,26 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { AvailableBatchDto, InventoryService } from '../../inventory/services/inventory.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { RecordSaleItemRequest, RecordSaleRequest, PAYMENT_METHOD_VALUES } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
-interface CartItem {
-  barcode: string;
-  itemName: string;
-  batchNumber: string;
-  quantity: number;
-  availableQuantity: number;
-  salesPrice: number;
-  mrp: number;
-  taxRatePercent: number;
-  taxIncluded: boolean;
-  costPrice: number;
-}
+interface CartItem extends SalesCartDraftItem {}
 
 @Component({
   selector: 'app-new-sale-page',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     BarcodeScannerDialogComponent,
+    AutoCompleteModule,
     ButtonModule,
     CardModule,
     DividerModule,
@@ -59,14 +54,20 @@ interface CartItem {
   styleUrl: './new-sale-page.component.scss',
 })
 export class NewSalePageComponent {
+  private readonly cartRetentionMs = 5 * 60 * 1000;
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly inventoryService = inject(InventoryService);
+  private readonly cartStorage = inject(SalesCartIndexedDbService);
   private readonly salesFacade = inject(SalesFacade);
+  private cartLoadToken = 0;
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = signal<CartItem[]>([]);
   readonly searchInput = signal('');
+  readonly searchSuggestions = signal<string[]>([]);
   readonly isSearchingBatches = signal(false);
   readonly batchSearchError = signal('');
   readonly availableBatches = signal<AvailableBatchDto[]>([]);
@@ -78,18 +79,17 @@ export class NewSalePageComponent {
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
+  readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
+  readonly cartBootstrapped = signal(false);
 
-  readonly totalAmount = computed(() =>
-    this.cart().reduce((sum, item) => sum + item.salesPrice * item.quantity, 0)
+  readonly subtotalAmount = computed(() =>
+    this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0)
   );
   readonly totalTaxAmount = computed(() =>
-    this.cart().reduce((sum, item) => {
-      const lineTotal = item.salesPrice * item.quantity;
-      if (item.taxIncluded) {
-        return sum + lineTotal - lineTotal / (1 + item.taxRatePercent / 100);
-      }
-      return sum + (lineTotal * item.taxRatePercent) / 100;
-    }, 0)
+    this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0)
+  );
+  readonly totalAmount = computed(() =>
+    this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0)
   );
 
   readonly batchPickerForm = this.fb.nonNullable.group({
@@ -119,6 +119,30 @@ export class NewSalePageComponent {
         this.salesFacade.clearMutationStatus();
         this.router.navigate(['/sales']);
       }
+    });
+
+    effect(() => {
+      const shopId = this.activeShopId();
+      const token = ++this.cartLoadToken;
+      this.cartBootstrapped.set(false);
+
+      if (!shopId) {
+        this.cart.set([]);
+        this.cartBootstrapped.set(true);
+        return;
+      }
+
+      void this.loadPersistedCart(shopId, token);
+    });
+
+    effect(() => {
+      const shopId = this.activeShopId();
+      const cart = this.cart();
+      if (!shopId || !this.cartBootstrapped()) {
+        return;
+      }
+
+      void this.persistCart(shopId, cart);
     });
   }
 
@@ -152,6 +176,23 @@ export class NewSalePageComponent {
         this.batchSearchError.set(err.error?.detail || 'sales.newSale.searchError');
       },
     });
+  }
+
+  onFilterSearch(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.trim();
+    if (!query) {
+      this.searchSuggestions.set([]);
+      return;
+    }
+
+    const names = this.catalogSync.filterByName(query).map((e) => e.name);
+    const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
+    const merged = [...new Set([...names, ...barcodes])];
+    this.searchSuggestions.set(merged.slice(0, 20));
+  }
+
+  onSearchSuggestionSelected(value: string): void {
+    this.searchInput.set(value?.trim() ?? '');
   }
 
   openScanner(): void {
@@ -226,6 +267,59 @@ export class NewSalePageComponent {
 
   onRemoveCartItem(index: number): void {
     this.cart.update((items) => items.filter((_, i) => i !== index));
+  }
+
+  onClearCart(): void {
+    this.cart.set([]);
+  }
+
+  hasTax(item: CartItem): boolean {
+    return item.taxRatePercent > 0;
+  }
+
+  getLineSubtotal(item: CartItem): number {
+    return this.getUnitSubtotal(item) * item.quantity;
+  }
+
+  getLineTaxAmount(item: CartItem): number {
+    return this.getUnitTaxAmount(item) * item.quantity;
+  }
+
+  getLineTotal(item: CartItem): number {
+    return this.getUnitFinalPrice(item) * item.quantity;
+  }
+
+  getUnitSubtotal(item: CartItem): number {
+    if (!this.hasTax(item)) {
+      return item.salesPrice;
+    }
+
+    if (!item.taxIncluded) {
+      return item.salesPrice;
+    }
+
+    return item.salesPrice / (1 + item.taxRatePercent / 100);
+  }
+
+  getUnitTaxAmount(item: CartItem): number {
+    if (!this.hasTax(item)) {
+      return 0;
+    }
+
+    const basePrice = this.getUnitSubtotal(item);
+    return (basePrice * item.taxRatePercent) / 100;
+  }
+
+  getUnitFinalPrice(item: CartItem): number {
+    if (!this.hasTax(item)) {
+      return item.salesPrice;
+    }
+
+    if (item.taxIncluded) {
+      return item.salesPrice;
+    }
+
+    return item.salesPrice + this.getUnitTaxAmount(item);
   }
 
   onSubmit(): void {
@@ -332,5 +426,36 @@ export class NewSalePageComponent {
     this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
     this.availableBatches.set([]);
     this.batchSearchError.set('');
+  }
+
+  private async loadPersistedCart(shopId: string, token: number): Promise<void> {
+    try {
+      const rows = await this.cartStorage.loadCart(shopId, this.cartRetentionMs);
+      if (token !== this.cartLoadToken) {
+        return;
+      }
+      this.cart.set([...rows]);
+    } catch {
+      if (token === this.cartLoadToken) {
+        this.cart.set([]);
+      }
+    } finally {
+      if (token === this.cartLoadToken) {
+        this.cartBootstrapped.set(true);
+      }
+    }
+  }
+
+  private async persistCart(shopId: string, cart: readonly CartItem[]): Promise<void> {
+    try {
+      if (cart.length === 0) {
+        await this.cartStorage.clearCart(shopId);
+        return;
+      }
+
+      await this.cartStorage.saveCart(shopId, cart);
+    } catch {
+      // Ignore persistence errors; cart remains in memory.
+    }
   }
 }

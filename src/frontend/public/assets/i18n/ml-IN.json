@@ -478,6 +478,8 @@
       "selectPayment": "പേയ്‌മെന്റ് രീതി തിരഞ്ഞെടുക്കുക",
       "tax": "നികുതി",
       "totalDue": "അടക്കേണ്ട ആകെ",
+      "taxIncludedPrice": "നികുതി ഉൾപ്പെട്ട വില",
+      "taxExcludedPrice": "നികുതി ഇല്ലാത്ത വില",
       "recordSale": "വിൽപ്പന രേഖപ്പെടുത്തുക"
     },
     "detail": {

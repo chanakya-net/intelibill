@@ -478,6 +478,8 @@
       "selectPayment": "கட்டண முறை தேர்ந்தெடுக்கவும்",
       "tax": "வரி",
       "totalDue": "செலுத்த வேண்டிய மொத்தம்",
+      "taxIncludedPrice": "வரி உட்பட விலை",
+      "taxExcludedPrice": "வரி இல்லா விலை",
       "recordSale": "விற்பனை பதிவு செய்"
     },
     "detail": {

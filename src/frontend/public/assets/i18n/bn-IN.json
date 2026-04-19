@@ -478,6 +478,8 @@
       "selectPayment": "পেমেন্ট পদ্ধতি নির্বাচন করুন",
       "tax": "কর",
       "totalDue": "পরিশোধযোগ্য মোট",
+      "taxIncludedPrice": "করসহ মূল্য",
+      "taxExcludedPrice": "কর ছাড়া মূল্য",
       "recordSale": "বিক্রয় নথিভুক্ত করুন"
     },
     "detail": {

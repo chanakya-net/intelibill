@@ -478,6 +478,8 @@
       "selectPayment": "ಪಾವತಿ ವಿಧಾನ ಆಯ್ಕೆ ಮಾಡಿ",
       "tax": "ತೆರಿಗೆ",
       "totalDue": "ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು",
+      "taxIncludedPrice": "ತೆರಿಗೆ ಸೇರಿರುವ ಬೆಲೆ",
+      "taxExcludedPrice": "ತೆರಿಗೆ ಹೊರತಾದ ಬೆಲೆ",
       "recordSale": "ಮಾರಾಟ ದಾಖಲಿಸಿ"
     },
     "detail": {

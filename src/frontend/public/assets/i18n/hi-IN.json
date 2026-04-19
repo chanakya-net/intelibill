@@ -477,6 +477,8 @@
       "selectPayment": "भुगतान विधि चुनें",
       "tax": "कर",
       "totalDue": "देय राशि",
+      "taxIncludedPrice": "कर सहित मूल्य",
+      "taxExcludedPrice": "कर रहित मूल्य",
       "recordSale": "बिक्री दर्ज करें"
     },
     "detail": {

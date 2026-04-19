@@ -26,14 +26,17 @@
       <div class="flex gap-2 items-start flex-wrap">
         <div class="flex-1 min-w-48">
           <p-inputgroup>
-            <input
-              pInputText
-              type="text"
-              [value]="searchInput()"
-              (input)="searchInput.set($any($event.target).value)"
+            <p-autocomplete
+              [ngModel]="searchInput()"
+              (ngModelChange)="searchInput.set(($event ?? '').toString())"
+              [suggestions]="searchSuggestions()"
+              (completeMethod)="onFilterSearch($event)"
+              (onSelect)="onSearchSuggestionSelected($event.value)"
               (keyup.enter)="onBarcodeSearch()"
               [placeholder]="'inventory.searchPlaceholder' | transloco"
-            />
+              appendTo="body"
+              [fluid]="true"
+            ></p-autocomplete>
             <p-inputgroup-addon>
               <button
                 pButton
@@ -130,7 +133,17 @@
     <!-- Cart -->
     <p-card>
       <ng-template pTemplate="header">
-        <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ cart().length }})</div>
+        <div class="card-header-row">
+          <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ cart().length }})</div>
+          <p-button
+            [label]="'common.clear' | transloco"
+            icon="pi pi-trash"
+            severity="secondary"
+            [text]="true"
+            [disabled]="cart().length === 0"
+            (click)="onClearCart()"
+          />
+        </div>
       </ng-template>
 
       @if (cart().length === 0) {
@@ -142,7 +155,7 @@
         <p-table [value]="cart()" styleClass="p-datatable-sm">
           <ng-template pTemplate="header">
             <tr>
-              <th>{{ 'sales.newSale.barcode' | transloco }}</th>
+              <th>{{ 'inventory.name' | transloco }}</th>
               <th>{{ 'sales.newSale.batch' | transloco }}</th>
               <th>{{ 'sales.newSale.qty' | transloco }}</th>
               <th>{{ 'sales.newSale.price' | transloco }}</th>
@@ -152,7 +165,7 @@
           </ng-template>
           <ng-template pTemplate="body" let-item let-rowIndex="rowIndex">
             <tr>
-              <td>{{ item.barcode }}</td>
+              <td>{{ item.itemName }}</td>
               <td>{{ item.batchNumber }}</td>
               <td>
                 <div class="qty-controls">
@@ -173,8 +186,28 @@
                   />
                 </div>
               </td>
-              <td>₹{{ item.salesPrice | number:'1.2-2' }}</td>
-              <td class="font-medium">₹{{ item.salesPrice * item.quantity | number:'1.2-2' }}</td>
+              <td>
+                <div class="price-breakdown">
+                  @if (hasTax(item)) {
+                    <span class="tax-mode-tag">{{ item.taxIncluded ? ('sales.newSale.taxIncludedPrice' | transloco) : ('sales.newSale.taxExcludedPrice' | transloco) }}</span>
+                  }
+                  <p class="price-line">
+                    <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
+                    <span>₹{{ getUnitSubtotal(item) | number:'1.2-2' }}</span>
+                  </p>
+                  @if (hasTax(item)) {
+                    <p class="price-line">
+                      <span>{{ 'sales.newSale.tax' | transloco }} ({{ item.taxRatePercent | number:'1.0-2' }}%)</span>
+                      <span>₹{{ getUnitTaxAmount(item) | number:'1.2-2' }}</span>
+                    </p>
+                  }
+                  <p class="price-line final">
+                    <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
+                    <span>₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
+                  </p>
+                </div>
+              </td>
+              <td class="font-medium">₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
               <td>
                 <p-button
                   icon="pi pi-trash"
@@ -238,7 +271,7 @@
         <div class="summary-box flex-1">
           <div class="flex justify-between text-sm text-slate-600">
             <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
-            <span>₹{{ totalAmount() | number:'1.2-2' }}</span>
+            <span>₹{{ subtotalAmount() | number:'1.2-2' }}</span>
           </div>
           <div class="flex justify-between text-sm text-slate-500">
             <span>{{ 'sales.newSale.tax' | transloco }}</span>
