@@ -18,7 +18,9 @@
     "te-IN": "Telugu",
     "bn-IN": "Bangla",
     "ml-IN": "Malayalam",
-    "kn-IN": "Kannada"
+    "kn-IN": "Kannada",
+    "mr-IN": "Marathi",
+    "gu-IN": "Gujarati"
   },
   "auth": {
     "loginNow": "Login Now",
@@ -221,8 +223,6 @@
     "batchListTitle": "Inventory Batches",
     "batchListSubtitle": "Manage your submitted inventory batches",
     "item": "Item",
-    "status": "Status",
-    "active": "Active",
     "voided": "Voided",
     "editBatch": "Edit Inventory Batch",
     "batchUpdated": "Inventory batch updated successfully",
@@ -427,6 +427,7 @@
       "unableToLoadItems": "Unable to load inventory right now. Please try again.",
       "itemNotFound": "The item no longer exists.",
       "barcodeAlreadyExists": "An item with this barcode already exists in this shop.",
+      "preferredSupplierNotFound": "The preferred supplier was not found for this shop.",
       "unableToUpdateItem": "Unable to update product right now. Please try again."
     },
     "shops": {
