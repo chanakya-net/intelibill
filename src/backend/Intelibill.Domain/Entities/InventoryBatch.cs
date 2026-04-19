@@ -122,6 +122,24 @@ public sealed class InventoryBatch : BaseEntity
         return Result.Success;
     }
 
+    public ErrorOr<Success> SubtractQuantity(decimal quantityToSubtract, Guid updatedBy)
+    {
+        if (quantityToSubtract <= 0)
+        {
+            return Error.Validation("InventoryBatch.QuantitySubtractionInvalid", "Quantity to subtract must be greater than zero.");
+        }
+
+        if (quantityToSubtract > Quantity)
+        {
+            return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient stock in batch.");
+        }
+
+        Quantity -= quantityToSubtract;
+        UpdatedBy = updatedBy;
+
+        return Result.Success;
+    }
+
     public void MarkUpdatedBy(Guid updatedBy)
     {
         UpdatedBy = updatedBy;
