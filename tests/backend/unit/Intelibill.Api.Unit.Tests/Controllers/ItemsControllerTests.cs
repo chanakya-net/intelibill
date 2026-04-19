@@ -3,14 +3,12 @@ using System.Security.Claims;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Controllers;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
-using Intelibill.Application.Features.Items.Queries.StreamItems;
-using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -21,12 +19,12 @@ namespace Intelibill.Api.Unit.Tests.Controllers;
 public class ItemsControllerTests
 {
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
-    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
+    private readonly IItemCatalogStreamingService _itemCatalogStreamingService = Substitute.For<IItemCatalogStreamingService>();
     private readonly ItemsController _controller;
 
     public ItemsControllerTests()
     {
-        _controller = new ItemsController(_bus, _itemRepository);
+        _controller = new ItemsController(_bus, _itemCatalogStreamingService);
     }
 
     [Fact]
@@ -150,7 +148,7 @@ public class ItemsControllerTests
             new Claim("active_shop_id", shopId.ToString()));
         SetResponseBody();
 
-        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+        _itemCatalogStreamingService.ValidateAccessAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Success>>(Errors.Shop.MembershipNotFound));
 
         await _controller.StreamItems(CancellationToken.None);
@@ -169,12 +167,11 @@ public class ItemsControllerTests
 
         var responseBody = SetResponseBody();
 
-        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+        var item1 = new ItemCatalogEntryDto(Guid.NewGuid(), "Milk", "B001");
+        var item2 = new ItemCatalogEntryDto(Guid.NewGuid(), "Rice", "B002");
+        _itemCatalogStreamingService.ValidateAccessAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
-
-        var item1 = Item.Create(shopId, "Milk", null, "ltr", "B001", true, userId);
-        var item2 = Item.Create(shopId, "Rice", "Premium", "kg", "B002", true, userId);
-        _itemRepository.StreamByShopIdAsync(shopId, Arg.Any<CancellationToken>())
+        _itemCatalogStreamingService.StreamByShopAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(AsyncItems(item1, item2));
 
         await _controller.StreamItems(CancellationToken.None);
@@ -194,8 +191,12 @@ public class ItemsControllerTests
         Assert.Equal("Rice", second.GetProperty("name").GetString());
         Assert.Equal("B002", second.GetProperty("barcode").GetString());
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
-            Arg.Is<StreamItemsQuery>(q => q.UserId == userId && q.ActiveShopId == shopId),
+        await _itemCatalogStreamingService.Received(1).ValidateAccessAsync(
+            Arg.Is<Guid>(id => id == userId),
+            Arg.Is<Guid>(id => id == shopId),
+            Arg.Any<CancellationToken>());
+        _itemCatalogStreamingService.Received(1).StreamByShopAsync(
+            Arg.Is<Guid>(id => id == shopId),
             Arg.Any<CancellationToken>());
     }
 
@@ -210,10 +211,9 @@ public class ItemsControllerTests
 
         var responseBody = SetResponseBody();
 
-        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+        _itemCatalogStreamingService.ValidateAccessAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
-
-        _itemRepository.StreamByShopIdAsync(shopId, Arg.Any<CancellationToken>())
+        _itemCatalogStreamingService.StreamByShopAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(AsyncItems());
 
         await _controller.StreamItems(CancellationToken.None);
@@ -326,14 +326,6 @@ public class ItemsControllerTests
         return stream;
     }
 
-    private static async IAsyncEnumerable<Intelibill.Domain.Entities.Item> AsyncItems(
-        params Intelibill.Domain.Entities.Item[] items)
-    {
-        foreach (var item in items)
-            yield return item;
-        await Task.CompletedTask;
-    }
-
     private void SetUserClaims(params Claim[] claims)
     {
         var identity = claims.Length == 0
@@ -347,5 +339,12 @@ public class ItemsControllerTests
                 User = new ClaimsPrincipal(identity),
             },
         };
+    }
+
+    private static async IAsyncEnumerable<ItemCatalogEntryDto> AsyncItems(params ItemCatalogEntryDto[] items)
+    {
+        foreach (var item in items)
+            yield return item;
+        await Task.CompletedTask;
     }
 }
