@@ -33,4 +33,21 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         await DbSet
             .Where(i => i.ShopId == shopId && barcodes.Contains(i.Barcode))
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Item>> GetByIdsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken = default)
+    {
+        var items = await DbSet
+            .Where(i => i.ShopId == shopId && itemIds.Contains(i.Id))
+            .ToListAsync(cancellationToken);
+
+        if (items.Count > 0 || itemIds.Count == 0)
+        {
+            return items;
+        }
+
+        // Fallback for legacy or inconsistent records where shop linkage drifted.
+        return await DbSet
+            .Where(i => itemIds.Contains(i.Id))
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -35,10 +35,12 @@ export interface RecordSaleRequest {
 export interface SaleItemDto {
   readonly saleItemId: string;
   readonly itemId: string;
+  readonly itemName: string;
   readonly inventoryBatchId: string;
   readonly quantity: number;
   readonly salesPrice: number;
   readonly taxRatePercent: number;
+  readonly isPriceIncludingTax: boolean;
   readonly hasPriceMismatch: boolean;
 }
 

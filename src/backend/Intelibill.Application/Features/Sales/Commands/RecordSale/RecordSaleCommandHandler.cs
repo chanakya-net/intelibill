@@ -145,6 +145,7 @@ public sealed class RecordSaleCommandHandler(
 
         await saleRepository.AddAsync(sale, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
         return new SaleDto(
             sale.Id,
@@ -156,10 +157,12 @@ public sealed class RecordSaleCommandHandler(
             sale.Items.Select(si => new SaleItemDto(
                 si.Id,
                 si.ItemId,
+                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
                 si.InventoryBatchId,
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,
+                si.IsPriceIncludingTax,
                 si.HasPriceMismatch)).ToList(),
             warnings);
     }

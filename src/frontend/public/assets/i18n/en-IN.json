@@ -510,8 +510,12 @@
       "total": "Grand Total",
       "qty": "Qty",
       "price": "Price",
+      "pricePerUnit": "Price/Unit",
+      "itemTotal": "Total Item Price",
       "tax": "Tax %",
-      "taxAmount": "Tax Amount"
+      "taxAmount": "Tax Amount",
+      "totalPrice": "Total Price",
+      "unknownItem": "Unknown Item"
     }
   }
 }

@@ -76,6 +76,7 @@ public class RecordSaleCommandHandlerTests
         Assert.NotEmpty(result.Value.InvoiceNumber);
         Assert.StartsWith("INV-", result.Value.InvoiceNumber);
         Assert.Single(result.Value.Items);
+        Assert.Equal("Rice", result.Value.Items[0].ItemName);
         Assert.Equal(95m, batch.Quantity);
         Assert.Equal(95m, inventory.Quantity);
         await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());

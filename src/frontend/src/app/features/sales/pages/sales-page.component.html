@@ -79,18 +79,27 @@
     <!-- Desktop Table -->
     <div class="sales-table-card desktop-table">
       <p-table
+        #salesTable
         [value]="tableSales()"
+        [globalFilterFields]="['invoiceNumber', 'soldAt', 'customerName', 'customerPhone', 'paymentMethod', 'itemCount', 'totalAmount']"
         [scrollable]="true"
         class="p-datatable-sm"
       >
         <ng-template pTemplate="caption">
-          <div class="flex justify-end">
+          <div class="flex justify-between gap-3 flex-wrap">
+            <p-button
+              [label]="'common.clear' | transloco"
+              [outlined]="true"
+              icon="pi pi-filter-slash"
+              (click)="clearFilters(salesTable)"
+            />
             <p-iconfield iconPosition="left">
               <p-inputicon><i class="pi pi-search"></i></p-inputicon>
               <input
                 pInputText
                 type="text"
                 [(ngModel)]="searchValue"
+                (input)="salesTable.filterGlobal(searchValue(), 'contains')"
                 [placeholder]="'sales.history.search' | transloco"
               />
             </p-iconfield>
@@ -98,12 +107,57 @@
         </ng-template>
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="invoiceNumber">{{ 'sales.history.invoiceNumber' | transloco }} <p-sortIcon field="invoiceNumber" /></th>
-            <th pSortableColumn="soldAt">{{ 'sales.history.date' | transloco }} <p-sortIcon field="soldAt" /></th>
-            <th>{{ 'sales.history.customer' | transloco }}</th>
-            <th>{{ 'sales.history.payment' | transloco }}</th>
-            <th pSortableColumn="itemCount">{{ 'sales.history.items' | transloco }} <p-sortIcon field="itemCount" /></th>
-            <th pSortableColumn="totalAmount">{{ 'sales.history.total' | transloco }} <p-sortIcon field="totalAmount" /></th>
+            <th pSortableColumn="invoiceNumber">
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.invoiceNumber' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="invoiceNumber" />
+                  <p-columnFilter type="text" field="invoiceNumber" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="soldAt">
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.date' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="soldAt" />
+                  <p-columnFilter type="date" field="soldAt" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.customer' | transloco }}
+                <p-columnFilter type="text" field="customerName" display="menu" />
+              </div>
+            </th>
+            <th pSortableColumn="paymentMethod">
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.payment' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="paymentMethod" />
+                  <p-columnFilter type="numeric" field="paymentMethod" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="itemCount">
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.items' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="itemCount" />
+                  <p-columnFilter type="numeric" field="itemCount" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="totalAmount">
+              <div class="flex items-center justify-between">
+                {{ 'sales.history.total' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="totalAmount" />
+                  <p-columnFilter type="numeric" field="totalAmount" display="menu" />
+                </div>
+              </div>
+            </th>
             <th></th>
           </tr>
         </ng-template>

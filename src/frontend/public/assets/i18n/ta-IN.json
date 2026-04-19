@@ -490,8 +490,12 @@
       "total": "மொத்த தொகை",
       "qty": "அளவு",
       "price": "விலை",
+      "pricePerUnit": "ஒன்றுக்கு விலை",
+      "itemTotal": "மொத்த பொருள் விலை",
       "tax": "வரி %",
-      "taxAmount": "வரி தொகை"
+      "taxAmount": "வரி தொகை",
+      "totalPrice": "மொத்த விலை",
+      "unknownItem": "அறியாத பொருள்"
     }
   }
 }
