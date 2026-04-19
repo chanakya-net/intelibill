@@ -1,0 +1,23 @@
+import { createSelector } from '@ngrx/store';
+
+import { salesAdapter, salesFeature } from './sales.reducer';
+
+const { selectAll, selectEntities } = salesAdapter.getSelectors();
+
+export const selectAllSales = createSelector(
+  salesFeature.selectSalesState,
+  selectAll
+);
+
+export const selectSalesEntities = createSelector(
+  salesFeature.selectSalesState,
+  selectEntities
+);
+
+export const selectLoadingSales = salesFeature.selectLoadingSales;
+export const selectSubmitting = salesFeature.selectSubmitting;
+export const selectErrorMessage = salesFeature.selectErrorMessage;
+export const selectLastMutationType = salesFeature.selectLastMutationType;
+export const selectLastMutationSucceeded = salesFeature.selectLastMutationSucceeded;
+export const selectSelectedSale = salesFeature.selectSelectedSale;
+export const selectLoadingSaleDetail = salesFeature.selectLoadingSaleDetail;

@@ -1,0 +1,266 @@
+<section class="new-sale-page">
+  <header class="new-sale-header">
+    <div>
+      <p class="eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+      <h1>{{ 'sales.newSale.title' | transloco }}</h1>
+    </div>
+    <p-button
+      [label]="'common.cancel' | transloco"
+      severity="secondary"
+      [outlined]="true"
+      (click)="onCancel()"
+    />
+  </header>
+
+  @if (serverError()) {
+    <p class="error">{{ serverError() }}</p>
+  }
+
+  <div class="new-sale-body">
+    <!-- Item Search -->
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'sales.newSale.scanItem' | transloco }}</div>
+      </ng-template>
+
+      <div class="flex gap-2 items-start flex-wrap">
+        <div class="flex-1 min-w-48">
+          <p-inputgroup>
+            <input
+              pInputText
+              type="text"
+              [value]="searchInput()"
+              (input)="searchInput.set($any($event.target).value)"
+              (keyup.enter)="onBarcodeSearch()"
+              [placeholder]="'inventory.searchPlaceholder' | transloco"
+            />
+            <p-inputgroup-addon>
+              <button
+                pButton
+                type="button"
+                icon="pi pi-camera"
+                severity="secondary"
+                text
+                (click)="openScanner()"
+                [attr.aria-label]="'inventory.openScanner' | transloco"
+              ></button>
+            </p-inputgroup-addon>
+          </p-inputgroup>
+        </div>
+        <p-button
+          [label]="'sales.newSale.search' | transloco"
+          icon="pi pi-search"
+          (click)="onBarcodeSearch()"
+          [disabled]="isSearchingBatches()"
+        />
+      </div>
+
+      @if (isSearchingBatches()) {
+        <div class="flex items-center gap-2 mt-3 text-sm text-slate-500">
+          <p-progressSpinner styleClass="h-4 w-4" strokeWidth="6" />
+          <span>{{ 'sales.newSale.searching' | transloco }}</span>
+        </div>
+      }
+
+      @if (batchSearchError()) {
+        <p class="error mt-2">{{ batchSearchError().startsWith('sales.') ? (batchSearchError() | transloco) : batchSearchError() }}</p>
+      }
+
+      <!-- Batch Picker -->
+      @if (showBatchPicker()) {
+        <div class="batch-picker mt-4">
+          <p class="text-sm font-semibold text-slate-600 mb-2">{{ 'sales.newSale.selectBatch' | transloco }}</p>
+          <div class="flex flex-col gap-2 mb-3">
+            @for (batch of availableBatches(); track batch.batchNumber) {
+              <div
+                class="batch-option"
+                [class.selected]="selectedBatch()?.batchNumber === batch.batchNumber"
+                (click)="onSelectBatch(batch)"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="font-medium text-slate-800">{{ batch.batchNumber }}</span>
+                    @if (batch.expiryDate) {
+                      <span class="text-xs text-slate-500 ml-2">{{ 'sales.newSale.expiry' | transloco }}: {{ batch.expiryDate | date:'dd MMM yyyy' }}</span>
+                    }
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold text-orange-600">₹{{ batch.salesPrice | number:'1.2-2' }}</p>
+                    <p class="text-xs text-slate-400">{{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}</p>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (selectedBatch()) {
+            <div class="flex items-end gap-3 flex-wrap">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs text-slate-500">{{ 'sales.newSale.quantity' | transloco }}</label>
+                <p-inputNumber
+                  [formControl]="batchPickerForm.controls.quantity"
+                  [min]="1"
+                  [max]="selectedBatch()!.quantity"
+                  [showButtons]="true"
+                  buttonLayout="horizontal"
+                  incrementButtonIcon="pi pi-plus"
+                  decrementButtonIcon="pi pi-minus"
+                />
+                @if (batchPickerForm.controls.quantity.errors?.['exceedsStock']) {
+                  <p class="error-hint">{{ 'sales.newSale.exceedsStock' | transloco }}</p>
+                }
+              </div>
+              <p-button
+                [label]="'sales.newSale.addToCart' | transloco"
+                icon="pi pi-cart-plus"
+                (click)="onAddToCart()"
+              />
+            </div>
+          }
+        </div>
+      }
+    </p-card>
+
+    <app-barcode-scanner-dialog
+      [visible]="isScannerOpen()"
+      (visibleChange)="onScannerVisibilityChange($event)"
+      (detected)="onScannedBarcode($event)"
+    />
+
+    <!-- Cart -->
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ cart().length }})</div>
+      </ng-template>
+
+      @if (cart().length === 0) {
+        <div class="empty-cart text-center py-6 text-slate-400">
+          <i class="pi pi-shopping-cart text-4xl mb-2"></i>
+          <p>{{ 'sales.newSale.emptyCart' | transloco }}</p>
+        </div>
+      } @else {
+        <p-table [value]="cart()" styleClass="p-datatable-sm">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'sales.newSale.barcode' | transloco }}</th>
+              <th>{{ 'sales.newSale.batch' | transloco }}</th>
+              <th>{{ 'sales.newSale.qty' | transloco }}</th>
+              <th>{{ 'sales.newSale.price' | transloco }}</th>
+              <th>{{ 'sales.newSale.subtotal' | transloco }}</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-item let-rowIndex="rowIndex">
+            <tr>
+              <td>{{ item.barcode }}</td>
+              <td>{{ item.batchNumber }}</td>
+              <td>
+                <div class="qty-controls">
+                  <p-button
+                    icon="pi pi-minus"
+                    severity="secondary"
+                    [text]="true"
+                    (click)="onDecreaseCartItem(rowIndex)"
+                    [disabled]="item.quantity <= 1"
+                  />
+                  <span class="qty-value">{{ item.quantity }}</span>
+                  <p-button
+                    icon="pi pi-plus"
+                    severity="secondary"
+                    [text]="true"
+                    (click)="onIncreaseCartItem(rowIndex)"
+                    [disabled]="!canIncreaseCartItem(item)"
+                  />
+                </div>
+              </td>
+              <td>₹{{ item.salesPrice | number:'1.2-2' }}</td>
+              <td class="font-medium">₹{{ item.salesPrice * item.quantity | number:'1.2-2' }}</td>
+              <td>
+                <p-button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  [text]="true"
+                  (click)="onRemoveCartItem(rowIndex)"
+                />
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="footer">
+            <tr>
+              <td colspan="4" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
+              <td class="font-bold text-orange-600">₹{{ totalAmount() | number:'1.2-2' }}</td>
+              <td></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </p-card>
+
+    <!-- Customer Section -->
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'sales.newSale.customerSection' | transloco }}</div>
+      </ng-template>
+
+      <div class="flex gap-4 flex-wrap" [formGroup]="customerForm">
+        <div class="flex flex-col gap-1 flex-1 min-w-48">
+          <label class="text-xs text-slate-500">{{ 'sales.newSale.customerName' | transloco }}</label>
+          <input pInputText type="text" formControlName="customerName" [placeholder]="'sales.newSale.walkIn' | transloco" />
+        </div>
+        <div class="flex flex-col gap-1 flex-1 min-w-48">
+          <label class="text-xs text-slate-500">{{ 'sales.newSale.customerPhone' | transloco }}</label>
+          <input pInputText type="tel" formControlName="customerPhone" placeholder="+91 98765 43210" />
+          @if (customerForm.controls.customerPhone.touched && customerForm.controls.customerPhone.errors?.['pattern']) {
+            <p class="error-hint">{{ 'sales.newSale.invalidPhone' | transloco }}</p>
+          }
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Payment -->
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'sales.newSale.paymentSection' | transloco }}</div>
+      </ng-template>
+
+      <div class="flex gap-4 items-end flex-wrap" [formGroup]="paymentForm">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
+          <p-select
+            formControlName="paymentMethod"
+            [options]="paymentMethods"
+            optionLabel="label"
+            optionValue="value"
+            [placeholder]="'sales.newSale.selectPayment' | transloco"
+          />
+        </div>
+
+        <div class="summary-box flex-1">
+          <div class="flex justify-between text-sm text-slate-600">
+            <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
+            <span>₹{{ totalAmount() | number:'1.2-2' }}</span>
+          </div>
+          <div class="flex justify-between text-sm text-slate-500">
+            <span>{{ 'sales.newSale.tax' | transloco }}</span>
+            <span>₹{{ totalTaxAmount() | number:'1.2-2' }}</span>
+          </div>
+          <div class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1">
+            <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
+            <span>₹{{ totalAmount() | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end mt-4">
+        <p-button
+          [label]="'sales.newSale.recordSale' | transloco"
+          icon="pi pi-check"
+          [disabled]="cart().length === 0 || isSubmitting()"
+          [loading]="isSubmitting()"
+          (click)="onSubmit()"
+          size="large"
+        />
+      </div>
+    </p-card>
+  </div>
+</section>

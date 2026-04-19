@@ -5,4 +5,5 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 public interface ISaleRepository : IRepository<Sale>
 {
     Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Sale>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default);
 }

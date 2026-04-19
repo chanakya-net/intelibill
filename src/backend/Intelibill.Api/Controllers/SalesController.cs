@@ -5,6 +5,8 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Sales.Queries.GetSales;
+using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,6 +52,42 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetSales(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(
+            new GetSalesQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{saleId:guid}")]
+    public async Task<IActionResult> GetSaleDetail(Guid saleId, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<SaleDto>>(
+            new GetSaleDetailQuery(userId.Value, activeShopId.Value, saleId),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
     }
 
     private Guid? GetCurrentUserId()

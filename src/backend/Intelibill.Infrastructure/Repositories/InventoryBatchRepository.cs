@@ -40,4 +40,21 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
                 && itemIds.Contains(b.ItemId)
                 && batchNumbers.Contains(b.BatchNumber))
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<InventoryBatch>> GetAvailableByBarcodeAsync(
+        Guid shopId,
+        string barcode,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedSearchTerm = barcode.Trim();
+        return await DbSet
+            .Include(b => b.Item)
+            .Where(b => b.ShopId == shopId
+                && (b.Item.Barcode == normalizedSearchTerm || EF.Functions.ILike(b.Item.Name, $"%{normalizedSearchTerm}%"))
+                && !b.IsVoided
+                && b.Quantity > 0)
+            .OrderBy(b => b.ExpiryDate)
+            .ThenBy(b => b.BatchNumber)
+            .ToListAsync(cancellationToken);
+    }
 }
