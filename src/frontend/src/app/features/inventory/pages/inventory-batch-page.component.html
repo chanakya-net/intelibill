@@ -363,57 +363,9 @@
     </div>
   </div>
 
-  <p-dialog
+  <app-barcode-scanner-dialog
     [visible]="isScannerOpen()"
     (visibleChange)="onScannerVisibilityChange($event)"
-    [header]="'inventory.scannerTitle' | transloco"
-    [modal]="true"
-    [draggable]="false"
-    [style]="{ width: '100%', maxWidth: '42rem' }"
-  >
-    <div class="scanner-dialog-content">
-      <p class="scanner-subtitle">{{ 'inventory.scannerSubtitle' | transloco }}</p>
-
-      <div class="scanner-preview-shell">
-        <video #scannerVideo class="scanner-video" autoplay muted playsinline></video>
-        <div class="scanner-guides"></div>
-        @if (scannerInitializing()) {
-          <div class="scanner-loading">
-            <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-          </div>
-        }
-      </div>
-
-      <div class="scanner-status-card">
-        <div>
-          <span class="scanner-label">{{ 'inventory.scannerEngine' | transloco }}</span>
-          <strong>{{ scannerEngineLabel() | transloco }}</strong>
-        </div>
-        <div>
-          <span class="scanner-label">{{ 'inventory.scannerLastCode' | transloco }}</span>
-          <strong>{{ scannerLastValue() || ('inventory.scannerIdle' | transloco) }}</strong>
-        </div>
-        <div>
-          <span class="scanner-label">{{ 'inventory.scannerScanCount' | transloco }}</span>
-          <strong>{{ scannerSessionCount() }}</strong>
-        </div>
-      </div>
-
-      @if (scannerLastAction()) {
-        <p class="scanner-feedback">
-          {{ scannerLastAction() | transloco }}
-          @if (scannerLastValue()) {
-            <span>: {{ scannerLastValue() }}</span>
-          }
-          @if (scannerLastFormat()) {
-            <span> ({{ scannerLastFormat() }})</span>
-          }
-        </p>
-      }
-
-      @if (scannerError()) {
-        <p class="scanner-error">{{ scannerError() }}</p>
-      }
-    </div>
-  </p-dialog>
+    (detected)="handleScannedBarcode($event)"
+  />
 </section>

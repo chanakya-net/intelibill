@@ -12,6 +12,9 @@ public static partial class Errors
         public static Error BarcodeRequired =>
             Error.Validation("Inventory.BarcodeRequired", "Barcode is required.");
 
+        public static Error SearchTermRequired =>
+            Error.Validation("Inventory.SearchTermRequired", "Search term is required.");
+
         public static Error UomRequired =>
             Error.Validation("Inventory.UomRequired", "UOM is required.");
 

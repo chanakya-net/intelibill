@@ -10,6 +10,7 @@ using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
+using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -245,6 +246,32 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     {
         var activeShopId = User.FindFirst("active_shop_id")?.Value;
         return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
+    }
+
+    [HttpGet("batches/available")]
+    public async Task<IActionResult> GetAvailableBatches([FromQuery] string? searchTerm, [FromQuery] string? barcode, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var effectiveSearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? barcode : searchTerm;
+
+        if (string.IsNullOrWhiteSpace(effectiveSearchTerm))
+            return new List<Error>
+            {
+                Errors.Inventory.SearchTermRequired
+            }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
+            new GetAvailableBatchesQuery(userId.Value, activeShopId.Value, effectiveSearchTerm),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
     }
 }
 

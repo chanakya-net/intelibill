@@ -12,4 +12,11 @@ internal sealed class SaleRepository(ApplicationDbContext context)
         await DbSet
             .Include(s => s.Items)
             .FirstOrDefaultAsync(s => s.Id == saleId && s.ShopId == shopId, cancellationToken);
+
+    public async Task<IReadOnlyList<Sale>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(s => s.Items)
+            .Where(s => s.ShopId == shopId)
+            .OrderByDescending(s => s.SoldAt)
+            .ToListAsync(cancellationToken);
 }

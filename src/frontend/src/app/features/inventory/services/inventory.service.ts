@@ -183,4 +183,20 @@ export class InventoryService {
   voidInventoryBatch(batchId: string): Observable<void> {
     return this.http.post<void>(`${API_BASE_URL}/inventory/batches/${batchId}/void`, {});
   }
+
+  getAvailableBatchesBySearchTerm(searchTerm: string): Observable<readonly AvailableBatchDto[]> {
+    return this.http.get<readonly AvailableBatchDto[]>(INVENTORY_ENDPOINTS.availableBatches(searchTerm));
+  }
+}
+
+export interface AvailableBatchDto {
+  readonly barcode: string;
+  readonly itemName: string;
+  readonly batchNumber: string;
+  readonly quantity: number;
+  readonly salesPrice: number;
+  readonly mrp: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly expiryDate: string | null;
 }

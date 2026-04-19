@@ -5,6 +5,8 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Sales.Queries.GetSales;
+using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -138,5 +140,76 @@ public class SalesControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSales_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GetSales(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GetSales_WhenActiveShopMissing_ReturnsProblemResult()
+    {
+        var userId = Guid.NewGuid();
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+
+        var result = await _controller.GetSales(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSales_WhenSuccessful_ReturnsOk()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        IReadOnlyList<SaleListItemDto> sales = [];
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SaleListItemDto>>>(sales.ToList()));
+
+        var result = await _controller.GetSales(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sales, ok.Value);
+    }
+
+    [Fact]
+    public async Task GetSaleDetail_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GetSaleDetail(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GetSaleDetail_WhenSuccessful_ReturnsOk()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sale = new SaleDto(saleId, "INV-001", PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 90m, [], []);
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
+
+        var result = await _controller.GetSaleDetail(saleId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sale, ok.Value);
     }
 }

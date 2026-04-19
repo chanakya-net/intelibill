@@ -600,7 +600,7 @@ export class ShellComponent {
 
   onOpenSalesHistory(): void {
     this.onCloseMenus();
-    void this.router.navigate(['/sales/history']);
+    void this.router.navigate(['/sales']);
   }
 
   onOpenManageShop(): void {

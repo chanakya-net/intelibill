@@ -103,4 +103,15 @@ describe('CameraStreamService', () => {
     expect(pause).toHaveBeenCalledTimes(1);
     expect(stop).toHaveBeenCalledTimes(1);
   });
+
+  it('does not throw when detach is called with non-video-like element', () => {
+    TestBed.configureTestingModule({});
+    const service = TestBed.inject(CameraStreamService);
+
+    const invalidElement = { srcObject: null } as unknown as HTMLVideoElement;
+
+    expect(() => service.detachVideo(invalidElement)).not.toThrow();
+    expect(() => service.detachVideo(undefined)).not.toThrow();
+    expect(() => service.detachVideo(null)).not.toThrow();
+  });
 });

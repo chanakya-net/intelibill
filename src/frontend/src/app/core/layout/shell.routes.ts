@@ -13,6 +13,8 @@ import { InventoryEffects } from '../../features/inventory/state/inventory.effec
 import { inventoryFeature } from '../../features/inventory/state/inventory.reducer';
 import { CustomersEffects } from '../../features/customers/state/customers.effects';
 import { customersFeature } from '../../features/customers/state/customers.reducer';
+import { SalesEffects } from '../../features/sales/state/sales.effects';
+import { salesFeature } from '../../features/sales/state/sales.reducer';
 
 export const shellRoutes: Routes = [
 	{
@@ -24,15 +26,31 @@ export const shellRoutes: Routes = [
 			provideState(suppliersFeature),
 			provideState(inventoryFeature),
 			provideState(customersFeature),
+			provideState(salesFeature),
 			provideEffects(
 				ShopsEffects,
 				UsersEffects,
 				SuppliersEffects,
 				InventoryEffects,
-				CustomersEffects
+				CustomersEffects,
+				SalesEffects
 			),
 		],
 		children: [
+			{
+				path: 'sales/new',
+				loadComponent: () =>
+					import('../../features/sales/pages/new-sale-page.component').then(
+						(m) => m.NewSalePageComponent
+					),
+			},
+			{
+				path: 'sales',
+				loadComponent: () =>
+					import('../../features/sales/pages/sales-page.component').then(
+						(m) => m.SalesPageComponent
+					),
+			},
 			{
 				path: 'inventory/batch',
 				loadComponent: () =>

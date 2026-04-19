@@ -45,4 +45,11 @@ export const ITEM_ENDPOINTS = {
 export const INVENTORY_ENDPOINTS = {
   inbound: `${API_BASE_URL}/inventory/inbound`,
   inboundBatch: `${API_BASE_URL}/inventory/inbound/batch`,
+  availableBatches: (searchTerm: string) => `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
+} as const;
+
+export const SALE_ENDPOINTS = {
+  list: `${API_BASE_URL}/sales`,
+  record: `${API_BASE_URL}/sales`,
+  detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
 } as const;

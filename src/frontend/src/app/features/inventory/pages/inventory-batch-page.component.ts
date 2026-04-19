@@ -1,10 +1,9 @@
-import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -30,14 +29,11 @@ import {
   InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { AudioService } from '../../../core/services/audio.service';
-import {
-  BarcodeDetection,
-  BarcodeDetectorService,
-} from '../../../core/services/barcode-detector.service';
-import { CameraStreamService } from '../../../core/services/camera-stream.service';
+import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
+import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
 @Component({
   selector: 'app-inventory-batch-page',
@@ -45,9 +41,9 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
   imports: [
     ReactiveFormsModule,
     TranslocoPipe,
+    BarcodeScannerDialogComponent,
     AutoCompleteModule,
     ButtonModule,
-    DialogModule,
     InputGroupAddonModule,
     InputGroupModule,
     InputNumberModule,
@@ -66,8 +62,6 @@ export class InventoryBatchPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly audioService = inject(AudioService);
-  private readonly barcodeDetectorService = inject(BarcodeDetectorService);
-  private readonly cameraStreamService = inject(CameraStreamService);
   private readonly inventoryService = inject(InventoryService);
   private readonly draftStorage = inject(InventoryDraftIndexedDbService);
   private readonly messageService = inject(MessageService);
@@ -81,12 +75,7 @@ export class InventoryBatchPageComponent {
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
   readonly loadingProduct = signal(false);
-  readonly scannerError = signal('');
-  readonly scannerInitializing = signal(false);
-  readonly scannerLastValue = signal('');
-  readonly scannerLastFormat = signal('');
   readonly scannerLastAction = signal('');
-  readonly scannerLastEngineKey = signal('');
   readonly scannerSessionCount = signal(0);
   readonly nameSuggestions = signal<string[]>([]);
   readonly barcodeSuggestions = signal<string[]>([]);
@@ -97,7 +86,6 @@ export class InventoryBatchPageComponent {
     { label: 'Without Tax', value: false },
   ]);
   readonly suppliers = this.suppliersFacade.suppliers;
-  readonly scannerVideo = viewChild<ElementRef<HTMLVideoElement>>('scannerVideo');
   // PassThrough configurations for PrimeNG components
   readonly editButtonPt = {
     root: {
@@ -139,11 +127,6 @@ export class InventoryBatchPageComponent {
       class: 'sales-price-tax-mode',
     },
   };
-  readonly scannerEngineLabel = computed(
-    () =>
-      this.scannerLastEngineKey() ||
-      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
-  );
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly tableRows = computed(() => [...this.pendingRows()]);
@@ -188,9 +171,6 @@ export class InventoryBatchPageComponent {
     notes: ['', [Validators.maxLength(320)]],
   });
 
-  private scannerStopHandler: (() => void) | null = null;
-  private lastDetectedBarcode = '';
-  private lastDetectedAt = 0;
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -206,21 +186,6 @@ export class InventoryBatchPageComponent {
     });
 
     this.form.controls.batchNumber.setValue(this.generateBatchNumber());
-
-    effect((onCleanup) => {
-      const videoRef = this.scannerVideo();
-      const isScannerOpen = this.isScannerOpen();
-
-      if (!isScannerOpen || !videoRef) {
-        return;
-      }
-
-      void this.startScannerSession(videoRef.nativeElement);
-
-      onCleanup(() => {
-        void this.stopScannerSession(videoRef.nativeElement);
-      });
-    });
   }
 
   onFilterName(event: AutoCompleteCompleteEvent): void {
@@ -253,34 +218,22 @@ export class InventoryBatchPageComponent {
   }
 
   openScanner(): void {
-    this.scannerError.set('');
     this.scannerLastAction.set('');
-    this.scannerLastValue.set('');
-    this.scannerLastFormat.set('');
     this.scannerSessionCount.set(0);
-    this.scannerLastEngineKey.set(
-      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
-    );
     this.isScannerOpen.set(true);
     void this.audioService.prime();
   }
 
   onScannerVisibilityChange(visible: boolean): void {
     this.isScannerOpen.set(visible);
-    if (!visible) {
-      this.scannerError.set('');
-    }
   }
 
   async handleScannedBarcode(detection: BarcodeDetection): Promise<void> {
     const barcode = detection.value.trim();
-    if (!barcode || this.shouldIgnoreScan(barcode)) {
+    if (!barcode) {
       return;
     }
 
-    this.scannerLastValue.set(barcode);
-    this.scannerLastFormat.set(detection.format);
-    this.scannerLastEngineKey.set(this.toScannerEngineKey(detection.engine));
     this.scannerSessionCount.update((count) => count + 1);
 
     const mergedRow = await this.incrementExistingRowQuantity(barcode);
@@ -677,61 +630,6 @@ export class InventoryBatchPageComponent {
     return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
   }
 
-  private async startScannerSession(videoElement: HTMLVideoElement): Promise<void> {
-    if (this.scannerStopHandler) {
-      return;
-    }
-
-    this.scannerInitializing.set(true);
-    this.scannerError.set('');
-    this.scannerLastEngineKey.set(
-      this.toScannerEngineKey(this.barcodeDetectorService.preferredEngine),
-    );
-
-    try {
-      const stream = await this.cameraStreamService.startPreferredCamera();
-      await this.cameraStreamService.attachToVideo(stream, videoElement);
-      this.scannerStopHandler = await this.barcodeDetectorService.start(
-        videoElement,
-        (detection) => {
-          void this.handleScannedBarcode(detection);
-        },
-        () => {
-          this.scannerError.set(this.translate('inventory.scannerDetectionError'));
-        },
-      );
-    } catch (error) {
-      this.scannerError.set(
-        error instanceof Error ? error.message : this.translate('inventory.scannerOpenError'),
-      );
-      this.isScannerOpen.set(false);
-    } finally {
-      this.scannerInitializing.set(false);
-    }
-  }
-
-  private async stopScannerSession(videoElement?: HTMLVideoElement): Promise<void> {
-    this.scannerStopHandler?.();
-    this.scannerStopHandler = null;
-
-    if (videoElement) {
-      this.cameraStreamService.detachVideo(videoElement);
-    }
-
-    this.cameraStreamService.stopCurrentStream();
-  }
-
-  private shouldIgnoreScan(barcode: string): boolean {
-    const now = Date.now();
-    if (this.lastDetectedBarcode === barcode && now - this.lastDetectedAt < 1200) {
-      return true;
-    }
-
-    this.lastDetectedBarcode = barcode;
-    this.lastDetectedAt = now;
-    return false;
-  }
-
   private async incrementExistingRowQuantity(
     barcode: string,
   ): Promise<InventoryInboundDraftRow | null> {
@@ -923,10 +821,6 @@ export class InventoryBatchPageComponent {
       detail: `${barcode} • Qty ${quantity}`,
       life: 2200,
     });
-  }
-
-  private toScannerEngineKey(engine: 'native' | 'zxing'): string {
-    return engine === 'native' ? 'inventory.scannerEngineNative' : 'inventory.scannerEngineZxing';
   }
 
   private translate(key: string): string {
