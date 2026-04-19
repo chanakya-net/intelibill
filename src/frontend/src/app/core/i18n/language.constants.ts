@@ -6,6 +6,8 @@ export const SUPPORTED_LANGUAGES = [
   'bn-IN',
   'ml-IN',
   'kn-IN',
+  'mr-IN',
+  'gu-IN',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -20,4 +22,6 @@ export const NATIVE_LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   'bn-IN': 'বাংলা',
   'ml-IN': 'മലയാളം',
   'kn-IN': 'ಕನ್ನಡ',
+  'mr-IN': 'मराठी',
+  'gu-IN': 'ગુજરાતી',
 };
