@@ -57,7 +57,7 @@ public sealed class ItemsController(
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var count = 0;
 
-        await foreach (var item in itemCatalogStreamingService.StreamByShopAsync(activeShopId.Value, cancellationToken).WithCancellation(cancellationToken))
+        await foreach (var item in itemCatalogStreamingService.StreamByShopAsync(activeShopId.Value, cancellationToken))
         {
             var line = JsonSerializer.Serialize(item, jsonOptions) + "\n";
             await Response.WriteAsync(line, cancellationToken);
