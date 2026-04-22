@@ -1,6 +1,5 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -208,7 +207,8 @@ public sealed class AddInventoryCommandHandler(
             catch (DbUpdateConcurrencyException ex)
             {
                 if (attempt == maxRetries - 1)
-                    throw new InventoryUpdateConflictException(
+                    return Error.Conflict(
+                        "Inventory.UpdateConflict",
                         "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
 
                 foreach (var entry in ex.Entries)
@@ -216,7 +216,8 @@ public sealed class AddInventoryCommandHandler(
             }
         }
 
-        throw new InventoryUpdateConflictException(
+        return Error.Conflict(
+            "Inventory.UpdateConflict",
             "Inventory aggregate could not be updated after max retries.");
     }
 

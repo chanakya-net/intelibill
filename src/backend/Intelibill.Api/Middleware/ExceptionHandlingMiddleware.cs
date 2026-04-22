@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using Intelibill.Application.Common.Exceptions;
 
 namespace Intelibill.Api.Middleware;
 
@@ -46,7 +45,6 @@ public partial class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<E
         {
             ArgumentException => (HttpStatusCode.BadRequest, "Bad Request"),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
-            InventoryUpdateConflictException => (HttpStatusCode.Conflict, "Conflict"),
             _ => (HttpStatusCode.InternalServerError, "Internal Server Error")
         };
 

@@ -108,14 +108,9 @@ public sealed class UpdateInventoryBatchCommandHandler(
             }
             else
             {
-                try
-                {
-                    inventory.SubtractQuantity(Math.Abs(quantityDifference), command.UserId);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Error.Validation("Inventory.InsufficientStock", ex.Message);
-                }
+                var subtractResult = inventory.SubtractQuantity(Math.Abs(quantityDifference), command.UserId);
+                if (subtractResult.IsError)
+                    return subtractResult.Errors;
             }
 
             inventoryRepository.Update(inventory);

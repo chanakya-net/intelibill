@@ -86,7 +86,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             StockTransactionType.Rej => "REJ",
             StockTransactionType.Dmg => "DMG",
             StockTransactionType.Stol => "STOL",
-            _ => throw new InvalidOperationException($"Unsupported transaction type {transactionType}.")
+            StockTransactionType.Reversal => "REV"
         };
     }
 
@@ -101,7 +101,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             "REJ" => StockTransactionType.Rej,
             "DMG" => StockTransactionType.Dmg,
             "STOL" => StockTransactionType.Stol,
-            _ => throw new InvalidOperationException($"Unsupported transaction type code {value}.")
+            "REV" => StockTransactionType.Reversal
         };
     }
 }

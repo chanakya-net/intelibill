@@ -1,5 +1,4 @@
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -290,7 +289,7 @@ public class AddInventoryCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenConcurrencyExhaustsAllRetries_ThrowsInventoryUpdateConflictException()
+    public async Task HandleAsync_WhenConcurrencyExhaustsAllRetries_ReturnsUpdateConflictError()
     {
         SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
@@ -311,8 +310,10 @@ public class AddInventoryCommandHandlerTests
             .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
 
         var handler = CreateHandler();
-        await Assert.ThrowsAsync<InventoryUpdateConflictException>(
-            () => handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None));
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.UpdateConflict", result.FirstError.Code);
 
         await _unitOfWork.Received(3).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
