@@ -53,3 +53,11 @@ export const SALE_ENDPOINTS = {
   record: `${API_BASE_URL}/sales`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
 } as const;
+
+export const EXPENSE_ENDPOINTS = {
+  list: `${API_BASE_URL}/expenses`,
+  record: `${API_BASE_URL}/expenses`,
+  detail: (expenseId: string) => `${API_BASE_URL}/expenses/${expenseId}`,
+  correct: (expenseId: string) => `${API_BASE_URL}/expenses/${expenseId}/correct`,
+  categories: `${API_BASE_URL}/expenses/categories`,
+} as const;
