@@ -3,7 +3,6 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { filter } from 'rxjs/operators';
 
-import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -19,7 +18,6 @@ import { ExpensesFacade } from '../state/expenses.facade';
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
-    TranslocoPipe,
   ],
   templateUrl: './record-expense-overlay.component.html',
 })
@@ -34,7 +32,7 @@ export class RecordExpenseOverlayComponent implements OnInit {
     initialValue: false,
   });
   readonly serverError = toSignal(this.expensesFacade.error$, {
-    initialValue: null as string | null,
+    initialValue: '',
   });
 
   @Output() readonly close = new EventEmitter<void>();
