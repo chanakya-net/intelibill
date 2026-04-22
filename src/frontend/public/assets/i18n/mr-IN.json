@@ -81,7 +81,8 @@
     "addShop": "दुकान जोडा",
     "manageShop": "दुकान व्यवस्थापित करा",
     "language": "भाषा",
-    "logout": "लॉगआउट"
+    "logout": "लॉगआउट",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "टीम प्रवेश",
@@ -518,5 +519,17 @@
       "totalPrice": "एकूण किंमत",
       "unknownItem": "अज्ञात वस्तू"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

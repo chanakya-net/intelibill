@@ -81,7 +81,8 @@
     "addShop": "દુકાન ઉમેરો",
     "manageShop": "દુકાન સંચાલિત કરો",
     "language": "ભાષા",
-    "logout": "લૉગ આઉટ"
+    "logout": "લૉગ આઉટ",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "ટીમ એક્સેસ",
@@ -518,5 +519,17 @@
       "totalPrice": "કુલ કિંમત",
       "unknownItem": "અજ્ઞાત વસ્તુ"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

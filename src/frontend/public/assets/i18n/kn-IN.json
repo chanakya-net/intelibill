@@ -81,7 +81,8 @@
     "addShop": "ಅಂಗಡಿ ಸೇರಿಸಿ",
     "manageShop": "ಅಂಗಡಿ ನಿರ್ವಹಿಸಿ",
     "language": "ಭಾಷೆ",
-    "logout": "ಲಾಗ್‌ಔಟ್"
+    "logout": "ಲಾಗ್‌ಔಟ್",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "ತಂಡ ಪ್ರವೇಶ",
@@ -517,5 +518,17 @@
       "totalPrice": "ಒಟ್ಟು ಬೆಲೆ",
       "unknownItem": "ಅಪರಿಚಿತ ಐಟಂ"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

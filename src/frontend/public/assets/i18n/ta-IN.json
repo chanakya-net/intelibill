@@ -81,7 +81,8 @@
     "addShop": "கடை சேர்க்க",
     "manageShop": "கடை நிர்வகி",
     "language": "மொழி",
-    "logout": "வெளியேறு"
+    "logout": "வெளியேறு",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "குழு அணுகல்",
@@ -517,5 +518,17 @@
       "totalPrice": "மொத்த விலை",
       "unknownItem": "அறியாத பொருள்"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

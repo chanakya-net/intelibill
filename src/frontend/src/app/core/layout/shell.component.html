@@ -203,6 +203,18 @@
             </button>
           </div>
         }
+        @if (canManageExpenses()) {
+          <div class="mobile-nav-section">
+            <button
+              type="button"
+              class="mobile-nav-item"
+              (click)="onNavigateToExpenses(); closeMobileMenu()"
+            >
+              <i class="pi pi-wallet" aria-hidden="true"></i>
+              <span>{{ 'shell.manageExpenses' | transloco }}</span>
+            </button>
+          </div>
+        }
         <div class="mobile-nav-section">
           <button
             type="button"

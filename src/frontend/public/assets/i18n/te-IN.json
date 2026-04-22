@@ -81,7 +81,8 @@
     "addShop": "దుకాణం జోడించండి",
     "manageShop": "దుకాణం నిర్వహించండి",
     "language": "భాష",
-    "logout": "లాగౌట్"
+    "logout": "లాగౌట్",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "టీమ్ యాక్సెస్",
@@ -517,5 +518,17 @@
       "totalPrice": "మొత్తం ధర",
       "unknownItem": "తెలియని ఐటెమ్"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

@@ -81,7 +81,8 @@
     "addShop": "Add Shop",
     "manageShop": "Manage Shop",
     "language": "Language",
-    "logout": "Logout"
+    "logout": "Logout",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "Team Access",
@@ -518,5 +519,17 @@
       "totalPrice": "Total Price",
       "unknownItem": "Unknown Item"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }
