@@ -1,6 +1,5 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -85,12 +84,15 @@ public sealed class VoidBatchCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        await SubtractInventoryWithRetryAsync(
+        var subtractResult = await SubtractInventoryWithRetryAsync(
             command.ActiveShopId,
             itemId,
             remainingQuantity,
             command.ActorUserId,
             cancellationToken);
+
+        if (subtractResult.IsError)
+            return subtractResult.Errors;
 
         return new VoidBatchResultDto(
             batch.Id,
@@ -99,7 +101,7 @@ public sealed class VoidBatchCommandHandler(
             ledgerReversalAmount);
     }
 
-    private async Task SubtractInventoryWithRetryAsync(
+    private async Task<ErrorOr<Success>> SubtractInventoryWithRetryAsync(
         Guid shopId,
         Guid itemId,
         decimal quantityToSubtract,
@@ -113,18 +115,22 @@ public sealed class VoidBatchCommandHandler(
             {
                 var inventory = await inventoryRepository.GetByItemAsync(shopId, itemId, ct);
                 if (inventory is null)
-                    throw new InvalidOperationException("Inventory aggregate inconsistency detected on void");
+                    return Errors.Inventory.InventoryAggregateNotFound;
 
-                inventory.SubtractQuantity(quantityToSubtract, actorUserId);
+                var subtractResult = inventory.SubtractQuantity(quantityToSubtract, actorUserId);
+                if (subtractResult.IsError)
+                    return subtractResult.Errors;
+
                 inventoryRepository.Update(inventory);
 
                 await unitOfWork.SaveChangesAsync(ct);
-                return;
+                return Result.Success;
             }
             catch (DbUpdateConcurrencyException ex)
             {
                 if (attempt == maxRetries - 1)
-                    throw new InventoryUpdateConflictException(
+                    return Error.Conflict(
+                        "Inventory.UpdateConflict",
                         "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
 
                 foreach (var entry in ex.Entries)
@@ -132,7 +138,8 @@ public sealed class VoidBatchCommandHandler(
             }
         }
 
-        throw new InventoryUpdateConflictException(
+        return Error.Conflict(
+            "Inventory.UpdateConflict",
             "Inventory aggregate could not be updated after max retries.");
     }
 }

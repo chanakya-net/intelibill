@@ -1,5 +1,4 @@
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Exceptions;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -168,7 +167,7 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenInventoryGoesNegative_ThrowsInvalidOperationException()
+    public async Task HandleAsync_WhenInventoryGoesNegative_ReturnsInsufficientStockError()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -184,7 +183,10 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var handler = CreateHandler();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None));
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.InsufficientStock", result.FirstError.Code);
     }
 
     [Fact]
@@ -221,7 +223,7 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenVoidConcurrencyExhaustsAllRetries_ThrowsInventoryUpdateConflictException()
+    public async Task HandleAsync_WhenVoidConcurrencyExhaustsAllRetries_ReturnsUpdateConflictError()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -239,8 +241,10 @@ public class VoidBatchCommandHandlerTests
             .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
 
         var handler = CreateHandler();
-        await Assert.ThrowsAsync<InventoryUpdateConflictException>(
-            () => handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None));
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.UpdateConflict", result.FirstError.Code);
 
         await _unitOfWork.Received(3).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

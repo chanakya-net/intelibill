@@ -75,21 +75,23 @@ public sealed class Inventory : BaseEntity
         return Result.Success;
     }
 
-    public void SubtractQuantity(decimal quantityToSubtract, Guid updatedBy)
+    public ErrorOr<Success> SubtractQuantity(decimal quantityToSubtract, Guid updatedBy)
     {
         if (quantityToSubtract < 0)
         {
-            throw new InvalidOperationException("Quantity to subtract cannot be negative.");
+            return Error.Validation("Inventory.QuantitySubtractionInvalid", "Quantity to subtract cannot be negative.");
         }
 
         if (Quantity - quantityToSubtract < 0)
         {
-            throw new InvalidOperationException("Inventory aggregate inconsistency detected on void");
+            return Error.Conflict("Inventory.InsufficientStock", "Not enough stock available for this operation.");
         }
 
         Quantity -= quantityToSubtract;
         LastUpdatedAt = DateTimeOffset.UtcNow;
         UpdatedBy = updatedBy;
+
+        return Result.Success;
     }
 
     public void MarkUpdatedBy(Guid updatedBy)

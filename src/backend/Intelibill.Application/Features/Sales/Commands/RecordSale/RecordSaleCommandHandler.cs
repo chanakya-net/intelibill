@@ -89,7 +89,9 @@ public sealed class RecordSaleCommandHandler(
         {
             var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
             if (batchResult.IsError) return batchResult.Errors;
-            inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+
+            var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+            if (inventoryResult.IsError) return inventoryResult.Errors;
 
             var txResult = StockTransaction.Create(
                 command.ShopId,

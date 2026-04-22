@@ -71,7 +71,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             SupplierLedgerEntryType.GoodsReceived => "GOODS_RECEIVED",
             SupplierLedgerEntryType.PaymentMade => "PAYMENT_MADE",
             SupplierLedgerEntryType.RecordAdjusted => "RECORD_ADJUSTED",
-            _ => throw new InvalidOperationException($"Unsupported supplier ledger entry type {entryType}.")
+            SupplierLedgerEntryType.Reversal => "REVERSAL"
         };
     }
 
@@ -82,7 +82,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             "GOODS_RECEIVED" => SupplierLedgerEntryType.GoodsReceived,
             "PAYMENT_MADE" => SupplierLedgerEntryType.PaymentMade,
             "RECORD_ADJUSTED" => SupplierLedgerEntryType.RecordAdjusted,
-            _ => throw new InvalidOperationException($"Unsupported supplier ledger entry type code {value}.")
+            "REVERSAL" => SupplierLedgerEntryType.Reversal
         };
     }
 }
