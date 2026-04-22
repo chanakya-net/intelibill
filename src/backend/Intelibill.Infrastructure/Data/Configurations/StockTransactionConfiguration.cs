@@ -86,7 +86,8 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             StockTransactionType.Rej => "REJ",
             StockTransactionType.Dmg => "DMG",
             StockTransactionType.Stol => "STOL",
-            StockTransactionType.Reversal => "REV"
+            StockTransactionType.Reversal => "REV",
+            _ => throw new ArgumentOutOfRangeException(nameof(transactionType), transactionType, null)
         };
     }
 
@@ -101,7 +102,8 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             "REJ" => StockTransactionType.Rej,
             "DMG" => StockTransactionType.Dmg,
             "STOL" => StockTransactionType.Stol,
-            "REV" => StockTransactionType.Reversal
+            "REV" => StockTransactionType.Reversal,
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }
 }
