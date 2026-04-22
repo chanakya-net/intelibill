@@ -71,6 +71,10 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<ISupplierLedgerEntryRepository>();
             services.AddScoped<ISupplierLedgerEntryRepository, SqliteSupplierLedgerEntryRepository>();
 
+            // SQLite cannot translate DateTimeOffset in ORDER BY clauses.
+            services.RemoveAll<IExpenseRepository>();
+            services.AddScoped<IExpenseRepository, SqliteExpenseRepository>();
+
             // Replace Postgres-backed distributed cache in tests so rate-limit
             // checks on auth endpoints do not depend on external infrastructure.
             services.RemoveAll<IDistributedCache>();
@@ -162,6 +166,66 @@ internal sealed class SqliteSupplierLedgerEntryRepository(ApplicationDbContext c
 
         return goodsReceived - paymentMade;
     }
+}
+
+/// <summary>
+/// SQLite-compatible expense repository that evaluates DateTimeOffset
+/// ordering on the client side, since SQLite cannot translate DateTimeOffset in ORDER BY clauses.
+/// </summary>
+internal sealed class SqliteExpenseRepository(ApplicationDbContext context) : IExpenseRepository
+{
+    public async Task<Expense?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        await context.Expenses
+            .Include(e => e.Category)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Expense>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken) =>
+        await context.Expenses
+            .Include(e => e.Category)
+            .Where(e => e.ShopId == shopId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<(IReadOnlyList<Expense> Items, int TotalCount)> GetPagedByShopAsync(
+        Guid shopId,
+        string? searchTerm,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = context.Expenses
+            .Include(e => e.Category)
+            .Where(e => e.ShopId == shopId)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            query = query.Where(e =>
+                EF.Functions.Like(e.PaidTo, $"%{term}%") ||
+                EF.Functions.Like(e.Description!, $"%{term}%") ||
+                EF.Functions.Like(e.Category.Name, $"%{term}%"));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .ToListAsync(cancellationToken);
+
+        var orderedItems = items
+            .OrderByDescending(e => e.ExpenseDate)
+            .ThenByDescending(e => e.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return (orderedItems, totalCount);
+    }
+
+    public async Task AddAsync(Expense expense, CancellationToken cancellationToken) =>
+        await context.Expenses.AddAsync(expense, cancellationToken);
+
+    public void Update(Expense expense) =>
+        context.Expenses.Update(expense);
 }
 
 internal sealed class NoOpDistributedCache : IDistributedCache
