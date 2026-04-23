@@ -134,6 +134,122 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("customers", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly>("ExpenseDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expense_date");
+
+                    b.Property<bool>("IsVoided")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_voided");
+
+                    b.Property<Guid?>("OriginalExpenseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("original_expense_id");
+
+                    b.Property<string>("PaidTo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("paid_to");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expenses");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_expenses_category_id");
+
+                    b.HasIndex("OriginalExpenseId")
+                        .HasDatabaseName("ix_expenses_original_expense_id");
+
+                    b.HasIndex("ShopId", "ExpenseDate")
+                        .HasDatabaseName("ix_expenses_shop_id_expense_date");
+
+                    b.HasIndex("ShopId", "IsVoided")
+                        .HasDatabaseName("ix_expenses_shop_id_is_voided");
+
+                    b.HasIndex("ShopId", "PaidTo")
+                        .HasDatabaseName("ix_expenses_shop_id_paid_to");
+
+                    b.ToTable("expenses", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_expenses_amount_positive", "amount > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ExpenseCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_categories");
+
+                    b.HasIndex("ShopId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_expense_categories_shop_id_name");
+
+                    b.ToTable("expense_categories", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Inventory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1188,6 +1304,41 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_customers_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ExpenseCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expenses_expense_categories_category_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Expense", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalExpenseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_expenses_expenses_original_expense_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_expenses_shops_shop_id");
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ExpenseCategory", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_categories_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Inventory", b =>

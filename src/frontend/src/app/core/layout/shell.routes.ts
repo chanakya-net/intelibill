@@ -15,6 +15,8 @@ import { CustomersEffects } from '../../features/customers/state/customers.effec
 import { customersFeature } from '../../features/customers/state/customers.reducer';
 import { SalesEffects } from '../../features/sales/state/sales.effects';
 import { salesFeature } from '../../features/sales/state/sales.reducer';
+import { ExpensesEffects } from '../../features/expenses/state/expenses.effects';
+import { expensesFeature } from '../../features/expenses/state/expenses.reducer';
 
 export const shellRoutes: Routes = [
 	{
@@ -27,13 +29,15 @@ export const shellRoutes: Routes = [
 			provideState(inventoryFeature),
 			provideState(customersFeature),
 			provideState(salesFeature),
+			provideState(expensesFeature),
 			provideEffects(
 				ShopsEffects,
 				UsersEffects,
 				SuppliersEffects,
 				InventoryEffects,
 				CustomersEffects,
-				SalesEffects
+				SalesEffects,
+				ExpensesEffects
 			),
 		],
 		children: [
@@ -49,6 +53,13 @@ export const shellRoutes: Routes = [
 				loadComponent: () =>
 					import('../../features/sales/pages/sales-page.component').then(
 						(m) => m.SalesPageComponent
+					),
+			},
+			{
+				path: 'expenses',
+				loadComponent: () =>
+					import('../../features/expenses/pages/expenses-page.component').then(
+						(m) => m.ExpensesPageComponent
 					),
 			},
 			{

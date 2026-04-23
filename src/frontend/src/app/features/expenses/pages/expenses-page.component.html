@@ -1,0 +1,214 @@
+<section class="expenses-page">
+  <header class="expenses-header">
+    <div>
+      <p class="eyebrow">Expenses</p>
+      <h1>Expenses</h1>
+      <p class="subtitle">Manage and track your business expenses</p>
+    </div>
+
+    @if (canManageExpenses()) {
+      <button
+        pButton
+        type="button"
+        label="Record Expense"
+        icon="pi pi-plus"
+        (click)="openRecordOverlay()"
+      ></button>
+    }
+  </header>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!loading()) {
+    <div class="search-bar">
+      <p-iconfield iconPosition="left" class="search-field">
+        <p-inputicon>
+          <i class="pi pi-search"></i>
+        </p-inputicon>
+        <input
+          pInputText
+          type="text"
+          [(ngModel)]="searchValue"
+          placeholder="Search expenses..."
+          class="w-full"
+          (keyup.enter)="onSearch()"
+        />
+      </p-iconfield>
+      <p-button
+        icon="pi pi-search"
+        severity="secondary"
+        (click)="onSearch()"
+      ></p-button>
+    </div>
+
+    <!-- Mobile Stacked List (≤1023px) -->
+    <div class="mobile-grid-container">
+      <div class="expense-list flex flex-col gap-3 px-1">
+        @for (expense of expenses(); track expense.id) {
+          <p-card class="expense-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ expense.categoryName }}
+                </div>
+                <div class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                  {{ expense.paidTo }}
+                </div>
+                <div class="text-slate-400 text-xs">
+                  {{ expense.expenseDate | date: 'mediumDate' }}
+                </div>
+              </div>
+
+              <div class="flex flex-col items-end gap-2">
+                <span class="font-bold text-slate-800 text-sm">
+                  {{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}
+                </span>
+
+                @if (expense.isVoided) {
+                  <p-tag severity="danger" value="Voided"></p-tag>
+                } @else {
+                  <p-tag severity="success" value="Active"></p-tag>
+                }
+
+                @if (canManageExpenses() && !expense.isVoided) {
+                  <p-button
+                    label="Correct"
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    (click)="openCorrectOverlay(expense.id)"
+                  ></p-button>
+                }
+              </div>
+            </div>
+          </p-card>
+        }
+
+        @if (expenses().length === 0) {
+          <div class="mobile-empty-state">
+            <h2 class="text-xl font-bold text-slate-700">No expenses found</h2>
+            <p class="text-slate-500">Try adjusting your search or record a new expense.</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="expenses-table-card desktop-table">
+      <p-table
+        [value]="expenses()"
+        [sortField]="'expenseDate'"
+        [sortOrder]="-1"
+        [scrollable]="true"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="categoryName">
+              Category <p-sortIcon field="categoryName" />
+            </th>
+            <th pSortableColumn="paidTo">
+              Paid To <p-sortIcon field="paidTo" />
+            </th>
+            <th pSortableColumn="amount">
+              Amount <p-sortIcon field="amount" />
+            </th>
+            <th pSortableColumn="expenseDate">
+              Date <p-sortIcon field="expenseDate" />
+            </th>
+            <th>Status</th>
+            @if (canManageExpenses()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-expense>
+          <tr>
+            <td>{{ expense.categoryName }}</td>
+            <td>{{ expense.paidTo }}</td>
+            <td>{{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}</td>
+            <td>{{ expense.expenseDate | date: 'mediumDate' }}</td>
+            <td>
+              @if (expense.isVoided) {
+                <p-tag severity="danger" value="Voided"></p-tag>
+              } @else {
+                <p-tag severity="success" value="Active"></p-tag>
+              }
+            </td>
+            @if (canManageExpenses()) {
+              <td>
+                @if (!expense.isVoided) {
+                  <button
+                    pButton
+                    type="button"
+                    label="Correct"
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    (click)="openCorrectOverlay(expense.id)"
+                  ></button>
+                }
+              </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="5 + (canManageExpenses() ? 1 : 0)">
+              <div class="empty-state">
+                <h2>No expenses found</h2>
+                <p>Try adjusting your search or record a new expense.</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      @if (pagination().totalCount > pagination().pageSize) {
+        <div class="pagination-controls">
+          <p-button
+            icon="pi pi-chevron-left"
+            [disabled]="pagination().currentPage <= 1"
+            (click)="onPageChange(pagination().currentPage - 1)"
+            severity="secondary"
+            [text]="true"
+          ></p-button>
+          <span class="page-info">
+            Page {{ pagination().currentPage }} of {{ totalPages() }}
+          </span>
+          <p-button
+            icon="pi pi-chevron-right"
+            [disabled]="pagination().currentPage * pagination().pageSize >= pagination().totalCount"
+            (click)="onPageChange(pagination().currentPage + 1)"
+            severity="secondary"
+            [text]="true"
+          ></p-button>
+        </div>
+      }
+    </div>
+  }
+
+  @if (showRecordOverlay()) {
+    <app-record-expense-overlay (close)="closeRecordOverlay()"></app-record-expense-overlay>
+  }
+
+  @if (showCorrectOverlay() && selectedExpense()) {
+    <app-correct-expense-overlay
+      [expenseId]="selectedExpenseId()!"
+      [originalExpense]="selectedExpense()!"
+      (close)="closeCorrectOverlay()"
+    ></app-correct-expense-overlay>
+  }
+</section>

@@ -81,7 +81,8 @@
     "addShop": "दुकान जोड़ें",
     "manageShop": "दुकान प्रबंधित करें",
     "language": "भाषा",
-    "logout": "लॉगआउट"
+    "logout": "लॉगआउट",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "टीम एक्सेस",
@@ -445,7 +446,8 @@
       "unableToUpdateBankDetails": "अभी बैंक विवरण सहेजा नहीं जा सका। कृपया फिर प्रयास करें।",
       "ifscCodeInvalid": "मान्य भारतीय IFSC कोड दर्ज करें।",
       "bankAccountTypeInvalid": "खाते का प्रकार बचत या चालू होना चाहिए।"
-    }  },
+    }
+  },
   "sales": {
     "history": {
       "eyebrow": "बिक्री",
@@ -515,5 +517,18 @@
       "taxAmount": "कर राशि",
       "totalPrice": "कुल मूल्य",
       "unknownItem": "अज्ञात आइटम"
-    }  }
+    }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
+  }
 }

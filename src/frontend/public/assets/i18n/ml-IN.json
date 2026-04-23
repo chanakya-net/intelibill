@@ -81,7 +81,8 @@
     "addShop": "കട ചേർക്കുക",
     "manageShop": "കട നിയന്ത്രിക്കുക",
     "language": "ഭാഷ",
-    "logout": "ലോഗ്ഔട്ട്"
+    "logout": "ലോഗ്ഔട്ട്",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "ടീം ആക്സസ്",
@@ -517,5 +518,17 @@
       "totalPrice": "മൊത്തം വില",
       "unknownItem": "അറിയാത്ത ഇനം"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

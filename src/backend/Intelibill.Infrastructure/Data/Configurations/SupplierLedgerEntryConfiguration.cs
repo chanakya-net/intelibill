@@ -71,7 +71,8 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             SupplierLedgerEntryType.GoodsReceived => "GOODS_RECEIVED",
             SupplierLedgerEntryType.PaymentMade => "PAYMENT_MADE",
             SupplierLedgerEntryType.RecordAdjusted => "RECORD_ADJUSTED",
-            SupplierLedgerEntryType.Reversal => "REVERSAL"
+            SupplierLedgerEntryType.Reversal => "REVERSAL",
+            _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)
         };
     }
 
@@ -82,7 +83,8 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             "GOODS_RECEIVED" => SupplierLedgerEntryType.GoodsReceived,
             "PAYMENT_MADE" => SupplierLedgerEntryType.PaymentMade,
             "RECORD_ADJUSTED" => SupplierLedgerEntryType.RecordAdjusted,
-            "REVERSAL" => SupplierLedgerEntryType.Reversal
+            "REVERSAL" => SupplierLedgerEntryType.Reversal,
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }
 }

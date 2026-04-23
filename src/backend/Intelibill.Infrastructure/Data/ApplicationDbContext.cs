@@ -28,6 +28,8 @@ public class ApplicationDbContext(
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

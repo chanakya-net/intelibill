@@ -81,7 +81,8 @@
     "addShop": "দোকান যোগ করুন",
     "manageShop": "দোকান ব্যবস্থাপনা",
     "language": "ভাষা",
-    "logout": "লগআউট"
+    "logout": "লগআউট",
+    "manageExpenses": "Expenses"
   },
   "users": {
     "teamAccess": "টিম অ্যাক্সেস",
@@ -517,5 +518,17 @@
       "totalPrice": "মোট মূল্য",
       "unknownItem": "অজানা আইটেম"
     }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "recordExpense": "Record Expense",
+    "correctExpense": "Correct Expense",
+    "category": "Category",
+    "paidTo": "Paid To",
+    "amount": "Amount",
+    "expenseDate": "Date",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "searchPlaceholder": "Search expenses..."
   }
 }

@@ -1,0 +1,119 @@
+.expenses-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.expenses-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #b45309;
+}
+
+h1 {
+  margin: 0.3rem 0 0;
+  font-size: 1.75rem;
+  color: #1f2937;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: #57534e;
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.search-field {
+  flex: 1;
+}
+
+.expenses-table-card {
+  border: 1px solid #fdba74;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  overflow: hidden;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.page-info {
+  color: #57534e;
+  font-size: 0.875rem;
+}
+
+/* Mobile grid — hidden on desktop */
+.mobile-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.desktop-table {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .mobile-grid-container {
+    display: none;
+  }
+
+  .desktop-table {
+    display: block;
+  }
+}
+
+@media (max-width: 1023px) {
+  .mobile-search-field {
+    width: 100%;
+  }
+
+  .mobile-empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #292524;
+}
+
+.empty-state p {
+  margin: 0.4rem 0 0;
+  color: #57534e;
+}

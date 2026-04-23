@@ -114,6 +114,13 @@ export class ShellComponent {
         ],
       });
     }
+    if (this.canManageExpenses()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageExpenses'),
+        icon: 'pi pi-wallet',
+        command: () => this.onNavigateToExpenses(),
+      });
+    }
     // Add more global menu items as needed
     return items;
   });
@@ -209,6 +216,14 @@ export class ShellComponent {
     // All roles (Owner, Manager, Staff) can manage sales
     const role = activeShop.role.toLowerCase();
     return role === 'owner' || role === 'manager' || role === 'staff';
+  });
+  readonly canManageExpenses = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+    const role = activeShop.role.toLowerCase();
+    return role === 'owner' || role === 'manager';
   });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
@@ -601,6 +616,11 @@ export class ShellComponent {
   onOpenSalesHistory(): void {
     this.onCloseMenus();
     void this.router.navigate(['/sales']);
+  }
+
+  onNavigateToExpenses(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/expenses']);
   }
 
   onOpenManageShop(): void {
