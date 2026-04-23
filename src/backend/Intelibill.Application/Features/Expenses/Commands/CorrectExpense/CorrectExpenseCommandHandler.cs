@@ -80,5 +80,6 @@ public sealed class CorrectExpenseCommandHandler(
             e.ActorUserId,
             e.IsVoided,
             e.OriginalExpenseId,
+            e.SupplierLedgerEntryId,
             e.CreatedAt);
 }

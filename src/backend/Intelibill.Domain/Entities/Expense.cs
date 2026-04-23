@@ -13,6 +13,7 @@ public sealed class Expense : BaseEntity
     public Guid ActorUserId { get; private set; }
     public bool IsVoided { get; private set; }
     public Guid? OriginalExpenseId { get; private set; }
+    public Guid? SupplierLedgerEntryId { get; private set; }
 
     public ExpenseCategory Category { get; private set; } = null!;
 
@@ -54,6 +55,21 @@ public sealed class Expense : BaseEntity
     {
         var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId);
         expense.OriginalExpenseId = originalExpenseId;
+        return expense;
+    }
+
+    public static Expense CreateFromSupplierPayment(
+        Guid shopId,
+        Guid categoryId,
+        decimal amount,
+        string paidTo,
+        string? description,
+        DateOnly expenseDate,
+        Guid actorUserId,
+        Guid? supplierLedgerEntryId)
+    {
+        var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId);
+        expense.SupplierLedgerEntryId = supplierLedgerEntryId;
         return expense;
     }
 

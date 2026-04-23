@@ -87,4 +87,37 @@ public class ExpenseTests
         Assert.Equal(originalId, expense.OriginalExpenseId);
         Assert.False(expense.IsVoided);
     }
+
+    [Fact]
+    public void CreateFromSupplierPayment_SetsSupplierLedgerEntryId()
+    {
+        var ledgerEntryId = Guid.NewGuid();
+        var expense = Expense.CreateFromSupplierPayment(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            250m,
+            "Supplier A",
+            "Payment",
+            new DateOnly(2026, 4, 20),
+            Guid.NewGuid(),
+            ledgerEntryId);
+
+        Assert.Equal(ledgerEntryId, expense.SupplierLedgerEntryId);
+    }
+
+    [Fact]
+    public void CreateFromSupplierPayment_NullSupplierLedgerEntryId_Allowed()
+    {
+        var expense = Expense.CreateFromSupplierPayment(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            250m,
+            "Supplier A",
+            "Payment",
+            new DateOnly(2026, 4, 20),
+            Guid.NewGuid(),
+            null);
+
+        Assert.Null(expense.SupplierLedgerEntryId);
+    }
 }

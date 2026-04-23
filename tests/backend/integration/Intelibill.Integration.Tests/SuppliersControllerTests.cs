@@ -268,6 +268,77 @@ public class SuppliersControllerTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
+    public async Task MakePayment_CreatesExpenseInBackground()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+
+        using var addRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
+        addRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        addRequest.Content = JsonContent.Create(new
+        {
+            name = "Fresh Foods",
+            contactPersonName = "Ramesh",
+            contactPersonPhone = "+919999999999",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pin = "560001",
+            isActive = true,
+            isPreferred = true,
+        });
+        await client.SendAsync(addRequest);
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/suppliers");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var listResponse = await client.SendAsync(listRequest);
+        var suppliers = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var supplierId = suppliers[0].GetProperty("supplierId").GetGuid();
+
+        using var paymentRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/suppliers/{supplierId}/payments");
+        paymentRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        paymentRequest.Content = JsonContent.Create(new
+        {
+            amount = 1500.50m,
+            paymentDate = "2024-01-01",
+            notes = "Advance payment"
+        });
+
+        var paymentResponse = await client.SendAsync(paymentRequest);
+        Assert.Equal(HttpStatusCode.OK, paymentResponse.StatusCode);
+
+        var paymentBody = await paymentResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var ledgerEntryId = paymentBody.GetProperty("id").GetGuid();
+
+        using var expensesRequest = new HttpRequestMessage(HttpMethod.Get, "/api/expenses");
+        expensesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var expensesResponse = await client.SendAsync(expensesRequest);
+        Assert.Equal(HttpStatusCode.OK, expensesResponse.StatusCode);
+
+        var expensesBody = await expensesResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var items = expensesBody.GetProperty("items");
+        Assert.True(items.GetArrayLength() >= 1);
+
+        var expense = items.EnumerateArray()
+            .FirstOrDefault(e => e.GetProperty("amount").GetDecimal() == 1500.50m);
+        Assert.NotEqual(default, expense);
+        Assert.Equal("Supplier Payments", expense.GetProperty("categoryName").GetString());
+        Assert.Equal("Supplier", expense.GetProperty("paidTo").GetString());
+
+        var expenseId = expense.GetProperty("id").GetGuid();
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/expenses/{expenseId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailResponse = await client.SendAsync(detailRequest);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1500.50m, detail.GetProperty("amount").GetDecimal());
+        Assert.Equal("Advance payment", detail.GetProperty("description").GetString());
+        Assert.Equal(ledgerEntryId, detail.GetProperty("supplierLedgerEntryId").GetGuid());
+    }
+
+    [Fact]
     public async Task GetSuppliers_BalanceDue_ReflectsPaymentMadeEntries()
     {
         using var client = CreateClient();

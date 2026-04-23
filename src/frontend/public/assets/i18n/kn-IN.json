@@ -520,15 +520,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "ಖರ್ಚುಗಳು",
+    "subtitle": "ನಿಮ್ಮ ವ್ಯವಹಾರ ಖರ್ಚುಗಳನ್ನು ನಿರ್ವಹಿಸಿ ಮತ್ತು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+    "recordExpense": "ಖರ್ಚು ದಾಖಲಿಸಿ",
+    "recordExpenseDescription": "ಕೆಳಗೆ ಖರ್ಚಿನ ವಿವರಗಳನ್ನು ನಮೂದಿಸಿ.",
+    "correctExpense": "ಖರ್ಚು ತಿದ್ದು",
+    "correctExpenseDescription": "ಕೆಳಗೆ ಖರ್ಚಿನ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ.",
+    "correctShort": "ತಿದ್ದು",
+    "category": "ವರ್ಗ",
+    "paidTo": "ಪಾವತಿಸಿದವರಿಗೆ",
+    "amount": "ಮೊತ್ತ",
+    "status": "ಸ್ಥಿತಿ",
+    "active": "ಸಕ್ರಿಯ",
+    "voided": "ರದ್ದುಗೊಂಡ",
+    "expenseDate": "ದಿನಾಂಕ",
+    "description": "ವಿವರಣೆ",
+    "noExpenses": "ಯಾವುದೇ ಖರ್ಚುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noExpensesDescription": "ಹುಡುಕಾಟವನ್ನು ಬದಲಿಸಿ ಅಥವಾ ಹೊಸ ಖರ್ಚು ದಾಖಲಿಸಿ.",
+    "searchPlaceholder": "ಖರ್ಚುಗಳನ್ನು ಹುಡುಕಿ...",
+    "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}"
   }
 }

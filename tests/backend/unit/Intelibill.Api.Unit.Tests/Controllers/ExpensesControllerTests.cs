@@ -56,6 +56,7 @@ public class ExpensesControllerTests
             Guid.NewGuid(),
             false,
             null,
+            null,
             DateTimeOffset.UtcNow);
 
     [Fact]

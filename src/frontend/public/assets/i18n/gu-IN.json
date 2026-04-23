@@ -521,15 +521,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "ખર્ચ",
+    "subtitle": "તમારા વ્યવસાયના ખર્ચનું સંચાલન અને ટ્રેક કરો",
+    "recordExpense": "ખર્ચ નોંધો",
+    "recordExpenseDescription": "નીચે ખર્ચની વિગતો દાખલ કરો.",
+    "correctExpense": "ખર્ચ સુધારો",
+    "correctExpenseDescription": "નીચે ખર્ચની વિગતો અપડેટ કરો.",
+    "correctShort": "સુધારો",
+    "category": "શ્રેણી",
+    "paidTo": "જેને ચૂકવ્યું",
+    "amount": "રકમ",
+    "status": "સ્થિતિ",
+    "active": "સક્રિય",
+    "voided": "રદ",
+    "expenseDate": "તારીખ",
+    "description": "વર્ણન",
+    "noExpenses": "કોઈ ખર્ચ મળ્યો નથી",
+    "noExpensesDescription": "શોધ બદલો અથવા નવો ખર્ચ નોંધો.",
+    "searchPlaceholder": "ખર્ચ શોધો...",
+    "pageInfo": "પાનું {{currentPage}} / {{totalPages}}"
   }
 }

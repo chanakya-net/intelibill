@@ -520,15 +520,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "ചെലവുകൾ",
+    "subtitle": "നിങ്ങളുടെ ബിസിനസ് ചെലവുകൾ നിയന്ത്രിക്കുകയും ട്രാക്കുചെയ്യുകയും ചെയ്യുക",
+    "recordExpense": "ചെലവ് രേഖപ്പെടുത്തുക",
+    "recordExpenseDescription": "താഴെ ചെലവിന്റെ വിശദാംശങ്ങൾ നൽകുക.",
+    "correctExpense": "ചെലവ് തിരുത്തുക",
+    "correctExpenseDescription": "താഴെ ചെലവിന്റെ വിശദാംശങ്ങൾ പുതുക്കുക.",
+    "correctShort": "തിരുത്തുക",
+    "category": "വിഭാഗം",
+    "paidTo": "പണം നൽകിയവർ",
+    "amount": "തുക",
+    "status": "നില",
+    "active": "സജീവം",
+    "voided": "റദ്ദാക്കി",
+    "expenseDate": "തീയതി",
+    "description": "വിവരണം",
+    "noExpenses": "ചെലവുകൾ കണ്ടെത്തിയില്ല",
+    "noExpensesDescription": "തിരച്ചിൽ മാറ്റുക അല്ലെങ്കിൽ പുതിയ ചെലവ് രേഖപ്പെടുത്തുക.",
+    "searchPlaceholder": "ചെലവുകൾ തിരയുക...",
+    "pageInfo": "പേജ് {{currentPage}} / {{totalPages}}"
   }
 }

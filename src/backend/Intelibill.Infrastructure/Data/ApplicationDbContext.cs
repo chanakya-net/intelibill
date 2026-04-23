@@ -3,14 +3,17 @@ using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
+using Wolverine;
 
 namespace Intelibill.Infrastructure.Data;
 
 public class ApplicationDbContext(
     DbContextOptions<ApplicationDbContext> options,
-    ICurrentSessionContext? currentSessionContext = null) : DbContext(options)
+    ICurrentSessionContext? currentSessionContext = null,
+    IMessageBus? messageBus = null) : DbContext(options)
 {
     private readonly ICurrentSessionContext? _currentSessionContext = currentSessionContext;
+    private readonly IMessageBus? _messageBus = messageBus;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Shop> Shops => Set<Shop>();
@@ -50,7 +53,28 @@ public class ApplicationDbContext(
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditFields();
-        return await base.SaveChangesAsync(cancellationToken);
+
+        var domainEvents = ChangeTracker
+            .Entries<BaseEntity>()
+            .SelectMany(e => e.Entity.DomainEvents)
+            .ToList();
+
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            entry.Entity.ClearDomainEvents();
+        }
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (_messageBus is not null)
+        {
+            foreach (var domainEvent in domainEvents)
+            {
+                await _messageBus.PublishAsync(domainEvent);
+            }
+        }
+
+        return result;
     }
 
     private void UpdateAuditFields()

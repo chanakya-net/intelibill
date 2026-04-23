@@ -1,11 +1,17 @@
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { ExpensesFacade } from '../state/expenses.facade';
 import { CorrectExpenseOverlayComponent } from './correct-expense-overlay.component';
 
 describe('CorrectExpenseOverlayComponent', () => {
+  const mockCategories = [
+    { id: 'cat-1', name: 'Rent' },
+    { id: 'cat-2', name: 'Supplier Payments' },
+  ];
+
   const originalExpense = {
     id: 'exp-1',
     shopId: 'shop-1',
@@ -22,7 +28,7 @@ describe('CorrectExpenseOverlayComponent', () => {
   };
 
   const expensesFacade = {
-    categories$: of([]),
+    categories$: of(mockCategories),
     submitting$: of(false),
     error$: of(''),
     loadCategories: vi.fn(),
@@ -43,7 +49,10 @@ describe('CorrectExpenseOverlayComponent', () => {
     expensesFacade.loadExpenses.mockReset();
 
     TestBed.configureTestingModule({
-      imports: [CorrectExpenseOverlayComponent],
+      imports: [
+        CorrectExpenseOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         {
           provide: ExpensesFacade,
@@ -72,13 +81,12 @@ describe('CorrectExpenseOverlayComponent', () => {
     expect(expensesFacade.clearMutationStatus).toHaveBeenCalled();
     expect(expensesFacade.loadCategories).toHaveBeenCalled();
 
-    expect(component.form.value).toEqual({
-      categoryName: 'Rent',
-      amount: 500,
-      paidTo: 'Landlord',
-      description: 'Monthly rent',
-      expenseDate: '2026-04-20',
-    });
+    const value = component.form.getRawValue();
+    expect(value.categoryName).toBe('Rent');
+    expect(value.amount).toBe(500);
+    expect(value.paidTo).toBe('Landlord');
+    expect(value.description).toBe('Monthly rent');
+    expect(value.expenseDate.toISOString().slice(0, 10)).toBe('2026-04-20');
   });
 
   it('prepopulates form with empty description when original is null', () => {
@@ -103,7 +111,7 @@ describe('CorrectExpenseOverlayComponent', () => {
       amount: 0,
       paidTo: '',
       description: '',
-      expenseDate: '',
+      expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
     component.onSubmit();
@@ -123,7 +131,7 @@ describe('CorrectExpenseOverlayComponent', () => {
       amount: 550,
       paidTo: 'Updated Landlord',
       description: 'Updated description',
-      expenseDate: '2026-04-21',
+      expenseDate: new Date('2026-04-21T00:00:00.000Z'),
     });
 
     component.onSubmit();
@@ -148,7 +156,7 @@ describe('CorrectExpenseOverlayComponent', () => {
       amount: 500,
       paidTo: '  Landlord  ',
       description: '   ',
-      expenseDate: '2026-04-20',
+      expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
     component.onSubmit();
@@ -162,13 +170,23 @@ describe('CorrectExpenseOverlayComponent', () => {
     });
   });
 
-  it('emits close on onClose when not submitting', () => {
+  it('hides Supplier Payments from selectable categories', () => {
+    const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
+    const component = fixture.componentInstance;
+    component.expenseId = 'exp-1';
+    component.originalExpense = originalExpense;
+
+    const names = component.selectableCategories().map((item) => item.name);
+    expect(names).toEqual(['Rent']);
+  });
+
+  it('emits closeRequested on onClose when not submitting', () => {
     const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
     const component = fixture.componentInstance;
     component.expenseId = 'exp-1';
     component.originalExpense = originalExpense;
     let closed = false;
-    component.close.subscribe(() => {
+    component.closeRequested.subscribe(() => {
       closed = true;
     });
 
@@ -176,13 +194,13 @@ describe('CorrectExpenseOverlayComponent', () => {
     expect(closed).toBe(true);
   });
 
-  it('loads expenses and emits close on successful mutation', () => {
+  it('loads expenses and emits closeRequested on successful mutation', () => {
     const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
     const component = fixture.componentInstance;
     component.expenseId = 'exp-1';
     component.originalExpense = originalExpense;
     let closed = false;
-    component.close.subscribe(() => {
+    component.closeRequested.subscribe(() => {
       closed = true;
     });
 

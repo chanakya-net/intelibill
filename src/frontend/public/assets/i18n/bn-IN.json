@@ -520,15 +520,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "ব্যয়",
+    "subtitle": "ব্যবসায়িক ব্যয় পরিচালনা ও ট্র্যাক করুন",
+    "recordExpense": "ব্যয় নথিভুক্ত করুন",
+    "recordExpenseDescription": "নিচে ব্যয়ের বিবরণ লিখুন।",
+    "correctExpense": "ব্যয় সংশোধন করুন",
+    "correctExpenseDescription": "নিচে ব্যয়ের বিবরণ হালনাগাদ করুন।",
+    "correctShort": "সংশোধন",
+    "category": "বিভাগ",
+    "paidTo": "যাকে পরিশোধ করা হয়েছে",
+    "amount": "পরিমাণ",
+    "status": "অবস্থা",
+    "active": "সক্রিয়",
+    "voided": "বাতিল",
+    "expenseDate": "তারিখ",
+    "description": "বিবরণ",
+    "noExpenses": "কোনো ব্যয় পাওয়া যায়নি",
+    "noExpensesDescription": "অনুসন্ধান বদলান বা নতুন ব্যয় নথিভুক্ত করুন।",
+    "searchPlaceholder": "ব্যয় খুঁজুন...",
+    "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}"
   }
 }

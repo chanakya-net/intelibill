@@ -40,6 +40,9 @@ internal sealed class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
 
         builder.Property(e => e.OriginalExpenseId);
 
+        builder.Property(e => e.SupplierLedgerEntryId)
+            .IsRequired(false);
+
         builder.Property(e => e.IsVoided)
             .HasDefaultValue(false)
             .IsRequired();
@@ -62,5 +65,10 @@ internal sealed class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
             .WithMany()
             .HasForeignKey(e => e.OriginalExpenseId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<SupplierLedgerEntry>()
+            .WithMany()
+            .HasForeignKey(e => e.SupplierLedgerEntryId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

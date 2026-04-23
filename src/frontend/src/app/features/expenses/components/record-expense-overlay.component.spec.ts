@@ -1,13 +1,19 @@
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { ExpensesFacade } from '../state/expenses.facade';
 import { RecordExpenseOverlayComponent } from './record-expense-overlay.component';
 
 describe('RecordExpenseOverlayComponent', () => {
+  const mockCategories = [
+    { id: 'cat-1', name: 'Rent' },
+    { id: 'cat-2', name: 'Supplier Payments' },
+  ];
+
   const expensesFacade = {
-    categories$: of([]),
+    categories$: of(mockCategories),
     submitting$: of(false),
     error$: of(''),
     loadCategories: vi.fn(),
@@ -28,7 +34,10 @@ describe('RecordExpenseOverlayComponent', () => {
     expensesFacade.loadExpenses.mockReset();
 
     TestBed.configureTestingModule({
-      imports: [RecordExpenseOverlayComponent],
+      imports: [
+        RecordExpenseOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         {
           provide: ExpensesFacade,
@@ -75,7 +84,7 @@ describe('RecordExpenseOverlayComponent', () => {
       amount: 500,
       paidTo: 'Landlord',
       description: 'Monthly rent',
-      expenseDate: '2026-04-20',
+      expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
     component.onSubmit();
@@ -98,7 +107,7 @@ describe('RecordExpenseOverlayComponent', () => {
       amount: 500,
       paidTo: '  Landlord  ',
       description: '   ',
-      expenseDate: '2026-04-20',
+      expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
     component.onSubmit();
@@ -112,11 +121,19 @@ describe('RecordExpenseOverlayComponent', () => {
     });
   });
 
-  it('emits close on onClose when not submitting', () => {
+  it('hides Supplier Payments from selectable categories', () => {
+    const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
+    const component = fixture.componentInstance;
+
+    const names = component.selectableCategories().map((item) => item.name);
+    expect(names).toEqual(['Rent']);
+  });
+
+  it('emits closeRequested on onClose when not submitting', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     const component = fixture.componentInstance;
     let closed = false;
-    component.close.subscribe(() => {
+    component.closeRequested.subscribe(() => {
       closed = true;
     });
 
@@ -124,11 +141,11 @@ describe('RecordExpenseOverlayComponent', () => {
     expect(closed).toBe(true);
   });
 
-  it('loads expenses and emits close on successful mutation', () => {
+  it('loads expenses and emits closeRequested on successful mutation', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     const component = fixture.componentInstance;
     let closed = false;
-    component.close.subscribe(() => {
+    component.closeRequested.subscribe(() => {
       closed = true;
     });
 

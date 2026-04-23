@@ -1,16 +1,16 @@
 <section class="expenses-page">
   <header class="expenses-header">
     <div>
-      <p class="eyebrow">Expenses</p>
-      <h1>Expenses</h1>
-      <p class="subtitle">Manage and track your business expenses</p>
+      <p class="eyebrow">{{ 'expenses.title' | transloco }}</p>
+      <h1>{{ 'expenses.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
     </div>
 
     @if (canManageExpenses()) {
       <button
         pButton
         type="button"
-        label="Record Expense"
+        [label]="'expenses.recordExpense' | transloco"
         icon="pi pi-plus"
         (click)="openRecordOverlay()"
       ></button>
@@ -37,7 +37,7 @@
           pInputText
           type="text"
           [(ngModel)]="searchValue"
-          placeholder="Search expenses..."
+          [placeholder]="'expenses.searchPlaceholder' | transloco"
           class="w-full"
           (keyup.enter)="onSearch()"
         />
@@ -77,14 +77,14 @@
                 </span>
 
                 @if (expense.isVoided) {
-                  <p-tag severity="danger" value="Voided"></p-tag>
+                  <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
                 } @else {
-                  <p-tag severity="success" value="Active"></p-tag>
+                  <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
                 }
 
                 @if (canManageExpenses() && !expense.isVoided) {
                   <p-button
-                    label="Correct"
+                    [label]="'expenses.correctShort' | transloco"
                     icon="pi pi-pencil"
                     size="small"
                     severity="secondary"
@@ -98,8 +98,8 @@
 
         @if (expenses().length === 0) {
           <div class="mobile-empty-state">
-            <h2 class="text-xl font-bold text-slate-700">No expenses found</h2>
-            <p class="text-slate-500">Try adjusting your search or record a new expense.</p>
+            <h2 class="text-xl font-bold text-slate-700">{{ 'expenses.noExpenses' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'expenses.noExpensesDescription' | transloco }}</p>
           </div>
         }
       </div>
@@ -117,20 +117,20 @@
         <ng-template pTemplate="header">
           <tr>
             <th pSortableColumn="categoryName">
-              Category <p-sortIcon field="categoryName" />
+              {{ 'expenses.category' | transloco }} <p-sortIcon field="categoryName" />
             </th>
             <th pSortableColumn="paidTo">
-              Paid To <p-sortIcon field="paidTo" />
+              {{ 'expenses.paidTo' | transloco }} <p-sortIcon field="paidTo" />
             </th>
             <th pSortableColumn="amount">
-              Amount <p-sortIcon field="amount" />
+              {{ 'expenses.amount' | transloco }} <p-sortIcon field="amount" />
             </th>
             <th pSortableColumn="expenseDate">
-              Date <p-sortIcon field="expenseDate" />
+              {{ 'expenses.expenseDate' | transloco }} <p-sortIcon field="expenseDate" />
             </th>
-            <th>Status</th>
+            <th>{{ 'expenses.status' | transloco }}</th>
             @if (canManageExpenses()) {
-              <th>Actions</th>
+              <th>{{ 'common.actions' | transloco }}</th>
             }
           </tr>
         </ng-template>
@@ -142,9 +142,9 @@
             <td>{{ expense.expenseDate | date: 'mediumDate' }}</td>
             <td>
               @if (expense.isVoided) {
-                <p-tag severity="danger" value="Voided"></p-tag>
+                <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
               } @else {
-                <p-tag severity="success" value="Active"></p-tag>
+                <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
               }
             </td>
             @if (canManageExpenses()) {
@@ -153,7 +153,7 @@
                   <button
                     pButton
                     type="button"
-                    label="Correct"
+                    [label]="'expenses.correctShort' | transloco"
                     icon="pi pi-pencil"
                     size="small"
                     severity="secondary"
@@ -168,8 +168,8 @@
           <tr>
             <td [attr.colspan]="5 + (canManageExpenses() ? 1 : 0)">
               <div class="empty-state">
-                <h2>No expenses found</h2>
-                <p>Try adjusting your search or record a new expense.</p>
+                <h2>{{ 'expenses.noExpenses' | transloco }}</h2>
+                <p>{{ 'expenses.noExpensesDescription' | transloco }}</p>
               </div>
             </td>
           </tr>
@@ -186,7 +186,14 @@
             [text]="true"
           ></p-button>
           <span class="page-info">
-            Page {{ pagination().currentPage }} of {{ totalPages() }}
+            {{
+              'expenses.pageInfo'
+                | transloco
+                  : {
+                      currentPage: pagination().currentPage,
+                      totalPages: totalPages()
+                    }
+            }}
           </span>
           <p-button
             icon="pi pi-chevron-right"
@@ -201,14 +208,16 @@
   }
 
   @if (showRecordOverlay()) {
-    <app-record-expense-overlay (close)="closeRecordOverlay()"></app-record-expense-overlay>
+    <app-record-expense-overlay
+      (closeRequested)="closeRecordOverlay()"
+    ></app-record-expense-overlay>
   }
 
   @if (showCorrectOverlay() && selectedExpense()) {
     <app-correct-expense-overlay
       [expenseId]="selectedExpenseId()!"
       [originalExpense]="selectedExpense()!"
-      (close)="closeCorrectOverlay()"
+      (closeRequested)="closeCorrectOverlay()"
     ></app-correct-expense-overlay>
   }
 </section>

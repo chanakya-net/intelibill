@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,7 +49,10 @@ describe('ExpensesPageComponent', () => {
     expensesFacade.clearExpenseDetail.mockReset();
 
     TestBed.configureTestingModule({
-      imports: [ExpensesPageComponent],
+      imports: [
+        ExpensesPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: ExpensesFacade, useValue: expensesFacade },
@@ -125,5 +129,16 @@ describe('ExpensesPageComponent', () => {
     const component = fixture.componentInstance;
 
     expect(component.canManageExpenses()).toBe(true);
+  });
+
+  it('renders localized expense page labels via transloco pipe', () => {
+    const fixture = TestBed.createComponent(ExpensesPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('expenses.title');
+
+    const searchInput = host.querySelector('input[pinputtext]') as HTMLInputElement | null;
+    expect(searchInput?.getAttribute('placeholder')).toContain('expenses.searchPlaceholder');
   });
 });

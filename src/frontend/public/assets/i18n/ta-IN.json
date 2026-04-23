@@ -520,15 +520,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "செலவுகள்",
+    "subtitle": "உங்கள் வணிக செலவுகளை நிர்வகித்து கண்காணிக்கவும்",
+    "recordExpense": "செலவை பதிவு செய்",
+    "recordExpenseDescription": "கீழே செலவு விவரங்களை உள்ளிடவும்.",
+    "correctExpense": "செலவை திருத்து",
+    "correctExpenseDescription": "கீழே செலவு விவரங்களை புதுப்பிக்கவும்.",
+    "correctShort": "திருத்து",
+    "category": "வகை",
+    "paidTo": "செலுத்தப்பட்டவர்",
+    "amount": "தொகை",
+    "status": "நிலை",
+    "active": "செயல்பாட்டில்",
+    "voided": "ரத்து செய்யப்பட்டது",
+    "expenseDate": "தேதி",
+    "description": "விளக்கம்",
+    "noExpenses": "செலவுகள் எதுவும் கிடைக்கவில்லை",
+    "noExpensesDescription": "தேடலை மாற்றவும் அல்லது புதிய செலவை பதிவு செய்யவும்.",
+    "searchPlaceholder": "செலவுகளை தேடவும்...",
+    "pageInfo": "பக்கம் {{currentPage}} / {{totalPages}}"
   }
 }

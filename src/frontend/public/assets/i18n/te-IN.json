@@ -520,15 +520,24 @@
     }
   },
   "expenses": {
-    "title": "Expenses",
-    "recordExpense": "Record Expense",
-    "correctExpense": "Correct Expense",
-    "category": "Category",
-    "paidTo": "Paid To",
-    "amount": "Amount",
-    "expenseDate": "Date",
-    "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "title": "ఖర్చులు",
+    "subtitle": "మీ వ్యాపార ఖర్చులను నిర్వహించి ట్రాక్ చేయండి",
+    "recordExpense": "ఖర్చు నమోదు చేయండి",
+    "recordExpenseDescription": "దిగువ ఖర్చు వివరాలను నమోదు చేయండి.",
+    "correctExpense": "ఖర్చును సరిచేయండి",
+    "correctExpenseDescription": "దిగువ ఖర్చు వివరాలను నవీకరించండి.",
+    "correctShort": "సరిచేయండి",
+    "category": "వర్గం",
+    "paidTo": "చెల్లించిన వారికి",
+    "amount": "మొత్తం",
+    "status": "స్థితి",
+    "active": "క్రియాశీలం",
+    "voided": "రద్దు చేయబడింది",
+    "expenseDate": "తేదీ",
+    "description": "వివరణ",
+    "noExpenses": "ఖర్చులు కనబడలేదు",
+    "noExpensesDescription": "శోధనను మార్చండి లేదా కొత్త ఖర్చును నమోదు చేయండి.",
+    "searchPlaceholder": "ఖర్చులను వెతకండి...",
+    "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}"
   }
 }

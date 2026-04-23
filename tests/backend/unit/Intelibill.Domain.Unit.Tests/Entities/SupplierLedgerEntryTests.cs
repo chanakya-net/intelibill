@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Events;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
@@ -109,5 +110,54 @@ public class SupplierLedgerEntryTests
 
         Assert.False(result.IsError);
         Assert.Null(result.Value.Notes);
+    }
+
+    [Fact]
+    public void Create_WithPaymentMade_RaisesSupplierPaymentRecorded()
+    {
+        var shopId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var createdBy = Guid.NewGuid();
+        var amount = 500m;
+        var entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var result = SupplierLedgerEntry.Create(
+            shopId,
+            supplierId,
+            null,
+            SupplierLedgerEntryType.PaymentMade,
+            amount,
+            entryDate,
+            "bank transfer",
+            createdBy);
+
+        Assert.False(result.IsError);
+        var entry = result.Value;
+        var domainEvent = Assert.Single(entry.DomainEvents);
+        var paymentEvent = Assert.IsType<SupplierPaymentRecorded>(domainEvent);
+        Assert.Equal(shopId, paymentEvent.ShopId);
+        Assert.Equal(supplierId, paymentEvent.SupplierId);
+        Assert.Equal(amount, paymentEvent.Amount);
+        Assert.Equal(entryDate, paymentEvent.EntryDate);
+        Assert.Equal(entry.Id, paymentEvent.SupplierLedgerEntryId);
+        Assert.Equal(createdBy, paymentEvent.CreatedBy);
+        Assert.Equal("bank transfer", paymentEvent.Notes);
+    }
+
+    [Fact]
+    public void Create_WithGoodsReceived_DoesNotRaiseEvent()
+    {
+        var result = SupplierLedgerEntry.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            SupplierLedgerEntryType.GoodsReceived,
+            1500m,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            null,
+            Guid.NewGuid());
+
+        Assert.False(result.IsError);
+        Assert.Empty(result.Value.DomainEvents);
     }
 }
