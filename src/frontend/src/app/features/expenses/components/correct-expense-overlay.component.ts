@@ -1,11 +1,16 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, inject } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { filter } from 'rxjs/operators';
 
 import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
 
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpenseDto } from '../services/expense.service';
@@ -16,11 +21,17 @@ import { ExpensesFacade } from '../state/expenses.facade';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    TranslocoPipe,
+    SelectModule,
+    InputNumberModule,
+    DatePickerModule,
+    TextareaModule,
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
   ],
   templateUrl: './correct-expense-overlay.component.html',
+  styleUrls: ['./correct-expense-overlay.component.scss'],
 })
 export class CorrectExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
@@ -29,11 +40,16 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   @Input({ required: true }) expenseId!: string;
   @Input({ required: true }) originalExpense!: ExpenseDto;
 
-  @Output() readonly close = new EventEmitter<void>();
+  @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly categories = toSignal(this.expensesFacade.categories$, {
     initialValue: [] as readonly ExpenseCategoryDto[],
   });
+  readonly selectableCategories = computed(() =>
+    this.categories().filter(
+      (category) => category.name.trim().toLowerCase() !== 'supplier payments'
+    )
+  );
   readonly isSubmitting = toSignal(this.expensesFacade.submitting$, {
     initialValue: false,
   });
@@ -46,7 +62,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     amount: [0, [Validators.required, Validators.min(0.01)]],
     paidTo: ['', [Validators.required, Validators.maxLength(255)]],
     description: ['', [Validators.maxLength(500)]],
-    expenseDate: ['', [Validators.required]],
+    expenseDate: [new Date(), [Validators.required]],
   });
 
   constructor() {
@@ -60,7 +76,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       )
       .subscribe(() => {
         this.expensesFacade.loadExpenses();
-        this.close.emit();
+        this.closeRequested.emit();
         this.expensesFacade.clearMutationStatus();
       });
   }
@@ -75,7 +91,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       amount: this.originalExpense.amount,
       paidTo: this.originalExpense.paidTo,
       description: this.originalExpense.description ?? '',
-      expenseDate: this.originalExpense.expenseDate.split('T')[0],
+      expenseDate: new Date(this.originalExpense.expenseDate),
     });
   }
 
@@ -83,7 +99,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     if (this.isSubmitting()) {
       return;
     }
-    this.close.emit();
+    this.closeRequested.emit();
   }
 
   onSubmit(): void {
@@ -103,12 +119,23 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       amount: raw.amount,
       paidTo: raw.paidTo.trim(),
       description: this.nullableTrimmed(raw.description),
-      expenseDate: raw.expenseDate,
+      expenseDate: this.toIsoDate(raw.expenseDate),
     });
   }
 
   private nullableTrimmed(value: string): string | null {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private toIsoDate(value: Date | string): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    const yyyy = value.getFullYear();
+    const mm = `${value.getMonth() + 1}`.padStart(2, '0');
+    const dd = `${value.getDate()}`.padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 }

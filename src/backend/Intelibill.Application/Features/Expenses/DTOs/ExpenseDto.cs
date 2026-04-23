@@ -12,4 +12,5 @@ public sealed record ExpenseDto(
     Guid ActorUserId,
     bool IsVoided,
     Guid? OriginalExpenseId,
+    Guid? SupplierLedgerEntryId,
     DateTimeOffset CreatedAt);

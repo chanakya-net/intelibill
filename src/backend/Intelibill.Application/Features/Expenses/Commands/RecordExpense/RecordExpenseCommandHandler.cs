@@ -67,5 +67,6 @@ public sealed class RecordExpenseCommandHandler(
             e.ActorUserId,
             e.IsVoided,
             e.OriginalExpenseId,
+            e.SupplierLedgerEntryId,
             e.CreatedAt);
 }

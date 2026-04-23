@@ -522,14 +522,23 @@
   },
   "expenses": {
     "title": "Expenses",
+    "subtitle": "Manage and track your business expenses",
     "recordExpense": "Record Expense",
+    "recordExpenseDescription": "Enter the details of the expense below.",
     "correctExpense": "Correct Expense",
+    "correctExpenseDescription": "Update the details of the expense below.",
+    "correctShort": "Correct",
     "category": "Category",
     "paidTo": "Paid To",
     "amount": "Amount",
+    "status": "Status",
+    "active": "Active",
+    "voided": "Voided",
     "expenseDate": "Date",
     "description": "Description",
-    "noExpenses": "No expenses found.",
-    "searchPlaceholder": "Search expenses..."
+    "noExpenses": "No expenses found",
+    "noExpensesDescription": "Try adjusting your search or record a new expense.",
+    "searchPlaceholder": "Search expenses...",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}"
   }
 }

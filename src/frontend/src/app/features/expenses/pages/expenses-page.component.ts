@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -32,6 +33,7 @@ import { ExpensesFacade } from '../state/expenses.facade';
     ProgressSpinnerModule,
     TableModule,
     TagModule,
+    TranslocoPipe,
     RecordExpenseOverlayComponent,
     CorrectExpenseOverlayComponent,
   ],
