@@ -54,6 +54,9 @@ public class ApplicationDbContext(
     {
         UpdateAuditFields();
 
+        // These events are published only after DB commit succeeds.
+        // Use them for secondary work like sending receipts, welcome emails, or notifications.
+        // Do not use them for core invariants that must commit atomically with primary write.
         var domainEvents = ChangeTracker
             .Entries<BaseEntity>()
             .SelectMany(e => e.Entity.DomainEvents)

@@ -6,6 +6,7 @@ public abstract class BaseEntity
     public DateTimeOffset CreatedAt { get; protected set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? UpdatedAt { get; protected set; }
 
+    // Retained for post-commit side effects such as emails, receipts, and notifications.
     private readonly List<IDomainEvent> _domainEvents = [];
     public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 

@@ -14,10 +14,12 @@ public class MakeSupplierPaymentCommandHandlerTests
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly ISupplierLedgerEntryRepository _ledgerRepository = Substitute.For<ISupplierLedgerEntryRepository>();
+    private readonly IExpenseCategoryRepository _expenseCategoryRepository = Substitute.For<IExpenseCategoryRepository>();
+    private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _supplierRepository, _ledgerRepository, _unitOfWork);
+        new(_userRepository, _shopRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {
@@ -37,9 +39,11 @@ public class MakeSupplierPaymentCommandHandlerTests
     public async Task HandleAsync_OwnerRole_ReturnsSuccessDto()
     {
         var (owner, shop, supplier) = BuildOwnerShopSupplier();
+        var category = ExpenseCategory.Create(shop.Id, "Supplier Payments", DateTimeOffset.UtcNow);
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
         _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        _expenseCategoryRepository.GetByNameAsync(shop.Id, "Supplier Payments", Arg.Any<CancellationToken>()).Returns(category);
 
         var result = await CreateHandler().HandleAsync(BuildCommand(owner.Id, shop.Id, supplier.Id), CancellationToken.None);
 
@@ -49,6 +53,34 @@ public class MakeSupplierPaymentCommandHandlerTests
             e.SupplierId == supplier.Id &&
             e.EntryType == SupplierLedgerEntryType.PaymentMade &&
             e.Amount == 500m), Arg.Any<CancellationToken>());
+        await _expenseRepository.Received(1).AddAsync(Arg.Is<Expense>(e =>
+            e.ShopId == shop.Id &&
+            e.CategoryId == category.Id &&
+            e.Amount == 500m &&
+            e.PaidTo == "Supplier" &&
+            e.SupplierLedgerEntryId.HasValue), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingCategory_CreatesCategoryAndExpenseInSameSave()
+    {
+        var (owner, shop, supplier) = BuildOwnerShopSupplier();
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        _expenseCategoryRepository.GetByNameAsync(shop.Id, "Supplier Payments", Arg.Any<CancellationToken>()).Returns((ExpenseCategory?)null);
+
+        var result = await CreateHandler().HandleAsync(BuildCommand(owner.Id, shop.Id, supplier.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _expenseCategoryRepository.Received(1).AddAsync(Arg.Is<ExpenseCategory>(c =>
+            c.ShopId == shop.Id &&
+            c.Name == "Supplier Payments"), Arg.Any<CancellationToken>());
+        await _expenseRepository.Received(1).AddAsync(Arg.Is<Expense>(e =>
+            e.ShopId == shop.Id &&
+            e.PaidTo == "Supplier" &&
+            e.SupplierLedgerEntryId == result.Value.Id), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
