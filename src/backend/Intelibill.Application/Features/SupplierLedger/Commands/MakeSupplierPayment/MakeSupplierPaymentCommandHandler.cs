@@ -13,6 +13,8 @@ public sealed class MakeSupplierPaymentCommandHandler(
     IShopRepository shopRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
+    IExpenseCategoryRepository expenseCategoryRepository,
+    IExpenseRepository expenseRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
@@ -55,10 +57,30 @@ public sealed class MakeSupplierPaymentCommandHandler(
         if (entryOrError.IsError)
             return entryOrError.Errors;
 
-        await ledgerRepository.AddAsync(entryOrError.Value, cancellationToken);
+        const string categoryName = "Supplier Payments";
+        var category = await expenseCategoryRepository.GetByNameAsync(command.ActiveShopId, categoryName, cancellationToken);
+        if (category is null)
+        {
+            category = ExpenseCategory.Create(command.ActiveShopId, categoryName, DateTimeOffset.UtcNow);
+            await expenseCategoryRepository.AddAsync(category, cancellationToken);
+        }
+
+        var entry = entryOrError.Value;
+        var expense = Expense.CreateFromSupplierPayment(
+            command.ActiveShopId,
+            category.Id,
+            command.Amount,
+            "Supplier",
+            command.Notes,
+            command.PaymentDate,
+            command.ActorUserId,
+            entry.Id);
+
+        await ledgerRepository.AddAsync(entry, cancellationToken);
+        await expenseRepository.AddAsync(expense, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var e = entryOrError.Value;
+        var e = entry;
         return new SupplierLedgerEntryDto(e.Id, e.SupplierId, e.EntryType, e.Amount, e.EntryDate, e.Notes);
     }
 }

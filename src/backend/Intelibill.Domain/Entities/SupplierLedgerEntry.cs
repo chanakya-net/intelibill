@@ -1,7 +1,6 @@
 using ErrorOr;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Events;
 
 namespace Intelibill.Domain.Entities;
 
@@ -45,18 +44,6 @@ public sealed class SupplierLedgerEntry : BaseEntity
             Notes = NormalizeOptional(notes),
             CreatedBy = createdBy,
         };
-
-        if (entryType == SupplierLedgerEntryType.PaymentMade)
-        {
-            entry.AddDomainEvent(new SupplierPaymentRecorded(
-                shopId,
-                supplierId,
-                amount,
-                entryDate,
-                entry.Id,
-                createdBy,
-                entry.Notes));
-        }
 
         return entry;
     }
