@@ -48,7 +48,11 @@
                 </div>
                 <div class="flex items-center gap-2 text-xs text-slate-500">
                   @if (sale.customerName) {
-                    <span>{{ sale.customerName }}</span>
+                    @if (sale.customerId) {
+                      <button type="button" class="customer-link" (click)="onCustomerClick($event, sale)">{{ sale.customerName }}</button>
+                    } @else {
+                      <span>{{ sale.customerName }}</span>
+                    }
                     <span class="text-slate-300">•</span>
                   }
                   <span>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</span>
@@ -165,7 +169,13 @@
           <tr>
             <td class="font-medium">{{ sale.invoiceNumber }}</td>
             <td>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
-            <td>{{ sale.customerName ?? ('sales.history.walkIn' | transloco) }}</td>
+            <td>
+              @if (sale.customerName && sale.customerId) {
+                <button type="button" class="customer-link" (click)="onCustomerClick($event, sale)">{{ sale.customerName }}</button>
+              } @else {
+                {{ sale.customerName ?? ('sales.history.walkIn' | transloco) }}
+              }
+            </td>
             <td><p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)"></p-tag></td>
             <td>{{ sale.itemCount }}</td>
             <td class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</td>

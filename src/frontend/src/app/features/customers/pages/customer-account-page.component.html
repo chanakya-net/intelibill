@@ -1,0 +1,110 @@
+<section class="customer-account-page">
+  <header class="customer-account-header">
+    <div>
+      <p class="eyebrow">{{ 'customers.account.eyebrow' | transloco }}</p>
+      <h1>{{ account()?.name ?? ('customers.account.title' | transloco) }}</h1>
+      @if (account()) {
+        <p class="subtitle">{{ account()!.phoneNumber }}</p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage().startsWith('customers.') ? (errorMessage() | transloco) : errorMessage() }}</p>
+  }
+
+  @if (isLoading()) {
+    <p>{{ 'common.loading' | transloco }}</p>
+  }
+
+  @if (hasAccount()) {
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'customers.account.summary' | transloco }}</div>
+      </ng-template>
+      <div class="summary-row">
+        <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
+        <strong>₹{{ account()!.outstandingDue | number:'1.2-2' }}</strong>
+      </div>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'customers.account.recordPayment' | transloco }}</div>
+      </ng-template>
+      <form [formGroup]="paymentForm" class="payment-form">
+        <div class="field">
+          <label>{{ 'customers.account.amount' | transloco }}</label>
+          <p-inputNumber formControlName="amount" mode="currency" currency="INR" locale="en-IN" [min]="0.01" />
+        </div>
+        <div class="field">
+          <label>{{ 'customers.account.paymentDate' | transloco }}</label>
+          <input pInputText type="date" formControlName="paymentDate" />
+        </div>
+        <div class="field">
+          <label>{{ 'customers.account.notes' | transloco }}</label>
+          <input pInputText type="text" formControlName="notes" />
+        </div>
+        <p-button
+          [label]="'customers.account.submitPayment' | transloco"
+          icon="pi pi-check"
+          [disabled]="paymentForm.invalid || isLoading()"
+          [loading]="isLoading()"
+          (click)="onRecordPayment()"
+        />
+      </form>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'customers.account.ledger' | transloco }}</div>
+      </ng-template>
+      <p-table [value]="account()!.ledgerEntries" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'customers.account.date' | transloco }}</th>
+            <th>{{ 'customers.account.type' | transloco }}</th>
+            <th>{{ 'customers.account.amount' | transloco }}</th>
+            <th>{{ 'customers.account.runningBalance' | transloco }}</th>
+            <th>{{ 'customers.account.notes' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
+          <tr>
+            <td>{{ entry.entryDate | date:'dd MMM yyyy' }}</td>
+            <td><p-tag [severity]="paymentTagSeverity(entry.entryType)" [value]="paymentTagLabel(entry.entryType) | transloco"></p-tag></td>
+            <td>₹{{ entry.amount | number:'1.2-2' }}</td>
+            <td>₹{{ entry.runningBalance | number:'1.2-2' }}</td>
+            <td>{{ entry.notes || '-' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="card-title">{{ 'customers.account.sales' | transloco }}</div>
+      </ng-template>
+      <p-table [value]="account()!.sales" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'customers.account.invoice' | transloco }}</th>
+            <th>{{ 'customers.account.date' | transloco }}</th>
+            <th>{{ 'customers.account.total' | transloco }}</th>
+            <th>{{ 'customers.account.paid' | transloco }}</th>
+            <th>{{ 'customers.account.due' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-sale>
+          <tr>
+            <td>{{ sale.invoiceNumber }}</td>
+            <td>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
+            <td>₹{{ sale.totalAmount | number:'1.2-2' }}</td>
+            <td>₹{{ sale.paidAmount | number:'1.2-2' }}</td>
+            <td>₹{{ sale.dueAmount | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  }
+</section>

@@ -16,6 +16,8 @@ public class RecordSaleCommandValidatorTests
             "Ravi Kumar",
             "+919876543210",
             PaymentMethod.Cash,
+            500m,
+            0m,
             items ?? [ValidItem()]);
 
     private static RecordSaleItemCommand ValidItem() =>
@@ -127,5 +129,37 @@ public class RecordSaleCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         result.ShouldHaveValidationErrorFor("Items[0].Mrp");
+    }
+
+    [Fact]
+    public void Validate_WhenCreditHasNoDue_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            PaymentMethod = PaymentMethod.Credit,
+            PaidAmount = 500m,
+            DueAmount = 0m,
+            CustomerPhone = "+919876543210",
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CreditRequiresDueAmount");
+    }
+
+    [Fact]
+    public void Validate_WhenDueWithoutCustomerIdentity_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            PaidAmount = 300m,
+            DueAmount = 200m,
+            CustomerId = null,
+            CustomerPhone = null,
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CustomerIdentityRequiredForDue");
     }
 }

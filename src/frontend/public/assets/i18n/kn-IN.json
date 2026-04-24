@@ -197,7 +197,32 @@
     "noCustomersFound": "ಯಾವುದೇ ಗ್ರಾಹಕರು ಕಂಡುಬಂದಿಲ್ಲ",
     "noCustomersDescription": "ನಿಮ್ಮ ಮೊದಲ ಗ್ರಾಹಕರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
     "isActive": "ಸಕ್ರಿಯವಾಗಿದೆ",
-    "actions": "ಕ್ರಿಯೆಗಳು"
+    "actions": "ಕ್ರಿಯೆಗಳು",
+    "account": {
+      "eyebrow": "ಗ್ರಾಹಕ ಖಾತೆ",
+      "title": "ಗ್ರಾಹಕ ಖಾತೆ",
+      "summary": "ಖಾತೆ ಸಾರಾಂಶ",
+      "outstandingDue": "ಬಾಕಿ ಮೊತ್ತ",
+      "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸಿ",
+      "amount": "ಮೊತ್ತ",
+      "paymentDate": "ಪಾವತಿ ದಿನಾಂಕ",
+      "notes": "ಟಿಪ್ಪಣಿಗಳು",
+      "submitPayment": "ಪಾವತಿ ಸಲ್ಲಿಸಿ",
+      "ledger": "ಲೆಡ್ಜರ್",
+      "sales": "ಮಾರಾಟಗಳು",
+      "date": "ದಿನಾಂಕ",
+      "type": "ಪ್ರಕಾರ",
+      "runningBalance": "ಚಾಲುವ ಶೇಷ",
+      "invoice": "ಇನ್‌ವಾಯ್ಸ್ #",
+      "total": "ಒಟ್ಟು",
+      "paid": "ಪಾವತಿಸಿದ",
+      "due": "ಬಾಕಿ",
+      "paymentReceived": "ಪಾವತಿ ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
+      "saleDue": "ಮಾರಾಟ ಬಾಕಿ",
+      "notFound": "ಗ್ರಾಹಕ ಖಾತೆ ಸಿಗಲಿಲ್ಲ.",
+      "loadFailed": "ಈಗ ಗ್ರಾಹಕ ಖಾತೆಯನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+      "paymentFailed": "ಈಗ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
+    }
   },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",
@@ -501,7 +526,12 @@
       "totalDue": "ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು",
       "taxIncludedPrice": "ತೆರಿಗೆ ಸೇರಿರುವ ಬೆಲೆ",
       "taxExcludedPrice": "ತೆರಿಗೆ ಹೊರತಾದ ಬೆಲೆ",
-      "recordSale": "ಮಾರಾಟ ದಾಖಲಿಸಿ"
+      "recordSale": "ಮಾರಾಟ ದಾಖಲಿಸಿ",
+      "creditRequiresCustomerPhone": "ಗ್ರಾಹಕನ ಫೋನ್ ಸಂಖ್ಯೆ ನೀಡಿದಾಗ ಮಾತ್ರ ಕ್ರೆಡಿಟ್ ಆಯ್ಕೆ ಲಭ್ಯವಾಗುತ್ತದೆ.",
+      "paidAmount": "ಪಾವತಿಸಿದ ಮೊತ್ತ",
+      "dueAmount": "ಬಾಕಿ ಮೊತ್ತ",
+      "invalidPaymentSplit": "ಪಾವತಿಸಿದ ಮೊತ್ತ ಮತ್ತು ಬಾಕಿ ಮೊತ್ತದ ಮೊತ್ತ ಒಟ್ಟು ಮೊತ್ತಕ್ಕೆ ಸಮನಾಗಿರಬೇಕು.",
+      "customerRequiredForDue": "ಬಾಕಿ ಮೊತ್ತ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚು ಇದ್ದರೆ ಗ್ರಾಹಕನ ಫೋನ್ ಸಂಖ್ಯೆ ಅಗತ್ಯವಾಗಿದೆ."
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",

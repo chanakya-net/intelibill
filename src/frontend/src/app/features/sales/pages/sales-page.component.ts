@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -40,6 +41,7 @@ import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.co
 })
 export class SalesPageComponent {
   private readonly salesFacade = inject(SalesFacade);
+  private readonly router = inject(Router);
 
   readonly sales = this.salesFacade.allSales;
   readonly tableSales = computed(() => [...this.sales()]);
@@ -98,5 +100,15 @@ export class SalesPageComponent {
   clearFilters(table: Table): void {
     table.clear();
     this.searchValue.set('');
+  }
+
+  onCustomerClick(event: Event, sale: SaleListItemDto): void {
+    event.stopPropagation();
+
+    if (!sale.customerId) {
+      return;
+    }
+
+    this.router.navigate(['/customers', sale.customerId, 'account']);
   }
 }

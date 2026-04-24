@@ -13,8 +13,11 @@ import {
 const makeSale = (id: string): SaleListItemDto => ({
   saleId: id,
   invoiceNumber: `INV-${id}`,
+  customerId: null,
   paymentMethod: 1,
   soldAt: '2026-04-19T10:00:00Z',
+  paidAmount: 500,
+  dueAmount: 0,
   totalAmount: 500,
   totalTaxAmount: 50,
   customerName: null,

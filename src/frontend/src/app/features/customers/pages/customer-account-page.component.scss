@@ -1,0 +1,51 @@
+.customer-account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.customer-account-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #f97316;
+  text-transform: uppercase;
+}
+
+.subtitle {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+}
+
+.card-title {
+  font-weight: 600;
+  padding: 1rem 1rem 0;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+}
+
+.payment-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.error {
+  color: #dc2626;
+}

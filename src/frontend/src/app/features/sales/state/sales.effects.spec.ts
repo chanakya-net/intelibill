@@ -22,8 +22,11 @@ describe('SalesEffects', () => {
   const makeSale = (id = 'sale-1') => ({
     saleId: id,
     invoiceNumber: `INV-${id}`,
+    customerId: null,
     paymentMethod: 1,
     soldAt: new Date().toISOString(),
+    paidAmount: 500,
+    dueAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     customerName: null,
@@ -34,8 +37,11 @@ describe('SalesEffects', () => {
   const makeSaleDto = (id = 'sale-1') => ({
     saleId: id,
     invoiceNumber: `INV-${id}`,
+    customerId: null,
     paymentMethod: 1,
     soldAt: new Date().toISOString(),
+    paidAmount: 500,
+    dueAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
@@ -116,7 +122,15 @@ describe('SalesEffects', () => {
     const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
     actions$.next(
       SalesActions.recordSaleRequested({
-        payload: { customerId: null, customerName: null, customerPhone: null, paymentMethod: 1, items: [] },
+        payload: {
+          customerId: null,
+          customerName: null,
+          customerPhone: null,
+          paymentMethod: 1,
+          paidAmount: 0,
+          dueAmount: 0,
+          items: [],
+        },
       })
     );
 
@@ -129,7 +143,15 @@ describe('SalesEffects', () => {
     const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
     actions$.next(
       SalesActions.recordSaleRequested({
-        payload: { customerId: null, customerName: null, customerPhone: null, paymentMethod: 1, items: [] },
+        payload: {
+          customerId: null,
+          customerName: null,
+          customerPhone: null,
+          paymentMethod: 1,
+          paidAmount: 0,
+          dueAmount: 0,
+          items: [],
+        },
       })
     );
 

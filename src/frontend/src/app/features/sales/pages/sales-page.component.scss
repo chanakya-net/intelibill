@@ -44,6 +44,16 @@
   font-size: 0.875rem;
 }
 
+.customer-link {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .desktop-table {
   display: none;
 }

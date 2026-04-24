@@ -9,6 +9,8 @@ public sealed record RecordSaleCommand(
     string? CustomerName,
     string? CustomerPhone,
     PaymentMethod PaymentMethod,
+    decimal PaidAmount,
+    decimal DueAmount,
     IReadOnlyList<RecordSaleItemCommand> Items);
 
 public sealed record RecordSaleItemCommand(

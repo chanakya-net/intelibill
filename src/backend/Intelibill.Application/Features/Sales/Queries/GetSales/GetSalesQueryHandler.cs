@@ -32,8 +32,11 @@ public sealed class GetSalesQueryHandler(
             .Select(s => new SaleListItemDto(
                 s.Id,
                 s.InvoiceNumber,
+                s.CustomerId,
                 s.PaymentMethod,
                 s.SoldAt,
+                s.PaidAmount,
+                s.DueAmount,
                 s.TotalAmount,
                 s.TotalTaxAmount,
                 s.CustomerName,

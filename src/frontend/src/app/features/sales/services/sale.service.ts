@@ -29,6 +29,8 @@ export interface RecordSaleRequest {
   readonly customerName: string | null;
   readonly customerPhone: string | null;
   readonly paymentMethod: number;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
   readonly items: readonly RecordSaleItemRequest[];
 }
 
@@ -47,8 +49,11 @@ export interface SaleItemDto {
 export interface SaleDto {
   readonly saleId: string;
   readonly invoiceNumber: string;
+  readonly customerId: string | null;
   readonly paymentMethod: number;
   readonly soldAt: string;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly items: readonly SaleItemDto[];
@@ -58,8 +63,11 @@ export interface SaleDto {
 export interface SaleListItemDto {
   readonly saleId: string;
   readonly invoiceNumber: string;
+  readonly customerId: string | null;
   readonly paymentMethod: number;
   readonly soldAt: string;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly customerName: string | null;

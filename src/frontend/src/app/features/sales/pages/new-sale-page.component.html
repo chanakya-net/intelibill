@@ -261,10 +261,38 @@
           <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
           <p-select
             formControlName="paymentMethod"
-            [options]="paymentMethods"
+            [options]="paymentMethodsForSelection()"
             optionLabel="label"
             optionValue="value"
             [placeholder]="'sales.newSale.selectPayment' | transloco"
+          />
+          @if (!canUseCredit()) {
+            <p class="error-hint">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-slate-500">{{ 'sales.newSale.paidAmount' | transloco }}</label>
+          <p-inputNumber
+            formControlName="paidAmount"
+            mode="currency"
+            currency="INR"
+            locale="en-IN"
+            [min]="0"
+            [max]="totalAmount()"
+            [readonly]="true"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
+          <p-inputNumber
+            formControlName="dueAmount"
+            mode="currency"
+            currency="INR"
+            locale="en-IN"
+            [min]="0"
+            [max]="totalAmount()"
           />
         </div>
 
@@ -285,6 +313,9 @@
       </div>
 
       <div class="flex justify-end mt-4">
+        @if (paymentSplitError()) {
+          <p class="error mr-3">{{ paymentSplitError() | transloco }}</p>
+        }
         <p-button
           [label]="'sales.newSale.recordSale' | transloco"
           icon="pi pi-check"

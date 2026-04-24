@@ -134,6 +134,80 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("customers", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.CustomerLedgerEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("entry_date");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("entry_type");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_customer_ledger_entries");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_customer_ledger_entries_customer_id");
+
+                    b.HasIndex("SaleId")
+                        .HasDatabaseName("ix_customer_ledger_entries_sale_id");
+
+                    b.HasIndex("ShopId", "CustomerId", "EntryDate")
+                        .HasDatabaseName("ix_customer_ledger_entries_shop_id_customer_id_entry_date");
+
+                    b.HasIndex("ShopId", "SaleId", "EntryType")
+                        .HasDatabaseName("ix_customer_ledger_entries_shop_id_sale_id_entry_type");
+
+                    b.ToTable("customer_ledger_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_customer_ledger_entries_amount_positive", "amount > 0");
+
+                            t.HasCheckConstraint("ck_customer_ledger_entries_sale_by_type", "((entry_type = 'SALE_DUE' AND sale_id IS NOT NULL) OR (entry_type = 'PAYMENT_RECEIVED' AND sale_id IS NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>
                 {
                     b.Property<Guid>("Id")
@@ -658,11 +732,21 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("customer_phone");
 
+                    b.Property<decimal>("DueAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("due_amount");
+
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("invoice_number");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("paid_amount");
 
                     b.Property<int>("PaymentMethod")
                         .HasColumnType("integer")
@@ -1311,6 +1395,29 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_customers_users_owner_user_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.CustomerLedgerEntry", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_customer_ledger_entries_customers_customer_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_customer_ledger_entries_sales_sale_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_customer_ledger_entries_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>

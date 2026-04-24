@@ -197,7 +197,32 @@
     "noCustomersFound": "कोई ग्राहक नहीं मिला",
     "noCustomersDescription": "अपना पहला ग्राहक जोड़कर प्रारंभ करें।",
     "isActive": "सक्रिय है",
-    "actions": "क्रियाएं"
+    "actions": "क्रियाएं",
+    "account": {
+      "eyebrow": "ग्राहक खाता",
+      "title": "ग्राहक खाता",
+      "summary": "खाता सारांश",
+      "outstandingDue": "बकाया राशि",
+      "recordPayment": "भुगतान दर्ज करें",
+      "amount": "राशि",
+      "paymentDate": "भुगतान तिथि",
+      "notes": "टिप्पणी",
+      "submitPayment": "भुगतान सबमिट करें",
+      "ledger": "लेजर",
+      "sales": "बिक्री",
+      "date": "तारीख",
+      "type": "प्रकार",
+      "runningBalance": "चलती शेष राशि",
+      "invoice": "चालान #",
+      "total": "कुल",
+      "paid": "भुगतान",
+      "due": "बकाया",
+      "paymentReceived": "भुगतान प्राप्त",
+      "saleDue": "बिक्री बकाया",
+      "notFound": "ग्राहक खाता नहीं मिला।",
+      "loadFailed": "अभी ग्राहक खाता लोड नहीं हो सका।",
+      "paymentFailed": "अभी भुगतान दर्ज नहीं हो सका।"
+    }
   },
   "inventory": {
     "directory": "इन्वेंटरी निर्देशिका",
@@ -501,7 +526,12 @@
       "totalDue": "देय राशि",
       "taxIncludedPrice": "कर सहित मूल्य",
       "taxExcludedPrice": "कर रहित मूल्य",
-      "recordSale": "बिक्री दर्ज करें"
+      "recordSale": "बिक्री दर्ज करें",
+      "creditRequiresCustomerPhone": "क्रेडिट विकल्प केवल तब उपलब्ध है जब ग्राहक का फोन नंबर दिया हो।",
+      "paidAmount": "भुगतान की गई राशि",
+      "dueAmount": "बकाया राशि",
+      "invalidPaymentSplit": "भुगतान और बकाया राशि का योग कुल राशि के बराबर होना चाहिए।",
+      "customerRequiredForDue": "जब बकाया राशि शून्य से अधिक हो, तब ग्राहक का फोन नंबर आवश्यक है।"
     },
     "detail": {
       "title": "बिक्री विवरण",

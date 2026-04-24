@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
@@ -49,5 +50,25 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .WithErrorCode("Sale.TaxRateOutOfRange")
                 .WithMessage("Tax rate must be between 0 and 100.");
         });
+
+        RuleFor(x => x.PaidAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithErrorCode(Errors.Sale.PaidAmountInvalid.Code)
+            .WithMessage(Errors.Sale.PaidAmountInvalid.Description);
+
+        RuleFor(x => x.DueAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithErrorCode(Errors.Sale.DueAmountInvalid.Code)
+            .WithMessage(Errors.Sale.DueAmountInvalid.Description);
+
+        RuleFor(x => x)
+            .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
+            .WithErrorCode(Errors.Sale.CreditRequiresDueAmount.Code)
+            .WithMessage(Errors.Sale.CreditRequiresDueAmount.Description);
+
+        RuleFor(x => x)
+            .Must(x => x.DueAmount <= 0 || x.CustomerId.HasValue || !string.IsNullOrWhiteSpace(x.CustomerPhone))
+            .WithErrorCode(Errors.Sale.CustomerIdentityRequiredForDue.Code)
+            .WithMessage(Errors.Sale.CustomerIdentityRequiredForDue.Description);
     }
 }

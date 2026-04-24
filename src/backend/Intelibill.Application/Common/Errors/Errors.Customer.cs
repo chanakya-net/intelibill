@@ -17,5 +17,14 @@ public static partial class Errors
 
         public static Error CustomerNotFound =>
             Error.NotFound("Customer.CustomerNotFound", "Customer was not found.");
+
+        public static Error PaymentAmountMustBePositive =>
+            Error.Validation("Customer.PaymentAmountMustBePositive", "Payment amount must be greater than zero.");
+
+        public static Error UserIsNotOwnerOrManager =>
+            Error.Forbidden("Customer.UserIsNotOwnerOrManager", "Only owner or manager can view customer account details.");
+
+        public static Error ShopOwnerNotFound =>
+            Error.Unexpected("Customer.ShopOwnerNotFound", "Unable to resolve the shop owner for customer operations.");
     }
 }

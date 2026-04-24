@@ -50,4 +50,48 @@ describe('CustomerService', () => {
     expect(req.request.method).toBe('PUT');
     req.flush(updated);
   });
+
+  it('getCustomerAccount performs GET to /customers/:id/account', () => {
+    const customerId = 'c1';
+    const account = {
+      customerId,
+      name: 'Alice',
+      phoneNumber: '+9198',
+      outstandingDue: 120,
+      sales: [],
+      ledgerEntries: [],
+      paymentHistory: [],
+    };
+
+    service.getCustomerAccount(customerId).subscribe((res) => expect(res).toEqual(account));
+
+    const req = httpMock.expectOne(`${apiUrl}/${customerId}/account`);
+    expect(req.request.method).toBe('GET');
+    req.flush(account);
+  });
+
+  it('recordCustomerPayment performs POST to /customers/:id/payments', () => {
+    const customerId = 'c1';
+    const payload = {
+      amount: 200,
+      paymentDate: '2026-04-24',
+      notes: 'Paid by cash',
+    };
+    const ledgerEntry = {
+      entryId: 'e1',
+      saleId: null,
+      entryType: 2,
+      amount: 200,
+      entryDate: '2026-04-24',
+      notes: 'Paid by cash',
+      runningBalance: 50,
+    };
+
+    service.recordCustomerPayment(customerId, payload).subscribe((res) => expect(res).toEqual(ledgerEntry));
+
+    const req = httpMock.expectOne(`${apiUrl}/${customerId}/payments`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(ledgerEntry);
+  });
 });

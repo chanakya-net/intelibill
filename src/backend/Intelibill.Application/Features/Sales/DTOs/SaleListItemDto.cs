@@ -5,8 +5,11 @@ namespace Intelibill.Application.Features.Sales.DTOs;
 public sealed record SaleListItemDto(
     Guid SaleId,
     string InvoiceNumber,
+    Guid? CustomerId,
     PaymentMethod PaymentMethod,
     DateTimeOffset SoldAt,
+    decimal PaidAmount,
+    decimal DueAmount,
     decimal TotalAmount,
     decimal TotalTaxAmount,
     string? CustomerName,

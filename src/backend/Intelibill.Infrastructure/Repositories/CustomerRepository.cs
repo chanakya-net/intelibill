@@ -13,4 +13,16 @@ internal sealed class CustomerRepository(ApplicationDbContext context)
             .Where(c => c.OwnerUserId == ownerUserId)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
+
+    public async Task<Customer?> GetByOwnerAndIdAsync(Guid ownerUserId, Guid customerId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .FirstOrDefaultAsync(c => c.OwnerUserId == ownerUserId && c.Id == customerId, cancellationToken);
+
+    public async Task<Customer?> GetByOwnerAndPhoneAsync(Guid ownerUserId, string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        var normalizedPhoneNumber = phoneNumber.Trim();
+
+        return await DbSet
+            .FirstOrDefaultAsync(c => c.OwnerUserId == ownerUserId && c.PhoneNumber == normalizedPhoneNumber, cancellationToken);
+    }
 }
