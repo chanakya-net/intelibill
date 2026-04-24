@@ -33,6 +33,14 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.SoldAt)
             .IsRequired();
 
+        builder.Property(s => s.PaidAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.DueAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
         builder.Property(s => s.TotalAmount)
             .HasPrecision(18, 2)
             .IsRequired();

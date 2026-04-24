@@ -124,6 +124,8 @@ public class GetSaleDetailQueryHandlerTests
             null,
             PaymentMethod.Cash,
             DateTimeOffset.UtcNow,
+            paidAmount: 220m,
+            dueAmount: 0m,
             totalAmount: 220m,
             totalTaxAmount: 20m,
             [saleItem]);

@@ -15,7 +15,7 @@ public class SaleTests
         var items = new List<SaleItem>();
 
         var sale = Sale.Create(shopId, invoiceNumber, customerId, null, null,
-            PaymentMethod.Cash, soldAt, 500m, 45m, items);
+            PaymentMethod.Cash, soldAt, 500m, 0m, 500m, 45m, items);
 
         Assert.Equal(shopId, sale.ShopId);
         Assert.Equal(invoiceNumber, sale.InvoiceNumber);
@@ -31,7 +31,7 @@ public class SaleTests
     {
         var sale = Sale.Create(Guid.NewGuid(), "INV-20260416-ABCD1234",
             null, "  Ravi Kumar  ", "  +919876543210  ",
-            PaymentMethod.UPI, DateTimeOffset.UtcNow, 200m, 18m, []);
+            PaymentMethod.UPI, DateTimeOffset.UtcNow, 200m, 0m, 200m, 18m, []);
 
         Assert.Null(sale.CustomerId);
         Assert.Equal("Ravi Kumar", sale.CustomerName);
@@ -46,7 +46,7 @@ public class SaleTests
             5m, 80m, 100m, 120m, 18m, false, false);
 
         var sale = Sale.Create(shopId, "INV-20260416-ABCD1234",
-            null, null, null, PaymentMethod.Card, DateTimeOffset.UtcNow, 500m, 45m,
+            null, null, null, PaymentMethod.Card, DateTimeOffset.UtcNow, 500m, 0m, 500m, 45m,
             [saleItem]);
 
         Assert.Single(sale.Items);

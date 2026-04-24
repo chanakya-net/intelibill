@@ -197,7 +197,32 @@
     "noCustomersFound": "कोणतेही ग्राहक आढळले नाहीत",
     "noCustomersDescription": "तुमचा पहिला ग्राहक जोडून सुरुवात करा.",
     "isActive": "सक्रिय आहे",
-    "actions": "क्रिया"
+    "actions": "क्रिया",
+    "account": {
+      "eyebrow": "ग्राहक खाते",
+      "title": "ग्राहक खाते",
+      "summary": "खाते सारांश",
+      "outstandingDue": "थकबाकी रक्कम",
+      "recordPayment": "पेमेंट नोंदवा",
+      "amount": "रक्कम",
+      "paymentDate": "पेमेंट तारीख",
+      "notes": "नोंदी",
+      "submitPayment": "पेमेंट सबमिट करा",
+      "ledger": "लेजर",
+      "sales": "विक्री",
+      "date": "तारीख",
+      "type": "प्रकार",
+      "runningBalance": "चालू शिल्लक",
+      "invoice": "चलन #",
+      "total": "एकूण",
+      "paid": "भरलेली",
+      "due": "थकबाकी",
+      "paymentReceived": "पेमेंट प्राप्त",
+      "saleDue": "विक्री थकबाकी",
+      "notFound": "ग्राहक खाते सापडले नाही.",
+      "loadFailed": "सध्या ग्राहक खाते लोड करता आले नाही.",
+      "paymentFailed": "सध्या पेमेंट नोंदवता आले नाही."
+    }
   },
   "inventory": {
     "directory": "इन्व्हेंटरी निर्देशिका",
@@ -502,7 +527,12 @@
       "totalDue": "देय एकूण",
       "taxIncludedPrice": "कर समाविष्ट",
       "taxExcludedPrice": "कर वगळून",
-      "recordSale": "विक्री नोंदवा"
+      "recordSale": "विक्री नोंदवा",
+      "creditRequiresCustomerPhone": "ग्राहकाचा फोन नंबर दिल्यासच क्रेडिट पर्याय उपलब्ध होईल.",
+      "paidAmount": "भरलेली रक्कम",
+      "dueAmount": "थकबाकी रक्कम",
+      "invalidPaymentSplit": "भरलेली रक्कम आणि थकबाकी रक्कम यांची बेरीज एकूण रकमेइतकी असावी.",
+      "customerRequiredForDue": "थकबाकी रक्कम शून्यापेक्षा जास्त असल्यास ग्राहकाचा फोन नंबर आवश्यक आहे."
     },
     "detail": {
       "title": "विक्री तपशील",

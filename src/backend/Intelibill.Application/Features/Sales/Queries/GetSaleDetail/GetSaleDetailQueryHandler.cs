@@ -38,8 +38,11 @@ public sealed class GetSaleDetailQueryHandler(
         return new SaleDto(
             sale.Id,
             sale.InvoiceNumber,
+            sale.CustomerId,
             sale.PaymentMethod,
             sale.SoldAt,
+            sale.PaidAmount,
+            sale.DueAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items.Select(si => new SaleItemDto(

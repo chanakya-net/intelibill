@@ -73,8 +73,10 @@ export class NewSalePageComponent {
   readonly availableBatches = signal<AvailableBatchDto[]>([]);
   readonly showBatchPicker = signal(false);
   readonly selectedBatch = signal<AvailableBatchDto | null>(null);
+  readonly selectedCustomerId = signal<string | null>(null);
   readonly isScannerOpen = signal(false);
   readonly isWalkIn = signal(true);
+  readonly paymentSplitError = signal('');
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
@@ -91,6 +93,11 @@ export class NewSalePageComponent {
   readonly totalAmount = computed(() =>
     this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0)
   );
+  readonly normalizedCustomerPhone = computed(() => this.customerForm.controls.customerPhone.value.trim());
+  readonly canUseCredit = computed(() => !!this.selectedCustomerId() || this.normalizedCustomerPhone().length > 0);
+  readonly paymentMethodsForSelection = computed(() =>
+    this.paymentMethods.filter((method) => method.value !== 4 || this.canUseCredit())
+  );
 
   readonly batchPickerForm = this.fb.nonNullable.group({
     batchNumber: ['', Validators.required],
@@ -104,6 +111,8 @@ export class NewSalePageComponent {
 
   readonly paymentForm = this.fb.nonNullable.group({
     paymentMethod: [1, Validators.required],
+    paidAmount: [0, [Validators.required, Validators.min(0)]],
+    dueAmount: [0, [Validators.required, Validators.min(0)]],
   });
 
   constructor() {
@@ -115,9 +124,37 @@ export class NewSalePageComponent {
         this.cart.set([]);
         this.searchInput.set('');
         this.customerForm.reset();
-        this.paymentForm.reset({ paymentMethod: 1 });
+        this.selectedCustomerId.set(null);
+        this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
+        this.paymentSplitError.set('');
         this.salesFacade.clearMutationStatus();
         this.router.navigate(['/sales']);
+      }
+    });
+
+    effect(() => {
+      const total = this.totalAmount();
+      const dueControl = this.paymentForm.controls.dueAmount;
+      const paidControl = this.paymentForm.controls.paidAmount;
+      const currentDue = Number(dueControl.value ?? 0);
+      const normalizedDue = Math.max(0, Math.min(currentDue, total));
+      if (normalizedDue !== currentDue) {
+        dueControl.setValue(normalizedDue, { emitEvent: false });
+      }
+
+      const paid = Math.max(0, total - normalizedDue);
+      if (Number(paidControl.value ?? 0) !== paid) {
+        paidControl.setValue(paid, { emitEvent: false });
+      }
+    });
+
+    effect(() => {
+      if (this.canUseCredit()) {
+        return;
+      }
+
+      if (this.paymentForm.controls.paymentMethod.value === 4) {
+        this.paymentForm.controls.paymentMethod.setValue(1);
       }
     });
 
@@ -330,6 +367,8 @@ export class NewSalePageComponent {
       return;
     }
 
+    this.paymentSplitError.set('');
+
     const items: RecordSaleItemRequest[] = this.cart().map((item) => ({
       barcode: item.barcode,
       batchNumber: item.batchNumber,
@@ -344,12 +383,32 @@ export class NewSalePageComponent {
 
     const customerName = this.customerForm.controls.customerName.value.trim() || null;
     const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
+    const paidAmount = Number(this.paymentForm.controls.paidAmount.value ?? 0);
+    const dueAmount = Number(this.paymentForm.controls.dueAmount.value ?? 0);
+    const totalAmount = this.totalAmount();
+
+    if (paidAmount < 0 || dueAmount < 0 || Number((paidAmount + dueAmount).toFixed(2)) !== Number(totalAmount.toFixed(2))) {
+      this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
+      return;
+    }
+
+    if (dueAmount > 0 && !this.selectedCustomerId() && !customerPhone) {
+      this.paymentSplitError.set('sales.newSale.customerRequiredForDue');
+      return;
+    }
+
+    if (this.paymentForm.controls.paymentMethod.value === 4 && !this.canUseCredit()) {
+      this.paymentSplitError.set('sales.newSale.creditRequiresCustomerPhone');
+      return;
+    }
 
     const request: RecordSaleRequest = {
-      customerId: null,
+      customerId: this.selectedCustomerId(),
       customerName,
       customerPhone,
       paymentMethod: this.paymentForm.controls.paymentMethod.value,
+      paidAmount,
+      dueAmount,
       items,
     };
 

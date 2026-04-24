@@ -39,6 +39,8 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
                 request.CustomerName,
                 request.CustomerPhone,
                 request.PaymentMethod,
+                request.PaidAmount,
+                request.DueAmount,
                 request.Items.Select(i => new RecordSaleItemCommand(
                     i.Barcode,
                     i.BatchNumber,
@@ -110,6 +112,8 @@ public sealed record RecordSaleRequest(
     string? CustomerName,
     string? CustomerPhone,
     PaymentMethod PaymentMethod,
+    decimal PaidAmount,
+    decimal DueAmount,
     IReadOnlyList<RecordSaleItemRequest> Items);
 
 public sealed record RecordSaleItemRequest(

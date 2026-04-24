@@ -43,14 +43,19 @@ public class SalesControllerTests
             "Ravi Kumar",
             "+919876543210",
             PaymentMethod.Cash,
+            500m,
+            0m,
             [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
 
     private static SaleDto CreateDto() =>
         new(
             Guid.NewGuid(),
             "INV-20260416-ABCD1234",
+            null,
             PaymentMethod.Cash,
             DateTimeOffset.UtcNow,
+            500m,
+            0m,
             500m,
             45m,
             [],
@@ -101,6 +106,8 @@ public class SalesControllerTests
                 c.ActorUserId == userId
                 && c.ShopId == shopId
                 && c.PaymentMethod == PaymentMethod.Cash
+                && c.PaidAmount == 500m
+                && c.DueAmount == 0m
                 && c.Items.Count == 1
                 && c.Items[0].Barcode == "BC-001"),
             Arg.Any<CancellationToken>());
@@ -203,7 +210,7 @@ public class SalesControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var sale = new SaleDto(saleId, "INV-001", PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 90m, [], []);
+        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 90m, [], []);
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
 

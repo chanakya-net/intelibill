@@ -197,7 +197,32 @@
     "noCustomersFound": "No customers found",
     "noCustomersDescription": "Start by adding your first customer.",
     "isActive": "Is Active",
-    "actions": "Actions"
+    "actions": "Actions",
+    "account": {
+      "eyebrow": "Customer Account",
+      "title": "Customer Account",
+      "summary": "Account Summary",
+      "outstandingDue": "Outstanding Due",
+      "recordPayment": "Record Payment",
+      "amount": "Amount",
+      "paymentDate": "Payment Date",
+      "notes": "Notes",
+      "submitPayment": "Submit Payment",
+      "ledger": "Ledger",
+      "sales": "Sales",
+      "date": "Date",
+      "type": "Type",
+      "runningBalance": "Running Balance",
+      "invoice": "Invoice #",
+      "total": "Total",
+      "paid": "Paid",
+      "due": "Due",
+      "paymentReceived": "Payment Received",
+      "saleDue": "Sale Due",
+      "notFound": "Customer account not found.",
+      "loadFailed": "Unable to load customer account right now.",
+      "paymentFailed": "Unable to record payment right now."
+    }
   },
   "inventory": {
     "directory": "Inventory Directory",
@@ -502,7 +527,12 @@
       "totalDue": "Total Due",
       "taxIncludedPrice": "Tax Included",
       "taxExcludedPrice": "Tax Excluded",
-      "recordSale": "Record Sale"
+      "recordSale": "Record Sale",
+      "creditRequiresCustomerPhone": "Credit option available only when customer phone is provided.",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "invalidPaymentSplit": "Paid amount and due amount must match total.",
+      "customerRequiredForDue": "Customer phone is required when due amount is greater than zero."
     },
     "detail": {
       "title": "Sale Details",

@@ -5,15 +5,18 @@ import { SaleListItemDto } from '../services/sale.service';
 const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleListItemDto => ({
   saleId: id,
   invoiceNumber: `INV-${id}`,
+  customerId: null,
   paymentMethod: 1,
   soldAt: new Date().toISOString(),
+  paidAmount: 500,
+  dueAmount: 0,
   totalAmount: 500,
   totalTaxAmount: 50,
   customerName: null,
   customerPhone: null,
   itemCount: 2,
   ...overrides,
-});
+}) as SaleListItemDto;
 
 describe('salesReducer', () => {
   const initialState = salesReducer(undefined, { type: '@@INIT' } as never);
@@ -54,7 +57,15 @@ describe('salesReducer', () => {
     const next = salesReducer(
       initialState,
       SalesActions.recordSaleRequested({
-        payload: { customerId: null, customerName: null, customerPhone: null, paymentMethod: 1, items: [] },
+        payload: {
+          customerId: null,
+          customerName: null,
+          customerPhone: null,
+          paymentMethod: 1,
+          paidAmount: 0,
+          dueAmount: 0,
+          items: [],
+        },
       })
     );
 
@@ -63,7 +74,19 @@ describe('salesReducer', () => {
   });
 
   it('sets lastMutationSucceeded on record sale succeeded', () => {
-    const sale = { saleId: 's1', invoiceNumber: 'INV-s1', paymentMethod: 1, soldAt: '', totalAmount: 0, totalTaxAmount: 0, items: [], warnings: [] };
+    const sale = {
+      saleId: 's1',
+      invoiceNumber: 'INV-s1',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: '',
+      paidAmount: 0,
+      dueAmount: 0,
+      totalAmount: 0,
+      totalTaxAmount: 0,
+      items: [],
+      warnings: [],
+    };
     const next = salesReducer(
       { ...initialState, submitting: true },
       SalesActions.recordSaleSucceeded({ sale })
@@ -85,7 +108,19 @@ describe('salesReducer', () => {
   });
 
   it('clears selected sale on clearSaleDetail', () => {
-    const sale = { saleId: 's1', invoiceNumber: 'INV', paymentMethod: 1, soldAt: '', totalAmount: 0, totalTaxAmount: 0, items: [], warnings: [] };
+    const sale = {
+      saleId: 's1',
+      invoiceNumber: 'INV',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: '',
+      paidAmount: 0,
+      dueAmount: 0,
+      totalAmount: 0,
+      totalTaxAmount: 0,
+      items: [],
+      warnings: [],
+    };
     const next = salesReducer(
       { ...initialState, selectedSale: sale },
       SalesActions.clearSaleDetail()

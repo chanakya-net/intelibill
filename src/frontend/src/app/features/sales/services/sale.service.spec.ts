@@ -25,8 +25,11 @@ describe('SaleService', () => {
     {
       saleId: 'sale-1',
       invoiceNumber: 'INV-001',
+      customerId: null,
       paymentMethod: 1,
       soldAt: new Date().toISOString(),
+      paidAmount: 500,
+      dueAmount: 0,
       totalAmount: 500,
       totalTaxAmount: 50,
       customerName: 'John',
@@ -38,8 +41,11 @@ describe('SaleService', () => {
   const makeSaleDto = (): SaleDto => ({
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
+    customerId: null,
     paymentMethod: 1,
     soldAt: new Date().toISOString(),
+    paidAmount: 500,
+    dueAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
@@ -84,6 +90,8 @@ describe('SaleService', () => {
       customerName: 'Walk-in',
       customerPhone: null,
       paymentMethod: 1,
+      paidAmount: 200,
+      dueAmount: 0,
       items: [{ barcode: 'BC-001', batchNumber: 'B-01', itemName: 'Item 1', quantity: 2, costPrice: 80, salesPrice: 100, mrp: 120, taxRatePercent: 18, isPriceIncludingTax: false }],
     };
 

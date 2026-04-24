@@ -115,6 +115,8 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
             customerName = "Walk-in Customer",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 500m,
+            dueAmount = 0m,
             items = new[]
             {
                 new
@@ -189,6 +191,8 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
             customerName = (string?)null,
             customerPhone = (string?)null,
             paymentMethod = (int)PaymentMethod.UPI,
+            paidAmount = 210m,
+            dueAmount = 0m,
             items = new[]
             {
                 new

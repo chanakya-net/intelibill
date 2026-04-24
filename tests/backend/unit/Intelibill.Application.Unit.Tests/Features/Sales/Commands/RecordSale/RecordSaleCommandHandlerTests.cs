@@ -11,15 +11,27 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 
 public class RecordSaleCommandHandlerTests
 {
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IStockTransactionRepository _txRepository = Substitute.For<IStockTransactionRepository>();
+    private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_itemRepository, _batchRepository, _inventoryRepository, _txRepository, _saleRepository, _unitOfWork);
+        new(
+            _shopRepository,
+            _itemRepository,
+            _batchRepository,
+            _inventoryRepository,
+            _txRepository,
+            _customerRepository,
+            _customerLedgerEntryRepository,
+            _saleRepository,
+            _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice")
     {
@@ -50,6 +62,8 @@ public class RecordSaleCommandHandlerTests
             actorId, shopId,
             null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash,
+            quantity * 100m,
+            0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false)]);
     }
 
@@ -176,6 +190,8 @@ public class RecordSaleCommandHandlerTests
         // Request SalesPrice=105m, batch has 100m → mismatch
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Cash,
+            525m,
+            0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 105m, 120m, 18m, false)]);
 
         var handler = CreateHandler();
@@ -205,6 +221,8 @@ public class RecordSaleCommandHandlerTests
         // Command sends "Wheat" but the item is "Rice"
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Cash,
+            100m,
+            0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Wheat", 1m, 80m, 100m, 120m, 18m, false)]);
 
         var handler = CreateHandler();
@@ -235,6 +253,8 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.UPI,
+            740m,
+            0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false),
                 new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false),
@@ -266,6 +286,8 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Card,
+            200m,
+            0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 10m, false)]);
 
         var handler = CreateHandler();
@@ -293,6 +315,8 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Card,
+            110m,
+            0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 110m, 120m, 10m, true)]);
 
         var handler = CreateHandler();
@@ -321,6 +345,8 @@ public class RecordSaleCommandHandlerTests
             Guid.NewGuid(), shopId,
             null, "Walk-In Customer", "+911234567890",
             PaymentMethod.Cash,
+            100m,
+            0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
         Sale? capturedSale = null;
@@ -341,7 +367,48 @@ public class RecordSaleCommandHandlerTests
     public async Task HandleAsync_RegularCustomer_StoresCustomerId()
     {
         var shopId = Guid.NewGuid();
-        var customerId = Guid.NewGuid();
+        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
+        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
+        shop.AddMembership(ownerMembership);
+        var customer = Customer.Create(ownerMembership.UserId, "Reg User", "+911234567890", null, true);
+        var customerId = customer.Id;
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        _itemRepository.GetByBarcodesAsync(shopId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        _batchRepository.GetByItemIdsAndBatchNumbersAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([batch]);
+        _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
+        _customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, customerId, Arg.Any<CancellationToken>()).Returns(customer);
+
+        var command = new RecordSaleCommand(
+            Guid.NewGuid(), shopId,
+            customerId, null, null,
+            PaymentMethod.UPI,
+            100m,
+            0m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+
+        Sale? capturedSale = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>()))
+            .Do(ci => capturedSale = ci.Arg<Sale>());
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(capturedSale);
+        Assert.Equal(customerId, capturedSale!.CustomerId);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPaidAndDueDoNotMatchTotal_ReturnsValidationError()
+    {
+        var shopId = Guid.NewGuid();
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
@@ -355,19 +422,95 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId,
-            customerId, null, null,
-            PaymentMethod.UPI,
+            null, null, null,
+            PaymentMethod.Cash,
+            90m,
+            5m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
-        Sale? capturedSale = null;
-        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>()))
-            .Do(ci => capturedSale = ci.Arg<Sale>());
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.PaidAndDueAmountMismatch", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDueExistsAndCustomerMissing_ReturnsNotFoundError()
+    {
+        var shopId = Guid.NewGuid();
+        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
+        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
+        shop.AddMembership(ownerMembership);
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        _itemRepository.GetByBarcodesAsync(shopId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        _batchRepository.GetByItemIdsAndBatchNumbersAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([batch]);
+        _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
+        _customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, "+911234567890", Arg.Any<CancellationToken>())
+            .Returns((Customer?)null);
+
+        var command = new RecordSaleCommand(
+            Guid.NewGuid(), shopId,
+            null, "Walk-In", "+911234567890",
+            PaymentMethod.Cash,
+            80m,
+            20m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.CreditCustomerNotFound", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDueExistsAndCustomerResolved_CreatesCustomerLedgerEntry()
+    {
+        var shopId = Guid.NewGuid();
+        var actorUserId = Guid.NewGuid();
+        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
+        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
+        shop.AddMembership(ownerMembership);
+        var customer = Customer.Create(ownerMembership.UserId, "Reg User", "+911234567890", null, true);
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        _itemRepository.GetByBarcodesAsync(shopId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        _batchRepository.GetByItemIdsAndBatchNumbersAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns([batch]);
+        _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
+        _customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, "+911234567890", Arg.Any<CancellationToken>())
+            .Returns(customer);
+
+        var command = new RecordSaleCommand(
+            actorUserId, shopId,
+            null, "Reg User", "+911234567890",
+            PaymentMethod.Credit,
+            60m,
+            40m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.NotNull(capturedSale);
-        Assert.Equal(customerId, capturedSale!.CustomerId);
+        await _customerLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<CustomerLedgerEntry>(entry =>
+                entry.CustomerId == customer.Id
+                && entry.EntryType == CustomerLedgerEntryType.SaleDue
+                && entry.Amount == 40m),
+            Arg.Any<CancellationToken>());
     }
 }

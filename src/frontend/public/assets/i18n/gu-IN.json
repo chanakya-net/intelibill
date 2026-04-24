@@ -197,7 +197,32 @@
     "noCustomersFound": "કોઈ ગ્રાહક મળ્યા નહીં",
     "noCustomersDescription": "તમારો પ્રથમ ગ્રાહક ઉમેરીને શરૂ કરો.",
     "isActive": "સક્રિય છે",
-    "actions": "ક્રિયાઓ"
+    "actions": "ક્રિયાઓ",
+    "account": {
+      "eyebrow": "ગ્રાહક ખાતું",
+      "title": "ગ્રાહક ખાતું",
+      "summary": "ખાતા સારાંશ",
+      "outstandingDue": "બાકી રકમ",
+      "recordPayment": "ચુકવણી નોંધો",
+      "amount": "રકમ",
+      "paymentDate": "ચુકવણી તારીખ",
+      "notes": "નોંધો",
+      "submitPayment": "ચુકવણી સબમિટ કરો",
+      "ledger": "લેજર",
+      "sales": "વેચાણ",
+      "date": "તારીખ",
+      "type": "પ્રકાર",
+      "runningBalance": "ચાલતી બાકી",
+      "invoice": "ઇન્વૉઇસ #",
+      "total": "કુલ",
+      "paid": "ચૂકવેલ",
+      "due": "બાકી",
+      "paymentReceived": "ચુકવણી પ્રાપ્ત",
+      "saleDue": "વેચાણ બાકી",
+      "notFound": "ગ્રાહક ખાતું મળ્યું નથી.",
+      "loadFailed": "હમણાં ગ્રાહક ખાતું લોડ કરી શકાયું નથી.",
+      "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી."
+    }
   },
   "inventory": {
     "directory": "ઇન્વેન્ટરી ડિરેક્ટરી",
@@ -502,7 +527,12 @@
       "totalDue": "ચૂકવવાપાત્ર કુલ",
       "taxIncludedPrice": "કર સામેલ",
       "taxExcludedPrice": "કર બાદ",
-      "recordSale": "વેચાણ નોંધો"
+      "recordSale": "વેચાણ નોંધો",
+      "creditRequiresCustomerPhone": "ગ્રાહકનો ફોન નંબર આપેલ હોય ત્યારે જ ક્રેડિટ વિકલ્પ ઉપલબ્ધ છે.",
+      "paidAmount": "ચૂકવેલ રકમ",
+      "dueAmount": "બાકી રકમ",
+      "invalidPaymentSplit": "ચૂકવેલ અને બાકી રકમનો કુલ સરવાળો કુલ રકમ જેટલો હોવો જોઈએ.",
+      "customerRequiredForDue": "બાકી રકમ શૂન્યથી વધુ હોય ત્યારે ગ્રાહકનો ફોન નંબર જરૂરી છે."
     },
     "detail": {
       "title": "વેચાણ વિગતો",

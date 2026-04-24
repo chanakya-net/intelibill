@@ -14,6 +14,8 @@ public sealed class Sale : BaseEntity
     public string? CustomerPhone { get; private set; }
     public PaymentMethod PaymentMethod { get; private set; }
     public DateTimeOffset SoldAt { get; private set; }
+    public decimal PaidAmount { get; private set; }
+    public decimal DueAmount { get; private set; }
     public decimal TotalAmount { get; private set; }
     public decimal TotalTaxAmount { get; private set; }
 
@@ -29,6 +31,8 @@ public sealed class Sale : BaseEntity
         string? customerPhone,
         PaymentMethod paymentMethod,
         DateTimeOffset soldAt,
+        decimal paidAmount,
+        decimal dueAmount,
         decimal totalAmount,
         decimal totalTaxAmount,
         IReadOnlyList<SaleItem> items)
@@ -42,6 +46,8 @@ public sealed class Sale : BaseEntity
             CustomerPhone = NormalizeOptional(customerPhone),
             PaymentMethod = paymentMethod,
             SoldAt = soldAt,
+            PaidAmount = paidAmount,
+            DueAmount = dueAmount,
             TotalAmount = totalAmount,
             TotalTaxAmount = totalTaxAmount,
         };

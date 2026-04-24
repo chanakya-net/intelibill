@@ -197,7 +197,32 @@
     "noCustomersFound": "কোনো গ্রাহক পাওয়া যায়নি",
     "noCustomersDescription": "আপনার প্রথম গ্রাহক যোগ করে শুরু করুন।",
     "isActive": "সক্রিয়",
-    "actions": "ক্রিয়া"
+    "actions": "ক্রিয়া",
+    "account": {
+      "eyebrow": "গ্রাহক হিসাব",
+      "title": "গ্রাহক হিসাব",
+      "summary": "হিসাবের সারাংশ",
+      "outstandingDue": "মোট বকেয়া",
+      "recordPayment": "পেমেন্ট নথিভুক্ত করুন",
+      "amount": "পরিমাণ",
+      "paymentDate": "পেমেন্টের তারিখ",
+      "notes": "নোট",
+      "submitPayment": "পেমেন্ট জমা দিন",
+      "ledger": "লেজার",
+      "sales": "বিক্রয়",
+      "date": "তারিখ",
+      "type": "ধরণ",
+      "runningBalance": "চলতি ব্যালান্স",
+      "invoice": "ইনভয়েস #",
+      "total": "মোট",
+      "paid": "পরিশোধিত",
+      "due": "বকেয়া",
+      "paymentReceived": "পেমেন্ট গৃহীত",
+      "saleDue": "বিক্রয় বকেয়া",
+      "notFound": "গ্রাহকের হিসাব পাওয়া যায়নি।",
+      "loadFailed": "এই মুহূর্তে গ্রাহকের হিসাব লোড করা যাচ্ছে না।",
+      "paymentFailed": "এই মুহূর্তে পেমেন্ট নথিভুক্ত করা যাচ্ছে না।"
+    }
   },
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",
@@ -501,7 +526,12 @@
       "totalDue": "পরিশোধযোগ্য মোট",
       "taxIncludedPrice": "করসহ মূল্য",
       "taxExcludedPrice": "কর ছাড়া মূল্য",
-      "recordSale": "বিক্রয় নথিভুক্ত করুন"
+      "recordSale": "বিক্রয় নথিভুক্ত করুন",
+      "creditRequiresCustomerPhone": "গ্রাহকের ফোন নম্বর দিলে তবেই ক্রেডিট অপশন পাওয়া যাবে।",
+      "paidAmount": "পরিশোধিত পরিমাণ",
+      "dueAmount": "বকেয়া পরিমাণ",
+      "invalidPaymentSplit": "পরিশোধিত পরিমাণ ও বকেয়া পরিমাণের যোগফল মোটের সমান হতে হবে।",
+      "customerRequiredForDue": "বকেয়া পরিমাণ শূন্যের বেশি হলে গ্রাহকের ফোন নম্বর আবশ্যক।"
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

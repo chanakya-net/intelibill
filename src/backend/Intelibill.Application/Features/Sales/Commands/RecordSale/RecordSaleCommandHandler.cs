@@ -9,10 +9,13 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandHandler(
+    IShopRepository shopRepository,
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
     IStockTransactionRepository stockTransactionRepository,
+    ICustomerRepository customerRepository,
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ISaleRepository saleRepository,
     IUnitOfWork unitOfWork)
 {
@@ -132,28 +135,113 @@ public sealed class RecordSaleCommandHandler(
                 hasMismatch));
         }
 
+        var roundedCalculatedTotal = decimal.Round(totalAmount, 2, MidpointRounding.AwayFromZero);
+        var roundedSplitTotal = decimal.Round(command.PaidAmount + command.DueAmount, 2, MidpointRounding.AwayFromZero);
+        if (roundedCalculatedTotal != roundedSplitTotal)
+        {
+            return Errors.Sale.PaidAndDueAmountMismatch;
+        }
+
+        if (command.PaymentMethod == PaymentMethod.Credit && command.DueAmount <= 0)
+        {
+            return Errors.Sale.CreditRequiresDueAmount;
+        }
+
+        Customer? resolvedCustomer = null;
+        var hasDueAmount = command.DueAmount > 0;
+        var normalizedCustomerPhone = NormalizeOptional(command.CustomerPhone);
+        var shouldResolveRegisteredCustomer = command.CustomerId.HasValue || hasDueAmount || command.PaymentMethod == PaymentMethod.Credit;
+
+        if (shouldResolveRegisteredCustomer)
+        {
+            var shop = await shopRepository.GetByIdWithMembersAsync(command.ShopId, cancellationToken);
+            if (shop is null)
+            {
+                return Errors.Shop.ShopNotFound;
+            }
+
+            var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
+            if (ownerMembership is null)
+            {
+                return Errors.Customer.ShopOwnerNotFound;
+            }
+
+            if (command.CustomerId.HasValue)
+            {
+                resolvedCustomer = await customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, command.CustomerId.Value, cancellationToken);
+                if (resolvedCustomer is null)
+                {
+                    return Errors.Sale.CreditCustomerNotFound;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedCustomerPhone))
+            {
+                var customerByPhone = await customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, normalizedCustomerPhone, cancellationToken);
+                if (resolvedCustomer is null)
+                {
+                    resolvedCustomer = customerByPhone;
+                }
+                else if (customerByPhone is not null && customerByPhone.Id != resolvedCustomer.Id)
+                {
+                    return Errors.Sale.CustomerIdentityMismatch;
+                }
+            }
+        }
+
+        if ((hasDueAmount || command.PaymentMethod == PaymentMethod.Credit) && resolvedCustomer is null)
+        {
+            return Errors.Sale.CreditCustomerNotFound;
+        }
+
         // 8. Build sale aggregate
         var sale = Sale.Create(
             command.ShopId,
             invoiceNumber,
-            command.CustomerId,
-            command.CustomerName,
-            command.CustomerPhone,
+            resolvedCustomer?.Id ?? command.CustomerId,
+            resolvedCustomer?.Name ?? command.CustomerName,
+            resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
             command.PaymentMethod,
             DateTimeOffset.UtcNow,
+            command.PaidAmount,
+            command.DueAmount,
             totalAmount,
             totalTaxAmount,
             saleItems);
 
         await saleRepository.AddAsync(sale, cancellationToken);
+
+        if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
+        {
+            var ledgerEntryResult = CustomerLedgerEntry.Create(
+                sale.ShopId,
+                sale.CustomerId.Value,
+                sale.Id,
+                CustomerLedgerEntryType.SaleDue,
+                sale.DueAmount,
+                DateOnly.FromDateTime(sale.SoldAt.UtcDateTime),
+                $"Due recorded from sale {sale.InvoiceNumber}",
+                command.ActorUserId);
+
+            if (ledgerEntryResult.IsError)
+            {
+                return ledgerEntryResult.Errors;
+            }
+
+            await customerLedgerEntryRepository.AddAsync(ledgerEntryResult.Value, cancellationToken);
+        }
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
         return new SaleDto(
             sale.Id,
             sale.InvoiceNumber,
+            sale.CustomerId,
             sale.PaymentMethod,
             sale.SoldAt,
+            sale.PaidAmount,
+            sale.DueAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items.Select(si => new SaleItemDto(
@@ -168,4 +256,7 @@ public sealed class RecordSaleCommandHandler(
                 si.HasPriceMismatch)).ToList(),
             warnings);
     }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
