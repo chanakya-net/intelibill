@@ -1,5 +1,5 @@
 using FluentValidation.TestHelper;
-using Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
+using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 
@@ -54,18 +54,15 @@ public class UpdateShopCommandValidatorTests
         _v.TestValidate(Valid()).ShouldNotHaveAnyValidationErrors();
 }
 
-public class AddShopBankAccountCommandValidatorTests
+public class AddBankAccountCommandValidatorTests
 {
-    private readonly AddShopBankAccountCommandValidator _v = new();
+    private readonly AddBankAccountCommandValidator _v = new();
 
-    private static AddShopBankAccountCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "HDFC", "1234567890", "Savings", "HDFC0001234", "Ravi");
+    private static AddBankAccountCommand Valid() =>
+        new(Guid.NewGuid(), "HDFC", "1234567890", "Savings", "HDFC0001234", "Ravi");
 
-    [Fact] public void Validate_WhenUserIdEmpty_ReturnsError() =>
-        _v.TestValidate(Valid() with { UserId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.UserId);
-
-    [Fact] public void Validate_WhenShopIdEmpty_ReturnsError() =>
-        _v.TestValidate(Valid() with { ShopId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.ShopId);
+    [Fact] public void Validate_WhenOwnerUserIdEmpty_ReturnsError() =>
+        _v.TestValidate(Valid() with { OwnerUserId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.OwnerUserId);
 
     [Fact] public void Validate_WhenAccountTypeInvalid_ReturnsError() =>
         _v.TestValidate(Valid() with { AccountType = "Invalid" }).ShouldHaveValidationErrorFor(x => x.AccountType);

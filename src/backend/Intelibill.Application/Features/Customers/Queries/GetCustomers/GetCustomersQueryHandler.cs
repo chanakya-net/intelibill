@@ -9,7 +9,7 @@ public sealed class GetCustomersQueryHandler(
 {
     public async Task<ErrorOr<IReadOnlyList<CustomerDto>>> HandleAsync(GetCustomersQuery query, CancellationToken cancellationToken)
     {
-        var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
+        var customers = await customerRepository.GetByOwnerUserIdAsync(query.OwnerUserId, cancellationToken);
 
         return customers.Select(c => new CustomerDto(
             c.Id,

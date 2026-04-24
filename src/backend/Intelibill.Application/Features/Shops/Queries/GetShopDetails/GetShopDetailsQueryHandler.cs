@@ -18,7 +18,7 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var shop = await shopRepository.GetByIdWithBankAccountsAsync(query.ShopId, cancellationToken);
+        var shop = await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
@@ -31,7 +31,6 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
             shop.Pincode,
             shop.ContactPerson,
             shop.MobileNumber,
-            shop.GstNumber,
-            shop.BankAccounts.Select(ba => new BankAccountDto(ba.Id, ba.BankName, ba.AccountNumber, ba.AccountType?.ToString(), ba.IfscCode, ba.AccountHolderName)).ToList());
+            shop.GstNumber);
     }
 }

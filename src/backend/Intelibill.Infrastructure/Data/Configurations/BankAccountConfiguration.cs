@@ -12,6 +12,9 @@ internal sealed class BankAccountConfiguration : IEntityTypeConfiguration<BankAc
 
         builder.HasKey(ba => ba.Id);
 
+        builder.Property(ba => ba.OwnerUserId)
+            .IsRequired();
+
         builder.Property(ba => ba.BankName)
             .IsRequired()
             .HasMaxLength(120);
@@ -30,11 +33,11 @@ internal sealed class BankAccountConfiguration : IEntityTypeConfiguration<BankAc
         builder.Property(ba => ba.AccountHolderName)
             .HasMaxLength(120);
 
-        builder.HasOne<Shop>()
-            .WithMany(s => s.BankAccounts)
-            .HasForeignKey(ba => ba.ShopId)
+        builder.HasIndex(ba => ba.OwnerUserId);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(ba => ba.OwnerUserId)
             .OnDelete(DeleteBehavior.Cascade);
     }
-    
-    // Note: The ShopConfiguration already handles the other side of the relationship.
 }

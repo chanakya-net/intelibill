@@ -8,9 +8,9 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class CustomerRepository(ApplicationDbContext context)
     : RepositoryBase<Customer>(context), ICustomerRepository
 {
-    public async Task<IReadOnlyList<Customer>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<Customer>> GetByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default) =>
         await DbSet
-            .Where(c => c.ShopId == shopId)
+            .Where(c => c.OwnerUserId == ownerUserId)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
 }

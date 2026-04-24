@@ -25,7 +25,7 @@ public class EditCustomerCommandHandlerTests
             .Returns((Customer?)null);
 
         var command = new EditCustomerCommand(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(),
             "New Name", "+919876543210", null, true);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
@@ -35,14 +35,14 @@ public class EditCustomerCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenCustomerBelongsToDifferentShop_ReturnsNotFoundError()
+    public async Task HandleAsync_WhenCustomerBelongsToDifferentOwner_ReturnsNotFoundError()
     {
         var customer = Customer.Create(Guid.NewGuid(), "Old Name", "+911234567890", null);
         _customerRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(customer);
 
         var command = new EditCustomerCommand(
-            Guid.NewGuid(), Guid.NewGuid(), customer.Id,
+            Guid.NewGuid(), customer.Id,
             "New Name", "+919876543210", null, true);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
@@ -54,13 +54,13 @@ public class EditCustomerCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenValid_UpdatesCustomerAndReturnsDto()
     {
-        var shopId = Guid.NewGuid();
-        var customer = Customer.Create(shopId, "Old Name", "+911234567890", null);
+        var ownerId = Guid.NewGuid();
+        var customer = Customer.Create(ownerId, "Old Name", "+911234567890", null);
         _customerRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(customer);
 
         var command = new EditCustomerCommand(
-            Guid.NewGuid(), shopId, customer.Id,
+            ownerId, customer.Id,
             "New Name", "+919999999999", "12 MG Road", false);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);

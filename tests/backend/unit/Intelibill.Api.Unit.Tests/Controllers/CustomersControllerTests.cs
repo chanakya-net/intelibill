@@ -17,14 +17,12 @@ public class CustomersControllerTests
     private readonly CustomersController _controller;
 
     private readonly Guid _userId = Guid.NewGuid();
-    private readonly Guid _shopId = Guid.NewGuid();
 
     public CustomersControllerTests()
     {
         _controller = new CustomersController(_bus);
         SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()),
-            new Claim("active_shop_id", _shopId.ToString()));
+            new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()));
     }
 
     // --- GetCustomers ---
@@ -52,17 +50,6 @@ public class CustomersControllerTests
         var result = await _controller.GetCustomers(CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
-    }
-
-    [Fact]
-    public async Task GetCustomers_WhenNoActiveShopClaim_ReturnsProblem()
-    {
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString())); // no shop claim
-
-        var result = await _controller.GetCustomers(CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
     }
 
     [Fact]
@@ -101,16 +88,6 @@ public class CustomersControllerTests
     }
 
     [Fact]
-    public async Task AddCustomer_WhenNoActiveShopClaim_ReturnsProblem()
-    {
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()));
-
-        var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true), CancellationToken.None);
-
-        Assert.IsType<ObjectResult>(result);
-    }
-
-    [Fact]
     public async Task AddCustomer_WhenBusReturnsValidationError_ReturnsBadRequest()
     {
         ArrangeBusResponse<CustomerDto>(Error.Validation("Customer.NameRequired", "Name is required"));
@@ -144,16 +121,6 @@ public class CustomersControllerTests
         var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true), CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
-    }
-
-    [Fact]
-    public async Task EditCustomer_WhenNoActiveShopClaim_ReturnsProblem()
-    {
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()));
-
-        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true), CancellationToken.None);
-
-        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]

@@ -14,9 +14,7 @@ public sealed class Shop : BaseEntity
     public string? GstNumber { get; private set; }
 
     private readonly List<ShopMembership> _memberships = [];
-    private readonly List<BankAccount> _bankAccounts = [];
     public IReadOnlyList<ShopMembership> Memberships => _memberships.AsReadOnly();
-    public IReadOnlyList<BankAccount> BankAccounts => _bankAccounts.AsReadOnly();
 
     private Shop() { }
 
@@ -66,11 +64,6 @@ public sealed class Shop : BaseEntity
         ContactPerson = NormalizeOptional(contactPerson);
         MobileNumber = NormalizeOptional(mobileNumber);
         GstNumber = NormalizeOptional(gstNumber);
-    }
-
-    public void AddBankAccount(BankAccount bankAccount)
-    {
-        _bankAccounts.Add(bankAccount);
     }
 
     public void AddMembership(ShopMembership membership)

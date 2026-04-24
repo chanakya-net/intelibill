@@ -78,12 +78,4 @@ internal sealed class ShopRepository(ApplicationDbContext context)
 
     public void RemoveMembership(ShopMembership membership) =>
         _context.ShopMemberships.Remove(membership);
-
-    public async Task<Shop?> GetByIdWithBankAccountsAsync(Guid shopId, CancellationToken cancellationToken = default) =>
-        await DbSet
-            .Include(s => s.BankAccounts)
-            .FirstOrDefaultAsync(s => s.Id == shopId, cancellationToken);
-
-    public async Task AddBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default) =>
-        await _context.BankAccounts.AddAsync(bankAccount, cancellationToken);
 }

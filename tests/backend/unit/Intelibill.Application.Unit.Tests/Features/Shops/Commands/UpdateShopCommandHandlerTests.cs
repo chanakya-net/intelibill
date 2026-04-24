@@ -37,7 +37,7 @@ public class UpdateShopCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
-        _shopRepository.GetByIdWithBankAccountsAsync(shop.Id, Arg.Any<CancellationToken>())
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>())
             .Returns(shop);
 
         var handler = new UpdateShopCommandHandler(
@@ -178,7 +178,7 @@ public class UpdateShopCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);
-        _shopRepository.GetByIdWithBankAccountsAsync(shopId, Arg.Any<CancellationToken>())
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns((Shop?)null);
 
         var handler = new UpdateShopCommandHandler(

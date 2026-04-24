@@ -46,10 +46,5 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
             .WithOne(sm => sm.Shop)
             .HasForeignKey(sm => sm.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasMany(s => s.BankAccounts)
-            .WithOne()
-            .HasForeignKey(ba => ba.ShopId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

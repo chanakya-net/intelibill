@@ -4,7 +4,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class Customer : BaseEntity
 {
-    public Guid ShopId { get; private set; }
+    public Guid OwnerUserId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string PhoneNumber { get; private set; } = string.Empty;
     public string? Address { get; private set; }
@@ -13,7 +13,7 @@ public sealed class Customer : BaseEntity
     private Customer() { }
 
     public static Customer Create(
-        Guid shopId,
+        Guid ownerUserId,
         string name,
         string phoneNumber,
         string? address,
@@ -21,7 +21,7 @@ public sealed class Customer : BaseEntity
     {
         return new Customer
         {
-            ShopId = shopId,
+            OwnerUserId = ownerUserId,
             Name = name.Trim(),
             PhoneNumber = phoneNumber.Trim(),
             Address = NormalizeOptional(address),

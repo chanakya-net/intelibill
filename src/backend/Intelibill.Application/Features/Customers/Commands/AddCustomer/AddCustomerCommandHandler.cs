@@ -14,7 +14,7 @@ public sealed class AddCustomerCommandHandler(
     public async Task<ErrorOr<CustomerDto>> HandleAsync(AddCustomerCommand command, CancellationToken cancellationToken)
     {
         var customer = Customer.Create(
-            command.ShopId,
+            command.ActorUserId,
             command.Name,
             command.PhoneNumber,
             command.Address,
