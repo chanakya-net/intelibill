@@ -113,35 +113,22 @@ public class SupplierLedgerEntryTests
     }
 
     [Fact]
-    public void Create_WithPaymentMade_RaisesSupplierPaymentRecorded()
+    public void Create_WithPaymentMade_RaisesNoDomainEvents()
     {
-        var shopId = Guid.NewGuid();
-        var supplierId = Guid.NewGuid();
-        var createdBy = Guid.NewGuid();
-        var amount = 500m;
-        var entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
-
+        // Expense creation is handled atomically inside MakeSupplierPaymentCommandHandler,
+        // not via a domain event, to avoid post-commit drift on accounting-critical writes.
         var result = SupplierLedgerEntry.Create(
-            shopId,
-            supplierId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
             null,
             SupplierLedgerEntryType.PaymentMade,
-            amount,
-            entryDate,
+            500m,
+            DateOnly.FromDateTime(DateTime.UtcNow),
             "bank transfer",
-            createdBy);
+            Guid.NewGuid());
 
         Assert.False(result.IsError);
-        var entry = result.Value;
-        var domainEvent = Assert.Single(entry.DomainEvents);
-        var paymentEvent = Assert.IsType<SupplierPaymentRecorded>(domainEvent);
-        Assert.Equal(shopId, paymentEvent.ShopId);
-        Assert.Equal(supplierId, paymentEvent.SupplierId);
-        Assert.Equal(amount, paymentEvent.Amount);
-        Assert.Equal(entryDate, paymentEvent.EntryDate);
-        Assert.Equal(entry.Id, paymentEvent.SupplierLedgerEntryId);
-        Assert.Equal(createdBy, paymentEvent.CreatedBy);
-        Assert.Equal("bank transfer", paymentEvent.Notes);
+        Assert.Empty(result.Value.DomainEvents);
     }
 
     [Fact]
