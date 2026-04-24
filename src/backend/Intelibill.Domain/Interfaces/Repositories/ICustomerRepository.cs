@@ -4,5 +4,5 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface ICustomerRepository : IRepository<Customer>
 {
-    Task<IReadOnlyList<Customer>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Customer>> GetByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
 }

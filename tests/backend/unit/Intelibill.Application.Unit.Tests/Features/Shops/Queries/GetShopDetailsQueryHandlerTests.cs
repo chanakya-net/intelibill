@@ -52,7 +52,7 @@ public class GetShopDetailsQueryHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>())
             .Returns(user);
-        _shopRepository.GetByIdWithBankAccountsAsync(shopId, Arg.Any<CancellationToken>())
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns((Shop?)null);
 
         var result = await _handler.HandleAsync(new GetShopDetailsQuery(userId, shopId), CancellationToken.None);

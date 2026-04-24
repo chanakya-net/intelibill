@@ -3,7 +3,6 @@ using System.Security.Claims;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
-using Intelibill.Application.Features.Shops.Commands.AddShopBankAccount;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
@@ -126,36 +125,6 @@ public sealed class ShopsController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
-    [HttpPost("{shopId:guid}/bank-accounts")]
-    [Authorize(Policy = "OwnerOnly")]
-    public async Task<IActionResult> AddShopBankAccount(Guid shopId, [FromBody] AddShopBankAccountRequest request, CancellationToken cancellationToken)
-    {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
-
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
-            new AddShopBankAccountCommand(
-                userId.Value,
-                shopId,
-                request.BankName,
-                request.AccountNumber,
-                request.AccountType,
-                request.IfscCode,
-                request.AccountHolderName),
-            cancellationToken);
-
-        return result.ToActionResult(Ok);
-    }
-
-    [HttpDelete("{shopId:guid}/bank-accounts/{bankAccountId:guid}")]
-    [Authorize(Policy = "OwnerOnly")]
-    public async Task<IActionResult> RemoveShopBankAccount(Guid shopId, Guid bankAccountId, CancellationToken cancellationToken)
-    {
-        // Implementation will be added in a future step.
-        return Ok();
-    }
-
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -184,10 +153,3 @@ public sealed record UpdateShopRequest(
     string? ContactPerson,
     string? MobileNumber,
     string? GstNumber);
-
-public sealed record AddShopBankAccountRequest(
-    string? BankName,
-    string? AccountNumber,
-    string? AccountType,
-    string? IfscCode,
-    string? AccountHolderName);

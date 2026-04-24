@@ -16,7 +16,7 @@ public class CustomerTests
             "  12 Market Road  ",
             true);
 
-        Assert.Equal(ownerId, customer.ShopId);
+        Assert.Equal(ownerId, customer.OwnerUserId);
         Assert.Equal("John Doe", customer.Name);
         Assert.Equal("+919876543210", customer.PhoneNumber);
         Assert.Equal("12 Market Road", customer.Address);

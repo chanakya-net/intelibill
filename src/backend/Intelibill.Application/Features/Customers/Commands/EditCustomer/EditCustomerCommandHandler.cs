@@ -16,7 +16,7 @@ public sealed class EditCustomerCommandHandler(
         if (customer is null)
             return Errors.Customer.CustomerNotFound;
 
-        if (customer.ShopId != command.ShopId)
+        if (customer.OwnerUserId != command.ActorUserId)
             return Errors.Customer.CustomerNotFound;
 
         customer.Update(

@@ -434,12 +434,19 @@ public class ShopIsolationIntegrationTests
         public void Remove(User entity) { }
     }
 
-    private sealed class InMemoryShopRepository(Shop? existingShop = null) : IShopRepository
+    private sealed class InMemoryShopRepository : IShopRepository
     {
+        private readonly Shop? _existingShop;
+
+        public InMemoryShopRepository(Shop? existingShop = null)
+        {
+            _existingShop = existingShop;
+        }
+
         public List<Shop> AddedShops { get; } = [];
 
-        public Task<Shop?> GetByIdWithBankAccountsAsync(Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult(existingShop?.Id == shopId ? existingShop : null);
+        public Task<Shop?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_existingShop?.Id == id ? _existingShop : null);
 
         public Task<IReadOnlyList<ShopMembership>> GetMembershipsForUserAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ShopMembership>>([]);
@@ -469,12 +476,6 @@ public class ShopIsolationIntegrationTests
             => Task.CompletedTask;
 
         public void RemoveMembership(ShopMembership membership) { }
-
-        public Task AddBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<Shop?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-            => Task.FromResult<Shop?>(null);
 
         public Task<IReadOnlyList<Shop>> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<Shop>>([]);

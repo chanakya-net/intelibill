@@ -14,6 +14,4 @@ public interface IShopRepository : IRepository<Shop>
     Task<IReadOnlyList<ShopMembership>> GetMembershipsForUsersInShopsAsync(IReadOnlyList<Guid> userIds, IReadOnlyList<Guid> shopIds, CancellationToken cancellationToken = default);
     Task AddMembershipAsync(ShopMembership membership, CancellationToken cancellationToken = default);
     void RemoveMembership(ShopMembership membership);
-    Task<Shop?> GetByIdWithBankAccountsAsync(Guid shopId, CancellationToken cancellationToken = default);
-    Task AddBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default);
 }

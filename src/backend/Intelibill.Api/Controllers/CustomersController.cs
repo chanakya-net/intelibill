@@ -25,12 +25,8 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
         if (userId is null)
             return Unauthorized();
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<CustomerDto>>>(
-            new GetCustomersQuery(activeShopId.Value),
+            new GetCustomersQuery(userId.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -43,14 +39,9 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
         if (userId is null)
             return Unauthorized();
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
         var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new AddCustomerCommand(
                 userId.Value,
-                activeShopId.Value,
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
@@ -67,14 +58,9 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
         if (userId is null)
             return Unauthorized();
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
         var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new EditCustomerCommand(
                 userId.Value,
-                activeShopId.Value,
                 customerId,
                 request.Name,
                 request.PhoneNumber,
@@ -91,12 +77,6 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
             ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 
