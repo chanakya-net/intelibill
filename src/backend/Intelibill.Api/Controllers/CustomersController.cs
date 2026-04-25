@@ -27,8 +27,12 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
         if (userId is null)
             return Unauthorized();
 
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<CustomerDto>>>(
-            new GetCustomersQuery(userId.Value),
+            new GetCustomersQuery(userId.Value, activeShopId.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -12,10 +12,12 @@ import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
+import { DialogModule } from 'primeng/dialog';
+import { InputNumberModule } from 'primeng/inputnumber';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
-import { Customer } from '../services/customer.service';
+import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 
 @Component({
@@ -24,6 +26,7 @@ import { CustomersFacade } from '../state/customers.facade';
   imports: [
     CommonModule,
     FormsModule,
+    ReactiveFormsModule,
     ButtonModule,
     CardModule,
     AvatarModule,
@@ -33,6 +36,8 @@ import { CustomersFacade } from '../state/customers.facade';
     InputTextModule,
     ProgressSpinnerModule,
     TableModule,
+    DialogModule,
+    InputNumberModule,
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
     TranslocoPipe,
@@ -42,6 +47,8 @@ import { CustomersFacade } from '../state/customers.facade';
 })
 export class CustomersPageComponent {
   private readonly customersFacade = inject(CustomersFacade);
+  private readonly customerService = inject(CustomerService);
+  private readonly fb = inject(FormBuilder);
 
   readonly customers = this.customersFacade.allCustomers;
   readonly tableCustomers = computed(() => [...this.customers()]);
@@ -64,6 +71,19 @@ export class CustomersPageComponent {
   readonly showAddCustomerOverlay = signal(false);
   readonly showEditCustomerOverlay = signal(false);
   readonly editingCustomer = signal<Customer | null>(null);
+  readonly showAccountOverlay = signal(false);
+  readonly accountLoading = signal(false);
+  readonly accountError = signal('');
+  readonly selectedAccountCustomer = signal<Customer | null>(null);
+  readonly selectedAccount = signal<CustomerAccount | null>(null);
+  readonly submittingPayment = signal(false);
+  readonly hasAccount = computed(() => this.selectedAccount() !== null);
+
+  readonly paymentForm = this.fb.nonNullable.group({
+    amount: [0, [Validators.required, Validators.min(0.01)]],
+    paymentDate: [new Date().toISOString().slice(0, 10), Validators.required],
+    notes: ['', Validators.maxLength(255)],
+  });
 
   customerInitials(name: string): string {
     const words = name.trim().split(/\s+/);
@@ -125,5 +145,81 @@ export class CustomersPageComponent {
   onCloseEditCustomer(): void {
     this.showEditCustomerOverlay.set(false);
     this.editingCustomer.set(null);
+  }
+
+  onOpenCustomerAccount(customer: Customer): void {
+    this.selectedAccountCustomer.set(customer);
+    this.selectedAccount.set(null);
+    this.accountError.set('');
+    this.showAccountOverlay.set(true);
+    this.paymentForm.patchValue({ amount: 0, notes: '' });
+    this.loadCustomerAccount(customer.customerId);
+  }
+
+  onCloseCustomerAccount(): void {
+    this.showAccountOverlay.set(false);
+    this.accountLoading.set(false);
+    this.accountError.set('');
+    this.selectedAccountCustomer.set(null);
+    this.selectedAccount.set(null);
+    this.submittingPayment.set(false);
+  }
+
+  onRecordPayment(): void {
+    if (this.paymentForm.invalid) {
+      this.paymentForm.markAllAsTouched();
+      return;
+    }
+
+    const customer = this.selectedAccountCustomer();
+    if (!customer) {
+      return;
+    }
+
+    this.accountError.set('');
+    this.submittingPayment.set(true);
+
+    this.customerService
+      .recordCustomerPayment(customer.customerId, {
+        amount: Number(this.paymentForm.controls.amount.value),
+        paymentDate: this.paymentForm.controls.paymentDate.value,
+        notes: this.paymentForm.controls.notes.value.trim() || null,
+      })
+      .subscribe({
+        next: () => {
+          this.paymentForm.patchValue({ amount: 0, notes: '' });
+          this.submittingPayment.set(false);
+          this.loadCustomerAccount(customer.customerId);
+          this.customersFacade.loadCustomers();
+        },
+        error: (error) => {
+          this.accountError.set(error.error?.detail || 'customers.account.paymentFailed');
+          this.submittingPayment.set(false);
+        },
+      });
+  }
+
+  paymentTagSeverity(entryType: number): 'success' | 'danger' | 'info' {
+    return entryType === 2 ? 'success' : 'danger';
+  }
+
+  paymentTagLabel(entryType: number): string {
+    return entryType === 2 ? 'customers.account.paymentReceived' : 'customers.account.saleDue';
+  }
+
+  private loadCustomerAccount(customerId: string): void {
+    this.accountError.set('');
+    this.accountLoading.set(true);
+
+    this.customerService.getCustomerAccount(customerId).subscribe({
+      next: (account) => {
+        this.selectedAccount.set(account);
+        this.accountLoading.set(false);
+      },
+      error: (error) => {
+        this.accountError.set(error.error?.detail || 'customers.account.loadFailed');
+        this.accountLoading.set(false);
+      },
+    });
   }
 }

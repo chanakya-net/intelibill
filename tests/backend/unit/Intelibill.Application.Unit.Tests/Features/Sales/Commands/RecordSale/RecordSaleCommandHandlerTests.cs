@@ -62,7 +62,7 @@ public class RecordSaleCommandHandlerTests
             actorId, shopId,
             null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash,
-            quantity * 100m,
+            quantity * 118m,
             0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false)]);
     }
@@ -190,7 +190,7 @@ public class RecordSaleCommandHandlerTests
         // Request SalesPrice=105m, batch has 100m → mismatch
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Cash,
-            525m,
+            619.5m,
             0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 105m, 120m, 18m, false)]);
 
@@ -221,7 +221,7 @@ public class RecordSaleCommandHandlerTests
         // Command sends "Wheat" but the item is "Rice"
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Cash,
-            100m,
+            118m,
             0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Wheat", 1m, 80m, 100m, 120m, 18m, false)]);
 
@@ -253,7 +253,7 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.UPI,
-            740m,
+            842m,
             0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false),
@@ -286,7 +286,7 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId, null, null, null, PaymentMethod.Card,
-            200m,
+            220m,
             0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 10m, false)]);
 
@@ -345,7 +345,7 @@ public class RecordSaleCommandHandlerTests
             Guid.NewGuid(), shopId,
             null, "Walk-In Customer", "+911234567890",
             PaymentMethod.Cash,
-            100m,
+            118m,
             0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
@@ -389,7 +389,7 @@ public class RecordSaleCommandHandlerTests
             Guid.NewGuid(), shopId,
             customerId, null, null,
             PaymentMethod.UPI,
-            100m,
+            118m,
             0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
@@ -460,7 +460,7 @@ public class RecordSaleCommandHandlerTests
             Guid.NewGuid(), shopId,
             null, "Walk-In", "+911234567890",
             PaymentMethod.Cash,
-            80m,
+            98m,
             20m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 
@@ -498,7 +498,7 @@ public class RecordSaleCommandHandlerTests
             actorUserId, shopId,
             null, "Reg User", "+911234567890",
             PaymentMethod.Credit,
-            60m,
+            78m,
             40m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
 

@@ -5,4 +5,5 @@ public sealed record CustomerDto(
     string Name,
     string PhoneNumber,
     string? Address,
-    bool IsActive);
+    bool IsActive,
+    decimal OutstandingDue);

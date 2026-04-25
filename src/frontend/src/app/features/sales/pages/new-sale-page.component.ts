@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -20,6 +21,8 @@ import { TagModule } from 'primeng/tag';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
+import { Customer } from '../../customers/services/customer.service';
+import { CustomersFacade } from '../../customers/state/customers.facade';
 import { AvailableBatchDto, InventoryService } from '../../inventory/services/inventory.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { RecordSaleItemRequest, RecordSaleRequest, PAYMENT_METHOD_VALUES } from '../services/sale.service';
@@ -61,6 +64,7 @@ export class NewSalePageComponent {
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly inventoryService = inject(InventoryService);
   private readonly cartStorage = inject(SalesCartIndexedDbService);
+  private readonly customersFacade = inject(CustomersFacade);
   private readonly salesFacade = inject(SalesFacade);
   private cartLoadToken = 0;
 
@@ -74,13 +78,18 @@ export class NewSalePageComponent {
   readonly showBatchPicker = signal(false);
   readonly selectedBatch = signal<AvailableBatchDto | null>(null);
   readonly selectedCustomerId = signal<string | null>(null);
+  readonly selectedCustomerName = signal<string | null>(null);
+  readonly customerNameSuggestions = signal<string[]>([]);
   readonly isScannerOpen = signal(false);
   readonly isWalkIn = signal(true);
   readonly paymentSplitError = signal('');
+  readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
+  private isSyncingPaymentControls = false;
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
+  readonly customers = this.customersFacade.allCustomers;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly cartBootstrapped = signal(false);
 
@@ -93,8 +102,7 @@ export class NewSalePageComponent {
   readonly totalAmount = computed(() =>
     this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0)
   );
-  readonly normalizedCustomerPhone = computed(() => this.customerForm.controls.customerPhone.value.trim());
-  readonly canUseCredit = computed(() => !!this.selectedCustomerId() || this.normalizedCustomerPhone().length > 0);
+  readonly canUseCredit = computed(() => !!this.selectedCustomerId());
   readonly paymentMethodsForSelection = computed(() =>
     this.paymentMethods.filter((method) => method.value !== 4 || this.canUseCredit())
   );
@@ -116,15 +124,53 @@ export class NewSalePageComponent {
   });
 
   constructor() {
+    this.customersFacade.loadCustomers();
     this.salesFacade.clearError();
     this.salesFacade.clearMutationStatus();
+
+    this.customerForm.controls.customerName.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((value) => {
+        const typedName = value.trim().toLowerCase();
+        const selectedName = this.selectedCustomerName();
+
+        if (!typedName || !selectedName || typedName !== selectedName) {
+          this.selectedCustomerId.set(null);
+          this.selectedCustomerName.set(null);
+          this.enforceNoCustomerCreditRestrictions();
+        }
+      });
+
+    this.paymentForm.controls.paidAmount.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((value) => {
+        if (this.isSyncingPaymentControls) {
+          return;
+        }
+
+        this.lastEditedPaymentField.set('paid');
+        this.syncPaymentSplitFromPaid(value);
+      });
+
+    this.paymentForm.controls.dueAmount.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((value) => {
+        if (this.isSyncingPaymentControls) {
+          return;
+        }
+
+        this.lastEditedPaymentField.set('due');
+        this.syncPaymentSplitFromDue(value);
+      });
 
     effect(() => {
       if (this.lastMutationSucceeded()) {
         this.cart.set([]);
         this.searchInput.set('');
+        this.customerNameSuggestions.set([]);
         this.customerForm.reset();
         this.selectedCustomerId.set(null);
+        this.selectedCustomerName.set(null);
         this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
         this.paymentSplitError.set('');
         this.salesFacade.clearMutationStatus();
@@ -134,28 +180,24 @@ export class NewSalePageComponent {
 
     effect(() => {
       const total = this.totalAmount();
-      const dueControl = this.paymentForm.controls.dueAmount;
-      const paidControl = this.paymentForm.controls.paidAmount;
-      const currentDue = Number(dueControl.value ?? 0);
-      const normalizedDue = Math.max(0, Math.min(currentDue, total));
-      if (normalizedDue !== currentDue) {
-        dueControl.setValue(normalizedDue, { emitEvent: false });
-      }
-
-      const paid = Math.max(0, total - normalizedDue);
-      if (Number(paidControl.value ?? 0) !== paid) {
-        paidControl.setValue(paid, { emitEvent: false });
+      if (this.lastEditedPaymentField() === 'paid') {
+        this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
+      } else {
+        this.syncPaymentSplitFromDue(this.paymentForm.controls.dueAmount.value, total);
       }
     });
 
     effect(() => {
+      const dueControl = this.paymentForm.controls.dueAmount;
+
       if (this.canUseCredit()) {
+        if (dueControl.disabled) {
+          dueControl.enable({ emitEvent: false });
+        }
         return;
       }
 
-      if (this.paymentForm.controls.paymentMethod.value === 4) {
-        this.paymentForm.controls.paymentMethod.setValue(1);
-      }
+      this.enforceNoCustomerCreditRestrictions();
     });
 
     effect(() => {
@@ -230,6 +272,48 @@ export class NewSalePageComponent {
 
   onSearchSuggestionSelected(value: string): void {
     this.searchInput.set(value?.trim() ?? '');
+  }
+
+  onFilterCustomerName(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.trim().toLowerCase();
+    const activeCustomers = this.customers().filter((customer) => customer.isActive);
+    const filteredNames = activeCustomers
+      .filter((customer) => !query || customer.name.toLowerCase().includes(query))
+      .map((customer) => customer.name.trim())
+      .filter((name) => name.length > 0);
+
+    const uniqueNames = [...new Set(filteredNames)];
+    this.customerNameSuggestions.set(uniqueNames.slice(0, 20));
+  }
+
+  onCustomerSuggestionSelected(name: string): void {
+    const normalizedName = name.trim().toLowerCase();
+    if (!normalizedName) {
+      this.selectedCustomerId.set(null);
+      this.selectedCustomerName.set(null);
+      return;
+    }
+
+    const matches = this.customers().filter(
+      (customer) => customer.isActive && customer.name.trim().toLowerCase() === normalizedName
+    );
+
+    if (matches.length !== 1) {
+      this.selectedCustomerId.set(null);
+      this.selectedCustomerName.set(null);
+      return;
+    }
+
+    const [customer] = matches;
+    this.selectedCustomerId.set(customer.customerId);
+    this.selectedCustomerName.set(normalizedName);
+    this.customerForm.patchValue(
+      {
+        customerName: customer.name,
+        customerPhone: customer.phoneNumber,
+      },
+      { emitEvent: false }
+    );
   }
 
   openScanner(): void {
@@ -383,16 +467,22 @@ export class NewSalePageComponent {
 
     const customerName = this.customerForm.controls.customerName.value.trim() || null;
     const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
-    const paidAmount = Number(this.paymentForm.controls.paidAmount.value ?? 0);
-    const dueAmount = Number(this.paymentForm.controls.dueAmount.value ?? 0);
-    const totalAmount = this.totalAmount();
+    const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
+    const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
+    const totalAmount = this.roundAmount(this.totalAmount());
 
-    if (paidAmount < 0 || dueAmount < 0 || Number((paidAmount + dueAmount).toFixed(2)) !== Number(totalAmount.toFixed(2))) {
+    if (
+      !Number.isFinite(paidAmount) ||
+      !Number.isFinite(dueAmount) ||
+      paidAmount < 0 ||
+      dueAmount < 0 ||
+      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+    ) {
       this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
       return;
     }
 
-    if (dueAmount > 0 && !this.selectedCustomerId() && !customerPhone) {
+    if (dueAmount > 0 && !this.selectedCustomerId()) {
       this.paymentSplitError.set('sales.newSale.customerRequiredForDue');
       return;
     }
@@ -417,6 +507,80 @@ export class NewSalePageComponent {
 
   onCancel(): void {
     this.router.navigate(['/sales']);
+  }
+
+  private syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
+    const paidControl = this.paymentForm.controls.paidAmount;
+    const dueControl = this.paymentForm.controls.dueAmount;
+    const normalizedPaid = this.normalizeAmount(rawPaid, total);
+    const normalizedDue = this.roundAmount(total - normalizedPaid);
+
+    this.isSyncingPaymentControls = true;
+    try {
+      if (!this.areAmountsEqual(Number(paidControl.value ?? 0), normalizedPaid)) {
+        paidControl.setValue(normalizedPaid, { emitEvent: false });
+      }
+
+      if (!this.areAmountsEqual(Number(dueControl.value ?? 0), normalizedDue)) {
+        dueControl.setValue(normalizedDue, { emitEvent: false });
+      }
+    } finally {
+      this.isSyncingPaymentControls = false;
+    }
+  }
+
+  private syncPaymentSplitFromDue(rawDue: number | null, total = this.totalAmount()): void {
+    const paidControl = this.paymentForm.controls.paidAmount;
+    const dueControl = this.paymentForm.controls.dueAmount;
+    const normalizedDue = this.normalizeAmount(rawDue, total);
+    const normalizedPaid = this.roundAmount(total - normalizedDue);
+
+    this.isSyncingPaymentControls = true;
+    try {
+      if (!this.areAmountsEqual(Number(dueControl.value ?? 0), normalizedDue)) {
+        dueControl.setValue(normalizedDue, { emitEvent: false });
+      }
+
+      if (!this.areAmountsEqual(Number(paidControl.value ?? 0), normalizedPaid)) {
+        paidControl.setValue(normalizedPaid, { emitEvent: false });
+      }
+    } finally {
+      this.isSyncingPaymentControls = false;
+    }
+  }
+
+  private normalizeAmount(value: number | null | undefined, total: number): number {
+    return this.roundAmount(Math.max(0, Math.min(Number(value ?? 0), total)));
+  }
+
+  private toFiniteAmount(value: number | null | undefined): number {
+    const amount = Number(value ?? 0);
+    return Number.isFinite(amount) ? this.roundAmount(amount) : Number.NaN;
+  }
+
+  private roundAmount(value: number): number {
+    return Number(value.toFixed(2));
+  }
+
+  private areAmountsEqual(left: number, right: number): boolean {
+    return this.roundAmount(left) === this.roundAmount(right);
+  }
+
+  private enforceNoCustomerCreditRestrictions(): void {
+    const dueControl = this.paymentForm.controls.dueAmount;
+
+    if (this.paymentForm.controls.paymentMethod.value === 4) {
+      this.paymentForm.controls.paymentMethod.setValue(1);
+    }
+
+    if (Number(this.paymentForm.getRawValue().dueAmount ?? 0) !== 0) {
+      this.lastEditedPaymentField.set('due');
+      this.syncPaymentSplitFromDue(0);
+    }
+
+    if (dueControl.enabled) {
+      dueControl.disable({ emitEvent: false });
+    }
   }
 
   private addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): boolean {

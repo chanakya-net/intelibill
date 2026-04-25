@@ -33,6 +33,7 @@ public sealed class EditCustomerCommandHandler(
             customer.Name,
             customer.PhoneNumber,
             customer.Address,
-            customer.IsActive);
+            customer.IsActive,
+            0m);
     }
 }
