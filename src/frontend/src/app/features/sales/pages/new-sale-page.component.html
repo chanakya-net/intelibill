@@ -278,26 +278,30 @@
 
         <div class="flex flex-col gap-1">
           <label class="text-xs text-slate-500">{{ 'sales.newSale.paidAmount' | transloco }}</label>
-          <p-inputNumber
-            formControlName="paidAmount"
-            mode="currency"
-            currency="INR"
-            locale="en-IN"
-            [min]="0"
-            [max]="totalAmount()"
-          />
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="paidAmount"
+              mode="decimal"
+              [min]="0"
+              [max]="totalAmount()"
+              [pt]="currencyInputPt"
+            />
+          </p-inputgroup>
         </div>
 
         <div class="flex flex-col gap-1">
           <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
-          <p-inputNumber
-            formControlName="dueAmount"
-            mode="currency"
-            currency="INR"
-            locale="en-IN"
-            [min]="0"
-            [max]="totalAmount()"
-          />
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="dueAmount"
+              mode="decimal"
+              [min]="0"
+              [max]="totalAmount()"
+              [pt]="currencyInputPt"
+            />
+          </p-inputgroup>
         </div>
 
         <div class="summary-box flex-1">

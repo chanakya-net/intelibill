@@ -17,6 +17,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -102,6 +103,11 @@ export class NewSalePageComponent {
   readonly totalAmount = computed(() =>
     this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0)
   );
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
+
   readonly canUseCredit = computed(() => !!this.selectedCustomerId());
   readonly paymentMethodsForSelection = computed(() =>
     this.paymentMethods.filter((method) => method.value !== 4 || this.canUseCredit())

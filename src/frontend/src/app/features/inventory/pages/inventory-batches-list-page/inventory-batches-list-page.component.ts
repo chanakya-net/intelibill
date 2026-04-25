@@ -29,6 +29,12 @@ import {
 } from '../../services/inventory.service';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { Supplier } from '../../../suppliers/services/supplier.service';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+  CURRENCY_SELECT_PT,
+} from '../../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-inventory-batches-list-page',
@@ -64,6 +70,11 @@ export class InventoryBatchesListPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
+  readonly currencySelectPt = CURRENCY_SELECT_PT;
 
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly tableBatches = computed(() => [...this.batches()]);

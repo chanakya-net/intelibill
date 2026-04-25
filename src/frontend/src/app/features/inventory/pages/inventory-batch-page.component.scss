@@ -432,35 +432,6 @@ h1 {
   }
 }
 
-.remove-row-button {
-  // Uses default PrimeNG severity="danger" styling
-}
-
-// Sales price group styling via PassThrough
-.sales-price-group {
-  width: 100%;
-
-  .p-inputnumber {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-}
-
-// Sales price tax mode styling via PassThrough
-.sales-price-tax-mode {
-  flex: 0 0 8.5rem;
-
-  .p-select {
-    width: 100%;
-  }
-
-  .p-select-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
 @keyframes scanned-row-flash {
   0% {
     background: #fef3c7;

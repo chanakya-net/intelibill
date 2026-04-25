@@ -235,8 +235,17 @@
           <form [formGroup]="paymentForm" class="payment-form">
             <div class="field">
               <label>{{ 'customers.account.amount' | transloco }}</label>
-              <p-inputNumber formControlName="amount" mode="currency" currency="INR" locale="en-IN" [min]="0.01" />
+              <p-inputgroup [pt]="currencyGroupPt">
+                <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+                <p-inputNumber
+                  formControlName="amount"
+                  mode="decimal"
+                  [min]="0.01"
+                  [pt]="currencyInputPt"
+                />
+              </p-inputgroup>
             </div>
+
             <div class="field">
               <label>{{ 'customers.account.paymentDate' | transloco }}</label>
               <input pInputText type="date" formControlName="paymentDate" />

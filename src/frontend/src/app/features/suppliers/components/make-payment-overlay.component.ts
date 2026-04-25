@@ -7,9 +7,12 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-make-payment-overlay',
@@ -22,6 +25,8 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     ButtonModule,
     ProgressSpinnerModule,
     TranslocoPipe,
+    InputGroupModule,
+    InputGroupAddonModule,
   ],
   templateUrl: './make-payment-overlay.component.html',
   styleUrl: './make-payment-overlay.component.scss',
@@ -29,6 +34,10 @@ import { SuppliersFacade } from '../state/suppliers.facade';
 export class MakePaymentOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly suppliersFacade = inject(SuppliersFacade);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly isSubmitting = this.suppliersFacade.isSubmitting;
   readonly serverError = this.suppliersFacade.errorMessage;

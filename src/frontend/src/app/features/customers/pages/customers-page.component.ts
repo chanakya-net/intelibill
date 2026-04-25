@@ -14,11 +14,14 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
 import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-customers-page',
@@ -38,6 +41,8 @@ import { CustomersFacade } from '../state/customers.facade';
     TableModule,
     DialogModule,
     InputNumberModule,
+    InputGroupModule,
+    InputGroupAddonModule,
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
     TranslocoPipe,
@@ -49,6 +54,10 @@ export class CustomersPageComponent {
   private readonly customersFacade = inject(CustomersFacade);
   private readonly customerService = inject(CustomerService);
   private readonly fb = inject(FormBuilder);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly customers = this.customersFacade.allCustomers;
   readonly tableCustomers = computed(() => [...this.customers()]);
