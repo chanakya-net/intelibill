@@ -83,7 +83,8 @@
     "language": "Language",
     "logout": "Logout",
     "manageExpenses": "Expenses",
-    "manageBankAccounts": "Bank Accounts"
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss"
   },
   "bankAccounts": {
     "directory": "Bank Account Directory",
@@ -577,6 +578,21 @@
       "taxAmount": "Tax Amount",
       "totalPrice": "Total Price",
       "unknownItem": "Unknown Item"
+    },
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "cost": "Total Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "noData": "No P&L data available"
     }
   },
   "expenses": {

@@ -17,6 +17,7 @@ describe('SalesEffects', () => {
     getSales: vi.fn<SaleService['getSales']>(),
     getSaleById: vi.fn<SaleService['getSaleById']>(),
     recordSale: vi.fn<SaleService['recordSale']>(),
+    getProfitLossReport: vi.fn<SaleService['getProfitLossReport']>(),
   };
 
   const makeSale = (id = 'sale-1') => ({
@@ -53,6 +54,7 @@ describe('SalesEffects', () => {
     saleService.getSales.mockReset();
     saleService.getSaleById.mockReset();
     saleService.recordSale.mockReset();
+    saleService.getProfitLossReport.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -157,6 +159,31 @@ describe('SalesEffects', () => {
 
     await expect(output).resolves.toEqual(
       SalesActions.recordSaleFailed({ errorMessage: 'Insufficient stock' })
+    );
+  });
+
+  it('dispatches loadProfitLossReportSucceeded on success', async () => {
+    const report = [{ saleId: '1' }] as any;
+    saleService.getProfitLossReport.mockReturnValue(of(report));
+
+    const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
+    actions$.next(SalesActions.loadProfitLossReportRequested());
+
+    await expect(output).resolves.toEqual(
+      SalesActions.loadProfitLossReportSucceeded({ report })
+    );
+  });
+
+  it('dispatches loadProfitLossReportFailed on failure', async () => {
+    saleService.getProfitLossReport.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Fail' } }))
+    );
+
+    const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
+    actions$.next(SalesActions.loadProfitLossReportRequested());
+
+    await expect(output).resolves.toEqual(
+      SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })
     );
   });
 });

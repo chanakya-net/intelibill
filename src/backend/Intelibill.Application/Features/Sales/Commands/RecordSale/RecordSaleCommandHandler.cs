@@ -128,7 +128,7 @@ public sealed class RecordSaleCommandHandler(
                 item.Id,
                 batch.Id,
                 cmdItem.Quantity,
-                cmdItem.CostPrice,
+                batch.CostPrice,
                 cmdItem.SalesPrice,
                 cmdItem.Mrp,
                 cmdItem.TaxRatePercent,

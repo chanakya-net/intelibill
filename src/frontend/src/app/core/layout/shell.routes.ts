@@ -53,6 +53,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'sales/profit-loss',
+				loadComponent: () =>
+					import('../../features/sales/pages/profit-loss-page/profit-loss-page.component').then(
+						(m) => m.ProfitLossPageComponent
+					),
+			},
+			{
 				path: 'sales',
 				loadComponent: () =>
 					import('../../features/sales/pages/sales-page.component').then(

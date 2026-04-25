@@ -1,0 +1,144 @@
+<section class="profit-loss-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">{{ 'sales.profitLoss.eyebrow' | transloco }}</p>
+      <h1>{{ 'sales.profitLoss.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'sales.profitLoss.subtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  @if (serverError()) {
+    <p class="error">{{ serverError() }}</p>
+  }
+
+  @if (isLoading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!isLoading()) {
+    <!-- Mobile Stacked List -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            [placeholder]="'sales.profitLoss.search' | transloco"
+            class="w-full"
+          />
+        </p-iconfield>
+      </div>
+
+      <div class="report-list flex flex-col gap-3 px-1">
+        @for (item of filteredReport(); track item.saleId) {
+          <p-card class="report-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-800">{{ item.invoiceNumber }}</span>
+                <span class="text-xs text-slate-500">{{ item.soldAt | date:'dd MMM, h:mm a' }}</span>
+              </div>
+              <div class="text-sm text-slate-600">
+                @if (item.customerName) {
+                  <span>{{ item.customerName }}</span>
+                } @else {
+                  <span class="italic text-slate-400 text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
+                }
+              </div>
+              <div class="grid grid-cols-2 gap-2 mt-1">
+                <div class="flex flex-col">
+                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</span>
+                  <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="'₹' + (item.profitBeforeTax | number:'1.2-2')"></p-tag>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</span>
+                  <p-tag [severity]="getProfitSeverity(item.profitAfterTax)" [value]="'₹' + (item.profitAfterTax | number:'1.2-2')"></p-tag>
+                </div>
+              </div>
+            </div>
+          </p-card>
+        }
+
+        @if (filteredReport().length === 0) {
+          <div class="mobile-empty-state text-center py-12">
+            <i class="pi pi-chart-line text-5xl text-slate-300 mb-4"></i>
+            <h2 class="text-xl font-bold text-slate-700">{{ 'sales.profitLoss.noData' | transloco }}</h2>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="report-table-card desktop-table">
+      <p-table
+        #reportTable
+        [value]="tableData()"
+        [globalFilterFields]="['invoiceNumber', 'customerName']"
+        [scrollable]="true"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="caption">
+          <div class="flex justify-between gap-3 flex-wrap">
+            <p-button
+              [label]="'common.clear' | transloco"
+              [outlined]="true"
+              icon="pi pi-filter-slash"
+              (click)='clearFilters(reportTable)'
+            />
+            <p-iconfield iconPosition="left">
+              <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="searchValue"
+                (input)="reportTable.filterGlobal(searchValue(), 'contains')"
+                [placeholder]="'sales.profitLoss.search' | transloco"
+              />
+            </p-iconfield>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="invoiceNumber">{{ 'sales.profitLoss.invoice' | transloco }} <p-sortIcon field="invoiceNumber" /></th>
+            <th pSortableColumn="soldAt">{{ 'sales.profitLoss.date' | transloco }} <p-sortIcon field="soldAt" /></th>
+            <th>{{ 'sales.profitLoss.customer' | transloco }}</th>
+            <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
+            <th class="text-right">{{ 'sales.profitLoss.revenueExclTax' | transloco }}</th>
+            <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>
+            <th class="text-center">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</th>
+            <th class="text-center">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          <tr>
+            <td class="font-bold">{{ item.invoiceNumber }}</td>
+            <td>{{ item.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
+            <td>
+              @if (item.customerName) {
+                {{ item.customerName }}
+              } @else {
+                <span class="text-slate-400 italic text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
+              }
+            </td>
+            <td class="text-right">₹{{ item.totalCost | number:'1.2-2' }}</td>
+            <td class="text-right">₹{{ item.revenueBeforeTax | number:'1.2-2' }}</td>
+            <td class="text-right">₹{{ item.revenueAfterTax | number:'1.2-2' }}</td>
+            <td class="text-center">
+              <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="'₹' + (item.profitBeforeTax | number:'1.2-2')"></p-tag>
+            </td>
+            <td class="text-center">
+              <p-tag [severity]="getProfitSeverity(item.profitAfterTax)" [value]="'₹' + (item.profitAfterTax | number:'1.2-2')"></p-tag>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</section>

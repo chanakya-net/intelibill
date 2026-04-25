@@ -34,6 +34,12 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+  CURRENCY_SELECT_PT,
+} from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-inventory-batch-page',
@@ -86,6 +92,13 @@ export class InventoryBatchPageComponent {
     { label: 'Without Tax', value: false },
   ]);
   readonly suppliers = this.suppliersFacade.suppliers;
+
+  // Shared PT configurations
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
+  readonly currencySelectPt = CURRENCY_SELECT_PT;
+
   // PassThrough configurations for PrimeNG components
   readonly editButtonPt = {
     root: {
@@ -115,16 +128,6 @@ export class InventoryBatchPageComponent {
   readonly cameraddonPt = {
     root: {
       class: 'camera-addon',
-    },
-  };
-  readonly salesPriceGroupPt = {
-    root: {
-      class: 'sales-price-group',
-    },
-  };
-  readonly salesPriceTaxModePt = {
-    root: {
-      class: 'sales-price-tax-mode',
     },
   };
 

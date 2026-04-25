@@ -39,13 +39,17 @@
 
       <label>
         <span>{{ 'expenses.amount' | transloco }}</span>
-        <p-inputNumber
-          formControlName="amount"
-          mode="decimal"
-          [min]="0"
-          [maxFractionDigits]="2"
-          [fluid]="true"
-        ></p-inputNumber>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="amount"
+            mode="decimal"
+            [min]="0"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
       </label>
 
       <label>

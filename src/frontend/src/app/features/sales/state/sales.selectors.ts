@@ -21,3 +21,5 @@ export const selectLastMutationType = salesFeature.selectLastMutationType;
 export const selectLastMutationSucceeded = salesFeature.selectLastMutationSucceeded;
 export const selectSelectedSale = salesFeature.selectSelectedSale;
 export const selectLoadingSaleDetail = salesFeature.selectLoadingSaleDetail;
+export const selectProfitLossReport = salesFeature.selectProfitLossReport;
+export const selectLoadingProfitLossReport = salesFeature.selectLoadingProfitLossReport;

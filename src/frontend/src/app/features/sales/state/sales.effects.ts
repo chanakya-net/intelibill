@@ -28,6 +28,24 @@ export class SalesEffects {
     )
   );
 
+  loadProfitLossReport$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.loadProfitLossReportRequested),
+      switchMap(() =>
+        this.saleService.getProfitLossReport().pipe(
+          map((report) => SalesActions.loadProfitLossReportSucceeded({ report })),
+          catchError((error) =>
+            of(
+              SalesActions.loadProfitLossReportFailed({
+                errorMessage: error.error?.detail || 'Failed to load profit loss report',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   loadSaleDetail$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.loadSaleDetailRequested),

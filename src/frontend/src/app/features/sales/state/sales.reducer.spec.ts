@@ -147,4 +147,47 @@ describe('salesReducer', () => {
     expect(next.lastMutationType).toBeNull();
     expect(next.lastMutationSucceeded).toBe(false);
   });
+
+  it('sets loading state when load profit loss report is requested', () => {
+    const next = salesReducer(
+      { ...initialState, errorMessage: 'existing error' },
+      SalesActions.loadProfitLossReportRequested()
+    );
+
+    expect(next.loadingProfitLossReport).toBe(true);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('sets report when load succeeds', () => {
+    const report = [
+      {
+        saleId: 's1',
+        invoiceNumber: 'INV-s1',
+        soldAt: '',
+        customerName: null,
+        totalCost: 100,
+        revenueBeforeTax: 120,
+        revenueAfterTax: 140,
+        profitBeforeTax: 20,
+        profitAfterTax: 40,
+      },
+    ];
+    const next = salesReducer(
+      { ...initialState, loadingProfitLossReport: true },
+      SalesActions.loadProfitLossReportSucceeded({ report })
+    );
+
+    expect(next.loadingProfitLossReport).toBe(false);
+    expect(next.profitLossReport).toEqual(report);
+  });
+
+  it('sets error when report load fails', () => {
+    const next = salesReducer(
+      { ...initialState, loadingProfitLossReport: true },
+      SalesActions.loadProfitLossReportFailed({ errorMessage: 'Failed' })
+    );
+
+    expect(next.loadingProfitLossReport).toBe(false);
+    expect(next.errorMessage).toBe('Failed');
+  });
 });

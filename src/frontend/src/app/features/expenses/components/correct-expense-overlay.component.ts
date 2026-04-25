@@ -11,10 +11,13 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpenseDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-correct-expense-overlay',
@@ -29,6 +32,8 @@ import { ExpensesFacade } from '../state/expenses.facade';
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
+    InputGroupModule,
+    InputGroupAddonModule,
   ],
   templateUrl: './correct-expense-overlay.component.html',
   styleUrls: ['./correct-expense-overlay.component.scss'],
@@ -36,6 +41,10 @@ import { ExpensesFacade } from '../state/expenses.facade';
 export class CorrectExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   @Input({ required: true }) expenseId!: string;
   @Input({ required: true }) originalExpense!: ExpenseDto;

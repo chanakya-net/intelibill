@@ -98,36 +98,38 @@
 
       <label>
         <span>{{ 'inventory.costPrice' | transloco }}</span>
-        <p-inputgroup>
-          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="costPrice"
             [min]="0"
             mode="decimal"
             [maxFractionDigits]="2"
             [fluid]="true"
+            [pt]="currencyInputPt"
           ></p-inputNumber>
         </p-inputgroup>
       </label>
 
       <label>
         <span>{{ 'inventory.mrp' | transloco }}</span>
-        <p-inputgroup>
-          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="mrp"
             [min]="0"
             mode="decimal"
             [maxFractionDigits]="2"
             [fluid]="true"
+            [pt]="currencyInputPt"
           ></p-inputNumber>
         </p-inputgroup>
       </label>
 
       <label class="sales-price-field">
         <span>{{ 'inventory.salesPrice' | transloco }}</span>
-        <p-inputgroup [pt]="salesPriceGroupPt">
-          <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="salesPrice"
             [min]="0"
@@ -136,9 +138,10 @@
             [fluid]="true"
             placeholder="ex: 200"
             [minFractionDigits]="2"
+            [pt]="currencyInputPt"
           ></p-inputNumber>
           <p-select
-            [pt]="salesPriceTaxModePt"
+            [pt]="currencySelectPt"
             formControlName="taxIncluded"
             [options]="taxModeOptions()"
             optionLabel="label"

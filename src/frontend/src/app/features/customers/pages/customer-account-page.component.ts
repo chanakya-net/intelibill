@@ -10,8 +10,11 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { CustomerAccount, CustomerService } from '../services/customer.service';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-customer-account-page',
@@ -26,6 +29,8 @@ import { CustomerAccount, CustomerService } from '../services/customer.service';
     TableModule,
     TagModule,
     TranslocoPipe,
+    InputGroupModule,
+    InputGroupAddonModule,
   ],
   templateUrl: './customer-account-page.component.html',
   styleUrl: './customer-account-page.component.scss',
@@ -34,6 +39,10 @@ export class CustomerAccountPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly customerService = inject(CustomerService);
   private readonly fb = inject(FormBuilder);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');

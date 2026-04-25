@@ -11,9 +11,12 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpensesFacade } from '../state/expenses.facade';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-record-expense-overlay',
@@ -28,6 +31,8 @@ import { ExpensesFacade } from '../state/expenses.facade';
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
+    InputGroupModule,
+    InputGroupAddonModule,
   ],
   templateUrl: './record-expense-overlay.component.html',
   styleUrls: ['./record-expense-overlay.component.scss'],
@@ -35,6 +40,10 @@ import { ExpensesFacade } from '../state/expenses.facade';
 export class RecordExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly categories = toSignal(this.expensesFacade.categories$, {
     initialValue: [] as readonly ExpenseCategoryDto[],

@@ -52,6 +52,7 @@ export const SALE_ENDPOINTS = {
   list: `${API_BASE_URL}/sales`,
   record: `${API_BASE_URL}/sales`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
+  profitLoss: `${API_BASE_URL}/sales/profit-loss`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

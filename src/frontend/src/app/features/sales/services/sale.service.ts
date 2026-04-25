@@ -75,6 +75,18 @@ export interface SaleListItemDto {
   readonly itemCount: number;
 }
 
+export interface ProfitLossReportItemDto {
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly soldAt: string;
+  readonly customerName: string | null;
+  readonly totalCost: number;
+  readonly revenueBeforeTax: number;
+  readonly revenueAfterTax: number;
+  readonly profitBeforeTax: number;
+  readonly profitAfterTax: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SaleService {
   private readonly http = inject(HttpClient);
@@ -89,5 +101,9 @@ export class SaleService {
 
   getSaleById(saleId: string): Observable<SaleDto> {
     return this.http.get<SaleDto>(SALE_ENDPOINTS.detail(saleId));
+  }
+
+  getProfitLossReport(): Observable<readonly ProfitLossReportItemDto[]> {
+    return this.http.get<readonly ProfitLossReportItemDto[]>(SALE_ENDPOINTS.profitLoss);
   }
 }

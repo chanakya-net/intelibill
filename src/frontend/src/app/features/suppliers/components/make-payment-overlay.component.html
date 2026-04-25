@@ -28,15 +28,18 @@
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'suppliers.paymentAmount' | transloco }}</span>
-        <p-inputnumber
-          formControlName="amount"
-          mode="currency"
-          currency="INR"
-          locale="en-IN"
-          [min]="0.01"
-          [minFractionDigits]="0"
-          [maxFractionDigits]="2"
-        ></p-inputnumber>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="amount"
+            mode="decimal"
+            [min]="0.01"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
       </label>
 
       <label>
