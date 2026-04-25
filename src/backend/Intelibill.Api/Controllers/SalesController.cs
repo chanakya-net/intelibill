@@ -7,6 +7,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
+using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -69,6 +70,24 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(
             new GetSalesQuery(userId.Value, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("profit-loss")]
+    public async Task<IActionResult> GetProfitLossReport(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>>(
+            new GetProfitLossReportQuery(userId.Value, activeShopId.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);

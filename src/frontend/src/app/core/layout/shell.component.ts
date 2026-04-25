@@ -111,6 +111,11 @@ export class ShellComponent {
             icon: 'pi pi-list',
             command: () => this.onOpenSalesHistory(),
           },
+          {
+            label: this.localizationService.translate('shell.profitLossReport'),
+            icon: 'pi pi-chart-line',
+            command: () => this.onOpenProfitLossReport(),
+          },
         ],
       });
     }
@@ -354,6 +359,11 @@ export class ShellComponent {
         label: this.localizationService.translate('shell.salesHistory'),
         icon: 'pi pi-list',
         command: () => this.onOpenSalesHistory(),
+      },
+      {
+        label: this.localizationService.translate('shell.profitLossReport'),
+        icon: 'pi pi-chart-line',
+        command: () => this.onOpenProfitLossReport(),
       },
     ];
   });
@@ -623,6 +633,11 @@ export class ShellComponent {
   onOpenSalesHistory(): void {
     this.onCloseMenus();
     void this.router.navigate(['/sales']);
+  }
+
+  onOpenProfitLossReport(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/sales/profit-loss']);
   }
 
   onNavigateToExpenses(): void {

@@ -1,7 +1,7 @@
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import { RecordSaleRequest, SaleDto, SaleListItemDto } from '../services/sale.service';
+import { RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
 import { SalesActions } from './sales.actions';
 import * as SalesSelectors from './sales.selectors';
 
@@ -17,9 +17,15 @@ export class SalesFacade {
   readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLastMutationSucceeded);
   readonly selectedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectSelectedSale);
   readonly loadingSaleDetail: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSaleDetail);
+  readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossReport);
+  readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
 
   loadSales(): void {
     this.store.dispatch(SalesActions.loadSalesRequested());
+  }
+
+  loadProfitLossReport(): void {
+    this.store.dispatch(SalesActions.loadProfitLossReportRequested());
   }
 
   loadSaleDetail(saleId: string): void {

@@ -1,0 +1,81 @@
+.profit-loss-page {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #f97316;
+  margin: 0 0 0.25rem 0;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.error {
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fee2e2;
+  font-size: 0.875rem;
+}
+
+/* Desktop vs Mobile */
+.mobile-grid-container {
+  display: none;
+}
+
+.desktop-table {
+  display: block;
+}
+
+.report-table-card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .mobile-grid-container {
+    display: block;
+  }
+
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-search-bar {
+    margin-bottom: 1rem;
+  }
+
+  .mobile-search-field {
+    width: 100%;
+  }
+}

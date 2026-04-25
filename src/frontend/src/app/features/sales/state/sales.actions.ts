@@ -1,6 +1,6 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { RecordSaleRequest, SaleDto, SaleListItemDto } from '../services/sale.service';
+import { RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
 
 export type SaleMutationType = 'record-sale';
 
@@ -10,6 +10,10 @@ export const SalesActions = createActionGroup({
     'Load Sales Requested': emptyProps(),
     'Load Sales Succeeded': props<{ sales: readonly SaleListItemDto[] }>(),
     'Load Sales Failed': props<{ errorMessage: string }>(),
+
+    'Load Profit Loss Report Requested': emptyProps(),
+    'Load Profit Loss Report Succeeded': props<{ report: readonly ProfitLossReportItemDto[] }>(),
+    'Load Profit Loss Report Failed': props<{ errorMessage: string }>(),
 
     'Load Sale Detail Requested': props<{ saleId: string }>(),
     'Load Sale Detail Succeeded': props<{ sale: SaleDto }>(),
