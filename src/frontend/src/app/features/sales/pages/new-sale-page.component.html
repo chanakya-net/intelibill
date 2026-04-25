@@ -238,7 +238,15 @@
       <div class="flex gap-4 flex-wrap" [formGroup]="customerForm">
         <div class="flex flex-col gap-1 flex-1 min-w-48">
           <label class="text-xs text-slate-500">{{ 'sales.newSale.customerName' | transloco }}</label>
-          <input pInputText type="text" formControlName="customerName" [placeholder]="'sales.newSale.walkIn' | transloco" />
+          <p-autocomplete
+            formControlName="customerName"
+            [suggestions]="customerNameSuggestions()"
+            (completeMethod)="onFilterCustomerName($event)"
+            (onSelect)="onCustomerSuggestionSelected($event.value)"
+            [placeholder]="'sales.newSale.walkIn' | transloco"
+            appendTo="body"
+            [fluid]="true"
+          />
         </div>
         <div class="flex flex-col gap-1 flex-1 min-w-48">
           <label class="text-xs text-slate-500">{{ 'sales.newSale.customerPhone' | transloco }}</label>
@@ -256,7 +264,7 @@
         <div class="card-title">{{ 'sales.newSale.paymentSection' | transloco }}</div>
       </ng-template>
 
-      <div class="flex gap-4 items-end flex-wrap" [formGroup]="paymentForm">
+      <div class="flex gap-4 items-start flex-wrap" [formGroup]="paymentForm">
         <div class="flex flex-col gap-1">
           <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
           <p-select
@@ -266,9 +274,6 @@
             optionValue="value"
             [placeholder]="'sales.newSale.selectPayment' | transloco"
           />
-          @if (!canUseCredit()) {
-            <p class="error-hint">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
-          }
         </div>
 
         <div class="flex flex-col gap-1">
@@ -280,7 +285,6 @@
             locale="en-IN"
             [min]="0"
             [max]="totalAmount()"
-            [readonly]="true"
           />
         </div>
 
@@ -311,6 +315,10 @@
           </div>
         </div>
       </div>
+
+      @if (!canUseCredit()) {
+        <p class="error-hint mt-2">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
+      }
 
       <div class="flex justify-end mt-4">
         @if (paymentSplitError()) {

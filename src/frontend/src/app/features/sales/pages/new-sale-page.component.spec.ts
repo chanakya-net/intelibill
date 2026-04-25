@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
+import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { SalesFacade } from '../state/sales.facade';
 import { NewSalePageComponent } from './new-sale-page.component';
@@ -60,6 +61,15 @@ describe('NewSalePageComponent', () => {
     filterByBarcode: vi.fn(() => []),
   };
 
+  const customersFacade = {
+    allCustomers: signal([
+      { customerId: 'cust-1', name: 'Alice', phoneNumber: '+919999111222', address: null, isActive: true },
+      { customerId: 'cust-2', name: 'Bob', phoneNumber: '+919999333444', address: null, isActive: true },
+      { customerId: 'cust-3', name: 'Charlie', phoneNumber: '+919999555666', address: null, isActive: false },
+    ]),
+    loadCustomers: vi.fn(),
+  };
+
   beforeEach(() => {
     inventoryService.getAvailableBatchesBySearchTerm.mockReset();
     inventoryService.getAvailableBatchesBySearchTerm.mockReturnValue(
@@ -90,11 +100,13 @@ describe('NewSalePageComponent', () => {
     cartStorage.clearCart.mockClear();
     productCatalogSync.filterByName.mockClear();
     productCatalogSync.filterByBarcode.mockClear();
+    customersFacade.loadCustomers.mockReset();
 
     TestBed.configureTestingModule({
       imports: [NewSalePageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: CustomersFacade, useValue: customersFacade },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
         { provide: InventoryService, useValue: inventoryService },
         { provide: SalesCartIndexedDbService, useValue: cartStorage },
@@ -200,6 +212,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
       },
     ]);
+    fixture.detectChanges();
 
     expect(component.subtotalAmount()).toBeCloseTo(300, 6);
     expect(component.totalTaxAmount()).toBeCloseTo(54, 6);
@@ -228,5 +241,152 @@ describe('NewSalePageComponent', () => {
     component.onClearCart();
 
     expect(component.cart()).toHaveLength(0);
+  });
+
+  it('auto-adjusts paid and due when either field is edited', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        barcode: 'A',
+        itemName: 'Item A',
+        batchNumber: 'B-A',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+      },
+      {
+        barcode: 'B',
+        itemName: 'Item B',
+        batchNumber: 'B-B',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 50,
+        mrp: 50,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+      },
+    ]);
+    fixture.detectChanges();
+    component.paymentForm.controls.dueAmount.setValue(0);
+
+    expect(component.totalAmount()).toBe(150);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(0);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(150);
+
+    component.paymentForm.controls.dueAmount.setValue(40);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(40);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(110);
+
+    component.paymentForm.controls.paidAmount.setValue(25);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(25);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(125);
+
+    component.paymentForm.controls.paidAmount.setValue(999);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(150);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(0);
+
+    component.paymentForm.controls.dueAmount.setValue(999);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(150);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(0);
+
+    component.paymentForm.controls.paidAmount.setValue(80);
+    component.cart.update((items) => items.map((item, index) => (index === 0 ? { ...item, quantity: 2 } : item)));
+    fixture.detectChanges();
+
+    expect(component.totalAmount()).toBe(250);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(80);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(170);
+  });
+
+  it('loads customers and suggests active customer names for autocomplete', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    expect(customersFacade.loadCustomers).toHaveBeenCalledTimes(1);
+
+    component.onFilterCustomerName({ originalEvent: new Event('input'), query: 'a' });
+
+    expect(component.customerNameSuggestions()).toEqual(['Alice']);
+  });
+
+  it('assigns selected customer id and phone, then clears id when name is edited', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.onCustomerSuggestionSelected('Alice');
+
+    expect(component.selectedCustomerId()).toBe('cust-1');
+    expect(component.customerForm.controls.customerName.value).toBe('Alice');
+    expect(component.customerForm.controls.customerPhone.value).toBe('+919999111222');
+
+    component.customerForm.controls.customerName.setValue('Alice changed');
+
+    expect(component.selectedCustomerId()).toBeNull();
+  });
+
+  it('allows credit only when existing customer record is selected', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.customerForm.controls.customerPhone.setValue('+919876543210');
+    expect(component.canUseCredit()).toBe(false);
+
+    component.onCustomerSuggestionSelected('Alice');
+    expect(component.canUseCredit()).toBe(true);
+  });
+
+  it('resets due amount when selected customer is cleared', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        barcode: 'A',
+        itemName: 'Item A',
+        batchNumber: 'B-A',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+      },
+      {
+        barcode: 'B',
+        itemName: 'Item B',
+        batchNumber: 'B-B',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 50,
+        mrp: 50,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+      },
+    ]);
+    fixture.detectChanges();
+
+    component.onCustomerSuggestionSelected('Alice');
+    component.paymentForm.controls.dueAmount.setValue(40);
+
+    expect(component.paymentForm.controls.dueAmount.value).toBe(40);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(110);
+
+    component.customerForm.controls.customerName.setValue('Alice changed');
+    fixture.detectChanges();
+
+    expect(component.selectedCustomerId()).toBeNull();
+    expect(component.canUseCredit()).toBe(false);
+    expect(component.paymentForm.controls.dueAmount.disabled).toBe(true);
+    expect(component.paymentForm.controls.dueAmount.value).toBe(0);
+    expect(component.paymentForm.controls.paidAmount.value).toBe(150);
   });
 });

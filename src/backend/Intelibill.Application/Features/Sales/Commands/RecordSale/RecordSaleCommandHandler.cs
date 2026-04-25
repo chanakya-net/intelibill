@@ -120,6 +120,8 @@ public sealed class RecordSaleCommandHandler(
                 taxAmount = cmdItem.Quantity * cmdItem.SalesPrice * cmdItem.TaxRatePercent / 100;
 
             totalAmount += cmdItem.Quantity * cmdItem.SalesPrice;
+            if (!cmdItem.IsPriceIncludingTax)
+                totalAmount += taxAmount;
             totalTaxAmount += taxAmount;
 
             saleItems.Add(SaleItem.Create(

@@ -17,12 +17,14 @@ public class CustomersControllerTests
     private readonly CustomersController _controller;
 
     private readonly Guid _userId = Guid.NewGuid();
+    private readonly Guid _activeShopId = Guid.NewGuid();
 
     public CustomersControllerTests()
     {
         _controller = new CustomersController(_bus);
         SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()));
+            new Claim(JwtRegisteredClaimNames.Sub, _userId.ToString()),
+            new Claim("active_shop_id", _activeShopId.ToString()));
     }
 
     // --- GetCustomers ---
@@ -32,7 +34,7 @@ public class CustomersControllerTests
     {
         var customers = new List<CustomerDto>
         {
-            new(Guid.NewGuid(), "Alice", "+919876543210", null, true)
+            new(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m)
         };
         ArrangeBusResponse<IReadOnlyList<CustomerDto>>(customers);
 
@@ -68,7 +70,7 @@ public class CustomersControllerTests
     [Fact]
     public async Task AddCustomer_WhenSuccessful_ReturnsCreated()
     {
-        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true);
+        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
         var request = new AddCustomerRequest("Alice", "+919876543210", null, true);
 
@@ -103,7 +105,7 @@ public class CustomersControllerTests
     [Fact]
     public async Task EditCustomer_WhenSuccessful_ReturnsOk()
     {
-        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true);
+        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
         var request = new EditCustomerRequest("Alice", "+919876543210", null, true);
 

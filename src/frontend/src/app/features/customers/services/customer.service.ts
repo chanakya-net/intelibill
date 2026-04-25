@@ -10,6 +10,7 @@ export interface Customer {
   phoneNumber: string;
   address: string | null;
   isActive: boolean;
+  outstandingDue?: number;
 }
 
 export interface AddCustomerRequest {
