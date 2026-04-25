@@ -318,85 +318,43 @@ namespace Intelibill.Infrastructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            if (ActiveProvider == "Microsoft.EntityFrameworkCore.Sqlite")
-            {
-                migrationBuilder.CreateTable(
-                    name: "inventory",
-                    columns: table => new
-                    {
-                        id = table.Column<Guid>(type: "uuid", nullable: false),
-                        shop_id = table.Column<Guid>(type: "uuid", nullable: false),
-                        item_id = table.Column<Guid>(type: "uuid", nullable: false),
-                        quantity = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        reorder_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        max_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        last_updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                        created_by = table.Column<Guid>(type: "uuid", nullable: false),
-                        updated_by = table.Column<Guid>(type: "uuid", nullable: true),
-                        created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                        updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                    },
-                    constraints: table =>
-                    {
-                        table.PrimaryKey("pk_inventory", x => x.id);
-                        table.CheckConstraint("ck_inventory_max_non_negative", "max_level >= 0");
-                        table.CheckConstraint("ck_inventory_quantity_non_negative", "quantity >= 0");
-                        table.CheckConstraint("ck_inventory_reorder_lte_max", "reorder_level <= max_level");
-                        table.CheckConstraint("ck_inventory_reorder_non_negative", "reorder_level >= 0");
-                        table.ForeignKey(
-                            name: "fk_inventory_items_item_id_shop_id",
-                            columns: x => new { x.item_id, x.shop_id },
-                            principalTable: "items",
-                            principalColumns: new[] { "id", "shop_id" },
-                            onDelete: ReferentialAction.Cascade);
-                        table.ForeignKey(
-                            name: "fk_inventory_shops_shop_id",
-                            column: x => x.shop_id,
-                            principalTable: "shops",
-                            principalColumn: "id",
-                            onDelete: ReferentialAction.Cascade);
-                    });
-            }
-            else
-            {
-                migrationBuilder.CreateTable(
-                    name: "inventory",
-                    columns: table => new
-                    {
-                        id = table.Column<Guid>(type: "uuid", nullable: false),
-                        shop_id = table.Column<Guid>(type: "uuid", nullable: false),
-                        item_id = table.Column<Guid>(type: "uuid", nullable: false),
-                        quantity = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        reorder_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        max_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
-                        last_updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                        created_by = table.Column<Guid>(type: "uuid", nullable: false),
-                        updated_by = table.Column<Guid>(type: "uuid", nullable: true),
-                        xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
-                        created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                        updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                    },
-                    constraints: table =>
-                    {
-                        table.PrimaryKey("pk_inventory", x => x.id);
-                        table.CheckConstraint("ck_inventory_max_non_negative", "max_level >= 0");
-                        table.CheckConstraint("ck_inventory_quantity_non_negative", "quantity >= 0");
-                        table.CheckConstraint("ck_inventory_reorder_lte_max", "reorder_level <= max_level");
-                        table.CheckConstraint("ck_inventory_reorder_non_negative", "reorder_level >= 0");
-                        table.ForeignKey(
-                            name: "fk_inventory_items_item_id_shop_id",
-                            columns: x => new { x.item_id, x.shop_id },
-                            principalTable: "items",
-                            principalColumns: new[] { "id", "shop_id" },
-                            onDelete: ReferentialAction.Cascade);
-                        table.ForeignKey(
-                            name: "fk_inventory_shops_shop_id",
-                            column: x => x.shop_id,
-                            principalTable: "shops",
-                            principalColumn: "id",
-                            onDelete: ReferentialAction.Cascade);
-                    });
-            }
+            migrationBuilder.CreateTable(
+                name: "inventory",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    shop_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    item_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    quantity = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
+                    reorder_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
+                    max_level = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: false),
+                    last_updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: false),
+                    updated_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_inventory", x => x.id);
+                    table.CheckConstraint("ck_inventory_max_non_negative", "max_level >= 0");
+                    table.CheckConstraint("ck_inventory_quantity_non_negative", "quantity >= 0");
+                    table.CheckConstraint("ck_inventory_reorder_lte_max", "reorder_level <= max_level");
+                    table.CheckConstraint("ck_inventory_reorder_non_negative", "reorder_level >= 0");
+                    table.ForeignKey(
+                        name: "fk_inventory_items_item_id_shop_id",
+                        columns: x => new { x.item_id, x.shop_id },
+                        principalTable: "items",
+                        principalColumns: new[] { "id", "shop_id" },
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_inventory_shops_shop_id",
+                        column: x => x.shop_id,
+                        principalTable: "shops",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
 
             migrationBuilder.CreateTable(
                 name: "inventory_batches",

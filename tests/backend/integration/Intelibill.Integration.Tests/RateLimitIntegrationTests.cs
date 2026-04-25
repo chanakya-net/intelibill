@@ -9,13 +9,22 @@ using Xunit;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class RateLimitIntegrationTests : IClassFixture<ApiWebApplicationFactory>
+[Collection("Integration Tests")]
+public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
-    private readonly ApiWebApplicationFactory _factory;
+    private readonly ApiWebApplicationFactory _factory = new(fixture);
 
-    public RateLimitIntegrationTests(ApiWebApplicationFactory factory)
+    public async Task InitializeAsync() => await _factory.InitializeAsync();
+    public Task DisposeAsync()
     {
-        _factory = factory;
+        _factory.Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]

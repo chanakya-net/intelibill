@@ -1,10 +1,6 @@
-using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
-using Intelibill.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -12,16 +8,43 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null) : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private PostgreSqlContainer? _localContainer;
+    private PostgreSqlContainer DbContainer => fixture?.DbContainer ?? _localContainer ?? throw new InvalidOperationException("Container not initialized");
 
-    public ApiWebApplicationFactory()
+    public async Task InitializeAsync()
     {
-        _connection.Open();
+        if (fixture == null)
+        {
+            _localContainer = new PostgreSqlBuilder()
+                .WithImage("postgres:17-alpine")
+                .WithDatabase("integration")
+                .WithUsername("integration")
+                .WithPassword("integration")
+                .Build();
+            await _localContainer.StartAsync();
+
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseNpgsql(_localContainer.GetConnectionString())
+                .UseSnakeCaseNamingConvention()
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+            await context.Database.MigrateAsync();
+        }
+    }
+
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        if (_localContainer != null)
+        {
+            await _localContainer.StopAsync();
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -33,11 +56,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["App:BaseUrl"] = "https://inventory.test",
-                ["Database:Host"] = "localhost",
-                ["Database:Port"] = "5432",
-                ["Database:Database"] = "integration",
-                ["Database:Username"] = "integration",
-                ["Database:Password"] = "integration",
+                ["ConnectionStrings:DefaultConnection"] = DbContainer.GetConnectionString(),
                 ["Jwt:Secret"] = "integration-secret-key-must-be-at-least-32-chars!",
                 ["Jwt:Issuer"] = "inventory.ai.integration",
                 ["Jwt:Audience"] = "inventory.ai.integration",
@@ -54,203 +73,27 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<ApplicationDbContext>();
 
-            services.AddSingleton(_connection);
-            services.AddDbContext<ApplicationDbContext>((sp, options) =>
+            services.AddDbContext<ApplicationDbContext>((_, options) =>
             {
-                var connection = sp.GetRequiredService<SqliteConnection>();
-                options.UseSqlite(connection)
+                options.UseNpgsql(DbContainer.GetConnectionString())
                     .UseSnakeCaseNamingConvention()
                     .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
-            // SQLite cannot translate DateTimeOffset.UtcNow in WHERE clauses.
-            // Replace the repository with a SQLite-compatible version that evaluates
-            // the expiry filter client-side.
-            services.RemoveAll<IRefreshTokenRepository>();
-            services.AddScoped<IRefreshTokenRepository, SqliteRefreshTokenRepository>();
-            services.RemoveAll<ISupplierLedgerEntryRepository>();
-            services.AddScoped<ISupplierLedgerEntryRepository, SqliteSupplierLedgerEntryRepository>();
-
-            // SQLite cannot translate DateTimeOffset in ORDER BY clauses.
-            services.RemoveAll<IExpenseRepository>();
-            services.AddScoped<IExpenseRepository, SqliteExpenseRepository>();
-
-            // Replace Postgres-backed distributed cache in tests so rate-limit
-            // checks on auth endpoints do not depend on external infrastructure.
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton<IDistributedCache, NoOpDistributedCache>();
         });
     }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing)
-        {
-            _connection.Dispose();
-        }
-    }
-}
-
-/// <summary>
-/// SQLite-compatible refresh token repository that evaluates the DateTimeOffset
-/// expiry filter on the client side, since SQLite cannot translate DateTimeOffset.UtcNow
-/// to SQL in WHERE clauses.
-/// </summary>
-internal sealed class SqliteRefreshTokenRepository(ApplicationDbContext context)
-    : RepositoryBase<RefreshToken>(context), IRefreshTokenRepository
-{
-    public async Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default)
-    {
-        var tokens = await DbSet
-            .Include(rt => rt.User)
-            .ThenInclude(u => u.ShopMemberships)
-            .ThenInclude(sm => sm.Shop)
-            .Where(rt => rt.Token == token && !rt.IsRevoked)
-            .ToListAsync(cancellationToken);
-
-        return tokens.FirstOrDefault(rt => rt.ExpiresAt > DateTimeOffset.UtcNow);
-    }
-
-    public async Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var tokens = await DbSet
-            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
-            .ToListAsync(cancellationToken);
-
-        foreach (var t in tokens)
-            t.Revoke();
-    }
-}
-
-/// <summary>
-/// SQLite-compatible supplier ledger entry repository that evaluates DateTimeOffset
-/// ordering on the client side, since SQLite cannot translate DateTimeOffset in ORDER BY clauses.
-/// </summary>
-internal sealed class SqliteSupplierLedgerEntryRepository(ApplicationDbContext context)
-    : RepositoryBase<SupplierLedgerEntry>(context), ISupplierLedgerEntryRepository
-{
-    public async Task<IReadOnlyList<SupplierLedgerEntry>> GetBySupplierAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
-    {
-        var entries = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId)
-            .ToListAsync(cancellationToken);
-
-        return entries
-            .OrderByDescending(e => e.EntryDate)
-            .ThenByDescending(e => e.CreatedAt)
-            .ToList();
-    }
-
-    public async Task<IReadOnlyList<SupplierLedgerEntry>> GetByBatchAsync(Guid shopId, Guid batchId, CancellationToken cancellationToken = default)
-    {
-        var entries = await DbSet
-            .Where(e => e.ShopId == shopId && e.BatchId == batchId)
-            .ToListAsync(cancellationToken);
-
-        return entries
-            .OrderByDescending(e => e.EntryDate)
-            .ThenByDescending(e => e.CreatedAt)
-            .ToList();
-    }
-
-    public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
-    {
-        var goodsReceived = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == Intelibill.Domain.Enums.SupplierLedgerEntryType.GoodsReceived)
-            .SumAsync(e => e.Amount, cancellationToken);
-
-        var paymentMade = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId && e.EntryType == Intelibill.Domain.Enums.SupplierLedgerEntryType.PaymentMade)
-            .SumAsync(e => e.Amount, cancellationToken);
-
-        return goodsReceived - paymentMade;
-    }
-}
-
-/// <summary>
-/// SQLite-compatible expense repository that evaluates DateTimeOffset
-/// ordering on the client side, since SQLite cannot translate DateTimeOffset in ORDER BY clauses.
-/// </summary>
-internal sealed class SqliteExpenseRepository(ApplicationDbContext context) : IExpenseRepository
-{
-    public async Task<Expense?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
-        await context.Expenses
-            .Include(e => e.Category)
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
-
-    public async Task<IReadOnlyList<Expense>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken) =>
-        await context.Expenses
-            .Include(e => e.Category)
-            .Where(e => e.ShopId == shopId)
-            .ToListAsync(cancellationToken);
-
-    public async Task<(IReadOnlyList<Expense> Items, int TotalCount)> GetPagedByShopAsync(
-        Guid shopId,
-        string? searchTerm,
-        int pageNumber,
-        int pageSize,
-        CancellationToken cancellationToken)
-    {
-        var query = context.Expenses
-            .Include(e => e.Category)
-            .Where(e => e.ShopId == shopId)
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            var term = searchTerm.Trim();
-            query = query.Where(e =>
-                EF.Functions.Like(e.PaidTo, $"%{term}%") ||
-                EF.Functions.Like(e.Description!, $"%{term}%") ||
-                EF.Functions.Like(e.Category.Name, $"%{term}%"));
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .ToListAsync(cancellationToken);
-
-        var orderedItems = items
-            .OrderByDescending(e => e.ExpenseDate)
-            .ThenByDescending(e => e.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        return (orderedItems, totalCount);
-    }
-
-    public async Task AddAsync(Expense expense, CancellationToken cancellationToken) =>
-        await context.Expenses.AddAsync(expense, cancellationToken);
-
-    public void Update(Expense expense) =>
-        context.Expenses.Update(expense);
 }
 
 internal sealed class NoOpDistributedCache : IDistributedCache
 {
     public byte[]? Get(string key) => null;
-
-    public Task<byte[]?> GetAsync(string key, CancellationToken token = default) =>
-        Task.FromResult<byte[]?>(null);
-
-    public void Refresh(string key)
-    {
-    }
-
+    public Task<byte[]?> GetAsync(string key, CancellationToken token = default) => Task.FromResult<byte[]?>(null);
+    public void Refresh(string key) { }
     public Task RefreshAsync(string key, CancellationToken token = default) => Task.CompletedTask;
-
-    public void Remove(string key)
-    {
-    }
-
+    public void Remove(string key) { }
     public Task RemoveAsync(string key, CancellationToken token = default) => Task.CompletedTask;
-
-    public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
-    {
-    }
-
-    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) =>
-        Task.CompletedTask;
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) { }
+    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => Task.CompletedTask;
 }

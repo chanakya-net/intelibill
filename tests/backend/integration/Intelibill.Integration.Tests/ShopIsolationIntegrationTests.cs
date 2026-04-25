@@ -19,8 +19,24 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
-public class ShopIsolationIntegrationTests
+[Collection("Integration Tests")]
+public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
+    private readonly ApiWebApplicationFactory _factory = new(fixture);
+
+    public async Task InitializeAsync() => await _factory.InitializeAsync();
+    public Task DisposeAsync()
+    {
+        _factory.Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     private static Shop CreateTestShop(string name, string pincode = "560001") =>
         Shop.Create(name, "Address", "City", "State", pincode, null, null, null);
 

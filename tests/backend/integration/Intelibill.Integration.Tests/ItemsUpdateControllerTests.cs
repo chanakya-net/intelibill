@@ -6,13 +6,22 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Intelibill.Integration.Tests;
 
-public class ItemsUpdateControllerTests : IClassFixture<ApiWebApplicationFactory>
+[Collection("Integration Tests")]
+public sealed class ItemsUpdateControllerTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
-    private readonly ApiWebApplicationFactory _factory;
+    private readonly ApiWebApplicationFactory _factory = new(fixture);
 
-    public ItemsUpdateControllerTests(ApiWebApplicationFactory factory)
+    public async Task InitializeAsync() => await _factory.InitializeAsync();
+    public Task DisposeAsync()
     {
-        _factory = factory;
+        _factory.Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
