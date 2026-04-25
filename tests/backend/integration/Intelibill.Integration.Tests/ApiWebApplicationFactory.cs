@@ -57,6 +57,11 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             {
                 ["App:BaseUrl"] = "https://inventory.test",
                 ["ConnectionStrings:DefaultConnection"] = DbContainer.GetConnectionString(),
+                ["Database:Host"] = DbContainer.Hostname,
+                ["Database:Port"] = DbContainer.GetMappedPublicPort(5432).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["Database:Database"] = "integration",
+                ["Database:Username"] = "integration",
+                ["Database:Password"] = "integration",
                 ["Jwt:Secret"] = "integration-secret-key-must-be-at-least-32-chars!",
                 ["Jwt:Issuer"] = "inventory.ai.integration",
                 ["Jwt:Audience"] = "inventory.ai.integration",
