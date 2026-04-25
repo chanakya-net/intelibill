@@ -1,0 +1,104 @@
+<section class="bank-accounts-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">{{ 'bankAccounts.directory' | transloco }}</p>
+      <h1>{{ 'bankAccounts.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'bankAccounts.subtitle' | transloco }}</p>
+    </div>
+
+    @if (canManageBankAccounts()) {
+      <button
+        pButton
+        type="button"
+        [label]="'bankAccounts.addAccount' | transloco"
+        icon="pi pi-plus"
+        (click)="onOpenAddAccount()"
+      ></button>
+    }
+  </header>
+
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
+
+  @if (isLoading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!isLoading()) {
+    <div class="table-card">
+      <p-table
+        [value]="$any(bankAccounts())"
+        [sortField]="'bankName'"
+        [sortOrder]="1"
+        [scrollable]="true"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="bankName">{{ 'bankAccounts.bankName' | transloco }} <p-sortIcon field="bankName" /></th>
+            <th pSortableColumn="accountNumber">{{ 'bankAccounts.accountNumber' | transloco }} <p-sortIcon field="accountNumber" /></th>
+            <th pSortableColumn="accountType">{{ 'bankAccounts.accountType' | transloco }} <p-sortIcon field="accountType" /></th>
+            <th pSortableColumn="ifscCode">{{ 'bankAccounts.ifscCode' | transloco }} <p-sortIcon field="ifscCode" /></th>
+            <th pSortableColumn="accountHolderName">{{ 'bankAccounts.accountHolderName' | transloco }} <p-sortIcon field="accountHolderName" /></th>
+            @if (canManageBankAccounts()) {
+              <th>{{ 'common.actions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-account>
+          <tr>
+            <td>{{ account.bankName }}</td>
+            <td>{{ account.accountNumber }}</td>
+            <td>{{ ('bankAccounts.' + (account.accountType?.toLowerCase() || 'savings')) | transloco }}</td>
+            <td>{{ account.ifscCode || '-' }}</td>
+            <td>{{ account.accountHolderName || '-' }}</td>
+            @if (canManageBankAccounts()) {
+              <td>
+                <div class="flex gap-2">
+                  <button
+                    pButton
+                    type="button"
+                    icon="pi pi-pencil"
+                    severity="secondary"
+                    size="small"
+                    (click)="onOpenEditAccount(account)"
+                  ></button>
+                  <button
+                    pButton
+                    type="button"
+                    icon="pi pi-trash"
+                    severity="danger"
+                    size="small"
+                    (click)="onDeleteAccount(account)"
+                  ></button>
+                </div>
+              </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="canManageBankAccounts() ? 6 : 5">
+              <div class="empty-state">
+                <h2>{{ 'bankAccounts.noAccountsFound' | transloco }}</h2>
+                <p>{{ 'bankAccounts.noAccountsDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
+
+  @if (showManageOverlay()) {
+    <app-manage-bank-account-overlay
+      [bankAccount]="editingAccount()"
+      (closeRequested)="onCloseManageOverlay()"
+    ></app-manage-bank-account-overlay>
+  }
+
+  <p-confirmDialog appendTo="body"></p-confirmDialog>
+</section>

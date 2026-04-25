@@ -17,6 +17,8 @@ import { SalesEffects } from '../../features/sales/state/sales.effects';
 import { salesFeature } from '../../features/sales/state/sales.reducer';
 import { ExpensesEffects } from '../../features/expenses/state/expenses.effects';
 import { expensesFeature } from '../../features/expenses/state/expenses.reducer';
+import { BankAccountsEffects } from '../../features/bank-accounts/state/bank-accounts.effects';
+import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-accounts.reducer';
 
 export const shellRoutes: Routes = [
 	{
@@ -30,6 +32,7 @@ export const shellRoutes: Routes = [
 			provideState(customersFeature),
 			provideState(salesFeature),
 			provideState(expensesFeature),
+			provideState(bankAccountsFeature),
 			provideEffects(
 				ShopsEffects,
 				UsersEffects,
@@ -37,7 +40,8 @@ export const shellRoutes: Routes = [
 				InventoryEffects,
 				CustomersEffects,
 				SalesEffects,
-				ExpensesEffects
+				ExpensesEffects,
+				BankAccountsEffects
 			),
 		],
 		children: [
@@ -60,6 +64,13 @@ export const shellRoutes: Routes = [
 				loadComponent: () =>
 					import('../../features/expenses/pages/expenses-page.component').then(
 						(m) => m.ExpensesPageComponent
+					),
+			},
+			{
+				path: 'bank-accounts',
+				loadChildren: () =>
+					import('../../features/bank-accounts/bank-accounts.routes').then(
+						(m) => m.bankAccountsRoutes
 					),
 			},
 			{

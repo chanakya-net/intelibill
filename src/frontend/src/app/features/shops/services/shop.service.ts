@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { map, Observable, tap } from 'rxjs';
+import { map, Observable, tap, switchMap } from 'rxjs';
 
-import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { SHOP_ENDPOINTS, BANK_ACCOUNT_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthResult, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -82,6 +82,8 @@ export class ShopService {
   }
 
   updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {
-    return this.http.post<ShopDetails>(SHOP_ENDPOINTS.addBankAccount(shopId), payload);
+    return this.http.post<unknown>(BANK_ACCOUNT_ENDPOINTS.add, payload).pipe(
+      switchMap(() => this.getShopDetails(shopId))
+    );
   }
 }

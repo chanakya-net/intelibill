@@ -6,7 +6,10 @@ using System.Linq;
 
 namespace Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 
-public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, IShopRepository shopRepository)
+public sealed class GetShopDetailsQueryHandler(
+    IUserRepository userRepository, 
+    IShopRepository shopRepository,
+    IBankAccountRepository bankAccountRepository)
 {
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(GetShopDetailsQuery query, CancellationToken cancellationToken)
     {
@@ -22,6 +25,9 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
+        var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == query.ShopId, cancellationToken);
+        var primaryAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
+
         return new ShopDetailsDto(
             shop.Id,
             shop.Name,
@@ -31,6 +37,11 @@ public sealed class GetShopDetailsQueryHandler(IUserRepository userRepository, I
             shop.Pincode,
             shop.ContactPerson,
             shop.MobileNumber,
-            shop.GstNumber);
+            shop.GstNumber,
+            primaryAccount?.BankName,
+            primaryAccount?.AccountNumber,
+            primaryAccount?.AccountType?.ToString(),
+            primaryAccount?.IfscCode,
+            primaryAccount?.AccountHolderName);
     }
 }

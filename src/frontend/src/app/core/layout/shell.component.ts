@@ -121,6 +121,13 @@ export class ShellComponent {
         command: () => this.onNavigateToExpenses(),
       });
     }
+    if (this.isOwnerOfActiveShop()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageBankAccounts'),
+        icon: 'pi pi-building-columns',
+        command: () => this.onNavigateToBankAccounts(),
+      });
+    }
     // Add more global menu items as needed
     return items;
   });
@@ -621,6 +628,11 @@ export class ShellComponent {
   onNavigateToExpenses(): void {
     this.onCloseMenus();
     void this.router.navigate(['/expenses']);
+  }
+
+  onNavigateToBankAccounts(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/bank-accounts']);
   }
 
   onOpenManageShop(): void {

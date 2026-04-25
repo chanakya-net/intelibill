@@ -10,6 +10,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { StepperModule } from 'primeng/stepper';
 
+import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { ShopsActions } from '../state/shops.actions';
@@ -35,6 +36,7 @@ const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
     SelectModule,
     StepperModule,
     TranslocoPipe,
+    BankAccountFormComponent,
   ],
   templateUrl: './create-shop-overlay.component.html',
   styleUrl: './create-shop-overlay.component.scss',
@@ -73,11 +75,6 @@ export class CreateShopOverlayComponent implements OnInit {
     ifscCode: ['', [Validators.maxLength(20), Validators.pattern(INDIA_IFSC_REGEX)]],
     accountHolderName: ['', [Validators.maxLength(120)]],
   });
-
-  readonly accountTypeOptions = [
-    { label: 'Savings', value: 'Savings' },
-    { label: 'Current', value: 'Current' },
-  ];
 
   readonly progressSpinnerPt = {
     root: { class: 'create-shop-spinner-root' },

@@ -17,7 +17,7 @@ export const SHOP_ENDPOINTS = {
   setDefault: `${API_BASE_URL}/shops/default`,
   details: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
-  addBankAccount: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/bank-accounts`,
+  addBankAccount: (_: string) => `${API_BASE_URL}/bank-accounts`,
 } as const;
 
 export const USER_ENDPOINTS = {
@@ -52,6 +52,13 @@ export const SALE_ENDPOINTS = {
   list: `${API_BASE_URL}/sales`,
   record: `${API_BASE_URL}/sales`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
+} as const;
+
+export const BANK_ACCOUNT_ENDPOINTS = {
+  list: `${API_BASE_URL}/bank-accounts`,
+  add: `${API_BASE_URL}/bank-accounts`,
+  update: (id: string) => `${API_BASE_URL}/bank-accounts/${id}`,
+  delete: (id: string) => `${API_BASE_URL}/bank-accounts/${id}`,
 } as const;
 
 export const EXPENSE_ENDPOINTS = {
