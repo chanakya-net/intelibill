@@ -37,14 +37,14 @@ public sealed class ReassignBatchSupplierCommandHandler(
             return Errors.Inventory.SupplierLedgerEntryInvalid;
 
         var currentSupplier = await supplierRepository.GetByIdAsync(goodsReceivedEntry.SupplierId, cancellationToken);
-        if (currentSupplier is null || currentSupplier.OwnerUserId != command.ActorUserId)
+        if (currentSupplier is null || currentSupplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
         if (!currentSupplier.IsSystem)
             return Errors.Supplier.CannotReassignFromRealSupplier;
 
         var newSupplier = await supplierRepository.GetByIdAsync(command.NewSupplierId, cancellationToken);
-        if (newSupplier is null || newSupplier.OwnerUserId != command.ActorUserId)
+        if (newSupplier is null || newSupplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
         if (newSupplier.IsSystem)

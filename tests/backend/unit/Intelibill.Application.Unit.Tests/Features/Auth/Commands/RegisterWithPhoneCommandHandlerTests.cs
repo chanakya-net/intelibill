@@ -11,7 +11,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Auth.Commands.RegisterWithP
 public class RegisterWithPhoneCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -19,7 +18,7 @@ public class RegisterWithPhoneCommandHandlerTests
 
     public RegisterWithPhoneCommandHandlerTests()
     {
-        _handler = new RegisterWithPhoneCommandHandler(_userRepository, _supplierRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
+        _handler = new RegisterWithPhoneCommandHandler(_userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
     }
 
     [Fact]
@@ -52,7 +51,6 @@ public class RegisterWithPhoneCommandHandlerTests
         Assert.Equal("+1234567890", result.Value.User.PhoneNumber);
 
         await _userRepository.Received(1).AddAsync(Arg.Is<User>(u => u.PhoneNumber == command.PhoneNumber), Arg.Any<CancellationToken>());
-        await _supplierRepository.Received(1).AddAsync(Arg.Is<Supplier>(s => s.IsSystem && s.OwnerUserId != Guid.Empty), Arg.Any<CancellationToken>());
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

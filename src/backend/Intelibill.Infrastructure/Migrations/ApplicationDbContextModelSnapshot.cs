@@ -60,9 +60,9 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("ifsc_code");
 
-                    b.Property<Guid>("OwnerUserId")
+                    b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
-                        .HasColumnName("owner_user_id");
+                        .HasColumnName("shop_id");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -71,8 +71,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_bank_accounts");
 
-                    b.HasIndex("OwnerUserId")
-                        .HasDatabaseName("ix_bank_accounts_owner_user_id");
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_bank_accounts_shop_id");
 
                     b.ToTable("bank_accounts", (string)null);
                 });
@@ -105,15 +105,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(180)")
                         .HasColumnName("name");
 
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("owner_user_id");
-
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("phone_number");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -122,14 +122,14 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_customers");
 
-                    b.HasIndex("OwnerUserId")
-                        .HasDatabaseName("ix_customers_owner_user_id");
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_customers_shop_id");
 
-                    b.HasIndex("OwnerUserId", "IsActive")
-                        .HasDatabaseName("ix_customers_owner_user_id_is_active");
+                    b.HasIndex("ShopId", "IsActive")
+                        .HasDatabaseName("ix_customers_shop_id_is_active");
 
-                    b.HasIndex("OwnerUserId", "PhoneNumber")
-                        .HasDatabaseName("ix_customers_owner_user_id_phone_number");
+                    b.HasIndex("ShopId", "PhoneNumber")
+                        .HasDatabaseName("ix_customers_shop_id_phone_number");
 
                     b.ToTable("customers", (string)null);
                 });
@@ -1145,14 +1145,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(180)")
                         .HasColumnName("name");
 
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("owner_user_id");
-
                     b.Property<string>("Pin")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("pin");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
 
                     b.Property<string>("State")
                         .HasMaxLength(120)
@@ -1166,15 +1166,15 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_suppliers");
 
-                    b.HasIndex("OwnerUserId")
-                        .HasDatabaseName("ix_suppliers_owner_user_id");
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_suppliers_shop_id");
 
-                    b.HasIndex("OwnerUserId", "IsActive")
-                        .HasDatabaseName("ix_suppliers_owner_user_id_is_active");
+                    b.HasIndex("ShopId", "IsActive")
+                        .HasDatabaseName("ix_suppliers_shop_id_is_active");
 
-                    b.HasIndex("OwnerUserId", "IsSystem")
+                    b.HasIndex("ShopId", "IsSystem")
                         .IsUnique()
-                        .HasDatabaseName("ix_suppliers_owner_user_id_is_system")
+                        .HasDatabaseName("ix_suppliers_shop_id_is_system")
                         .HasFilter("is_system = true");
 
                     b.ToTable("suppliers", (string)null);
@@ -1379,22 +1379,22 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.BankAccount", b =>
                 {
-                    b.HasOne("Intelibill.Domain.Entities.User", null)
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
                         .WithMany()
-                        .HasForeignKey("OwnerUserId")
+                        .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_bank_accounts_users_owner_user_id");
+                        .HasConstraintName("fk_bank_accounts_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Customer", b =>
                 {
-                    b.HasOne("Intelibill.Domain.Entities.User", null)
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
                         .WithMany()
-                        .HasForeignKey("OwnerUserId")
+                        .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_customers_users_owner_user_id");
+                        .HasConstraintName("fk_customers_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.CustomerLedgerEntry", b =>
@@ -1641,12 +1641,12 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Supplier", b =>
                 {
-                    b.HasOne("Intelibill.Domain.Entities.User", null)
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
                         .WithMany()
-                        .HasForeignKey("OwnerUserId")
+                        .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_suppliers_users_owner_user_id");
+                        .HasConstraintName("fk_suppliers_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SupplierLedgerEntry", b =>

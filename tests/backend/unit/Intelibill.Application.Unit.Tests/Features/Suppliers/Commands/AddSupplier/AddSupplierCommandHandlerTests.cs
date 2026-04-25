@@ -69,7 +69,7 @@ public class AddSupplierCommandHandlerTests
         Assert.True(result.Value.IsPreferred);
 
         await _supplierRepository.Received(1).AddAsync(Arg.Is<Supplier>(s =>
-            s.OwnerUserId == actor.Id
+            s.ShopId == shop.Id
             && s.Name == "Fresh Foods"
             && s.City == "Bengaluru"
             && s.IsPreferred), Arg.Any<CancellationToken>());

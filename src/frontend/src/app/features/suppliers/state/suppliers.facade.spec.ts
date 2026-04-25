@@ -30,6 +30,7 @@ describe('SuppliersFacade', () => {
       city: 'City',
       state: 'State',
       pin: '560001',
+      isSystem: false,
       isActive: true,
       isPreferred: false,
       balanceDue: 500,

@@ -11,7 +11,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 
 public class RecordSaleCommandHandlerTests
 {
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
@@ -23,7 +22,6 @@ public class RecordSaleCommandHandlerTests
 
     private RecordSaleCommandHandler CreateHandler() =>
         new(
-            _shopRepository,
             _itemRepository,
             _batchRepository,
             _inventoryRepository,
@@ -367,10 +365,7 @@ public class RecordSaleCommandHandlerTests
     public async Task HandleAsync_RegularCustomer_StoresCustomerId()
     {
         var shopId = Guid.NewGuid();
-        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
-        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
-        shop.AddMembership(ownerMembership);
-        var customer = Customer.Create(ownerMembership.UserId, "Reg User", "+911234567890", null, true);
+        var customer = Customer.Create(shopId, "Reg User", "+911234567890", null, true);
         var customerId = customer.Id;
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
@@ -382,8 +377,7 @@ public class RecordSaleCommandHandlerTests
             .Returns([batch]);
         _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([inventory]);
-        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
-        _customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, customerId, Arg.Any<CancellationToken>()).Returns(customer);
+        _customerRepository.GetByShopAndIdAsync(shopId, customerId, Arg.Any<CancellationToken>()).Returns(customer);
 
         var command = new RecordSaleCommand(
             Guid.NewGuid(), shopId,
@@ -439,9 +433,6 @@ public class RecordSaleCommandHandlerTests
     public async Task HandleAsync_WhenDueExistsAndCustomerMissing_ReturnsNotFoundError()
     {
         var shopId = Guid.NewGuid();
-        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
-        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
-        shop.AddMembership(ownerMembership);
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
@@ -452,8 +443,7 @@ public class RecordSaleCommandHandlerTests
             .Returns([batch]);
         _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([inventory]);
-        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
-        _customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, "+911234567890", Arg.Any<CancellationToken>())
+        _customerRepository.GetByShopAndPhoneAsync(shopId, "+911234567890", Arg.Any<CancellationToken>())
             .Returns((Customer?)null);
 
         var command = new RecordSaleCommand(
@@ -476,10 +466,7 @@ public class RecordSaleCommandHandlerTests
     {
         var shopId = Guid.NewGuid();
         var actorUserId = Guid.NewGuid();
-        var shop = Shop.Create("My Shop", "Addr", "City", "State", "560001", null, null, null);
-        var ownerMembership = ShopMembership.Create(shop.Id, Guid.NewGuid(), ShopRole.Owner, false);
-        shop.AddMembership(ownerMembership);
-        var customer = Customer.Create(ownerMembership.UserId, "Reg User", "+911234567890", null, true);
+        var customer = Customer.Create(shopId, "Reg User", "+911234567890", null, true);
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
@@ -490,8 +477,7 @@ public class RecordSaleCommandHandlerTests
             .Returns([batch]);
         _inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([inventory]);
-        _shopRepository.GetByIdWithMembersAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
-        _customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, "+911234567890", Arg.Any<CancellationToken>())
+        _customerRepository.GetByShopAndPhoneAsync(shopId, "+911234567890", Arg.Any<CancellationToken>())
             .Returns(customer);
 
         var command = new RecordSaleCommand(

@@ -7,10 +7,10 @@ public class SupplierTests
     [Fact]
     public void Create_TrimAndNormalizeFields()
     {
-        var ownerId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
 
         var supplier = Supplier.Create(
-            ownerId,
+            shopId,
             "  Fresh Foods Pvt Ltd  ",
             "  Ramesh Kumar  ",
             "  +919876543210  ",
@@ -21,7 +21,7 @@ public class SupplierTests
             true,
             false);
 
-        Assert.Equal(ownerId, supplier.OwnerUserId);
+        Assert.Equal(shopId, supplier.ShopId);
         Assert.Equal("Fresh Foods Pvt Ltd", supplier.Name);
         Assert.Equal("Ramesh Kumar", supplier.ContactPersonName);
         Assert.Equal("+919876543210", supplier.ContactPersonPhone);

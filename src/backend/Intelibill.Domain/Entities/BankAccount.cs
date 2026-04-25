@@ -5,7 +5,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class BankAccount : BaseEntity
 {
-    public Guid OwnerUserId { get; private set; }
+    public Guid ShopId { get; private set; }
     public string BankName { get; private set; } = string.Empty;
     public string AccountNumber { get; private set; } = string.Empty;
     public BankAccountType? AccountType { get; private set; }
@@ -15,7 +15,7 @@ public sealed class BankAccount : BaseEntity
     private BankAccount() { }
 
     public static BankAccount Create(
-        Guid ownerUserId,
+        Guid shopId,
         string bankName,
         string accountNumber,
         BankAccountType? accountType,
@@ -24,7 +24,7 @@ public sealed class BankAccount : BaseEntity
     {
         return new BankAccount
         {
-            OwnerUserId = ownerUserId,
+            ShopId = shopId,
             BankName = bankName.Trim(),
             AccountNumber = accountNumber.Trim(),
             AccountType = accountType,

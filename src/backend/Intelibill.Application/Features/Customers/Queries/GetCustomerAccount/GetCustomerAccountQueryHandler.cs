@@ -8,7 +8,6 @@ namespace Intelibill.Application.Features.Customers.Queries.GetCustomerAccount;
 
 public sealed class GetCustomerAccountQueryHandler(
     IUserRepository userRepository,
-    IShopRepository shopRepository,
     ICustomerRepository customerRepository,
     ISaleRepository saleRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
@@ -26,15 +25,7 @@ public sealed class GetCustomerAccountQueryHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Customer.UserIsNotOwnerOrManager;
 
-        var shop = await shopRepository.GetByIdWithMembersAsync(query.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
-        if (ownerMembership is null)
-            return Errors.Customer.ShopOwnerNotFound;
-
-        var customer = await customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, query.CustomerId, cancellationToken);
+        var customer = await customerRepository.GetByShopAndIdAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
         if (customer is null)
             return Errors.Customer.CustomerNotFound;
 

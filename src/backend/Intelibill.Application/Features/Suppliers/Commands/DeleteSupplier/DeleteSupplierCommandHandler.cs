@@ -25,7 +25,7 @@ public sealed class DeleteSupplierCommandHandler(
             return Errors.Supplier.UserIsNotOwner;
 
         var supplier = await supplierRepository.GetByIdAsync(command.SupplierId, cancellationToken);
-        if (supplier is null || supplier.OwnerUserId != command.ActorUserId)
+        if (supplier is null || supplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
         if (supplier.IsSystem)

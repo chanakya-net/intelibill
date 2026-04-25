@@ -1,7 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Application.Features.BankAccounts.Queries.GetBankAccounts;
@@ -19,12 +18,12 @@ public sealed class BankAccountsController(IMessageBus bus) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetBankAccounts(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<BankAccountDto>>>(
-            new GetBankAccountsQuery(userId.Value),
+            new GetBankAccountsQuery(activeShopId.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -34,13 +33,13 @@ public sealed class BankAccountsController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> AddBankAccount([FromBody] AddBankAccountRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<BankAccountDto>>(
             new AddBankAccountCommand(
-                userId.Value,
+                activeShopId.Value,
                 request.BankName,
                 request.AccountNumber,
                 request.AccountType,
@@ -51,12 +50,10 @@ public sealed class BankAccountsController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
-    private Guid? GetCurrentUserId()
+    private Guid? GetCurrentActiveShopId()
     {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
+        var activeShopId = User.FindFirst("active_shop_id")?.Value;
+        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 

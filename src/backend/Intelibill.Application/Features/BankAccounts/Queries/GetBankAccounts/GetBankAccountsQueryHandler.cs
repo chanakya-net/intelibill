@@ -9,7 +9,7 @@ public sealed class GetBankAccountsQueryHandler(
 {
     public async Task<ErrorOr<IReadOnlyList<BankAccountDto>>> HandleAsync(GetBankAccountsQuery query, CancellationToken cancellationToken)
     {
-        var bankAccounts = await bankAccountRepository.GetByOwnerUserIdAsync(query.OwnerUserId, cancellationToken);
+        var bankAccounts = await bankAccountRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
         return bankAccounts.Select(ba => new BankAccountDto(
             ba.Id,

@@ -14,11 +14,11 @@ public class AddCustomerCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenValid_AddsCustomer()
     {
-        var actorId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
         var handler = new AddCustomerCommandHandler(_customerRepository, _unitOfWork);
 
         var result = await handler.HandleAsync(new AddCustomerCommand(
-            actorId,
+            shopId,
             "  John Doe  ",
             "  +919876543210  ",
             "  12 Market Road  ",
@@ -31,7 +31,7 @@ public class AddCustomerCommandHandlerTests
         Assert.True(result.Value.IsActive);
 
         await _customerRepository.Received(1).AddAsync(Arg.Is<Customer>(c =>
-            c.OwnerUserId == actorId
+            c.ShopId == shopId
             && c.Name == "John Doe"
             && c.PhoneNumber == "+919876543210"
             && c.Address == "12 Market Road"

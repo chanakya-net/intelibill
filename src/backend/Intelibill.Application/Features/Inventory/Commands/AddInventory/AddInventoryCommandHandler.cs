@@ -82,7 +82,7 @@ public sealed class AddInventoryCommandHandler(
             return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
-        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(command.SupplierId, command.ActorUserId, cancellationToken);
+        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(command.SupplierId, command.ActiveShopId, cancellationToken);
         if (effectiveSupplierOrError.IsError)
             return effectiveSupplierOrError.Errors;
 
@@ -221,12 +221,12 @@ public sealed class AddInventoryCommandHandler(
             "Inventory aggregate could not be updated after max retries.");
     }
 
-    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid shopId, CancellationToken cancellationToken)
     {
         if (requestedSupplierId is Guid supplierId)
         {
             var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
-            if (supplier is null || supplier.OwnerUserId != actorUserId)
+            if (supplier is null || supplier.ShopId != shopId)
             {
                 return Errors.Supplier.SupplierNotFound;
             }
@@ -234,7 +234,7 @@ public sealed class AddInventoryCommandHandler(
             return supplier;
         }
 
-        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        var systemSupplier = await supplierRepository.GetSystemByShopIdAsync(shopId, cancellationToken);
         if (systemSupplier is null)
         {
             return Errors.Supplier.SystemSupplierNotFound;

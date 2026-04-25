@@ -12,7 +12,7 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
 
         builder.HasKey(s => s.Id);
 
-        builder.Property(s => s.OwnerUserId)
+        builder.Property(s => s.ShopId)
             .IsRequired();
 
         builder.Property(s => s.Name)
@@ -47,15 +47,15 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
         builder.Property(s => s.IsPreferred)
             .IsRequired();
 
-        builder.HasIndex(s => s.OwnerUserId);
-        builder.HasIndex(s => new { s.OwnerUserId, s.IsActive });
-        builder.HasIndex(s => new { s.OwnerUserId, s.IsSystem })
+        builder.HasIndex(s => s.ShopId);
+        builder.HasIndex(s => new { s.ShopId, s.IsActive });
+        builder.HasIndex(s => new { s.ShopId, s.IsSystem })
             .IsUnique()
             .HasFilter("is_system = true");
 
-        builder.HasOne<User>()
+        builder.HasOne<Shop>()
             .WithMany()
-            .HasForeignKey(s => s.OwnerUserId)
+            .HasForeignKey(s => s.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

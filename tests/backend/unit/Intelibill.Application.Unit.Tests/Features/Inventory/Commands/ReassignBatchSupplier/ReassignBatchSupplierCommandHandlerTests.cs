@@ -23,8 +23,8 @@ public class ReassignBatchSupplierCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
-        var systemSupplier = Supplier.CreateUnknownSystemSupplier(owner.Id);
-        var realSupplier = Supplier.Create(owner.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var realSupplier = Supplier.Create(shop.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
 
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, owner.Id);
         var batch = InventoryBatch.Create(shop.Id, item.Id, "B-1", 5m, 10m, 15m, 14m, 5m, false, null, null, systemSupplier.Id, owner.Id).Value;
@@ -59,8 +59,8 @@ public class ReassignBatchSupplierCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
-        var supplier = Supplier.Create(owner.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
-        var newSupplier = Supplier.Create(owner.Id, "Real Supplier 2", null, null, null, null, null, null, true, false, false);
+        var supplier = Supplier.Create(shop.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
+        var newSupplier = Supplier.Create(shop.Id, "Real Supplier 2", null, null, null, null, null, null, true, false, false);
 
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, owner.Id);
         var batch = InventoryBatch.Create(shop.Id, item.Id, "B-1", 5m, 10m, 15m, 14m, 5m, false, null, null, supplier.Id, owner.Id).Value;

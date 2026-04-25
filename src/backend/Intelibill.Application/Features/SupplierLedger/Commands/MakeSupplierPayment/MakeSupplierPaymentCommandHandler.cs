@@ -10,7 +10,6 @@ namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPa
 
 public sealed class MakeSupplierPaymentCommandHandler(
     IUserRepository userRepository,
-    IShopRepository shopRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
     IExpenseCategoryRepository expenseCategoryRepository,
@@ -32,16 +31,8 @@ public sealed class MakeSupplierPaymentCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Supplier.UserIsNotOwnerOrManager;
 
-        var shop = await shopRepository.GetByIdWithMembersAsync(command.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
-        if (ownerMembership is null)
-            return Errors.Supplier.ShopOwnerNotFound;
-
         var supplier = await supplierRepository.GetByIdAsync(command.SupplierId, cancellationToken);
-        if (supplier is null || supplier.OwnerUserId != ownerMembership.UserId)
+        if (supplier is null || supplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
         var entryOrError = SupplierLedgerEntry.Create(

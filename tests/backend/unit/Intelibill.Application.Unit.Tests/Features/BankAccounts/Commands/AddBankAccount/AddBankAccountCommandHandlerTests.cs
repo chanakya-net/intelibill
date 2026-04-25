@@ -17,11 +17,11 @@ public class AddBankAccountCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WithValidData_AddsBankAccount()
     {
-        var ownerId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
         var handler = new AddBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
 
         var result = await handler.HandleAsync(new AddBankAccountCommand(
-            ownerId,
+            shopId,
             "State Bank of India",
             "123456789012",
             "Savings",
@@ -36,7 +36,7 @@ public class AddBankAccountCommandHandlerTests
         Assert.Equal("Chandra Kumar", result.Value.AccountHolderName);
 
         await _bankAccountRepository.Received(1).AddAsync(Arg.Is<BankAccount>(ba =>
-            ba.OwnerUserId == ownerId
+            ba.ShopId == shopId
             && ba.BankName == "State Bank of India"
             && ba.AccountNumber == "123456789012"
             && ba.AccountType == BankAccountType.Savings

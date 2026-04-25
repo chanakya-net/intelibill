@@ -7,16 +7,16 @@ public class CustomerTests
     [Fact]
     public void Create_TrimAndNormalizeFields()
     {
-        var ownerId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
 
         var customer = Customer.Create(
-            ownerId,
+            shopId,
             "  John Doe  ",
             "  +919876543210  ",
             "  12 Market Road  ",
             true);
 
-        Assert.Equal(ownerId, customer.OwnerUserId);
+        Assert.Equal(shopId, customer.ShopId);
         Assert.Equal("John Doe", customer.Name);
         Assert.Equal("+919876543210", customer.PhoneNumber);
         Assert.Equal("12 Market Road", customer.Address);

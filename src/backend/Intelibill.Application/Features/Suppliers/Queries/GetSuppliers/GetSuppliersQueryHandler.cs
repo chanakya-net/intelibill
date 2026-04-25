@@ -1,14 +1,12 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.DTOs;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
 
 public sealed class GetSuppliersQueryHandler(
     IUserRepository userRepository,
-    IShopRepository shopRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository)
 {
@@ -22,15 +20,7 @@ public sealed class GetSuppliersQueryHandler(
         if (callerMembership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var shop = await shopRepository.GetByIdWithMembersAsync(query.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
-        if (ownerMembership is null)
-            return Errors.Supplier.ShopOwnerNotFound;
-
-        var suppliers = await supplierRepository.GetByOwnerUserIdAsync(ownerMembership.UserId, query.IncludeSystem, cancellationToken);
+        var suppliers = await supplierRepository.GetByShopIdAsync(query.ActiveShopId, query.IncludeSystem, cancellationToken);
 
         var result = new List<SupplierDto>();
         foreach (var s in suppliers)

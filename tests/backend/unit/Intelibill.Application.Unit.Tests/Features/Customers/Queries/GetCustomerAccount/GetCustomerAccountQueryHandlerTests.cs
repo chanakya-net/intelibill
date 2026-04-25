@@ -10,13 +10,12 @@ namespace Intelibill.Application.Unit.Tests.Features.Customers.Queries.GetCustom
 public class GetCustomerAccountQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
     private GetCustomerAccountQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository);
+        new(_userRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository);
 
     private static (User owner, User manager, User staff, Shop shop, Customer customer) BuildFixture()
     {
@@ -36,7 +35,7 @@ public class GetCustomerAccountQueryHandlerTests
         shop.AddMembership(managerMembership);
         shop.AddMembership(staffMembership);
 
-        var customer = Customer.Create(owner.Id, "Customer A", "+919000000001", null, true);
+        var customer = Customer.Create(shop.Id, "Customer A", "+919000000001", null, true);
 
         return (owner, manager, staff, shop, customer);
     }
@@ -82,8 +81,7 @@ public class GetCustomerAccountQueryHandlerTests
             fixture.manager.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
-        _shopRepository.GetByIdWithMembersAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
-        _customerRepository.GetByOwnerAndIdAsync(fixture.owner.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
         _saleRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns([sale]);
         _customerLedgerEntryRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
             .Returns([dueEntry, paymentEntry]);
@@ -152,8 +150,7 @@ public class GetCustomerAccountQueryHandlerTests
         var query = new GetCustomerAccountQuery(fixture.manager.Id, fixture.shop.Id, Guid.NewGuid());
 
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
-        _shopRepository.GetByIdWithMembersAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
-        _customerRepository.GetByOwnerAndIdAsync(fixture.owner.Id, query.CustomerId, Arg.Any<CancellationToken>())
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, query.CustomerId, Arg.Any<CancellationToken>())
             .Returns((Customer?)null);
 
         var result = await CreateHandler().HandleAsync(query, CancellationToken.None);

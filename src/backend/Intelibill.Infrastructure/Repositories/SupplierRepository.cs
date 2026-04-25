@@ -8,14 +8,14 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class SupplierRepository(ApplicationDbContext context)
     : RepositoryBase<Supplier>(context), ISupplierRepository
 {
-    public async Task<IReadOnlyList<Supplier>> GetByOwnerUserIdAsync(Guid ownerUserId, bool includeSystem, CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) =>
         await DbSet
-            .Where(s => s.OwnerUserId == ownerUserId && (includeSystem || !s.IsSystem))
+            .Where(s => s.ShopId == shopId && (includeSystem || !s.IsSystem))
             .OrderBy(s => s.Name)
             .ToListAsync(cancellationToken);
 
-    public async Task<Supplier?> GetSystemByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default) =>
+    public async Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
-            .Where(s => s.OwnerUserId == ownerUserId && s.IsSystem)
+            .Where(s => s.ShopId == shopId && s.IsSystem)
             .FirstOrDefaultAsync(cancellationToken);
 }
