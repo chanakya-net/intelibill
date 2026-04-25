@@ -2,6 +2,8 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
+using Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount;
+using Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Application.Features.BankAccounts.Queries.GetBankAccounts;
 using Microsoft.AspNetCore.Authorization;
@@ -50,6 +52,43 @@ public sealed class BankAccountsController(IMessageBus bus) : ControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountRequest request, CancellationToken cancellationToken)
+    {
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<BankAccountDto>>(
+            new UpdateBankAccountCommand(
+                id,
+                activeShopId.Value,
+                request.BankName,
+                request.AccountNumber,
+                request.AccountType,
+                request.IfscCode,
+                request.AccountHolderName),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> DeleteBankAccount(Guid id, CancellationToken cancellationToken)
+    {
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+
+        var result = await bus.InvokeAsync<ErrorOr<Deleted>>(
+            new DeleteBankAccountCommand(id, activeShopId.Value),
+            cancellationToken);
+
+        return result.ToActionResult(_ => NoContent());
+    }
+
     private Guid? GetCurrentActiveShopId()
     {
         var activeShopId = User.FindFirst("active_shop_id")?.Value;
@@ -58,6 +97,13 @@ public sealed class BankAccountsController(IMessageBus bus) : ControllerBase
 }
 
 public sealed record AddBankAccountRequest(
+    string? BankName,
+    string? AccountNumber,
+    string? AccountType,
+    string? IfscCode,
+    string? AccountHolderName);
+
+public sealed record UpdateBankAccountRequest(
     string? BankName,
     string? AccountNumber,
     string? AccountType,

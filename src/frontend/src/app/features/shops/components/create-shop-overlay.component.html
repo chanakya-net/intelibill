@@ -247,72 +247,7 @@
             <form [formGroup]="bankForm" (ngSubmit)="onSaveFromStep2()" class="overlay-form space-y-4">
               <div class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</div>
 
-              <div class="field-wrap space-y-1.5">
-                <label for="bank-name">{{ 'shops.bankName' | transloco }}</label>
-                <input
-                  id="bank-name"
-                  type="text"
-                  pInputText
-                  formControlName="bankName"
-                  class="w-full"
-                  [placeholder]="'shops.placeholders.bankName' | transloco"
-                />
-              </div>
-
-              <div class="field-grid">
-                <div class="field-wrap space-y-1.5">
-                  <label for="bank-account-number">{{ 'shops.accountNumber' | transloco }}</label>
-                  <input
-                    id="bank-account-number"
-                    type="text"
-                    pInputText
-                    formControlName="accountNumber"
-                    class="w-full"
-                    [placeholder]="'shops.placeholders.accountNumber' | transloco"
-                  />
-                </div>
-
-                <div class="field-wrap space-y-1.5">
-                  <label for="bank-account-type">{{ 'shops.accountType' | transloco }}</label>
-                  <p-select
-                    id="bank-account-type"
-                    formControlName="accountType"
-                    [options]="accountTypeOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    [placeholder]="'shops.placeholders.accountType' | transloco"
-                    class="w-full"
-                  ></p-select>
-                </div>
-              </div>
-
-              <div class="field-wrap space-y-1.5">
-                <label for="ifsc-code">{{ 'shops.ifscCode' | transloco }}</label>
-                <input
-                  id="ifsc-code"
-                  type="text"
-                  pInputText
-                  formControlName="ifscCode"
-                  class="w-full"
-                  [placeholder]="'shops.placeholders.ifscCode' | transloco"
-                  [class.ng-invalid]="bankForm.controls.ifscCode.invalid && bankForm.controls.ifscCode.touched"
-                />
-                @if (bankForm.controls.ifscCode.hasError('pattern') && bankForm.controls.ifscCode.touched) {
-                  <p class="field-error">{{ 'shops.validation.ifscInvalid' | transloco }}</p>
-                }
-              </div>
-
-              <div class="field-wrap space-y-1.5">
-                <label for="account-holder-name">{{ 'shops.accountHolderName' | transloco }}</label>
-                <input
-                  id="account-holder-name"
-                  type="text"
-                  pInputText
-                  formControlName="accountHolderName"
-                  class="w-full"
-                  [placeholder]="'shops.placeholders.accountHolderName' | transloco"
-                />
-              </div>
+              <app-bank-account-form [form]="bankForm" idPrefix="create"></app-bank-account-form>
 
               @if (serverError()) {
                 <p class="server-error">{{ serverError() | transloco }}</p>

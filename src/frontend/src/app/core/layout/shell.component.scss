@@ -16,30 +16,27 @@
 }
 
 .shell-header-inner {
-  max-width: 80rem;
+  max-width: 95rem;
   margin: 0 auto;
-  padding: 0.72rem 1rem;
+  padding: 0.72rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 1.5rem;
 }
 
 .shell-brand {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-  flex: 1 1 auto;
+  gap: 0.8rem;
+  flex: 0 0 auto;
 }
 
 .shell-middle-zone {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  margin-left: 0.25rem;
+  justify-content: center;
   flex: 1 1 auto;
-  gap: 0.7rem;
   min-width: 0;
 }
 
@@ -55,10 +52,13 @@
   box-shadow: 0 2px 8px rgba(251, 146, 60, 0.04);
   font-size: 0.95rem;
   color: #7c2d12;
+  white-space: nowrap;
 }
 
 .menubar-item-link,
-.menubar-item-label,
+.menubar-item-label {
+  white-space: nowrap;
+}
 .menubar-item-icon,
 .menubar-submenu-icon {
   color: #7c2d12;

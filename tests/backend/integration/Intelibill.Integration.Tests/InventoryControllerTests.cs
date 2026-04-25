@@ -10,13 +10,22 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
-public class InventoryControllerTests : IClassFixture<ApiWebApplicationFactory>
+[Collection("Integration Tests")]
+public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
-    private readonly ApiWebApplicationFactory _factory;
+    private readonly ApiWebApplicationFactory _factory = new(fixture);
 
-    public InventoryControllerTests(ApiWebApplicationFactory factory)
+    public async Task InitializeAsync() => await _factory.InitializeAsync();
+    public Task DisposeAsync()
     {
-        _factory = factory;
+        _factory.Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions

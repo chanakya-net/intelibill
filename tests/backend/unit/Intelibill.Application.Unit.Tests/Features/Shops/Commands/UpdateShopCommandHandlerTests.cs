@@ -12,6 +12,7 @@ public class UpdateShopCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
@@ -43,6 +44,7 @@ public class UpdateShopCommandHandlerTests
         var handler = new UpdateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _bankAccountRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -83,6 +85,7 @@ public class UpdateShopCommandHandlerTests
         var handler = new UpdateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _bankAccountRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -113,6 +116,7 @@ public class UpdateShopCommandHandlerTests
         var handler = new UpdateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _bankAccountRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -148,6 +152,7 @@ public class UpdateShopCommandHandlerTests
         var handler = new UpdateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _bankAccountRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -184,6 +189,7 @@ public class UpdateShopCommandHandlerTests
         var handler = new UpdateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _bankAccountRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);

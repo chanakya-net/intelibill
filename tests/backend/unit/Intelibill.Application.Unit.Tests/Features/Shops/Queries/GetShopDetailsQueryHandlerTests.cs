@@ -11,11 +11,12 @@ public class GetShopDetailsQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
     private readonly GetShopDetailsQueryHandler _handler;
 
     public GetShopDetailsQueryHandlerTests()
     {
-        _handler = new GetShopDetailsQueryHandler(_userRepository, _shopRepository);
+        _handler = new GetShopDetailsQueryHandler(_userRepository, _shopRepository, _bankAccountRepository);
     }
 
     [Fact]

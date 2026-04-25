@@ -13,6 +13,7 @@ namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
 public sealed class UpdateShopCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
+    IBankAccountRepository bankAccountRepository,
     IUnitOfWork unitOfWork,
     IValidator<UpdateShopCommand>? validator = null)
 {
@@ -49,6 +50,9 @@ public sealed class UpdateShopCommandHandler(
         shopRepository.Update(shop);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == command.ShopId, cancellationToken);
+        var primaryAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
+
         return new ShopDetailsDto(
             shop.Id,
             shop.Name,
@@ -58,6 +62,11 @@ public sealed class UpdateShopCommandHandler(
             shop.Pincode,
             shop.ContactPerson,
             shop.MobileNumber,
-            shop.GstNumber);
+            shop.GstNumber,
+            primaryAccount?.BankName,
+            primaryAccount?.AccountNumber,
+            primaryAccount?.AccountType?.ToString(),
+            primaryAccount?.IfscCode,
+            primaryAccount?.AccountHolderName);
     }
 }

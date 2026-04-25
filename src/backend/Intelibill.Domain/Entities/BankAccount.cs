@@ -32,4 +32,18 @@ public sealed class BankAccount : BaseEntity
             AccountHolderName = accountHolderName?.Trim()
         };
     }
+
+    public void Update(
+        string bankName,
+        string accountNumber,
+        BankAccountType? accountType,
+        string? ifscCode,
+        string? accountHolderName)
+    {
+        BankName = bankName.Trim();
+        AccountNumber = accountNumber.Trim();
+        AccountType = accountType;
+        IfscCode = ifscCode?.Trim();
+        AccountHolderName = accountHolderName?.Trim();
+    }
 }

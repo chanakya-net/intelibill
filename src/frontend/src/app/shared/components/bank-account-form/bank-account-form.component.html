@@ -1,0 +1,69 @@
+<div [formGroup]="form" class="bank-account-form space-y-4">
+  <div class="field-wrap space-y-1.5">
+    <label [for]="idPrefix + '-bank-name'">{{ 'shops.bankName' | transloco }}</label>
+    <input
+      [id]="idPrefix + '-bank-name'"
+      type="text"
+      pInputText
+      formControlName="bankName"
+      class="w-full"
+      [placeholder]="'shops.placeholders.bankName' | transloco"
+    />
+  </div>
+
+  <div class="field-grid">
+    <div class="field-wrap space-y-1.5">
+      <label [for]="idPrefix + '-account-number'">{{ 'shops.accountNumber' | transloco }}</label>
+      <input
+        [id]="idPrefix + '-account-number'"
+        type="text"
+        pInputText
+        formControlName="accountNumber"
+        class="w-full"
+        [placeholder]="'shops.placeholders.accountNumber' | transloco"
+      />
+    </div>
+
+    <div class="field-wrap space-y-1.5">
+      <label [for]="idPrefix + '-account-type'">{{ 'shops.accountType' | transloco }}</label>
+      <p-select
+        [id]="idPrefix + '-account-type'"
+        formControlName="accountType"
+        [options]="accountTypeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [placeholder]="'shops.placeholders.accountType' | transloco"
+        class="w-full"
+        appendTo="body"
+      ></p-select>
+    </div>
+  </div>
+
+  <div class="field-wrap space-y-1.5">
+    <label [for]="idPrefix + '-ifsc-code'">{{ 'shops.ifscCode' | transloco }}</label>
+    <input
+      [id]="idPrefix + '-ifsc-code'"
+      type="text"
+      pInputText
+      formControlName="ifscCode"
+      class="w-full"
+      [placeholder]="'shops.placeholders.ifscCode' | transloco"
+      [class.ng-invalid]="form.get('ifscCode')?.invalid && form.get('ifscCode')?.touched"
+    />
+    @if (form.get('ifscCode')?.hasError('pattern') && form.get('ifscCode')?.touched) {
+      <p class="field-error">{{ 'shops.validation.ifscInvalid' | transloco }}</p>
+    }
+  </div>
+
+  <div class="field-wrap space-y-1.5">
+    <label [for]="idPrefix + '-account-holder-name'">{{ 'shops.accountHolderName' | transloco }}</label>
+    <input
+      [id]="idPrefix + '-account-holder-name'"
+      type="text"
+      pInputText
+      formControlName="accountHolderName"
+      class="w-full"
+      [placeholder]="'shops.placeholders.accountHolderName' | transloco"
+    />
+  </div>
+</div>

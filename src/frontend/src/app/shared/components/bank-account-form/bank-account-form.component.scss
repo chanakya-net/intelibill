@@ -1,0 +1,43 @@
+@use '../../../core/styles/form-control-mixins' as controls;
+
+.field-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-wrap {
+  label {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #475569;
+    font-weight: 700;
+  }
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #be123c;
+}
+
+// Text input styling
+input.p-inputtext {
+  @include controls.text-input($transition: (box-shadow 160ms ease, border-color 160ms ease));
+
+  &::placeholder {
+    @include controls.text-input-placeholder;
+  }
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
+}
+
+@media (max-width: 640px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}

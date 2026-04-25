@@ -10,6 +10,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { StepperModule } from 'primeng/stepper';
 
+import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
 import { UserShop } from '../../../core/auth/auth.models';
 import { RootState } from '../../../core/state/app.state';
 import { CreateShopRequest, UpdateBankDetailsRequest } from '../services/shop.service';
@@ -29,7 +30,7 @@ const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
 @Component({
   selector: 'app-manage-shop-overlay',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, SelectModule, StepperModule, TranslocoPipe],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, ButtonModule, ProgressSpinnerModule, SelectModule, StepperModule, TranslocoPipe, BankAccountFormComponent],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',
 })
@@ -48,11 +49,6 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly activeStep = signal(1);
   readonly isUpdatePending = signal(false);
   readonly isBankDetailsPending = signal(false);
-
-  readonly accountTypeOptions = [
-    { label: 'Savings', value: 'Savings' },
-    { label: 'Current', value: 'Current' },
-  ];
 
   @Input({ required: true }) shops: readonly UserShop[] = [];
   @Output() readonly closeRequested = new EventEmitter<void>();

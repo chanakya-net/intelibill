@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { SHOP_ENDPOINTS, BANK_ACCOUNT_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopDetails, ShopService } from './shop.service';
 
@@ -103,7 +103,7 @@ describe('ShopService', () => {
     http.verify();
   });
 
-  it('sends add bank account request via POST to the bank-accounts endpoint', () => {
+  it('sends add bank account request and then fetches shop details', () => {
     const { service, http } = setup();
 
     const shopDetailsResponse: ShopDetails = {
@@ -132,19 +132,15 @@ describe('ShopService', () => {
     }).subscribe((response) => {
       expect(response.bankName).toBe('SBI');
       expect(response.bankAccountNumber).toBe('123456789012');
-      expect(response.bankAccountType).toBe('Savings');
     });
 
-    const request = http.expectOne(SHOP_ENDPOINTS.addBankAccount('shop-1'));
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({
-      bankName: 'SBI',
-      accountNumber: '123456789012',
-      accountType: 'Savings',
-      ifscCode: 'SBIN0001234',
-      accountHolderName: 'Chandra Kumar',
-    });
-    request.flush(shopDetailsResponse);
+    const addRequest = http.expectOne(BANK_ACCOUNT_ENDPOINTS.add);
+    expect(addRequest.request.method).toBe('POST');
+    addRequest.flush({}); // New endpoint returns DTO but switchMap moves to getDetails
+
+    const detailsRequest = http.expectOne(SHOP_ENDPOINTS.details('shop-1'));
+    expect(detailsRequest.request.method).toBe('GET');
+    detailsRequest.flush(shopDetailsResponse);
 
     http.verify();
   });

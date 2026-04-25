@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Intelibill.Integration.Tests;
 
-public class ApiPipelineIntegrationTests
+[Collection("Integration Tests")]
+public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
 {
     [Fact]
     public async Task OpenApi_InDevelopment_IsAvailable()
     {
-        using var factory = new ApiWebApplicationFactory();
+        using var factory = new ApiWebApplicationFactory(fixture);
+        await factory.InitializeAsync();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost"),
@@ -26,7 +28,8 @@ public class ApiPipelineIntegrationTests
     [Fact]
     public async Task ShopsMe_WithoutToken_ReturnsUnauthorized()
     {
-        using var factory = new ApiWebApplicationFactory();
+        using var factory = new ApiWebApplicationFactory(fixture);
+        await factory.InitializeAsync();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost"),
@@ -41,7 +44,8 @@ public class ApiPipelineIntegrationTests
     [Fact]
     public async Task RegisterAndLogin_Flow_ReturnsAuthPayload()
     {
-        using var factory = new ApiWebApplicationFactory();
+        using var factory = new ApiWebApplicationFactory(fixture);
+        await factory.InitializeAsync();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost"),

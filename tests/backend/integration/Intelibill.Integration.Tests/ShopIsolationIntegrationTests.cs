@@ -19,8 +19,24 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
-public class ShopIsolationIntegrationTests
+[Collection("Integration Tests")]
+public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
+    private readonly ApiWebApplicationFactory _factory = new(fixture);
+
+    public async Task InitializeAsync() => await _factory.InitializeAsync();
+    public Task DisposeAsync()
+    {
+        _factory.Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     private static Shop CreateTestShop(string name, string pincode = "560001") =>
         Shop.Create(name, "Address", "City", "State", pincode, null, null, null);
 
@@ -330,11 +346,13 @@ public class ShopIsolationIntegrationTests
 
         var userRepository = new InMemoryUserRepository(user);
         var shopRepository = new InMemoryShopRepository(shop);
+        var bankAccountRepository = new InMemoryBankAccountRepository();
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new UpdateShopCommandHandler(
             userRepository,
             shopRepository,
+            bankAccountRepository,
             unitOfWork);
 
         var result = await handler.HandleAsync(
@@ -374,11 +392,13 @@ public class ShopIsolationIntegrationTests
 
         var userRepository = new InMemoryUserRepository(user);
         var shopRepository = new InMemoryShopRepository();
+        var bankAccountRepository = new InMemoryBankAccountRepository();
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new UpdateShopCommandHandler(
             userRepository,
             shopRepository,
+            bankAccountRepository,
             unitOfWork);
 
         var result = await handler.HandleAsync(
@@ -530,6 +550,27 @@ public class ShopIsolationIntegrationTests
         public Task AddAsync(Supplier entity, CancellationToken cancellationToken = default) { AddedSuppliers.Add(entity); return Task.CompletedTask; }
         public void Update(Supplier entity) { }
         public void Remove(Supplier entity) { }
+    }
+
+    private sealed class InMemoryBankAccountRepository : IBankAccountRepository
+    {
+        public Task<IReadOnlyList<BankAccount>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
+
+        public Task<BankAccount?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<BankAccount?>(null);
+
+        public Task<IReadOnlyList<BankAccount>> GetAllAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
+
+        public Task<IReadOnlyList<BankAccount>> FindAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
+
+        public Task AddAsync(BankAccount entity, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public void Update(BankAccount entity) { }
+        public void Remove(BankAccount entity) { }
     }
 
     private sealed class InMemoryUnitOfWork : IUnitOfWork
