@@ -145,7 +145,7 @@ public class AddInventoryBatchCommandHandlerTests
 
     private void SetupSystemSupplierLookup()
     {
-        _supplierRepository.GetSystemByOwnerUserIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _supplierRepository.GetSystemByShopIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
     }
 

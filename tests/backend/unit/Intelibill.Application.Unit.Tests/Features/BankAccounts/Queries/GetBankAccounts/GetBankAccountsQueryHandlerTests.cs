@@ -19,11 +19,11 @@ public class GetBankAccountsQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WhenNoAccounts_ReturnsEmptyList()
     {
-        var ownerId = Guid.NewGuid();
-        _bankAccountRepository.GetByOwnerUserIdAsync(ownerId, Arg.Any<CancellationToken>())
+        var shopId = Guid.NewGuid();
+        _bankAccountRepository.GetByShopIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(Array.Empty<BankAccount>());
 
-        var result = await _handler.HandleAsync(new GetBankAccountsQuery(ownerId), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetBankAccountsQuery(shopId), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Empty(result.Value);
@@ -32,13 +32,13 @@ public class GetBankAccountsQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAccountsExist_ReturnsMappedDtos()
     {
-        var ownerId = Guid.NewGuid();
-        var a1 = BankAccount.Create(ownerId, "SBI", "111", BankAccountType.Savings, "SBIN0000001", "Alice");
-        var a2 = BankAccount.Create(ownerId, "HDFC", "222", BankAccountType.Current, "HDFC0000001", null);
-        _bankAccountRepository.GetByOwnerUserIdAsync(ownerId, Arg.Any<CancellationToken>())
+        var shopId = Guid.NewGuid();
+        var a1 = BankAccount.Create(shopId, "SBI", "111", BankAccountType.Savings, "SBIN0000001", "Alice");
+        var a2 = BankAccount.Create(shopId, "HDFC", "222", BankAccountType.Current, "HDFC0000001", null);
+        _bankAccountRepository.GetByShopIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(new[] { a1, a2 });
 
-        var result = await _handler.HandleAsync(new GetBankAccountsQuery(ownerId), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetBankAccountsQuery(shopId), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(2, result.Value.Count);

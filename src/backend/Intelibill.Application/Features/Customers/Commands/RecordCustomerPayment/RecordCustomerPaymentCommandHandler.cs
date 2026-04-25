@@ -10,7 +10,6 @@ namespace Intelibill.Application.Features.Customers.Commands.RecordCustomerPayme
 
 public sealed class RecordCustomerPaymentCommandHandler(
     IUserRepository userRepository,
-    IShopRepository shopRepository,
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IUnitOfWork unitOfWork)
@@ -30,15 +29,7 @@ public sealed class RecordCustomerPaymentCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Customer.UserIsNotOwnerOrManager;
 
-        var shop = await shopRepository.GetByIdWithMembersAsync(command.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
-        if (ownerMembership is null)
-            return Errors.Customer.ShopOwnerNotFound;
-
-        var customer = await customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, command.CustomerId, cancellationToken);
+        var customer = await customerRepository.GetByShopAndIdAsync(command.ActiveShopId, command.CustomerId, cancellationToken);
         if (customer is null)
             return Errors.Customer.CustomerNotFound;
 

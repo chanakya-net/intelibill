@@ -45,13 +45,13 @@ public class CustomersControllerTests
     }
 
     [Fact]
-    public async Task GetCustomers_WhenNoUserClaim_ReturnsUnauthorized()
+    public async Task GetCustomers_WhenNoActiveShopClaim_ReturnsProblem()
     {
         SetUserClaims(); // no claims
 
         var result = await _controller.GetCustomers(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]
@@ -80,13 +80,13 @@ public class CustomersControllerTests
     }
 
     [Fact]
-    public async Task AddCustomer_WhenNoUserClaim_ReturnsUnauthorized()
+    public async Task AddCustomer_WhenNoActiveShopClaim_ReturnsProblem()
     {
         SetUserClaims();
 
         var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true), CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]
@@ -116,13 +116,13 @@ public class CustomersControllerTests
     }
 
     [Fact]
-    public async Task EditCustomer_WhenNoUserClaim_ReturnsUnauthorized()
+    public async Task EditCustomer_WhenNoActiveShopClaim_ReturnsProblem()
     {
         SetUserClaims();
 
         var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true), CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]

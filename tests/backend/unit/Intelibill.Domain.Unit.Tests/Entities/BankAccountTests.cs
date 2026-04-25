@@ -8,17 +8,17 @@ public class BankAccountTests
     [Fact]
     public void Create_SetsAllProperties()
     {
-        var ownerId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
 
         var account = BankAccount.Create(
-            ownerId,
+            shopId,
             "  HDFC Bank  ",
             "  1234567890  ",
             BankAccountType.Savings,
             "  HDFC0001234  ",
             "  Ravi Kumar  ");
 
-        Assert.Equal(ownerId, account.OwnerUserId);
+        Assert.Equal(shopId, account.ShopId);
         Assert.Equal("HDFC Bank", account.BankName);
         Assert.Equal("1234567890", account.AccountNumber);
         Assert.Equal(BankAccountType.Savings, account.AccountType);

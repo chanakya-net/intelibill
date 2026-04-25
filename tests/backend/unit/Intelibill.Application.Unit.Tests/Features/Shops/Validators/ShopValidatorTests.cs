@@ -61,8 +61,8 @@ public class AddBankAccountCommandValidatorTests
     private static AddBankAccountCommand Valid() =>
         new(Guid.NewGuid(), "HDFC", "1234567890", "Savings", "HDFC0001234", "Ravi");
 
-    [Fact] public void Validate_WhenOwnerUserIdEmpty_ReturnsError() =>
-        _v.TestValidate(Valid() with { OwnerUserId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.OwnerUserId);
+    [Fact] public void Validate_WhenShopIdEmpty_ReturnsError() =>
+        _v.TestValidate(Valid() with { ShopId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.ShopId);
 
     [Fact] public void Validate_WhenAccountTypeInvalid_ReturnsError() =>
         _v.TestValidate(Valid() with { AccountType = "Invalid" }).ShouldHaveValidationErrorFor(x => x.AccountType);

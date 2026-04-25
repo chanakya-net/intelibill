@@ -27,7 +27,7 @@ public sealed class AddSupplierCommandHandler(
             return Errors.Supplier.UserIsNotOwner;
 
         var supplier = Supplier.Create(
-            command.ActorUserId,
+            command.ActiveShopId,
             command.Name,
             command.ContactPersonName,
             command.ContactPersonPhone,

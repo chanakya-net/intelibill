@@ -10,7 +10,7 @@ public sealed class AddBankAccountCommandValidator : AbstractValidator<AddBankAc
 
     public AddBankAccountCommandValidator()
     {
-        RuleFor(x => x.OwnerUserId)
+        RuleFor(x => x.ShopId)
             .NotEmpty();
 
         RuleFor(x => x.IfscCode)

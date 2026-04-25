@@ -50,12 +50,13 @@ export class SuppliersPageComponent {
   private readonly suppliersFacade = inject(SuppliersFacade);
 
   readonly suppliers = this.suppliersFacade.suppliers;
-  readonly tableSuppliers = computed(() => [...this.suppliers()]);
+  readonly userSuppliers = computed(() => this.suppliers().filter((s) => !s.isSystem));
+  readonly tableSuppliers = computed(() => [...this.userSuppliers()]);
   readonly searchValue = signal('');
   readonly filteredSuppliers = computed(() => {
     const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.suppliers()];
-    return this.suppliers().filter(
+    if (!q) return [...this.userSuppliers()];
+    return this.userSuppliers().filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         (s.city ?? '').toLowerCase().includes(q) ||

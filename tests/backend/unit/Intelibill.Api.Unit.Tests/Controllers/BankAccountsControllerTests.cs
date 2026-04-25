@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Controllers;
@@ -24,20 +23,20 @@ public class BankAccountsControllerTests
     }
 
     [Fact]
-    public async Task GetBankAccounts_WhenUserMissing_ReturnsUnauthorized()
+    public async Task GetBankAccounts_WhenActiveShopMissing_ReturnsProblem()
     {
         SetUserClaims();
 
         var result = await _controller.GetBankAccounts(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]
     public async Task GetBankAccounts_WhenSuccessful_ReturnsOk()
     {
-        var userId = Guid.NewGuid();
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        var shopId = Guid.NewGuid();
+        SetUserClaims(new Claim("active_shop_id", shopId.ToString()));
 
         IReadOnlyList<BankAccountDto> accounts = [
             new(Guid.NewGuid(), "SBI", "1234567890", "Savings", "SBIN0001234", "Test")
@@ -51,12 +50,12 @@ public class BankAccountsControllerTests
         Assert.Equal(accounts, ok.Value);
 
         await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<BankAccountDto>>>(
-            Arg.Is<GetBankAccountsQuery>(q => q.OwnerUserId == userId),
+            Arg.Is<GetBankAccountsQuery>(q => q.ShopId == shopId),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AddBankAccount_WhenUserMissing_ReturnsUnauthorized()
+    public async Task AddBankAccount_WhenActiveShopMissing_ReturnsProblem()
     {
         SetUserClaims();
 
@@ -64,14 +63,14 @@ public class BankAccountsControllerTests
             new AddBankAccountRequest(null, null, null, null, null),
             CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ObjectResult>(result);
     }
 
     [Fact]
     public async Task AddBankAccount_WhenSuccessful_ReturnsOkAndDispatchesCommand()
     {
-        var userId = Guid.NewGuid();
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
+        var shopId = Guid.NewGuid();
+        SetUserClaims(new Claim("active_shop_id", shopId.ToString()));
         var request = new AddBankAccountRequest("SBI", "123456789012", "Savings", "SBIN0001234", "Chandra Kumar");
         var bankAccount = new BankAccountDto(Guid.NewGuid(), request.BankName!, request.AccountNumber!, request.AccountType, request.IfscCode, request.AccountHolderName);
         ArrangeBusResponse<BankAccountDto>(bankAccount);
@@ -83,7 +82,7 @@ public class BankAccountsControllerTests
 
         await _bus.Received(1).InvokeAsync<ErrorOr<BankAccountDto>>(
             Arg.Is<AddBankAccountCommand>(c =>
-                c.OwnerUserId == userId
+                c.ShopId == shopId
                 && c.BankName == request.BankName
                 && c.AccountNumber == request.AccountNumber
                 && c.AccountType == request.AccountType
@@ -95,7 +94,7 @@ public class BankAccountsControllerTests
     [Fact]
     public async Task AddBankAccount_WhenValidationError_ReturnsBadRequest()
     {
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        SetUserClaims(new Claim("active_shop_id", Guid.NewGuid().ToString()));
         ArrangeBusResponse<BankAccountDto>(Errors.BankAccount.IfscCodeInvalid);
 
         var result = await _controller.AddBankAccount(

@@ -14,6 +14,7 @@ namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
 public sealed class CreateShopCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
+    ISupplierRepository supplierRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ITokenService tokenService,
     IUnitOfWork unitOfWork,
@@ -45,6 +46,7 @@ public sealed class CreateShopCommandHandler(
         user.AddShopMembership(membership);
 
         await shopRepository.AddAsync(shop, cancellationToken);
+        await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, shop.Id);
         var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);

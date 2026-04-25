@@ -12,11 +12,8 @@ public sealed class EditCustomerCommandHandler(
 {
     public async Task<ErrorOr<CustomerDto>> HandleAsync(EditCustomerCommand command, CancellationToken cancellationToken)
     {
-        var customer = await customerRepository.GetByIdAsync(command.CustomerId, cancellationToken);
+        var customer = await customerRepository.GetByShopAndIdAsync(command.ShopId, command.CustomerId, cancellationToken);
         if (customer is null)
-            return Errors.Customer.CustomerNotFound;
-
-        if (customer.OwnerUserId != command.ActorUserId)
             return Errors.Customer.CustomerNotFound;
 
         customer.Update(

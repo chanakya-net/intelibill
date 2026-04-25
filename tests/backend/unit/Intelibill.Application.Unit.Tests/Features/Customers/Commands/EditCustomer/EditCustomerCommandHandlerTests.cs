@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Commands.EditCustomer;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
@@ -19,49 +20,29 @@ public class EditCustomerCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenCustomerNotFound_ReturnsNotFoundError()
+    public async Task HandleAsync_WhenCustomerNotFoundInShop_ReturnsNotFoundError()
     {
-        _customerRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        var shopId = Guid.NewGuid();
+        _customerRepository.GetByShopAndIdAsync(shopId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Customer?)null);
 
-        var command = new EditCustomerCommand(
-            Guid.NewGuid(), Guid.NewGuid(),
-            "New Name", "+919876543210", null, true);
+        var command = new EditCustomerCommand(shopId, Guid.NewGuid(), "New Name", "+919876543210", null, true);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenCustomerBelongsToDifferentOwner_ReturnsNotFoundError()
-    {
-        var customer = Customer.Create(Guid.NewGuid(), "Old Name", "+911234567890", null);
-        _customerRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(customer);
-
-        var command = new EditCustomerCommand(
-            Guid.NewGuid(), customer.Id,
-            "New Name", "+919876543210", null, true);
-
-        var result = await _handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
+        Assert.Equal(Errors.Customer.CustomerNotFound.Code, result.FirstError.Code);
     }
 
     [Fact]
     public async Task HandleAsync_WhenValid_UpdatesCustomerAndReturnsDto()
     {
-        var ownerId = Guid.NewGuid();
-        var customer = Customer.Create(ownerId, "Old Name", "+911234567890", null);
-        _customerRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Old Name", "+911234567890", null);
+        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>())
             .Returns(customer);
 
-        var command = new EditCustomerCommand(
-            ownerId, customer.Id,
-            "New Name", "+919999999999", "12 MG Road", false);
+        var command = new EditCustomerCommand(shopId, customer.Id, "New Name", "+919999999999", "12 MG Road", false);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 

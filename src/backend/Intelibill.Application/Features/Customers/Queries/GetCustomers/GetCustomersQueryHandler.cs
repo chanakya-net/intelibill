@@ -10,10 +10,10 @@ public sealed class GetCustomersQueryHandler(
 {
     public async Task<ErrorOr<IReadOnlyList<CustomerDto>>> HandleAsync(GetCustomersQuery query, CancellationToken cancellationToken)
     {
-        var customers = await customerRepository.GetByOwnerUserIdAsync(query.OwnerUserId, cancellationToken);
+        var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
         var customerIds = customers.Select(c => c.Id).ToList();
         var balances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
-            query.ActiveShopId,
+            query.ShopId,
             customerIds,
             cancellationToken);
 

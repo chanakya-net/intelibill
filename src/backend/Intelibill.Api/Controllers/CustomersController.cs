@@ -23,16 +23,12 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetCustomers(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
-
         var activeShopId = GetCurrentActiveShopId();
         if (activeShopId is null)
             return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<CustomerDto>>>(
-            new GetCustomersQuery(userId.Value, activeShopId.Value),
+            new GetCustomersQuery(activeShopId.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -41,13 +37,13 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddCustomer([FromBody] AddCustomerRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new AddCustomerCommand(
-                userId.Value,
+                activeShopId.Value,
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
@@ -60,13 +56,13 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [HttpPut("{customerId:guid}")]
     public async Task<IActionResult> EditCustomer(Guid customerId, [FromBody] EditCustomerRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var activeShopId = GetCurrentActiveShopId();
+        if (activeShopId is null)
+            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new EditCustomerCommand(
-                userId.Value,
+                activeShopId.Value,
                 customerId,
                 request.Name,
                 request.PhoneNumber,

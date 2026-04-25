@@ -9,7 +9,6 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandHandler(
-    IShopRepository shopRepository,
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
@@ -156,21 +155,9 @@ public sealed class RecordSaleCommandHandler(
 
         if (shouldResolveRegisteredCustomer)
         {
-            var shop = await shopRepository.GetByIdWithMembersAsync(command.ShopId, cancellationToken);
-            if (shop is null)
-            {
-                return Errors.Shop.ShopNotFound;
-            }
-
-            var ownerMembership = shop.Memberships.FirstOrDefault(sm => sm.Role == ShopRole.Owner);
-            if (ownerMembership is null)
-            {
-                return Errors.Customer.ShopOwnerNotFound;
-            }
-
             if (command.CustomerId.HasValue)
             {
-                resolvedCustomer = await customerRepository.GetByOwnerAndIdAsync(ownerMembership.UserId, command.CustomerId.Value, cancellationToken);
+                resolvedCustomer = await customerRepository.GetByShopAndIdAsync(command.ShopId, command.CustomerId.Value, cancellationToken);
                 if (resolvedCustomer is null)
                 {
                     return Errors.Sale.CreditCustomerNotFound;
@@ -179,7 +166,7 @@ public sealed class RecordSaleCommandHandler(
 
             if (!string.IsNullOrWhiteSpace(normalizedCustomerPhone))
             {
-                var customerByPhone = await customerRepository.GetByOwnerAndPhoneAsync(ownerMembership.UserId, normalizedCustomerPhone, cancellationToken);
+                var customerByPhone = await customerRepository.GetByShopAndPhoneAsync(command.ShopId, normalizedCustomerPhone, cancellationToken);
                 if (resolvedCustomer is null)
                 {
                     resolvedCustomer = customerByPhone;

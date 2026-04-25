@@ -5,7 +5,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class Supplier : BaseEntity
 {
-    public Guid OwnerUserId { get; private set; }
+    public Guid ShopId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string? ContactPersonName { get; private set; }
     public string? ContactPersonPhone { get; private set; }
@@ -20,7 +20,7 @@ public sealed class Supplier : BaseEntity
     private Supplier() { }
 
     public static Supplier Create(
-        Guid ownerUserId,
+        Guid shopId,
         string name,
         string? contactPersonName,
         string? contactPersonPhone,
@@ -34,7 +34,7 @@ public sealed class Supplier : BaseEntity
     {
         return new Supplier
         {
-            OwnerUserId = ownerUserId,
+            ShopId = shopId,
             Name = name.Trim(),
             ContactPersonName = NormalizeOptional(contactPersonName),
             ContactPersonPhone = NormalizeOptional(contactPersonPhone),
@@ -48,10 +48,10 @@ public sealed class Supplier : BaseEntity
         };
     }
 
-    public static Supplier CreateUnknownSystemSupplier(Guid ownerUserId)
+    public static Supplier CreateUnknownSystemSupplier(Guid shopId)
     {
         return Create(
-            ownerUserId,
+            shopId,
             "Unknown Supplier",
             null,
             null,

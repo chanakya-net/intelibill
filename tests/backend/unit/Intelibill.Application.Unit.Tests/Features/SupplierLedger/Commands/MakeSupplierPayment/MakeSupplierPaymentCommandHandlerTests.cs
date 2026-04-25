@@ -11,7 +11,6 @@ namespace Intelibill.Application.Unit.Tests.Features.SupplierLedger.Commands.Mak
 public class MakeSupplierPaymentCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly ISupplierLedgerEntryRepository _ledgerRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IExpenseCategoryRepository _expenseCategoryRepository = Substitute.For<IExpenseCategoryRepository>();
@@ -19,7 +18,7 @@ public class MakeSupplierPaymentCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {
@@ -28,7 +27,7 @@ public class MakeSupplierPaymentCommandHandlerTests
         var membership = ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true);
         owner.AddShopMembership(membership);
         shop.AddMembership(membership);
-        var supplier = Supplier.Create(owner.Id, "Fresh Foods", null, null, "42 MG Road", "Bengaluru", "Karnataka", "560001", true, false);
+        var supplier = Supplier.Create(shop.Id, "Fresh Foods", null, null, "42 MG Road", "Bengaluru", "Karnataka", "560001", true, false);
         return (owner, shop, supplier);
     }
 
@@ -41,7 +40,6 @@ public class MakeSupplierPaymentCommandHandlerTests
         var (owner, shop, supplier) = BuildOwnerShopSupplier();
         var category = ExpenseCategory.Create(shop.Id, "Supplier Payments", DateTimeOffset.UtcNow);
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
         _expenseCategoryRepository.GetByNameAsync(shop.Id, "Supplier Payments", Arg.Any<CancellationToken>()).Returns(category);
 
@@ -67,7 +65,6 @@ public class MakeSupplierPaymentCommandHandlerTests
     {
         var (owner, shop, supplier) = BuildOwnerShopSupplier();
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
         _expenseCategoryRepository.GetByNameAsync(shop.Id, "Supplier Payments", Arg.Any<CancellationToken>()).Returns((ExpenseCategory?)null);
 
@@ -92,7 +89,6 @@ public class MakeSupplierPaymentCommandHandlerTests
         manager.AddShopMembership(ShopMembership.Create(shop.Id, manager.Id, ShopRole.Manager, false));
 
         _userRepository.GetByIdWithDetailsAsync(manager.Id, Arg.Any<CancellationToken>()).Returns(manager);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(BuildCommand(manager.Id, shop.Id, supplier.Id), CancellationToken.None);
@@ -144,7 +140,6 @@ public class MakeSupplierPaymentCommandHandlerTests
     {
         var (owner, shop, _) = BuildOwnerShopSupplier();
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Supplier?)null);
 
         var result = await CreateHandler().HandleAsync(BuildCommand(owner.Id, shop.Id, Guid.NewGuid()), CancellationToken.None);
@@ -154,14 +149,12 @@ public class MakeSupplierPaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_SupplierOwnerMismatch_ReturnsSupplierNotFound()
+    public async Task HandleAsync_SupplierBelongsToDifferentShop_ReturnsSupplierNotFound()
     {
         var (owner, shop, _) = BuildOwnerShopSupplier();
-        var otherOwner = User.CreateWithEmail("other@test.com", "hash", "Other", "Owner");
-        var foreignSupplier = Supplier.Create(otherOwner.Id, "Other Foods", null, null, "1 Main St", "Chennai", "TN", "600001", true, false);
+        var foreignSupplier = Supplier.Create(Guid.NewGuid(), "Other Foods", null, null, "1 Main St", "Chennai", "TN", "600001", true, false);
 
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _supplierRepository.GetByIdAsync(foreignSupplier.Id, Arg.Any<CancellationToken>()).Returns(foreignSupplier);
 
         var result = await CreateHandler().HandleAsync(BuildCommand(owner.Id, shop.Id, foreignSupplier.Id), CancellationToken.None);

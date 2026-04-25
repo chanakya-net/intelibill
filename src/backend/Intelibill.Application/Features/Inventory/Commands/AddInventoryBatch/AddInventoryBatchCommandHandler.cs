@@ -193,7 +193,7 @@ public sealed class AddInventoryBatchCommandHandler(
             return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
-        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(row.SupplierId, command.ActorUserId, cancellationToken);
+        var effectiveSupplierOrError = await ResolveEffectiveSupplierAsync(row.SupplierId, command.ActiveShopId, cancellationToken);
         if (effectiveSupplierOrError.IsError)
             return effectiveSupplierOrError.Errors;
 
@@ -314,12 +314,12 @@ public sealed class AddInventoryBatchCommandHandler(
     private static decimal ComputeLedgerAmount(decimal costPrice, decimal quantity) =>
         decimal.Round(costPrice * quantity, 2, MidpointRounding.AwayFromZero);
 
-    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    private async Task<ErrorOr<Supplier>> ResolveEffectiveSupplierAsync(Guid? requestedSupplierId, Guid shopId, CancellationToken cancellationToken)
     {
         if (requestedSupplierId is Guid supplierId)
         {
             var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
-            if (supplier is null || supplier.OwnerUserId != actorUserId)
+            if (supplier is null || supplier.ShopId != shopId)
             {
                 return Errors.Supplier.SupplierNotFound;
             }
@@ -327,7 +327,7 @@ public sealed class AddInventoryBatchCommandHandler(
             return supplier;
         }
 
-        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        var systemSupplier = await supplierRepository.GetSystemByShopIdAsync(shopId, cancellationToken);
         if (systemSupplier is null)
         {
             return Errors.Supplier.SystemSupplierNotFound;

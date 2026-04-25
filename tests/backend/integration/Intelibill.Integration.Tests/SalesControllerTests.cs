@@ -115,7 +115,7 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
             customerName = "Walk-in Customer",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Cash,
-            paidAmount = 500m,
+            paidAmount = 590m,
             dueAmount = 0m,
             items = new[]
             {
@@ -143,7 +143,7 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
         var invoiceNumber = saleBody.GetProperty("invoiceNumber").GetString()!;
 
         Assert.StartsWith("INV-", invoiceNumber);
-        Assert.Equal(500m, saleBody.GetProperty("totalAmount").GetDecimal());
+        Assert.Equal(590m, saleBody.GetProperty("totalAmount").GetDecimal());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -152,7 +152,7 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
         var sale = await db.Sales.Include(s => s.Items).FirstOrDefaultAsync(s => s.Id == saleId);
         Assert.NotNull(sale);
         Assert.Single(sale!.Items);
-        Assert.Equal(500m, sale.TotalAmount);
+        Assert.Equal(590m, sale.TotalAmount);
 
         // Verify stock transaction (Out, negative quantity)
         var tx = await db.StockTransactions
@@ -191,7 +191,7 @@ public class SalesControllerTests : IClassFixture<ApiWebApplicationFactory>
             customerName = (string?)null,
             customerPhone = (string?)null,
             paymentMethod = (int)PaymentMethod.UPI,
-            paidAmount = 210m,
+            paidAmount = 247.8m,
             dueAmount = 0m,
             items = new[]
             {

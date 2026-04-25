@@ -113,12 +113,14 @@ public class ShopIsolationIntegrationTests
         var tokenService = BuildTokenService();
         var userRepository = new InMemoryUserRepository(user);
         var shopRepository = new InMemoryShopRepository();
+        var supplierRepository = new InMemorySupplierRepository();
         var refreshTokenRepository = new InMemoryRefreshTokenRepository();
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new CreateShopCommandHandler(
             userRepository,
             shopRepository,
+            supplierRepository,
             refreshTokenRepository,
             tokenService,
             unitOfWork,
@@ -139,12 +141,14 @@ public class ShopIsolationIntegrationTests
         var tokenService = BuildTokenService();
         var userRepository = new InMemoryUserRepository(null);
         var shopRepository = new InMemoryShopRepository();
+        var supplierRepository = new InMemorySupplierRepository();
         var refreshTokenRepository = new InMemoryRefreshTokenRepository();
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new CreateShopCommandHandler(
             userRepository,
             shopRepository,
+            supplierRepository,
             refreshTokenRepository,
             tokenService,
             unitOfWork,
@@ -166,12 +170,14 @@ public class ShopIsolationIntegrationTests
         var tokenService = BuildTokenService();
         var userRepository = new InMemoryUserRepository(user);
         var shopRepository = new InMemoryShopRepository();
+        var supplierRepository = new InMemorySupplierRepository();
         var refreshTokenRepository = new InMemoryRefreshTokenRepository();
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new CreateShopCommandHandler(
             userRepository,
             shopRepository,
+            supplierRepository,
             refreshTokenRepository,
             tokenService,
             unitOfWork,
@@ -511,6 +517,19 @@ public class ShopIsolationIntegrationTests
 
         public void Update(RefreshToken entity) { }
         public void Remove(RefreshToken entity) { }
+    }
+
+    private sealed class InMemorySupplierRepository : ISupplierRepository
+    {
+        public List<Supplier> AddedSuppliers { get; } = [];
+        public Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
+        public Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
+        public Task<Supplier?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
+        public Task<IReadOnlyList<Supplier>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
+        public Task<IReadOnlyList<Supplier>> FindAsync(System.Linq.Expressions.Expression<Func<Supplier, bool>> predicate, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
+        public Task AddAsync(Supplier entity, CancellationToken cancellationToken = default) { AddedSuppliers.Add(entity); return Task.CompletedTask; }
+        public void Update(Supplier entity) { }
+        public void Remove(Supplier entity) { }
     }
 
     private sealed class InMemoryUnitOfWork : IUnitOfWork

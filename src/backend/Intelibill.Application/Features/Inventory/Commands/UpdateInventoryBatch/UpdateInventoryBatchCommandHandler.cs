@@ -60,7 +60,7 @@ public sealed class UpdateInventoryBatchCommandHandler(
         var oldQuantity = originalBatch.Quantity;
         var oldCostPrice = originalBatch.CostPrice;
         var oldSupplierId = originalBatch.SupplierId;
-        var effectiveSupplierIdOrError = await ResolveEffectiveSupplierIdAsync(command.SupplierId, command.UserId, cancellationToken);
+        var effectiveSupplierIdOrError = await ResolveEffectiveSupplierIdAsync(command.SupplierId, command.ShopId, cancellationToken);
         if (effectiveSupplierIdOrError.IsError)
             return effectiveSupplierIdOrError.Errors;
 
@@ -193,14 +193,14 @@ public sealed class UpdateInventoryBatchCommandHandler(
         return Result.Success;
     }
 
-    private async Task<ErrorOr<Guid?>> ResolveEffectiveSupplierIdAsync(Guid? requestedSupplierId, Guid actorUserId, CancellationToken cancellationToken)
+    private async Task<ErrorOr<Guid?>> ResolveEffectiveSupplierIdAsync(Guid? requestedSupplierId, Guid shopId, CancellationToken cancellationToken)
     {
         if (requestedSupplierId.HasValue)
         {
             return requestedSupplierId;
         }
 
-        var systemSupplier = await supplierRepository.GetSystemByOwnerUserIdAsync(actorUserId, cancellationToken);
+        var systemSupplier = await supplierRepository.GetSystemByShopIdAsync(shopId, cancellationToken);
         if (systemSupplier is null)
         {
             return Errors.Supplier.SystemSupplierNotFound;

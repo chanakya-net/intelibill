@@ -10,7 +10,6 @@ namespace Intelibill.Application.Unit.Tests.Features.Suppliers.Queries.GetSuppli
 public class GetSuppliersQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
 
@@ -20,7 +19,7 @@ public class GetSuppliersQueryHandlerTests
         var caller = User.CreateWithEmail("member@test.com", "hash", "Member", "One");
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
 
-        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
+        var handler = new GetSuppliersQueryHandler(_userRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -30,30 +29,22 @@ public class GetSuppliersQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WhenSupplierHasRecordAdjustedEntries_ReturnsReducedBalanceDue()
     {
-        // RecordAdjusted entries (stored as negative amounts) must reduce BalanceDue.
-        // Old bug: GetSupplierBalanceAsync ignored RecordAdjusted, so balance was too high.
-        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
         var caller = User.CreateWithEmail("caller@test.com", "hash", "Caller", "One");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
-        var ownerMembership = ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true);
         var callerMembership = ShopMembership.Create(shop.Id, caller.Id, ShopRole.Manager, false);
-        shop.AddMembership(ownerMembership);
-        shop.AddMembership(callerMembership);
         caller.AddShopMembership(callerMembership);
 
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
 
-        var supplier = Supplier.Create(owner.Id, "Test Supplier", null, null, "Addr", "City", "State", "560001", true, false);
-        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, false, Arg.Any<CancellationToken>())
+        var supplier = Supplier.Create(shop.Id, "Test Supplier", null, null, "Addr", "City", "State", "560001", true, false);
+        _supplierRepository.GetByShopIdAsync(shop.Id, false, Arg.Any<CancellationToken>())
             .Returns(new[] { supplier });
 
-        // Scenario: GoodsReceived=8700, PaymentMade=1400, RecordAdjusted=-700 → net=6600
         _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, supplier.Id, Arg.Any<CancellationToken>())
             .Returns(6600m);
 
-        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
+        var handler = new GetSuppliersQueryHandler(_userRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -62,32 +53,27 @@ public class GetSuppliersQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_ReturnsOwnerSuppliers()
+    public async Task HandleAsync_WhenValid_ReturnsShopSuppliers()
     {
-        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
         var caller = User.CreateWithEmail("manager@test.com", "hash", "Manager", "One");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
-        var ownerMembership = ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true);
         var managerMembership = ShopMembership.Create(shop.Id, caller.Id, ShopRole.Manager, false);
-        shop.AddMembership(ownerMembership);
-        shop.AddMembership(managerMembership);
         caller.AddShopMembership(managerMembership);
 
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
-        _shopRepository.GetByIdWithMembersAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
 
         var suppliers = new[]
         {
-            Supplier.Create(owner.Id, "A Supplier", null, null, "Address", "City", "State", "560001", true, false),
-            Supplier.Create(owner.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", true, true),
+            Supplier.Create(shop.Id, "A Supplier", null, null, "Address", "City", "State", "560001", true, false),
+            Supplier.Create(shop.Id, "B Supplier", "Person", "+919999999999", "Address 2", "City", "State", "560002", true, true),
         };
-        _supplierRepository.GetByOwnerUserIdAsync(owner.Id, false, Arg.Any<CancellationToken>()).Returns(suppliers);
+        _supplierRepository.GetByShopIdAsync(shop.Id, false, Arg.Any<CancellationToken>()).Returns(suppliers);
 
         _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[0].Id, Arg.Any<CancellationToken>()).Returns(0m);
         _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[1].Id, Arg.Any<CancellationToken>()).Returns(500m);
 
-        var handler = new GetSuppliersQueryHandler(_userRepository, _shopRepository, _supplierRepository, _supplierLedgerEntryRepository);
+        var handler = new GetSuppliersQueryHandler(_userRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);

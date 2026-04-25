@@ -30,7 +30,7 @@ public sealed class AddBankAccountCommandHandler(
             : null;
 
         var bankAccount = BankAccount.Create(
-            command.OwnerUserId,
+            command.ShopId,
             command.BankName,
             command.AccountNumber,
             accountType,

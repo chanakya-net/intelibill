@@ -14,6 +14,7 @@ export interface Supplier {
   readonly city: string;
   readonly state: string;
   readonly pin: string;
+  readonly isSystem: boolean;
   readonly isActive: boolean;
   readonly isPreferred: boolean;
   readonly balanceDue: number;

@@ -11,6 +11,7 @@ public class CreateShopCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -42,6 +43,7 @@ public class CreateShopCommandHandlerTests
         var handler = new CreateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _supplierRepository,
             _refreshTokenRepository,
             _tokenService,
             _unitOfWork,
@@ -68,6 +70,10 @@ public class CreateShopCommandHandlerTests
                 && s.GstNumber == "27AAPFU0939F1ZV"),
             Arg.Any<CancellationToken>());
 
+        await _supplierRepository.Received(1).AddAsync(
+            Arg.Is<Supplier>(s => s.IsSystem),
+            Arg.Any<CancellationToken>());
+
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -81,6 +87,7 @@ public class CreateShopCommandHandlerTests
         var handler = new CreateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _supplierRepository,
             _refreshTokenRepository,
             _tokenService,
             _unitOfWork,
@@ -102,6 +109,7 @@ public class CreateShopCommandHandlerTests
         var handler = new CreateShopCommandHandler(
             _userRepository,
             _shopRepository,
+            _supplierRepository,
             _refreshTokenRepository,
             _tokenService,
             _unitOfWork,

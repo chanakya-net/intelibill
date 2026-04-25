@@ -12,7 +12,7 @@ internal sealed class BankAccountConfiguration : IEntityTypeConfiguration<BankAc
 
         builder.HasKey(ba => ba.Id);
 
-        builder.Property(ba => ba.OwnerUserId)
+        builder.Property(ba => ba.ShopId)
             .IsRequired();
 
         builder.Property(ba => ba.BankName)
@@ -33,11 +33,11 @@ internal sealed class BankAccountConfiguration : IEntityTypeConfiguration<BankAc
         builder.Property(ba => ba.AccountHolderName)
             .HasMaxLength(120);
 
-        builder.HasIndex(ba => ba.OwnerUserId);
+        builder.HasIndex(ba => ba.ShopId);
 
-        builder.HasOne<User>()
+        builder.HasOne<Shop>()
             .WithMany()
-            .HasForeignKey(ba => ba.OwnerUserId)
+            .HasForeignKey(ba => ba.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -80,7 +80,7 @@ public class AddInventoryCommandHandlerTests
             .Returns((InventoryBatch?)null);
 
         var supplierId = Guid.NewGuid();
-        var knownSupplier = Supplier.Create(actor.Id, "Known Supplier", null, null, null, null, null, null, true, false, false);
+        var knownSupplier = Supplier.Create(shop.Id, "Known Supplier", null, null, null, null, null, null, true, false, false);
 
         _supplierRepository.GetByIdAsync(supplierId, Arg.Any<CancellationToken>())
             .Returns(knownSupplier);
@@ -201,10 +201,10 @@ public class AddInventoryCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var systemSupplier = Supplier.CreateUnknownSystemSupplier(actor.Id);
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _supplierRepository.GetSystemByOwnerUserIdAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
+        _supplierRepository.GetSystemByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
@@ -234,7 +234,7 @@ public class AddInventoryCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _supplierRepository.GetSystemByOwnerUserIdAsync(actor.Id, Arg.Any<CancellationToken>()).Returns((Supplier?)null);
+        _supplierRepository.GetSystemByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns((Supplier?)null);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
@@ -345,7 +345,7 @@ public class AddInventoryCommandHandlerTests
 
     private void SetupSystemSupplierLookup()
     {
-        _supplierRepository.GetSystemByOwnerUserIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _supplierRepository.GetSystemByShopIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
     }
 

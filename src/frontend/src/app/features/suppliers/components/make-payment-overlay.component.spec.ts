@@ -16,6 +16,7 @@ const mockSupplier: Supplier = {
   city: 'Bengaluru',
   state: 'Karnataka',
   pin: '560001',
+  isSystem: false,
   isActive: true,
   isPreferred: false,
   balanceDue: 1500,

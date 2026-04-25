@@ -12,7 +12,7 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 
         builder.HasKey(c => c.Id);
 
-        builder.Property(c => c.OwnerUserId)
+        builder.Property(c => c.ShopId)
             .IsRequired();
 
         builder.Property(c => c.Name)
@@ -30,13 +30,13 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .IsRequired()
             .HasDefaultValue(true);
 
-        builder.HasIndex(c => c.OwnerUserId);
-        builder.HasIndex(c => new { c.OwnerUserId, c.IsActive });
-        builder.HasIndex(c => new { c.OwnerUserId, c.PhoneNumber });
+        builder.HasIndex(c => c.ShopId);
+        builder.HasIndex(c => new { c.ShopId, c.IsActive });
+        builder.HasIndex(c => new { c.ShopId, c.PhoneNumber });
 
-        builder.HasOne<User>()
+        builder.HasOne<Shop>()
             .WithMany()
-            .HasForeignKey(c => c.OwnerUserId)
+            .HasForeignKey(c => c.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

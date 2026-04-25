@@ -15,7 +15,6 @@ public class ExternalLoginCommandHandlerTests
 {
     private readonly IExternalAuthProvider _mockProvider = Substitute.For<IExternalAuthProvider>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -24,7 +23,7 @@ public class ExternalLoginCommandHandlerTests
     public ExternalLoginCommandHandlerTests()
     {
         _mockProvider.Provider.Returns(ExternalAuthProvider.Google);
-        _handler = new ExternalLoginCommandHandler(new[] { _mockProvider }, _userRepository, _supplierRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
+        _handler = new ExternalLoginCommandHandler(new[] { _mockProvider }, _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
     }
 
     [Fact]
@@ -32,7 +31,7 @@ public class ExternalLoginCommandHandlerTests
     {
         var command = new ExternalLoginCommand(ExternalAuthProvider.Facebook, "token123", null, null);
         // Handler with no providers
-        var handler = new ExternalLoginCommandHandler(Array.Empty<IExternalAuthProvider>(), _userRepository, _supplierRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
+        var handler = new ExternalLoginCommandHandler(Array.Empty<IExternalAuthProvider>(), _userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -71,7 +70,6 @@ public class ExternalLoginCommandHandlerTests
         Assert.False(result.IsError);
         Assert.Equal("accessToken", result.Value.AccessToken);
         await _userRepository.Received(1).AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        await _supplierRepository.Received(1).AddAsync(Arg.Is<Supplier>(s => s.IsSystem), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -93,6 +91,5 @@ public class ExternalLoginCommandHandlerTests
 
         Assert.False(result.IsError);
         await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-        await _supplierRepository.DidNotReceive().AddAsync(Arg.Any<Supplier>(), Arg.Any<CancellationToken>());
     }
 }
