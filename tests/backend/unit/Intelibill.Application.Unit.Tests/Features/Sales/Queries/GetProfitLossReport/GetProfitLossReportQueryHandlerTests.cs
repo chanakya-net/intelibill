@@ -66,10 +66,48 @@ public class GetProfitLossReportQueryHandlerTests
         // Revenue After Tax: 110 + 210 = 320
         Assert.Equal(320, report.RevenueAfterTax);
         
-        // Profit Before Tax: 300 - 230 = 70
-        Assert.Equal(70, report.ProfitBeforeTax);
+        // Profit Before Tax: 320 - 230 = 90
+        Assert.Equal(90, report.ProfitBeforeTax);
         
-        // Profit After Tax: 300 - 230 - 20 (tax) = 50
-        Assert.Equal(50, report.ProfitAfterTax);
+        // Profit After Tax: 300 - 230 = 70
+        Assert.Equal(70, report.ProfitAfterTax);
+    }
+
+    [Fact]
+    public async Task Handle_CalculatesLossCorrectly()
+    {
+        // Arrange
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+
+        // Item: Cost 100, Sales Price 80 (Net), 10% tax -> 88 Gross.
+        // Loss Before Tax: 88 - 100 = -12.
+        // Loss After Tax: 80 - 100 = -20.
+        var item = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 100, 80, 120, 10, false, false);
+
+        var sale = Sale.Create(
+            shop.Id, "INV-002", null, "Jane Doe", null, PaymentMethod.Cash,
+            DateTimeOffset.Now, 88, 0, 88, 8, new List<SaleItem> { item });
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(new[] { sale });
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsError);
+        var report = result.Value[0];
+        
+        Assert.Equal(100, report.TotalCost);
+        Assert.Equal(80, report.RevenueBeforeTax);
+        Assert.Equal(88, report.RevenueAfterTax);
+        Assert.Equal(-12, report.ProfitBeforeTax);
+        Assert.Equal(-20, report.ProfitAfterTax);
     }
 }

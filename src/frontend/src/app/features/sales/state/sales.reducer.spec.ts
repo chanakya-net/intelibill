@@ -168,8 +168,8 @@ describe('salesReducer', () => {
         totalCost: 100,
         revenueBeforeTax: 120,
         revenueAfterTax: 140,
-        profitBeforeTax: 20,
-        profitAfterTax: 40,
+        profitBeforeTax: 40,
+        profitAfterTax: 20,
       },
     ];
     const next = salesReducer(
