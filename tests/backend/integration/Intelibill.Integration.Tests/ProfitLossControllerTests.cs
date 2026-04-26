@@ -141,8 +141,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         // Revenue Before Tax: 100
         // Revenue After Tax: 118
         // Cost: 80
-        // Profit Before Tax: 20
-        // Profit After Tax: 100 - 80 - 18 (tax) = 2
+        // Profit Before Tax: 118 - 80 = 38
+        // Profit After Tax: 100 - 80 = 20
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -187,7 +187,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(80m, item.GetProperty("totalCost").GetDecimal());
         Assert.Equal(100m, item.GetProperty("revenueBeforeTax").GetDecimal());
         Assert.Equal(118m, item.GetProperty("revenueAfterTax").GetDecimal());
-        Assert.Equal(20m, item.GetProperty("profitBeforeTax").GetDecimal());
-        Assert.Equal(2m, item.GetProperty("profitAfterTax").GetDecimal());
+        Assert.Equal(38m, item.GetProperty("profitBeforeTax").GetDecimal());
+        Assert.Equal(20m, item.GetProperty("profitAfterTax").GetDecimal());
     }
 }

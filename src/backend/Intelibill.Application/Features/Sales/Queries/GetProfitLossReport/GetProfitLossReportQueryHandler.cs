@@ -32,8 +32,8 @@ public sealed class GetProfitLossReportQueryHandler(
             .Select(s =>
             {
                 decimal totalCost = 0;
-                decimal revenueBeforeTax = 0;
-                decimal revenueAfterTax = 0;
+                decimal revenueExclTax = 0;
+                decimal revenueInclTax = 0;
 
                 foreach (var item in s.Items)
                 {
@@ -45,21 +45,20 @@ public sealed class GetProfitLossReportQueryHandler(
                     decimal finalPrice = basePrice + taxPerUnit;
 
                     totalCost += item.CostPrice * item.Quantity;
-                    revenueBeforeTax += basePrice * item.Quantity;
-                    revenueAfterTax += finalPrice * item.Quantity;
+                    revenueExclTax += basePrice * item.Quantity;
+                    revenueInclTax += finalPrice * item.Quantity;
                 }
 
-                decimal taxAmount = revenueAfterTax - revenueBeforeTax;
                 return new ProfitLossReportItemDto(
                     s.Id,
                     s.InvoiceNumber,
                     s.SoldAt,
                     s.CustomerName,
                     totalCost,
-                    revenueBeforeTax,
-                    revenueAfterTax,
-                    revenueBeforeTax - totalCost,
-                    revenueBeforeTax - totalCost - taxAmount);
+                    revenueExclTax,
+                    revenueInclTax,
+                    revenueInclTax - totalCost,
+                    revenueExclTax - totalCost);
             })
             .OrderByDescending(s => s.SoldAt)
             .ToList();
