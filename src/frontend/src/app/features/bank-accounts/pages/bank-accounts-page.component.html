@@ -30,19 +30,69 @@
   @if (!isLoading()) {
     <div class="table-card">
       <p-table
+        #bankAccountsTable
         [value]="$any(bankAccounts())"
+        [globalFilterFields]="['bankName','accountNumber','accountType','ifscCode','accountHolderName']"
         [sortField]="'bankName'"
         [sortOrder]="1"
         [scrollable]="true"
         class="p-datatable-sm"
       >
+        <ng-template pTemplate="caption">
+          <app-table-filter-bar
+            [table]="bankAccountsTable"
+            [searchValue]="searchValue()"
+            (searchValueChange)="searchValue.set($event)"
+            [placeholder]="'bankAccounts.searchPlaceholder' | transloco"
+          />
+        </ng-template>
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="bankName">{{ 'bankAccounts.bankName' | transloco }} <p-sortIcon field="bankName" /></th>
-            <th pSortableColumn="accountNumber">{{ 'bankAccounts.accountNumber' | transloco }} <p-sortIcon field="accountNumber" /></th>
-            <th pSortableColumn="accountType">{{ 'bankAccounts.accountType' | transloco }} <p-sortIcon field="accountType" /></th>
-            <th pSortableColumn="ifscCode">{{ 'bankAccounts.ifscCode' | transloco }} <p-sortIcon field="ifscCode" /></th>
-            <th pSortableColumn="accountHolderName">{{ 'bankAccounts.accountHolderName' | transloco }} <p-sortIcon field="accountHolderName" /></th>
+            <th pSortableColumn="bankName">
+              <div class="flex items-center justify-between">
+                {{ 'bankAccounts.bankName' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="bankName" />
+                  <p-columnFilter type="text" field="bankName" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="accountNumber">
+              <div class="flex items-center justify-between">
+                {{ 'bankAccounts.accountNumber' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="accountNumber" />
+                  <p-columnFilter type="text" field="accountNumber" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="accountType">
+              <div class="flex items-center justify-between">
+                {{ 'bankAccounts.accountType' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="accountType" />
+                  <p-columnFilter type="text" field="accountType" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="ifscCode">
+              <div class="flex items-center justify-between">
+                {{ 'bankAccounts.ifscCode' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="ifscCode" />
+                  <p-columnFilter type="text" field="ifscCode" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="accountHolderName">
+              <div class="flex items-center justify-between">
+                {{ 'bankAccounts.accountHolderName' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="accountHolderName" />
+                  <p-columnFilter type="text" field="accountHolderName" display="menu" />
+                </div>
+              </div>
+            </th>
             @if (canManageBankAccounts()) {
               <th>{{ 'common.actions' | transloco }}</th>
             }

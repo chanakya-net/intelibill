@@ -1,0 +1,18 @@
+<div class="flex justify-between gap-3 flex-wrap">
+  <p-button
+    [label]="'common.clear' | transloco"
+    [outlined]="true"
+    icon="pi pi-filter-slash"
+    (click)="onClear()"
+  />
+  <p-iconfield iconPosition="left">
+    <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+    <input
+      pInputText
+      type="text"
+      [ngModel]="searchValue"
+      (ngModelChange)="onSearchChange($event)"
+      [placeholder]="placeholder"
+    />
+  </p-iconfield>
+</div>

@@ -12,7 +12,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { Table, TableModule } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
@@ -20,6 +20,7 @@ import { AddProductOverlayComponent } from '../components/add-product-overlay.co
 import { EditItemOverlayComponent } from '../components/edit-item-overlay.component';
 import { Item } from '../services/inventory.service';
 import { InventoryActions } from '../state/inventory.actions';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import {
   selectInventoryErrorMessage,
   selectInventoryItems,
@@ -46,6 +47,7 @@ import {
     TableModule,
     AddProductOverlayComponent,
     EditItemOverlayComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './inventory-page.component.html',
@@ -174,10 +176,5 @@ export class InventoryPageComponent {
     }
 
     this.showEditItemOverlay.set(false);
-  }
-
-  clearFilters(table: Table): void {
-    table.clear();
-    this.searchValue.set('');
   }
 }

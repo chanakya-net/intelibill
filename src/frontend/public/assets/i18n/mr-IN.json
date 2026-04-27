@@ -9,7 +9,8 @@
     "actions": "क्रिया",
     "edit": "संपादित करा",
     "save": "जतन करा",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "शोधा..."
   },
   "languages": {
     "en-IN": "इंग्रजी",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "पासवर्ड आणि पुष्टी पासवर्ड जुळणे आवश्यक आहे.",
       "selectAtLeastOneShop": "किमान एक दुकान निवडा."
-    }
+    },
+    "searchPlaceholder": "वापरकर्ता शोधा..."
   },
   "suppliers": {
     "supplierDirectory": "पुरवठादार निर्देशिका",
@@ -176,7 +178,8 @@
     "paymentDate": "देयक तारीख",
     "paymentNotes": "टिपणी (पर्यायी)",
     "recordPayment": "देयक नोंदवा",
-    "paymentActions": "देयक"
+    "paymentActions": "देयक",
+    "searchPlaceholder": "पुरवठादार शोधा..."
   },
   "customers": {
     "customerDirectory": "ग्राहक निर्देशिका",
@@ -222,7 +225,8 @@
       "notFound": "ग्राहक खाते सापडले नाही.",
       "loadFailed": "सध्या ग्राहक खाते लोड करता आले नाही.",
       "paymentFailed": "सध्या पेमेंट नोंदवता आले नाही."
-    }
+    },
+    "searchPlaceholder": "ग्राहक शोधा..."
   },
   "inventory": {
     "directory": "इन्व्हेंटरी निर्देशिका",
@@ -570,5 +574,8 @@
     "noExpensesDescription": "शोध बदला किंवा नवीन खर्च नोंदवा.",
     "searchPlaceholder": "खर्च शोधा...",
     "pageInfo": "पृष्ठ {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "खाते शोधा..."
   }
 }

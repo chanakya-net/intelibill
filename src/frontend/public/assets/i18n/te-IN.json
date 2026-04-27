@@ -9,7 +9,8 @@
     "actions": "చర్యలు",
     "edit": "సవరించు",
     "save": "సేవ్ చేయి",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "వెతుకు..."
   },
   "languages": {
     "en-IN": "ఇంగ్లీష్",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "పాస్‌వర్డ్ మరియు నిర్ధారణ పాస్‌వర్డ్ సరిపోవాలి.",
       "selectAtLeastOneShop": "కనీసం ఒక దుకాణాన్ని ఎంచుకోండి."
-    }
+    },
+    "searchPlaceholder": "వినియోగదారులను వెతుకు..."
   },
   "suppliers": {
     "supplierDirectory": "సరఫరాదారుల డైరెక్టరీ",
@@ -176,7 +178,8 @@
     "paymentDate": "చెల్లింపు తేదీ",
     "paymentNotes": "గమనికలు (ఐచ్ఛికం)",
     "recordPayment": "చెల్లింపు నమోదు చేయి",
-    "paymentActions": "చెల్లింపు"
+    "paymentActions": "చెల్లింపు",
+    "searchPlaceholder": "సప్లయర్లను వెతుకు..."
   },
   "customers": {
     "customerDirectory": "కస్టమర్ డైరెక్టరీ",
@@ -222,7 +225,8 @@
       "notFound": "కస్టమర్ ఖాతా కనుగొనబడలేదు.",
       "loadFailed": "ప్రస్తుతం కస్టమర్ ఖాతాను లోడ్ చేయలేకపోయాం.",
       "paymentFailed": "ప్రస్తుతం చెల్లింపును నమోదు చేయలేకపోయాం."
-    }
+    },
+    "searchPlaceholder": "కస్టమర్లను వెతుకు..."
   },
   "inventory": {
     "directory": "ఇన్వెంటరీ డైరెక్టరీ",
@@ -569,5 +573,8 @@
     "noExpensesDescription": "శోధనను మార్చండి లేదా కొత్త ఖర్చును నమోదు చేయండి.",
     "searchPlaceholder": "ఖర్చులను వెతకండి...",
     "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "ఖాతాను వెతుకు..."
   }
 }

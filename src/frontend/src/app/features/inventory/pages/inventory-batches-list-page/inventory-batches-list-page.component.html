@@ -117,26 +117,12 @@
       styleClass="p-datatable-sm"
     >
       <ng-template pTemplate="caption">
-        <div class="table-caption">
-          <p-button
-            [label]="'common.clear' | transloco"
-            [outlined]="true"
-            icon="pi pi-filter-slash"
-            (click)="clearFilters(batchesTable)"
-          />
-          <p-iconfield iconPosition="left">
-            <p-inputicon>
-              <i class="pi pi-search"></i>
-            </p-inputicon>
-            <input
-              pInputText
-              type="text"
-              [(ngModel)]="searchValue"
-              (input)="batchesTable.filterGlobal(searchValue(), 'contains')"
-              [placeholder]="'inventory.searchPlaceholder' | transloco"
-            />
-          </p-iconfield>
-        </div>
+        <app-table-filter-bar
+          [table]="batchesTable"
+          [searchValue]="searchValue()"
+          (searchValueChange)="searchValue.set($event)"
+          [placeholder]="'inventory.searchPlaceholder' | transloco"
+        />
       </ng-template>
       <ng-template pTemplate="header">
         <tr>

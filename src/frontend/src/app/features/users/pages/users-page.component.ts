@@ -19,6 +19,7 @@ import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay
 import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import {
   selectShopUsers,
   selectUsersErrorMessage,
@@ -43,6 +44,7 @@ import {
     TableModule,
     AddShopUserOverlayComponent,
     EditShopUserOverlayComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './users-page.component.html',

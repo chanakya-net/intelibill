@@ -9,7 +9,8 @@
     "actions": "Actions",
     "edit": "Edit",
     "save": "Save",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "Search..."
   },
   "languages": {
     "en-IN": "English",
@@ -106,7 +107,8 @@
     "savings": "Savings",
     "current": "Current",
     "accountForm": "Bank account form",
-    "saveChanges": "Save Changes"
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "Search accounts..."
   },
   "users": {
     "teamAccess": "Team Access",
@@ -142,7 +144,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "Password and confirm password must match.",
       "selectAtLeastOneShop": "Select at least one shop."
-    }
+    },
+    "searchPlaceholder": "Search users..."
   },
   "suppliers": {
     "supplierDirectory": "Supplier Directory",
@@ -200,7 +203,8 @@
     "paymentDate": "Payment Date",
     "paymentNotes": "Notes (optional)",
     "recordPayment": "Record Payment",
-    "paymentActions": "Payment"
+    "paymentActions": "Payment",
+    "searchPlaceholder": "Search suppliers..."
   },
   "customers": {
     "customerDirectory": "Customer Directory",
@@ -246,7 +250,8 @@
       "notFound": "Customer account not found.",
       "loadFailed": "Unable to load customer account right now.",
       "paymentFailed": "Unable to record payment right now."
-    }
+    },
+    "searchPlaceholder": "Search customers..."
   },
   "inventory": {
     "directory": "Inventory Directory",

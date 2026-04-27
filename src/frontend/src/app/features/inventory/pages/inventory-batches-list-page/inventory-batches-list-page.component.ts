@@ -14,7 +14,7 @@ import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
-import { Table, TableModule } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
 import { TagModule } from 'primeng/tag';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
@@ -35,6 +35,7 @@ import {
   CURRENCY_INPUT_NUMBER_PT,
   CURRENCY_SELECT_PT,
 } from '../../../../shared/primeng-pt.config';
+import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-inventory-batches-list-page',
@@ -55,6 +56,7 @@ import {
     InputNumberModule,
     InputTextModule,
     TableModule,
+    TableFilterBarComponent,
     ToastModule,
     TagModule,
     AutoCompleteModule,
@@ -264,10 +266,5 @@ export class InventoryBatchesListPageComponent {
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
-  }
-
-  clearFilters(table: Table): void {
-    table.clear();
-    this.searchValue.set('');
   }
 }
