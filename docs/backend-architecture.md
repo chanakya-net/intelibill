@@ -38,24 +38,32 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 
 ## Key Functional Areas
 
-- **Auth**: register/login (email), refresh/revoke token
-- **Shops**: create shop, list memberships (`GET /api/shops/me`), switch active shop, set default shop
-- **Security**: JWT bearer, `active_shop_id` claim, 403 mapping for membership violations
+- **Auth**: email + phone registration, external OAuth (Google/Facebook), password reset, token refresh/revoke
+- **Shops**: create/update shop, list memberships, switch active shop, set default shop; `GET /api/shops/me`
+- **Items**: catalog CRUD + SSE streaming endpoint (`GET /api/items/stream`)
+- **Inventory**: inbound stock (single + batch), batch management, void/reassign
+- **Sales**: record sale, list/detail, profit-loss report
+- **Customers**: CRUD + credit ledger + payment recording
+- **Suppliers**: CRUD + purchase ledger + payment recording
+- **Expenses**: record + correct + categorise
+- **Bank Accounts**: CRUD per shop
+- **Users**: shop user management (add/edit), profile self-service, password change
+- **Security**: JWT bearer, `active_shop_id` claim, RLS, 403 mapping, rate limiting middleware
 
 ## Multi-Shop Tenancy
 
 - `Shop`, `ShopMembership`, `ShopRole` entities in Domain
-- Migration `20260327181741_AddShopIsolation` — tables `shops`, `shop_memberships` with RLS policies
-- Session context interceptor sets `app.current_user_id` and `app.active_shop_id` per request
+- Migration `20260425075353_InitialCreate` — consolidated schema including RLS policies on `shops` / `shop_memberships`
+- `PostgresSessionContextInterceptor` sets `app.current_user_id` and `app.active_shop_id` per request
 - Auth responses include `activeShopId` and accessible shop list
 
 ## Test Structure
 
-| Suite | Path |
-|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` |
+| Suite | Path | Count |
+|---|---|---|
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 83 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 330 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 139 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 115 |
 
-Integration tests use `WebApplicationFactory<Program>` with in-memory SQLite for full pipeline coverage.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required.

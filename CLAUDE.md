@@ -2,15 +2,17 @@
 
 AI-powered inventory management system backend.
 
-## Current Backend Snapshot (March 2026)
+## Current Backend Snapshot (April 2026)
 
-- Multi-shop tenancy implemented.
-- Users have memberships across shops with per-shop role (`Owner`, `Manager`, `Staff`).
-- Default shop + active shop switching supported.
-- JWT carries `active_shop_id`; shop switch returns new scoped token.
-- PostgreSQL migration + RLS policies for `shops` and `shop_memberships`.
-- Error mapping includes `Forbidden -> 403`.
-- Test suite covers domain, API, application, integration.
+- Full inventory management system: items, inventory batches, sales, expenses, customers, suppliers, bank accounts.
+- Multi-shop tenancy: memberships with per-shop role (`Owner`, `Manager`, `Staff`), default shop + active shop switching.
+- JWT carries `active_shop_id`; shop switch returns new scoped token; RLS enforces row isolation.
+- Auth: email + phone registration, external OAuth (Google/Facebook), password reset, token refresh/revoke.
+- Rate limiting middleware (`RateLimitAttribute` / `RateLimitFilter`) on sensitive endpoints.
+- Structured logging via Serilog with `SensitiveDataDestructuringPolicy`.
+- Items catalog streaming endpoint (`GET /api/items/stream`).
+- Profit/loss report endpoint (`GET /api/sales/profit-loss`).
+- Integration tests use Testcontainers (real PostgreSQL via Docker).
 
 ## Tech Stack
 
@@ -41,43 +43,81 @@ Paths relative to repo root.
 | `Directory.Packages.props` | Central Package Management — all NuGet versions declared here |
 | `global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
 
-## Multi-Shop Architecture Notes
+## Domain Model
 
-### Domain
+### Entities
 
-- `Shop`
-- `ShopMembership`
-- `ShopRole` enum
-- `User` tracks shop memberships
+| Entity | Notes |
+|---|---|
+| `User` | Auth identity; tracks shop memberships, external logins, refresh tokens, password reset tokens |
+| `UserExternalLogin` | OAuth provider link (Google, Facebook) |
+| `Shop` | Tenant root — address, GST, contact |
+| `ShopMembership` | User ↔ Shop with `ShopRole` |
+| `Item` | Catalog entry (name, barcode, tax rates) |
+| `Inventory` | Stock record per item per shop |
+| `InventoryBatch` | Purchase batch — cost price, qty, supplier, expiry |
+| `StockTransaction` | Append-only stock movement log |
+| `Sale` | Sale header (payment method, discount, customer) |
+| `SaleItem` | Line item — links to batch, records cost/price at time of sale |
+| `Customer` | Customer profile |
+| `CustomerLedgerEntry` | Credit/payment ledger per customer |
+| `Supplier` | Supplier profile |
+| `SupplierLedgerEntry` | Purchase/payment ledger per supplier |
+| `Expense` | Shop expense with category |
+| `ExpenseCategory` | Expense taxonomy |
+| `BankAccount` | Bank account reference per shop |
+| `RefreshToken` | JWT refresh token |
+| `PasswordResetToken` | One-time password reset token |
 
-### Application
+### Key Enums
 
-- Shop commands and query:
-  - create shop
-  - switch active shop
-  - set default shop
-  - get my shops
-- Auth responses include:
-  - `activeShopId`
-  - list of accessible shops
+`ShopRole`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
 
-### Infrastructure
+## Infrastructure
 
-- Migration: `20260327181741_AddShopIsolation`
-- Tables: `shops`, `shop_memberships`
-- RLS policies:
-  - `shop_memberships_user_policy`
-  - `shops_membership_policy`
-- Session context interceptor sets:
-  - `app.current_user_id`
-  - `app.active_shop_id`
+- Migration: `20260425075353_InitialCreate` (single consolidated migration)
+- RLS session context interceptor sets `app.current_user_id` + `app.active_shop_id` per request
+- Integration tests use **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required
 
-### API Endpoints
+## API Endpoints
 
-- `GET /api/shops/me`
-- `POST /api/shops`
-- `POST /api/shops/switch`
-- `POST /api/shops/default`
+### Auth — `api/auth`
+- `POST register/email`, `POST register/phone`
+- `POST login/email`, `POST login/external`, `POST login/external/init`, `POST login/external/callback`
+- `GET ~/auth/google/callback`, `GET ~/auth/facebook/callback`
+- `POST password-reset/request`, `POST password-reset/confirm`
+- `POST token/refresh`, `POST token/revoke`
+
+### Shops — `api/shops`
+- `GET me`, `GET {shopId}`, `POST`, `POST switch`, `POST default`, `PUT {shopId}`
+
+### Items — `api/items`
+- `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
+
+### Inventory — `api/inventory`
+- `POST inbound`, `POST inbound/batch`
+- `GET batches`, `GET batches/available`
+- `PUT batches/{batchId}`, `POST batches/{batchId}/void`, `POST batches/{batchId}/reassign-supplier`
+
+### Sales — `api/sales`
+- `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
+
+### Customers — `api/customers`
+- `GET`, `POST`, `PUT {customerId}`, `GET {customerId}/account`, `POST {customerId}/payments`
+
+### Suppliers — `api/suppliers`
+- `GET`, `POST`, `PUT {supplierId}`, `DELETE {supplierId}`
+- `GET {supplierId}/ledger`, `POST {supplierId}/payments`
+
+### Expenses — `api/expenses`
+- `GET`, `POST`, `GET {id}`, `POST {id}/correct`, `GET categories`
+
+### Bank Accounts — `api/bank-accounts`
+- `GET`, `POST`, `PUT {id}`, `DELETE {id}`
+
+### Users — `api/users`
+- `GET` (shop users), `POST` (add shop user), `PUT {targetUserId}`
+- `POST me/change-password`, `PUT me`
 
 ## Build & Test
 
@@ -110,11 +150,11 @@ dotnet ef database update \
 
 Test snapshot:
 
-- `Intelibill.Domain.Unit.Tests`: 22
-- `Intelibill.Application.Unit.Tests`: 25
-- `Intelibill.Api.Unit.Tests`: 22
-- `Intelibill.Integration.Tests`: 2
-- Total: 71 passing
+- `Intelibill.Domain.Unit.Tests`: 83
+- `Intelibill.Application.Unit.Tests`: 330
+- `Intelibill.Api.Unit.Tests`: 139
+- `Intelibill.Integration.Tests`: 115 *(requires Docker)*
+- Total: 552+ passing (non-integration)
 
 ## Configuration
 

@@ -154,7 +154,44 @@ Wolverine auto-discovers handlers by convention from the Application assembly.
 
 ---
 
-### 13. Central Package Management
+### 13. Streaming Catalog Endpoint
+
+Large catalog reads are streamed via `IAsyncEnumerable<T>` to avoid loading all rows into memory before the first byte is sent.
+
+**Where it appears:**
+- Interface: `src/backend/Intelibill.Application/Common/Interfaces/IItemCatalogStreamingService.cs` — `StreamByShopAsync` returns `IAsyncEnumerable<ItemCatalogEntryDto>`
+- Controller: `src/backend/Intelibill.Api/Controllers/ItemsController.cs` — `GET /api/items/stream` iterates with `await foreach` and writes JSON lines
+- Query handler: `src/backend/Intelibill.Application/Features/Items/Services/`
+
+**Convention:** Use `IAsyncEnumerable<T>` for unbounded or large result sets. Controller writes directly to the response stream — do not buffer into a list. Pass `CancellationToken` through the entire chain.
+
+---
+
+### 14. Rate Limiting
+
+Per-endpoint rate limiting is applied via a custom filter attribute, not ASP.NET Core's built-in rate limiting middleware.
+
+**Where it appears:**
+- Attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitAttribute.cs`
+- Filter: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitFilter.cs`
+
+**Convention:** Decorate sensitive endpoints (auth, password reset) with `[RateLimit]`. Configure limits via the attribute parameters.
+
+---
+
+### 15. Structured Logging (Serilog)
+
+Serilog is configured with a `SensitiveDataDestructuringPolicy` to prevent PII/secrets from appearing in logs.
+
+**Where it appears:**
+- Setup: `src/backend/Intelibill.Api/Extensions/SerilogExtensions.cs`
+- Policy: `src/backend/Intelibill.Api/Logging/SensitiveDataDestructuringPolicy.cs`
+
+**Convention:** Mark sensitive domain properties with `[SensitiveData]` (`src/backend/Intelibill.Domain/Attributes/SensitiveDataAttribute.cs`) — the policy strips them from log output automatically.
+
+---
+
+### 16. Central Package Management (NuGet)
 
 All NuGet versions declared once in `Directory.Packages.props`; project files reference packages without versions.
 
@@ -188,11 +225,11 @@ Each feature is self-contained: its own routes, state, and components under `fea
 
 ### 3. NgRx State Boundaries
 
-Root store holds global/shared state; feature state is provided lazily per route.
+Root store holds global/shared state; all domain feature states are provided lazily at the shell route level and shared across child pages.
 
 **Where it appears:**
 - Root reducers wired in: `src/frontend/src/app/app.config.ts`
-- Feature state example: `src/frontend/src/app/features/overview/` and `features/operations/`
+- Shell-scoped feature state (shops, users, suppliers, inventory, customers, sales, expenses, bankAccounts) provided in: `src/frontend/src/app/core/layout/shell.routes.ts`
 
 **Convention:** Use NgRx for shared or async state. Use component-local state (`signal` or property) for simple UI-only cases. Never put transient UI state (e.g., a single dropdown open/close) in the store.
 
