@@ -18,32 +18,32 @@ AI-powered inventory management system.
 | Messaging / CQRS | Wolverine 5.24 |
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 |
-| Frontend | Angular 21, SSR, PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Bun |
+| Frontend | Angular 21, SSR, PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun |
 | Mobile | .NET MAUI *(not yet started)* |
 
 ## Repository Structure
 
 ```
 intelibill/
-├── .claude/docs/               # Architecture & pattern docs
+├── docs/                       # Architecture & pattern docs
 ├── src/
 │   ├── backend/                # ASP.NET Core — Clean Architecture
 │   │   ├── Intelibill.Domain/
 │   │   ├── Intelibill.Application/
 │   │   ├── Intelibill.Infrastructure/
 │   │   └── Intelibill.Api/
-│   ├── frontend/               # Angular (Bun, SSR, PWA, NgRx)
+│   ├── frontend/               # Angular (Bun, SSR, PWA, NgRx, offline IndexedDB)
 │   └── mobile/                 # .NET MAUI (scaffolding only)
 ├── tests/
 │   ├── backend/unit/
-│   ├── backend/integration/
+│   ├── backend/integration/    # Requires Docker (Testcontainers)
 │   └── frontend/
 ├── Directory.Build.props
 ├── Directory.Packages.props
 └── global.json
 ```
 
-See [src/backend/CLAUDE.md](src/backend/CLAUDE.md) for backend architecture and [docs/architectural_patterns.md](docs/architectural_patterns.md) for design patterns.
+See [CLAUDE.md](CLAUDE.md) for backend architecture and [docs/architectural_patterns.md](docs/architectural_patterns.md) for design patterns.
 
 ## Getting Started
 
