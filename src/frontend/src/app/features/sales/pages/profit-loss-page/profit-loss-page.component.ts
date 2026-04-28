@@ -10,10 +10,11 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { Table, TableModule } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 
 import { ProfitLossReportItemDto } from '../../services/sale.service';
 import { SalesFacade } from '../../state/sales.facade';
+import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-profit-loss-page',
@@ -29,6 +30,7 @@ import { SalesFacade } from '../../state/sales.facade';
     InputTextModule,
     ProgressSpinnerModule,
     TableModule,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './profit-loss-page.component.html',
@@ -58,10 +60,5 @@ export class ProfitLossPageComponent {
 
   getProfitSeverity(amount: number): 'success' | 'danger' {
     return amount >= 0 ? 'success' : 'danger';
-  }
-
-  clearFilters(table: Table): void {
-    table.clear();
-    this.searchValue.set('');
   }
 }

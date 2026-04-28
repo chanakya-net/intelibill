@@ -20,6 +20,7 @@ import { MakePaymentOverlayComponent } from '../components/make-payment-overlay.
 import { SupplierDetailComponent } from '../components/supplier-detail.component';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-suppliers-page',
@@ -40,6 +41,7 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     EditSupplierOverlayComponent,
     MakePaymentOverlayComponent,
     SupplierDetailComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './suppliers-page.component.html',

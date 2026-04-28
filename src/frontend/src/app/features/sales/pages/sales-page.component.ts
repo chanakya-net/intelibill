@@ -10,12 +10,13 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { Table, TableModule } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 
 import { SaleListItemDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-sales-page',
@@ -33,6 +34,7 @@ import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.co
     TableModule,
     DialogModule,
     SaleDetailOverlayComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './sales-page.component.html',
@@ -93,10 +95,5 @@ export class SalesPageComponent {
     this.showDetailOverlay.set(false);
     this.viewingSaleId.set(null);
     this.salesFacade.clearSaleDetail();
-  }
-
-  clearFilters(table: Table): void {
-    table.clear();
-    this.searchValue.set('');
   }
 }

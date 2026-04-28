@@ -9,7 +9,8 @@
     "actions": "ક્રિયાઓ",
     "edit": "સંપાદિત કરો",
     "save": "સાચવો",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "શોધો..."
   },
   "languages": {
     "en-IN": "અંગ્રેજી",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "પાસવર્ડ અને પુષ્ટિ પાસવર્ડ મેળ ખાવા જોઈએ.",
       "selectAtLeastOneShop": "ઓછામાં ઓછી એક દુકાન પસંદ કરો."
-    }
+    },
+    "searchPlaceholder": "વપરાશકર્તા શોધો..."
   },
   "suppliers": {
     "supplierDirectory": "સપ્લાયર ડિરેક્ટરી",
@@ -176,7 +178,8 @@
     "paymentDate": "ચુકવણી તારીખ",
     "paymentNotes": "નોંધ (વૈકલ્પિક)",
     "recordPayment": "ચુકવણી નોંધો",
-    "paymentActions": "ચુકવણી"
+    "paymentActions": "ચુકવણી",
+    "searchPlaceholder": "સપ્લાયર શોધો..."
   },
   "customers": {
     "customerDirectory": "ગ્રાહક ડિરેક્ટરી",
@@ -222,7 +225,8 @@
       "notFound": "ગ્રાહક ખાતું મળ્યું નથી.",
       "loadFailed": "હમણાં ગ્રાહક ખાતું લોડ કરી શકાયું નથી.",
       "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી."
-    }
+    },
+    "searchPlaceholder": "ગ્રાહક શોધો..."
   },
   "inventory": {
     "directory": "ઇન્વેન્ટરી ડિરેક્ટરી",
@@ -570,5 +574,8 @@
     "noExpensesDescription": "શોધ બદલો અથવા નવો ખર્ચ નોંધો.",
     "searchPlaceholder": "ખર્ચ શોધો...",
     "pageInfo": "પાનું {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "ખાતું શોધો..."
   }
 }

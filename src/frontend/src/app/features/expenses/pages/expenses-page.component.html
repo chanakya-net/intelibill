@@ -108,27 +108,69 @@
     <!-- Desktop table -->
     <div class="expenses-table-card desktop-table">
       <p-table
+        #expensesTable
         [value]="expenses()"
+        [globalFilterFields]="['categoryName','paidTo','amount','expenseDate']"
         [sortField]="'expenseDate'"
         [sortOrder]="-1"
         [scrollable]="true"
         class="p-datatable-sm"
       >
+        <ng-template pTemplate="caption">
+          <app-table-filter-bar
+            [table]="expensesTable"
+            [searchValue]="desktopSearchValue()"
+            (searchValueChange)="desktopSearchValue.set($event)"
+            [placeholder]="'common.search' | transloco"
+          />
+        </ng-template>
         <ng-template pTemplate="header">
           <tr>
             <th pSortableColumn="categoryName">
-              {{ 'expenses.category' | transloco }} <p-sortIcon field="categoryName" />
+              <div class="flex items-center justify-between">
+                {{ 'expenses.category' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="categoryName" />
+                  <p-columnFilter type="text" field="categoryName" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="paidTo">
-              {{ 'expenses.paidTo' | transloco }} <p-sortIcon field="paidTo" />
+              <div class="flex items-center justify-between">
+                {{ 'expenses.paidTo' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="paidTo" />
+                  <p-columnFilter type="text" field="paidTo" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="amount">
-              {{ 'expenses.amount' | transloco }} <p-sortIcon field="amount" />
+              <div class="flex items-center justify-between">
+                {{ 'expenses.amount' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="amount" />
+                  <p-columnFilter type="numeric" field="amount" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="expenseDate">
-              {{ 'expenses.expenseDate' | transloco }} <p-sortIcon field="expenseDate" />
+              <div class="flex items-center justify-between">
+                {{ 'expenses.expenseDate' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="expenseDate" />
+                  <p-columnFilter type="date" field="expenseDate" display="menu" />
+                </div>
+              </div>
             </th>
-            <th>{{ 'expenses.status' | transloco }}</th>
+            <th pSortableColumn="isVoided">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.status' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isVoided" />
+                  <p-columnFilter type="boolean" field="isVoided" display="menu" />
+                </div>
+              </div>
+            </th>
             @if (canManageExpenses()) {
               <th>{{ 'common.actions' | transloco }}</th>
             }

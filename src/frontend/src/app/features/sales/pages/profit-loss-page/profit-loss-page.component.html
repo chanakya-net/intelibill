@@ -85,30 +85,42 @@
         class="p-datatable-sm"
       >
         <ng-template pTemplate="caption">
-          <div class="flex justify-between gap-3 flex-wrap">
-            <p-button
-              [label]="'common.clear' | transloco"
-              [outlined]="true"
-              icon="pi pi-filter-slash"
-              (click)='clearFilters(reportTable)'
-            />
-            <p-iconfield iconPosition="left">
-              <p-inputicon><i class="pi pi-search"></i></p-inputicon>
-              <input
-                pInputText
-                type="text"
-                [(ngModel)]="searchValue"
-                (input)="reportTable.filterGlobal(searchValue(), 'contains')"
-                [placeholder]="'sales.profitLoss.search' | transloco"
-              />
-            </p-iconfield>
-          </div>
+          <app-table-filter-bar
+            [table]="reportTable"
+            [searchValue]="searchValue()"
+            (searchValueChange)="searchValue.set($event)"
+            [placeholder]="'sales.profitLoss.search' | transloco"
+          />
         </ng-template>
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="invoiceNumber">{{ 'sales.profitLoss.invoice' | transloco }} <p-sortIcon field="invoiceNumber" /></th>
-            <th pSortableColumn="soldAt">{{ 'sales.profitLoss.date' | transloco }} <p-sortIcon field="soldAt" /></th>
-            <th>{{ 'sales.profitLoss.customer' | transloco }}</th>
+            <th pSortableColumn="invoiceNumber">
+              <div class="flex items-center justify-between">
+                {{ 'sales.profitLoss.invoice' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="invoiceNumber" />
+                  <p-columnFilter type="text" field="invoiceNumber" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="soldAt">
+              <div class="flex items-center justify-between">
+                {{ 'sales.profitLoss.date' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="soldAt" />
+                  <p-columnFilter type="date" field="soldAt" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="customerName">
+              <div class="flex items-center justify-between">
+                {{ 'sales.profitLoss.customer' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="customerName" />
+                  <p-columnFilter type="text" field="customerName" display="menu" />
+                </div>
+              </div>
+            </th>
             <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
             <th class="text-right">{{ 'sales.profitLoss.revenueExclTax' | transloco }}</th>
             <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>

@@ -12,6 +12,7 @@ import { BankAccountsFacade } from '../state/bank-accounts.facade';
 import { BankAccount } from '../services/bank-account.service';
 import { ManageBankAccountOverlayComponent } from '../components/manage-bank-account-overlay.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-bank-accounts-page',
@@ -25,6 +26,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     ProgressSpinnerModule,
     ConfirmDialogModule,
     ManageBankAccountOverlayComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   providers: [ConfirmationService],
@@ -37,6 +39,7 @@ export class BankAccountsPageComponent {
   private readonly authService = inject(AuthService);
 
   readonly bankAccounts = this.bankAccountsFacade.bankAccounts;
+  readonly searchValue = signal('');
   readonly isLoading = this.bankAccountsFacade.isLoading;
   readonly serverError = this.bankAccountsFacade.errorMessage;
   readonly lastMutationSucceeded = this.bankAccountsFacade.lastMutationSucceeded;

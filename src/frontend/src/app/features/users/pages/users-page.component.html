@@ -108,28 +108,68 @@
     <!-- Desktop table -->
     <div class="users-table-card desktop-table">
       <p-table
+        #usersTable
         [value]="tableUsers()"
+        [globalFilterFields]="['firstName','lastName','phoneNumber','email','role']"
         [sortField]="'firstName'"
         [sortOrder]="1"
         [scrollable]="true"
         class="p-datatable-sm"
       >
+        <ng-template pTemplate="caption">
+          <app-table-filter-bar
+            [table]="usersTable"
+            [searchValue]="searchValue()"
+            (searchValueChange)="searchValue.set($event)"
+            [placeholder]="'users.searchPlaceholder' | transloco"
+          />
+        </ng-template>
         <ng-template pTemplate="header">
           <tr>
             <th pSortableColumn="firstName">
-              {{ 'users.name' | transloco }} <p-sortIcon field="firstName" />
+              <div class="flex items-center justify-between">
+                {{ 'users.name' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="firstName" />
+                  <p-columnFilter type="text" field="firstName" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="phoneNumber">
-              {{ 'users.mobile' | transloco }} <p-sortIcon field="phoneNumber" />
+              <div class="flex items-center justify-between">
+                {{ 'users.mobile' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="phoneNumber" />
+                  <p-columnFilter type="text" field="phoneNumber" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="email">
-              {{ 'users.email' | transloco }} <p-sortIcon field="email" />
+              <div class="flex items-center justify-between">
+                {{ 'users.email' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="email" />
+                  <p-columnFilter type="text" field="email" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="role">
-              {{ 'users.role' | transloco }} <p-sortIcon field="role" />
+              <div class="flex items-center justify-between">
+                {{ 'users.role' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="role" />
+                  <p-columnFilter type="text" field="role" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="isLoginEnabled">
-              {{ 'users.login' | transloco }} <p-sortIcon field="isLoginEnabled" />
+              <div class="flex items-center justify-between">
+                {{ 'users.login' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isLoginEnabled" />
+                  <p-columnFilter type="boolean" field="isLoginEnabled" display="menu" />
+                </div>
+              </div>
             </th>
             @if (canEditUsers()) {
               <th>{{ 'users.actions' | transloco }}</th>

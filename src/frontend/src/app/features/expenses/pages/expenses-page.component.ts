@@ -18,6 +18,7 @@ import { RecordExpenseOverlayComponent } from '../components/record-expense-over
 import { CorrectExpenseOverlayComponent } from '../components/correct-expense-overlay.component';
 import { ExpenseDto, ExpenseListItemDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-expenses-page',
@@ -36,6 +37,7 @@ import { ExpensesFacade } from '../state/expenses.facade';
     TranslocoPipe,
     RecordExpenseOverlayComponent,
     CorrectExpenseOverlayComponent,
+    TableFilterBarComponent,
   ],
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',
@@ -59,6 +61,7 @@ export class ExpensesPageComponent {
   readonly showCorrectOverlay = signal(false);
   readonly selectedExpenseId = signal<string | null>(null);
   readonly searchValue = signal('');
+  readonly desktopSearchValue = signal('');
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {

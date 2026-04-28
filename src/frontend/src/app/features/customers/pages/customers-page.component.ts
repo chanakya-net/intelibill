@@ -22,6 +22,7 @@ import { EditCustomerOverlayComponent } from '../components/edit-customer-overla
 import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
   selector: 'app-customers-page',
@@ -45,6 +46,7 @@ import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } 
     InputGroupAddonModule,
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
+    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './customers-page.component.html',

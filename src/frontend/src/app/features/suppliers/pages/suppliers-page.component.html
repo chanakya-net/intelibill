@@ -133,40 +133,104 @@
     <!-- Desktop table -->
     <div class="suppliers-table-card desktop-table">
       <p-table
+        #suppliersTable
         [value]="tableSuppliers()"
+        [globalFilterFields]="['name','contactPersonName','contactPersonPhone','city','state']"
         [sortField]="'name'"
         [sortOrder]="1"
         [scrollable]="true"
         class="p-datatable-sm"
       >
+        <ng-template pTemplate="caption">
+          <app-table-filter-bar
+            [table]="suppliersTable"
+            [searchValue]="searchValue()"
+            (searchValueChange)="searchValue.set($event)"
+            [placeholder]="'suppliers.searchPlaceholder' | transloco"
+          />
+        </ng-template>
         <ng-template pTemplate="header">
           <tr>
             <th pSortableColumn="name">
-              {{ 'suppliers.name' | transloco }} <p-sortIcon field="name" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.name' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="name" />
+                  <p-columnFilter type="text" field="name" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="contactPersonName">
-              {{ 'suppliers.contactPerson' | transloco }} <p-sortIcon field="contactPersonName" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.contactPerson' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="contactPersonName" />
+                  <p-columnFilter type="text" field="contactPersonName" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="contactPersonPhone">
-              {{ 'suppliers.contactPhone' | transloco }} <p-sortIcon field="contactPersonPhone" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.contactPhone' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="contactPersonPhone" />
+                  <p-columnFilter type="text" field="contactPersonPhone" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="city">
-              {{ 'suppliers.city' | transloco }} <p-sortIcon field="city" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.city' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="city" />
+                  <p-columnFilter type="text" field="city" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="state">
-              {{ 'suppliers.state' | transloco }} <p-sortIcon field="state" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.state' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="state" />
+                  <p-columnFilter type="text" field="state" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="pin">
-              {{ 'suppliers.pin' | transloco }} <p-sortIcon field="pin" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.pin' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="pin" />
+                  <p-columnFilter type="text" field="pin" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="balanceDue">
-              {{ 'suppliers.balance' | transloco }} <p-sortIcon field="balanceDue" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.balance' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="balanceDue" />
+                  <p-columnFilter type="numeric" field="balanceDue" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="isActive">
-              {{ 'suppliers.status' | transloco }} <p-sortIcon field="isActive" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.status' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isActive" />
+                  <p-columnFilter type="boolean" field="isActive" display="menu" />
+                </div>
+              </div>
             </th>
             <th pSortableColumn="isPreferred">
-              {{ 'suppliers.preferred' | transloco }} <p-sortIcon field="isPreferred" />
+              <div class="flex items-center justify-between">
+                {{ 'suppliers.preferred' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isPreferred" />
+                  <p-columnFilter type="boolean" field="isPreferred" display="menu" />
+                </div>
+              </div>
             </th>
             @if (canManageSuppliers()) {
               <th>{{ 'suppliers.actions' | transloco }}</th>

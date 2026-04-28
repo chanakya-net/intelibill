@@ -9,7 +9,8 @@
     "actions": "செயல்கள்",
     "edit": "திருத்து",
     "save": "சேமி",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "தேடு..."
   },
   "languages": {
     "en-IN": "ஆங்கிலம்",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "கடவுச்சொல் மற்றும் உறுதிப்படுத்தல் பொருந்த வேண்டும்.",
       "selectAtLeastOneShop": "குறைந்தது ஒரு கடையைத் தேர்ந்தெடுக்கவும்."
-    }
+    },
+    "searchPlaceholder": "பயனர்களை தேடு..."
   },
   "suppliers": {
     "supplierDirectory": "விநியோகஸ்தர் அடைவு",
@@ -176,7 +178,8 @@
     "paymentDate": "கொடுப்பனவு தேதி",
     "paymentNotes": "குறிப்புகள் (விருப்பமானது)",
     "recordPayment": "கொடுப்பனவு பதிவு செய்",
-    "paymentActions": "கொடுப்பனவு"
+    "paymentActions": "கொடுப்பனவு",
+    "searchPlaceholder": "சப்ளையர்களை தேடு..."
   },
   "customers": {
     "customerDirectory": "வாடிக்கையாளர் அடைவு",
@@ -222,7 +225,8 @@
       "notFound": "வாடிக்கையாளர் கணக்கு கிடைக்கவில்லை.",
       "loadFailed": "இப்போது வாடிக்கையாளர் கணக்கை ஏற்ற முடியவில்லை.",
       "paymentFailed": "இப்போது பணம் பதிவுசெய்ய முடியவில்லை."
-    }
+    },
+    "searchPlaceholder": "வாடிக்கையாளர்களை தேடு..."
   },
   "inventory": {
     "directory": "சரக்கு அடைவகம்",
@@ -569,5 +573,8 @@
     "noExpensesDescription": "தேடலை மாற்றவும் அல்லது புதிய செலவை பதிவு செய்யவும்.",
     "searchPlaceholder": "செலவுகளை தேடவும்...",
     "pageInfo": "பக்கம் {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "கணக்கை தேடு..."
   }
 }

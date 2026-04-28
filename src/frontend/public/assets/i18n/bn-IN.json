@@ -9,7 +9,8 @@
     "actions": "কার্যক্রম",
     "edit": "সম্পাদনা",
     "save": "সংরক্ষণ করুন",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "অনুসন্ধান করুন..."
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "পাসওয়ার্ড ও কনফার্ম পাসওয়ার্ড মিলতে হবে।",
       "selectAtLeastOneShop": "কমপক্ষে একটি দোকান নির্বাচন করুন।"
-    }
+    },
+    "searchPlaceholder": "ব্যবহারকারী খুঁজুন..."
   },
   "suppliers": {
     "supplierDirectory": "সরবরাহকারী নির্দেশিকা",
@@ -176,7 +178,8 @@
     "paymentDate": "পেমেন্টের তারিখ",
     "paymentNotes": "নোট (ঐচ্ছিক)",
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
-    "paymentActions": "পেমেন্ট"
+    "paymentActions": "পেমেন্ট",
+    "searchPlaceholder": "সরবরাহকারী খুঁজুন..."
   },
   "customers": {
     "customerDirectory": "গ্রাহক ডিরেক্টরি",
@@ -222,7 +225,8 @@
       "notFound": "গ্রাহকের হিসাব পাওয়া যায়নি।",
       "loadFailed": "এই মুহূর্তে গ্রাহকের হিসাব লোড করা যাচ্ছে না।",
       "paymentFailed": "এই মুহূর্তে পেমেন্ট নথিভুক্ত করা যাচ্ছে না।"
-    }
+    },
+    "searchPlaceholder": "গ্রাহক খুঁজুন..."
   },
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",
@@ -569,5 +573,8 @@
     "noExpensesDescription": "অনুসন্ধান বদলান বা নতুন ব্যয় নথিভুক্ত করুন।",
     "searchPlaceholder": "ব্যয় খুঁজুন...",
     "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "অ্যাকাউন্ট খুঁজুন..."
   }
 }

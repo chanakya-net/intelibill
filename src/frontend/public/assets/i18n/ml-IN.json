@@ -9,7 +9,8 @@
     "actions": "പ്രവർത്തനങ്ങൾ",
     "edit": "തിരുത്തുക",
     "save": "സൂക്ഷിക്കുക",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "തിരയുക..."
   },
   "languages": {
     "en-IN": "ഇംഗ്ലീഷ്",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "പാസ്‌വേഡും സ്ഥിരീകരണ പാസ്‌വേഡും പൊരുത്തപ്പെടണം.",
       "selectAtLeastOneShop": "കുറഞ്ഞത് ഒരു കടയെങ്കിലും തിരഞ്ഞെടുക്കുക."
-    }
+    },
+    "searchPlaceholder": "ഉപയോക്താക്കളെ തിരയുക..."
   },
   "suppliers": {
     "supplierDirectory": "വിതരണക്കാരുടെ ഡയറക്ടറി",
@@ -176,7 +178,8 @@
     "paymentDate": "പണമടപ്പ് തീയതി",
     "paymentNotes": "കുറിപ്പുകൾ (ഐച്ഛികം)",
     "recordPayment": "പണമടപ്പ് രേഖപ്പെടുത്തുക",
-    "paymentActions": "പണമടപ്പ്"
+    "paymentActions": "പണമടപ്പ്",
+    "searchPlaceholder": "വിതരണക്കാരെ തിരയുക..."
   },
   "customers": {
     "customerDirectory": "ഉപഭോക്തൃ ഡയറക്ടറി",
@@ -222,7 +225,8 @@
       "notFound": "ഉപഭോക്തൃ അക്കൗണ്ട് കണ്ടെത്തിയില്ല.",
       "loadFailed": "ഇപ്പോൾ ഉപഭോക്തൃ അക്കൗണ്ട് ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
       "paymentFailed": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിഞ്ഞില്ല."
-    }
+    },
+    "searchPlaceholder": "ഉപഭോക്താക്കളെ തിരയുക..."
   },
   "inventory": {
     "directory": "ഇൻവെന്ററി ഡയറക്ടറി",
@@ -569,5 +573,8 @@
     "noExpensesDescription": "തിരച്ചിൽ മാറ്റുക അല്ലെങ്കിൽ പുതിയ ചെലവ് രേഖപ്പെടുത്തുക.",
     "searchPlaceholder": "ചെലവുകൾ തിരയുക...",
     "pageInfo": "പേജ് {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "അക്കൗണ്ട് തിരയുക..."
   }
 }

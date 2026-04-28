@@ -9,7 +9,8 @@
     "actions": "ಕ್ರಿಯೆಗಳು",
     "edit": "ಸಂಪಾದಿಸಿ",
     "save": "ಉಳಿಸಿ",
-    "currencySymbol": "₹"
+    "currencySymbol": "₹",
+    "search": "ಹುಡುಕಿ..."
   },
   "languages": {
     "en-IN": "ಇಂಗ್ಲಿಷ್",
@@ -118,7 +119,8 @@
     "validation": {
       "passwordConfirmationMustMatch": "ಪಾಸ್‌ವರ್ಡ್ ಮತ್ತು ದೃಢೀಕರಣ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಕೆಯಾಗಬೇಕು.",
       "selectAtLeastOneShop": "ಕನಿಷ್ಠ ಒಂದು ಅಂಗಡಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ."
-    }
+    },
+    "searchPlaceholder": "ಬಳಕೆದಾರರನ್ನು ಹುಡುಕಿ..."
   },
   "suppliers": {
     "supplierDirectory": "ಪೂರೈಕೆದಾರರ ಡೈರೆಕ್ಟರಿ",
@@ -176,7 +178,8 @@
     "paymentDate": "ಪಾವತಿ ದಿನಾಂಕ",
     "paymentNotes": "ಟಿಪ್ಪಣಿಗಳು (ಐಚ್ಛಿಕ)",
     "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸಿ",
-    "paymentActions": "ಪಾವತಿ"
+    "paymentActions": "ಪಾವತಿ",
+    "searchPlaceholder": "ಪೂರೈಕೆದಾರರನ್ನು ಹುಡುಕಿ..."
   },
   "customers": {
     "customerDirectory": "ಗ್ರಾಹಕರ ಡೈರೆಕ್ಟರಿ",
@@ -222,7 +225,8 @@
       "notFound": "ಗ್ರಾಹಕ ಖಾತೆ ಸಿಗಲಿಲ್ಲ.",
       "loadFailed": "ಈಗ ಗ್ರಾಹಕ ಖಾತೆಯನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
       "paymentFailed": "ಈಗ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
-    }
+    },
+    "searchPlaceholder": "ಗ್ರಾಹಕರನ್ನು ಹುಡುಕಿ..."
   },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",
@@ -569,5 +573,8 @@
     "noExpensesDescription": "ಹುಡುಕಾಟವನ್ನು ಬದಲಿಸಿ ಅಥವಾ ಹೊಸ ಖರ್ಚು ದಾಖಲಿಸಿ.",
     "searchPlaceholder": "ಖರ್ಚುಗಳನ್ನು ಹುಡುಕಿ...",
     "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}"
+  },
+  "bankAccounts": {
+    "searchPlaceholder": "ಖಾತೆ ಹುಡುಕಿ..."
   }
 }

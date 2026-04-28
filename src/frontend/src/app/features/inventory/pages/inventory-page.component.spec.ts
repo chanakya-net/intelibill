@@ -246,18 +246,15 @@ describe('InventoryPageComponent', () => {
     expect(component.showEditItemOverlay()).toBe(true);
   });
 
-  it('clears table filters and search input', () => {
+  it('filters mobile list when search value changes', () => {
     const fixture = TestBed.createComponent(InventoryPageComponent);
     const component = fixture.componentInstance as unknown as {
       searchValue: { set: (value: string) => void; (): string };
-      clearFilters: (table: { clear: () => void }) => void;
+      filteredItems: () => Array<{ id: string; name: string }>;
     };
-    const table = { clear: vi.fn() };
 
     component.searchValue.set('milk');
-    component.clearFilters(table);
 
-    expect(table.clear).toHaveBeenCalledTimes(1);
-    expect(component.searchValue()).toBe('');
+    expect(component.filteredItems().map((item) => item.name)).toEqual(['Milk']);
   });
 });
