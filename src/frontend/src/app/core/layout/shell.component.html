@@ -59,12 +59,13 @@
           }
         </div>
 
-        @if (mainMenuItems().length > 0) {
-          <div class="shell-middle-zone">
-            <p-menubar [model]="mainMenuItems()" [pt]="menubarPt"></p-menubar>
-          </div>
-        }
       </div>
+
+      @if (mainMenuItems().length > 0) {
+        <div class="shell-middle-zone">
+          <p-menubar [model]="mainMenuItems()" [pt]="menubarPt"></p-menubar>
+        </div>
+      }
 
       <div class="shell-actions" #profileMenuRoot>
         <button
