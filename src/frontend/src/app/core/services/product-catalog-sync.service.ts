@@ -47,6 +47,21 @@ export class ProductCatalogSyncService {
     return this.catalogEntries().find((e) => e.barcode === barcode);
   }
 
+  upsertEntry(entry: ProductCatalogEntry): void {
+    const current = this.catalogEntries();
+    const idx = current.findIndex((e) => e.barcode === entry.barcode);
+    const updated =
+      idx >= 0
+        ? [...current.slice(0, idx), entry, ...current.slice(idx + 1)]
+        : [...current, entry];
+    this.catalogEntries.set(updated);
+
+    const shopId = this.authService.session()?.activeShopId ?? null;
+    if (shopId) {
+      void this.catalogDb.saveCatalog(shopId, updated);
+    }
+  }
+
   private async syncForShop(shopId: string): Promise<void> {
     try {
       // Load stale cache first so autocomplete works instantly while stream loads

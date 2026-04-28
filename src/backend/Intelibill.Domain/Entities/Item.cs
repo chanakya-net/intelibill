@@ -28,7 +28,7 @@ public sealed class Item : BaseEntity
         bool isActive,
         Guid createdBy)
     {
-        return new Item
+        var item = new Item
         {
             ShopId = shopId,
             Name = name.Trim(),
@@ -38,6 +38,10 @@ public sealed class Item : BaseEntity
             IsActive = isActive,
             CreatedBy = createdBy,
         };
+
+        item.AddDomainEvent(new Events.ItemCreatedDomainEvent(item.Id, item.Barcode, item.Name, item.ShopId));
+
+        return item;
     }
 
     public void Update(

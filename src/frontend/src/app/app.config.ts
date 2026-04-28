@@ -21,6 +21,7 @@ import { httpLoadingInterceptor } from './core/interceptors/http-loading.interce
 import { LocalizationService } from './core/i18n/localization.service';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './core/i18n/language.constants';
 import { TranslocoHttpLoader } from './core/i18n/transloco-http.loader';
+import { ProductSignalRService } from './core/services/product-signalr.service';
 
 const enterprisePreset = definePreset(Aura, {
   semantic: {
@@ -84,6 +85,11 @@ export const appConfig: ApplicationConfig = {
       multi: true,
       useFactory: initializeAuthSession,
     },
+    {
+      provide: APP_INITIALIZER,
+      multi: true,
+      useFactory: initializeProductSignalR,
+    },
   ],
 };
 
@@ -94,5 +100,12 @@ function initializeAuthSession(): () => Promise<boolean> {
 
     await localizationService.initialize();
     return firstValueFrom(authService.bootstrapSession());
+  };
+}
+
+function initializeProductSignalR(): () => Promise<void> {
+  return () => {
+    const signalRService = inject(ProductSignalRService);
+    return signalRService.startConnection();
   };
 }
