@@ -26,6 +26,7 @@
     "@angular/service-worker": "^21.2.0",
     "@angular/ssr": "^21.2.4",
     "@hono/node-server": "^1.19.13",
+    "@microsoft/signalr": "^10.0.0",
     "@ngneat/transloco": "^6.0.4",
     "@ngrx/effects": "^21.1.0",
     "@ngrx/entity": "^21.1.0",

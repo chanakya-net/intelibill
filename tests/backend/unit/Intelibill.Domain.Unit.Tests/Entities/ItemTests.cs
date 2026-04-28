@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Events;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
@@ -36,5 +37,35 @@ public class ItemTests
             createdBy: Guid.NewGuid());
 
         Assert.Null(item.Description);
+    }
+
+    [Fact]
+    public void Create_RaisesItemCreatedDomainEvent_WithCorrectProperties()
+    {
+        var shopId = Guid.NewGuid();
+        var createdBy = Guid.NewGuid();
+
+        var item = Item.Create(shopId, "Rice", null, "kg", "BAR001", true, createdBy);
+
+        var domainEvent = Assert.Single(item.DomainEvents);
+        var created = Assert.IsType<ItemCreatedDomainEvent>(domainEvent);
+
+        Assert.Equal(item.Id, created.ItemId);
+        Assert.Equal("BAR001", created.Barcode);
+        Assert.Equal("Rice", created.Name);
+        Assert.Equal(shopId, created.ShopId);
+        Assert.NotEqual(Guid.Empty, created.EventId);
+        Assert.True(created.OccurredOn <= DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public void Update_DoesNotRaiseItemCreatedDomainEvent()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+        item.ClearDomainEvents();
+
+        item.Update("Rice Updated", null, "kg", "BAR001", true, Guid.NewGuid());
+
+        Assert.Empty(item.DomainEvents);
     }
 }

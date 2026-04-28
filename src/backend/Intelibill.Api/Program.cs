@@ -1,7 +1,9 @@
 using System.Text;
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
 using Intelibill.Api.Options;
+using Intelibill.Api.Services;
 using Intelibill.Application;
 using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
@@ -41,12 +43,15 @@ builder.Services.AddCors(options =>
                 "http://localhost:4200", "https://localhost:4200",
                 "http://localhost:4000", "https://localhost:4000")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
 builder.Services.AddWolverineHttp();
 
 // ── App options ───────────────────────────────────────────────────────────────
@@ -123,6 +128,7 @@ app.UseMiddleware<JwtContextEnrichmentMiddleware>();
 app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
 app.MapWolverineEndpoints();
+app.MapHub<ProductHub>("/hubs/products");
 
 app.Run();
 

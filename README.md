@@ -100,3 +100,11 @@ docker compose --profile full up -d --build
 # Tear down (add -v to wipe the database)
 docker compose --profile full down
 ```
+
+## Azure App Service — WebSocket Configuration
+
+SignalR is embedded in the ASP.NET Core app. To enable WebSockets on Azure App Service:
+
+**Portal → App Service → Configuration → General Settings → Web Sockets: On**
+
+SignalR automatically falls back to Server-Sent Events (SSE) or Long Polling if WebSockets are disabled — no code change required. WebSockets should be enabled in production for lowest latency.

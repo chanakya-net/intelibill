@@ -1,6 +1,7 @@
 import { environment } from '../../../environments/environment';
 
 export const API_BASE_URL = environment.apiBaseUrl;
+export const HUB_BASE_URL = environment.hubBaseUrl;
 
 export const AUTH_ENDPOINTS = {
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
