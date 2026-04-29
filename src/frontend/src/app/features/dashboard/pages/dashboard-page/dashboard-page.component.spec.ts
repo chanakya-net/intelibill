@@ -34,6 +34,7 @@ const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   alerts: [],
   salesTrendSeries: [],
   profitTrendSeries: [],
+  previousPeriodSummary: null,
   ...overrides,
 });
 
@@ -62,6 +63,7 @@ const makeStaffDto = (): DashboardDto => ({
   alerts: [{ alertType: 'RunningLowStock', priority: 3 }],
   salesTrendSeries: null,
   profitTrendSeries: null,
+  previousPeriodSummary: null,
 });
 
 function createFixture(dto: DashboardDto | null, errorMessage = '') {
@@ -247,6 +249,31 @@ describe('DashboardPageComponent', () => {
     // No donut chart rendered, empty state shown
     const donut = fixture.debugElement.query(By.css('p-chart[type="doughnut"]'));
     expect(donut).toBeNull();
+  });
+
+  it('shows comparison badge when previousPeriodSummary is provided (Owner role)', () => {
+    const dto = makeOwnerDto({
+      salesCount: 10,
+      salesBooked: 1000,
+      previousPeriodSummary: {
+        startDate: '2026-03-25',
+        endDate: '2026-03-31',
+        salesCount: 7,
+        salesBooked: 700,
+        profitAfterTax: 200,
+        netExpense: 50,
+        creditSalesPercentage: 0.1,
+      },
+    });
+    const fixture = createFixture(dto);
+    const badges = fixture.debugElement.queryAll(By.css('[class*="kpi-comparison"]'));
+    expect(badges.length).toBeGreaterThan(0);
+  });
+
+  it('hides comparison badges when previousPeriodSummary is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    const badges = fixture.debugElement.queryAll(By.css('[class*="kpi-comparison"]'));
+    expect(badges.length).toBe(0);
   });
 
   describe('Validation UX (#114)', () => {

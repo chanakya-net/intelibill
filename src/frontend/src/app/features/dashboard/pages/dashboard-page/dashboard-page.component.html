@@ -143,6 +143,11 @@
         <div class="kpi-card">
           <span class="kpi-label">{{ 'dashboard.salesCount' | transloco }}</span>
           <span class="kpi-value">{{ dashboard.salesCount }}</span>
+          @if (previousPeriodComparisons()?.salesCount; as cmp) {
+            <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+              {{ directionIcon(cmp.direction) }} {{ cmp.delta > 0 ? '+' : '' }}{{ cmp.delta }}
+            </span>
+          }
         </div>
       </p-card>
       @if (dashboard.salesBooked !== null) {
@@ -150,6 +155,11 @@
           <div class="kpi-card">
             <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
             <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
+            @if (previousPeriodComparisons()?.salesBooked; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+              </span>
+            }
           </div>
         </p-card>
         <p-card>
@@ -168,6 +178,11 @@
           <div class="kpi-card">
             <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
             <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
+            @if (previousPeriodComparisons()?.profitAfterTax; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+              </span>
+            }
           </div>
         </p-card>
       }
@@ -192,6 +207,11 @@
           <div class="kpi-card">
             <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
             <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
+            @if (previousPeriodComparisons()?.netExpense; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+              </span>
+            }
           </div>
         </p-card>
       </div>
@@ -212,6 +232,11 @@
             <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
             @if (dashboard.creditShareWarning === true) {
               <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
+            }
+            @if (previousPeriodComparisons()?.creditSalesPercentage; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | percent: '1.1-1' }}
+              </span>
             }
           </div>
         </p-card>

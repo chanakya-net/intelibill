@@ -52,6 +52,13 @@ public sealed class GetDashboardQueryHandler(
         var inventories = await inventoryRepository.GetAllByShopWithItemAsync(query.ShopId, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
+        // Previous period — same span, immediately before startDate
+        var spanDays = query.EndDate.DayNumber - query.StartDate.DayNumber;
+        var prevEndDate = query.StartDate.AddDays(-1);
+        var prevStartDate = prevEndDate.AddDays(-spanDays);
+        var prevSales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
+        var prevExpenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
+
         var customerIds = customers.Select(c => c.Id).ToList();
         var customerBalances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
             query.ShopId, customerIds, cancellationToken);
@@ -124,6 +131,7 @@ public sealed class GetDashboardQueryHandler(
         // Sales Booked trend: daily buckets for the range (null for Staff)
         List<SalesTrendPointDto>? salesTrendSeries = null;
         List<ProfitTrendPointDto>? profitTrendSeries = null;
+        PreviousPeriodSummaryDto? previousPeriodSummary = null;
         if (!isStaff)
         {
             var salesByDay = sales
@@ -146,6 +154,21 @@ public sealed class GetDashboardQueryHandler(
                     Date: day,
                     ProfitAfterTax: dayData.SalesBooked - dayData.Cost));
             }
+
+            // Previous period aggregates
+            var prevSalesBooked = prevSales.Sum(s => s.TotalAmount);
+            var prevCost = prevSales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
+            var prevCreditSales = prevSales.Where(s => s.PaymentMethod == PaymentMethod.Credit).Sum(s => s.TotalAmount);
+            var prevExpenseRecorded = prevExpenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
+            var prevExpenseCorrection = prevExpenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
+            previousPeriodSummary = new PreviousPeriodSummaryDto(
+                StartDate: prevStartDate,
+                EndDate: prevEndDate,
+                SalesCount: prevSales.Count,
+                SalesBooked: prevSalesBooked,
+                ProfitAfterTax: prevSalesBooked - prevCost,
+                NetExpense: prevExpenseRecorded + prevExpenseCorrection,
+                CreditSalesPercentage: prevSalesBooked > 0 ? prevCreditSales / prevSalesBooked : 0m);
         }
 
         return new DashboardDto(
@@ -172,7 +195,8 @@ public sealed class GetDashboardQueryHandler(
             TopFiveDueCustomers: isStaff ? null : topFiveDueCustomers,
             Alerts: alerts,
             SalesTrendSeries: salesTrendSeries,
-            ProfitTrendSeries: profitTrendSeries);
+            ProfitTrendSeries: profitTrendSeries,
+            PreviousPeriodSummary: previousPeriodSummary);
     }
 }
 

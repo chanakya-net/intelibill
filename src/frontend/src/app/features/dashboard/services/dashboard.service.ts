@@ -34,6 +34,16 @@ export interface SalesTrendPointDto {
   readonly amount: number;
 }
 
+export interface PreviousPeriodSummaryDto {
+  startDate: string;
+  endDate: string;
+  salesCount: number;
+  salesBooked: number;
+  profitAfterTax: number;
+  netExpense: number;
+  creditSalesPercentage: number;
+}
+
 export interface ProfitTrendPointDto {
   readonly date: string;
   readonly profitAfterTax: number;
@@ -64,6 +74,7 @@ export interface DashboardDto {
   readonly alerts: ReadonlyArray<DashboardAlertDto>;
   readonly salesTrendSeries: ReadonlyArray<SalesTrendPointDto> | null;
   readonly profitTrendSeries: ReadonlyArray<ProfitTrendPointDto> | null;
+  readonly previousPeriodSummary: PreviousPeriodSummaryDto | null;
 }
 
 @Injectable({ providedIn: 'root' })

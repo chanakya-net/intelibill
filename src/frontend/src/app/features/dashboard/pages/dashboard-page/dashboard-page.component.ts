@@ -9,7 +9,7 @@ import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { DashboardDto, ProfitTrendPointDto, SalesTrendPointDto } from '../../services/dashboard.service';
+import { DashboardDto, PreviousPeriodSummaryDto, ProfitTrendPointDto, SalesTrendPointDto } from '../../services/dashboard.service';
 import { DashboardPreset } from '../../state/dashboard.actions';
 import { DashboardFacade } from '../../state/dashboard.facade';
 
@@ -174,6 +174,27 @@ export class DashboardPageComponent implements OnInit {
     responsive: true,
     plugins: { legend: { position: 'bottom' as const } },
   };
+
+  readonly previousPeriodComparisons = computed(() => {
+    const d = this.data();
+    const prev = d?.previousPeriodSummary;
+    if (!prev || !d) return null;
+    const cmp = (curr: number, p: number) => {
+      const delta = curr - p;
+      return { direction: (delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat', delta };
+    };
+    return {
+      salesCount: cmp(d.salesCount, prev.salesCount),
+      salesBooked: d.salesBooked !== null ? cmp(d.salesBooked, prev.salesBooked) : null,
+      profitAfterTax: d.profitAfterTax !== null ? cmp(d.profitAfterTax, prev.profitAfterTax) : null,
+      netExpense: d.netExpense !== null ? cmp(d.netExpense, prev.netExpense) : null,
+      creditSalesPercentage: d.creditSalesPercentage !== null ? cmp(d.creditSalesPercentage, prev.creditSalesPercentage) : null,
+    };
+  });
+
+  directionIcon(direction: 'up' | 'down' | 'flat'): string {
+    return direction === 'up' ? '↑' : direction === 'down' ? '↓' : '→';
+  }
 
   ngOnInit(): void {
     const { start, end } = computePresetDates('last30');

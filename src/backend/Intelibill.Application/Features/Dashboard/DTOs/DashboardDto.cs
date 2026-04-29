@@ -32,5 +32,7 @@ public sealed record DashboardDto(
     IReadOnlyList<DashboardAlertDto> Alerts,
     // Chart series (null for Staff)
     IReadOnlyList<SalesTrendPointDto>? SalesTrendSeries,
-    IReadOnlyList<ProfitTrendPointDto>? ProfitTrendSeries);
+    IReadOnlyList<ProfitTrendPointDto>? ProfitTrendSeries,
+    // Previous-period comparison (null for Staff)
+    PreviousPeriodSummaryDto? PreviousPeriodSummary);
 

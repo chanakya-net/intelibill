@@ -635,4 +635,54 @@ public class GetDashboardQueryHandlerTests
         Assert.False(result.IsError);
         Assert.Null(result.Value.ProfitTrendSeries);
     }
+
+    [Fact]
+    public async Task Handle_WhenOwnerRole_PreviousPeriodSummaryIsComputedFromPrecedingEqualSpan()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-6); // 7-day range (spanDays = 6)
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var spanDays = end.DayNumber - start.DayNumber;
+        var prevEnd = start.AddDays(-1);
+        var prevStart = prevEnd.AddDays(-spanDays);
+
+        var prevSale = Sale.Create(shop.Id, "INV-PREV1", null, null, null, PaymentMethod.Cash,
+            new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            100m, 0m, 100m, 0m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 100m, 0m, false, false)]);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
+            .Returns([prevSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var prev = result.Value.PreviousPeriodSummary!;
+        Assert.NotNull(prev);
+        Assert.Equal(prevStart, prev.StartDate);
+        Assert.Equal(prevEnd, prev.EndDate);
+        Assert.Equal(1, prev.SalesCount);
+        Assert.Equal(100m, prev.SalesBooked);
+        Assert.Equal(40m, prev.ProfitAfterTax); // 100 - 60 = 40
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_PreviousPeriodSummaryIsNull()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.PreviousPeriodSummary);
+    }
 }

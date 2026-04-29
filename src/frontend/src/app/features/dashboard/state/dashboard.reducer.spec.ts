@@ -27,6 +27,7 @@ const makeDashboardDto = (): DashboardDto => ({
   alerts: [],
   salesTrendSeries: [],
   profitTrendSeries: [],
+  previousPeriodSummary: null,
 });
 
 describe('dashboardReducer', () => {
