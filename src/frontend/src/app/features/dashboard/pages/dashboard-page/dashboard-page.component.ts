@@ -2,7 +2,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit, Signal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -114,6 +114,7 @@ function computePresetDates(preset: DashboardPreset): { start: string; end: stri
 })
 export class DashboardPageComponent implements OnInit {
   private readonly facade = inject(DashboardFacade);
+  private readonly transloco = inject(TranslocoService);
 
   readonly data: Signal<DashboardDto | null | undefined> = toSignal(this.facade.data$);
   readonly loading = toSignal(this.facade.loading$, { initialValue: false });
@@ -154,7 +155,7 @@ export class DashboardPageComponent implements OnInit {
       labels: trend.map((p: SalesTrendPointDto) => p.date),
       datasets: [
         {
-          label: 'Sales Booked',
+          label: this.transloco.translate('dashboard.salesBooked'),
           data: trend.map((p: SalesTrendPointDto) => p.amount),
           fill: false,
           tension: 0.3,
@@ -170,7 +171,7 @@ export class DashboardPageComponent implements OnInit {
       labels: trend.map((p: ProfitTrendPointDto) => p.date),
       datasets: [
         {
-          label: 'Profit After Tax',
+          label: this.transloco.translate('dashboard.profitAfterTax'),
           data: trend.map((p: ProfitTrendPointDto) => p.profitAfterTax),
           fill: false,
           tension: 0.3,
@@ -185,7 +186,12 @@ export class DashboardPageComponent implements OnInit {
     const total = mix.cash + mix.upi + mix.card + mix.credit;
     if (total === 0) return null;
     return {
-      labels: ['Cash', 'UPI', 'Card', 'Credit'],
+      labels: [
+        this.transloco.translate('dashboard.paymentMixCash'),
+        this.transloco.translate('dashboard.paymentMixUpi'),
+        this.transloco.translate('dashboard.paymentMixCard'),
+        this.transloco.translate('dashboard.paymentMixCredit'),
+      ],
       datasets: [
         {
           data: [mix.cash, mix.upi, mix.card, mix.credit],
