@@ -57,7 +57,8 @@ public class DashboardControllerTests
             HighestDueCustomer: null,
             TopFiveDueCustomers: [],
             Alerts: [],
-            SalesTrendSeries: []);
+            SalesTrendSeries: [],
+            ProfitTrendSeries: []);
 
     [Fact]
     public async Task GetDashboard_WhenNoUserClaim_ReturnsUnauthorized()

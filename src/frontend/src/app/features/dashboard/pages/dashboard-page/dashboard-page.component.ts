@@ -9,7 +9,7 @@ import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { DashboardDto, SalesTrendPointDto } from '../../services/dashboard.service';
+import { DashboardDto, ProfitTrendPointDto, SalesTrendPointDto } from '../../services/dashboard.service';
 import { DashboardPreset } from '../../state/dashboard.actions';
 import { DashboardFacade } from '../../state/dashboard.facade';
 
@@ -131,12 +131,48 @@ export class DashboardPageComponent implements OnInit {
     };
   });
 
-  readonly salesChartOptions = {
+  readonly profitChartData = computed(() => {
+    const trend = this.data()?.profitTrendSeries;
+    if (!trend || trend.length === 0) return null;
+    return {
+      labels: trend.map((p: ProfitTrendPointDto) => p.date),
+      datasets: [
+        {
+          label: 'Profit After Tax',
+          data: trend.map((p: ProfitTrendPointDto) => p.profitAfterTax),
+          fill: false,
+          tension: 0.3,
+        },
+      ],
+    };
+  });
+
+  readonly paymentMixDonutData = computed(() => {
+    const mix = this.data()?.paymentMix;
+    if (!mix) return null;
+    const total = mix.cash + mix.upi + mix.card + mix.credit;
+    if (total === 0) return null;
+    return {
+      labels: ['Cash', 'UPI', 'Card', 'Credit'],
+      datasets: [
+        {
+          data: [mix.cash, mix.upi, mix.card, mix.credit],
+        },
+      ],
+    };
+  });
+
+  readonly lineChartOptions = {
     responsive: true,
     plugins: { legend: { display: false } },
     scales: {
       y: { beginAtZero: true },
     },
+  };
+
+  readonly donutChartOptions = {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' as const } },
   };
 
   ngOnInit(): void {

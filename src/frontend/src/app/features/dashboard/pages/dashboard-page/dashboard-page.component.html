@@ -118,10 +118,21 @@
     <!-- Sales Booked Trend Chart -->
     @if (salesChartData()) {
       <p-card [header]="'dashboard.salesTrendTitle' | transloco">
-        <p-chart type="line" [data]="salesChartData()" [options]="salesChartOptions"></p-chart>
+        <p-chart type="line" [data]="salesChartData()" [options]="lineChartOptions"></p-chart>
       </p-card>
     } @else if (dashboard.salesTrendSeries !== null) {
       <p-card [header]="'dashboard.salesTrendTitle' | transloco">
+        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+      </p-card>
+    }
+
+    <!-- Profit Trend Chart (Owner/Manager only) -->
+    @if (profitChartData()) {
+      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
+        <p-chart type="line" [data]="profitChartData()" [options]="lineChartOptions"></p-chart>
+      </p-card>
+    } @else if (dashboard.profitTrendSeries !== null) {
+      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
         <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
       </p-card>
     }
@@ -204,28 +215,12 @@
             }
           </div>
         </p-card>
-        <p-card>
-          <ng-template pTemplate="header">
-            <span class="kpi-section-title">{{ 'dashboard.paymentMix' | transloco }}</span>
-          </ng-template>
-          <div class="kpi-card payment-mix">
-            <div class="mix-item">
-              <span class="kpi-label">{{ 'dashboard.paymentMixCash' | transloco }}</span>
-              <span class="kpi-value">{{ dashboard.paymentMix.cash | currency: 'INR' }}</span>
-            </div>
-            <div class="mix-item">
-              <span class="kpi-label">{{ 'dashboard.paymentMixUpi' | transloco }}</span>
-              <span class="kpi-value">{{ dashboard.paymentMix.upi | currency: 'INR' }}</span>
-            </div>
-            <div class="mix-item">
-              <span class="kpi-label">{{ 'dashboard.paymentMixCard' | transloco }}</span>
-              <span class="kpi-value">{{ dashboard.paymentMix.card | currency: 'INR' }}</span>
-            </div>
-            <div class="mix-item">
-              <span class="kpi-label">{{ 'dashboard.paymentMixCredit' | transloco }}</span>
-              <span class="kpi-value">{{ dashboard.paymentMix.credit | currency: 'INR' }}</span>
-            </div>
-          </div>
+        <p-card [header]="'dashboard.paymentMixTitle' | transloco">
+          @if (paymentMixDonutData()) {
+            <p-chart type="doughnut" [data]="paymentMixDonutData()" [options]="donutChartOptions"></p-chart>
+          } @else {
+            <p class="kpi-empty">{{ 'dashboard.noPaymentActivity' | transloco }}</p>
+          }
         </p-card>
       </div>
     }

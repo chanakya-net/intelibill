@@ -123,18 +123,28 @@ public sealed class GetDashboardQueryHandler(
 
         // Sales Booked trend: daily buckets for the range (null for Staff)
         List<SalesTrendPointDto>? salesTrendSeries = null;
+        List<ProfitTrendPointDto>? profitTrendSeries = null;
         if (!isStaff)
         {
             var salesByDay = sales
                 .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
-                .ToDictionary(g => g.Key, g => g.Sum(s => s.TotalAmount));
+                .ToDictionary(
+                    g => g.Key,
+                    g => (
+                        SalesBooked: g.Sum(s => s.TotalAmount),
+                        Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity)));
 
             salesTrendSeries = [];
+            profitTrendSeries = [];
             for (var day = query.StartDate; day <= query.EndDate; day = day.AddDays(1))
             {
+                var dayData = salesByDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m));
                 salesTrendSeries.Add(new SalesTrendPointDto(
                     Date: day,
-                    Amount: salesByDay.GetValueOrDefault(day, 0m)));
+                    Amount: dayData.SalesBooked));
+                profitTrendSeries.Add(new ProfitTrendPointDto(
+                    Date: day,
+                    ProfitAfterTax: dayData.SalesBooked - dayData.Cost));
             }
         }
 
@@ -161,7 +171,8 @@ public sealed class GetDashboardQueryHandler(
             HighestDueCustomer: isStaff ? null : highestDueCustomer,
             TopFiveDueCustomers: isStaff ? null : topFiveDueCustomers,
             Alerts: alerts,
-            SalesTrendSeries: salesTrendSeries);
+            SalesTrendSeries: salesTrendSeries,
+            ProfitTrendSeries: profitTrendSeries);
     }
 }
 

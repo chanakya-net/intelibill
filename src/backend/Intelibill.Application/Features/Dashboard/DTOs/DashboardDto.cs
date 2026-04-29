@@ -31,5 +31,6 @@ public sealed record DashboardDto(
     // Alerts ordered by priority (role-filtered)
     IReadOnlyList<DashboardAlertDto> Alerts,
     // Chart series (null for Staff)
-    IReadOnlyList<SalesTrendPointDto>? SalesTrendSeries);
+    IReadOnlyList<SalesTrendPointDto>? SalesTrendSeries,
+    IReadOnlyList<ProfitTrendPointDto>? ProfitTrendSeries);
 

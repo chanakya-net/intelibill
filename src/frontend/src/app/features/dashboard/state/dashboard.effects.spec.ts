@@ -41,6 +41,7 @@ describe('DashboardEffects', () => {
     topFiveDueCustomers: [],
     alerts: [],
     salesTrendSeries: [],
+    profitTrendSeries: [],
   });
 
   const initialState = {

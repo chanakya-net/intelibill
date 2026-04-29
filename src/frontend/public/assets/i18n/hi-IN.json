@@ -624,6 +624,9 @@
     "salesTrendTitle": "बिक्री ट्रेंड",
     "validationStartAfterEnd": "प्रारंभ तिथि अंत तिथि के बाद नहीं हो सकती",
     "validationRangeExceeds90": "तारीख सीमा 90 दिन से अधिक नहीं हो सकती",
-    "futureDateCorrected": "भविष्य की तारीखें अनुमत नहीं हैं; अंत तिथि आज की तारीख पर सेट की गई"
+    "futureDateCorrected": "भविष्य की तारीखें अनुमत नहीं हैं; अंत तिथि आज की तारीख पर सेट की गई",
+    "profitTrendTitle": "लाभ ट्रेंड",
+    "paymentMixTitle": "भुगतान मिश्रण",
+    "noPaymentActivity": "चयनित अवधि में कोई भुगतान गतिविधि नहीं"
   }
 }

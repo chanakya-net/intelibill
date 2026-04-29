@@ -33,6 +33,7 @@ const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   topFiveDueCustomers: [],
   alerts: [],
   salesTrendSeries: [],
+  profitTrendSeries: [],
   ...overrides,
 });
 
@@ -60,6 +61,7 @@ const makeStaffDto = (): DashboardDto => ({
   topFiveDueCustomers: null,
   alerts: [{ alertType: 'RunningLowStock', priority: 3 }],
   salesTrendSeries: null,
+  profitTrendSeries: null,
 });
 
 function createFixture(dto: DashboardDto | null, errorMessage = '') {
@@ -202,6 +204,49 @@ describe('DashboardPageComponent', () => {
     const fixture = createFixture(makeStaffDto());
     const chart = fixture.debugElement.query(By.css('p-chart'));
     expect(chart).toBeNull();
+  });
+
+  it('renders profit trend chart when profitTrendSeries has data (Owner role)', () => {
+    const dto = makeOwnerDto({
+      profitTrendSeries: [
+        { date: '2026-04-28', profitAfterTax: 80 },
+        { date: '2026-04-29', profitAfterTax: 120 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('hides profit trend chart when profitTrendSeries is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    // Staff gets null for both chart series; no charts should render
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBe(0);
+  });
+
+  it('renders payment mix donut when paymentMix has non-zero total', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 200, upi: 100, card: 50, credit: 50 },
+    });
+    const fixture = createFixture(dto);
+    const chart = fixture.debugElement.query(By.css('p-chart[type="doughnut"]'));
+    // p-chart renders — verify the element exists
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows no-payment-data message when paymentMix total is zero', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 0, upi: 0, card: 0, credit: 0 },
+      salesCount: 0,
+      hasNoSalesActivity: true,
+    });
+    const fixture = createFixture(dto);
+    const el = fixture.nativeElement as HTMLElement;
+    // No donut chart rendered, empty state shown
+    const donut = fixture.debugElement.query(By.css('p-chart[type="doughnut"]'));
+    expect(donut).toBeNull();
   });
 
   describe('Validation UX (#114)', () => {

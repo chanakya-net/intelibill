@@ -592,4 +592,47 @@ public class GetDashboardQueryHandlerTests
         Assert.DoesNotContain("HighestDue", alertTypes);
         Assert.DoesNotContain("CreditShareWarning", alertTypes);
     }
+
+    [Fact]
+    public async Task Handle_WhenOwnerRole_ProfitTrendSeriesHasDailyBuckets()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-1);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var saleYesterday = Sale.Create(shop.Id, "INV-PT1", null, null, null, PaymentMethod.Cash,
+            new DateTimeOffset(Today.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            100m, 0m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
+            .Returns([saleYesterday]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var trend = result.Value.ProfitTrendSeries!;
+        Assert.Equal(2, trend.Count); // 2 days: yesterday + today
+        Assert.Equal(40m, trend[0].ProfitAfterTax); // 100 - 60 = 40
+        Assert.Equal(0m, trend[1].ProfitAfterTax); // today: no sales
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_ProfitTrendSeriesIsNull()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.ProfitTrendSeries);
+    }
 }
