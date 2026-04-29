@@ -627,6 +627,10 @@
     "futureDateCorrected": "भविष्य की तारीखें अनुमत नहीं हैं; अंत तिथि आज की तारीख पर सेट की गई",
     "profitTrendTitle": "लाभ ट्रेंड",
     "paymentMixTitle": "भुगतान मिश्रण",
-    "noPaymentActivity": "चयनित अवधि में कोई भुगतान गतिविधि नहीं"
+    "noPaymentActivity": "चयनित अवधि में कोई भुगतान गतिविधि नहीं",
+    "sectionExpenses": "व्यय विवरण",
+    "sectionPaymentBehavior": "भुगतान व्यवहार",
+    "sectionStockRisk": "स्टॉक जोखिम",
+    "sectionReceivables": "प्राप्य"
   }
 }

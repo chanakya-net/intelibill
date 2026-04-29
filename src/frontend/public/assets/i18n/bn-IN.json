@@ -628,6 +628,10 @@
     "futureDateCorrected": "End date adjusted to today (future dates not allowed)",
     "profitTrendTitle": "Profit Trend",
     "paymentMixTitle": "Payment Mix",
-    "noPaymentActivity": "No payment activity in selected period"
+    "noPaymentActivity": "No payment activity in selected period",
+    "sectionExpenses": "Expense Details",
+    "sectionPaymentBehavior": "Payment Behavior",
+    "sectionStockRisk": "Stock Risk",
+    "sectionReceivables": "Receivables"
   }
 }

@@ -207,6 +207,17 @@ export class DashboardPageComponent implements OnInit {
     plugins: { legend: { position: 'bottom' as const } },
   };
 
+  readonly sectionExpanded = signal({
+    expenses: false,
+    paymentBehavior: false,
+    stockRisk: false,
+    receivables: false,
+  });
+
+  toggleSection(section: 'expenses' | 'paymentBehavior' | 'stockRisk' | 'receivables'): void {
+    this.sectionExpanded.update((s) => ({ ...s, [section]: !s[section] }));
+  }
+
   readonly previousPeriodComparisons = computed(() => {
     const d = this.data();
     const prev = d?.previousPeriodSummary;

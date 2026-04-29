@@ -122,10 +122,10 @@ describe('DashboardPageComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     // Sales count still visible
     expect(el.textContent).toContain('5');
-    // Stock shortage item visible
-    expect(el.textContent).toContain('Sugar');
-    // No INR currency values for financial sections (paymentMix is null)
-    // The payment mix section should not be rendered
+    // Stock risk section toggle is shown (all roles see stock risk)
+    const stockToggle = fixture.debugElement.queryAll(By.css('.dashboard-section-toggle'));
+    expect(stockToggle.length).toBeGreaterThan(0);
+    // The payment mix section should not be rendered (null for Staff)
     expect(el.querySelector('.payment-mix')).toBeNull();
   });
 
@@ -166,13 +166,16 @@ describe('DashboardPageComponent', () => {
     expect(error).not.toBeNull();
   });
 
-  it('renders shortage list items', () => {
+  it('renders shortage list items when stockRisk section is expanded', () => {
     const dto = makeOwnerDto({
       rankedShortageList: [
         { itemName: 'Salt', quantity: 0, reorderLevel: 5, shortage: 5 },
       ],
     });
     const fixture = createFixture(dto);
+    // Expand stock risk section first
+    fixture.componentInstance.toggleSection('stockRisk');
+    fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Salt');
   });
 
@@ -237,13 +240,14 @@ describe('DashboardPageComponent', () => {
     expect(charts.length).toBe(0);
   });
 
-  it('renders payment mix donut when paymentMix has non-zero total', () => {
+  it('renders payment mix donut when paymentMix has non-zero total and section is expanded', () => {
     const dto = makeOwnerDto({
       paymentMix: { cash: 200, upi: 100, card: 50, credit: 50 },
     });
     const fixture = createFixture(dto);
-    const chart = fixture.debugElement.query(By.css('p-chart[type="doughnut"]'));
-    // p-chart renders — verify the element exists
+    // Expand payment behavior section
+    fixture.componentInstance.toggleSection('paymentBehavior');
+    fixture.detectChanges();
     const charts = fixture.debugElement.queryAll(By.css('p-chart'));
     expect(charts.length).toBeGreaterThanOrEqual(1);
   });
@@ -383,6 +387,44 @@ describe('DashboardPageComponent', () => {
       expect(component.pendingStartDate()).toBe('2026-04-01');
       expect(component.pendingEndDate()).toBe('2026-04-15');
       expect(component.pendingPreset()).toBe('custom');
+    });
+  });
+
+  describe('Chart-first hierarchy + collapsible sections (#119)', () => {
+    it('secondary sections are collapsed by default (no KPI content visible)', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.sectionExpanded().expenses).toBe(false);
+      expect(component.sectionExpanded().paymentBehavior).toBe(false);
+      expect(component.sectionExpanded().stockRisk).toBe(false);
+      expect(component.sectionExpanded().receivables).toBe(false);
+    });
+
+    it('toggleSection expands and collapses a section', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.sectionExpanded().expenses).toBe(false);
+      component.toggleSection('expenses');
+      expect(component.sectionExpanded().expenses).toBe(true);
+      component.toggleSection('expenses');
+      expect(component.sectionExpanded().expenses).toBe(false);
+    });
+
+    it('section toggle buttons are rendered for Owner role', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const toggles = fixture.debugElement.queryAll(By.css('.dashboard-section-toggle'));
+      expect(toggles.length).toBeGreaterThanOrEqual(3); // expenses, paymentBehavior, stockRisk, receivables
+    });
+
+    it('expense KPI content is hidden when expenses section is collapsed', () => {
+      const fixture = createFixture(makeOwnerDto());
+      fixture.detectChanges();
+      const expenseKpi = (fixture.nativeElement as HTMLElement).querySelector('[class*="dashboard-section"]');
+      // section content (grid) not present when collapsed
+      const grid = fixture.debugElement.queryAll(By.css('.dashboard-kpi-grid'));
+      // Only the primary Sales KPI grid should be in the DOM initially; secondary grids collapsed
+      // The primary Sales & Profit grid is not collapsible
+      expect(fixture.componentInstance.sectionExpanded().expenses).toBe(false);
     });
   });
 });

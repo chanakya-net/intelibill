@@ -188,128 +188,184 @@
       }
     </div>
 
-    <!-- Expense KPIs -->
+    <!-- Expense KPIs (collapsed by default) -->
     @if (dashboard.expenseRecorded !== null) {
-      <div class="dashboard-kpi-grid">
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.expenseRecorded' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.expenseRecorded | currency: 'INR' }}</span>
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('expenses')"
+          [attr.aria-expanded]="sectionExpanded().expenses"
+        >
+          <span>{{ 'dashboard.sectionExpenses' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().expenses" [class.pi-chevron-up]="sectionExpanded().expenses"></span>
+        </button>
+        @if (sectionExpanded().expenses) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.expenseRecorded' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.expenseRecorded | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.expenseCorrection' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.expenseCorrection | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
+                @if (previousPeriodComparisons()?.netExpense; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+                  </span>
+                }
+              </div>
+            </p-card>
           </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.expenseCorrection' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.expenseCorrection | currency: 'INR' }}</span>
-          </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
-            @if (previousPeriodComparisons()?.netExpense; as cmp) {
-              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
-                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
-              </span>
-            }
-          </div>
-        </p-card>
-      </div>
-    }
-
-    <!-- Payment Behavior -->
-    @if (dashboard.paymentMix !== null) {
-      <div class="dashboard-kpi-grid">
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.creditSalesAmount' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.creditSalesAmount | currency: 'INR' }}</span>
-          </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.creditSalesPercentage' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
-            @if (dashboard.creditShareWarning === true) {
-              <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
-            }
-            @if (previousPeriodComparisons()?.creditSalesPercentage; as cmp) {
-              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
-                {{ directionIcon(cmp.direction) }} {{ cmp.delta | percent: '1.1-1' }}
-              </span>
-            }
-          </div>
-        </p-card>
-        <p-card [header]="'dashboard.paymentMixTitle' | transloco">
-          @if (paymentMixDonutData()) {
-            <p-chart type="doughnut" [data]="paymentMixDonutData()" [options]="donutChartOptions"></p-chart>
-          } @else {
-            <p class="kpi-empty">{{ 'dashboard.noPaymentActivity' | transloco }}</p>
-          }
-        </p-card>
-      </div>
-    }
-
-    <!-- Stock Risk -->
-    <div class="dashboard-kpi-grid">
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.runningLowStockCount' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.runningLowStockCount }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.criticalStockCount' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.criticalStockCount }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <ng-template pTemplate="header">
-          <span class="kpi-section-title">{{ 'dashboard.stockShortageList' | transloco }}</span>
-        </ng-template>
-        @if (dashboard.rankedShortageList.length === 0) {
-          <p class="kpi-empty">{{ 'dashboard.noStockRisk' | transloco }}</p>
-        } @else {
-          <ul class="shortage-list">
-            @for (item of dashboard.rankedShortageList; track item.itemName) {
-              <li>{{ item.itemName }} — {{ item.quantity }}/{{ item.reorderLevel }}</li>
-            }
-          </ul>
         }
-      </p-card>
+      </div>
+    }
+
+    <!-- Payment Behavior (collapsed by default) -->
+    @if (dashboard.paymentMix !== null) {
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('paymentBehavior')"
+          [attr.aria-expanded]="sectionExpanded().paymentBehavior"
+        >
+          <span>{{ 'dashboard.sectionPaymentBehavior' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().paymentBehavior" [class.pi-chevron-up]="sectionExpanded().paymentBehavior"></span>
+        </button>
+        @if (sectionExpanded().paymentBehavior) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.creditSalesAmount' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.creditSalesAmount | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.creditSalesPercentage' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
+                @if (dashboard.creditShareWarning === true) {
+                  <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
+                }
+                @if (previousPeriodComparisons()?.creditSalesPercentage; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | percent: '1.1-1' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+            <p-card [header]="'dashboard.paymentMixTitle' | transloco">
+              @if (paymentMixDonutData()) {
+                <p-chart type="doughnut" [data]="paymentMixDonutData()" [options]="donutChartOptions"></p-chart>
+              } @else {
+                <p class="kpi-empty">{{ 'dashboard.noPaymentActivity' | transloco }}</p>
+              }
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Stock Risk (collapsed by default) -->
+    <div class="dashboard-section">
+      <button
+        type="button"
+        class="dashboard-section-toggle"
+        (click)="toggleSection('stockRisk')"
+        [attr.aria-expanded]="sectionExpanded().stockRisk"
+      >
+        <span>{{ 'dashboard.sectionStockRisk' | transloco }}</span>
+        <span class="dashboard-section-summary">
+          {{ 'dashboard.criticalStockCount' | transloco }}: {{ dashboard.criticalStockCount }} /
+          {{ 'dashboard.runningLowStockCount' | transloco }}: {{ dashboard.runningLowStockCount }}
+        </span>
+        <span class="pi" [class.pi-chevron-down]="!sectionExpanded().stockRisk" [class.pi-chevron-up]="sectionExpanded().stockRisk"></span>
+      </button>
+      @if (sectionExpanded().stockRisk) {
+        <div class="dashboard-kpi-grid">
+          <p-card>
+            <div class="kpi-card">
+              <span class="kpi-label">{{ 'dashboard.runningLowStockCount' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.runningLowStockCount }}</span>
+            </div>
+          </p-card>
+          <p-card>
+            <div class="kpi-card">
+              <span class="kpi-label">{{ 'dashboard.criticalStockCount' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.criticalStockCount }}</span>
+            </div>
+          </p-card>
+          <p-card>
+            <ng-template pTemplate="header">
+              <span class="kpi-section-title">{{ 'dashboard.stockShortageList' | transloco }}</span>
+            </ng-template>
+            @if (dashboard.rankedShortageList.length === 0) {
+              <p class="kpi-empty">{{ 'dashboard.noStockRisk' | transloco }}</p>
+            } @else {
+              <ul class="shortage-list">
+                @for (item of dashboard.rankedShortageList; track item.itemName) {
+                  <li>{{ item.itemName }} — {{ item.quantity }}/{{ item.reorderLevel }}</li>
+                }
+              </ul>
+            }
+          </p-card>
+        </div>
+      }
     </div>
 
-    <!-- Receivable Risk -->
+    <!-- Receivable Risk (collapsed by default) -->
     @if (dashboard.topFiveDueCustomers !== null) {
-      <div class="dashboard-kpi-grid">
-        <p-card>
-          <ng-template pTemplate="header">
-            <span class="kpi-section-title">{{ 'dashboard.highestDueCustomer' | transloco }}</span>
-          </ng-template>
-          @if (dashboard.highestDueCustomer) {
-            <div class="kpi-card">
-              <span class="kpi-label">{{ dashboard.highestDueCustomer.displayName }}</span>
-              <span class="kpi-value">{{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}</span>
-            </div>
-          } @else {
-            <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
-          }
-        </p-card>
-        <p-card>
-          <ng-template pTemplate="header">
-            <span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span>
-          </ng-template>
-          @if (dashboard.topFiveDueCustomers.length === 0) {
-            <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
-          } @else {
-            <ul class="due-list">
-              @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
-                <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('receivables')"
+          [attr.aria-expanded]="sectionExpanded().receivables"
+        >
+          <span>{{ 'dashboard.sectionReceivables' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().receivables" [class.pi-chevron-up]="sectionExpanded().receivables"></span>
+        </button>
+        @if (sectionExpanded().receivables) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <ng-template pTemplate="header">
+                <span class="kpi-section-title">{{ 'dashboard.highestDueCustomer' | transloco }}</span>
+              </ng-template>
+              @if (dashboard.highestDueCustomer) {
+                <div class="kpi-card">
+                  <span class="kpi-label">{{ dashboard.highestDueCustomer.displayName }}</span>
+                  <span class="kpi-value">{{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}</span>
+                </div>
+              } @else {
+                <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
               }
-            </ul>
-          }
-        </p-card>
+            </p-card>
+            <p-card>
+              <ng-template pTemplate="header">
+                <span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span>
+              </ng-template>
+              @if (dashboard.topFiveDueCustomers.length === 0) {
+                <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+              } @else {
+                <ul class="due-list">
+                  @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
+                    <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
+                  }
+                </ul>
+              }
+            </p-card>
+          </div>
+        }
       </div>
     }
   }
