@@ -605,6 +605,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "ಕ್ಯಾಶ್ಡ್ ಡೇಟಾ ತೋರಿಸಲಾಗುತ್ತಿದೆ — ರಿಫ್ರೆಶ್ ವಿಫಲ",
+    "alertCriticalStock": "ಐಟಂ ಸ್ಟಾಕ್ ಮುಗಿದಿದೆ",
+    "alertHighestDue": "ಅತಿ ಹೆಚ್ಚು ಗ್ರಾಹಕ ಬಾಕಿ",
+    "alertRunningLowStock": "ಸ್ಟಾಕ್ ಕಡಿಮೆಯಾಗುತ್ತಿದೆ",
+    "alertCreditShareWarning": "ಕ್ರೆಡಿಟ್ ಮಾರಾಟ ಮಿತಿ ಮೀರಿದೆ"
   }
 }

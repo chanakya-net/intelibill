@@ -24,26 +24,33 @@ export interface CustomerDueDto {
   readonly outstandingDue: number;
 }
 
+export interface DashboardAlertDto {
+  readonly alertType: string;
+  readonly priority: number;
+}
+
 export interface DashboardDto {
   readonly generatedAt: string;
   readonly reportingDay: string;
   readonly salesCount: number;
-  readonly salesBooked: number;
-  readonly cashCollected: number;
-  readonly profitBeforeTax: number;
-  readonly profitAfterTax: number;
-  readonly expenseRecorded: number;
-  readonly expenseCorrection: number;
-  readonly netExpense: number;
-  readonly creditSalesAmount: number;
-  readonly creditSalesPercentage: number;
-  readonly paymentMix: PaymentMixDto;
-  readonly creditShareWarning: boolean;
+  readonly hasNoSalesActivity: boolean;
+  readonly salesBooked: number | null;
+  readonly cashCollected: number | null;
+  readonly profitBeforeTax: number | null;
+  readonly profitAfterTax: number | null;
+  readonly expenseRecorded: number | null;
+  readonly expenseCorrection: number | null;
+  readonly netExpense: number | null;
+  readonly creditSalesAmount: number | null;
+  readonly creditSalesPercentage: number | null;
+  readonly paymentMix: PaymentMixDto | null;
+  readonly creditShareWarning: boolean | null;
   readonly runningLowStockCount: number;
   readonly criticalStockCount: number;
   readonly rankedShortageList: ReadonlyArray<StockShortageItemDto>;
   readonly highestDueCustomer: CustomerDueDto | null;
-  readonly topFiveDueCustomers: ReadonlyArray<CustomerDueDto>;
+  readonly topFiveDueCustomers: ReadonlyArray<CustomerDueDto> | null;
+  readonly alerts: ReadonlyArray<DashboardAlertDto>;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -650,6 +650,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "Showing cached data — refresh failed",
+    "alertCriticalStock": "Critical stock out of items",
+    "alertHighestDue": "Outstanding customer receivable",
+    "alertRunningLowStock": "Stock running low",
+    "alertCreditShareWarning": "Credit sales share exceeds threshold"
   }
 }

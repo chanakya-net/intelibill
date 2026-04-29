@@ -606,6 +606,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "கேஷ்டு தரவு காட்டப்படுகிறது — புதுப்பிப்பு தோல்வி",
+    "alertCriticalStock": "பொருள் இருப்பு தீர்ந்தது",
+    "alertHighestDue": "அதிகபட்ச வாடிக்கையாளர் நிலுவை",
+    "alertRunningLowStock": "இருப்பு குறைந்து வருகிறது",
+    "alertCreditShareWarning": "கடன் விற்பனை வரம்பு தாண்டியது"
   }
 }

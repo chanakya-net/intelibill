@@ -605,6 +605,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "കാഷ്ഡ് ഡേറ്റ കാണിക്കുന്നു — റിഫ്രഷ് പരാജയപ്പെട്ടു",
+    "alertCriticalStock": "ഇനം സ്റ്റോക്ക് തീർന്നു",
+    "alertHighestDue": "ഏറ്റവും ഉയർന്ന ഉപഭോക്തൃ കുടിശ്ശിക",
+    "alertRunningLowStock": "സ്റ്റോക്ക് കുറയുന്നു",
+    "alertCreditShareWarning": "ക്രെഡിറ്റ് വിൽപ്പന പരിധി കവിഞ്ഞു"
   }
 }

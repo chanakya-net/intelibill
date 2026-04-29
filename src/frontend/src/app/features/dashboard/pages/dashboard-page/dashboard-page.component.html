@@ -23,6 +23,13 @@
     </div>
   }
 
+  @if (error() && data()) {
+    <div class="dashboard-stale-warning">
+      <span class="pi pi-exclamation-triangle"></span>
+      <span>{{ 'dashboard.staleDataWarning' | transloco }}</span>
+    </div>
+  }
+
   @if (data(); as dashboard) {
     <div class="dashboard-freshness">
       <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}</span>
@@ -30,6 +37,25 @@
       <span class="freshness-label">{{ 'dashboard.reportingDay' | transloco }}</span>
       <span class="freshness-value">{{ dashboard.reportingDay }}</span>
     </div>
+
+    @if (dashboard.hasNoSalesActivity) {
+      <div class="dashboard-no-activity">
+        <span class="pi pi-info-circle"></span>
+        <span>{{ 'dashboard.noActivity' | transloco }}</span>
+      </div>
+    }
+
+    <!-- Alerts -->
+    @if (dashboard.alerts.length > 0) {
+      <div class="dashboard-alerts">
+        @for (alert of dashboard.alerts; track alert.alertType) {
+          <div class="dashboard-alert" [class]="'alert-' + alert.alertType.toLowerCase()">
+            <span class="pi pi-exclamation-circle"></span>
+            <span>{{ 'dashboard.alert' + alert.alertType | transloco }}</span>
+          </div>
+        }
+      </div>
+    }
 
     <!-- Sales & Profit KPIs -->
     <div class="dashboard-kpi-grid">
@@ -39,95 +65,101 @@
           <span class="kpi-value">{{ dashboard.salesCount }}</span>
         </div>
       </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.cashCollected' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.cashCollected | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.profitBeforeTax' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.profitBeforeTax | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
-        </div>
-      </p-card>
+      @if (dashboard.salesBooked !== null) {
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.cashCollected' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.cashCollected | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.profitBeforeTax' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.profitBeforeTax | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+      }
     </div>
 
     <!-- Expense KPIs -->
-    <div class="dashboard-kpi-grid">
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.expenseRecorded' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.expenseRecorded | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.expenseCorrection' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.expenseCorrection | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-    </div>
+    @if (dashboard.expenseRecorded !== null) {
+      <div class="dashboard-kpi-grid">
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.expenseRecorded' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.expenseRecorded | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.expenseCorrection' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.expenseCorrection | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+      </div>
+    }
 
     <!-- Payment Behavior -->
-    <div class="dashboard-kpi-grid">
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.creditSalesAmount' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.creditSalesAmount | currency: 'INR' }}</span>
-        </div>
-      </p-card>
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.creditSalesPercentage' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
-          @if (dashboard.creditShareWarning) {
-            <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
-          }
-        </div>
-      </p-card>
-      <p-card>
-        <ng-template pTemplate="header">
-          <span class="kpi-section-title">{{ 'dashboard.paymentMix' | transloco }}</span>
-        </ng-template>
-        <div class="kpi-card payment-mix">
-          <div class="mix-item">
-            <span class="kpi-label">{{ 'dashboard.paymentMixCash' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.paymentMix.cash | currency: 'INR' }}</span>
+    @if (dashboard.paymentMix !== null) {
+      <div class="dashboard-kpi-grid">
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.creditSalesAmount' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.creditSalesAmount | currency: 'INR' }}</span>
           </div>
-          <div class="mix-item">
-            <span class="kpi-label">{{ 'dashboard.paymentMixUpi' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.paymentMix.upi | currency: 'INR' }}</span>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.creditSalesPercentage' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
+            @if (dashboard.creditShareWarning === true) {
+              <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
+            }
           </div>
-          <div class="mix-item">
-            <span class="kpi-label">{{ 'dashboard.paymentMixCard' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.paymentMix.card | currency: 'INR' }}</span>
+        </p-card>
+        <p-card>
+          <ng-template pTemplate="header">
+            <span class="kpi-section-title">{{ 'dashboard.paymentMix' | transloco }}</span>
+          </ng-template>
+          <div class="kpi-card payment-mix">
+            <div class="mix-item">
+              <span class="kpi-label">{{ 'dashboard.paymentMixCash' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.paymentMix.cash | currency: 'INR' }}</span>
+            </div>
+            <div class="mix-item">
+              <span class="kpi-label">{{ 'dashboard.paymentMixUpi' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.paymentMix.upi | currency: 'INR' }}</span>
+            </div>
+            <div class="mix-item">
+              <span class="kpi-label">{{ 'dashboard.paymentMixCard' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.paymentMix.card | currency: 'INR' }}</span>
+            </div>
+            <div class="mix-item">
+              <span class="kpi-label">{{ 'dashboard.paymentMixCredit' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.paymentMix.credit | currency: 'INR' }}</span>
+            </div>
           </div>
-          <div class="mix-item">
-            <span class="kpi-label">{{ 'dashboard.paymentMixCredit' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.paymentMix.credit | currency: 'INR' }}</span>
-          </div>
-        </div>
-      </p-card>
-    </div>
+        </p-card>
+      </div>
+    }
 
     <!-- Stock Risk -->
     <div class="dashboard-kpi-grid">
@@ -160,35 +192,37 @@
     </div>
 
     <!-- Receivable Risk -->
-    <div class="dashboard-kpi-grid">
-      <p-card>
-        <ng-template pTemplate="header">
-          <span class="kpi-section-title">{{ 'dashboard.highestDueCustomer' | transloco }}</span>
-        </ng-template>
-        @if (dashboard.highestDueCustomer) {
-          <div class="kpi-card">
-            <span class="kpi-label">{{ dashboard.highestDueCustomer.displayName }}</span>
-            <span class="kpi-value">{{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}</span>
-          </div>
-        } @else {
-          <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
-        }
-      </p-card>
-      <p-card>
-        <ng-template pTemplate="header">
-          <span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span>
-        </ng-template>
-        @if (dashboard.topFiveDueCustomers.length === 0) {
-          <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
-        } @else {
-          <ul class="due-list">
-            @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
-              <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
-            }
-          </ul>
-        }
-      </p-card>
-    </div>
+    @if (dashboard.topFiveDueCustomers !== null) {
+      <div class="dashboard-kpi-grid">
+        <p-card>
+          <ng-template pTemplate="header">
+            <span class="kpi-section-title">{{ 'dashboard.highestDueCustomer' | transloco }}</span>
+          </ng-template>
+          @if (dashboard.highestDueCustomer) {
+            <div class="kpi-card">
+              <span class="kpi-label">{{ dashboard.highestDueCustomer.displayName }}</span>
+              <span class="kpi-value">{{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}</span>
+            </div>
+          } @else {
+            <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+          }
+        </p-card>
+        <p-card>
+          <ng-template pTemplate="header">
+            <span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span>
+          </ng-template>
+          @if (dashboard.topFiveDueCustomers.length === 0) {
+            <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+          } @else {
+            <ul class="due-list">
+              @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
+                <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
+              }
+            </ul>
+          }
+        </p-card>
+      </div>
+    }
   }
 </div>
 

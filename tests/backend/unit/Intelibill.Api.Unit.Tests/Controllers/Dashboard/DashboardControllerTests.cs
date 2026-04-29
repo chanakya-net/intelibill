@@ -38,6 +38,7 @@ public class DashboardControllerTests
             GeneratedAt: DateTimeOffset.UtcNow,
             ReportingDay: DateOnly.FromDateTime(DateTime.UtcNow),
             SalesCount: 3,
+            HasNoSalesActivity: false,
             SalesBooked: 300m,
             CashCollected: 250m,
             ProfitBeforeTax: 60m,
@@ -53,7 +54,8 @@ public class DashboardControllerTests
             CriticalStockCount: 0,
             RankedShortageList: [],
             HighestDueCustomer: null,
-            TopFiveDueCustomers: []);
+            TopFiveDueCustomers: [],
+            Alerts: []);
 
     [Fact]
     public async Task GetDashboard_WhenNoUserClaim_ReturnsUnauthorized()

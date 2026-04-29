@@ -606,6 +606,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "कॅश्ड डेटा दाखवत आहे — रिफ्रेश अयशस्वी",
+    "alertCriticalStock": "वस्तू स्टॉक संपली",
+    "alertHighestDue": "सर्वाधिक ग्राहक थकबाकी",
+    "alertRunningLowStock": "स्टॉक कमी होत आहे",
+    "alertCreditShareWarning": "क्रेडिट विक्री मर्यादा ओलांडली"
   }
 }

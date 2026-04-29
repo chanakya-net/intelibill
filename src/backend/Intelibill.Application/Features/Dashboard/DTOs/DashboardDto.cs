@@ -3,26 +3,30 @@ namespace Intelibill.Application.Features.Dashboard.DTOs;
 public sealed record DashboardDto(
     DateTimeOffset GeneratedAt,
     DateOnly ReportingDay,
-    // Sales and Profit KPIs
+    // Operational KPIs (all roles)
     int SalesCount,
-    decimal SalesBooked,
-    decimal CashCollected,
-    decimal ProfitBeforeTax,
-    decimal ProfitAfterTax,
-    // Expense KPIs
-    decimal ExpenseRecorded,
-    decimal ExpenseCorrection,
-    decimal NetExpense,
-    // Payment Behavior
-    decimal CreditSalesAmount,
-    decimal CreditSalesPercentage,
-    PaymentMixDto PaymentMix,
-    bool CreditShareWarning,
-    // Stock Risk (Live Snapshot)
+    bool HasNoSalesActivity,
+    // Sales and Profit KPIs (null for Staff)
+    decimal? SalesBooked,
+    decimal? CashCollected,
+    decimal? ProfitBeforeTax,
+    decimal? ProfitAfterTax,
+    // Expense KPIs (null for Staff)
+    decimal? ExpenseRecorded,
+    decimal? ExpenseCorrection,
+    decimal? NetExpense,
+    // Payment Behavior (null for Staff)
+    decimal? CreditSalesAmount,
+    decimal? CreditSalesPercentage,
+    PaymentMixDto? PaymentMix,
+    bool? CreditShareWarning,
+    // Stock Risk — Live Snapshot (all roles)
     int RunningLowStockCount,
     int CriticalStockCount,
     IReadOnlyList<StockShortageItemDto> RankedShortageList,
-    // Receivable Risk (Live Snapshot)
+    // Receivable Risk — Live Snapshot (null for Staff)
     CustomerDueDto? HighestDueCustomer,
-    IReadOnlyList<CustomerDueDto> TopFiveDueCustomers);
+    IReadOnlyList<CustomerDueDto>? TopFiveDueCustomers,
+    // Alerts ordered by priority (role-filtered)
+    IReadOnlyList<DashboardAlertDto> Alerts);
 

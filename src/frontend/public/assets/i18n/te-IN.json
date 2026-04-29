@@ -606,6 +606,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "కాష్ చేసిన డేటా చూపబడుతోంది — రిఫ్రెష్ విఫలమైంది",
+    "alertCriticalStock": "వస్తువు స్టాక్ అయిపోయింది",
+    "alertHighestDue": "అత్యధిక కస్టమర్ బకాయి",
+    "alertRunningLowStock": "స్టాక్ తక్కువగా ఉంది",
+    "alertCreditShareWarning": "క్రెడిట్ అమ్మకాల పరిమితి దాటింది"
   }
 }

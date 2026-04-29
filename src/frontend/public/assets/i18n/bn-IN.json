@@ -606,6 +606,11 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period"
+    "noActivity": "No activity in selected period",
+    "staleDataWarning": "ক্যাশড ডেটা দেখানো হচ্ছে — রিফ্রেশ ব্যর্থ",
+    "alertCriticalStock": "আইটেম স্টক শেষ",
+    "alertHighestDue": "সর্বোচ্চ গ্রাহক বাকি",
+    "alertRunningLowStock": "স্টক কমছে",
+    "alertCreditShareWarning": "ক্রেডিট বিক্রি সীমা অতিক্রম"
   }
 }

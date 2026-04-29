@@ -125,12 +125,15 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.NetExpense);
         Assert.Equal(0m, dto.CreditSalesAmount);
         Assert.Equal(0m, dto.CreditSalesPercentage);
-        Assert.False(dto.CreditShareWarning);
+        Assert.Equal(false, dto.CreditShareWarning);
         Assert.Equal(0, dto.RunningLowStockCount);
         Assert.Equal(0, dto.CriticalStockCount);
         Assert.Empty(dto.RankedShortageList);
         Assert.Null(dto.HighestDueCustomer);
+        Assert.NotNull(dto.TopFiveDueCustomers);
         Assert.Empty(dto.TopFiveDueCustomers);
+        Assert.True(dto.HasNoSalesActivity);
+        Assert.Empty(dto.Alerts);
         Assert.InRange(dto.GeneratedAt, before, after);
     }
 
@@ -192,7 +195,7 @@ public class GetDashboardQueryHandlerTests
             new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.True(result.Value.CreditShareWarning);
+        Assert.Equal(true, result.Value.CreditShareWarning);
         Assert.Equal(50m, result.Value.CreditSalesAmount);
         Assert.Equal(0.5m, result.Value.CreditSalesPercentage);
     }
@@ -217,7 +220,7 @@ public class GetDashboardQueryHandlerTests
             new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.False(result.Value.CreditShareWarning);
+        Assert.Equal(false, result.Value.CreditShareWarning);
     }
 
     [Fact]
@@ -272,7 +275,7 @@ public class GetDashboardQueryHandlerTests
         Assert.False(result.IsError);
         Assert.NotNull(result.Value.HighestDueCustomer);
         Assert.Equal(600m, result.Value.HighestDueCustomer!.OutstandingDue);
-        Assert.Equal(5, result.Value.TopFiveDueCustomers.Count);
+        Assert.Equal(5, result.Value.TopFiveDueCustomers!.Count);
     }
 
     [Fact]
@@ -324,10 +327,167 @@ public class GetDashboardQueryHandlerTests
             new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(100m, result.Value.PaymentMix.Cash);
+        Assert.Equal(100m, result.Value.PaymentMix!.Cash);
         Assert.Equal(200m, result.Value.PaymentMix.Upi);
         Assert.Equal(300m, result.Value.PaymentMix.Card);
         Assert.Equal(0m, result.Value.PaymentMix.Credit);
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_NullsOutFinancialKpis()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var sale = MakeCashSale(shop.Id, 100m, 100m, 10m);
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var dto = result.Value;
+        Assert.Equal(1, dto.SalesCount);
+        Assert.Null(dto.SalesBooked);
+        Assert.Null(dto.CashCollected);
+        Assert.Null(dto.ProfitBeforeTax);
+        Assert.Null(dto.ProfitAfterTax);
+        Assert.Null(dto.ExpenseRecorded);
+        Assert.Null(dto.ExpenseCorrection);
+        Assert.Null(dto.NetExpense);
+        Assert.Null(dto.CreditSalesAmount);
+        Assert.Null(dto.CreditSalesPercentage);
+        Assert.Null(dto.PaymentMix);
+        Assert.Null(dto.CreditShareWarning);
+        Assert.Null(dto.HighestDueCustomer);
+        Assert.Null(dto.TopFiveDueCustomers);
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_StillReturnsStockKpis()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var lowInventory = MakeInventory(shop.Id, quantity: 2m, reorderLevel: 10m, "Widget A");
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([lowInventory]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1, result.Value.RunningLowStockCount);
+        Assert.Equal(0, result.Value.CriticalStockCount);
+        Assert.Single(result.Value.RankedShortageList);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSalesExist_HasNoSalesActivityIsFalse()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([MakeCashSale(shop.Id, 100m, 100m, 10m)]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCriticalStockExists_AddsAlertWithPriorityOne()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var criticalInventory = MakeInventory(shop.Id, quantity: 0m, reorderLevel: 5m, "Widget X");
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([criticalInventory]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Contains(result.Value.Alerts, a => a.AlertType == "CriticalStock" && a.Priority == 1);
+    }
+
+    [Fact]
+    public async Task Handle_AlertsOrderedByPriorityWithFinancialAlertsForOwner()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var criticalInventory = MakeInventory(shop.Id, quantity: 0m, reorderLevel: 5m, "Widget X");
+        var lowInventory = MakeInventory(shop.Id, quantity: 2m, reorderLevel: 10m, "Widget Y");
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([criticalInventory, lowInventory]);
+
+        var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
+            DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+        var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([creditSale, cashSale]);
+
+        var customer = Customer.Create(shop.Id, "Big Buyer", "9000000001", null);
+        _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([customer]);
+        _customerLedgerEntryRepository.GetCustomerBalancesAsync(
+                shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, decimal> { [customer.Id] = 1000m });
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var alerts = result.Value.Alerts;
+        Assert.Equal(4, alerts.Count);
+        Assert.Equal("CriticalStock", alerts[0].AlertType);
+        Assert.Equal("HighestDue", alerts[1].AlertType);
+        Assert.Equal("RunningLowStock", alerts[2].AlertType);
+        Assert.Equal("CreditShareWarning", alerts[3].AlertType);
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_FinancialAlertsOmitted()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var criticalInventory = MakeInventory(shop.Id, quantity: 0m, reorderLevel: 5m, "Widget X");
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([criticalInventory]);
+
+        var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
+            DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+        var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([creditSale, cashSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var alertTypes = result.Value.Alerts.Select(a => a.AlertType).ToList();
+        Assert.Contains("CriticalStock", alertTypes);
+        Assert.DoesNotContain("HighestDue", alertTypes);
+        Assert.DoesNotContain("CreditShareWarning", alertTypes);
     }
 }
 

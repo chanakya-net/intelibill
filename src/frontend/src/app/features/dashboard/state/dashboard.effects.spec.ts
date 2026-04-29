@@ -20,6 +20,7 @@ describe('DashboardEffects', () => {
     generatedAt: '2026-04-29T11:00:00Z',
     reportingDay: '2026-04-29',
     salesCount: 5,
+    hasNoSalesActivity: false,
     salesBooked: 500,
     cashCollected: 450,
     profitBeforeTax: 100,
@@ -36,6 +37,7 @@ describe('DashboardEffects', () => {
     rankedShortageList: [],
     highestDueCustomer: null,
     topFiveDueCustomers: [],
+    alerts: [],
   });
 
   beforeEach(() => {

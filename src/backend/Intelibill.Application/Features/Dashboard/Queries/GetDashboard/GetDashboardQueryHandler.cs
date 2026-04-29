@@ -33,6 +33,7 @@ public sealed class GetDashboardQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
+        var isStaff = membership.Role == ShopRole.Staff;
         var reportingDay = query.ReportingDay ?? DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
         var sales = await saleRepository.GetByShopAndDateAsync(query.ShopId, reportingDay, cancellationToken);
@@ -98,26 +99,39 @@ public sealed class GetDashboardQueryHandler(
         var highestDueCustomer = customerDueSummaries.FirstOrDefault();
         var topFiveDueCustomers = customerDueSummaries.Take(5).ToList();
 
+        // Alerts ordered by priority; financial alerts hidden from Staff
+        var alerts = new List<DashboardAlertDto>();
+        if (criticalStock.Count > 0)
+            alerts.Add(new DashboardAlertDto("CriticalStock", 1));
+        if (!isStaff && highestDueCustomer is not null)
+            alerts.Add(new DashboardAlertDto("HighestDue", 2));
+        if (runningLowStock.Count > 0)
+            alerts.Add(new DashboardAlertDto("RunningLowStock", 3));
+        if (!isStaff && creditShareWarning)
+            alerts.Add(new DashboardAlertDto("CreditShareWarning", 4));
+
         return new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
             ReportingDay: reportingDay,
             SalesCount: salesCount,
-            SalesBooked: salesBooked,
-            CashCollected: cashCollected,
-            ProfitBeforeTax: profitBeforeTax,
-            ProfitAfterTax: profitAfterTax,
-            ExpenseRecorded: expenseRecorded,
-            ExpenseCorrection: expenseCorrection,
-            NetExpense: netExpense,
-            CreditSalesAmount: creditSalesAmount,
-            CreditSalesPercentage: creditSalesPercentage,
-            PaymentMix: paymentMix,
-            CreditShareWarning: creditShareWarning,
+            HasNoSalesActivity: salesCount == 0,
+            SalesBooked: isStaff ? null : salesBooked,
+            CashCollected: isStaff ? null : cashCollected,
+            ProfitBeforeTax: isStaff ? null : profitBeforeTax,
+            ProfitAfterTax: isStaff ? null : profitAfterTax,
+            ExpenseRecorded: isStaff ? null : expenseRecorded,
+            ExpenseCorrection: isStaff ? null : expenseCorrection,
+            NetExpense: isStaff ? null : netExpense,
+            CreditSalesAmount: isStaff ? null : creditSalesAmount,
+            CreditSalesPercentage: isStaff ? null : creditSalesPercentage,
+            PaymentMix: isStaff ? null : paymentMix,
+            CreditShareWarning: isStaff ? null : creditShareWarning,
             RunningLowStockCount: runningLowStock.Count,
             CriticalStockCount: criticalStock.Count,
             RankedShortageList: rankedShortageList,
-            HighestDueCustomer: highestDueCustomer,
-            TopFiveDueCustomers: topFiveDueCustomers);
+            HighestDueCustomer: isStaff ? null : highestDueCustomer,
+            TopFiveDueCustomers: isStaff ? null : topFiveDueCustomers,
+            Alerts: alerts);
     }
 }
 
