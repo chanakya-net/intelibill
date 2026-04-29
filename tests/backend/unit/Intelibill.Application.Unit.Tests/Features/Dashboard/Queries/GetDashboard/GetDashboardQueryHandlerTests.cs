@@ -4,6 +4,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
+using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
@@ -12,9 +13,14 @@ public class GetDashboardQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
+    private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
+    private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
     private GetDashboardQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _expenseRepository,
+            _inventoryRepository, _customerRepository, _customerLedgerEntryRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("dash@test.com", "hash", "Dash", "User");
@@ -24,6 +30,33 @@ public class GetDashboardQueryHandlerTests
 
     private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
         ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
+
+    private static Sale MakeCashSale(Guid shopId, decimal total, decimal paid, decimal tax) =>
+        Sale.Create(shopId, "INV-001", null, null, null, PaymentMethod.Cash,
+            DateTimeOffset.UtcNow, paid, total - paid, total, tax,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1, total * 0.8m, total, total * 1.1m, 10m, false, false)]);
+
+    private static DomainInventory MakeInventory(Guid shopId, decimal quantity, decimal reorderLevel, string itemName = "Widget")
+    {
+        var itemId = Guid.NewGuid();
+        var inventory = DomainInventory.Create(shopId, itemId, quantity, reorderLevel, reorderLevel + 100, Guid.NewGuid()).Value;
+        var item = Item.Create(shopId, itemName, null, "pcs", "BC001", true, Guid.NewGuid());
+        typeof(DomainInventory).GetProperty("Item")!.SetValue(inventory, item);
+        return inventory;
+    }
+
+    private void SetupValidUserShopMembership(User user, Shop shop, ShopMembership membership)
+    {
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
+        _expenseRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _customerLedgerEntryRepository.GetCustomerBalancesAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, decimal>());
+    }
 
     [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsNotFoundError()
@@ -69,21 +102,12 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenValid_ReturnsDashboardWithSalesCountAndFreshnessStamp()
+    public async Task Handle_WhenNoData_ReturnsDashboardWithZeroKpis()
     {
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-
-        var sale = Sale.Create(
-            shop.Id, "INV-001", null, "John", null, PaymentMethod.Cash,
-            DateTimeOffset.UtcNow, 100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 80m, 100m, 120m, 10m, false, false)]);
-
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+        SetupValidUserShopMembership(user, shop, membership);
 
         var before = DateTimeOffset.UtcNow;
         var result = await CreateHandler().Handle(
@@ -91,26 +115,219 @@ public class GetDashboardQueryHandlerTests
         var after = DateTimeOffset.UtcNow;
 
         Assert.False(result.IsError);
-        Assert.Equal(1, result.Value.SalesCount);
-        Assert.InRange(result.Value.GeneratedAt, before, after);
+        var dto = result.Value;
+        Assert.Equal(0, dto.SalesCount);
+        Assert.Equal(0m, dto.SalesBooked);
+        Assert.Equal(0m, dto.CashCollected);
+        Assert.Equal(0m, dto.ProfitBeforeTax);
+        Assert.Equal(0m, dto.ProfitAfterTax);
+        Assert.Equal(0m, dto.ExpenseRecorded);
+        Assert.Equal(0m, dto.NetExpense);
+        Assert.Equal(0m, dto.CreditSalesAmount);
+        Assert.Equal(0m, dto.CreditSalesPercentage);
+        Assert.False(dto.CreditShareWarning);
+        Assert.Equal(0, dto.RunningLowStockCount);
+        Assert.Equal(0, dto.CriticalStockCount);
+        Assert.Empty(dto.RankedShortageList);
+        Assert.Null(dto.HighestDueCustomer);
+        Assert.Empty(dto.TopFiveDueCustomers);
+        Assert.InRange(dto.GeneratedAt, before, after);
     }
 
     [Fact]
-    public async Task Handle_WhenNoSales_ReturnsSalesCountZero()
+    public async Task Handle_WhenSalesExist_ReturnsSalesKpis()
     {
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
 
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
+        var sale = MakeCashSale(shop.Id, total: 100m, paid: 100m, tax: 10m);
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
 
         var result = await CreateHandler().Handle(
             new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(0, result.Value.SalesCount);
+        Assert.Equal(1, result.Value.SalesCount);
+        Assert.Equal(100m, result.Value.SalesBooked);
+        Assert.Equal(100m, result.Value.CashCollected);
+    }
+
+    [Fact]
+    public async Task Handle_WhenReportingDayProvided_UsesProvidedDay()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var specificDay = new DateOnly(2025, 1, 15);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, specificDay), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(specificDay, result.Value.ReportingDay);
+        await _saleRepository.Received(1).GetByShopAndDateAsync(shop.Id, specificDay, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenCreditSalesExceedThreshold_SetsCreditShareWarning()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
+            DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+        var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
+
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([creditSale, cashSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(result.Value.CreditShareWarning);
+        Assert.Equal(50m, result.Value.CreditSalesAmount);
+        Assert.Equal(0.5m, result.Value.CreditSalesPercentage);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCreditSalesBelowThreshold_DoesNotSetCreditShareWarning()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
+            DateTimeOffset.UtcNow, 0m, 10m, 10m, 1m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 6m, 10m, 12m, 10m, false, false)]);
+        var cashSale = MakeCashSale(shop.Id, 90m, 90m, 9m);
+
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([creditSale, cashSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.CreditShareWarning);
+    }
+
+    [Fact]
+    public async Task Handle_WhenInventoryBelowReorderLevel_SetsRunningLowStock()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var lowInventory = MakeInventory(shop.Id, quantity: 2m, reorderLevel: 10m, "Widget A");
+        var criticalInventory = MakeInventory(shop.Id, quantity: 0m, reorderLevel: 5m, "Widget B");
+        var okInventory = MakeInventory(shop.Id, quantity: 20m, reorderLevel: 5m, "Widget C");
+
+        _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([lowInventory, criticalInventory, okInventory]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1, result.Value.RunningLowStockCount);
+        Assert.Equal(1, result.Value.CriticalStockCount);
+        Assert.Equal(2, result.Value.RankedShortageList.Count);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCustomersHaveDues_ReturnsTopFiveAndHighest()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var customers = Enumerable.Range(1, 6)
+            .Select(i => Customer.Create(shop.Id, $"Customer {i}", $"9000{i:D6}", null))
+            .ToList();
+
+        _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(customers);
+
+        var balances = customers
+            .Select((c, idx) => (c.Id, Amount: (idx + 1) * 100m))
+            .ToDictionary(x => x.Id, x => x.Amount);
+
+        _customerLedgerEntryRepository.GetCustomerBalancesAsync(
+                shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(balances);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.HighestDueCustomer);
+        Assert.Equal(600m, result.Value.HighestDueCustomer!.OutstandingDue);
+        Assert.Equal(5, result.Value.TopFiveDueCustomers.Count);
+    }
+
+    [Fact]
+    public async Task Handle_WhenExpensesExist_ReturnsExpenseKpis()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var categoryId = Guid.NewGuid();
+
+        var original = Expense.Create(shop.Id, categoryId, 200m, "Vendor A", null, today, user.Id);
+        var correction = Expense.CreateCorrection(shop.Id, categoryId, -50m, "Vendor A", "Correction", today, user.Id, original.Id);
+
+        _expenseRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([original, correction]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(200m, result.Value.ExpenseRecorded);
+        Assert.Equal(-50m, result.Value.ExpenseCorrection);
+        Assert.Equal(150m, result.Value.NetExpense);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPaymentMethodsMixed_ReturnsCorrectPaymentMix()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var cashSale = MakeCashSale(shop.Id, 100m, 100m, 10m);
+        var upiSale = Sale.Create(shop.Id, "INV-U", null, null, null, PaymentMethod.UPI,
+            DateTimeOffset.UtcNow, 200m, 0m, 200m, 20m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 150m, 200m, 220m, 10m, false, false)]);
+        var cardSale = Sale.Create(shop.Id, "INV-C", null, null, null, PaymentMethod.Card,
+            DateTimeOffset.UtcNow, 300m, 0m, 300m, 30m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 250m, 300m, 330m, 10m, false, false)]);
+
+        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([cashSale, upiSale, cardSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(100m, result.Value.PaymentMix.Cash);
+        Assert.Equal(200m, result.Value.PaymentMix.Upi);
+        Assert.Equal(300m, result.Value.PaymentMix.Card);
+        Assert.Equal(0m, result.Value.PaymentMix.Credit);
     }
 }
+

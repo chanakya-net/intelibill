@@ -18,7 +18,24 @@ describe('DashboardEffects', () => {
 
   const makeDashboardDto = () => ({
     generatedAt: '2026-04-29T11:00:00Z',
+    reportingDay: '2026-04-29',
     salesCount: 5,
+    salesBooked: 500,
+    cashCollected: 450,
+    profitBeforeTax: 100,
+    profitAfterTax: 130,
+    expenseRecorded: 50,
+    expenseCorrection: 0,
+    netExpense: 50,
+    creditSalesAmount: 50,
+    creditSalesPercentage: 0.1,
+    paymentMix: { cash: 450, upi: 0, card: 0, credit: 50 },
+    creditShareWarning: false,
+    runningLowStockCount: 0,
+    criticalStockCount: 0,
+    rankedShortageList: [],
+    highestDueCustomer: null,
+    topFiveDueCustomers: [],
   });
 
   beforeEach(() => {

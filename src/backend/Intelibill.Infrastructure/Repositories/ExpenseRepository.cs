@@ -57,4 +57,9 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
 
     public void Update(Expense expense) =>
         context.Expenses.Update(expense);
+
+    public async Task<IReadOnlyList<Expense>> GetByShopAndDateAsync(Guid shopId, DateOnly reportingDay, CancellationToken cancellationToken = default) =>
+        await context.Expenses
+            .Where(e => e.ShopId == shopId && e.ExpenseDate == reportingDay && !e.IsVoided)
+            .ToListAsync(cancellationToken);
 }

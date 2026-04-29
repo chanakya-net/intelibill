@@ -2,16 +2,20 @@
 GitHub issues are provided in context after they have been pulled from GitHub.
 Parse the issue title, body, labels, comments, and any linked context to understand the open work.
 Treat the issue data already present in the prompt as the source of truth for issue selection and planning.
+Do not use the Superpower skill for this run.
 If additional GitHub data is required, use the `gh` CLI instead of GitHub MCP or other GitHub issue integrations.
 If issue details are already included in the prompt, do not call tools to retrieve the same issue again unless you need fresh data that is not already present.
 Work only on AFK issues, not HITL issues.
 You may also be given a file containing the last few commits. Review it to understand what has already been done.
+Continue selecting and completing ready tasks until there are no more ready AFK tasks left for this run.
 If all AFK tasks are complete, output `<promise>NO MORE TASKS</promise>`.
 
 # OPERATING MODE
 You may work as a single agent or as a coordinator managing multiple agents.
 Prefer multiple agents when there are several ready AFK issues that can be worked on safely in parallel.
 Use a single agent when the work is tightly coupled, sequencing-sensitive, or concentrated in the same files or modules.
+Do not stop after completing one issue if other ready tasks remain.
+After finishing a task or a safe parallel batch, immediately reassess the remaining issue list and continue.
 
 # TASK SELECTION
 Select the next unit of work. This may be a single issue or a batch of issues for parallel execution.
@@ -81,7 +85,8 @@ Each commit message must include:
 4. Blockers or notes for the next iteration
 
 # THE ISSUE
-When the task is complete, prepare an update that can be posted back to the GitHub issue summarizing what was finished, how it was verified, and any follow-up work.
+When the task is complete, post an update to the GitHub issue summarizing what was finished, how it was verified, and any follow-up work.
+Then close the completed GitHub issue with `gh issue close` unless the issue explicitly needs to remain open for a documented reason.
 If the task is not complete, prepare an update for the GitHub issue describing what was done, what is blocked, and the recommended next step.
 Do not rely on local issue files or moving files between folders.
 For parallel execution, prepare a separate update for each GitHub issue.
@@ -92,3 +97,4 @@ Do not assign the same issue to multiple agents.
 Do not batch issues with significant overlap unless you explicitly define ownership and merge order.
 If parallel work is unsafe, fall back to a single task.
 Prefer `gh` CLI commands over GitHub MCP or other GitHub issue-fetching tools.
+Keep going until all ready tasks are done, then and only then output `<promise>NO MORE TASKS</promise>`.

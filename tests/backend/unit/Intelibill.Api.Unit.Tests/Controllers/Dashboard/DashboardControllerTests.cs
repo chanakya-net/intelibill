@@ -34,14 +34,33 @@ public class DashboardControllerTests
     }
 
     private static DashboardDto MakeDashboardDto() =>
-        new(DateTimeOffset.UtcNow, SalesCount: 3);
+        new(
+            GeneratedAt: DateTimeOffset.UtcNow,
+            ReportingDay: DateOnly.FromDateTime(DateTime.UtcNow),
+            SalesCount: 3,
+            SalesBooked: 300m,
+            CashCollected: 250m,
+            ProfitBeforeTax: 60m,
+            ProfitAfterTax: 90m,
+            ExpenseRecorded: 50m,
+            ExpenseCorrection: 0m,
+            NetExpense: 50m,
+            CreditSalesAmount: 50m,
+            CreditSalesPercentage: 0.17m,
+            PaymentMix: new(250m, 0m, 0m, 50m),
+            CreditShareWarning: false,
+            RunningLowStockCount: 1,
+            CriticalStockCount: 0,
+            RankedShortageList: [],
+            HighestDueCustomer: null,
+            TopFiveDueCustomers: []);
 
     [Fact]
     public async Task GetDashboard_WhenNoUserClaim_ReturnsUnauthorized()
     {
         SetUserClaims();
 
-        var result = await _controller.GetDashboard(CancellationToken.None);
+        var result = await _controller.GetDashboard(null, CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -51,7 +70,7 @@ public class DashboardControllerTests
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
 
-        var result = await _controller.GetDashboard(CancellationToken.None);
+        var result = await _controller.GetDashboard(null, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -72,7 +91,7 @@ public class DashboardControllerTests
                 Arg.Any<CancellationToken>())
             .Returns(dto);
 
-        var result = await _controller.GetDashboard(CancellationToken.None);
+        var result = await _controller.GetDashboard(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var returned = Assert.IsType<DashboardDto>(okResult.Value);
@@ -91,7 +110,7 @@ public class DashboardControllerTests
         _bus.InvokeAsync<ErrorOr<DashboardDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Shop.ShopNotFound);
 
-        var result = await _controller.GetDashboard(CancellationToken.None);
+        var result = await _controller.GetDashboard(null, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);

@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, Signal, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -7,7 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { DashboardFacade } from '../state/dashboard.facade';
+import { DashboardDto } from '../../services/dashboard.service';
+import { DashboardFacade } from '../../state/dashboard.facade';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -26,7 +27,7 @@ import { DashboardFacade } from '../state/dashboard.facade';
 export class DashboardPageComponent implements OnInit {
   private readonly facade = inject(DashboardFacade);
 
-  readonly data = toSignal(this.facade.data$);
+  readonly data: Signal<DashboardDto | null | undefined> = toSignal(this.facade.data$);
   readonly loading = toSignal(this.facade.loading$, { initialValue: false });
   readonly error = toSignal(this.facade.error$, { initialValue: '' });
 

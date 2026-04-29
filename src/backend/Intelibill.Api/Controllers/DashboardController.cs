@@ -17,7 +17,9 @@ namespace Intelibill.Api.Controllers;
 public sealed class DashboardController(IMessageBus bus) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetDashboard(
+        [FromQuery] DateOnly? date,
+        CancellationToken cancellationToken)
     {
         var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
             ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -29,7 +31,7 @@ public sealed class DashboardController(IMessageBus bus) : ControllerBase
             return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
         var result = await bus.InvokeAsync<ErrorOr<DashboardDto>>(
-            new GetDashboardQuery(userId, shopId),
+            new GetDashboardQuery(userId, shopId, date),
             cancellationToken);
 
         return result.ToActionResult(Ok);

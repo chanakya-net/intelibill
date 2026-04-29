@@ -576,5 +576,35 @@
   },
   "bankAccounts": {
     "searchPlaceholder": "അക്കൗണ്ട് തിരയുക..."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "refresh": "Refresh",
+    "dataFreshnessStamp": "Data as of",
+    "salesCount": "Sales Count",
+    "reportingDay": "Reporting Day",
+    "salesBooked": "Sales Booked",
+    "cashCollected": "Cash Collected",
+    "profitBeforeTax": "Profit Before Tax",
+    "profitAfterTax": "Profit After Tax",
+    "expenseRecorded": "Expense Recorded",
+    "expenseCorrection": "Expense Correction",
+    "netExpense": "Net Expense",
+    "creditSalesAmount": "Credit Sales Amount",
+    "creditSalesPercentage": "Credit Sales %",
+    "creditShareWarning": "Credit share has exceeded threshold",
+    "paymentMix": "Payment Mix",
+    "paymentMixCash": "Cash",
+    "paymentMixUpi": "UPI",
+    "paymentMixCard": "Card",
+    "paymentMixCredit": "Credit",
+    "runningLowStockCount": "Running Low Stock",
+    "criticalStockCount": "Critical Stock",
+    "stockShortageList": "Stock Shortage List",
+    "highestDueCustomer": "Highest Due Customer",
+    "topFiveDueCustomers": "Top 5 Due Customers",
+    "noStockRisk": "No stock risk",
+    "noReceivableRisk": "No receivable risk",
+    "noActivity": "No activity in selected period"
   }
 }
