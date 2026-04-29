@@ -22,8 +22,14 @@ const PRESETS: { label: string; value: DashboardPreset }[] = [
   { label: 'dashboard.presetCustom', value: 'custom' },
 ];
 
+const MAX_RANGE_DAYS = 89;
+
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function daysBetween(start: string, end: string): number {
+  return (new Date(end).getTime() - new Date(start).getTime()) / 86_400_000;
 }
 
 function computePresetDates(preset: DashboardPreset): { start: string; end: string } {
@@ -90,8 +96,24 @@ export class DashboardPageComponent implements OnInit {
   readonly pendingPreset = signal<DashboardPreset>('last30');
   readonly pendingStartDate = signal<string>('');
   readonly pendingEndDate = signal<string>(todayIso());
+  readonly futureCorrected = signal(false);
 
   readonly isCustom = computed(() => this.pendingPreset() === 'custom');
+
+  readonly rangeValidationKey = computed<string | null>(() => {
+    const start = this.pendingStartDate();
+    const end = this.pendingEndDate();
+    if (!start || !end) return null;
+    if (start > end) return 'dashboard.validationStartAfterEnd';
+    if (daysBetween(start, end) > MAX_RANGE_DAYS) return 'dashboard.validationRangeExceeds90';
+    return null;
+  });
+
+  readonly isRangeValid = computed(() => this.rangeValidationKey() === null);
+
+  readonly applyDisabled = computed(() => !this.isRangeValid() || this.loading());
+
+  readonly isLoadingWithData = computed(() => this.loading() && !!this.data());
 
   readonly salesChartData = computed(() => {
     const trend = this.data()?.salesTrendSeries;
@@ -127,6 +149,7 @@ export class DashboardPageComponent implements OnInit {
 
   onSelectPreset(preset: DashboardPreset): void {
     this.pendingPreset.set(preset);
+    this.futureCorrected.set(false);
     if (preset !== 'custom') {
       const { start, end } = computePresetDates(preset);
       this.pendingStartDate.set(start);
@@ -134,7 +157,19 @@ export class DashboardPageComponent implements OnInit {
     }
   }
 
+  onEndDateChange(value: string): void {
+    const today = todayIso();
+    if (value > today) {
+      this.pendingEndDate.set(today);
+      this.futureCorrected.set(true);
+    } else {
+      this.pendingEndDate.set(value);
+      this.futureCorrected.set(false);
+    }
+  }
+
   onApply(): void {
+    if (!this.isRangeValid()) return;
     const preset = this.pendingPreset();
     const startDate = this.pendingStartDate();
     const endDate = this.pendingEndDate();

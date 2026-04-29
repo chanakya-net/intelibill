@@ -37,17 +37,28 @@
         <input
           type="date"
           [ngModel]="pendingEndDate()"
-          (ngModelChange)="pendingEndDate.set($event)"
-          [max]="activeEndDate()"
+          (ngModelChange)="onEndDateChange($event)"
           [attr.aria-label]="'dashboard.rangeEnd' | transloco"
         />
       </div>
+      @if (futureCorrected()) {
+        <div class="range-hint range-hint--correction">
+          <span class="pi pi-info-circle"></span>
+          <span>{{ 'dashboard.futureDateCorrected' | transloco }}</span>
+        </div>
+      }
+      @if (rangeValidationKey()) {
+        <div class="range-validation-error" role="alert">
+          <span class="pi pi-exclamation-circle"></span>
+          <span>{{ rangeValidationKey()! | transloco }}</span>
+        </div>
+      }
     }
     <button
       pButton
       type="button"
       [label]="'dashboard.apply' | transloco"
-      [disabled]="loading()"
+      [disabled]="applyDisabled()"
       (click)="onApply()"
     ></button>
   </div>
@@ -55,6 +66,12 @@
   @if (loading() && !data()) {
     <div class="dashboard-loading">
       <p-progressSpinner></p-progressSpinner>
+    </div>
+  }
+
+  @if (isLoadingWithData()) {
+    <div class="dashboard-loading-overlay" role="status" aria-busy="true">
+      <p-progressSpinner strokeWidth="4"></p-progressSpinner>
     </div>
   }
 

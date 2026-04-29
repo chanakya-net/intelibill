@@ -621,6 +621,9 @@
     "presetThisMonth": "इस महीने",
     "presetLastMonth": "पिछले महीने",
     "presetCustom": "कस्टम",
-    "salesTrendTitle": "बिक्री ट्रेंड"
+    "salesTrendTitle": "बिक्री ट्रेंड",
+    "validationStartAfterEnd": "प्रारंभ तिथि अंत तिथि के बाद नहीं हो सकती",
+    "validationRangeExceeds90": "तारीख सीमा 90 दिन से अधिक नहीं हो सकती",
+    "futureDateCorrected": "भविष्य की तारीखें अनुमत नहीं हैं; अंत तिथि आज की तारीख पर सेट की गई"
   }
 }

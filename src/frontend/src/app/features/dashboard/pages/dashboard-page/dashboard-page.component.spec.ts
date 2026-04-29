@@ -203,4 +203,70 @@ describe('DashboardPageComponent', () => {
     const chart = fixture.debugElement.query(By.css('p-chart'));
     expect(chart).toBeNull();
   });
+
+  describe('Validation UX (#114)', () => {
+    it('shows loading overlay when loading with existing data', () => {
+      const facade = {
+        data$: of(makeOwnerDto()),
+        loading$: of(true),
+        error$: of(''),
+        hasDashboardData$: of(true),
+        startDate$: of('2026-03-31'),
+        endDate$: of('2026-04-29'),
+        selectedPreset$: of('last30'),
+        loadDashboard: () => {},
+        refresh: () => {},
+        applyRange: () => {},
+      };
+
+      TestBed.configureTestingModule({
+        imports: [
+          DashboardPageComponent,
+          TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        ],
+        providers: [{ provide: DashboardFacade, useValue: facade }],
+      });
+
+      const fixture = TestBed.createComponent(DashboardPageComponent);
+      fixture.detectChanges();
+
+      const overlay = fixture.debugElement.query(By.css('.dashboard-loading-overlay'));
+      expect(overlay).not.toBeNull();
+    });
+
+    it('Apply button is disabled when loading', () => {
+      const facade = {
+        data$: of(null),
+        loading$: of(true),
+        error$: of(''),
+        hasDashboardData$: of(false),
+        startDate$: of('2026-03-31'),
+        endDate$: of('2026-04-29'),
+        selectedPreset$: of('last30'),
+        loadDashboard: () => {},
+        refresh: () => {},
+        applyRange: () => {},
+      };
+
+      TestBed.configureTestingModule({
+        imports: [
+          DashboardPageComponent,
+          TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        ],
+        providers: [{ provide: DashboardFacade, useValue: facade }],
+      });
+
+      const fixture = TestBed.createComponent(DashboardPageComponent);
+      fixture.detectChanges();
+
+      // Apply button should be disabled (applyDisabled = !isRangeValid || loading)
+      // Since loading=true, disabled
+      const applyBtn = fixture.debugElement.queryAll(By.css('button[pButton]')).find(
+        (b) => b.nativeElement.textContent?.includes('Apply') || b.nativeElement.getAttribute('ng-reflect-label') === 'Apply'
+      );
+      // Verify component has applyDisabled computed as true
+      const component = fixture.componentInstance;
+      expect(component.applyDisabled()).toBe(true);
+    });
+  });
 });

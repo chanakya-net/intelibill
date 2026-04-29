@@ -621,6 +621,9 @@
     "presetThisMonth": "This Month",
     "presetLastMonth": "Last Month",
     "presetCustom": "Custom",
-    "salesTrendTitle": "Sales Booked Trend"
+    "salesTrendTitle": "Sales Booked Trend",
+    "validationStartAfterEnd": "Start date must not be after end date",
+    "validationRangeExceeds90": "Date range cannot exceed 90 days",
+    "futureDateCorrected": "End date adjusted to today (future dates not allowed)"
   }
 }
