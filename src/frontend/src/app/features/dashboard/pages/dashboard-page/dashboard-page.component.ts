@@ -23,6 +23,38 @@ const PRESETS: { label: string; value: DashboardPreset }[] = [
 ];
 
 const MAX_RANGE_DAYS = 89;
+const RANGE_STORAGE_KEY = 'intelibill_dashboard_range';
+
+interface PersistedRange {
+  startDate: string;
+  endDate: string;
+  preset: DashboardPreset;
+}
+
+function saveRange(startDate: string, endDate: string, preset: DashboardPreset): void {
+  try {
+    localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify({ startDate, endDate, preset }));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function loadRange(): PersistedRange | null {
+  try {
+    const raw = localStorage.getItem(RANGE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedRange;
+    const today = todayIso();
+    // Validate: dates must be valid, start <= end, end <= today, range <= 89 days
+    if (!parsed.startDate || !parsed.endDate) return null;
+    if (parsed.startDate > parsed.endDate) return null;
+    if (parsed.endDate > today) return null;
+    if (daysBetween(parsed.startDate, parsed.endDate) > MAX_RANGE_DAYS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -197,8 +229,12 @@ export class DashboardPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const { start, end } = computePresetDates('last30');
-    this.pendingPreset.set('last30');
+    const persisted = loadRange();
+    const { start, end } = persisted
+      ? { start: persisted.startDate, end: persisted.endDate }
+      : computePresetDates('last30');
+    const preset = persisted?.preset ?? 'last30';
+    this.pendingPreset.set(preset);
     this.pendingStartDate.set(start);
     this.pendingEndDate.set(end);
     this.facade.loadDashboard();
@@ -231,6 +267,7 @@ export class DashboardPageComponent implements OnInit {
     const startDate = this.pendingStartDate();
     const endDate = this.pendingEndDate();
     if (!startDate || !endDate) return;
+    saveRange(startDate, endDate, preset);
     this.facade.applyRange(startDate, endDate, preset);
   }
 

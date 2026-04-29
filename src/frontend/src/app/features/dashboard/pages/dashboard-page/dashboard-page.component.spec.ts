@@ -3,11 +3,21 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DashboardDto } from '../../services/dashboard.service';
 import { DashboardFacade } from '../../state/dashboard.facade';
 import { DashboardPageComponent } from './dashboard-page.component';
+
+// localStorage mock for test environment
+let _store: Record<string, string> = {};
+const localStorageMock = {
+  getItem: (key: string) => _store[key] ?? null,
+  setItem: (key: string, value: string) => { _store[key] = value; },
+  removeItem: (key: string) => { delete _store[key]; },
+  clear: () => { _store = {}; },
+};
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
 
 const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
@@ -339,6 +349,40 @@ describe('DashboardPageComponent', () => {
       // Verify component has applyDisabled computed as true
       const component = fixture.componentInstance;
       expect(component.applyDisabled()).toBe(true);
+    });
+  });
+
+  describe('Range persistence (#118)', () => {
+    afterEach(() => {
+      _store = {};
+    });
+
+    it('saves range to localStorage on Apply', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.pendingPreset.set('last7');
+      component.pendingStartDate.set('2026-04-23');
+      component.pendingEndDate.set('2026-04-29');
+      component.onApply();
+      const raw = localStorage.getItem('intelibill_dashboard_range');
+      expect(raw).not.toBeNull();
+      const parsed = JSON.parse(raw!);
+      expect(parsed.startDate).toBe('2026-04-23');
+      expect(parsed.endDate).toBe('2026-04-29');
+      expect(parsed.preset).toBe('last7');
+    });
+
+    it('restores valid persisted range on init', () => {
+      localStorage.setItem('intelibill_dashboard_range', JSON.stringify({
+        startDate: '2026-04-01',
+        endDate: '2026-04-15',
+        preset: 'custom',
+      }));
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.pendingStartDate()).toBe('2026-04-01');
+      expect(component.pendingEndDate()).toBe('2026-04-15');
+      expect(component.pendingPreset()).toBe('custom');
     });
   });
 });
