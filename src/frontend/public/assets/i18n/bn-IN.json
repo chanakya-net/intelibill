@@ -83,7 +83,8 @@
     "manageShop": "দোকান ব্যবস্থাপনা",
     "language": "ভাষা",
     "logout": "লগআউট",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "dashboard": "ড্যাশবোর্ড"
   },
   "users": {
     "teamAccess": "টিম অ্যাক্সেস",
@@ -576,5 +577,11 @@
   },
   "bankAccounts": {
     "searchPlaceholder": "অ্যাকাউন্ট খুঁজুন..."
+  },
+  "dashboard": {
+    "title": "ড্যাশবোর্ড",
+    "refresh": "রিফ্রেশ",
+    "dataFreshnessStamp": "ডেটা:",
+    "salesCount": "বিক্রয় গণনা"
   }
 }

@@ -83,7 +83,8 @@
     "manageShop": "கடை நிர்வகி",
     "language": "மொழி",
     "logout": "வெளியேறு",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "dashboard": "டாஷ்போர்டு"
   },
   "users": {
     "teamAccess": "குழு அணுகல்",
@@ -576,5 +577,11 @@
   },
   "bankAccounts": {
     "searchPlaceholder": "கணக்கை தேடு..."
+  },
+  "dashboard": {
+    "title": "டாஷ்போர்டு",
+    "refresh": "புதுப்பி",
+    "dataFreshnessStamp": "தரவு:",
+    "salesCount": "விற்பனை எண்ணிக்கை"
   }
 }

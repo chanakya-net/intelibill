@@ -19,6 +19,8 @@ import { ExpensesEffects } from '../../features/expenses/state/expenses.effects'
 import { expensesFeature } from '../../features/expenses/state/expenses.reducer';
 import { BankAccountsEffects } from '../../features/bank-accounts/state/bank-accounts.effects';
 import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-accounts.reducer';
+import { DashboardEffects } from '../../features/dashboard/state/dashboard.effects';
+import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
 
 export const shellRoutes: Routes = [
 	{
@@ -33,6 +35,7 @@ export const shellRoutes: Routes = [
 			provideState(salesFeature),
 			provideState(expensesFeature),
 			provideState(bankAccountsFeature),
+			provideState(dashboardFeature),
 			provideEffects(
 				ShopsEffects,
 				UsersEffects,
@@ -41,10 +44,18 @@ export const shellRoutes: Routes = [
 				CustomersEffects,
 				SalesEffects,
 				ExpensesEffects,
-				BankAccountsEffects
+				BankAccountsEffects,
+				DashboardEffects
 			),
 		],
 		children: [
+			{
+				path: 'dashboard',
+				loadComponent: () =>
+					import('../../features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+						(m) => m.DashboardPageComponent
+					),
+			},
 			{
 				path: 'sales/new',
 				loadComponent: () =>
@@ -132,7 +143,7 @@ export const shellRoutes: Routes = [
 			{
 				path: '',
 				pathMatch: 'full',
-				redirectTo: 'users',
+				redirectTo: 'dashboard',
 			},
 		],
 	},

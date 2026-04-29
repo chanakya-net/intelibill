@@ -59,6 +59,11 @@ export class ShellComponent {
     this.currentLanguage();
 
     const items: MenuItem[] = [];
+    items.push({
+      label: this.localizationService.translate('shell.dashboard'),
+      icon: 'pi pi-home',
+      command: () => this.onNavigateToDashboard(),
+    });
     if (this.isOwnerOrManagerOfActiveShop()) {
       items.push({
         label: this.localizationService.translate('shell.manageInventory'),
@@ -648,6 +653,11 @@ export class ShellComponent {
   onNavigateToBankAccounts(): void {
     this.onCloseMenus();
     void this.router.navigate(['/bank-accounts']);
+  }
+
+  onNavigateToDashboard(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/dashboard']);
   }
 
   onOpenManageShop(): void {

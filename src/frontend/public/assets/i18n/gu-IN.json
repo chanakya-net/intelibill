@@ -83,7 +83,8 @@
     "manageShop": "દુકાન સંચાલિત કરો",
     "language": "ભાષા",
     "logout": "લૉગ આઉટ",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "dashboard": "ડૅશબોર્ડ"
   },
   "users": {
     "teamAccess": "ટીમ એક્સેસ",
@@ -577,5 +578,11 @@
   },
   "bankAccounts": {
     "searchPlaceholder": "ખાતું શોધો..."
+  },
+  "dashboard": {
+    "title": "ડૅશબોર્ડ",
+    "refresh": "તાજું કરો",
+    "dataFreshnessStamp": "ડેટા:",
+    "salesCount": "વેચાણ ગણતરી"
   }
 }

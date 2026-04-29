@@ -70,3 +70,7 @@ export const EXPENSE_ENDPOINTS = {
   correct: (expenseId: string) => `${API_BASE_URL}/expenses/${expenseId}/correct`,
   categories: `${API_BASE_URL}/expenses/categories`,
 } as const;
+
+export const DASHBOARD_ENDPOINTS = {
+  summary: `${API_BASE_URL}/dashboard`,
+} as const;

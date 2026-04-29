@@ -1,0 +1,41 @@
+<div class="dashboard-page">
+  <div class="dashboard-header">
+    <h1>{{ 'dashboard.title' | transloco }}</h1>
+    <button
+      pButton
+      type="button"
+      icon="pi pi-refresh"
+      [label]="'dashboard.refresh' | transloco"
+      [disabled]="loading()"
+      (click)="onRefresh()"
+    ></button>
+  </div>
+
+  @if (loading() && !data()) {
+    <div class="dashboard-loading">
+      <p-progressSpinner></p-progressSpinner>
+    </div>
+  }
+
+  @if (error() && !data()) {
+    <div class="dashboard-error">
+      <p>{{ error() }}</p>
+    </div>
+  }
+
+  @if (data(); as dashboard) {
+    <div class="dashboard-freshness">
+      <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}</span>
+      <span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span>
+    </div>
+
+    <div class="dashboard-kpi-grid">
+      <p-card>
+        <div class="kpi-card">
+          <span class="kpi-label">{{ 'dashboard.salesCount' | transloco }}</span>
+          <span class="kpi-value">{{ dashboard.salesCount }}</span>
+        </div>
+      </p-card>
+    </div>
+  }
+</div>

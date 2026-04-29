@@ -83,7 +83,8 @@
     "manageShop": "దుకాణం నిర్వహించండి",
     "language": "భాష",
     "logout": "లాగౌట్",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "dashboard": "డాష్‌బోర్డ్"
   },
   "users": {
     "teamAccess": "టీమ్ యాక్సెస్",
@@ -576,5 +577,11 @@
   },
   "bankAccounts": {
     "searchPlaceholder": "ఖాతాను వెతుకు..."
+  },
+  "dashboard": {
+    "title": "డాష్‌బోర్డ్",
+    "refresh": "రిఫ్రెష్",
+    "dataFreshnessStamp": "డేటా:",
+    "salesCount": "అమ్మకాల సంఖ్య"
   }
 }

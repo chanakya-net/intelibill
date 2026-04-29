@@ -85,7 +85,8 @@
     "logout": "Logout",
     "manageExpenses": "Expenses",
     "manageBankAccounts": "Bank Accounts",
-    "profitLossReport": "Profit & Loss"
+    "profitLossReport": "Profit & Loss",
+    "dashboard": "Dashboard"
   },
   "bankAccounts": {
     "directory": "Bank Account Directory",
@@ -620,5 +621,11 @@
     "noExpensesDescription": "Try adjusting your search or record a new expense.",
     "searchPlaceholder": "Search expenses...",
     "pageInfo": "Page {{currentPage}} of {{totalPages}}"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "refresh": "Refresh",
+    "dataFreshnessStamp": "Data as of",
+    "salesCount": "Sales Count"
   }
 }
