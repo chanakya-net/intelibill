@@ -610,6 +610,17 @@
     "alertCriticalStock": "आइटम स्टॉक समाप्त",
     "alertHighestDue": "उच्चतम ग्राहक बकाया",
     "alertRunningLowStock": "स्टॉक कम हो रहा है",
-    "alertCreditShareWarning": "क्रेडिट बिक्री सीमा पार"
+    "alertCreditShareWarning": "क्रेडिट बिक्री सीमा पार",
+    "rangeSummary": "तारीख सीमा",
+    "apply": "लागू करें",
+    "rangeStart": "प्रारंभ तिथि",
+    "rangeEnd": "अंत तिथि",
+    "presetToday": "आज",
+    "presetLast7": "पिछले 7 दिन",
+    "presetLast30": "पिछले 30 दिन",
+    "presetThisMonth": "इस महीने",
+    "presetLastMonth": "पिछले महीने",
+    "presetCustom": "कस्टम",
+    "salesTrendTitle": "बिक्री ट्रेंड"
   }
 }

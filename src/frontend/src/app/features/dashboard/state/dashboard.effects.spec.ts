@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Actions } from '@ngrx/effects';
 import { Action } from '@ngrx/store';
+import { provideMockStore } from '@ngrx/store/testing';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -18,7 +19,8 @@ describe('DashboardEffects', () => {
 
   const makeDashboardDto = () => ({
     generatedAt: '2026-04-29T11:00:00Z',
-    reportingDay: '2026-04-29',
+    startDate: '2026-03-31',
+    endDate: '2026-04-29',
     salesCount: 5,
     hasNoSalesActivity: false,
     salesBooked: 500,
@@ -38,7 +40,19 @@ describe('DashboardEffects', () => {
     highestDueCustomer: null,
     topFiveDueCustomers: [],
     alerts: [],
+    salesTrendSeries: [],
   });
+
+  const initialState = {
+    dashboard: {
+      loading: false,
+      data: null,
+      errorMessage: '',
+      startDate: '2026-03-31',
+      endDate: '2026-04-29',
+      selectedPreset: 'last30' as const,
+    },
+  };
 
   beforeEach(() => {
     actions$ = new Subject<Action>();
@@ -52,6 +66,7 @@ describe('DashboardEffects', () => {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
         },
+        provideMockStore({ initialState }),
       ],
     });
 
@@ -100,5 +115,31 @@ describe('DashboardEffects', () => {
 
     const action = await resultPromise;
     expect(action).toEqual(DashboardActions.loadDashboardSucceeded({ dashboard }));
+  });
+
+  it('applyRange$ dispatches loadDashboardSucceeded on success', async () => {
+    const dashboard = makeDashboardDto();
+    dashboardService.getDashboard.mockReturnValue(of(dashboard));
+
+    const result$ = effects.applyRange$;
+    const resultPromise = firstValueFrom(result$);
+    actions$.next(DashboardActions.applyRange({ startDate: '2026-04-01', endDate: '2026-04-29', preset: 'custom' }));
+
+    const action = await resultPromise;
+    expect(action).toEqual(DashboardActions.loadDashboardSucceeded({ dashboard }));
+    expect(dashboardService.getDashboard).toHaveBeenCalledWith('2026-04-01', '2026-04-29');
+  });
+
+  it('applyRange$ dispatches loadDashboardFailed on error', async () => {
+    dashboardService.getDashboard.mockReturnValue(
+      throwError(() => new Error('Timeout'))
+    );
+
+    const result$ = effects.applyRange$;
+    const resultPromise = firstValueFrom(result$);
+    actions$.next(DashboardActions.applyRange({ startDate: '2026-04-01', endDate: '2026-04-29', preset: 'last7' }));
+
+    const action = await resultPromise;
+    expect(action).toEqual(DashboardActions.loadDashboardFailed({ errorMessage: 'Timeout' }));
   });
 });

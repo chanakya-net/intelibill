@@ -611,6 +611,17 @@
     "alertCriticalStock": "আইটেম স্টক শেষ",
     "alertHighestDue": "সর্বোচ্চ গ্রাহক বাকি",
     "alertRunningLowStock": "স্টক কমছে",
-    "alertCreditShareWarning": "ক্রেডিট বিক্রি সীমা অতিক্রম"
+    "alertCreditShareWarning": "ক্রেডিট বিক্রি সীমা অতিক্রম",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

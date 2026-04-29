@@ -610,6 +610,17 @@
     "alertCriticalStock": "ಐಟಂ ಸ್ಟಾಕ್ ಮುಗಿದಿದೆ",
     "alertHighestDue": "ಅತಿ ಹೆಚ್ಚು ಗ್ರಾಹಕ ಬಾಕಿ",
     "alertRunningLowStock": "ಸ್ಟಾಕ್ ಕಡಿಮೆಯಾಗುತ್ತಿದೆ",
-    "alertCreditShareWarning": "ಕ್ರೆಡಿಟ್ ಮಾರಾಟ ಮಿತಿ ಮೀರಿದೆ"
+    "alertCreditShareWarning": "ಕ್ರೆಡಿಟ್ ಮಾರಾಟ ಮಿತಿ ಮೀರಿದೆ",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

@@ -611,6 +611,17 @@
     "alertCriticalStock": "பொருள் இருப்பு தீர்ந்தது",
     "alertHighestDue": "அதிகபட்ச வாடிக்கையாளர் நிலுவை",
     "alertRunningLowStock": "இருப்பு குறைந்து வருகிறது",
-    "alertCreditShareWarning": "கடன் விற்பனை வரம்பு தாண்டியது"
+    "alertCreditShareWarning": "கடன் விற்பனை வரம்பு தாண்டியது",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

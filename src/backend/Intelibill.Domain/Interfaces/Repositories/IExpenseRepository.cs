@@ -15,4 +15,5 @@ public interface IExpenseRepository
     Task AddAsync(Expense expense, CancellationToken cancellationToken);
     void Update(Expense expense);
     Task<IReadOnlyList<Expense>> GetByShopAndDateAsync(Guid shopId, DateOnly reportingDay, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Expense>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
 }

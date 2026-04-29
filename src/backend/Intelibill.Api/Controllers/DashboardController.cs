@@ -18,7 +18,8 @@ public sealed class DashboardController(IMessageBus bus) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetDashboard(
-        [FromQuery] DateOnly? date,
+        [FromQuery] DateOnly? startDate,
+        [FromQuery] DateOnly? endDate,
         CancellationToken cancellationToken)
     {
         var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
@@ -30,8 +31,12 @@ public sealed class DashboardController(IMessageBus bus) : ControllerBase
         if (!Guid.TryParse(activeShopIdValue, out var shopId))
             return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
 
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var resolvedEndDate = endDate ?? today;
+        var resolvedStartDate = startDate ?? resolvedEndDate.AddDays(-29);
+
         var result = await bus.InvokeAsync<ErrorOr<DashboardDto>>(
-            new GetDashboardQuery(userId, shopId, date),
+            new GetDashboardQuery(userId, shopId, resolvedStartDate, resolvedEndDate),
             cancellationToken);
 
         return result.ToActionResult(Ok);

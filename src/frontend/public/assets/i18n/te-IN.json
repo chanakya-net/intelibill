@@ -611,6 +611,17 @@
     "alertCriticalStock": "వస్తువు స్టాక్ అయిపోయింది",
     "alertHighestDue": "అత్యధిక కస్టమర్ బకాయి",
     "alertRunningLowStock": "స్టాక్ తక్కువగా ఉంది",
-    "alertCreditShareWarning": "క్రెడిట్ అమ్మకాల పరిమితి దాటింది"
+    "alertCreditShareWarning": "క్రెడిట్ అమ్మకాల పరిమితి దాటింది",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

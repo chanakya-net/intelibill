@@ -16,11 +16,23 @@ public sealed class GetDashboardQueryHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
     private const decimal CreditShareWarningThreshold = 0.40m;
+    private const int MaxRangeDays = 90;
 
     public async Task<ErrorOr<DashboardDto>> Handle(
         GetDashboardQuery query,
         CancellationToken cancellationToken)
     {
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        if (query.StartDate > query.EndDate)
+            return Errors.Dashboard.InvalidDateRange;
+
+        if (query.EndDate > today)
+            return Errors.Dashboard.FutureDateNotAllowed;
+
+        if (query.EndDate.DayNumber - query.StartDate.DayNumber >= MaxRangeDays)
+            return Errors.Dashboard.RangeExceeds90Days;
+
         var user = await userRepository.GetByIdAsync(query.UserId, cancellationToken);
         if (user is null)
             return Error.NotFound("User.NotFound", "User not found.");
@@ -34,10 +46,9 @@ public sealed class GetDashboardQueryHandler(
             return Errors.Shop.MembershipNotFound;
 
         var isStaff = membership.Role == ShopRole.Staff;
-        var reportingDay = query.ReportingDay ?? DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
-        var sales = await saleRepository.GetByShopAndDateAsync(query.ShopId, reportingDay, cancellationToken);
-        var expenses = await expenseRepository.GetByShopAndDateAsync(query.ShopId, reportingDay, cancellationToken);
+        var sales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
+        var expenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var inventories = await inventoryRepository.GetAllByShopWithItemAsync(query.ShopId, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
@@ -110,9 +121,27 @@ public sealed class GetDashboardQueryHandler(
         if (!isStaff && creditShareWarning)
             alerts.Add(new DashboardAlertDto("CreditShareWarning", 4));
 
+        // Sales Booked trend: daily buckets for the range (null for Staff)
+        List<SalesTrendPointDto>? salesTrendSeries = null;
+        if (!isStaff)
+        {
+            var salesByDay = sales
+                .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.TotalAmount));
+
+            salesTrendSeries = [];
+            for (var day = query.StartDate; day <= query.EndDate; day = day.AddDays(1))
+            {
+                salesTrendSeries.Add(new SalesTrendPointDto(
+                    Date: day,
+                    Amount: salesByDay.GetValueOrDefault(day, 0m)));
+            }
+        }
+
         return new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
-            ReportingDay: reportingDay,
+            StartDate: query.StartDate,
+            EndDate: query.EndDate,
             SalesCount: salesCount,
             HasNoSalesActivity: salesCount == 0,
             SalesBooked: isStaff ? null : salesBooked,
@@ -131,7 +160,8 @@ public sealed class GetDashboardQueryHandler(
             RankedShortageList: rankedShortageList,
             HighestDueCustomer: isStaff ? null : highestDueCustomer,
             TopFiveDueCustomers: isStaff ? null : topFiveDueCustomers,
-            Alerts: alerts);
+            Alerts: alerts,
+            SalesTrendSeries: salesTrendSeries);
     }
 }
 

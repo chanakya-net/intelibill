@@ -11,6 +11,47 @@
     ></button>
   </div>
 
+  <!-- Date range controls -->
+  <div class="dashboard-range-controls">
+    <div class="range-presets">
+      @for (preset of presets; track preset.value) {
+        <button
+          pButton
+          type="button"
+          [outlined]="pendingPreset() !== preset.value"
+          [label]="preset.label | transloco"
+          (click)="onSelectPreset(preset.value)"
+        ></button>
+      }
+    </div>
+    @if (isCustom()) {
+      <div class="range-custom">
+        <input
+          type="date"
+          [ngModel]="pendingStartDate()"
+          (ngModelChange)="pendingStartDate.set($event)"
+          [max]="pendingEndDate()"
+          [attr.aria-label]="'dashboard.rangeStart' | transloco"
+        />
+        <span>–</span>
+        <input
+          type="date"
+          [ngModel]="pendingEndDate()"
+          (ngModelChange)="pendingEndDate.set($event)"
+          [max]="activeEndDate()"
+          [attr.aria-label]="'dashboard.rangeEnd' | transloco"
+        />
+      </div>
+    }
+    <button
+      pButton
+      type="button"
+      [label]="'dashboard.apply' | transloco"
+      [disabled]="loading()"
+      (click)="onApply()"
+    ></button>
+  </div>
+
   @if (loading() && !data()) {
     <div class="dashboard-loading">
       <p-progressSpinner></p-progressSpinner>
@@ -34,8 +75,8 @@
     <div class="dashboard-freshness">
       <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}</span>
       <span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span>
-      <span class="freshness-label">{{ 'dashboard.reportingDay' | transloco }}</span>
-      <span class="freshness-value">{{ dashboard.reportingDay }}</span>
+      <span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}</span>
+      <span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span>
     </div>
 
     @if (dashboard.hasNoSalesActivity) {
@@ -55,6 +96,17 @@
           </div>
         }
       </div>
+    }
+
+    <!-- Sales Booked Trend Chart -->
+    @if (salesChartData()) {
+      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
+        <p-chart type="line" [data]="salesChartData()" [options]="salesChartOptions"></p-chart>
+      </p-card>
+    } @else if (dashboard.salesTrendSeries !== null) {
+      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
+        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+      </p-card>
     }
 
     <!-- Sales & Profit KPIs -->

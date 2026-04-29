@@ -11,7 +11,8 @@ import { DashboardPageComponent } from './dashboard-page.component';
 
 const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
-  reportingDay: '2026-04-29',
+  startDate: '2026-03-31',
+  endDate: '2026-04-29',
   salesCount: 5,
   hasNoSalesActivity: false,
   salesBooked: 500,
@@ -31,12 +32,14 @@ const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   highestDueCustomer: null,
   topFiveDueCustomers: [],
   alerts: [],
+  salesTrendSeries: [],
   ...overrides,
 });
 
 const makeStaffDto = (): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
-  reportingDay: '2026-04-29',
+  startDate: '2026-03-31',
+  endDate: '2026-04-29',
   salesCount: 5,
   hasNoSalesActivity: false,
   salesBooked: null,
@@ -56,6 +59,7 @@ const makeStaffDto = (): DashboardDto => ({
   highestDueCustomer: null,
   topFiveDueCustomers: null,
   alerts: [{ alertType: 'RunningLowStock', priority: 3 }],
+  salesTrendSeries: null,
 });
 
 function createFixture(dto: DashboardDto | null, errorMessage = '') {
@@ -64,8 +68,12 @@ function createFixture(dto: DashboardDto | null, errorMessage = '') {
     loading$: of(false),
     error$: of(errorMessage),
     hasDashboardData$: of(dto !== null),
+    startDate$: of('2026-03-31'),
+    endDate$: of('2026-04-29'),
+    selectedPreset$: of('last30'),
     loadDashboard: () => {},
     refresh: () => {},
+    applyRange: () => {},
   };
 
   TestBed.configureTestingModule({
@@ -170,5 +178,29 @@ describe('DashboardPageComponent', () => {
     // The topFiveDueCustomers null guard means section is absent
     const dueList = fixture.debugElement.query(By.css('.due-list'));
     expect(dueList).toBeNull();
+  });
+
+  it('renders preset buttons', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const buttons = fixture.debugElement.queryAll(By.css('.range-presets button'));
+    expect(buttons.length).toBe(6);
+  });
+
+  it('renders sales trend chart when salesTrendSeries has data', () => {
+    const dto = makeOwnerDto({
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 200 },
+        { date: '2026-04-29', amount: 300 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    const chart = fixture.debugElement.query(By.css('p-chart'));
+    expect(chart).not.toBeNull();
+  });
+
+  it('hides sales trend chart when salesTrendSeries is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    const chart = fixture.debugElement.query(By.css('p-chart'));
+    expect(chart).toBeNull();
   });
 });

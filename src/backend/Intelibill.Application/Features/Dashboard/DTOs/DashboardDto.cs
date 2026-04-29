@@ -2,7 +2,8 @@ namespace Intelibill.Application.Features.Dashboard.DTOs;
 
 public sealed record DashboardDto(
     DateTimeOffset GeneratedAt,
-    DateOnly ReportingDay,
+    DateOnly StartDate,
+    DateOnly EndDate,
     // Operational KPIs (all roles)
     int SalesCount,
     bool HasNoSalesActivity,
@@ -28,5 +29,7 @@ public sealed record DashboardDto(
     CustomerDueDto? HighestDueCustomer,
     IReadOnlyList<CustomerDueDto>? TopFiveDueCustomers,
     // Alerts ordered by priority (role-filtered)
-    IReadOnlyList<DashboardAlertDto> Alerts);
+    IReadOnlyList<DashboardAlertDto> Alerts,
+    // Chart series (null for Staff)
+    IReadOnlyList<SalesTrendPointDto>? SalesTrendSeries);
 

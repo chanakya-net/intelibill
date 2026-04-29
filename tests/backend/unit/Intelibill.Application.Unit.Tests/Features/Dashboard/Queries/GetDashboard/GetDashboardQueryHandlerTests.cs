@@ -18,6 +18,10 @@ public class GetDashboardQueryHandlerTests
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
+    private static DateOnly Today => DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+    private static DateOnly DefaultStart => Today.AddDays(-29);
+    private static DateOnly DefaultEnd => Today;
+
     private GetDashboardQueryHandler CreateHandler() =>
         new(_userRepository, _shopRepository, _saleRepository, _expenseRepository,
             _inventoryRepository, _customerRepository, _customerLedgerEntryRepository);
@@ -50,8 +54,8 @@ public class GetDashboardQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
-        _expenseRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
+        _expenseRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerLedgerEntryRepository.GetCustomerBalancesAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
@@ -64,7 +68,7 @@ public class GetDashboardQueryHandlerTests
         _userRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((User?)null);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+            new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("User.NotFound", result.FirstError.Code);
@@ -78,7 +82,7 @@ public class GetDashboardQueryHandlerTests
         _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Shop?)null);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, Guid.NewGuid()), CancellationToken.None);
+            new GetDashboardQuery(user.Id, Guid.NewGuid(), DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.ShopNotFound.Code, result.FirstError.Code);
@@ -95,10 +99,61 @@ public class GetDashboardQueryHandlerTests
             .Returns((ShopMembership?)null);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.MembershipNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenStartDateAfterEndDate_ReturnsInvalidDateRangeError()
+    {
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), Today, Today.AddDays(-1)), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Dashboard.InvalidDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenEndDateInFuture_ReturnsFutureDateNotAllowedError()
+    {
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), Today, Today.AddDays(1)), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Dashboard.FutureDateNotAllowed.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenRangeExceeds90Days_ReturnsRangeExceeds90DaysError()
+    {
+        var end = Today;
+        var start = end.AddDays(-90);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), start, end), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Dashboard.RangeExceeds90Days.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenRangeIs89Days_IsAccepted()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var end = Today;
+        var start = end.AddDays(-88);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(start, result.Value.StartDate);
+        Assert.Equal(end, result.Value.EndDate);
     }
 
     [Fact]
@@ -111,7 +166,7 @@ public class GetDashboardQueryHandlerTests
 
         var before = DateTimeOffset.UtcNow;
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
         var after = DateTimeOffset.UtcNow;
 
         Assert.False(result.IsError);
@@ -134,6 +189,7 @@ public class GetDashboardQueryHandlerTests
         Assert.Empty(dto.TopFiveDueCustomers);
         Assert.True(dto.HasNoSalesActivity);
         Assert.Empty(dto.Alerts);
+        Assert.NotNull(dto.SalesTrendSeries);
         Assert.InRange(dto.GeneratedAt, before, after);
     }
 
@@ -146,10 +202,10 @@ public class GetDashboardQueryHandlerTests
         SetupValidUserShopMembership(user, shop, membership);
 
         var sale = MakeCashSale(shop.Id, total: 100m, paid: 100m, tax: 10m);
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(1, result.Value.SalesCount);
@@ -158,21 +214,68 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenReportingDayProvided_UsesProvidedDay()
+    public async Task Handle_WhenDateRangeProvided_UsesThatRange()
     {
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
         SetupValidUserShopMembership(user, shop, membership);
 
-        var specificDay = new DateOnly(2025, 1, 15);
+        var start = Today.AddDays(-6);
+        var end = Today;
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id, specificDay), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(specificDay, result.Value.ReportingDay);
-        await _saleRepository.Received(1).GetByShopAndDateAsync(shop.Id, specificDay, Arg.Any<CancellationToken>());
+        Assert.Equal(start, result.Value.StartDate);
+        Assert.Equal(end, result.Value.EndDate);
+        await _saleRepository.Received(1).GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenSalesOnMultipleDays_SalesTrendSeriesHasDailyBuckets()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-2);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var saleYesterday = Sale.Create(shop.Id, "INV-Y", null, null, null, PaymentMethod.Cash,
+            new DateTimeOffset(Today.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            100m, 0m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 80m, 100m, 110m, 10m, false, false)]);
+        var saleToday = MakeCashSale(shop.Id, 200m, 200m, 20m);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
+            .Returns([saleYesterday, saleToday]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var trend = result.Value.SalesTrendSeries!;
+        Assert.Equal(3, trend.Count); // 3 days in range
+        Assert.Equal(0m, trend[0].Amount); // start (2 days ago) has no sale
+        Assert.Equal(100m, trend[1].Amount); // yesterday
+        Assert.Equal(200m, trend[2].Amount); // today
+    }
+
+    [Fact]
+    public async Task Handle_WhenStaffRole_SalesTrendSeriesIsNull()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.SalesTrendSeries);
     }
 
     [Fact]
@@ -188,11 +291,11 @@ public class GetDashboardQueryHandlerTests
             [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
 
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(true, result.Value.CreditShareWarning);
@@ -213,11 +316,11 @@ public class GetDashboardQueryHandlerTests
             [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 6m, 10m, 12m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 90m, 90m, 9m);
 
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(false, result.Value.CreditShareWarning);
@@ -239,7 +342,7 @@ public class GetDashboardQueryHandlerTests
             .Returns([lowInventory, criticalInventory, okInventory]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(1, result.Value.RunningLowStockCount);
@@ -270,7 +373,7 @@ public class GetDashboardQueryHandlerTests
             .Returns(balances);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.NotNull(result.Value.HighestDueCustomer);
@@ -292,11 +395,11 @@ public class GetDashboardQueryHandlerTests
         var original = Expense.Create(shop.Id, categoryId, 200m, "Vendor A", null, today, user.Id);
         var correction = Expense.CreateCorrection(shop.Id, categoryId, -50m, "Vendor A", "Correction", today, user.Id, original.Id);
 
-        _expenseRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _expenseRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([original, correction]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(200m, result.Value.ExpenseRecorded);
@@ -320,11 +423,11 @@ public class GetDashboardQueryHandlerTests
             DateTimeOffset.UtcNow, 300m, 0m, 300m, 30m,
             [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 250m, 300m, 330m, 10m, false, false)]);
 
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([cashSale, upiSale, cardSale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(100m, result.Value.PaymentMix!.Cash);
@@ -342,10 +445,10 @@ public class GetDashboardQueryHandlerTests
         SetupValidUserShopMembership(user, shop, staffMembership);
 
         var sale = MakeCashSale(shop.Id, 100m, 100m, 10m);
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         var dto = result.Value;
@@ -378,7 +481,7 @@ public class GetDashboardQueryHandlerTests
             .Returns([lowInventory]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(1, result.Value.RunningLowStockCount);
@@ -394,11 +497,11 @@ public class GetDashboardQueryHandlerTests
         var membership = MakeMembership(shop.Id, user.Id);
         SetupValidUserShopMembership(user, shop, membership);
 
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([MakeCashSale(shop.Id, 100m, 100m, 10m)]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.False(result.Value.HasNoSalesActivity);
@@ -417,7 +520,7 @@ public class GetDashboardQueryHandlerTests
             .Returns([criticalInventory]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Contains(result.Value.Alerts, a => a.AlertType == "CriticalStock" && a.Priority == 1);
@@ -440,7 +543,7 @@ public class GetDashboardQueryHandlerTests
             DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
             [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
 
         var customer = Customer.Create(shop.Id, "Big Buyer", "9000000001", null);
@@ -450,7 +553,7 @@ public class GetDashboardQueryHandlerTests
             .Returns(new Dictionary<Guid, decimal> { [customer.Id] = 1000m });
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         var alerts = result.Value.Alerts;
@@ -477,11 +580,11 @@ public class GetDashboardQueryHandlerTests
             DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
             [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
-        _saleRepository.GetByShopAndDateAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
 
         var result = await CreateHandler().Handle(
-            new GetDashboardQuery(user.Id, shop.Id), CancellationToken.None);
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
 
         Assert.False(result.IsError);
         var alertTypes = result.Value.Alerts.Select(a => a.AlertType).ToList();
@@ -490,4 +593,3 @@ public class GetDashboardQueryHandlerTests
         Assert.DoesNotContain("CreditShareWarning", alertTypes);
     }
 }
-

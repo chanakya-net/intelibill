@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -29,9 +29,15 @@ export interface DashboardAlertDto {
   readonly priority: number;
 }
 
+export interface SalesTrendPointDto {
+  readonly date: string;
+  readonly amount: number;
+}
+
 export interface DashboardDto {
   readonly generatedAt: string;
-  readonly reportingDay: string;
+  readonly startDate: string;
+  readonly endDate: string;
   readonly salesCount: number;
   readonly hasNoSalesActivity: boolean;
   readonly salesBooked: number | null;
@@ -51,14 +57,18 @@ export interface DashboardDto {
   readonly highestDueCustomer: CustomerDueDto | null;
   readonly topFiveDueCustomers: ReadonlyArray<CustomerDueDto> | null;
   readonly alerts: ReadonlyArray<DashboardAlertDto>;
+  readonly salesTrendSeries: ReadonlyArray<SalesTrendPointDto> | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
   private readonly http = inject(HttpClient);
 
-  getDashboard(): Observable<DashboardDto> {
-    return this.http.get<DashboardDto>(DASHBOARD_ENDPOINTS.summary);
+  getDashboard(startDate?: string, endDate?: string): Observable<DashboardDto> {
+    let params = new HttpParams();
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    return this.http.get<DashboardDto>(DASHBOARD_ENDPOINTS.summary, { params });
   }
 }
 

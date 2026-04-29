@@ -612,6 +612,17 @@
     "alertCriticalStock": "આઇટમ સ્ટૉક સમાપ્ત",
     "alertHighestDue": "સૌથી વધુ ગ્રાહક બાકી",
     "alertRunningLowStock": "સ્ટૉક ઓછો થઈ રહ્યો છે",
-    "alertCreditShareWarning": "ક્રેડિટ વેચાણ મર્યાદા ઓળંગી"
+    "alertCreditShareWarning": "ક્રેડિટ વેચાણ મર્યાદા ઓળંગી",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

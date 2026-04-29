@@ -655,6 +655,17 @@
     "alertCriticalStock": "Critical stock out of items",
     "alertHighestDue": "Outstanding customer receivable",
     "alertRunningLowStock": "Stock running low",
-    "alertCreditShareWarning": "Credit sales share exceeds threshold"
+    "alertCreditShareWarning": "Credit sales share exceeds threshold",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

@@ -610,6 +610,17 @@
     "alertCriticalStock": "ഇനം സ്റ്റോക്ക് തീർന്നു",
     "alertHighestDue": "ഏറ്റവും ഉയർന്ന ഉപഭോക്തൃ കുടിശ്ശിക",
     "alertRunningLowStock": "സ്റ്റോക്ക് കുറയുന്നു",
-    "alertCreditShareWarning": "ക്രെഡിറ്റ് വിൽപ്പന പരിധി കവിഞ്ഞു"
+    "alertCreditShareWarning": "ക്രെഡിറ്റ് വിൽപ്പന പരിധി കവിഞ്ഞു",
+    "rangeSummary": "Date Range",
+    "apply": "Apply",
+    "rangeStart": "Start Date",
+    "rangeEnd": "End Date",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 Days",
+    "presetLast30": "Last 30 Days",
+    "presetThisMonth": "This Month",
+    "presetLastMonth": "Last Month",
+    "presetCustom": "Custom",
+    "salesTrendTitle": "Sales Booked Trend"
   }
 }

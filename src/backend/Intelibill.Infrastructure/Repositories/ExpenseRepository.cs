@@ -62,4 +62,9 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
         await context.Expenses
             .Where(e => e.ShopId == shopId && e.ExpenseDate == reportingDay && !e.IsVoided)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Expense>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default) =>
+        await context.Expenses
+            .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
+            .ToListAsync(cancellationToken);
 }

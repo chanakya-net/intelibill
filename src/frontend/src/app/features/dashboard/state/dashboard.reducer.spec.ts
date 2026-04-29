@@ -4,7 +4,8 @@ import { DashboardDto } from '../services/dashboard.service';
 
 const makeDashboardDto = (): DashboardDto => ({
   generatedAt: '2026-04-29T11:00:00Z',
-  reportingDay: '2026-04-29',
+  startDate: '2026-03-31',
+  endDate: '2026-04-29',
   salesCount: 5,
   hasNoSalesActivity: false,
   salesBooked: 500,
@@ -24,6 +25,7 @@ const makeDashboardDto = (): DashboardDto => ({
   highestDueCustomer: null,
   topFiveDueCustomers: [],
   alerts: [],
+  salesTrendSeries: [],
 });
 
 describe('dashboardReducer', () => {
@@ -33,6 +35,9 @@ describe('dashboardReducer', () => {
     expect(initialState.loading).toBe(false);
     expect(initialState.data).toBeNull();
     expect(initialState.errorMessage).toBe('');
+    expect(initialState.selectedPreset).toBe('last30');
+    expect(initialState.startDate).toBeTruthy();
+    expect(initialState.endDate).toBeTruthy();
   });
 
   it('sets loading true and clears error when load is requested', () => {
@@ -86,5 +91,26 @@ describe('dashboardReducer', () => {
     );
 
     expect(next.loading).toBe(true);
+  });
+
+  it('applyRange sets dates, preset, and loading', () => {
+    const next = dashboardReducer(
+      initialState,
+      DashboardActions.applyRange({ startDate: '2026-04-01', endDate: '2026-04-29', preset: 'custom' })
+    );
+
+    expect(next.loading).toBe(true);
+    expect(next.startDate).toBe('2026-04-01');
+    expect(next.endDate).toBe('2026-04-29');
+    expect(next.selectedPreset).toBe('custom');
+  });
+
+  it('applyRange clears errorMessage', () => {
+    const next = dashboardReducer(
+      { ...initialState, errorMessage: 'old error' },
+      DashboardActions.applyRange({ startDate: '2026-04-01', endDate: '2026-04-29', preset: 'last7' })
+    );
+
+    expect(next.errorMessage).toBe('');
   });
 });
