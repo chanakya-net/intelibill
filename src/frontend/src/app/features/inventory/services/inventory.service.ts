@@ -130,6 +130,7 @@ export interface UpdateInventoryBatchRequest {
 }
 
 export interface ProductDetailsDto {
+  readonly name: string;
   readonly description: string;
   readonly uom: string;
   readonly costPrice: number;

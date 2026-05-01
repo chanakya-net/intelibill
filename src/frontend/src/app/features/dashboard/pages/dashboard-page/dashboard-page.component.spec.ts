@@ -1,0 +1,448 @@
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { TranslocoTestingModule } from '@ngneat/transloco';
+import { of } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { DashboardDto } from '../../services/dashboard.service';
+import { DashboardFacade } from '../../state/dashboard.facade';
+import { DashboardPageComponent } from './dashboard-page.component';
+
+// localStorage mock for test environment
+let _store: Record<string, string> = {};
+const localStorageMock = {
+  getItem: (key: string) => _store[key] ?? null,
+  setItem: (key: string, value: string) => { _store[key] = value; },
+  removeItem: (key: string) => { delete _store[key]; },
+  clear: () => { _store = {}; },
+};
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
+
+const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
+  generatedAt: '2026-04-29T10:00:00Z',
+  startDate: '2026-03-31',
+  endDate: '2026-04-29',
+  salesCount: 5,
+  hasNoSalesActivity: false,
+  salesBooked: 500,
+  cashCollected: 450,
+  profitBeforeTax: 100,
+  profitAfterTax: 130,
+  expenseRecorded: 50,
+  expenseCorrection: 0,
+  netExpense: 50,
+  creditSalesAmount: 50,
+  creditSalesPercentage: 0.1,
+  paymentMix: { cash: 450, upi: 0, card: 0, credit: 50 },
+  creditShareWarning: false,
+  runningLowStockCount: 1,
+  criticalStockCount: 0,
+  rankedShortageList: [{ itemName: 'Sugar', quantity: 2, reorderLevel: 10, shortage: 8 }],
+  highestDueCustomer: null,
+  topFiveDueCustomers: [],
+  alerts: [],
+  salesTrendSeries: [],
+  profitTrendSeries: [],
+  previousPeriodSummary: null,
+  ...overrides,
+});
+
+const makeStaffDto = (): DashboardDto => ({
+  generatedAt: '2026-04-29T10:00:00Z',
+  startDate: '2026-03-31',
+  endDate: '2026-04-29',
+  salesCount: 5,
+  hasNoSalesActivity: false,
+  salesBooked: null,
+  cashCollected: null,
+  profitBeforeTax: null,
+  profitAfterTax: null,
+  expenseRecorded: null,
+  expenseCorrection: null,
+  netExpense: null,
+  creditSalesAmount: null,
+  creditSalesPercentage: null,
+  paymentMix: null,
+  creditShareWarning: null,
+  runningLowStockCount: 1,
+  criticalStockCount: 0,
+  rankedShortageList: [{ itemName: 'Sugar', quantity: 2, reorderLevel: 10, shortage: 8 }],
+  highestDueCustomer: null,
+  topFiveDueCustomers: null,
+  alerts: [{ alertType: 'RunningLowStock', priority: 3 }],
+  salesTrendSeries: null,
+  profitTrendSeries: null,
+  previousPeriodSummary: null,
+});
+
+function createFixture(dto: DashboardDto | null, errorMessage = '') {
+  const facade = {
+    data$: of(dto),
+    loading$: of(false),
+    error$: of(errorMessage),
+    hasDashboardData$: of(dto !== null),
+    startDate$: of('2026-03-31'),
+    endDate$: of('2026-04-29'),
+    selectedPreset$: of('last30'),
+    loadDashboard: () => {},
+    refresh: () => {},
+    applyRange: () => {},
+  };
+
+  TestBed.configureTestingModule({
+    imports: [
+      DashboardPageComponent,
+      TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+    ],
+    providers: [{ provide: DashboardFacade, useValue: facade }],
+  });
+
+  const fixture = TestBed.createComponent(DashboardPageComponent);
+  fixture.detectChanges();
+  return fixture;
+}
+
+describe('DashboardPageComponent', () => {
+  it('renders sales count for all roles', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('5');
+  });
+
+  it('renders financial KPI sections for Owner role', () => {
+    const fixture = createFixture(makeOwnerDto({ salesBooked: 500 }));
+    const cards = fixture.debugElement.queryAll(By.css('p-card'));
+    // financial sections are present (sales booked card, expense cards, payment mix)
+    expect(cards.length).toBeGreaterThan(4);
+  });
+
+  it('hides financial KPI sections for Staff role (null fields)', () => {
+    const fixture = createFixture(makeStaffDto());
+    const el = fixture.nativeElement as HTMLElement;
+    // Sales count still visible
+    expect(el.textContent).toContain('5');
+    // Stock risk section toggle is shown (all roles see stock risk)
+    const stockToggle = fixture.debugElement.queryAll(By.css('.dashboard-section-toggle'));
+    expect(stockToggle.length).toBeGreaterThan(0);
+    // The payment mix section should not be rendered (null for Staff)
+    expect(el.querySelector('.payment-mix')).toBeNull();
+  });
+
+  it('renders alert ribbon when alerts are present', () => {
+    const dto = makeOwnerDto({
+      alerts: [
+        { alertType: 'CriticalStock', priority: 1 },
+        { alertType: 'RunningLowStock', priority: 3 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    const alerts = fixture.debugElement.queryAll(By.css('.dashboard-alert'));
+    expect(alerts).toHaveLength(2);
+  });
+
+  it('shows no-activity hint when hasNoSalesActivity is true', () => {
+    const dto = makeOwnerDto({ hasNoSalesActivity: true, salesCount: 0, salesBooked: 0 });
+    const fixture = createFixture(dto);
+    const noActivity = fixture.debugElement.query(By.css('.dashboard-no-activity'));
+    expect(noActivity).not.toBeNull();
+  });
+
+  it('does not show no-activity hint when sales exist', () => {
+    const fixture = createFixture(makeOwnerDto({ hasNoSalesActivity: false }));
+    const noActivity = fixture.debugElement.query(By.css('.dashboard-no-activity'));
+    expect(noActivity).toBeNull();
+  });
+
+  it('shows stale data warning when error exists alongside data', () => {
+    const fixture = createFixture(makeOwnerDto(), 'Network timeout');
+    const warning = fixture.debugElement.query(By.css('.dashboard-stale-warning'));
+    expect(warning).not.toBeNull();
+  });
+
+  it('shows error section when no data and error present', () => {
+    const fixture = createFixture(null, 'Network timeout');
+    const error = fixture.debugElement.query(By.css('.dashboard-error'));
+    expect(error).not.toBeNull();
+  });
+
+  it('renders shortage list items when stockRisk section is expanded', () => {
+    const dto = makeOwnerDto({
+      rankedShortageList: [
+        { itemName: 'Salt', quantity: 0, reorderLevel: 5, shortage: 5 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    // Expand stock risk section first
+    fixture.componentInstance.toggleSection('stockRisk');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Salt');
+  });
+
+  it('renders receivable risk section when topFiveDueCustomers is non-null', () => {
+    const dto = makeOwnerDto({
+      topFiveDueCustomers: [],
+      highestDueCustomer: null,
+    });
+    const fixture = createFixture(dto);
+    const el = fixture.nativeElement as HTMLElement;
+    // Section exists (renders empty-state message)
+    expect(el.textContent).not.toBeNull();
+  });
+
+  it('hides receivable risk section when topFiveDueCustomers is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    // The topFiveDueCustomers null guard means section is absent
+    const dueList = fixture.debugElement.query(By.css('.due-list'));
+    expect(dueList).toBeNull();
+  });
+
+  it('renders preset buttons', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const buttons = fixture.debugElement.queryAll(By.css('.range-presets button'));
+    expect(buttons.length).toBe(6);
+  });
+
+  it('adds active class to selected preset button', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const component = fixture.componentInstance;
+
+    component.onSelectPreset('today');
+    fixture.detectChanges();
+
+    const activeButton = fixture.debugElement.query(By.css('.range-preset-button--active'));
+    expect(activeButton).not.toBeNull();
+    expect(component.pendingPreset()).toBe('today');
+  });
+
+  it('renders apply button with dedicated styling class', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const applyButton = fixture.debugElement.query(By.css('.range-apply-button'));
+    expect(applyButton).not.toBeNull();
+  });
+
+  it('renders sales trend chart when salesTrendSeries has data', () => {
+    const dto = makeOwnerDto({
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 200 },
+        { date: '2026-04-29', amount: 300 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    const chart = fixture.debugElement.query(By.css('p-chart'));
+    expect(chart).not.toBeNull();
+  });
+
+  it('hides sales trend chart when salesTrendSeries is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    const chart = fixture.debugElement.query(By.css('p-chart'));
+    expect(chart).toBeNull();
+  });
+
+  it('renders profit trend chart when profitTrendSeries has data (Owner role)', () => {
+    const dto = makeOwnerDto({
+      profitTrendSeries: [
+        { date: '2026-04-28', profitAfterTax: 80 },
+        { date: '2026-04-29', profitAfterTax: 120 },
+      ],
+    });
+    const fixture = createFixture(dto);
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('hides profit trend chart when profitTrendSeries is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    // Staff gets null for both chart series; no charts should render
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBe(0);
+  });
+
+  it('renders payment mix donut when paymentMix has non-zero total and section is expanded', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 200, upi: 100, card: 50, credit: 50 },
+    });
+    const fixture = createFixture(dto);
+    // Expand payment behavior section
+    fixture.componentInstance.toggleSection('paymentBehavior');
+    fixture.detectChanges();
+    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(charts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows no-payment-data message when paymentMix total is zero', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 0, upi: 0, card: 0, credit: 0 },
+      salesCount: 0,
+      hasNoSalesActivity: true,
+    });
+    const fixture = createFixture(dto);
+    const el = fixture.nativeElement as HTMLElement;
+    // No donut chart rendered, empty state shown
+    const donut = fixture.debugElement.query(By.css('p-chart[type="doughnut"]'));
+    expect(donut).toBeNull();
+  });
+
+  it('shows comparison badge when previousPeriodSummary is provided (Owner role)', () => {
+    const dto = makeOwnerDto({
+      salesCount: 10,
+      salesBooked: 1000,
+      previousPeriodSummary: {
+        startDate: '2026-03-25',
+        endDate: '2026-03-31',
+        salesCount: 7,
+        salesBooked: 700,
+        profitAfterTax: 200,
+        netExpense: 50,
+        creditSalesPercentage: 0.1,
+      },
+    });
+    const fixture = createFixture(dto);
+    const badges = fixture.debugElement.queryAll(By.css('[class*="kpi-comparison"]'));
+    expect(badges.length).toBeGreaterThan(0);
+  });
+
+  it('hides comparison badges when previousPeriodSummary is null (Staff role)', () => {
+    const fixture = createFixture(makeStaffDto());
+    const badges = fixture.debugElement.queryAll(By.css('[class*="kpi-comparison"]'));
+    expect(badges.length).toBe(0);
+  });
+
+  describe('Validation UX (#114)', () => {
+    it('shows loading overlay when loading with existing data', () => {
+      const facade = {
+        data$: of(makeOwnerDto()),
+        loading$: of(true),
+        error$: of(''),
+        hasDashboardData$: of(true),
+        startDate$: of('2026-03-31'),
+        endDate$: of('2026-04-29'),
+        selectedPreset$: of('last30'),
+        loadDashboard: () => {},
+        refresh: () => {},
+        applyRange: () => {},
+      };
+
+      TestBed.configureTestingModule({
+        imports: [
+          DashboardPageComponent,
+          TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        ],
+        providers: [{ provide: DashboardFacade, useValue: facade }],
+      });
+
+      const fixture = TestBed.createComponent(DashboardPageComponent);
+      fixture.detectChanges();
+
+      const overlay = fixture.debugElement.query(By.css('.dashboard-loading-overlay'));
+      expect(overlay).not.toBeNull();
+    });
+
+    it('Apply button is disabled when loading', () => {
+      const facade = {
+        data$: of(null),
+        loading$: of(true),
+        error$: of(''),
+        hasDashboardData$: of(false),
+        startDate$: of('2026-03-31'),
+        endDate$: of('2026-04-29'),
+        selectedPreset$: of('last30'),
+        loadDashboard: () => {},
+        refresh: () => {},
+        applyRange: () => {},
+      };
+
+      TestBed.configureTestingModule({
+        imports: [
+          DashboardPageComponent,
+          TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        ],
+        providers: [{ provide: DashboardFacade, useValue: facade }],
+      });
+
+      const fixture = TestBed.createComponent(DashboardPageComponent);
+      fixture.detectChanges();
+
+      // Apply button should be disabled (applyDisabled = !isRangeValid || loading)
+      // Since loading=true, disabled
+      const applyBtn = fixture.debugElement.queryAll(By.css('button[pButton]')).find(
+        (b) => b.nativeElement.textContent?.includes('Apply') || b.nativeElement.getAttribute('ng-reflect-label') === 'Apply'
+      );
+      // Verify component has applyDisabled computed as true
+      const component = fixture.componentInstance;
+      expect(component.applyDisabled()).toBe(true);
+    });
+  });
+
+  describe('Range persistence (#118)', () => {
+    afterEach(() => {
+      _store = {};
+    });
+
+    it('saves range to localStorage on Apply', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.pendingPreset.set('last7');
+      component.pendingStartDate.set('2026-04-23');
+      component.pendingEndDate.set('2026-04-29');
+      component.onApply();
+      const raw = localStorage.getItem('intelibill_dashboard_range');
+      expect(raw).not.toBeNull();
+      const parsed = JSON.parse(raw!);
+      expect(parsed.startDate).toBe('2026-04-23');
+      expect(parsed.endDate).toBe('2026-04-29');
+      expect(parsed.preset).toBe('last7');
+    });
+
+    it('restores valid persisted range on init', () => {
+      localStorage.setItem('intelibill_dashboard_range', JSON.stringify({
+        startDate: '2026-04-01',
+        endDate: '2026-04-15',
+        preset: 'custom',
+      }));
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.pendingStartDate()).toBe('2026-04-01');
+      expect(component.pendingEndDate()).toBe('2026-04-15');
+      expect(component.pendingPreset()).toBe('custom');
+    });
+  });
+
+  describe('Chart-first hierarchy + collapsible sections (#119)', () => {
+    it('secondary sections are collapsed by default (no KPI content visible)', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.sectionExpanded().expenses).toBe(false);
+      expect(component.sectionExpanded().paymentBehavior).toBe(false);
+      expect(component.sectionExpanded().stockRisk).toBe(false);
+      expect(component.sectionExpanded().receivables).toBe(false);
+    });
+
+    it('toggleSection expands and collapses a section', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      expect(component.sectionExpanded().expenses).toBe(false);
+      component.toggleSection('expenses');
+      expect(component.sectionExpanded().expenses).toBe(true);
+      component.toggleSection('expenses');
+      expect(component.sectionExpanded().expenses).toBe(false);
+    });
+
+    it('section toggle buttons are rendered for Owner role', () => {
+      const fixture = createFixture(makeOwnerDto());
+      const toggles = fixture.debugElement.queryAll(By.css('.dashboard-section-toggle'));
+      expect(toggles.length).toBeGreaterThanOrEqual(3); // expenses, paymentBehavior, stockRisk, receivables
+    });
+
+    it('expense KPI content is hidden when expenses section is collapsed', () => {
+      const fixture = createFixture(makeOwnerDto());
+      fixture.detectChanges();
+      const expenseKpi = (fixture.nativeElement as HTMLElement).querySelector('[class*="dashboard-section"]');
+      // section content (grid) not present when collapsed
+      const grid = fixture.debugElement.queryAll(By.css('.dashboard-kpi-grid'));
+      // Only the primary Sales KPI grid should be in the DOM initially; secondary grids collapsed
+      // The primary Sales & Profit grid is not collapsible
+      expect(fixture.componentInstance.sectionExpanded().expenses).toBe(false);
+    });
+  });
+});

@@ -1,6 +1,7 @@
 namespace Intelibill.Application.Features.Items.DTOs;
 
 public sealed record ProductDetailsDto(
+    string Name,
     string Description,
     string Uom,
     decimal CostPrice,

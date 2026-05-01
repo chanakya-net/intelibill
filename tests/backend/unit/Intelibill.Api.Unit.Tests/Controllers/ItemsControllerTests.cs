@@ -8,6 +8,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
+using Intelibill.Application.Features.Items.Queries.GetProductDetails;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -61,6 +62,47 @@ public class ItemsControllerTests
 
         await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
             Arg.Is<GetItemsQuery>(q => q.UserId == userId && q.ActiveShopId == shopId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WhenValid_ForwardsAuthorizationHeader()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _controller.HttpContext.Request.Headers.Authorization = "Bearer token-123";
+
+        var dto = new ProductDetailsDto(
+            Name: "Rice",
+            Description: "Premium",
+            Uom: "kg",
+            CostPrice: 80m,
+            Mrp: 100m,
+            SalesPrice: 95m,
+            SupplierId: null,
+            SupplierName: null,
+            TaxIncluded: null,
+            TaxRatePercent: null);
+
+        _bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.GetProductDetails(name: null, barcode: "111", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<ProductDetailsDto>>(
+            Arg.Is<GetProductDetailsByNameOrBarcodeQuery>(q =>
+                q.UserId == userId
+                && q.ActiveShopId == shopId
+                && q.ProductName == null
+                && q.Barcode == "111"
+                && q.AuthorizationHeader == "Bearer token-123"),
             Arg.Any<CancellationToken>());
     }
 

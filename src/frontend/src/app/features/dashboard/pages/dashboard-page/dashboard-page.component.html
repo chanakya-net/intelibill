@@ -1,0 +1,374 @@
+<div class="dashboard-page">
+  <div class="dashboard-header">
+    <h1>{{ 'dashboard.title' | transloco }}</h1>
+    <button
+      pButton
+      type="button"
+      icon="pi pi-refresh"
+      [label]="'dashboard.refresh' | transloco"
+      [disabled]="loading()"
+      (click)="onRefresh()"
+    ></button>
+  </div>
+
+  <!-- Date range controls -->
+  <div class="dashboard-range-controls">
+    <div class="range-presets">
+      @for (preset of presets; track preset.value) {
+        <button
+          type="button"
+          class="range-preset-button"
+          [class.range-preset-button--active]="pendingPreset() === preset.value"
+          (click)="onSelectPreset(preset.value)"
+        >
+          {{ preset.label | transloco }}
+        </button>
+      }
+    </div>
+    @if (isCustom()) {
+      <div class="range-custom">
+        <input
+          type="date"
+          [ngModel]="pendingStartDate()"
+          (ngModelChange)="pendingStartDate.set($event)"
+          [max]="pendingEndDate()"
+          [attr.aria-label]="'dashboard.rangeStart' | transloco"
+        />
+        <span>–</span>
+        <input
+          type="date"
+          [ngModel]="pendingEndDate()"
+          (ngModelChange)="onEndDateChange($event)"
+          [attr.aria-label]="'dashboard.rangeEnd' | transloco"
+        />
+      </div>
+      @if (futureCorrected()) {
+        <div class="range-hint range-hint--correction">
+          <span class="pi pi-info-circle"></span>
+          <span>{{ 'dashboard.futureDateCorrected' | transloco }}</span>
+        </div>
+      }
+      @if (rangeValidationKey()) {
+        <div class="range-validation-error" role="alert">
+          <span class="pi pi-exclamation-circle"></span>
+          <span>{{ rangeValidationKey()! | transloco }}</span>
+        </div>
+      }
+    }
+    <button
+      pButton
+      type="button"
+      class="range-apply-button"
+      [label]="'dashboard.apply' | transloco"
+      [disabled]="applyDisabled()"
+      (click)="onApply()"
+    ></button>
+  </div>
+
+  @if (loading() && !data()) {
+    <div class="dashboard-loading">
+      <p-progressSpinner></p-progressSpinner>
+    </div>
+  }
+
+  @if (isLoadingWithData()) {
+    <div class="dashboard-loading-overlay" role="status" aria-busy="true">
+      <p-progressSpinner strokeWidth="4"></p-progressSpinner>
+    </div>
+  }
+
+  @if (error() && !data()) {
+    <div class="dashboard-error">
+      <p>{{ error() }}</p>
+    </div>
+  }
+
+  @if (error() && data()) {
+    <div class="dashboard-stale-warning">
+      <span class="pi pi-exclamation-triangle"></span>
+      <span>{{ 'dashboard.staleDataWarning' | transloco }}</span>
+    </div>
+  }
+
+  @if (data(); as dashboard) {
+    <div class="dashboard-freshness">
+      <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}</span>
+      <span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span>
+      <span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}</span>
+      <span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span>
+    </div>
+
+    @if (dashboard.hasNoSalesActivity) {
+      <div class="dashboard-no-activity">
+        <span class="pi pi-info-circle"></span>
+        <span>{{ 'dashboard.noActivity' | transloco }}</span>
+      </div>
+    }
+
+    <!-- Alerts -->
+    @if (dashboard.alerts.length > 0) {
+      <div class="dashboard-alerts">
+        @for (alert of dashboard.alerts; track alert.alertType) {
+          <div class="dashboard-alert" [class]="'alert-' + alert.alertType.toLowerCase()">
+            <span class="pi pi-exclamation-circle"></span>
+            <span>{{ 'dashboard.alert' + alert.alertType | transloco }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Sales Booked Trend Chart -->
+    @if (salesChartData()) {
+      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
+        <p-chart type="line" [data]="salesChartData()" [options]="lineChartOptions"></p-chart>
+      </p-card>
+    } @else if (dashboard.salesTrendSeries !== null) {
+      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
+        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+      </p-card>
+    }
+
+    <!-- Profit Trend Chart (Owner/Manager only) -->
+    @if (profitChartData()) {
+      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
+        <p-chart type="line" [data]="profitChartData()" [options]="lineChartOptions"></p-chart>
+      </p-card>
+    } @else if (dashboard.profitTrendSeries !== null) {
+      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
+        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+      </p-card>
+    }
+
+    <!-- Sales & Profit KPIs -->
+    <div class="dashboard-kpi-grid">
+      <p-card>
+        <div class="kpi-card">
+          <span class="kpi-label">{{ 'dashboard.salesCount' | transloco }}</span>
+          <span class="kpi-value">{{ dashboard.salesCount }}</span>
+          @if (previousPeriodComparisons()?.salesCount; as cmp) {
+            <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+              {{ directionIcon(cmp.direction) }} {{ cmp.delta > 0 ? '+' : '' }}{{ cmp.delta }}
+            </span>
+          }
+        </div>
+      </p-card>
+      @if (dashboard.salesBooked !== null) {
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
+            @if (previousPeriodComparisons()?.salesBooked; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+              </span>
+            }
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.cashCollected' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.cashCollected | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.profitBeforeTax' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.profitBeforeTax | currency: 'INR' }}</span>
+          </div>
+        </p-card>
+        <p-card>
+          <div class="kpi-card">
+            <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
+            <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
+            @if (previousPeriodComparisons()?.profitAfterTax; as cmp) {
+              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+              </span>
+            }
+          </div>
+        </p-card>
+      }
+    </div>
+
+    <!-- Expense KPIs (collapsed by default) -->
+    @if (dashboard.expenseRecorded !== null) {
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('expenses')"
+          [attr.aria-expanded]="sectionExpanded().expenses"
+        >
+          <span>{{ 'dashboard.sectionExpenses' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().expenses" [class.pi-chevron-up]="sectionExpanded().expenses"></span>
+        </button>
+        @if (sectionExpanded().expenses) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.expenseRecorded' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.expenseRecorded | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.expenseCorrection' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.expenseCorrection | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.netExpense' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.netExpense | currency: 'INR' }}</span>
+                @if (previousPeriodComparisons()?.netExpense; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Payment Behavior (collapsed by default) -->
+    @if (dashboard.paymentMix !== null) {
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('paymentBehavior')"
+          [attr.aria-expanded]="sectionExpanded().paymentBehavior"
+        >
+          <span>{{ 'dashboard.sectionPaymentBehavior' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().paymentBehavior" [class.pi-chevron-up]="sectionExpanded().paymentBehavior"></span>
+        </button>
+        @if (sectionExpanded().paymentBehavior) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.creditSalesAmount' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.creditSalesAmount | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.creditSalesPercentage' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
+                @if (dashboard.creditShareWarning === true) {
+                  <span class="kpi-warning">{{ 'dashboard.creditShareWarning' | transloco }}</span>
+                }
+                @if (previousPeriodComparisons()?.creditSalesPercentage; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | percent: '1.1-1' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+            <p-card [header]="'dashboard.paymentMixTitle' | transloco">
+              @if (paymentMixDonutData()) {
+                <p-chart type="doughnut" [data]="paymentMixDonutData()" [options]="donutChartOptions"></p-chart>
+              } @else {
+                <p class="kpi-empty">{{ 'dashboard.noPaymentActivity' | transloco }}</p>
+              }
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Stock Risk (collapsed by default) -->
+    <div class="dashboard-section">
+      <button
+        type="button"
+        class="dashboard-section-toggle"
+        (click)="toggleSection('stockRisk')"
+        [attr.aria-expanded]="sectionExpanded().stockRisk"
+      >
+        <span>{{ 'dashboard.sectionStockRisk' | transloco }}</span>
+        <span class="dashboard-section-summary">
+          {{ 'dashboard.criticalStockCount' | transloco }}: {{ dashboard.criticalStockCount }} /
+          {{ 'dashboard.runningLowStockCount' | transloco }}: {{ dashboard.runningLowStockCount }}
+        </span>
+        <span class="pi" [class.pi-chevron-down]="!sectionExpanded().stockRisk" [class.pi-chevron-up]="sectionExpanded().stockRisk"></span>
+      </button>
+      @if (sectionExpanded().stockRisk) {
+        <div class="dashboard-kpi-grid">
+          <p-card>
+            <div class="kpi-card">
+              <span class="kpi-label">{{ 'dashboard.runningLowStockCount' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.runningLowStockCount }}</span>
+            </div>
+          </p-card>
+          <p-card>
+            <div class="kpi-card">
+              <span class="kpi-label">{{ 'dashboard.criticalStockCount' | transloco }}</span>
+              <span class="kpi-value">{{ dashboard.criticalStockCount }}</span>
+            </div>
+          </p-card>
+          <p-card>
+            <ng-template pTemplate="header">
+              <span class="kpi-section-title">{{ 'dashboard.stockShortageList' | transloco }}</span>
+            </ng-template>
+            @if (dashboard.rankedShortageList.length === 0) {
+              <p class="kpi-empty">{{ 'dashboard.noStockRisk' | transloco }}</p>
+            } @else {
+              <ul class="shortage-list">
+                @for (item of dashboard.rankedShortageList; track item.itemName) {
+                  <li>{{ item.itemName }} — {{ item.quantity }}/{{ item.reorderLevel }}</li>
+                }
+              </ul>
+            }
+          </p-card>
+        </div>
+      }
+    </div>
+
+    <!-- Receivable Risk (collapsed by default) -->
+    @if (dashboard.topFiveDueCustomers !== null) {
+      <div class="dashboard-section">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('receivables')"
+          [attr.aria-expanded]="sectionExpanded().receivables"
+        >
+          <span>{{ 'dashboard.sectionReceivables' | transloco }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().receivables" [class.pi-chevron-up]="sectionExpanded().receivables"></span>
+        </button>
+        @if (sectionExpanded().receivables) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <ng-template pTemplate="header">
+                <span class="kpi-section-title">{{ 'dashboard.highestDueCustomer' | transloco }}</span>
+              </ng-template>
+              @if (dashboard.highestDueCustomer) {
+                <div class="kpi-card">
+                  <span class="kpi-label">{{ dashboard.highestDueCustomer.displayName }}</span>
+                  <span class="kpi-value">{{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}</span>
+                </div>
+              } @else {
+                <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+              }
+            </p-card>
+            <p-card>
+              <ng-template pTemplate="header">
+                <span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span>
+              </ng-template>
+              @if (dashboard.topFiveDueCustomers.length === 0) {
+                <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+              } @else {
+                <ul class="due-list">
+                  @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
+                    <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
+                  }
+                </ul>
+              }
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
