@@ -2,7 +2,13 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ErrorOr;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Intelibill.Integration.Tests;
 
@@ -25,6 +31,12 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
+    {
+        BaseAddress = new Uri("https://localhost"),
+        AllowAutoRedirect = false,
+    });
+
+    private static HttpClient CreateClient(WebApplicationFactory<Program> factory) => factory.CreateClient(new WebApplicationFactoryClientOptions
     {
         BaseAddress = new Uri("https://localhost"),
         AllowAutoRedirect = false,
@@ -242,6 +254,80 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task GetProductDetails_WhenBarcodeMissing_UsesExternalLookupAndPersistsItem()
+    {
+        var barcode = $"EXT-{Guid.NewGuid():N}";
+        var fakeLookup = new FakeExternalProductLookupService(
+            new ExternalProductLookupResult("External Product", "External Description", null));
+
+        using var scopedFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IExternalProductLookupService>();
+                services.AddSingleton<IExternalProductLookupService>(fakeLookup);
+            });
+        });
+
+        using var client = CreateClient(scopedFactory);
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items/details?barcode={Uri.EscapeDataString(barcode)}");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        var body = await detailsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("External Product", body.GetProperty("name").GetString());
+        Assert.Equal("External Description", body.GetProperty("description").GetString());
+        Assert.Equal("N/A", body.GetProperty("uom").GetString());
+        Assert.Equal(0m, body.GetProperty("costPrice").GetDecimal());
+        Assert.Equal(0m, body.GetProperty("mrp").GetDecimal());
+        Assert.Equal(0m, body.GetProperty("salesPrice").GetDecimal());
+
+        Assert.Equal(1, fakeLookup.CallCount);
+        Assert.Equal($"Bearer {ownerToken}", fakeLookup.LastAuthorizationHeader);
+
+        await using var scope = scopedFactory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var savedItem = await db.Items.SingleAsync(i => i.Barcode == barcode);
+
+        Assert.Equal("External Product", savedItem.Name);
+        Assert.Equal("External Description", savedItem.Description);
+        Assert.Equal("N/A", savedItem.Uom);
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WhenExternalLookupFails_ReturnsServerError()
+    {
+        var barcode = $"ERR-{Guid.NewGuid():N}";
+        var fakeLookup = new FakeExternalProductLookupService(
+            Error.Failure("product.lookup.failed", "External lookup failed."));
+
+        using var scopedFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IExternalProductLookupService>();
+                services.AddSingleton<IExternalProductLookupService>(fakeLookup);
+            });
+        });
+
+        using var client = CreateClient(scopedFactory);
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items/details?barcode={Uri.EscapeDataString(barcode)}");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, detailsResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task GetProductDetails_WithUnknownProduct_Returns404()
     {
         using var client = CreateClient();
@@ -282,5 +368,23 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var detailsResponse = await client.SendAsync(detailsRequest);
 
         Assert.Equal(HttpStatusCode.Unauthorized, detailsResponse.StatusCode);
+    }
+
+    private sealed class FakeExternalProductLookupService(ErrorOr<ExternalProductLookupResult?> result)
+        : IExternalProductLookupService
+    {
+        public int CallCount { get; private set; }
+
+        public string? LastAuthorizationHeader { get; private set; }
+
+        public Task<ErrorOr<ExternalProductLookupResult?>> LookupByBarcodeAsync(
+            string barcode,
+            string? authorizationHeader,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            LastAuthorizationHeader = authorizationHeader;
+            return Task.FromResult(result);
+        }
     }
 }

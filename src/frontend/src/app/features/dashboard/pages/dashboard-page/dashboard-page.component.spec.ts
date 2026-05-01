@@ -203,6 +203,24 @@ describe('DashboardPageComponent', () => {
     expect(buttons.length).toBe(6);
   });
 
+  it('adds active class to selected preset button', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const component = fixture.componentInstance;
+
+    component.onSelectPreset('today');
+    fixture.detectChanges();
+
+    const activeButton = fixture.debugElement.query(By.css('.range-preset-button--active'));
+    expect(activeButton).not.toBeNull();
+    expect(component.pendingPreset()).toBe('today');
+  });
+
+  it('renders apply button with dedicated styling class', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const applyButton = fixture.debugElement.query(By.css('.range-apply-button'));
+    expect(applyButton).not.toBeNull();
+  });
+
   it('renders sales trend chart when salesTrendSeries has data', () => {
     const dto = makeOwnerDto({
       salesTrendSeries: [

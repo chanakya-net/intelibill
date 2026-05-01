@@ -4,4 +4,5 @@ public sealed record GetProductDetailsByNameOrBarcodeQuery(
     Guid UserId,
     Guid ActiveShopId,
     string? ProductName,
-    string? Barcode);
+    string? Barcode,
+    string? AuthorizationHeader);

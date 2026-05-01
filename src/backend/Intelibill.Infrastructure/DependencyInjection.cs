@@ -7,6 +7,7 @@ using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
 using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
+using Intelibill.Infrastructure.Services.ProductLookup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,9 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
             .ValidateOnStart();
         services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ExternalAuthOptions>, ExternalAuthOptionsValidator>();
+
+        services.AddOptions<ProductLookupOptions>()
+            .Bind(configuration.GetSection(ProductLookupOptions.SectionName));
 
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
@@ -112,6 +116,13 @@ public static class DependencyInjection
         services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
         services.AddScoped<IExternalOAuthStateStore, InMemoryExternalOAuthStateStore>();
         services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
+
+        services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
+        {
+            var lookupOptions = sp.GetRequiredService<IOptions<ProductLookupOptions>>().Value;
+            client.BaseAddress = new Uri(lookupOptions.BaseUrl);
+        });
+        services.AddScoped<IExternalProductLookupService, ExternalProductLookupService>();
 
         return services;
     }

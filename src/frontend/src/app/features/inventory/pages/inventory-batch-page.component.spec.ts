@@ -18,6 +18,7 @@ import { InventoryBatchPageComponent } from './inventory-batch-page.component';
 
 describe('InventoryBatchPageComponent', () => {
   const productDetails = {
+    name: 'Milk',
     description: 'Fresh milk pack',
     uom: 'ltr',
     costPrice: 42,
@@ -157,6 +158,22 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.form.controls.taxRatePercent.value).toBe(productDetails.taxRatePercent);
   });
 
+  it('fetches details on barcode focusout even when item name is empty', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('');
+    component.form.controls.barcode.setValue('B003');
+    fixture.detectChanges();
+
+    const barcodeAutocomplete = fixture.debugElement.queryAll(By.css('p-autocomplete'))[1];
+    barcodeAutocomplete.triggerEventHandler('focusout', new FocusEvent('focusout'));
+    await fixture.whenStable();
+
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, 'B003');
+    expect(component.form.controls.itemName.value).toBe(productDetails.name);
+  });
+
   it('keeps selection-triggered lookup and syncs item name from barcode', async () => {
     productCatalogSync.findByBarcode.mockReturnValue({
       name: 'Tea',
@@ -218,6 +235,19 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
     expect(component.form.controls.taxIncluded.value).toBe(productDetails.taxIncluded);
     expect(component.form.controls.taxRatePercent.value).toBe(productDetails.taxRatePercent);
+  });
+
+  it('calls product lookup with barcode only and patches item name from API', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('');
+    component.form.controls.barcode.setValue('B009');
+
+    await component['fetchProductDetails']();
+
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, 'B009');
+    expect(component.form.controls.itemName.value).toBe(productDetails.name);
   });
 
   it('does not patch supplierName or taxIncluded when batch has no active supplier', async () => {
@@ -336,6 +366,57 @@ describe('InventoryBatchPageComponent', () => {
     expect(audioService.beep).toHaveBeenCalledTimes(1);
   });
 
+  it('adds a new pending row on scanner cache miss when API returns product details', async () => {
+    productCatalogSync.findByBarcode.mockReturnValue(undefined);
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
+    component.isScannerOpen.set(true);
+
+    await component.handleScannedBarcode({
+      value: 'B020',
+      format: 'CODE-128',
+      engine: 'zxing',
+    });
+
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, 'B020');
+    expect(component.pendingRows()).toHaveLength(1);
+    expect(component.pendingRows()[0].itemName).toBe(productDetails.name);
+    expect(component.pendingRows()[0].barcode).toBe('B020');
+    expect(component.scannerLastAction()).toBe('inventory.scannerActionAdded');
+    expect(component.isScannerOpen()).toBe(true);
+    expect(addSpy).toHaveBeenCalledTimes(1);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'success', detail: expect.stringContaining('B020') }),
+    );
+  });
+
+  it('stops scanner and waits for manual input when only name and barcode are available', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    productCatalogSync.findByBarcode.mockReturnValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      of({ ...productDetails, uom: 'N/A', costPrice: 0, mrp: 0, salesPrice: 0 }) as any,
+    );
+    component.isScannerOpen.set(true);
+
+    await component.handleScannedBarcode({
+      value: 'ONLY-NAME-BARCODE',
+      format: 'CODE-128',
+      engine: 'zxing',
+    });
+
+    expect(component.pendingRows()).toHaveLength(0);
+    expect(component.form.controls.itemName.value).toBe(productDetails.name);
+    expect(component.form.controls.barcode.value).toBe('ONLY-NAME-BARCODE');
+    expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
+    expect(component.isScannerOpen()).toBe(false);
+  });
+
   it('populates form and removes row when editing a pending row', async () => {
     suppliersFacade.suppliers.set([
       {
@@ -397,8 +478,13 @@ describe('InventoryBatchPageComponent', () => {
   it('closes scanner when scanned product cannot be added as a row', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
 
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      throwError(() => new Error('lookup failed')),
+    );
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
@@ -407,9 +493,47 @@ describe('InventoryBatchPageComponent', () => {
       engine: 'zxing',
     });
 
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(
+      undefined,
+      'UNKNOWN-001',
+    );
     expect(component.pendingRows()).toHaveLength(0);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
+    expect(addSpy).toHaveBeenCalledTimes(1);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'warn' }),
+    );
+  });
+
+  it('keeps scanner in review flow when cache misses and API returns no usable product', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
+
+    productCatalogSync.findByBarcode.mockReturnValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(of({ ...productDetails, name: '' }) as any);
+    component.isScannerOpen.set(true);
+
+    await component.handleScannedBarcode({
+      value: 'UNKNOWN-002',
+      format: 'CODE-128',
+      engine: 'zxing',
+    });
+
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(
+      undefined,
+      'UNKNOWN-002',
+    );
+    expect(component.pendingRows()).toHaveLength(0);
+    expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
+    expect(component.isScannerOpen()).toBe(false);
+    expect(addSpy).toHaveBeenCalledTimes(1);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'warn' }),
+    );
   });
 
   it('splits save requests into chunks of 100 when more than 100 rows exist', async () => {

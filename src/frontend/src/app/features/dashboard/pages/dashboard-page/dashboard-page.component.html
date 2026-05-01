@@ -16,12 +16,13 @@
     <div class="range-presets">
       @for (preset of presets; track preset.value) {
         <button
-          pButton
           type="button"
-          [outlined]="pendingPreset() !== preset.value"
-          [label]="preset.label | transloco"
+          class="range-preset-button"
+          [class.range-preset-button--active]="pendingPreset() === preset.value"
           (click)="onSelectPreset(preset.value)"
-        ></button>
+        >
+          {{ preset.label | transloco }}
+        </button>
       }
     </div>
     @if (isCustom()) {
@@ -57,6 +58,7 @@
     <button
       pButton
       type="button"
+      class="range-apply-button"
       [label]="'dashboard.apply' | transloco"
       [disabled]="applyDisabled()"
       (click)="onApply()"
@@ -370,4 +372,3 @@
     }
   }
 </div>
-

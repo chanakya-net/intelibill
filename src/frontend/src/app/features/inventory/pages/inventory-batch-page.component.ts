@@ -255,26 +255,29 @@ export class InventoryBatchPageComponent {
       this.form.controls.itemName.setValue(catalogEntry.name);
     }
 
-    await this.fetchProductDetails();
+    await this.fetchProductDetails({ showInfoToast: false, showErrorToast: false });
 
-    if (this.tryAddScannedRow()) {
+    if (this.canAutoAddScannedRow() && this.tryAddScannedRow()) {
       this.scannerLastAction.set('inventory.scannerActionAdded');
       this.showScannerToast('inventory.scannerAdded', barcode, 1);
       void this.audioService.beep();
       return;
     }
 
+    this.form.markAllAsTouched();
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
     this.isScannerOpen.set(false);
   }
 
-  private async fetchProductDetails(): Promise<void> {
+  private async fetchProductDetails(options?: { showInfoToast?: boolean; showErrorToast?: boolean }): Promise<void> {
+    const showInfoToast = options?.showInfoToast ?? true;
+    const showErrorToast = options?.showErrorToast ?? true;
     const itemName = this.form.controls.itemName.value?.trim();
     const barcode = this.form.controls.barcode.value?.trim();
 
-    // Skip if itemName is empty
-    if (!itemName || !barcode) {
+    // Barcode-driven lookup should still call API even when local catalog misses itemName.
+    if (!barcode) {
       return;
     }
 
@@ -282,7 +285,7 @@ export class InventoryBatchPageComponent {
 
     try {
       const details = await this.inventoryService
-        .getProductDetailsByNameOrBarcode(itemName, barcode)
+        .getProductDetailsByNameOrBarcode(itemName || undefined, barcode)
         .toPromise();
 
       if (details) {
@@ -290,14 +293,36 @@ export class InventoryBatchPageComponent {
 
         if (Object.keys(patch).length > 0) {
           this.form.patchValue(patch);
-          this.showInfo('inventory.productDetailsLoaded');
+          if (showInfoToast) {
+            this.showInfo('inventory.productDetailsLoaded');
+          }
         }
       }
     } catch (error) {
-      this.showError('inventory.productDetailsLoadError');
+      if (showErrorToast) {
+        this.showError('inventory.productDetailsLoadError');
+      }
     } finally {
       this.loadingProduct.set(false);
     }
+  }
+
+  private canAutoAddScannedRow(): boolean {
+    const itemName = this.form.controls.itemName.value.trim();
+    const barcode = this.form.controls.barcode.value.trim();
+    const uom = this.form.controls.uom.value.trim();
+    const costPrice = Number(this.form.controls.costPrice.value);
+    const mrp = Number(this.form.controls.mrp.value);
+    const salesPrice = Number(this.form.controls.salesPrice.value);
+
+    return (
+      itemName.length > 0
+      && barcode.length > 0
+      && uom.length > 0
+      && costPrice > 0
+      && mrp > 0
+      && salesPrice > 0
+    );
   }
 
   private showInfo(messageKey: string): void {
@@ -540,6 +565,7 @@ export class InventoryBatchPageComponent {
   }
 
   private buildProductDetailsPatch(details: {
+    name: string;
     description: string;
     uom: string;
     costPrice: number;
@@ -549,6 +575,7 @@ export class InventoryBatchPageComponent {
     taxIncluded: boolean | null;
     taxRatePercent: number | null;
   }): Partial<{
+    itemName: string;
     itemDescription: string;
     uom: string;
     costPrice: number;
@@ -559,6 +586,7 @@ export class InventoryBatchPageComponent {
     taxRatePercent: number;
   }> {
     const patch: Partial<{
+      itemName: string;
       itemDescription: string;
       uom: string;
       costPrice: number;
@@ -568,6 +596,11 @@ export class InventoryBatchPageComponent {
       taxIncluded: boolean;
       taxRatePercent: number;
     }> = {};
+
+    const currentItemName = this.form.controls.itemName.value.trim();
+    if (!currentItemName && !this.form.controls.itemName.dirty && details.name) {
+      patch.itemName = details.name;
+    }
 
     if (!this.form.controls.itemDescription.dirty) {
       patch.itemDescription = details.description || '';

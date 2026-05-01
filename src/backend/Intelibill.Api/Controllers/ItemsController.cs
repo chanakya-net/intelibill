@@ -104,8 +104,10 @@ public sealed class ItemsController(
         if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(barcode))
             return BadRequest("Either name or barcode must be provided");
 
+        var authorizationHeader = HttpContext.Request.Headers.Authorization.ToString();
+
         var result = await bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
-            new GetProductDetailsByNameOrBarcodeQuery(userId.Value, activeShopId.Value, name, barcode),
+            new GetProductDetailsByNameOrBarcodeQuery(userId.Value, activeShopId.Value, name, barcode, authorizationHeader),
             cancellationToken);
 
         return result.ToActionResult(Ok);
