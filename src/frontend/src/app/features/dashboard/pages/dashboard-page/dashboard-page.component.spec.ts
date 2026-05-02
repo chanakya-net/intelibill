@@ -214,6 +214,14 @@ describe('DashboardPageComponent', () => {
     expect(component.pendingPreset()).toBe('today');
   });
 
+  it('does not show standalone profit trend in metric selector', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const values = fixture.componentInstance.metricOptions().map((option) => option.value);
+
+    expect(values).toEqual(['sales', 'expense', 'paymentMix']);
+    expect(values).not.toContain('profit');
+  });
+
   it('renders apply button with dedicated styling class', () => {
     const fixture = createFixture(makeOwnerDto());
     const applyButton = fixture.debugElement.query(By.css('.range-apply-button'));
@@ -320,22 +328,78 @@ describe('DashboardPageComponent', () => {
     });
   });
 
+  it('renders payment mix date-wise for bar chart type', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 300, upi: 40, card: 20, credit: 10 },
+      paymentMixTrendSeries: [
+        { date: '2026-04-28', cash: 120, upi: 0, card: 0, credit: 10 },
+        { date: '2026-04-29', cash: 180, upi: 40, card: 20, credit: 0 },
+      ],
+      salesTrendSeries: [],
+      profitTrendSeries: [],
+    });
+    const fixture = createFixture(dto);
+
+    fixture.componentInstance.selectedMetric.set('paymentMix');
+    fixture.componentInstance.selectedChartType.set('bar');
+    fixture.detectChanges();
+
+    const chartData = fixture.componentInstance.selectedChartData();
+    expect(chartData?.labels).toEqual([
+      formatDateForSpec('2026-04-28'),
+      formatDateForSpec('2026-04-29'),
+    ]);
+    expect(chartData?.datasets).toHaveLength(4);
+    expect(chartData?.datasets[0]?.data).toEqual([120, 180]);
+    expect(chartData?.datasets[1]?.data).toEqual([0, 40]);
+    expect(chartData?.datasets[2]?.data).toEqual([0, 20]);
+    expect(chartData?.datasets[3]?.data).toEqual([10, 0]);
+  });
+
+  it('falls back to aggregate payment mix when trend series is missing', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 300, upi: 40, card: 20, credit: 10 },
+      paymentMixTrendSeries: null,
+      salesTrendSeries: [],
+      profitTrendSeries: [],
+    });
+    const fixture = createFixture(dto);
+
+    fixture.componentInstance.selectedMetric.set('paymentMix');
+    fixture.componentInstance.selectedChartType.set('bar');
+    fixture.detectChanges();
+
+    const chartData = fixture.componentInstance.selectedChartData();
+    expect(chartData?.labels).toHaveLength(4);
+    expect(chartData?.labels?.[0]).toContain('paymentMixCash');
+    expect(chartData?.labels?.[1]).toContain('paymentMixUpi');
+    expect(chartData?.labels?.[2]).toContain('paymentMixCard');
+    expect(chartData?.labels?.[3]).toContain('paymentMixCredit');
+    expect(chartData?.datasets).toHaveLength(1);
+    expect(chartData?.datasets[0]?.data).toEqual([300, 40, 20, 10]);
+  });
+
   it('shows no primary chart when profit trend data is null (Staff role)', () => {
     const fixture = createFixture(makeStaffDto());
     const charts = fixture.debugElement.queryAll(By.css('p-chart'));
     expect(charts.length).toBe(0);
   });
 
-  it('renders payment mix donut when paymentMix has non-zero total and section is expanded', () => {
+  it('does not render duplicate payment mix chart inside payment behavior section', () => {
     const dto = makeOwnerDto({
       paymentMix: { cash: 200, upi: 100, card: 50, credit: 50 },
     });
     const fixture = createFixture(dto);
-    // Expand payment behavior section
+
+    const chartsBefore = fixture.debugElement.queryAll(By.css('p-chart'));
+
+    // Expand payment behavior section; primary chart should remain the only chart.
     fixture.componentInstance.toggleSection('paymentBehavior');
     fixture.detectChanges();
-    const charts = fixture.debugElement.queryAll(By.css('p-chart'));
-    expect(charts.length).toBeGreaterThanOrEqual(1);
+
+    const chartsAfter = fixture.debugElement.queryAll(By.css('p-chart'));
+    expect(chartsBefore.length).toBe(1);
+    expect(chartsAfter.length).toBe(1);
   });
 
   it('shows no-payment-data message when paymentMix total is zero', () => {

@@ -59,6 +59,7 @@ public class DashboardControllerTests
             Alerts: [],
             SalesTrendSeries: [],
             ProfitTrendSeries: [],
+            PaymentMixTrendSeries: [],
             PreviousPeriodSummary: null);
 
     [Fact]

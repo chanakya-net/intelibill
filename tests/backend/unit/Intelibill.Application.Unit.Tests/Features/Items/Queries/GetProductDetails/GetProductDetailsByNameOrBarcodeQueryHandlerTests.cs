@@ -140,7 +140,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
 
         Assert.Equal("Lookup Rice", result.Value.Name);
         Assert.Equal("From external API", result.Value.Description);
-        Assert.Equal("N/A", result.Value.Uom);
+        Assert.Equal("Unit", result.Value.Uom);
         Assert.Equal(0m, result.Value.CostPrice);
         Assert.Equal(0m, result.Value.Mrp);
         Assert.Equal(0m, result.Value.SalesPrice);

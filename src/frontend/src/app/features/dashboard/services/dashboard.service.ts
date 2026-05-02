@@ -50,6 +50,14 @@ export interface ProfitTrendPointDto {
   readonly profitAfterTax: number;
 }
 
+export interface PaymentMixTrendPointDto {
+  readonly date: string;
+  readonly cash: number;
+  readonly upi: number;
+  readonly card: number;
+  readonly credit: number;
+}
+
 export interface DashboardDto {
   readonly generatedAt: string;
   readonly startDate: string;
@@ -75,6 +83,7 @@ export interface DashboardDto {
   readonly alerts: ReadonlyArray<DashboardAlertDto>;
   readonly salesTrendSeries: ReadonlyArray<SalesTrendPointDto> | null;
   readonly profitTrendSeries: ReadonlyArray<ProfitTrendPointDto> | null;
+  readonly paymentMixTrendSeries?: ReadonlyArray<PaymentMixTrendPointDto> | null;
   readonly previousPeriodSummary: PreviousPeriodSummaryDto | null;
 }
 

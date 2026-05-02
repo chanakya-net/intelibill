@@ -56,7 +56,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
                     if (!string.IsNullOrWhiteSpace(normalizedName))
                     {
                         var normalizedUom = string.IsNullOrWhiteSpace(externalLookupResult.Value.Uom)
-                            ? "N/A"
+                            ? "Unit"
                             : externalLookupResult.Value.Uom.Trim();
 
                         item = Item.Create(

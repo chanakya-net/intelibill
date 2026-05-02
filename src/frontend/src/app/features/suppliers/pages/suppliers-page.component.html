@@ -138,7 +138,6 @@
         [globalFilterFields]="['name','contactPersonName','contactPersonPhone','city','state']"
         [sortField]="'name'"
         [sortOrder]="1"
-        [scrollable]="true"
         class="p-datatable-sm"
       >
         <ng-template pTemplate="caption">
@@ -232,11 +231,8 @@
                 </div>
               </div>
             </th>
-            @if (canManageSuppliers()) {
+            @if (canManageSuppliers() || canMakePayment()) {
               <th>{{ 'suppliers.actions' | transloco }}</th>
-            }
-            @if (canMakePayment()) {
-              <th>{{ 'suppliers.paymentActions' | transloco }}</th>
             }
           </tr>
         </ng-template>
@@ -267,37 +263,39 @@
             <td>
               <p-tag [severity]="supplier.isPreferred ? 'info' : 'warn'" [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"></p-tag>
             </td>
-            @if (canManageSuppliers()) {
+            @if (canManageSuppliers() || canMakePayment()) {
               <td>
-                <button
-                  pButton
-                  type="button"
-                  [label]="'suppliers.editSupplier' | transloco"
-                  icon="pi pi-pencil"
-                  size="small"
-                  severity="secondary"
-                  (click)="onOpenEditSupplier(supplier)"
-                ></button>
-              </td>
-            }
-            @if (canMakePayment()) {
-              <td>
-                <button
-                  pButton
-                  type="button"
-                  [label]="'suppliers.makePayment' | transloco"
-                  icon="pi pi-wallet"
-                  size="small"
-                  severity="success"
-                  (click)="onOpenMakePayment(supplier)"
-                ></button>
+                <div class="flex gap-2">
+                  @if (canManageSuppliers()) {
+                    <button
+                      pButton
+                      type="button"
+                      [label]="'suppliers.editSupplier' | transloco"
+                      icon="pi pi-pencil"
+                      size="small"
+                      severity="secondary"
+                      (click)="onOpenEditSupplier(supplier)"
+                    ></button>
+                  }
+                  @if (canMakePayment()) {
+                    <button
+                      pButton
+                      type="button"
+                      [label]="'suppliers.makePayment' | transloco"
+                      icon="pi pi-wallet"
+                      size="small"
+                      severity="success"
+                      (click)="onOpenMakePayment(supplier)"
+                    ></button>
+                  }
+                </div>
               </td>
             }
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td [attr.colspan]="9 + (canManageSuppliers() ? 1 : 0) + (canMakePayment() ? 1 : 0)">
+            <td [attr.colspan]="9 + (canManageSuppliers() || canMakePayment() ? 1 : 0)">
               <div class="empty-state">
                 <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
                 <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
