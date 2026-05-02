@@ -174,7 +174,6 @@ export class DashboardPageComponent implements OnInit {
 
   readonly metricOptions = computed<SelectOption<DashboardMetric>[]>(() => [
     { label: this.transloco.translate('dashboard.salesTrendTitle'), value: 'sales' },
-    { label: this.transloco.translate('dashboard.profitTrendTitle'), value: 'profit' },
     { label: this.transloco.translate('dashboard.sectionExpenses'), value: 'expense' },
     { label: this.transloco.translate('dashboard.paymentMixTitle'), value: 'paymentMix' },
   ]);

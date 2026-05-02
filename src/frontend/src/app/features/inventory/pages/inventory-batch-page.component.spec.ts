@@ -400,7 +400,7 @@ describe('InventoryBatchPageComponent', () => {
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
-      of({ ...productDetails, uom: 'N/A', costPrice: 0, mrp: 0, salesPrice: 0 }) as any,
+      of({ ...productDetails, uom: 'Unit', costPrice: 0, mrp: 0, salesPrice: 0 }) as any,
     );
     component.isScannerOpen.set(true);
 

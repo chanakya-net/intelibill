@@ -214,6 +214,14 @@ describe('DashboardPageComponent', () => {
     expect(component.pendingPreset()).toBe('today');
   });
 
+  it('does not show standalone profit trend in metric selector', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const values = fixture.componentInstance.metricOptions().map((option) => option.value);
+
+    expect(values).toEqual(['sales', 'expense', 'paymentMix']);
+    expect(values).not.toContain('profit');
+  });
+
   it('renders apply button with dedicated styling class', () => {
     const fixture = createFixture(makeOwnerDto());
     const applyButton = fixture.debugElement.query(By.css('.range-apply-button'));

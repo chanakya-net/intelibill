@@ -282,7 +282,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var body = await detailsResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("External Product", body.GetProperty("name").GetString());
         Assert.Equal("External Description", body.GetProperty("description").GetString());
-        Assert.Equal("N/A", body.GetProperty("uom").GetString());
+        Assert.Equal("Unit", body.GetProperty("uom").GetString());
         Assert.Equal(0m, body.GetProperty("costPrice").GetDecimal());
         Assert.Equal(0m, body.GetProperty("mrp").GetDecimal());
         Assert.Equal(0m, body.GetProperty("salesPrice").GetDecimal());
@@ -296,7 +296,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal("External Product", savedItem.Name);
         Assert.Equal("External Description", savedItem.Description);
-        Assert.Equal("N/A", savedItem.Uom);
+        Assert.Equal("Unit", savedItem.Uom);
     }
 
     [Fact]
