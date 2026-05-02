@@ -271,6 +271,15 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(10m, profitTrend[1].ProfitAfterTax);
         Assert.Equal(40m, profitTrend[2].ProfitBeforeTax);
         Assert.Equal(20m, profitTrend[2].ProfitAfterTax);
+
+        var paymentMixTrend = result.Value.PaymentMixTrendSeries!;
+        Assert.Equal(3, paymentMixTrend.Count);
+        Assert.Equal(0m, paymentMixTrend[0].Cash);
+        Assert.Equal(100m, paymentMixTrend[1].Cash);
+        Assert.Equal(200m, paymentMixTrend[2].Cash);
+        Assert.Equal(0m, paymentMixTrend[0].Credit);
+        Assert.Equal(0m, paymentMixTrend[1].Credit);
+        Assert.Equal(0m, paymentMixTrend[2].Credit);
     }
 
     [Fact]
@@ -286,6 +295,7 @@ public class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Null(result.Value.SalesTrendSeries);
+        Assert.Null(result.Value.PaymentMixTrendSeries);
     }
 
     [Fact]

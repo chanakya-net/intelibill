@@ -10,7 +10,13 @@ import { ChartModule } from 'primeng/chart';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 
-import { DashboardDto, PreviousPeriodSummaryDto, ProfitTrendPointDto, SalesTrendPointDto } from '../../services/dashboard.service';
+import {
+  DashboardDto,
+  PaymentMixTrendPointDto,
+  PreviousPeriodSummaryDto,
+  ProfitTrendPointDto,
+  SalesTrendPointDto,
+} from '../../services/dashboard.service';
 import { DashboardPreset } from '../../state/dashboard.actions';
 import { DashboardFacade } from '../../state/dashboard.facade';
 
@@ -279,6 +285,48 @@ export class DashboardPageComponent implements OnInit {
     };
   });
 
+  readonly paymentMixTrendChartData = computed<ChartData | null>(() => {
+    const trend = this.data()?.paymentMixTrendSeries;
+    if (!trend || trend.length === 0) return null;
+
+    const hasAnyValue = trend.some((point: PaymentMixTrendPointDto) => point.cash + point.upi + point.card + point.credit > 0);
+    if (!hasAnyValue) return null;
+
+    return {
+      labels: trend.map((point: PaymentMixTrendPointDto) => formatTrendDateLabel(point.date)),
+      datasets: [
+        {
+          label: this.transloco.translate('dashboard.paymentMixCash'),
+          data: trend.map((point: PaymentMixTrendPointDto) => point.cash),
+          backgroundColor: '#3f9ad6',
+          borderColor: '#3f9ad6',
+          borderWidth: 1,
+        },
+        {
+          label: this.transloco.translate('dashboard.paymentMixUpi'),
+          data: trend.map((point: PaymentMixTrendPointDto) => point.upi),
+          backgroundColor: '#f35b7a',
+          borderColor: '#f35b7a',
+          borderWidth: 1,
+        },
+        {
+          label: this.transloco.translate('dashboard.paymentMixCard'),
+          data: trend.map((point: PaymentMixTrendPointDto) => point.card),
+          backgroundColor: '#f59e42',
+          borderColor: '#f59e42',
+          borderWidth: 1,
+        },
+        {
+          label: this.transloco.translate('dashboard.paymentMixCredit'),
+          data: trend.map((point: PaymentMixTrendPointDto) => point.credit),
+          backgroundColor: '#f0c451',
+          borderColor: '#f0c451',
+          borderWidth: 1,
+        },
+      ],
+    };
+  });
+
   readonly lineChartOptions = {
     responsive: true,
     plugins: { legend: { display: false } },
@@ -310,6 +358,11 @@ export class DashboardPageComponent implements OnInit {
     }
 
     if (metric === 'paymentMix') {
+      const paymentMixTrend = dashboard.paymentMixTrendSeries;
+      if (paymentMixTrend && paymentMixTrend.length > 0) {
+        return paymentMixTrend.some((point) => point.cash + point.upi + point.card + point.credit > 0);
+      }
+
       const mix = dashboard.paymentMix;
       if (!mix) return false;
       return mix.cash + mix.upi + mix.card + mix.credit > 0;
@@ -334,7 +387,14 @@ export class DashboardPageComponent implements OnInit {
     const metric = this.activeMetric();
     if (metric === 'sales') return this.salesChartData();
     if (metric === 'profit') return this.profitChartData();
-    if (metric === 'paymentMix') return this.paymentMixDonutData();
+    if (metric === 'paymentMix') {
+      const chartType = this.selectedChartType();
+      if (chartType === 'pie' || chartType === 'doughnut') {
+        return this.paymentMixDonutData();
+      }
+
+      return this.paymentMixTrendChartData() ?? this.paymentMixDonutData();
+    }
 
     const dashboard = this.data();
     if (!dashboard || dashboard.expenseRecorded === null || dashboard.expenseCorrection === null || dashboard.netExpense === null) {

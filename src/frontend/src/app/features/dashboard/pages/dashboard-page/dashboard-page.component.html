@@ -233,13 +233,6 @@
                 }
               </div>
             </p-card>
-            <p-card [header]="'dashboard.paymentMixTitle' | transloco">
-              @if (paymentMixDonutData()) {
-                <p-chart type="doughnut" [data]="paymentMixDonutData()" [options]="donutChartOptions"></p-chart>
-              } @else {
-                <p class="kpi-empty">{{ 'dashboard.noPaymentActivity' | transloco }}</p>
-              }
-            </p-card>
           </div>
         }
       </div>

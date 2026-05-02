@@ -128,6 +128,7 @@ public sealed class GetDashboardQueryHandler(
         // Sales Booked trend: daily buckets for the range (null for Staff)
         List<SalesTrendPointDto>? salesTrendSeries = null;
         List<ProfitTrendPointDto>? profitTrendSeries = null;
+        List<PaymentMixTrendPointDto>? paymentMixTrendSeries = null;
         PreviousPeriodSummaryDto? previousPeriodSummary = null;
         if (!isStaff)
         {
@@ -142,9 +143,15 @@ public sealed class GetDashboardQueryHandler(
 
             salesTrendSeries = [];
             profitTrendSeries = [];
+            paymentMixTrendSeries = [];
+            var paymentMixByDay = sales
+                .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+                .ToDictionary(g => g.Key, g => CalculatePaymentMix(g.ToList()));
+
             for (var day = query.StartDate; day <= query.EndDate; day = day.AddDays(1))
             {
                 var dayData = salesByDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m, Tax: 0m));
+                var dayPaymentMix = paymentMixByDay.GetValueOrDefault(day, new PaymentMixDto(0m, 0m, 0m, 0m));
                 salesTrendSeries.Add(new SalesTrendPointDto(
                     Date: day,
                     Amount: dayData.SalesBooked));
@@ -152,6 +159,12 @@ public sealed class GetDashboardQueryHandler(
                     Date: day,
                     ProfitBeforeTax: dayData.SalesBooked - dayData.Cost,
                     ProfitAfterTax: dayData.SalesBooked - dayData.Tax - dayData.Cost));
+                paymentMixTrendSeries.Add(new PaymentMixTrendPointDto(
+                    Date: day,
+                    Cash: dayPaymentMix.Cash,
+                    Upi: dayPaymentMix.Upi,
+                    Card: dayPaymentMix.Card,
+                    Credit: dayPaymentMix.Credit));
             }
 
             // Previous period aggregates
@@ -195,6 +208,7 @@ public sealed class GetDashboardQueryHandler(
             Alerts: alerts,
             SalesTrendSeries: salesTrendSeries,
             ProfitTrendSeries: profitTrendSeries,
+                PaymentMixTrendSeries: paymentMixTrendSeries,
             PreviousPeriodSummary: previousPeriodSummary);
     }
 
