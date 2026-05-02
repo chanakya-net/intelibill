@@ -19,6 +19,11 @@ const localStorageMock = {
 };
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
 
+function formatDateForSpec(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(year, month - 1, day));
+}
+
 const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
   startDate: '2026-03-31',
@@ -106,27 +111,23 @@ function createFixture(dto: DashboardDto | null, errorMessage = '') {
 describe('DashboardPageComponent', () => {
   it('renders sales count for all roles', () => {
     const fixture = createFixture(makeOwnerDto());
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.textContent).toContain('5');
+    expect(fixture.componentInstance.data()?.salesCount).toBe(5);
   });
 
   it('renders financial KPI sections for Owner role', () => {
     const fixture = createFixture(makeOwnerDto({ salesBooked: 500 }));
     const cards = fixture.debugElement.queryAll(By.css('p-card'));
-    // financial sections are present (sales booked card, expense cards, payment mix)
-    expect(cards.length).toBeGreaterThan(4);
+    // chart card and collapsible sections are present, but the primary summary cards are removed
+    expect(cards.length).toBeGreaterThan(0);
+    expect(fixture.debugElement.queryAll(By.css('.dashboard-primary-layout .kpi-card'))).toHaveLength(0);
   });
 
   it('hides financial KPI sections for Staff role (null fields)', () => {
     const fixture = createFixture(makeStaffDto());
-    const el = fixture.nativeElement as HTMLElement;
-    // Sales count still visible
-    expect(el.textContent).toContain('5');
+    expect(fixture.componentInstance.salesChartData()).toBeNull();
     // Stock risk section toggle is shown (all roles see stock risk)
     const stockToggle = fixture.debugElement.queryAll(By.css('.dashboard-section-toggle'));
     expect(stockToggle.length).toBeGreaterThan(0);
-    // The payment mix section should not be rendered (null for Staff)
-    expect(el.querySelector('.payment-mix')).toBeNull();
   });
 
   it('renders alert ribbon when alerts are present', () => {
@@ -197,21 +198,19 @@ describe('DashboardPageComponent', () => {
     expect(dueList).toBeNull();
   });
 
-  it('renders preset buttons', () => {
+  it('renders three combobox controls for metric, range, and chart type', () => {
     const fixture = createFixture(makeOwnerDto());
-    const buttons = fixture.debugElement.queryAll(By.css('.range-presets button'));
-    expect(buttons.length).toBe(6);
+    const selects = fixture.debugElement.queryAll(By.css('p-select'));
+    expect(selects.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('adds active class to selected preset button', () => {
+  it('updates preset selection state', () => {
     const fixture = createFixture(makeOwnerDto());
     const component = fixture.componentInstance;
 
     component.onSelectPreset('today');
     fixture.detectChanges();
 
-    const activeButton = fixture.debugElement.query(By.css('.range-preset-button--active'));
-    expect(activeButton).not.toBeNull();
     expect(component.pendingPreset()).toBe('today');
   });
 
@@ -227,13 +226,22 @@ describe('DashboardPageComponent', () => {
         { date: '2026-04-28', amount: 200 },
         { date: '2026-04-29', amount: 300 },
       ],
+      profitTrendSeries: [
+        { date: '2026-04-28', profitBeforeTax: 80, profitAfterTax: 100 },
+        { date: '2026-04-29', profitBeforeTax: 120, profitAfterTax: 150 },
+      ],
     });
     const fixture = createFixture(dto);
     const chart = fixture.debugElement.query(By.css('p-chart'));
     expect(chart).not.toBeNull();
+    expect(fixture.componentInstance.salesChartData()?.labels).toEqual([
+      formatDateForSpec('2026-04-28'),
+      formatDateForSpec('2026-04-29'),
+    ]);
+    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(3);
   });
 
-  it('hides sales trend chart when salesTrendSeries is null (Staff role)', () => {
+  it('hides sales trend chart when sales trend data is null (Staff role)', () => {
     const fixture = createFixture(makeStaffDto());
     const chart = fixture.debugElement.query(By.css('p-chart'));
     expect(chart).toBeNull();
@@ -242,8 +250,12 @@ describe('DashboardPageComponent', () => {
   it('renders profit trend chart when profitTrendSeries has data (Owner role)', () => {
     const dto = makeOwnerDto({
       profitTrendSeries: [
-        { date: '2026-04-28', profitAfterTax: 80 },
-        { date: '2026-04-29', profitAfterTax: 120 },
+        { date: '2026-04-28', profitBeforeTax: 60, profitAfterTax: 80 },
+        { date: '2026-04-29', profitBeforeTax: 100, profitAfterTax: 120 },
+      ],
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 200 },
+        { date: '2026-04-29', amount: 300 },
       ],
     });
     const fixture = createFixture(dto);
@@ -251,9 +263,65 @@ describe('DashboardPageComponent', () => {
     expect(charts.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('hides profit trend chart when profitTrendSeries is null (Staff role)', () => {
+  it('falls back to expense metric when selected sales metric has no chart data', () => {
+    const dto = makeOwnerDto({
+      salesTrendSeries: [],
+      profitTrendSeries: [],
+      expenseRecorded: 50,
+      expenseCorrection: -10,
+      netExpense: 40,
+    });
+    const fixture = createFixture(dto);
+
+    fixture.componentInstance.selectedMetric.set('sales');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeMetric()).toBe('expense');
+    expect(fixture.componentInstance.selectedChartData()?.datasets[0]?.data).toEqual([50, -10, 40]);
+  });
+
+  it('coerces sales pie selection to bar chart', () => {
+    const dto = makeOwnerDto({
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 200 },
+        { date: '2026-04-29', amount: 300 },
+      ],
+      profitTrendSeries: [
+        { date: '2026-04-28', profitBeforeTax: 80, profitAfterTax: 100 },
+        { date: '2026-04-29', profitBeforeTax: 120, profitAfterTax: 150 },
+      ],
+    });
+    const fixture = createFixture(dto);
+
+    fixture.componentInstance.selectedMetric.set('sales');
+    fixture.componentInstance.selectedChartType.set('pie');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedPrimeChartType()).toBe('bar');
+  });
+
+  it('allows doughnut chart for payment mix metric', () => {
+    const dto = makeOwnerDto({
+      paymentMix: { cash: 200, upi: 100, card: 50, credit: 50 },
+      salesTrendSeries: [],
+      profitTrendSeries: [],
+    });
+    const fixture = createFixture(dto);
+
+    fixture.componentInstance.selectedMetric.set('paymentMix');
+    fixture.componentInstance.selectedChartType.set('doughnut');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeMetric()).toBe('paymentMix');
+    expect(fixture.componentInstance.selectedPrimeChartType()).toBe('doughnut');
+    expect(fixture.componentInstance.selectedChartOptions()).toMatchObject({
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+    });
+  });
+
+  it('shows no primary chart when profit trend data is null (Staff role)', () => {
     const fixture = createFixture(makeStaffDto());
-    // Staff gets null for both chart series; no charts should render
     const charts = fixture.debugElement.queryAll(By.css('p-chart'));
     expect(charts.length).toBe(0);
   });
@@ -287,6 +355,14 @@ describe('DashboardPageComponent', () => {
     const dto = makeOwnerDto({
       salesCount: 10,
       salesBooked: 1000,
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 450 },
+        { date: '2026-04-29', amount: 550 },
+      ],
+      profitTrendSeries: [
+        { date: '2026-04-28', profitBeforeTax: 150, profitAfterTax: 180 },
+        { date: '2026-04-29', profitBeforeTax: 220, profitAfterTax: 260 },
+      ],
       previousPeriodSummary: {
         startDate: '2026-03-25',
         endDate: '2026-03-31',
@@ -298,8 +374,7 @@ describe('DashboardPageComponent', () => {
       },
     });
     const fixture = createFixture(dto);
-    const badges = fixture.debugElement.queryAll(By.css('[class*="kpi-comparison"]'));
-    expect(badges.length).toBeGreaterThan(0);
+    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(3);
   });
 
   it('hides comparison badges when previousPeriodSummary is null (Staff role)', () => {

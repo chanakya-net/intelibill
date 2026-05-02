@@ -69,8 +69,8 @@ public sealed class GetDashboardQueryHandler(
         var cashCollected = sales.Sum(s => s.PaidAmount);
         var totalCost = sales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
         var totalTax = sales.Sum(s => s.TotalTaxAmount);
-        var profitBeforeTax = salesBooked - totalTax - totalCost;
-        var profitAfterTax = salesBooked - totalCost;
+        var profitBeforeTax = salesBooked - totalCost;
+        var profitAfterTax = salesBooked - totalTax - totalCost;
 
         // Expense KPIs
         var expenseRecorded = expenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
@@ -78,13 +78,10 @@ public sealed class GetDashboardQueryHandler(
         var netExpense = expenseRecorded + expenseCorrection;
 
         // Payment Behavior
-        var creditSalesAmount = sales.Where(s => s.PaymentMethod == PaymentMethod.Credit).Sum(s => s.TotalAmount);
+        // Credit behavior should include due portions even when payment method is not Credit.
+        var paymentMix = CalculatePaymentMix(sales);
+        var creditSalesAmount = paymentMix.Credit;
         var creditSalesPercentage = salesBooked > 0 ? creditSalesAmount / salesBooked : 0m;
-        var paymentMix = new PaymentMixDto(
-            Cash: sales.Where(s => s.PaymentMethod == PaymentMethod.Cash).Sum(s => s.TotalAmount),
-            Upi: sales.Where(s => s.PaymentMethod == PaymentMethod.UPI).Sum(s => s.TotalAmount),
-            Card: sales.Where(s => s.PaymentMethod == PaymentMethod.Card).Sum(s => s.TotalAmount),
-            Credit: creditSalesAmount);
         var creditShareWarning = creditSalesPercentage >= CreditShareWarningThreshold;
 
         // Stock Risk
@@ -140,25 +137,27 @@ public sealed class GetDashboardQueryHandler(
                     g => g.Key,
                     g => (
                         SalesBooked: g.Sum(s => s.TotalAmount),
-                        Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity)));
+                        Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity),
+                        Tax: g.Sum(s => s.TotalTaxAmount)));
 
             salesTrendSeries = [];
             profitTrendSeries = [];
             for (var day = query.StartDate; day <= query.EndDate; day = day.AddDays(1))
             {
-                var dayData = salesByDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m));
+                var dayData = salesByDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m, Tax: 0m));
                 salesTrendSeries.Add(new SalesTrendPointDto(
                     Date: day,
                     Amount: dayData.SalesBooked));
                 profitTrendSeries.Add(new ProfitTrendPointDto(
                     Date: day,
-                    ProfitAfterTax: dayData.SalesBooked - dayData.Cost));
+                    ProfitBeforeTax: dayData.SalesBooked - dayData.Cost,
+                    ProfitAfterTax: dayData.SalesBooked - dayData.Tax - dayData.Cost));
             }
 
             // Previous period aggregates
             var prevSalesBooked = prevSales.Sum(s => s.TotalAmount);
             var prevCost = prevSales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
-            var prevCreditSales = prevSales.Where(s => s.PaymentMethod == PaymentMethod.Credit).Sum(s => s.TotalAmount);
+            var prevCreditSales = CalculatePaymentMix(prevSales).Credit;
             var prevExpenseRecorded = prevExpenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
             var prevExpenseCorrection = prevExpenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
             previousPeriodSummary = new PreviousPeriodSummaryDto(
@@ -166,7 +165,7 @@ public sealed class GetDashboardQueryHandler(
                 EndDate: prevEndDate,
                 SalesCount: prevSales.Count,
                 SalesBooked: prevSalesBooked,
-                ProfitAfterTax: prevSalesBooked - prevCost,
+                ProfitAfterTax: prevSalesBooked - prevSales.Sum(s => s.TotalTaxAmount) - prevCost,
                 NetExpense: prevExpenseRecorded + prevExpenseCorrection,
                 CreditSalesPercentage: prevSalesBooked > 0 ? prevCreditSales / prevSalesBooked : 0m);
         }
@@ -197,6 +196,47 @@ public sealed class GetDashboardQueryHandler(
             SalesTrendSeries: salesTrendSeries,
             ProfitTrendSeries: profitTrendSeries,
             PreviousPeriodSummary: previousPeriodSummary);
+    }
+
+    private static PaymentMixDto CalculatePaymentMix(IReadOnlyCollection<Domain.Entities.Sale> sales)
+    {
+        var cash = 0m;
+        var upi = 0m;
+        var card = 0m;
+        var credit = 0m;
+
+        foreach (var sale in sales)
+        {
+            var due = Math.Max(0m, sale.DueAmount);
+            var paidPortion = Math.Max(0m, sale.TotalAmount - due);
+
+            if (sale.PaymentMethod == PaymentMethod.Credit)
+            {
+                credit += sale.TotalAmount;
+                continue;
+            }
+
+            credit += due;
+
+            switch (sale.PaymentMethod)
+            {
+                case PaymentMethod.Cash:
+                    cash += paidPortion;
+                    break;
+                case PaymentMethod.UPI:
+                    upi += paidPortion;
+                    break;
+                case PaymentMethod.Card:
+                    card += paidPortion;
+                    break;
+                default:
+                    // Fallback to avoid dropping value if a new enum is introduced.
+                    cash += paidPortion;
+                    break;
+            }
+        }
+
+        return new PaymentMixDto(Cash: cash, Upi: upi, Card: card, Credit: credit);
     }
 }
 
