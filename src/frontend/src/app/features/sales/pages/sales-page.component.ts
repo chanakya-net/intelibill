@@ -9,9 +9,9 @@ import { TagModule } from 'primeng/tag';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
+import { SkeletonModule } from 'primeng/skeleton';
 
 import { SaleListItemDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
@@ -30,9 +30,9 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     IconFieldModule,
     InputIconModule,
     InputTextModule,
-    ProgressSpinnerModule,
     TableModule,
     DialogModule,
+    SkeletonModule,
     SaleDetailOverlayComponent,
     TableFilterBarComponent,
     TranslocoPipe,

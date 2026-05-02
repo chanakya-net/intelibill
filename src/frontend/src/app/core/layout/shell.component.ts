@@ -407,6 +407,17 @@ export class ShellComponent {
     });
   }
 
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeyDown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+      event.preventDefault();
+      const searchInput = document.querySelector('input[pInputText], input.p-inputtext') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     this.closeMenusForEvent(event);

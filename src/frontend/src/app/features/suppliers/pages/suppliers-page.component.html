@@ -22,13 +22,85 @@
   }
 
   @if (isLoading()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
-  }
+    <!-- Mobile Skeleton (≤1023px) -->
+    <div class="mobile-grid-container">
+      <div class="supplier-list flex flex-col gap-3 px-1">
+        @for (i of [1,2,3,4]; track i) {
+          <p-card class="supplier-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar Skeleton -->
+              <p-skeleton shape="circle" size="3rem" class="flex-shrink-0" />
 
-  @if (!isLoading()) {
-    <!-- Mobile Stacked List (≤1023px) -->
+              <!-- Center: Info Skeleton -->
+              <div class="flex-1 flex flex-col gap-2 min-w-0">
+                <p-skeleton width="60%" height="1.25rem" />
+                <div class="flex items-center gap-2">
+                  <p-skeleton width="40%" height="1rem" />
+                  <p-skeleton width="20%" height="1rem" />
+                </div>
+              </div>
+
+              <!-- Right: Balance & Actions Skeleton -->
+              <div class="flex flex-col items-end gap-3">
+                <p-skeleton width="4rem" height="1.5rem" />
+                <div class="flex gap-2">
+                  <p-skeleton width="2rem" height="2rem" />
+                  <p-skeleton width="2rem" height="2rem" />
+                </div>
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Table Skeleton (≥1024px) -->
+    <div class="suppliers-table-card desktop-table">
+      <p-table [value]="[1,2,3,4,5,6]" class="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'suppliers.name' | transloco }}</th>
+            <th>{{ 'suppliers.contactPerson' | transloco }}</th>
+            <th>{{ 'suppliers.contactPhone' | transloco }}</th>
+            <th>{{ 'suppliers.city' | transloco }}</th>
+            <th>{{ 'suppliers.state' | transloco }}</th>
+            <th>{{ 'suppliers.pin' | transloco }}</th>
+            <th>{{ 'suppliers.balance' | transloco }}</th>
+            <th>{{ 'suppliers.status' | transloco }}</th>
+            <th>{{ 'suppliers.preferred' | transloco }}</th>
+            @if (canManageSuppliers() || canMakePayment()) {
+              <th>{{ 'suppliers.actions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body">
+          <tr>
+            <td><p-skeleton width="80%" /></td>
+            <td><p-skeleton width="60%" /></td>
+            <td><p-skeleton width="70%" /></td>
+            <td><p-skeleton width="50%" /></td>
+            <td><p-skeleton width="40%" /></td>
+            <td><p-skeleton width="30%" /></td>
+            <td><p-skeleton width="60%" /></td>
+            <td><p-skeleton width="4rem" height="1.5rem" /></td>
+            <td><p-skeleton width="3rem" height="1.5rem" /></td>
+            @if (canManageSuppliers() || canMakePayment()) {
+              <td>
+                <div class="flex gap-2">
+                  <p-skeleton width="6rem" height="2rem" />
+                  <p-skeleton width="6rem" height="2rem" />
+                </div>
+              </td>
+            }
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  } @else {
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
         <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -38,20 +110,31 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
             [placeholder]="'suppliers.name' | transloco"
-            class="w-full"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
       
       <div class="supplier-list flex flex-col gap-3 px-1">
         @for (supplier of filteredSuppliers(); track supplier.supplierId) {
-          <p-card class="supplier-card-item" [class.opacity-50]="!supplier.isActive" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
+          <p-card 
+            class="supplier-card-item cursor-pointer" 
+            [class.opacity-50]="!supplier.isActive" 
+            (click)="onOpenSupplierDetail(supplier)"
+            [pt]="{
+              root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+              body: { class: 'p-3' },
+              content: { class: 'p-0' }
+            }"
+          >
             <div class="flex items-center gap-4">
               <!-- Left: Avatar -->
               <p-avatar 
@@ -74,7 +157,12 @@
                     </span>
                     <span class="text-slate-300">•</span>
                   }
-                  <p-tag [severity]="supplier.isActive ? 'success' : 'danger'" [value]="supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco)"></p-tag>
+                  <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
+                    <div class="flex items-center gap-1.5 px-1">
+                      <span class="status-dot" [class.active]="supplier.isActive"></span>
+                      <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+                    </div>
+                  </p-tag>
                 </div>
               </div>
 
@@ -86,7 +174,7 @@
                   severity="info"
                   [text]="true"
                   size="small"
-                  (click)="onOpenSupplierDetail(supplier)"
+                  (click)="$event.stopPropagation(); onOpenSupplierDetail(supplier)"
                   class="p-0 h-auto text-[11px] font-extrabold"
                 />
                 
@@ -99,7 +187,7 @@
                       [pt]="{
                         root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
                       }"
-                      (click)="onOpenEditSupplier(supplier)"
+                      (click)="$event.stopPropagation(); onOpenEditSupplier(supplier)"
                       [attr.aria-label]="'suppliers.editSupplier' | transloco"
                     />
                   }
@@ -111,7 +199,7 @@
                       [pt]="{
                         root: { class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50' }
                       }"
-                      (click)="onOpenMakePayment(supplier)"
+                      (click)="$event.stopPropagation(); onOpenMakePayment(supplier)"
                       [attr.aria-label]="'suppliers.makePayment' | transloco"
                     />
                   }
@@ -139,6 +227,8 @@
         [sortField]="'name'"
         [sortOrder]="1"
         class="p-datatable-sm"
+        [scrollable]="true"
+        scrollHeight="calc(100vh - 280px)"
       >
         <ng-template pTemplate="caption">
           <app-table-filter-bar
@@ -258,7 +348,12 @@
               ></button>
             </td>
             <td>
-              <p-tag [severity]="supplier.isActive ? 'success' : 'danger'" [value]="supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco)"></p-tag>
+              <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
+                <div class="flex items-center gap-1.5 px-1">
+                  <span class="status-dot" [class.active]="supplier.isActive"></span>
+                  <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+                </div>
+              </p-tag>
             </td>
             <td>
               <p-tag [severity]="supplier.isPreferred ? 'info' : 'warn'" [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"></p-tag>

@@ -118,11 +118,17 @@
   }
 
   @if (data(); as dashboard) {
-    <div class="dashboard-freshness">
-      <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}</span>
-      <span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span>
-      <span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}</span>
-      <span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span>
+    <div class="dashboard-freshness-badge">
+      <div class="freshness-item">
+        <span class="pi pi-clock"></span>
+        <span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}:</span>
+        <span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span>
+      </div>
+      <div class="freshness-item">
+        <span class="pi pi-calendar"></span>
+        <span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}:</span>
+        <span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span>
+      </div>
     </div>
 
     @if (dashboard.hasNoSalesActivity) {
@@ -159,7 +165,7 @@
 
     <!-- Expense KPIs (collapsed by default) -->
     @if (dashboard.expenseRecorded !== null) {
-      <div class="dashboard-section">
+      <div class="dashboard-section card-style">
         <button
           type="button"
           class="dashboard-section-toggle"
@@ -167,6 +173,9 @@
           [attr.aria-expanded]="sectionExpanded().expenses"
         >
           <span>{{ 'dashboard.sectionExpenses' | transloco }}</span>
+          <span class="dashboard-section-summary">
+            {{ 'dashboard.netExpense' | transloco }}: {{ dashboard.netExpense | currency: 'INR' }}
+          </span>
           <span class="pi" [class.pi-chevron-down]="!sectionExpanded().expenses" [class.pi-chevron-up]="sectionExpanded().expenses"></span>
         </button>
         @if (sectionExpanded().expenses) {
@@ -201,7 +210,7 @@
 
     <!-- Payment Behavior (collapsed by default) -->
     @if (dashboard.paymentMix !== null) {
-      <div class="dashboard-section">
+      <div class="dashboard-section card-style">
         <button
           type="button"
           class="dashboard-section-toggle"
@@ -209,6 +218,9 @@
           [attr.aria-expanded]="sectionExpanded().paymentBehavior"
         >
           <span>{{ 'dashboard.sectionPaymentBehavior' | transloco }}</span>
+          <span class="dashboard-section-summary">
+            {{ 'dashboard.creditSalesPercentage' | transloco }}: {{ dashboard.creditSalesPercentage | percent: '1.1-1' }}
+          </span>
           <span class="pi" [class.pi-chevron-down]="!sectionExpanded().paymentBehavior" [class.pi-chevron-up]="sectionExpanded().paymentBehavior"></span>
         </button>
         @if (sectionExpanded().paymentBehavior) {
@@ -239,7 +251,7 @@
     }
 
     <!-- Stock Risk (collapsed by default) -->
-    <div class="dashboard-section">
+    <div class="dashboard-section card-style">
       <button
         type="button"
         class="dashboard-section-toggle"
@@ -287,7 +299,7 @@
 
     <!-- Receivable Risk (collapsed by default) -->
     @if (dashboard.topFiveDueCustomers !== null) {
-      <div class="dashboard-section">
+      <div class="dashboard-section card-style">
         <button
           type="button"
           class="dashboard-section-toggle"
@@ -295,6 +307,11 @@
           [attr.aria-expanded]="sectionExpanded().receivables"
         >
           <span>{{ 'dashboard.sectionReceivables' | transloco }}</span>
+          <span class="dashboard-section-summary">
+            @if (dashboard.highestDueCustomer) {
+              {{ 'dashboard.highestDueCustomer' | transloco }}: {{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}
+            }
+          </span>
           <span class="pi" [class.pi-chevron-down]="!sectionExpanded().receivables" [class.pi-chevron-up]="sectionExpanded().receivables"></span>
         </button>
         @if (sectionExpanded().receivables) {

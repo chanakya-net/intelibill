@@ -13,6 +13,12 @@
       [ngModel]="searchValue"
       (ngModelChange)="onSearchChange($event)"
       [placeholder]="placeholder"
+      class="pr-10"
     />
+    @if (searchValue) {
+      <p-inputicon iconPosition="right" class="cursor-pointer" (click)="onClear()">
+        <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+      </p-inputicon>
+    }
   </p-iconfield>
 </div>

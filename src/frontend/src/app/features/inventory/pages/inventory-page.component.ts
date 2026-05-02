@@ -11,7 +11,7 @@ import { TagModule } from 'primeng/tag';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -43,7 +43,7 @@ import {
     IconFieldModule,
     InputIconModule,
     InputTextModule,
-    ProgressSpinnerModule,
+    SkeletonModule,
     TableModule,
     AddProductOverlayComponent,
     EditItemOverlayComponent,

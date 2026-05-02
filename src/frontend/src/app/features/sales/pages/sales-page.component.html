@@ -12,8 +12,69 @@
   }
 
   @if (isLoading()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    <!-- Mobile Skeleton -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-skeleton width="100%" height="3rem" borderRadius="8px" />
+      </div>
+      <div class="sale-list flex flex-col gap-3 px-1">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <p-card [pt]="{
+            root: { class: 'border border-orange-50 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-3">
+              <div class="flex-1 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-2">
+                  <p-skeleton width="40%" height="1.25rem" />
+                  <p-skeleton width="20%" height="1.25rem" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <p-skeleton width="30%" height="0.75rem" />
+                  <p-skeleton width="30%" height="0.75rem" />
+                </div>
+              </div>
+              <div class="text-right flex flex-col items-end gap-1">
+                <p-skeleton width="4rem" height="1.25rem" />
+                <p-skeleton width="3rem" height="0.75rem" />
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Skeleton -->
+    <div class="sales-table-card desktop-table">
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+        <p-skeleton width="200px" height="2.5rem" />
+        <p-skeleton width="100px" height="2.5rem" />
+      </div>
+      <p-table [value]="[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" class="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'sales.history.invoiceNumber' | transloco }}</th>
+            <th>{{ 'sales.history.date' | transloco }}</th>
+            <th>{{ 'sales.history.customer' | transloco }}</th>
+            <th>{{ 'sales.history.payment' | transloco }}</th>
+            <th>{{ 'sales.history.items' | transloco }}</th>
+            <th>{{ 'sales.history.total' | transloco }}</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body">
+          <tr>
+            <td><p-skeleton width="60%" /></td>
+            <td><p-skeleton width="80%" /></td>
+            <td><p-skeleton width="70%" /></td>
+            <td><p-skeleton width="50px" height="1.5rem" /></td>
+            <td><p-skeleton width="30%" /></td>
+            <td><p-skeleton width="50%" /></td>
+            <td><p-skeleton shape="circle" size="2rem" /></td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   }
 
@@ -26,10 +87,16 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
-            [placeholder]="'sales.history.search' | transloco"
-            class="w-full"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
+            [placeholder]="'sales.searchPlaceholder' | transloco"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
 

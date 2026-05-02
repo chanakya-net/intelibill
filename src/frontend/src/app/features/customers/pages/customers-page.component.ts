@@ -16,6 +16,7 @@ import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
+import { SkeletonModule } from 'primeng/skeleton';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
@@ -44,6 +45,7 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     InputNumberModule,
     InputGroupModule,
     InputGroupAddonModule,
+    SkeletonModule,
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
     TableFilterBarComponent,

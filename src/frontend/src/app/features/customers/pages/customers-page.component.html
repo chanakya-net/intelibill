@@ -20,8 +20,58 @@
   }
 
   @if (isLoading()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    <!-- Mobile Skeleton -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-skeleton width="100%" height="3rem" styleClass="rounded-lg"></p-skeleton>
+      </div>
+      <div class="customer-list flex flex-col gap-3 px-1">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <p-card [pt]="{
+            root: { class: 'border border-orange-100 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <p-skeleton shape="circle" size="3rem" styleClass="flex-shrink-0"></p-skeleton>
+              <div class="flex-1 flex flex-col gap-2">
+                <p-skeleton width="60%" height="1.25rem"></p-skeleton>
+                <p-skeleton width="40%" height="1rem"></p-skeleton>
+                <p-skeleton width="80%" height="1rem"></p-skeleton>
+              </div>
+              <div class="flex flex-col items-end gap-2">
+                <p-skeleton width="2rem" height="2rem" styleClass="rounded"></p-skeleton>
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Skeleton -->
+    <div class="customers-table-card desktop-table">
+      <p-table [value]="[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" class="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th><p-skeleton width="6rem"></p-skeleton></th>
+            <th><p-skeleton width="8rem"></p-skeleton></th>
+            <th><p-skeleton width="12rem"></p-skeleton></th>
+            <th><p-skeleton width="6rem"></p-skeleton></th>
+            <th><p-skeleton width="4rem"></p-skeleton></th>
+            <th><p-skeleton width="8rem"></p-skeleton></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body">
+          <tr>
+            <td><p-skeleton width="80%"></p-skeleton></td>
+            <td><p-skeleton width="70%"></p-skeleton></td>
+            <td><p-skeleton width="90%"></p-skeleton></td>
+            <td><p-skeleton width="60%"></p-skeleton></td>
+            <td><p-skeleton width="50%"></p-skeleton></td>
+            <td><p-skeleton width="100%"></p-skeleton></td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   }
 
@@ -36,20 +86,31 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
             [placeholder]="'customers.name' | transloco"
-            class="w-full"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
       
       <div class="customer-list flex flex-col gap-3 px-1">
         @for (customer of filteredCustomers(); track customer.customerId) {
-          <p-card class="customer-card-item" [class.opacity-50]="!customer.isActive" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
+          <p-card 
+            class="customer-card-item cursor-pointer" 
+            [class.opacity-50]="!customer.isActive" 
+            (click)="onOpenCustomerAccount(customer)"
+            [pt]="{
+              root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+              body: { class: 'p-3' },
+              content: { class: 'p-0' }
+            }"
+          >
             <div class="flex items-center gap-4">
               <!-- Left: Avatar -->
               <p-avatar 
@@ -62,15 +123,22 @@
 
               <!-- Center: Info -->
               <div class="flex-1 flex flex-col gap-1 min-w-0">
-                <button type="button" class="customer-name-link" (click)="onOpenCustomerAccount(customer)">
+                <div class="customer-name-link font-bold text-blue-800">
                   {{ customer.name }}
-                </button>
+                </div>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
                     {{ customer.phoneNumber }}
                   </span>
                   <span class="text-slate-300">•</span>
-                  <p-tag [severity]="customer.isActive ? 'success' : 'danger'" [value]="customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco)"></p-tag>
+                  <p-tag [severity]="customer.isActive ? 'success' : 'danger'">
+                    <ng-template pTemplate="content">
+                      <div class="flex items-center gap-1.5">
+                        <span class="status-dot" [class.bg-green-500]="customer.isActive" [class.bg-red-500]="!customer.isActive"></span>
+                        <span class="text-[10px] font-bold tracking-wide uppercase">{{ customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco) }}</span>
+                      </div>
+                    </ng-template>
+                  </p-tag>
                 </div>
                 <div class="text-xs font-semibold text-orange-700">
                   {{ 'customers.account.outstandingDue' | transloco }}: ₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}
@@ -87,7 +155,7 @@
                     [pt]="{
                       root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
                     }"
-                    (click)="onOpenEditCustomer(customer)"
+                    (click)="$event.stopPropagation(); onOpenEditCustomer(customer)"
                     [attr.aria-label]="'customers.editCustomer' | transloco"
                   />
                 </div>
@@ -114,6 +182,7 @@
         [sortField]="'name'"
         [sortOrder]="1"
         [scrollable]="true"
+        scrollHeight="calc(100vh - 280px)"
         class="p-datatable-sm"
       >
         <ng-template pTemplate="caption">
@@ -185,7 +254,14 @@
             <td>{{ customer.address || '-' }}</td>
             <td class="font-semibold text-orange-700">₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
             <td>
-              <p-tag [severity]="customer.isActive ? 'success' : 'danger'" [value]="customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco)"></p-tag>
+              <p-tag [severity]="customer.isActive ? 'success' : 'danger'">
+                <ng-template pTemplate="content">
+                  <div class="flex items-center gap-1.5 px-1">
+                    <span class="status-dot" [class.bg-green-500]="customer.isActive" [class.bg-red-500]="!customer.isActive"></span>
+                    <span class="text-[10px] font-bold tracking-wide uppercase">{{ customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco) }}</span>
+                  </div>
+                </ng-template>
+              </p-tag>
             </td>
             <td>
               <button

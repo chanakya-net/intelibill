@@ -427,17 +427,47 @@ export class DashboardPageComponent implements OnInit {
   readonly selectedChartOptions = computed(() => {
     const showLegend = (this.selectedChartData()?.datasets.length ?? 0) > 1;
     const selectedType = this.selectedChartType();
+
+    const currencyFormatter = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    });
+
+    const commonOptions: any = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: showLegend,
+          position: 'bottom' as const,
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: any) => {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== undefined) {
+                label += currencyFormatter.format(context.parsed.y);
+              } else if (context.parsed !== undefined) {
+                label += currencyFormatter.format(context.parsed);
+              }
+              return label;
+            },
+          },
+        },
+      },
+    };
+
     if ((selectedType === 'pie' || selectedType === 'doughnut') && this.activeMetric() !== 'sales') {
-      return {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' as const } },
-      };
+      return commonOptions;
     }
 
     if (selectedType === 'stackedBar') {
       return {
-        responsive: true,
-        plugins: { legend: { display: showLegend } },
+        ...commonOptions,
         scales: {
           x: { stacked: true },
           y: { beginAtZero: true, stacked: true },
@@ -446,8 +476,7 @@ export class DashboardPageComponent implements OnInit {
     }
 
     return {
-      responsive: true,
-      plugins: { legend: { display: showLegend } },
+      ...commonOptions,
       scales: {
         y: { beginAtZero: true },
       },

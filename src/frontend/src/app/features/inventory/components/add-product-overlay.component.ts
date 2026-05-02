@@ -7,7 +7,6 @@ import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocompl
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { RootState } from '../../../core/state/app.state';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -26,7 +25,6 @@ import {
     InputTextModule,
     CheckboxModule,
     ButtonModule,
-    ProgressSpinnerModule,
     TranslocoPipe,
   ],
   templateUrl: './add-product-overlay.component.html',

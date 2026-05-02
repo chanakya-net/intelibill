@@ -28,7 +28,6 @@
   }
 
   @if (!isLoading()) {
-    <!-- Mobile Stacked List (≤1023px) -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
         <p-iconfield iconPosition="left" class="mobile-search-field">
@@ -38,10 +37,16 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
             [placeholder]="'users.name' | transloco"
-            class="w-full"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
       

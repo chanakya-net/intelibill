@@ -119,5 +119,47 @@ h1 {
     padding: 3rem 1rem;
     text-align: center;
   }
+}
 
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ef4444; // red
+  display: inline-block;
+
+  &.active {
+    background-color: #22c55e; // green
   }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.product-card-item {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    
+    :host ::ng-deep .p-card {
+      border-color: #fed7aa !important;
+      background-color: #fffaf5;
+    }
+  }
+}
+
+:host ::ng-deep {
+  .p-datatable-thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff7ed !important;
+  }
+
+  .p-tag {
+    padding: 0.15rem 0.5rem;
+  }
+}
