@@ -13,17 +13,42 @@
 
   <!-- Date range controls -->
   <div class="dashboard-range-controls">
-    <div class="range-presets">
-      @for (preset of presets; track preset.value) {
-        <button
-          type="button"
-          class="range-preset-button"
-          [class.range-preset-button--active]="pendingPreset() === preset.value"
-          (click)="onSelectPreset(preset.value)"
-        >
-          {{ preset.label | transloco }}
-        </button>
-      }
+    <div class="range-combos">
+      <label class="combo-field">
+        <span>Metric</span>
+        <p-select
+          [options]="metricOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="selectedMetric()"
+          (ngModelChange)="selectedMetric.set($event)"
+          appendTo="body"
+        ></p-select>
+      </label>
+
+      <label class="combo-field">
+        <span>Time Range</span>
+        <p-select
+          [options]="presetOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="pendingPreset()"
+          (ngModelChange)="onSelectPreset($event)"
+          appendTo="body"
+        ></p-select>
+      </label>
+
+      <label class="combo-field">
+        <span>Chart Type</span>
+        <p-select
+          [options]="chartTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="selectedChartType()"
+          (ngModelChange)="selectedChartType.set($event)"
+          appendTo="body"
+        ></p-select>
+      </label>
     </div>
     @if (isCustom()) {
       <div class="range-custom">
@@ -55,14 +80,16 @@
         </div>
       }
     }
-    <button
-      pButton
-      type="button"
-      class="range-apply-button"
-      [label]="'dashboard.apply' | transloco"
-      [disabled]="applyDisabled()"
-      (click)="onApply()"
-    ></button>
+    <div class="range-actions">
+      <button
+        pButton
+        type="button"
+        class="range-apply-button"
+        [label]="'dashboard.apply' | transloco"
+        [disabled]="applyDisabled()"
+        (click)="onApply()"
+      ></button>
+    </div>
   </div>
 
   @if (loading() && !data()) {
@@ -117,77 +144,17 @@
       </div>
     }
 
-    <!-- Sales Booked Trend Chart -->
-    @if (salesChartData()) {
-      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
-        <p-chart type="line" [data]="salesChartData()" [options]="lineChartOptions"></p-chart>
+    <div class="dashboard-primary-layout">
+      <p-card class="dashboard-primary-chart-card">
+        <ng-template pTemplate="header">
+          <span class="kpi-section-title">{{ selectedChartTitle() }}</span>
+        </ng-template>
+        @if (selectedChartData()) {
+          <p-chart [type]="selectedPrimeChartType()" [data]="selectedChartData()" [options]="selectedChartOptions()"></p-chart>
+        } @else {
+          <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+        }
       </p-card>
-    } @else if (dashboard.salesTrendSeries !== null) {
-      <p-card [header]="'dashboard.salesTrendTitle' | transloco">
-        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
-      </p-card>
-    }
-
-    <!-- Profit Trend Chart (Owner/Manager only) -->
-    @if (profitChartData()) {
-      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
-        <p-chart type="line" [data]="profitChartData()" [options]="lineChartOptions"></p-chart>
-      </p-card>
-    } @else if (dashboard.profitTrendSeries !== null) {
-      <p-card [header]="'dashboard.profitTrendTitle' | transloco">
-        <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
-      </p-card>
-    }
-
-    <!-- Sales & Profit KPIs -->
-    <div class="dashboard-kpi-grid">
-      <p-card>
-        <div class="kpi-card">
-          <span class="kpi-label">{{ 'dashboard.salesCount' | transloco }}</span>
-          <span class="kpi-value">{{ dashboard.salesCount }}</span>
-          @if (previousPeriodComparisons()?.salesCount; as cmp) {
-            <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
-              {{ directionIcon(cmp.direction) }} {{ cmp.delta > 0 ? '+' : '' }}{{ cmp.delta }}
-            </span>
-          }
-        </div>
-      </p-card>
-      @if (dashboard.salesBooked !== null) {
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
-            @if (previousPeriodComparisons()?.salesBooked; as cmp) {
-              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
-                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
-              </span>
-            }
-          </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.cashCollected' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.cashCollected | currency: 'INR' }}</span>
-          </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.profitBeforeTax' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.profitBeforeTax | currency: 'INR' }}</span>
-          </div>
-        </p-card>
-        <p-card>
-          <div class="kpi-card">
-            <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
-            <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
-            @if (previousPeriodComparisons()?.profitAfterTax; as cmp) {
-              <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
-                {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
-              </span>
-            }
-          </div>
-        </p-card>
-      }
     </div>
 
     <!-- Expense KPIs (collapsed by default) -->

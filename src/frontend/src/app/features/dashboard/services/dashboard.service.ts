@@ -46,6 +46,7 @@ export interface PreviousPeriodSummaryDto {
 
 export interface ProfitTrendPointDto {
   readonly date: string;
+  readonly profitBeforeTax: number;
   readonly profitAfterTax: number;
 }
 

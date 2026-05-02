@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
 
 import { DashboardDto, PreviousPeriodSummaryDto, ProfitTrendPointDto, SalesTrendPointDto } from '../../services/dashboard.service';
 import { DashboardPreset } from '../../state/dashboard.actions';
@@ -29,6 +30,29 @@ interface PersistedRange {
   startDate: string;
   endDate: string;
   preset: DashboardPreset;
+}
+
+type DashboardMetric = 'sales' | 'profit' | 'expense' | 'paymentMix';
+type DashboardChartType = 'bar' | 'stackedBar' | 'line' | 'pie' | 'doughnut';
+
+interface SelectOption<T> {
+  label: string;
+  value: T;
+}
+
+interface ChartDataset {
+  label?: string;
+  data: number[];
+  fill?: boolean;
+  tension?: number;
+  backgroundColor?: string | string[];
+  borderColor?: string | string[];
+  borderWidth?: number;
+}
+
+interface ChartData {
+  labels: string[];
+  datasets: ChartDataset[];
 }
 
 function saveRange(startDate: string, endDate: string, preset: DashboardPreset): void {
@@ -96,6 +120,16 @@ function computePresetDates(preset: DashboardPreset): { start: string; end: stri
   }
 }
 
+function formatTrendDateLabel(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return value;
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(year, month - 1, day));
+}
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
@@ -107,6 +141,7 @@ function computePresetDates(preset: DashboardPreset): { start: string; end: stri
     CardModule,
     ChartModule,
     ProgressSpinnerModule,
+    SelectModule,
     TranslocoPipe,
   ],
   templateUrl: './dashboard-page.component.html',
@@ -121,6 +156,30 @@ export class DashboardPageComponent implements OnInit {
   readonly error = toSignal(this.facade.error$, { initialValue: '' });
 
   readonly presets = PRESETS;
+  readonly selectedMetric = signal<DashboardMetric>('sales');
+  readonly selectedChartType = signal<DashboardChartType>('bar');
+
+  readonly presetOptions = computed(() =>
+    PRESETS.map((preset) => ({
+      label: this.transloco.translate(preset.label),
+      value: preset.value,
+    })),
+  );
+
+  readonly metricOptions = computed<SelectOption<DashboardMetric>[]>(() => [
+    { label: this.transloco.translate('dashboard.salesTrendTitle'), value: 'sales' },
+    { label: this.transloco.translate('dashboard.profitTrendTitle'), value: 'profit' },
+    { label: this.transloco.translate('dashboard.sectionExpenses'), value: 'expense' },
+    { label: this.transloco.translate('dashboard.paymentMixTitle'), value: 'paymentMix' },
+  ]);
+
+  readonly chartTypeOptions: SelectOption<DashboardChartType>[] = [
+    { label: 'Column Bar', value: 'bar' },
+    { label: 'Column Bar Stacked', value: 'stackedBar' },
+    { label: 'Line', value: 'line' },
+    { label: 'Pie', value: 'pie' },
+    { label: 'Donut', value: 'doughnut' },
+  ];
 
   readonly selectedPreset = toSignal(this.facade.selectedPreset$, { initialValue: 'last30' as DashboardPreset });
   readonly activeStartDate = toSignal(this.facade.startDate$, { initialValue: '' });
@@ -148,23 +207,43 @@ export class DashboardPageComponent implements OnInit {
 
   readonly isLoadingWithData = computed(() => this.loading() && !!this.data());
 
-  readonly salesChartData = computed(() => {
-    const trend = this.data()?.salesTrendSeries;
-    if (!trend || trend.length === 0) return null;
+  readonly salesChartData = computed<ChartData | null>(() => {
+    const salesTrend = this.data()?.salesTrendSeries;
+    const profitTrend = this.data()?.profitTrendSeries;
+    if (!salesTrend || salesTrend.length === 0 || !profitTrend || profitTrend.length === 0) return null;
+
     return {
-      labels: trend.map((p: SalesTrendPointDto) => p.date),
+      labels: salesTrend.map((point: SalesTrendPointDto) => formatTrendDateLabel(point.date)),
       datasets: [
         {
           label: this.transloco.translate('dashboard.salesBooked'),
-          data: trend.map((p: SalesTrendPointDto) => p.amount),
-          fill: false,
-          tension: 0.3,
+          data: salesTrend.map((point: SalesTrendPointDto) => point.amount),
+          backgroundColor: '#0f766e',
+          borderColor: '#0f766e',
+          borderWidth: 1,
+          tension: 0.25,
+        },
+        {
+          label: this.transloco.translate('dashboard.profitBeforeTax'),
+          data: profitTrend.map((point: ProfitTrendPointDto) => point.profitBeforeTax),
+          backgroundColor: '#ca8a04',
+          borderColor: '#ca8a04',
+          borderWidth: 1,
+          tension: 0.25,
+        },
+        {
+          label: this.transloco.translate('dashboard.profitAfterTax'),
+          data: profitTrend.map((point: ProfitTrendPointDto) => point.profitAfterTax),
+          backgroundColor: '#7c3aed',
+          borderColor: '#7c3aed',
+          borderWidth: 1,
+          tension: 0.25,
         },
       ],
     };
   });
 
-  readonly profitChartData = computed(() => {
+  readonly profitChartData = computed<ChartData | null>(() => {
     const trend = this.data()?.profitTrendSeries;
     if (!trend || trend.length === 0) return null;
     return {
@@ -180,7 +259,7 @@ export class DashboardPageComponent implements OnInit {
     };
   });
 
-  readonly paymentMixDonutData = computed(() => {
+  readonly paymentMixDonutData = computed<ChartData | null>(() => {
     const mix = this.data()?.paymentMix;
     if (!mix) return null;
     const total = mix.cash + mix.upi + mix.card + mix.credit;
@@ -212,6 +291,109 @@ export class DashboardPageComponent implements OnInit {
     responsive: true,
     plugins: { legend: { position: 'bottom' as const } },
   };
+
+  readonly selectedChartTitle = computed(() => {
+    const match = this.metricOptions().find((o) => o.value === this.activeMetric());
+    return match?.label ?? this.transloco.translate('dashboard.salesTrendTitle');
+  });
+
+  private metricHasData(metric: DashboardMetric): boolean {
+    const dashboard = this.data();
+    if (!dashboard) return false;
+
+    if (metric === 'sales') {
+      return !!dashboard.salesTrendSeries && dashboard.salesTrendSeries.length > 0;
+    }
+
+    if (metric === 'profit') {
+      return !!dashboard.profitTrendSeries && dashboard.profitTrendSeries.length > 0;
+    }
+
+    if (metric === 'paymentMix') {
+      const mix = dashboard.paymentMix;
+      if (!mix) return false;
+      return mix.cash + mix.upi + mix.card + mix.credit > 0;
+    }
+
+    return dashboard.expenseRecorded !== null && dashboard.expenseCorrection !== null && dashboard.netExpense !== null;
+  }
+
+  readonly activeMetric = computed<DashboardMetric>(() => {
+    const selected = this.selectedMetric();
+    if (this.metricHasData(selected)) return selected;
+
+    const fallbackOrder: DashboardMetric[] = ['sales', 'profit', 'expense', 'paymentMix'];
+    for (const metric of fallbackOrder) {
+      if (this.metricHasData(metric)) return metric;
+    }
+
+    return selected;
+  });
+
+  readonly selectedChartData = computed<ChartData | null>(() => {
+    const metric = this.activeMetric();
+    if (metric === 'sales') return this.salesChartData();
+    if (metric === 'profit') return this.profitChartData();
+    if (metric === 'paymentMix') return this.paymentMixDonutData();
+
+    const dashboard = this.data();
+    if (!dashboard || dashboard.expenseRecorded === null || dashboard.expenseCorrection === null || dashboard.netExpense === null) {
+      return null;
+    }
+
+    return {
+      labels: [
+        this.transloco.translate('dashboard.expenseRecorded'),
+        this.transloco.translate('dashboard.expenseCorrection'),
+        this.transloco.translate('dashboard.netExpense'),
+      ],
+      datasets: [
+        {
+          label: this.transloco.translate('dashboard.sectionExpenses'),
+          data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense],
+        },
+      ],
+    };
+  });
+
+  readonly selectedPrimeChartType = computed<'bar' | 'line' | 'pie' | 'doughnut'>(() => {
+    const type = this.selectedChartType();
+    if (this.activeMetric() === 'sales' && (type === 'pie' || type === 'doughnut')) return 'bar';
+    if (type === 'line') return 'line';
+    if (type === 'pie') return 'pie';
+    if (type === 'doughnut') return 'doughnut';
+    return 'bar';
+  });
+
+  readonly selectedChartOptions = computed(() => {
+    const showLegend = (this.selectedChartData()?.datasets.length ?? 0) > 1;
+    const selectedType = this.selectedChartType();
+    if ((selectedType === 'pie' || selectedType === 'doughnut') && this.activeMetric() !== 'sales') {
+      return {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' as const } },
+      };
+    }
+
+    if (selectedType === 'stackedBar') {
+      return {
+        responsive: true,
+        plugins: { legend: { display: showLegend } },
+        scales: {
+          x: { stacked: true },
+          y: { beginAtZero: true, stacked: true },
+        },
+      };
+    }
+
+    return {
+      responsive: true,
+      plugins: { legend: { display: showLegend } },
+      scales: {
+        y: { beginAtZero: true },
+      },
+    };
+  });
 
   readonly sectionExpanded = signal({
     expenses: false,

@@ -211,6 +211,8 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(1, result.Value.SalesCount);
         Assert.Equal(100m, result.Value.SalesBooked);
         Assert.Equal(100m, result.Value.CashCollected);
+        Assert.Equal(20m, result.Value.ProfitBeforeTax);
+        Assert.Equal(10m, result.Value.ProfitAfterTax);
     }
 
     [Fact]
@@ -261,6 +263,14 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(0m, trend[0].Amount); // start (2 days ago) has no sale
         Assert.Equal(100m, trend[1].Amount); // yesterday
         Assert.Equal(200m, trend[2].Amount); // today
+
+        var profitTrend = result.Value.ProfitTrendSeries!;
+        Assert.Equal(3, profitTrend.Count);
+        Assert.Equal(0m, profitTrend[0].ProfitBeforeTax);
+        Assert.Equal(20m, profitTrend[1].ProfitBeforeTax);
+        Assert.Equal(10m, profitTrend[1].ProfitAfterTax);
+        Assert.Equal(40m, profitTrend[2].ProfitBeforeTax);
+        Assert.Equal(20m, profitTrend[2].ProfitAfterTax);
     }
 
     [Fact]
@@ -434,6 +444,34 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(200m, result.Value.PaymentMix.Upi);
         Assert.Equal(300m, result.Value.PaymentMix.Card);
         Assert.Equal(0m, result.Value.PaymentMix.Credit);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCashSaleHasDueAmount_AllocatesDueToCreditMetrics()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var partialCashSale = MakeCashSale(shop.Id, total: 100m, paid: 40m, tax: 10m);
+        var upiSale = Sale.Create(shop.Id, "INV-U", null, null, null, PaymentMethod.UPI,
+            DateTimeOffset.UtcNow, 100m, 0m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 70m, 100m, 110m, 10m, false, false)]);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([partialCashSale, upiSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(60m, result.Value.CreditSalesAmount);
+        Assert.Equal(0.3m, result.Value.CreditSalesPercentage);
+        Assert.Equal(40m, result.Value.PaymentMix!.Cash);
+        Assert.Equal(100m, result.Value.PaymentMix.Upi);
+        Assert.Equal(0m, result.Value.PaymentMix.Card);
+        Assert.Equal(60m, result.Value.PaymentMix.Credit);
     }
 
     [Fact]
@@ -617,7 +655,8 @@ public class GetDashboardQueryHandlerTests
         Assert.False(result.IsError);
         var trend = result.Value.ProfitTrendSeries!;
         Assert.Equal(2, trend.Count); // 2 days: yesterday + today
-        Assert.Equal(40m, trend[0].ProfitAfterTax); // 100 - 60 = 40
+        Assert.Equal(40m, trend[0].ProfitBeforeTax); // 100 - 60 = 40
+        Assert.Equal(30m, trend[0].ProfitAfterTax); // 100 - 10 - 60 = 30
         Assert.Equal(0m, trend[1].ProfitAfterTax); // today: no sales
     }
 
@@ -669,6 +708,42 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(1, prev.SalesCount);
         Assert.Equal(100m, prev.SalesBooked);
         Assert.Equal(40m, prev.ProfitAfterTax); // 100 - 60 = 40
+    }
+
+    [Fact]
+    public async Task Handle_WhenPreviousPeriodSalesHaveTaxAndDue_UsesAfterTaxProfitAndDueBasedCreditShare()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-6);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var spanDays = end.DayNumber - start.DayNumber;
+        var prevEnd = start.AddDays(-1);
+        var prevStart = prevEnd.AddDays(-spanDays);
+
+        var prevPartialCashSale = Sale.Create(shop.Id, "INV-PREV-CASH", null, null, null, PaymentMethod.Cash,
+            new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            40m, 60m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 70m, 100m, 110m, 10m, false, false)]);
+        var prevUpiSale = Sale.Create(shop.Id, "INV-PREV-UPI", null, null, null, PaymentMethod.UPI,
+            new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            100m, 0m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
+            .Returns([prevPartialCashSale, prevUpiSale]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var prev = result.Value.PreviousPeriodSummary;
+        Assert.NotNull(prev);
+        Assert.Equal(60m, prev.CreditSalesPercentage * prev.SalesBooked);
+        Assert.Equal(50m, prev.ProfitAfterTax);
     }
 
     [Fact]
