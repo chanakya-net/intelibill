@@ -91,6 +91,30 @@ h1 {
   text-decoration: underline;
 }
 
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+:host ::ng-deep {
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+    }
+  }
+}
+
 .account-overlay-grid {
   display: flex;
   flex-direction: column;

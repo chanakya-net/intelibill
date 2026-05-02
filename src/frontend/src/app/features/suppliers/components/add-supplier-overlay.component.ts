@@ -5,7 +5,6 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { SuppliersFacade } from '../state/suppliers.facade';
 
@@ -17,7 +16,6 @@ import { SuppliersFacade } from '../state/suppliers.facade';
     InputTextModule,
     CheckboxModule,
     ButtonModule,
-    ProgressSpinnerModule,
     TranslocoPipe,
   ],
   templateUrl: './add-supplier-overlay.component.html',

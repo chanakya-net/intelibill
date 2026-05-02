@@ -21,13 +21,64 @@
     <p class="error">{{ serverError() | transloco }}</p>
   }
 
-  @if (isLoadingItems() || isSubmitting()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+  @if (isLoadingItems()) {
+    <!-- Mobile Skeleton -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-skeleton width="100%" height="40px" borderRadius="6px"></p-skeleton>
+      </div>
+      
+      <div class="product-list flex flex-col gap-3 px-1">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <p-card class="product-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <p-skeleton shape="circle" size="3rem" class="flex-shrink-0"></p-skeleton>
+              <div class="flex-1 flex flex-col gap-2">
+                <p-skeleton width="60%" height="1.25rem"></p-skeleton>
+                <p-skeleton width="40%" height="1rem"></p-skeleton>
+              </div>
+              <div class="flex flex-col items-end gap-3">
+                <p-skeleton width="2rem" height="1.25rem"></p-skeleton>
+                <p-skeleton width="2rem" height="2rem" shape="circle"></p-skeleton>
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Skeleton -->
+    <div class="inventory-table-card desktop-table">
+      <p-table [value]="[1, 2, 3, 4, 5, 6]" class="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="min-width: 12rem">{{ 'inventory.name' | transloco }}</th>
+            <th style="min-width: 10rem">{{ 'inventory.barcode' | transloco }}</th>
+            <th style="min-width: 8rem">{{ 'inventory.uom' | transloco }}</th>
+            <th style="min-width: 10rem">{{ 'inventory.currentStock' | transloco }}</th>
+            <th style="min-width: 9rem">{{ 'inventory.status' | transloco }}</th>
+            <th style="min-width: 6rem">{{ 'common.actions' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body">
+          <tr>
+            <td><p-skeleton width="80%"></p-skeleton></td>
+            <td><p-skeleton width="70%"></p-skeleton></td>
+            <td><p-skeleton width="40%"></p-skeleton></td>
+            <td><p-skeleton width="30%"></p-skeleton></td>
+            <td><p-skeleton width="60%"></p-skeleton></td>
+            <td><p-skeleton width="2rem" height="2rem" shape="circle" class="mx-auto"></p-skeleton></td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   }
 
-  @if (!isLoadingItems() && !isSubmitting()) {
+  @if (!isLoadingItems()) {
     <!-- Mobile Stacked List (≤1023px) -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">
@@ -38,20 +89,30 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
-            [placeholder]="'inventory.searchPlaceholder' | transloco"
-            class="w-full"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
+            [placeholder]="'inventory.nameOrBarcode' | transloco"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
       
       <div class="product-list flex flex-col gap-3 px-1">
         @for (item of filteredItems(); track item.id) {
-          <p-card class="product-card-item" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
+          <p-card 
+            class="product-card-item cursor-pointer" 
+            (click)="canManageInventory() && onEditItem(item)"
+            [pt]="{
+              root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+              body: { class: 'p-3' },
+              content: { class: 'p-0' }
+            }"
+          >
             <div class="flex items-center gap-4">
               <!-- Left: Avatar -->
               <p-avatar 
@@ -70,7 +131,14 @@
                 <div class="flex items-center gap-2">
                   <span class="text-slate-500 text-xs font-medium uppercase tracking-wider">{{ item.uom }}</span>
                   <span class="text-slate-300">•</span>
-                  <p-tag [severity]="item.isActive ? 'success' : 'danger'" [value]="item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco)"></p-tag>
+                  <p-tag [severity]="item.isActive ? 'success' : 'danger'">
+                    <ng-template pTemplate="content">
+                      <div class="flex items-center gap-1.5">
+                        <span class="status-dot" [class.active]="item.isActive"></span>
+                        <span>{{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}</span>
+                      </div>
+                    </ng-template>
+                  </p-tag>
                 </div>
               </div>
 
@@ -85,7 +153,7 @@
                     [pt]="{
                       root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
                     }"
-                    (click)="onEditItem(item)"
+                    (click)="$event.stopPropagation(); onEditItem(item)"
                     [disabled]="isSubmitting()"
                   />
                 }
@@ -116,6 +184,7 @@
         [sortField]="'name'"
         [sortOrder]="1"
         [scrollable]="true"
+        scrollHeight="calc(100vh - 280px)"
         class="p-datatable-sm"
       >
         <ng-template pTemplate="caption">
@@ -189,7 +258,14 @@
               <p-badge [value]="item.currentStock" [severity]="stockSeverity(item.currentStock)" />
             </td>
             <td>
-              <p-tag [severity]="item.isActive ? 'success' : 'danger'" [value]="item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco)"></p-tag>
+              <p-tag [severity]="item.isActive ? 'success' : 'danger'">
+                <ng-template pTemplate="content">
+                  <div class="flex items-center gap-1.5">
+                    <span class="status-dot" [class.active]="item.isActive"></span>
+                    <span>{{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}</span>
+                  </div>
+                </ng-template>
+              </p-tag>
             </td>
             <td>
               <div class="action-buttons">

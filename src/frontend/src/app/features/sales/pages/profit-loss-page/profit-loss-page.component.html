@@ -26,10 +26,16 @@
           <input
             pInputText
             type="text"
-            [(ngModel)]="searchValue"
-            [placeholder]="'sales.profitLoss.search' | transloco"
-            class="w-full"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
+            [placeholder]="'sales.searchPlaceholder' | transloco"
+            class="w-full pr-10"
           />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
         </p-iconfield>
       </div>
 

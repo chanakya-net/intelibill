@@ -61,7 +61,6 @@ export class ExpensesPageComponent {
   readonly showCorrectOverlay = signal(false);
   readonly selectedExpenseId = signal<string | null>(null);
   readonly searchValue = signal('');
-  readonly desktopSearchValue = signal('');
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -80,8 +79,9 @@ export class ExpensesPageComponent {
     this.expensesFacade.loadExpenses();
   }
 
-  onSearch(): void {
-    this.expensesFacade.loadExpenses(this.searchValue() || undefined, 1);
+  onSearchValueChange(value: string): void {
+    this.searchValue.set(value);
+    this.expensesFacade.loadExpenses(value || undefined, 1);
   }
 
   onPageChange(page: number): void {

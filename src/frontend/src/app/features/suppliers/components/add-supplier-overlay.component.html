@@ -90,15 +90,9 @@
           pButton
           type="submit"
           [label]="'suppliers.addSupplier' | transloco"
-          [disabled]="isSubmitting()"
+          [loading]="isSubmitting()"
         ></button>
       </div>
     </form>
-
-    @if (isSubmitting()) {
-      <div class="submit-overlay">
-        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-      </div>
-    }
   </div>
 </section>

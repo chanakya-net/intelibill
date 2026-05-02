@@ -104,14 +104,14 @@ describe('ExpensesPageComponent', () => {
     expect(expensesFacade.clearExpenseDetail).toHaveBeenCalled();
   });
 
-  it('triggers search on onSearch', () => {
+  it('triggers search on onSearchValueChange', () => {
     const fixture = TestBed.createComponent(ExpensesPageComponent);
     const component = fixture.componentInstance;
 
-    component.searchValue.set('rent');
-    component.onSearch();
+    component.onSearchValueChange('rent');
 
     expect(expensesFacade.loadExpenses).toHaveBeenCalledWith('rent', 1);
+    expect(component.searchValue()).toBe('rent');
   });
 
   it('triggers page change on onPageChange', () => {
