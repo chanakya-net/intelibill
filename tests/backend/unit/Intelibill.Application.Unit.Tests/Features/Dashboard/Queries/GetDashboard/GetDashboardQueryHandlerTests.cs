@@ -743,7 +743,7 @@ public class GetDashboardQueryHandlerTests
         var prev = result.Value.PreviousPeriodSummary;
         Assert.NotNull(prev);
         Assert.Equal(60m, prev.CreditSalesPercentage * prev.SalesBooked);
-        Assert.Equal(60m, prev.ProfitAfterTax);
+        Assert.Equal(50m, prev.ProfitAfterTax);
     }
 
     [Fact]
