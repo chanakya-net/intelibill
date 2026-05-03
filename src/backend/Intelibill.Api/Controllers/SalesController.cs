@@ -1,8 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
@@ -18,24 +15,23 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/sales")]
 [Authorize]
-public sealed class SalesController(IMessageBus bus) : ControllerBase
+public sealed class SalesController : AuthenticatedControllerBase
 {
+    public SalesController(IMessageBus bus) : base(bus)
+    {
+    }
+
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> RecordSale([FromBody] RecordSaleRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<SaleDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
             new RecordSaleCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.CustomerId,
                 request.CustomerName,
                 request.CustomerPhone,
@@ -60,16 +56,11 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetSales(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(
-            new GetSalesQuery(userId.Value, activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(
+            new GetSalesQuery(UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -78,16 +69,11 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
     [HttpGet("profit-loss")]
     public async Task<IActionResult> GetProfitLossReport(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>>(
-            new GetProfitLossReportQuery(userId.Value, activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>>(
+            new GetProfitLossReportQuery(UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -96,33 +82,14 @@ public sealed class SalesController(IMessageBus bus) : ControllerBase
     [HttpGet("{saleId:guid}")]
     public async Task<IActionResult> GetSaleDetail(Guid saleId, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<SaleDto>>(
-            new GetSaleDetailQuery(userId.Value, activeShopId.Value, saleId),
+        var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
+            new GetSaleDetailQuery(UserId!.Value, ActiveShopId!.Value, saleId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
-    }
-
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 

@@ -65,6 +65,26 @@ public class UsersControllerTests
     }
 
     [Fact]
+    public async Task UpdateMyProfile_WhenSubMissingButNameIdentifierPresent_UsesNameIdentifierAsUserId()
+    {
+        var userId = Guid.NewGuid();
+        SetUserClaims(new Claim(ClaimTypes.NameIdentifier, userId.ToString()));
+
+        var request = new UpdateMyProfileRequest("updated@test.com", "+15551234567", "Updated", "User");
+        var authResult = CreateAuthResult(userId);
+        ArrangeBusResponse<AuthResult>(authResult);
+
+        var result = await _controller.UpdateMyProfile(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(authResult, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+            Arg.Is<UpdateMyProfileCommand>(c => c.UserId == userId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task UpdateMyProfile_WhenEmailConflict_ReturnsConflict()
     {
         var userId = Guid.NewGuid();

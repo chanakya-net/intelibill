@@ -1,29 +1,35 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
+using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
-using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInventoryBatch;
 
 public class AddInventoryBatchCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
-    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
-    private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
-    private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
-    private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
-    private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
+    private readonly IItemResolver _itemResolver = Substitute.For<IItemResolver>();
+    private readonly ISupplierResolver _supplierResolver = Substitute.For<ISupplierResolver>();
+    private readonly IBatchFactory _batchFactory = Substitute.For<IBatchFactory>();
+    private readonly IInventoryUpdater _inventoryUpdater = Substitute.For<IInventoryUpdater>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+
+    private static readonly Supplier SystemSupplier = Supplier.CreateUnknownSystemSupplier(Guid.NewGuid());
+
+    public AddInventoryBatchCommandHandlerTests()
+    {
+        _supplierResolver.ResolveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(SystemSupplier);
+    }
 
     [Fact]
     public async Task HandleAsync_WhenMoreThanHundredRows_ReturnsValidationError()
     {
-        SetupSystemSupplierLookup();
         var command = new AddInventoryBatchCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -41,9 +47,23 @@ public class AddInventoryBatchCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenEmptyBatch_ReturnsValidationError()
+    {
+        var command = new AddInventoryBatchCommand(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            []);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.BatchEmpty", result.FirstError.Code);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()
     {
-        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Staff, true));
@@ -63,21 +83,31 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenOneRowFails_PersistsSucceededRows()
     {
-        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
-
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
-        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(existingItem);
-        _itemRepository.GetByNameAsync(shop.Id, "Different Name", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
-            .Returns((InventoryBatch?)null);
-        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns((DomainInventory?)null);
+
+        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(existingItem);
+        _itemResolver.ResolveAsync(shop.Id, "Different Name", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Inventory.ItemNameBarcodeMismatch);
+
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                return new BatchCreationResult(batch, tx, ledger);
+            });
+
+        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
+        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
+            .Returns(inventory);
 
         var command = new AddInventoryBatchCommand(
             actor.Id,
@@ -104,14 +134,36 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAllRowsSucceed_CommitsEverything()
     {
-        SetupSystemSupplierLookup();
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByBarcodeAsync(shop.Id, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _itemRepository.GetByNameAsync(shop.Id, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Item?)null);
+
+        _itemResolver.ResolveAsync(shop.Id, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var name = callInfo.ArgAt<string>(1);
+                var barcode = callInfo.ArgAt<string>(2);
+                var desc = callInfo.ArgAt<string?>(3);
+                var uom = callInfo.ArgAt<string>(4);
+                return Item.Create(shop.Id, name, desc, uom, barcode, true, actor.Id);
+            });
+
+        _batchFactory.CreateBatchAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var itemId = callInfo.ArgAt<Guid>(1);
+                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var batch = InventoryBatch.Create(shop.Id, itemId, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var tx = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                return new BatchCreationResult(batch, tx, ledger);
+            });
+
+        var inventory = Domain.Entities.Inventory.Create(shop.Id, Guid.NewGuid(), 10m, 0, 0, actor.Id).Value;
+        _inventoryUpdater.GetOrUpdateAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
+            .Returns(inventory);
 
         var command = new AddInventoryBatchCommand(
             actor.Id,
@@ -135,19 +187,11 @@ public class AddInventoryBatchCommandHandlerTests
     private AddInventoryBatchCommandHandler CreateHandler() =>
         new(
             _userRepository,
-            _supplierRepository,
-            _itemRepository,
-            _inventoryBatchRepository,
-            _stockTransactionRepository,
-            _supplierLedgerEntryRepository,
-            _inventoryRepository,
+            _itemResolver,
+            _supplierResolver,
+            _batchFactory,
+            _inventoryUpdater,
             _unitOfWork);
-
-    private void SetupSystemSupplierLookup()
-    {
-        _supplierRepository.GetSystemByShopIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
-    }
 
     private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode) =>
         new(
