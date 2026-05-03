@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Application.Features.Dashboard.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -15,7 +16,6 @@ public sealed class GetDashboardQueryHandler(
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
-    private const decimal CreditShareWarningThreshold = 0.40m;
     private const int MaxRangeDays = 90;
 
     public async Task<ErrorOr<DashboardDto>> Handle(
@@ -52,7 +52,6 @@ public sealed class GetDashboardQueryHandler(
         var inventories = await inventoryRepository.GetAllByShopWithItemAsync(query.ShopId, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
-        // Previous period — same span, immediately before startDate
         var spanDays = query.EndDate.DayNumber - query.StartDate.DayNumber;
         var prevEndDate = query.StartDate.AddDays(-1);
         var prevStartDate = prevEndDate.AddDays(-spanDays);
@@ -63,194 +62,66 @@ public sealed class GetDashboardQueryHandler(
         var customerBalances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
             query.ShopId, customerIds, cancellationToken);
 
-        // Sales KPIs
-        var salesCount = sales.Count;
-        var salesBooked = sales.Sum(s => s.TotalAmount);
-        var cashCollected = sales.Sum(s => s.PaidAmount);
-        var totalCost = sales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
-        var totalTax = sales.Sum(s => s.TotalTaxAmount);
-        var profitBeforeTax = salesBooked - totalCost;
-        var profitAfterTax = salesBooked - totalTax - totalCost;
+        // Compute all KPIs using pure functions
+        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales);
+        var expenseKpis = DashboardKpiCalculator.CalculateExpenseKpis(expenses);
+        var paymentMix = DashboardKpiCalculator.CalculatePaymentMix(sales);
+        var stockRisk = DashboardKpiCalculator.CalculateStockRisk(inventories);
 
-        // Expense KPIs
-        var expenseRecorded = expenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
-        var expenseCorrection = expenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
-        var netExpense = expenseRecorded + expenseCorrection;
+        var creditSalesPercentage = salesKpis.SalesBooked > 0
+            ? paymentMix.Credit / salesKpis.SalesBooked
+            : 0m;
 
-        // Payment Behavior
-        // Credit behavior should include due portions even when payment method is not Credit.
-        var paymentMix = CalculatePaymentMix(sales);
-        var creditSalesAmount = paymentMix.Credit;
-        var creditSalesPercentage = salesBooked > 0 ? creditSalesAmount / salesBooked : 0m;
-        var creditShareWarning = creditSalesPercentage >= CreditShareWarningThreshold;
+        var (highestDueCustomer, topFiveDueCustomers) = DashboardKpiCalculator.CalculateCustomerDues(
+            customerBalances, customers);
 
-        // Stock Risk
-        var runningLowStock = inventories.Where(i => i.Quantity > 0 && i.Quantity <= i.ReorderLevel).ToList();
-        var criticalStock = inventories.Where(i => i.Quantity == 0).ToList();
-        var rankedShortageList = inventories
-            .Where(i => i.Quantity <= i.ReorderLevel)
-            .OrderByDescending(i => i.ReorderLevel - i.Quantity)
-            .Select(i => new StockShortageItemDto(
-                ItemName: i.Item.Name,
-                Quantity: i.Quantity,
-                ReorderLevel: i.ReorderLevel,
-                Shortage: i.ReorderLevel - i.Quantity))
-            .ToList();
+        var alerts = DashboardKpiCalculator.BuildAlerts(
+            isStaff, stockRisk.CriticalStockCount, stockRisk.RunningLowStockCount,
+            highestDueCustomer, creditSalesPercentage);
 
-        // Receivable Risk
-        var customerDueSummaries = customerBalances
-            .Where(kvp => kvp.Value > 0)
-            .Select(kvp =>
-            {
-                var customer = customers.FirstOrDefault(c => c.Id == kvp.Key);
-                var displayName = customer is not null && !string.IsNullOrWhiteSpace(customer.Name)
-                    ? customer.Name
-                    : customer?.PhoneNumber ?? "Unknown";
-                return new CustomerDueDto(kvp.Key, displayName, kvp.Value);
-            })
-            .OrderByDescending(d => d.OutstandingDue)
-            .ToList();
-
-        var highestDueCustomer = customerDueSummaries.FirstOrDefault();
-        var topFiveDueCustomers = customerDueSummaries.Take(5).ToList();
-
-        // Alerts ordered by priority; financial alerts hidden from Staff
-        var alerts = new List<DashboardAlertDto>();
-        if (criticalStock.Count > 0)
-            alerts.Add(new DashboardAlertDto("CriticalStock", 1));
-        if (!isStaff && highestDueCustomer is not null)
-            alerts.Add(new DashboardAlertDto("HighestDue", 2));
-        if (runningLowStock.Count > 0)
-            alerts.Add(new DashboardAlertDto("RunningLowStock", 3));
-        if (!isStaff && creditShareWarning)
-            alerts.Add(new DashboardAlertDto("CreditShareWarning", 4));
-
-        // Sales Booked trend: daily buckets for the range (null for Staff)
+        // Trend series and previous-period (only for Owner/Manager)
         List<SalesTrendPointDto>? salesTrendSeries = null;
         List<ProfitTrendPointDto>? profitTrendSeries = null;
         List<PaymentMixTrendPointDto>? paymentMixTrendSeries = null;
         PreviousPeriodSummaryDto? previousPeriodSummary = null;
+
         if (!isStaff)
         {
-            var salesByDay = sales
-                .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
-                .ToDictionary(
-                    g => g.Key,
-                    g => (
-                        SalesBooked: g.Sum(s => s.TotalAmount),
-                        Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity),
-                        Tax: g.Sum(s => s.TotalTaxAmount)));
+            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, query.StartDate, query.EndDate);
+            salesTrendSeries = trends.SalesTrend;
+            profitTrendSeries = trends.ProfitTrend;
+            paymentMixTrendSeries = trends.PaymentMixTrend;
 
-            salesTrendSeries = [];
-            profitTrendSeries = [];
-            paymentMixTrendSeries = [];
-            var paymentMixByDay = sales
-                .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
-                .ToDictionary(g => g.Key, g => CalculatePaymentMix(g.ToList()));
-
-            for (var day = query.StartDate; day <= query.EndDate; day = day.AddDays(1))
-            {
-                var dayData = salesByDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m, Tax: 0m));
-                var dayPaymentMix = paymentMixByDay.GetValueOrDefault(day, new PaymentMixDto(0m, 0m, 0m, 0m));
-                salesTrendSeries.Add(new SalesTrendPointDto(
-                    Date: day,
-                    Amount: dayData.SalesBooked));
-                profitTrendSeries.Add(new ProfitTrendPointDto(
-                    Date: day,
-                    ProfitBeforeTax: dayData.SalesBooked - dayData.Cost,
-                    ProfitAfterTax: dayData.SalesBooked - dayData.Tax - dayData.Cost));
-                paymentMixTrendSeries.Add(new PaymentMixTrendPointDto(
-                    Date: day,
-                    Cash: dayPaymentMix.Cash,
-                    Upi: dayPaymentMix.Upi,
-                    Card: dayPaymentMix.Card,
-                    Credit: dayPaymentMix.Credit));
-            }
-
-            // Previous period aggregates
-            var prevSalesBooked = prevSales.Sum(s => s.TotalAmount);
-            var prevCost = prevSales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
-            var prevCreditSales = CalculatePaymentMix(prevSales).Credit;
-            var prevExpenseRecorded = prevExpenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
-            var prevExpenseCorrection = prevExpenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
-            previousPeriodSummary = new PreviousPeriodSummaryDto(
-                StartDate: prevStartDate,
-                EndDate: prevEndDate,
-                SalesCount: prevSales.Count,
-                SalesBooked: prevSalesBooked,
-                ProfitAfterTax: prevSalesBooked - prevSales.Sum(s => s.TotalTaxAmount) - prevCost,
-                NetExpense: prevExpenseRecorded + prevExpenseCorrection,
-                CreditSalesPercentage: prevSalesBooked > 0 ? prevCreditSales / prevSalesBooked : 0m);
+            previousPeriodSummary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
+                prevSales, prevExpenses, prevStartDate, prevEndDate);
         }
 
         return new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
             StartDate: query.StartDate,
             EndDate: query.EndDate,
-            SalesCount: salesCount,
-            HasNoSalesActivity: salesCount == 0,
-            SalesBooked: isStaff ? null : salesBooked,
-            CashCollected: isStaff ? null : cashCollected,
-            ProfitBeforeTax: isStaff ? null : profitBeforeTax,
-            ProfitAfterTax: isStaff ? null : profitAfterTax,
-            ExpenseRecorded: isStaff ? null : expenseRecorded,
-            ExpenseCorrection: isStaff ? null : expenseCorrection,
-            NetExpense: isStaff ? null : netExpense,
-            CreditSalesAmount: isStaff ? null : creditSalesAmount,
+            SalesCount: salesKpis.SalesCount,
+            HasNoSalesActivity: salesKpis.SalesCount == 0,
+            SalesBooked: isStaff ? null : salesKpis.SalesBooked,
+            CashCollected: isStaff ? null : salesKpis.CashCollected,
+            ProfitBeforeTax: isStaff ? null : salesKpis.ProfitBeforeTax,
+            ProfitAfterTax: isStaff ? null : salesKpis.ProfitAfterTax,
+            ExpenseRecorded: isStaff ? null : expenseKpis.ExpenseRecorded,
+            ExpenseCorrection: isStaff ? null : expenseKpis.ExpenseCorrection,
+            NetExpense: isStaff ? null : expenseKpis.NetExpense,
+            CreditSalesAmount: isStaff ? null : paymentMix.Credit,
             CreditSalesPercentage: isStaff ? null : creditSalesPercentage,
             PaymentMix: isStaff ? null : paymentMix,
-            CreditShareWarning: isStaff ? null : creditShareWarning,
-            RunningLowStockCount: runningLowStock.Count,
-            CriticalStockCount: criticalStock.Count,
-            RankedShortageList: rankedShortageList,
+            CreditShareWarning: isStaff ? null : creditSalesPercentage >= DashboardKpiCalculator.CreditShareWarningThreshold,
+            RunningLowStockCount: stockRisk.RunningLowStockCount,
+            CriticalStockCount: stockRisk.CriticalStockCount,
+            RankedShortageList: stockRisk.RankedShortageList,
             HighestDueCustomer: isStaff ? null : highestDueCustomer,
             TopFiveDueCustomers: isStaff ? null : topFiveDueCustomers,
             Alerts: alerts,
             SalesTrendSeries: salesTrendSeries,
             ProfitTrendSeries: profitTrendSeries,
-                PaymentMixTrendSeries: paymentMixTrendSeries,
+            PaymentMixTrendSeries: paymentMixTrendSeries,
             PreviousPeriodSummary: previousPeriodSummary);
     }
-
-    private static PaymentMixDto CalculatePaymentMix(IReadOnlyCollection<Domain.Entities.Sale> sales)
-    {
-        var cash = 0m;
-        var upi = 0m;
-        var card = 0m;
-        var credit = 0m;
-
-        foreach (var sale in sales)
-        {
-            var due = Math.Max(0m, sale.DueAmount);
-            var paidPortion = Math.Max(0m, sale.TotalAmount - due);
-
-            if (sale.PaymentMethod == PaymentMethod.Credit)
-            {
-                credit += sale.TotalAmount;
-                continue;
-            }
-
-            credit += due;
-
-            switch (sale.PaymentMethod)
-            {
-                case PaymentMethod.Cash:
-                    cash += paidPortion;
-                    break;
-                case PaymentMethod.UPI:
-                    upi += paidPortion;
-                    break;
-                case PaymentMethod.Card:
-                    card += paidPortion;
-                    break;
-                default:
-                    // Fallback to avoid dropping value if a new enum is introduced.
-                    cash += paidPortion;
-                    break;
-            }
-        }
-
-        return new PaymentMixDto(Cash: cash, Upi: upi, Card: card, Credit: credit);
-    }
 }
-

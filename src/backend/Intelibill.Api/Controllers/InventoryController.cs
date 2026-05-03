@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -20,21 +18,20 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/inventory")]
 [Authorize]
-public sealed class InventoryController(IMessageBus bus) : ControllerBase
+public sealed class InventoryController : AuthenticatedControllerBase
 {
+    public InventoryController(IMessageBus bus) : base(bus)
+    {
+    }
+
     [HttpGet("batches")]
     public async Task<IActionResult> GetInventoryBatches(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<InventoryBatchDto>>>(
-            new GetInventoryBatchesQuery(userId.Value, activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<InventoryBatchDto>>>(
+            new GetInventoryBatchesQuery(UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -44,18 +41,13 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> AddInventory([FromBody] AddInventoryRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<AddInventoryResultDto>>(
             new AddInventoryCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.ItemName,
                 request.Barcode,
                 request.ItemDescription,
@@ -82,13 +74,8 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> AddInventoryBatch([FromBody] AddInventoryBatchRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
-
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
         if (request.Items.Count == 0)
             return new List<Error>
@@ -102,10 +89,10 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 Error.Validation("Inventory.BatchLimitExceeded", "Only 100 items are allowed in a batch.")
             }.ToProblemResult();
 
-        var result = await bus.InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<AddInventoryBatchResultDto>>(
             new AddInventoryBatchCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.Items.Select(
                     row => new AddInventoryBatchRowCommand(
                         row.ClientRowId,
@@ -149,9 +136,7 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 .ToArray());
 
         if (result.Value.FailedCount > 0)
-        {
             return new ObjectResult(response) { StatusCode = 207 };
-        }
 
         return Ok(response);
     }
@@ -160,16 +145,11 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> VoidBatch(Guid batchId, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<VoidBatchResultDto>>(
-            new VoidBatchCommand(batchId, userId.Value, activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<VoidBatchResultDto>>(
+            new VoidBatchCommand(batchId, UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -179,19 +159,14 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> UpdateInventoryBatch(Guid batchId, [FromBody] UpdateInventoryBatchRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
             new UpdateInventoryBatchCommand(
                 batchId,
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.NewBatchNumber,
                 request.Quantity,
                 request.CostPrice,
@@ -216,16 +191,11 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> ReassignBatchSupplier(Guid batchId, [FromBody] ReassignBatchSupplierRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new ReassignBatchSupplierCommand(userId.Value, activeShopId.Value, batchId, request.NewSupplierId),
+        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
+            new ReassignBatchSupplierCommand(UserId!.Value, ActiveShopId!.Value, batchId, request.NewSupplierId),
             cancellationToken);
 
         if (result.IsError)
@@ -234,30 +204,11 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
         return Ok();
     }
 
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
-    }
-
     [HttpGet("batches/available")]
     public async Task<IActionResult> GetAvailableBatches([FromQuery] string? searchTerm, [FromQuery] string? barcode, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
-
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
         var effectiveSearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? barcode : searchTerm;
 
@@ -267,8 +218,8 @@ public sealed class InventoryController(IMessageBus bus) : ControllerBase
                 Errors.Inventory.SearchTermRequired
             }.ToProblemResult();
 
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
-            new GetAvailableBatchesQuery(userId.Value, activeShopId.Value, effectiveSearchTerm),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
+            new GetAvailableBatchesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm),
             cancellationToken);
 
         return result.ToActionResult(Ok);

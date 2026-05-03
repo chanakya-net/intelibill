@@ -1,8 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Commands.AddCustomer;
 using Intelibill.Application.Features.Customers.Commands.EditCustomer;
 using Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
@@ -18,17 +15,20 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/customers")]
 [Authorize]
-public sealed class CustomersController(IMessageBus bus) : ControllerBase
+public sealed class CustomersController : AuthenticatedControllerBase
 {
+    public CustomersController(IMessageBus bus) : base(bus)
+    {
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetCustomers(CancellationToken cancellationToken)
     {
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var shop = CheckShop();
+        if (shop is not null) return shop;
 
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<CustomerDto>>>(
-            new GetCustomersQuery(activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<CustomerDto>>>(
+            new GetCustomersQuery(ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -37,13 +37,12 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddCustomer([FromBody] AddCustomerRequest request, CancellationToken cancellationToken)
     {
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var shop = CheckShop();
+        if (shop is not null) return shop;
 
-        var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new AddCustomerCommand(
-                activeShopId.Value,
+                ActiveShopId!.Value,
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
@@ -56,13 +55,12 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [HttpPut("{customerId:guid}")]
     public async Task<IActionResult> EditCustomer(Guid customerId, [FromBody] EditCustomerRequest request, CancellationToken cancellationToken)
     {
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var shop = CheckShop();
+        if (shop is not null) return shop;
 
-        var result = await bus.InvokeAsync<ErrorOr<CustomerDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new EditCustomerCommand(
-                activeShopId.Value,
+                ActiveShopId!.Value,
                 customerId,
                 request.Name,
                 request.PhoneNumber,
@@ -77,16 +75,11 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> GetCustomerAccount(Guid customerId, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<CustomerAccountDto>>(
-            new GetCustomerAccountQuery(userId.Value, activeShopId.Value, customerId),
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerAccountDto>>(
+            new GetCustomerAccountQuery(UserId!.Value, ActiveShopId!.Value, customerId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -96,18 +89,13 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> RecordPayment(Guid customerId, [FromBody] RecordCustomerPaymentRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<CustomerLedgerEntryDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerLedgerEntryDto>>(
             new RecordCustomerPaymentCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 customerId,
                 request.Amount,
                 request.PaymentDate,
@@ -115,20 +103,6 @@ public sealed class CustomersController(IMessageBus bus) : ControllerBase
             cancellationToken);
 
         return result.ToActionResult(Ok);
-    }
-
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 

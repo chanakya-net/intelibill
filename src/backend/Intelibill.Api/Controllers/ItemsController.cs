@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -19,30 +17,34 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/items")]
 [Authorize]
-public sealed class ItemsController(
-    IMessageBus bus,
-    IItemCatalogStreamingService itemCatalogStreamingService) : ControllerBase
+public sealed class ItemsController : AuthenticatedControllerBase
 {
+    private readonly IItemCatalogStreamingService _itemCatalogStreamingService;
+
+    public ItemsController(IMessageBus bus, IItemCatalogStreamingService itemCatalogStreamingService)
+        : base(bus)
+    {
+        _itemCatalogStreamingService = itemCatalogStreamingService;
+    }
+
     [HttpGet("stream")]
     public async Task StreamItems(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
+        if (UserId is null)
         {
             Response.StatusCode = 401;
             return;
         }
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
+        if (ActiveShopId is null)
         {
             Response.StatusCode = 400;
             return;
         }
 
-        var validation = await itemCatalogStreamingService.ValidateAccessAsync(
-            userId.Value,
-            activeShopId.Value,
+        var validation = await _itemCatalogStreamingService.ValidateAccessAsync(
+            UserId.Value,
+            ActiveShopId.Value,
             cancellationToken);
 
         if (validation.IsError)
@@ -57,7 +59,7 @@ public sealed class ItemsController(
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var count = 0;
 
-        await foreach (var item in itemCatalogStreamingService.StreamByShopAsync(activeShopId.Value, cancellationToken))
+        await foreach (var item in _itemCatalogStreamingService.StreamByShopAsync(ActiveShopId.Value, cancellationToken))
         {
             var line = JsonSerializer.Serialize(item, jsonOptions) + "\n";
             await Response.WriteAsync(line, cancellationToken);
@@ -72,16 +74,11 @@ public sealed class ItemsController(
     [HttpGet]
     public async Task<IActionResult> GetItems(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
-            new GetItemsQuery(userId.Value, activeShopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
+            new GetItemsQuery(UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -93,21 +90,16 @@ public sealed class ItemsController(
         [FromQuery] string? barcode,
         CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
-
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
         if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(barcode))
             return BadRequest("Either name or barcode must be provided");
 
         var authorizationHeader = HttpContext.Request.Headers.Authorization.ToString();
 
-        var result = await bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
-            new GetProductDetailsByNameOrBarcodeQuery(userId.Value, activeShopId.Value, name, barcode, authorizationHeader),
+        var result = await Bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
+            new GetProductDetailsByNameOrBarcodeQuery(UserId!.Value, ActiveShopId!.Value, name, barcode, authorizationHeader),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -117,18 +109,13 @@ public sealed class ItemsController(
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> AddItem([FromBody] AddItemRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<ItemDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<ItemDto>>(
             new AddItemCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.Name,
                 request.Barcode,
                 request.Description,
@@ -143,18 +130,13 @@ public sealed class ItemsController(
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> UpdateItem(Guid itemId, [FromBody] UpdateItemRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<Success>>(
+        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
             new UpdateItemCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 itemId,
                 request.Name,
                 request.Barcode,
@@ -166,20 +148,6 @@ public sealed class ItemsController(
             return result.Errors.ToList().ToProblemResult();
 
         return NoContent();
-    }
-
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 

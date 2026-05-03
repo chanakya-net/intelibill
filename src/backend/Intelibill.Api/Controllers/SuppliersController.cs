@@ -1,8 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.DeleteSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
@@ -20,21 +17,20 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/suppliers")]
 [Authorize]
-public sealed class SuppliersController(IMessageBus bus) : ControllerBase
+public sealed class SuppliersController : AuthenticatedControllerBase
 {
+    public SuppliersController(IMessageBus bus) : base(bus)
+    {
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetSuppliers([FromQuery(Name = "include_system")] bool includeSystem = true, CancellationToken cancellationToken = default)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
-            new GetSuppliersQuery(userId.Value, activeShopId.Value, includeSystem),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierDto>>>(
+            new GetSuppliersQuery(UserId!.Value, ActiveShopId!.Value, includeSystem),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -43,16 +39,11 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
     [HttpGet("{supplierId:guid}/ledger")]
     public async Task<IActionResult> GetSupplierLedger(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierLedgerEntryDto>>>(
-            new GetSupplierEntriesQuery(userId.Value, activeShopId.Value, supplierId),
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SupplierLedgerEntryDto>>>(
+            new GetSupplierEntriesQuery(UserId!.Value, ActiveShopId!.Value, supplierId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -62,18 +53,13 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> AddSupplier([FromBody] AddSupplierRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<SupplierDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new AddSupplierCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 request.Name,
                 request.ContactPersonName,
                 request.ContactPersonPhone,
@@ -92,18 +78,13 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> EditSupplier(Guid supplierId, [FromBody] EditSupplierRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<SupplierDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new EditSupplierCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 supplierId,
                 request.Name,
                 request.ContactPersonName,
@@ -123,16 +104,11 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> DeleteSupplier(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<Success>>(
-            new DeleteSupplierCommand(userId.Value, activeShopId.Value, supplierId),
+        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
+            new DeleteSupplierCommand(UserId!.Value, ActiveShopId!.Value, supplierId),
             cancellationToken);
 
         if (result.IsError)
@@ -145,18 +121,13 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> MakePayment(Guid supplierId, [FromBody] MakePaymentRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr<SupplierLedgerEntryDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr<SupplierLedgerEntryDto>>(
             new MakeSupplierPaymentCommand(
-                userId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 supplierId,
                 request.Amount,
                 request.PaymentDate,
@@ -164,20 +135,6 @@ public sealed class SuppliersController(IMessageBus bus) : ControllerBase
             cancellationToken);
 
         return result.ToActionResult(Ok);
-    }
-
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 

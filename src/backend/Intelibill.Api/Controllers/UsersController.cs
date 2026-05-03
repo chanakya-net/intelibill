@@ -1,8 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Extensions;
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Users.Commands.AddShopUser;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
@@ -19,21 +16,20 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
-public sealed class UsersController(IMessageBus bus) : ControllerBase
+public sealed class UsersController : AuthenticatedControllerBase
 {
+    public UsersController(IMessageBus bus) : base(bus)
+    {
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetShopUsers(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var shopId = GetCurrentActiveShopId();
-        if (shopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<IReadOnlyList<ShopUserDto>>>(
-            new GetShopUsersQuery(userId.Value, shopId.Value),
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<IReadOnlyList<ShopUserDto>>>(
+            new GetShopUsersQuery(UserId!.Value, ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -43,13 +39,12 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> AddShopUser([FromBody] AddShopUserRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
 
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
             new AddShopUserCommand(
-                userId.Value,
+                UserId!.Value,
                 request.ShopIds,
                 request.Email,
                 request.FirstName,
@@ -67,18 +62,13 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> EditShopUser(Guid targetUserId, [FromBody] EditShopUserRequest request, CancellationToken cancellationToken)
     {
-        var actorUserId = GetCurrentUserId();
-        if (actorUserId is null)
-            return Unauthorized();
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
 
-        var activeShopId = GetCurrentActiveShopId();
-        if (activeShopId is null)
-            return new List<Error> { Errors.Shop.ActiveShopNotSelected }.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopUserDto>>(
             new EditShopUserCommand(
-                actorUserId.Value,
-                activeShopId.Value,
+                UserId!.Value,
+                ActiveShopId!.Value,
                 targetUserId,
                 request.Email,
                 request.FirstName,
@@ -95,12 +85,11 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     [HttpPut("me")]
     public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
 
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new UpdateMyProfileCommand(userId.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language),
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
+            new UpdateMyProfileCommand(UserId!.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -109,29 +98,14 @@ public sealed class UsersController(IMessageBus bus) : ControllerBase
     [HttpPost("me/change-password")]
     public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request, CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null)
-            return Unauthorized();
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
 
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
-            new ChangeMyPasswordCommand(userId.Value, request.CurrentPassword, request.NewPassword),
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
+            new ChangeMyPasswordCommand(UserId!.Value, request.CurrentPassword, request.NewPassword),
             cancellationToken);
 
         return result.ToActionResult(_ => Ok(new { message = "Password changed successfully." }));
-    }
-
-    private Guid? GetCurrentUserId()
-    {
-        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        return Guid.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private Guid? GetCurrentActiveShopId()
-    {
-        var activeShopId = User.FindFirst("active_shop_id")?.Value;
-        return Guid.TryParse(activeShopId, out var shopId) ? shopId : null;
     }
 }
 
