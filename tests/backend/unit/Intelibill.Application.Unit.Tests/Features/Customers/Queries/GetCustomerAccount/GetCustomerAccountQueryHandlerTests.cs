@@ -93,7 +93,7 @@ public class GetCustomerAccountQueryHandlerTests
         var returnCreditReversalEntry = CustomerLedgerEntry.Create(
             fixture.shop.Id,
             fixture.customer.Id,
-            null,
+            sale.Id,
             CustomerLedgerEntryType.ReturnCreditReversal,
             2m,
             new DateOnly(2026, 4, 23),
@@ -114,11 +114,17 @@ public class GetCustomerAccountQueryHandlerTests
         Assert.Equal(14m, result.Value.OutstandingDue);
         Assert.Single(result.Value.Sales);
         Assert.Equal(returnCreditReversalEntry.Id, result.Value.LedgerEntries[0].EntryId);
+        Assert.Equal(CustomerLedgerEntryType.ReturnCreditReversal, result.Value.LedgerEntries[0].EntryType);
+        Assert.Equal(sale.Id, result.Value.LedgerEntries[0].SaleId);
         Assert.Equal(14m, result.Value.LedgerEntries[0].RunningBalance);
         Assert.Equal(paymentEntry.Id, result.Value.LedgerEntries[1].EntryId);
+        Assert.Equal(CustomerLedgerEntryType.PaymentReceived, result.Value.LedgerEntries[1].EntryType);
         Assert.Equal(12m, result.Value.LedgerEntries[1].RunningBalance);
         Assert.Equal(returnCreditEntry.Id, result.Value.LedgerEntries[2].EntryId);
+        Assert.Equal(CustomerLedgerEntryType.ReturnCredit, result.Value.LedgerEntries[2].EntryType);
+        Assert.Equal(sale.Id, result.Value.LedgerEntries[2].SaleId);
         Assert.Equal(17m, result.Value.LedgerEntries[2].RunningBalance);
+        Assert.Equal(CustomerLedgerEntryType.SaleDue, result.Value.LedgerEntries[3].EntryType);
         Assert.Single(result.Value.PaymentHistory);
         Assert.Equal(paymentEntry.Id, result.Value.PaymentHistory[0].EntryId);
     }
