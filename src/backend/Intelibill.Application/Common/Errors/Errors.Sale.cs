@@ -44,5 +44,32 @@ public static partial class Errors
 
         public static Error CustomerIdentityMismatch =>
             Error.Validation("Sale.CustomerIdentityMismatch", "Customer id and customer phone refer to different customers.");
+
+        public static Error NotFound(Guid saleId) =>
+            Error.NotFound("Sale.NotFound", $"Sale '{saleId}' was not found.");
+
+        public static Error ReturnItemsRequired =>
+            Error.Validation("SaleReturn.ItemsRequired", "At least one return item is required.");
+
+        public static Error ReturnQuantityMustBePositive(Guid saleItemId) =>
+            Error.Validation("SaleReturn.QuantityMustBePositive", $"Return quantity for sale item '{saleItemId}' must be greater than zero.");
+
+        public static Error ReturnDuplicateSaleItem(Guid saleItemId) =>
+            Error.Validation("SaleReturn.DuplicateSaleItem", $"Sale item '{saleItemId}' appears more than once in the return request.");
+
+        public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
+            Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
+
+        public static Error ReturnQuantityExceedsRemaining(Guid saleItemId, decimal remainingQuantity) =>
+            Error.Validation("SaleReturn.QuantityExceedsRemaining", $"Return quantity for sale item '{saleItemId}' exceeds remaining returnable quantity '{remainingQuantity}'.");
+
+        public static Error ReturnBatchNotFound(Guid batchId) =>
+            Error.Validation("SaleReturn.BatchNotFound", $"Original batch '{batchId}' was not found for this sale item.");
+
+        public static Error ReturnBatchVoided(string batchNumber) =>
+            Error.Validation("SaleReturn.BatchVoided", $"Restockable return is blocked because original batch '{batchNumber}' is voided.");
+
+        public static Error ReturnBatchExpired(string batchNumber) =>
+            Error.Validation("SaleReturn.BatchExpired", $"Restockable return is blocked because original batch '{batchNumber}' is expired.");
     }
 }

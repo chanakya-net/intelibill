@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
+using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -91,6 +92,33 @@ public sealed class SalesController : AuthenticatedControllerBase
 
         return result.ToActionResult(Ok);
     }
+
+    [HttpPost("{saleId:guid}/returns/preview")]
+    public async Task<IActionResult> PreviewSaleReturn(
+        Guid saleId,
+        [FromBody] PreviewSaleReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<SaleReturnPreviewDto>>(
+            new PreviewSaleReturnQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                saleId,
+                request.DueReductionOverrideAmount,
+                request.DueOverrideReason,
+                request.Items.Select(i => new PreviewSaleReturnItemQuery(
+                    i.SaleItemId,
+                    i.Quantity,
+                    i.Condition,
+                    i.ApprovedRefundAmount,
+                    i.Notes)).ToList()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record RecordSaleRequest(
@@ -112,3 +140,15 @@ public sealed record RecordSaleItemRequest(
     decimal Mrp,
     decimal TaxRatePercent,
     bool IsPriceIncludingTax);
+
+public sealed record PreviewSaleReturnRequest(
+    decimal? DueReductionOverrideAmount,
+    string? DueOverrideReason,
+    IReadOnlyList<PreviewSaleReturnItemRequest> Items);
+
+public sealed record PreviewSaleReturnItemRequest(
+    Guid SaleItemId,
+    decimal Quantity,
+    SaleReturnCondition Condition,
+    decimal? ApprovedRefundAmount,
+    string? Notes);

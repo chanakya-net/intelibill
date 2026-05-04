@@ -7,6 +7,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
+using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -218,5 +219,73 @@ public class SalesControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(sale, ok.Value);
+    }
+
+    [Fact]
+    public async Task PreviewSaleReturn_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.PreviewSaleReturn(
+            Guid.NewGuid(),
+            new PreviewSaleReturnRequest(null, null, []),
+            CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task PreviewSaleReturn_WhenActiveShopMissing_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        var result = await _controller.PreviewSaleReturn(
+            Guid.NewGuid(),
+            new PreviewSaleReturnRequest(null, null, []),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task PreviewSaleReturn_WhenSuccessful_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleId = Guid.NewGuid();
+        var saleItemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = new SaleReturnPreviewDto(
+            saleId,
+            HasFinancialAccess: true,
+            [],
+            new SaleReturnPreviewFinancialDto(100m, 25m, 75m, 90m, 10m, 25m, 0m),
+            []);
+        _bus.InvokeAsync<ErrorOr<SaleReturnPreviewDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleReturnPreviewDto>>(dto));
+
+        var result = await _controller.PreviewSaleReturn(
+            saleId,
+            new PreviewSaleReturnRequest(
+                DueReductionOverrideAmount: 25m,
+                DueOverrideReason: "Customer request",
+                [new PreviewSaleReturnItemRequest(saleItemId, 1m, SaleReturnCondition.Restockable, 100m, "Sealed")]),
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleReturnPreviewDto>>(
+            Arg.Is<PreviewSaleReturnQuery>(q =>
+                q.ActorUserId == userId
+                && q.ShopId == shopId
+                && q.SaleId == saleId
+                && q.DueReductionOverrideAmount == 25m
+                && q.Items.Count == 1
+                && q.Items[0].SaleItemId == saleItemId),
+            Arg.Any<CancellationToken>());
     }
 }
