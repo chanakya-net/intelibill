@@ -123,6 +123,95 @@ public sealed class RecordSaleReturnCommandHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_ForMixedMultiLineReturn_RecordsOneHeaderWithIndependentLineEffects()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var secondItemId = Guid.NewGuid();
+        var secondBatch = InventoryBatch.Create(
+            fixture.Shop.Id,
+            secondItemId,
+            "B-002",
+            quantity: 3m,
+            costPrice: 35m,
+            mrp: 60m,
+            salesPrice: 50m,
+            taxRatePercent: 0m,
+            taxIncluded: true,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            fixture.User.Id).Value;
+        var secondSaleItem = SaleItem.Create(
+            fixture.Shop.Id,
+            secondItemId,
+            secondBatch.Id,
+            quantity: 2m,
+            costPrice: 35m,
+            salesPrice: 50m,
+            mrp: 60m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            fixture.Shop.Id,
+            "INV-002",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 650m,
+            dueAmount: 0m,
+            totalAmount: 650m,
+            totalTaxAmount: 50m,
+            [fixture.SaleItem, secondSaleItem]);
+
+        _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryBatchRepository.GetByIdAsync(secondBatch.Id, Arg.Any<CancellationToken>()).Returns(secondBatch);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-MIXED01");
+
+        var result = await CreateHandler().HandleAsync(
+            new RecordSaleReturnCommand(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                sale.Id,
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: "Mixed return",
+                [
+                    new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 2m, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
+                    new RecordSaleReturnItemCommand(secondSaleItem.Id, 1m, SaleReturnCondition.Wastage, ApprovedRefundAmount: 25m, Notes: "Damaged"),
+                ]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(12m, fixture.Batch.Quantity);
+        Assert.Equal(22m, fixture.Inventory.Quantity);
+        Assert.Equal(3m, secondBatch.Quantity);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(t =>
+                t.TransactionType == StockTransactionType.Ret
+                && t.ItemId == fixture.SaleItem.ItemId
+                && t.Quantity == 2m
+                && t.ReferenceNumber == "RET-20260505-MIXED01"),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.ReturnNumber == "RET-20260505-MIXED01"
+                && r.Items.Count == 2
+                && r.TotalRefundAmount == 245m
+                && r.PayoutAmount == 245m
+                && r.TotalTaxableAmount == 250m
+                && r.TotalTaxAmount == 20m
+                && r.Items.Any(i => i.SaleItemId == fixture.SaleItem.Id && i.Condition == SaleReturnCondition.Restockable && i.ApprovedRefundAmount == 220m)
+                && r.Items.Any(i => i.SaleItemId == secondSaleItem.Id && i.Condition == SaleReturnCondition.Wastage && i.ApprovedRefundAmount == 25m)),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(SaleReturnCondition.Wastage, null, "SaleReturn.NoteRequired")]
     [InlineData(SaleReturnCondition.Restockable, 50.0, "SaleReturn.NoteRequired")]
