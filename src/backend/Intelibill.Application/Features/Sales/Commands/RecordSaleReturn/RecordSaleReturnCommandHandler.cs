@@ -187,12 +187,16 @@ public sealed class RecordSaleReturnCommandHandler(
         IReadOnlyList<SaleReturnCalculationWarning> warnings)
     {
         var errors = warnings
-            .Where(warning => warning.Code.StartsWith("sale_return.note_required.", StringComparison.Ordinal))
+            .Where(warning =>
+                warning.Code.StartsWith("sale_return.note_required.", StringComparison.Ordinal)
+                || warning.Code == "sale_return.due_override_exceeds_outstanding")
             .Select(warning => warning.Code switch
             {
                 "sale_return.note_required.wastage" => Errors.Sale.ReturnNoteRequired("wastage returns"),
                 "sale_return.note_required.partial_refund" => Errors.Sale.ReturnNoteRequired("partial refunds"),
                 "sale_return.note_required.zero_refund" => Errors.Sale.ReturnNoteRequired("zero refunds"),
+                "sale_return.note_required.due_override" => Errors.Sale.ReturnDueOverrideReasonRequired,
+                "sale_return.due_override_exceeds_outstanding" => Errors.Sale.ReturnDueReductionExceedsOutstandingDue,
                 _ => Errors.Sale.ReturnNoteRequired("this return"),
             })
             .ToList();

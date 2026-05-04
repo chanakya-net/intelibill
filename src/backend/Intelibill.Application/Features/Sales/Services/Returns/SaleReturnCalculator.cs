@@ -20,7 +20,9 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
 
         if (request.DueReductionOverrideAmount.HasValue)
         {
-            dueReductionAmount = RoundMoney(Math.Clamp(request.DueReductionOverrideAmount.Value, 0m, totalRefundAmount));
+            var requestedDueReduction = RoundMoney(request.DueReductionOverrideAmount.Value);
+            var maxDueReduction = RoundMoney(Math.Min(totalRefundAmount, Math.Max(0m, request.OutstandingDueAmount)));
+            dueReductionAmount = RoundMoney(Math.Clamp(requestedDueReduction, 0m, maxDueReduction));
 
             if (dueReductionAmount != dueFirstReduction)
             {
@@ -30,7 +32,19 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
                     SaleReturnWarningSeverity.Warning));
             }
 
-            if (string.IsNullOrWhiteSpace(request.DueOverrideReason))
+            if (requestedDueReduction > maxDueReduction)
+            {
+                warnings.Add(new SaleReturnCalculationWarning(
+                    "sale_return.due_override_exceeds_outstanding",
+                    "Due reduction override exceeds current outstanding due.",
+                    SaleReturnWarningSeverity.Warning));
+            }
+
+            var payoutAmountAfterOverride = RoundMoney(totalRefundAmount - dueReductionAmount);
+            var outstandingDueAfterOverride = RoundMoney(Math.Max(0m, request.OutstandingDueAmount - dueReductionAmount));
+            if (payoutAmountAfterOverride > 0m
+                && outstandingDueAfterOverride > 0m
+                && string.IsNullOrWhiteSpace(request.DueOverrideReason))
             {
                 warnings.Add(new SaleReturnCalculationWarning(
                     "sale_return.note_required.due_override",

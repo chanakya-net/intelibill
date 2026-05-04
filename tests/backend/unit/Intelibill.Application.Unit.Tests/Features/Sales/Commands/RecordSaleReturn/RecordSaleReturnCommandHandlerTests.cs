@@ -329,6 +329,84 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenDueOverridePaysOutWhileDueRemainsWithoutReason_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutMethod: PaymentMethod.Cash,
+                dueReductionOverrideAmount: 25m,
+                dueOverrideReason: null),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.ReturnDueOverrideReasonRequired.Code, result.FirstError.Code);
+        await _customerLedgerEntryRepository.DidNotReceive().AddAsync(
+            Arg.Any<CustomerLedgerEntry>(),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDueOverridePaysOutWhileDueRemainsWithReason_RecordsSplit()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SPLIT01");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutMethod: PaymentMethod.Cash,
+                dueReductionOverrideAmount: 25m,
+                dueOverrideReason: "Customer needs cash refund"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _customerLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<CustomerLedgerEntry>(entry =>
+                entry.EntryType == CustomerLedgerEntryType.ReturnCredit
+                && entry.Amount == 25m),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.DueReductionAmount == 25m
+                && r.PayoutAmount == 195m
+                && r.CustomerBalanceBefore == 300m
+                && r.CustomerBalanceAfter == 275m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDueOverrideExceedsOutstandingDue_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 100m, hasCustomer: true);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutMethod: PaymentMethod.Cash,
+                dueReductionOverrideAmount: 150m,
+                dueOverrideReason: "Too much"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.ReturnDueReductionExceedsOutstandingDue.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenQuantityExceedsCurrentRemaining_ReturnsValidationError()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
@@ -422,14 +500,16 @@ public sealed class RecordSaleReturnCommandHandlerTests
         PaymentMethod? payoutMethod,
         SaleReturnCondition condition = SaleReturnCondition.Restockable,
         decimal? approvedRefundAmount = null,
-        string? lineNotes = "Sealed") =>
+        string? lineNotes = "Sealed",
+        decimal? dueReductionOverrideAmount = null,
+        string? dueOverrideReason = null) =>
         new(
             userId,
             shopId,
             saleId,
             payoutMethod,
-            DueReductionOverrideAmount: null,
-            DueOverrideReason: null,
+            dueReductionOverrideAmount,
+            dueOverrideReason,
             Notes: "Customer returned sealed items",
             [new RecordSaleReturnItemCommand(saleItemId, 2m, condition, approvedRefundAmount, lineNotes)]);
 

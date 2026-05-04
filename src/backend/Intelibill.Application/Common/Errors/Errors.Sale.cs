@@ -87,6 +87,12 @@ public static partial class Errors
         public static Error ReturnNoteRequired(string reason) =>
             Error.Validation("SaleReturn.NoteRequired", $"Return line note is required for {reason}.");
 
+        public static Error ReturnDueOverrideReasonRequired =>
+            Error.Validation("SaleReturn.DueOverrideReasonRequired", "Due override reason is required when payout happens while customer due remains.");
+
+        public static Error ReturnDueReductionExceedsOutstandingDue =>
+            Error.Validation("SaleReturn.DueReductionExceedsOutstandingDue", "Due reduction cannot exceed current outstanding due.");
+
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
     }

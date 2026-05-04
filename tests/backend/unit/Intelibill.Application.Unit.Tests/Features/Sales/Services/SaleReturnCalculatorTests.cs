@@ -156,6 +156,37 @@ public class SaleReturnCalculatorTests
     }
 
     [Fact]
+    public void Calculate_DoesNotRequireDueOverrideReasonWhenOverrideLeavesNoDue()
+    {
+        var result = _calculator.Calculate(new SaleReturnCalculationRequest(
+            [Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: true)],
+            OutstandingDueAmount: 70m,
+            CustomerBalanceBefore: 70m,
+            DueReductionOverrideAmount: 70m));
+
+        Assert.DoesNotContain(result.Warnings, warning =>
+            warning.Code == "sale_return.note_required.due_override");
+    }
+
+    [Fact]
+    public void Calculate_ClampsDueOverrideToOutstandingDueAndWarns()
+    {
+        var result = _calculator.Calculate(new SaleReturnCalculationRequest(
+            [Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: true)],
+            OutstandingDueAmount: 70m,
+            CustomerBalanceBefore: 70m,
+            DueReductionOverrideAmount: 90m,
+            DueOverrideReason: "Customer wants due cleared first"));
+
+        Assert.Equal(70m, result.DueReductionAmount);
+        Assert.Equal(30m, result.PayoutAmount);
+        Assert.Equal(0m, result.CustomerBalanceAfter);
+        Assert.Contains(result.Warnings, warning =>
+            warning.Code == "sale_return.due_override_exceeds_outstanding"
+            && warning.Severity == SaleReturnWarningSeverity.Warning);
+    }
+
+    [Fact]
     public void Calculate_AddsRequiredNoteWarnings()
     {
         var result = _calculator.Calculate(new SaleReturnCalculationRequest(

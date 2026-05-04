@@ -215,6 +215,24 @@ public class PreviewSaleReturnQueryHandlerTests
         _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
     }
 
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenDueOverrideExceedsOutstandingDue_ReturnsWarning()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 1m,
+            dueReductionOverrideAmount: 999m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Contains(result.Value.Warnings, w => w.Code == "sale_return.due_override_exceeds_outstanding");
+    }
+
     private SalePreviewFixture ArrangeSale(ShopRole role, DateOnly? expiryDate = null)
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
