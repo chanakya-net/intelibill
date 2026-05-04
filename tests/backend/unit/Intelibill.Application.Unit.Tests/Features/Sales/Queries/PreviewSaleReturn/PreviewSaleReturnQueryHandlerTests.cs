@@ -18,7 +18,13 @@ public class PreviewSaleReturnQueryHandlerTests
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
 
     private PreviewSaleReturnQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _inventoryBatchRepository, _calculator);
+        new(new SaleReturnValidator(
+            _userRepository,
+            _shopRepository,
+            _saleRepository,
+            _saleReturnRepository,
+            _inventoryBatchRepository,
+            _calculator));
 
     [Theory]
     [InlineData(ShopRole.Owner)]

@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleAggregator, SaleAggregator>();
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
+        services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
 
         return services;
     }

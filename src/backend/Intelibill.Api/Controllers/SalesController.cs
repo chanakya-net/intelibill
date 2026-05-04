@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
+using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -119,6 +120,43 @@ public sealed class SalesController : AuthenticatedControllerBase
 
         return result.ToActionResult(Ok);
     }
+
+    [HttpPost("{saleId:guid}/returns")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> RecordSaleReturn(
+        Guid saleId,
+        [FromBody] RecordSaleReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var commitResult = await Bus.InvokeAsync<ErrorOr<Success>>(
+            new RecordSaleReturnCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                saleId,
+                request.PayoutMethod,
+                request.DueReductionOverrideAmount,
+                request.DueOverrideReason,
+                request.Notes,
+                request.Items.Select(i => new RecordSaleReturnItemCommand(
+                    i.SaleItemId,
+                    i.Quantity,
+                    i.Condition,
+                    i.ApprovedRefundAmount,
+                    i.Notes)).ToList()),
+            cancellationToken);
+
+        if (commitResult.IsError)
+            return commitResult.ToActionResult(_ => NoContent());
+
+        var saleResult = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
+            new GetSaleDetailQuery(UserId!.Value, ActiveShopId!.Value, saleId),
+            cancellationToken);
+
+        return saleResult.ToActionResult(Ok);
+    }
 }
 
 public sealed record RecordSaleRequest(
@@ -147,6 +185,20 @@ public sealed record PreviewSaleReturnRequest(
     IReadOnlyList<PreviewSaleReturnItemRequest> Items);
 
 public sealed record PreviewSaleReturnItemRequest(
+    Guid SaleItemId,
+    decimal Quantity,
+    SaleReturnCondition Condition,
+    decimal? ApprovedRefundAmount,
+    string? Notes);
+
+public sealed record RecordSaleReturnRequest(
+    PaymentMethod? PayoutMethod,
+    decimal? DueReductionOverrideAmount,
+    string? DueOverrideReason,
+    string? Notes,
+    IReadOnlyList<RecordSaleReturnItemRequest> Items);
+
+public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
     decimal Quantity,
     SaleReturnCondition Condition,

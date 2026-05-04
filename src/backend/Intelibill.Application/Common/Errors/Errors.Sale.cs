@@ -71,5 +71,20 @@ public static partial class Errors
 
         public static Error ReturnBatchExpired(string batchNumber) =>
             Error.Validation("SaleReturn.BatchExpired", $"Restockable return is blocked because original batch '{batchNumber}' is expired.");
+
+        public static Error ReturnForbidden =>
+            Error.Forbidden("SaleReturn.Forbidden", "Only owners and managers can record sale returns.");
+
+        public static Error ReturnPayoutMethodRequired =>
+            Error.Validation("SaleReturn.PayoutMethodRequired", "Payout method is required when payout amount is greater than zero.");
+
+        public static Error ReturnPayoutMethodInvalid =>
+            Error.Validation("SaleReturn.PayoutMethodInvalid", "Return payout method must be Cash, UPI, or Card.");
+
+        public static Error ReturnCustomerDueNotSupported =>
+            Error.Validation("SaleReturn.CustomerDueNotSupported", "Customer due returns are not supported yet.");
+
+        public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
+            Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
     }
 }

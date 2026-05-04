@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
+using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -286,6 +287,93 @@ public class SalesControllerTests
                 && q.DueReductionOverrideAmount == 25m
                 && q.Items.Count == 1
                 && q.Items[0].SaleItemId == saleItemId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordSaleReturn_WhenUserMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.RecordSaleReturn(
+            Guid.NewGuid(),
+            new RecordSaleReturnRequest(PaymentMethod.Cash, null, null, null, []),
+            CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task RecordSaleReturn_WhenSuccessful_ReturnsRefreshedSaleDetail()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleId = Guid.NewGuid();
+        var saleItemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sale = new SaleDto(
+            saleId,
+            "INV-001",
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            500m,
+            0m,
+            500m,
+            45m,
+            [],
+            [])
+        {
+            Returns = [
+                new SaleReturnDto(
+                    Guid.NewGuid(),
+                    "RET-20260505-ABC123EF",
+                    DateTimeOffset.UtcNow,
+                    userId,
+                    null,
+                    100m,
+                    0m,
+                    100m,
+                    90m,
+                    10m,
+                    [])
+            ],
+        };
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
+
+        var result = await _controller.RecordSaleReturn(
+            saleId,
+            new RecordSaleReturnRequest(
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: "Customer returned sealed item",
+                [new RecordSaleReturnItemRequest(saleItemId, 1m, SaleReturnCondition.Restockable, 100m, "Sealed")]),
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sale, ok.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<RecordSaleReturnCommand>(c =>
+                c.ActorUserId == userId
+                && c.ShopId == shopId
+                && c.SaleId == saleId
+                && c.PayoutMethod == PaymentMethod.Cash
+                && c.Items.Count == 1
+                && c.Items[0].SaleItemId == saleItemId),
+            Arg.Any<CancellationToken>());
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
+            Arg.Is<GetSaleDetailQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SaleId == saleId),
             Arg.Any<CancellationToken>());
     }
 }
