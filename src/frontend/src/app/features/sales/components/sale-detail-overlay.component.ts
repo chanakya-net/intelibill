@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -15,7 +15,7 @@ import { TextareaModule } from 'primeng/textarea';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SalesFacade } from '../state/sales.facade';
-import { PreviewSaleReturnRequest, SaleItemDto, SaleReturnCondition, SALE_RETURN_CONDITIONS } from '../services/sale.service';
+import { PAYMENT_METHOD_VALUES, PreviewSaleReturnRequest, RecordSaleReturnRequest, SaleItemDto, SaleReturnCondition, SALE_RETURN_CONDITIONS } from '../services/sale.service';
 
 interface ReturnLineDraft {
   readonly saleItemId: string;
@@ -56,13 +56,17 @@ export class SaleDetailOverlayComponent {
   readonly isLoading = this.salesFacade.loadingSaleDetail;
   readonly returnPreview = this.salesFacade.returnPreview;
   readonly isPreviewLoading = this.salesFacade.loadingReturnPreview;
+  readonly isSubmitting = this.salesFacade.submitting;
   readonly previewError = this.salesFacade.returnPreviewErrorMessage;
   readonly showReturnPreview = signal(false);
   readonly returnDrafts = signal<readonly ReturnLineDraft[]>([]);
   readonly validationMessages = signal<readonly string[]>([]);
   readonly dueReductionOverrideAmount = signal<number | null>(null);
   readonly dueOverrideReason = signal('');
+  readonly dueOverrideConfirmed = signal(false);
+  readonly payoutMethod = signal<number | null>(null);
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
+  readonly refundPayoutMethodOptions = PAYMENT_METHOD_VALUES.filter((method) => method.value !== 4);
   readonly activeShopRole = computed(() => {
     const session = this.authService.session();
     if (!session) {
@@ -81,6 +85,7 @@ export class SaleDetailOverlayComponent {
     const role = this.activeShopRole().toLowerCase();
     return role === 'owner' || role === 'manager';
   });
+  readonly canSubmitReturns = this.hasFinancialAccess;
   readonly selectedDrafts = computed(() => this.returnDrafts().filter((draft) => draft.selected));
   readonly inferredTaxIncludedForMissingItems = computed(() => {
     const detail = this.sale();
@@ -102,6 +107,23 @@ export class SaleDetailOverlayComponent {
     const excludedDelta = Math.abs(excludedTaxTotal - detail.totalTaxAmount);
     return includedDelta <= excludedDelta;
   });
+
+  constructor() {
+    effect(() => {
+      if (this.salesFacade.lastMutationType() !== 'record-return' || !this.salesFacade.lastMutationSucceeded()) {
+        return;
+      }
+
+      this.showReturnPreview.set(false);
+      this.validationMessages.set([]);
+      this.dueReductionOverrideAmount.set(null);
+      this.dueOverrideReason.set('');
+      this.dueOverrideConfirmed.set(false);
+      this.payoutMethod.set(null);
+      this.salesFacade.clearSaleReturnPreview();
+      this.salesFacade.clearMutationStatus();
+    });
+  }
 
   getUnitSubtotal(item: SaleItemDto): number {
     if (item.taxRatePercent <= 0) {
@@ -179,6 +201,8 @@ export class SaleDetailOverlayComponent {
     this.validationMessages.set([]);
     this.dueReductionOverrideAmount.set(null);
     this.dueOverrideReason.set('');
+    this.dueOverrideConfirmed.set(false);
+    this.payoutMethod.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.showReturnPreview.set(true);
   }
@@ -186,6 +210,8 @@ export class SaleDetailOverlayComponent {
   closeReturnPreview(): void {
     this.showReturnPreview.set(false);
     this.validationMessages.set([]);
+    this.dueOverrideConfirmed.set(false);
+    this.payoutMethod.set(null);
     this.salesFacade.clearSaleReturnPreview();
   }
 
@@ -237,6 +263,7 @@ export class SaleDetailOverlayComponent {
 
   updateDueReductionOverride(value: number | string | null): void {
     this.dueReductionOverrideAmount.set(value === '' || value === null ? null : this.clampNumber(Number(value), 0, Number.MAX_SAFE_INTEGER));
+    this.dueOverrideConfirmed.set(false);
     this.salesFacade.clearSaleReturnPreview();
   }
 
@@ -271,6 +298,43 @@ export class SaleDetailOverlayComponent {
     };
 
     this.salesFacade.previewSaleReturn(detail.saleId, payload);
+  }
+
+  updatePayoutMethod(method: number | null): void {
+    this.payoutMethod.set(method);
+  }
+
+  updateDueOverrideConfirmed(confirmed: boolean): void {
+    this.dueOverrideConfirmed.set(confirmed);
+  }
+
+  submitReturn(): void {
+    const detail = this.sale();
+    if (!detail) {
+      return;
+    }
+
+    const errors = this.validateSubmit();
+    this.validationMessages.set(errors);
+    if (errors.length > 0) {
+      return;
+    }
+
+    const payload: RecordSaleReturnRequest = {
+      payoutMethod: (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? this.payoutMethod() : null,
+      dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
+      dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
+      notes: null,
+      items: this.selectedDrafts().map((draft) => ({
+        saleItemId: draft.saleItemId,
+        quantity: draft.quantity,
+        condition: draft.condition!,
+        approvedRefundAmount: draft.approvedRefundAmount,
+        notes: this.normalizeOptional(draft.notes),
+      })),
+    };
+
+    this.salesFacade.recordSaleReturn(detail.saleId, payload);
   }
 
   onClose(): void {
@@ -339,9 +403,65 @@ export class SaleDetailOverlayComponent {
       if (!draft.condition) {
         errors.push(`${itemName} condition is required.`);
       }
+
+      if (this.isLineNoteRequired(item, draft) && this.normalizeOptional(draft.notes) === null) {
+        errors.push(`${itemName} notes are required for wastage, partial refund, or zero refund.`);
+      }
     }
 
     return errors;
+  }
+
+  private validateSubmit(): string[] {
+    const errors = this.validateReturnDrafts();
+    const preview = this.returnPreview();
+    const payoutAmount = preview?.financial?.payoutAmount ?? 0;
+    const payoutMethod = this.payoutMethod();
+
+    if (!this.canSubmitReturns()) {
+      errors.push('Only owners and managers can record returns.');
+    }
+
+    if (!preview) {
+      errors.push('Preview the return before recording it.');
+    }
+
+    if (payoutAmount > 0 && payoutMethod === null) {
+      errors.push('Select a refund payout method.');
+    }
+
+    if (payoutMethod === 4) {
+      errors.push('Credit cannot be used as a refund payout method.');
+    }
+
+    if (this.dueReductionOverrideAmount() !== null) {
+      if (!this.dueOverrideConfirmed()) {
+        errors.push('Confirm the due override before recording the return.');
+      }
+
+      if (this.normalizeOptional(this.dueOverrideReason()) === null) {
+        errors.push('Enter a reason for the due override.');
+      }
+    }
+
+    return errors;
+  }
+
+  private isLineNoteRequired(item: SaleItemDto, draft: ReturnLineDraft): boolean {
+    if (!draft.selected) {
+      return false;
+    }
+
+    if (draft.condition === 2) {
+      return true;
+    }
+
+    if (!this.hasFinancialAccess() || draft.approvedRefundAmount === null) {
+      return false;
+    }
+
+    const maxRefund = this.getMaxRefundAmount(item, draft.quantity);
+    return draft.approvedRefundAmount === 0 || draft.approvedRefundAmount < maxRefund;
   }
 
   private clampNumber(value: number, min: number, max: number): number {

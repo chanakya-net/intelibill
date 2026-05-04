@@ -26,7 +26,7 @@ describe('SalesFacade', () => {
   const boolSignal = signal(false);
   const errorSignal = signal('');
   const returnPreviewErrorSignal = signal('');
-  const mutationTypeSignal = signal<'record-sale' | null>(null);
+  const mutationTypeSignal = signal<'record-sale' | 'record-return' | null>(null);
   const selectedSaleSignal = signal(null);
   const returnPreviewSignal = signal(null);
 
@@ -72,6 +72,12 @@ describe('SalesFacade', () => {
     const payload = { dueReductionOverrideAmount: null, dueOverrideReason: null, items: [] };
     facade.previewSaleReturn('s1', payload);
     expect(dispatch).toHaveBeenCalledWith(SalesActions.previewSaleReturnRequested({ saleId: 's1', payload }));
+  });
+
+  it('recordSaleReturn dispatches recordSaleReturnRequested', () => {
+    const payload = { payoutMethod: 1, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
+    facade.recordSaleReturn('s1', payload);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.recordSaleReturnRequested({ saleId: 's1', payload }));
   });
 
   it('clearError dispatches clearError', () => {

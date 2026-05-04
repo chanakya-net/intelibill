@@ -116,6 +116,31 @@ export const salesReducer = createReducer(
     returnPreviewErrorMessage: errorMessage,
   })),
 
+  on(SalesActions.recordSaleReturnRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    returnPreviewErrorMessage: '',
+    lastMutationType: 'record-return' as SaleMutationType,
+    lastMutationSucceeded: false,
+  })),
+  on(SalesActions.recordSaleReturnSucceeded, (state, { sale }) => ({
+    ...state,
+    submitting: false,
+    selectedSale: sale,
+    returnPreview: null,
+    returnPreviewErrorMessage: '',
+    lastMutationType: 'record-return' as SaleMutationType,
+    lastMutationSucceeded: true,
+  })),
+  on(SalesActions.recordSaleReturnFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    returnPreviewErrorMessage: errorMessage,
+    lastMutationType: 'record-return' as SaleMutationType,
+    lastMutationSucceeded: false,
+  })),
+
   on(SalesActions.recordSaleRequested, (state) => ({
     ...state,
     submitting: true,

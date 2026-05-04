@@ -173,6 +173,47 @@ describe('salesReducer', () => {
     expect(next.returnPreviewErrorMessage).toBe('Failed');
   });
 
+  it('updates selected sale when record return succeeds', () => {
+    const sale = {
+      saleId: 's1',
+      invoiceNumber: 'INV-s1',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: '',
+      paidAmount: 0,
+      dueAmount: 0,
+      totalAmount: 0,
+      totalTaxAmount: 0,
+      items: [],
+      returns: [],
+      warnings: [],
+    };
+    const next = salesReducer(
+      { ...initialState, submitting: true, returnPreview: {} as any },
+      SalesActions.recordSaleReturnSucceeded({ sale })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.selectedSale).toEqual(sale);
+    expect(next.returnPreview).toBeNull();
+    expect(next.lastMutationType).toBe('record-return');
+    expect(next.lastMutationSucceeded).toBe(true);
+  });
+
+  it('stores record return failures in return preview error without clearing form state', () => {
+    const preview = { saleId: 's1', hasFinancialAccess: true, lines: [], financial: null, warnings: [] };
+    const next = salesReducer(
+      { ...initialState, submitting: true, returnPreview: preview as any },
+      SalesActions.recordSaleReturnFailed({ errorMessage: 'Failed return' })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.returnPreview).toEqual(preview);
+    expect(next.returnPreviewErrorMessage).toBe('Failed return');
+    expect(next.lastMutationType).toBe('record-return');
+    expect(next.lastMutationSucceeded).toBe(false);
+  });
+
   it('clears error on clearError', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'some error' },

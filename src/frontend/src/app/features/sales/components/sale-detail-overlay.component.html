@@ -295,6 +295,34 @@
         </div>
       }
 
+      @if (returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0) {
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="font-medium text-slate-600">Refund payout method</span>
+          <p-select
+            [options]="refundPayoutMethodOptions"
+            optionLabel="label"
+            optionValue="value"
+            appendTo="body"
+            styleClass="w-44"
+            [ngModel]="payoutMethod()"
+            (ngModelChange)="updatePayoutMethod($event)"
+            placeholder="Required"
+          />
+        </label>
+      }
+
+      @if (dueReductionOverrideAmount() !== null) {
+        <label class="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            class="h-4 w-4"
+            [checked]="dueOverrideConfirmed()"
+            (change)="updateDueOverrideConfirmed($any($event.target).checked)"
+          />
+          <span>Confirm due override</span>
+        </label>
+      }
+
       @if (returnPreview()?.warnings?.length) {
         <div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <p class="font-semibold mb-1">Warnings</p>
@@ -308,6 +336,16 @@
 
   <ng-template pTemplate="footer">
     <p-button label="Preview" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" />
+    @if (canSubmitReturns()) {
+      <p-button
+        label="Record return"
+        icon="pi pi-check"
+        severity="success"
+        [disabled]="!returnPreview() || isSubmitting()"
+        [loading]="isSubmitting()"
+        (click)="submitReturn()"
+      />
+    }
     <p-button label="Close" severity="secondary" (click)="closeReturnPreview()" />
   </ng-template>
 </p-dialog>

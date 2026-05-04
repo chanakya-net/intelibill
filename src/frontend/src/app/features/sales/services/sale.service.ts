@@ -107,6 +107,11 @@ export interface PreviewSaleReturnRequest {
   readonly items: readonly PreviewSaleReturnItemRequest[];
 }
 
+export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest {
+  readonly payoutMethod: number | null;
+  readonly notes: string | null;
+}
+
 export interface SaleReturnPreviewLineFinancialDto {
   readonly originalCostPrice: number;
   readonly originalSalesPrice: number;
@@ -201,6 +206,10 @@ export class SaleService {
 
   previewSaleReturn(saleId: string, request: PreviewSaleReturnRequest): Observable<SaleReturnPreviewDto> {
     return this.http.post<SaleReturnPreviewDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns/preview`, request);
+  }
+
+  recordSaleReturn(saleId: string, request: RecordSaleReturnRequest): Observable<SaleDto> {
+    return this.http.post<SaleDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns`, request);
   }
 
   getProfitLossReport(): Observable<readonly ProfitLossReportItemDto[]> {

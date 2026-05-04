@@ -133,4 +133,26 @@ describe('SaleService', () => {
     req.flush(preview);
     http.verify();
   });
+
+  it('sends POST request to record return endpoint', () => {
+    const { service, http } = setup();
+    const sale = makeSaleDto();
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+
+    service.recordSaleReturn('sale-1', payload).subscribe((result) => {
+      expect(result.saleId).toBe('sale-1');
+    });
+
+    const req = http.expectOne(`${SALE_ENDPOINTS.detail('sale-1')}/returns`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(sale);
+    http.verify();
+  });
 });

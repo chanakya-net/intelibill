@@ -82,6 +82,24 @@ export class SalesEffects {
     )
   );
 
+  recordSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.recordSaleReturnRequested),
+      switchMap(({ saleId, payload }) =>
+        this.saleService.recordSaleReturn(saleId, payload).pipe(
+          map((sale) => SalesActions.recordSaleReturnSucceeded({ sale })),
+          catchError((error) =>
+            of(
+              SalesActions.recordSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to record sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   recordSale$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.recordSaleRequested),

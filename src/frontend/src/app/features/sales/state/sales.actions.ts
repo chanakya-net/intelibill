@@ -2,6 +2,7 @@ import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import {
   PreviewSaleReturnRequest,
+  RecordSaleReturnRequest,
   RecordSaleRequest,
   SaleDto,
   SaleListItemDto,
@@ -9,7 +10,7 @@ import {
   SaleReturnPreviewDto,
 } from '../services/sale.service';
 
-export type SaleMutationType = 'record-sale';
+export type SaleMutationType = 'record-sale' | 'record-return';
 
 export const SalesActions = createActionGroup({
   source: 'Sales',
@@ -33,6 +34,10 @@ export const SalesActions = createActionGroup({
     'Record Sale Requested': props<{ payload: RecordSaleRequest }>(),
     'Record Sale Succeeded': props<{ sale: SaleDto }>(),
     'Record Sale Failed': props<{ errorMessage: string }>(),
+
+    'Record Sale Return Requested': props<{ saleId: string; payload: RecordSaleReturnRequest }>(),
+    'Record Sale Return Succeeded': props<{ sale: SaleDto }>(),
+    'Record Sale Return Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

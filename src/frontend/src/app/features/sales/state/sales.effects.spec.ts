@@ -17,6 +17,7 @@ describe('SalesEffects', () => {
     getSales: vi.fn<SaleService['getSales']>(),
     getSaleById: vi.fn<SaleService['getSaleById']>(),
     recordSale: vi.fn<SaleService['recordSale']>(),
+    recordSaleReturn: vi.fn<SaleService['recordSaleReturn']>(),
     getProfitLossReport: vi.fn<SaleService['getProfitLossReport']>(),
     previewSaleReturn: vi.fn<SaleService['previewSaleReturn']>(),
   };
@@ -57,6 +58,7 @@ describe('SalesEffects', () => {
     saleService.getSales.mockReset();
     saleService.getSaleById.mockReset();
     saleService.recordSale.mockReset();
+    saleService.recordSaleReturn.mockReset();
     saleService.getProfitLossReport.mockReset();
     saleService.previewSaleReturn.mockReset();
 
@@ -177,6 +179,41 @@ describe('SalesEffects', () => {
 
     await expect(output).resolves.toEqual(
       SalesActions.previewSaleReturnFailed({ errorMessage: 'Quantity exceeds remaining' })
+    );
+  });
+
+  it('dispatches recordSaleReturnSucceeded on record return success', async () => {
+    const sale = makeSaleDto();
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+    saleService.recordSaleReturn.mockReturnValue(of(sale));
+
+    const output = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(SalesActions.recordSaleReturnSucceeded({ sale }));
+  });
+
+  it('dispatches recordSaleReturnFailed on record return failure', async () => {
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+    saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+
+    const output = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.recordSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
     );
   });
 
