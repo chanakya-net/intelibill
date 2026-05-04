@@ -66,6 +66,55 @@
         </ng-template>
       </p-table>
 
+      @if (sale()!.returns.length > 0) {
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700">Return history</h3>
+          </div>
+
+          <p-table [value]="$any(sale()!.returns)" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Return</th>
+                <th>Date</th>
+                <th>Refund</th>
+                <th>Status</th>
+                <th class="w-24">Action</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-returnRecord>
+              <tr [class.opacity-60]="returnRecord.isVoided">
+                <td>
+                  <div class="flex flex-col">
+                    <span class="font-medium text-slate-700">{{ returnRecord.returnNumber }}</span>
+                    @if (returnRecord.isVoided && returnRecord.voidReason) {
+                      <span class="text-xs text-slate-500">Reason: {{ returnRecord.voidReason }}</span>
+                    }
+                  </div>
+                </td>
+                <td>{{ returnRecord.returnedAt | date:'dd MMM yyyy, h:mm a' }}</td>
+                <td>₹{{ returnRecord.totalRefundAmount | number:'1.2-2' }}</td>
+                <td>
+                  <p-tag [severity]="returnStatusSeverity(returnRecord)" [value]="returnStatusLabel(returnRecord)" />
+                </td>
+                <td>
+                  @if (canSubmitReturns() && !returnRecord.isVoided) {
+                    <p-button
+                      icon="pi pi-ban"
+                      severity="danger"
+                      [text]="true"
+                      [rounded]="true"
+                      [attr.aria-label]="'Void ' + returnRecord.returnNumber"
+                      (click)="openVoidReturn(returnRecord)"
+                    />
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      }
+
       <div class="pt-2 border-t border-slate-100">
         <div class="flex justify-between items-center py-1">
           <span class="text-sm text-slate-500">{{ 'sales.detail.price' | transloco }}</span>
@@ -102,6 +151,59 @@
       severity="secondary"
       (click)="onClose()"
     />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="showVoidReturn()"
+  (visibleChange)="closeVoidReturn()"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+  header="Void return"
+>
+  @if (selectedReturnToVoid()) {
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Return</p>
+        <p class="font-bold text-slate-800">{{ selectedReturnToVoid()!.returnNumber }}</p>
+      </div>
+
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="font-medium text-slate-600">Reason</span>
+        <textarea
+          pInputTextarea
+          rows="3"
+          [ngModel]="voidReason()"
+          (ngModelChange)="updateVoidReason($event)"
+        ></textarea>
+      </label>
+
+      @if (validationMessages().length > 0) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          @for (message of validationMessages(); track message) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      }
+
+      @if (previewError()) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Void return"
+      icon="pi pi-ban"
+      severity="danger"
+      [loading]="isSubmitting()"
+      [disabled]="isSubmitting()"
+      (click)="submitVoidReturn()"
+    />
+    <p-button label="Cancel" severity="secondary" (click)="closeVoidReturn()" />
   </ng-template>
 </p-dialog>
 

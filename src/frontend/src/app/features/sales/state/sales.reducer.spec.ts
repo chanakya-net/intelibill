@@ -214,6 +214,76 @@ describe('salesReducer', () => {
     expect(next.lastMutationSucceeded).toBe(false);
   });
 
+  it('sets submitting state when void return is requested', () => {
+    const next = salesReducer(
+      { ...initialState, returnPreviewErrorMessage: 'old error' },
+      SalesActions.voidSaleReturnRequested({
+        saleId: 's1',
+        saleReturnId: 'return-1',
+        payload: { reason: 'Wrong return recorded' },
+      })
+    );
+
+    expect(next.submitting).toBe(true);
+    expect(next.returnPreviewErrorMessage).toBe('');
+    expect(next.lastMutationType).toBe('void-return');
+    expect(next.lastMutationSucceeded).toBe(false);
+  });
+
+  it('updates selected sale when void return succeeds', () => {
+    const sale = {
+      saleId: 's1',
+      invoiceNumber: 'INV-s1',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: '',
+      paidAmount: 0,
+      dueAmount: 0,
+      totalAmount: 0,
+      totalTaxAmount: 0,
+      items: [],
+      returns: [],
+      warnings: [],
+    };
+    const next = salesReducer(
+      { ...initialState, submitting: true, returnPreviewErrorMessage: 'old error' },
+      SalesActions.voidSaleReturnSucceeded({ sale })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.selectedSale).toEqual(sale);
+    expect(next.returnPreviewErrorMessage).toBe('');
+    expect(next.lastMutationType).toBe('void-return');
+    expect(next.lastMutationSucceeded).toBe(true);
+  });
+
+  it('stores void return failures without clearing selected sale', () => {
+    const sale = {
+      saleId: 's1',
+      invoiceNumber: 'INV-s1',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: '',
+      paidAmount: 0,
+      dueAmount: 0,
+      totalAmount: 0,
+      totalTaxAmount: 0,
+      items: [],
+      returns: [],
+      warnings: [],
+    };
+    const next = salesReducer(
+      { ...initialState, submitting: true, selectedSale: sale },
+      SalesActions.voidSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+    );
+
+    expect(next.submitting).toBe(false);
+    expect(next.selectedSale).toEqual(sale);
+    expect(next.returnPreviewErrorMessage).toBe('Insufficient stock to void return');
+    expect(next.lastMutationType).toBe('void-return');
+    expect(next.lastMutationSucceeded).toBe(false);
+  });
+
   it('clears error on clearError', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'some error' },

@@ -8,9 +8,10 @@ import {
   SaleListItemDto,
   ProfitLossReportItemDto,
   SaleReturnPreviewDto,
+  VoidSaleReturnRequest,
 } from '../services/sale.service';
 
-export type SaleMutationType = 'record-sale' | 'record-return';
+export type SaleMutationType = 'record-sale' | 'record-return' | 'void-return';
 
 export const SalesActions = createActionGroup({
   source: 'Sales',
@@ -38,6 +39,10 @@ export const SalesActions = createActionGroup({
     'Record Sale Return Requested': props<{ saleId: string; payload: RecordSaleReturnRequest }>(),
     'Record Sale Return Succeeded': props<{ sale: SaleDto }>(),
     'Record Sale Return Failed': props<{ errorMessage: string }>(),
+
+    'Void Sale Return Requested': props<{ saleId: string; saleReturnId: string; payload: VoidSaleReturnRequest }>(),
+    'Void Sale Return Succeeded': props<{ sale: SaleDto }>(),
+    'Void Sale Return Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

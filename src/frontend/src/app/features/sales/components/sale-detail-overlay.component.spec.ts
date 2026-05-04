@@ -4,11 +4,34 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { SaleDto, SaleReturnPreviewDto } from '../services/sale.service';
+import { SaleDto, SaleReturnDto, SaleReturnPreviewDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from './sale-detail-overlay.component';
 
-const makeSale = (): SaleDto => ({
+const makeReturn = (overrides: Partial<SaleReturnDto> = {}): SaleReturnDto => ({
+  saleReturnId: 'return-1',
+  returnNumber: 'RET-1',
+  returnedAt: '2026-05-05T11:00:00Z',
+  totalRefundAmount: 110,
+  dueReductionAmount: 0,
+  payoutAmount: 110,
+  isVoided: false,
+  voidedAt: null,
+  voidReason: null,
+  items: [
+    {
+      saleReturnItemId: 'return-line-1',
+      saleItemId: 'line-1',
+      quantity: 1,
+      condition: 1,
+      approvedRefundAmount: 110,
+      notes: 'Sealed',
+    },
+  ],
+  ...overrides,
+});
+
+const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   saleId: 'sale-1',
   invoiceNumber: 'INV-1',
   customerId: 'customer-1',
@@ -36,6 +59,7 @@ const makeSale = (): SaleDto => ({
   ],
   returns: [],
   warnings: [],
+  ...overrides,
 });
 
 const makePreview = (payoutAmount = 0): SaleReturnPreviewDto => ({
@@ -57,7 +81,7 @@ const makePreview = (payoutAmount = 0): SaleReturnPreviewDto => ({
 describe('SaleDetailOverlayComponent', () => {
   const selectedSale = signal<SaleDto | null>(makeSale());
   const returnPreview = signal<SaleReturnPreviewDto | null>(null);
-  const mutationType = signal<'record-sale' | 'record-return' | null>(null);
+  const mutationType = signal<'record-sale' | 'record-return' | 'void-return' | null>(null);
   const mutationSucceeded = signal(false);
 
   const salesFacade = {
@@ -73,6 +97,7 @@ describe('SaleDetailOverlayComponent', () => {
     clearMutationStatus: vi.fn(),
     previewSaleReturn: vi.fn(),
     recordSaleReturn: vi.fn(),
+    voidSaleReturn: vi.fn(),
   };
 
   const authService = {
@@ -88,8 +113,8 @@ describe('SaleDetailOverlayComponent', () => {
     }),
   };
 
-  async function setup() {
-    selectedSale.set(makeSale());
+  async function setup(saleOverrides: Partial<SaleDto> = {}) {
+    selectedSale.set(makeSale(saleOverrides));
     returnPreview.set(null);
     mutationType.set(null);
     mutationSucceeded.set(false);
@@ -97,6 +122,7 @@ describe('SaleDetailOverlayComponent', () => {
     salesFacade.clearMutationStatus.mockReset();
     salesFacade.previewSaleReturn.mockReset();
     salesFacade.recordSaleReturn.mockReset();
+    salesFacade.voidSaleReturn.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [
@@ -193,5 +219,66 @@ describe('SaleDetailOverlayComponent', () => {
       notes: null,
       items: [{ saleItemId: 'line-1', quantity: 2, condition: 1, approvedRefundAmount: 220, notes: 'Sealed' }],
     });
+  });
+
+  it('shows return history with void action for active returns and marks voided returns', async () => {
+    const activeReturn = makeReturn();
+    const voidedReturn = makeReturn({
+      saleReturnId: 'return-2',
+      returnNumber: 'RET-2',
+      isVoided: true,
+      voidedAt: '2026-05-05T12:00:00Z',
+      voidReason: 'Duplicate return',
+    });
+    const { component, fixture } = await setup({ returns: [activeReturn, voidedReturn] });
+
+    component.visible = true;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Return history');
+    expect(text).toContain('RET-1');
+    expect(text).toContain('RET-2');
+    expect(text).toContain('Voided');
+    expect(text).toContain('Reason: Duplicate return');
+    expect(fixture.nativeElement.querySelector('[aria-label="Void RET-1"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Void RET-2"]')).toBeNull();
+  });
+
+  it('requires a reason before voiding a return', async () => {
+    const saleReturn = makeReturn();
+    const { component } = await setup({ returns: [saleReturn] });
+
+    component.openVoidReturn(saleReturn);
+    component.submitVoidReturn();
+
+    expect(component.validationMessages()).toContain('Void reason is required.');
+    expect(salesFacade.voidSaleReturn).not.toHaveBeenCalled();
+  });
+
+  it('submits void return payload with trimmed reason', async () => {
+    const saleReturn = makeReturn();
+    const { component } = await setup({ returns: [saleReturn] });
+
+    component.openVoidReturn(saleReturn);
+    component.updateVoidReason('  Duplicate return  ');
+    component.submitVoidReturn();
+
+    expect(salesFacade.voidSaleReturn).toHaveBeenCalledWith('sale-1', 'return-1', {
+      reason: 'Duplicate return',
+    });
+  });
+
+  it('closes void modal when void return succeeds', async () => {
+    const saleReturn = makeReturn();
+    const { component, fixture } = await setup({ returns: [saleReturn] });
+
+    component.openVoidReturn(saleReturn);
+    mutationType.set('void-return');
+    mutationSucceeded.set(true);
+    fixture.detectChanges();
+
+    expect(component.showVoidReturn()).toBe(false);
+    expect(salesFacade.clearMutationStatus).toHaveBeenCalled();
   });
 });

@@ -100,6 +100,25 @@ export class SalesEffects {
     )
   );
 
+  voidSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.voidSaleReturnRequested),
+      switchMap(({ saleId, saleReturnId, payload }) =>
+        this.saleService.voidSaleReturn(saleReturnId, payload).pipe(
+          switchMap(() => this.saleService.getSaleById(saleId)),
+          map((sale) => SalesActions.voidSaleReturnSucceeded({ sale })),
+          catchError((error) =>
+            of(
+              SalesActions.voidSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to void sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   recordSale$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.recordSaleRequested),

@@ -141,6 +141,30 @@ export const salesReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(SalesActions.voidSaleReturnRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    returnPreviewErrorMessage: '',
+    lastMutationType: 'void-return' as SaleMutationType,
+    lastMutationSucceeded: false,
+  })),
+  on(SalesActions.voidSaleReturnSucceeded, (state, { sale }) => ({
+    ...state,
+    submitting: false,
+    selectedSale: sale,
+    returnPreviewErrorMessage: '',
+    lastMutationType: 'void-return' as SaleMutationType,
+    lastMutationSucceeded: true,
+  })),
+  on(SalesActions.voidSaleReturnFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    returnPreviewErrorMessage: errorMessage,
+    lastMutationType: 'void-return' as SaleMutationType,
+    lastMutationSucceeded: false,
+  })),
+
   on(SalesActions.recordSaleRequested, (state) => ({
     ...state,
     submitting: true,

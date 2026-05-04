@@ -1,7 +1,7 @@
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto } from '../services/sale.service';
+import { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, VoidSaleReturnRequest } from '../services/sale.service';
 import { SalesActions } from './sales.actions';
 import * as SalesSelectors from './sales.selectors';
 
@@ -13,7 +13,7 @@ export class SalesFacade {
   readonly loadingSales: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSales);
   readonly submitting: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectSubmitting);
   readonly errorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectErrorMessage);
-  readonly lastMutationType: Signal<'record-sale' | 'record-return' | null> = this.store.selectSignal(SalesSelectors.selectLastMutationType);
+  readonly lastMutationType: Signal<'record-sale' | 'record-return' | 'void-return' | null> = this.store.selectSignal(SalesSelectors.selectLastMutationType);
   readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLastMutationSucceeded);
   readonly selectedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectSelectedSale);
   readonly loadingSaleDetail: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSaleDetail);
@@ -41,6 +41,10 @@ export class SalesFacade {
 
   recordSaleReturn(saleId: string, payload: RecordSaleReturnRequest): void {
     this.store.dispatch(SalesActions.recordSaleReturnRequested({ saleId, payload }));
+  }
+
+  voidSaleReturn(saleId: string, saleReturnId: string, payload: VoidSaleReturnRequest): void {
+    this.store.dispatch(SalesActions.voidSaleReturnRequested({ saleId, saleReturnId, payload }));
   }
 
   recordSale(payload: RecordSaleRequest): void {

@@ -15,7 +15,16 @@ import { TextareaModule } from 'primeng/textarea';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SalesFacade } from '../state/sales.facade';
-import { PAYMENT_METHOD_VALUES, PreviewSaleReturnRequest, RecordSaleReturnRequest, SaleItemDto, SaleReturnCondition, SALE_RETURN_CONDITIONS } from '../services/sale.service';
+import {
+  PAYMENT_METHOD_VALUES,
+  PreviewSaleReturnRequest,
+  RecordSaleReturnRequest,
+  SaleItemDto,
+  SaleReturnCondition,
+  SALE_RETURN_CONDITIONS,
+  SaleReturnDto,
+  VoidSaleReturnRequest,
+} from '../services/sale.service';
 
 interface ReturnLineDraft {
   readonly saleItemId: string;
@@ -65,6 +74,9 @@ export class SaleDetailOverlayComponent {
   readonly dueOverrideReason = signal('');
   readonly dueOverrideConfirmed = signal(false);
   readonly payoutMethod = signal<number | null>(null);
+  readonly showVoidReturn = signal(false);
+  readonly selectedReturnToVoid = signal<SaleReturnDto | null>(null);
+  readonly voidReason = signal('');
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
   readonly refundPayoutMethodOptions = PAYMENT_METHOD_VALUES.filter((method) => method.value !== 4);
   readonly activeShopRole = computed(() => {
@@ -110,18 +122,25 @@ export class SaleDetailOverlayComponent {
 
   constructor() {
     effect(() => {
-      if (this.salesFacade.lastMutationType() !== 'record-return' || !this.salesFacade.lastMutationSucceeded()) {
+      if (!this.salesFacade.lastMutationSucceeded()) {
         return;
       }
 
-      this.showReturnPreview.set(false);
-      this.validationMessages.set([]);
-      this.dueReductionOverrideAmount.set(null);
-      this.dueOverrideReason.set('');
-      this.dueOverrideConfirmed.set(false);
-      this.payoutMethod.set(null);
-      this.salesFacade.clearSaleReturnPreview();
-      this.salesFacade.clearMutationStatus();
+      if (this.salesFacade.lastMutationType() === 'record-return') {
+        this.showReturnPreview.set(false);
+        this.validationMessages.set([]);
+        this.dueReductionOverrideAmount.set(null);
+        this.dueOverrideReason.set('');
+        this.dueOverrideConfirmed.set(false);
+        this.payoutMethod.set(null);
+        this.salesFacade.clearSaleReturnPreview();
+        this.salesFacade.clearMutationStatus();
+      }
+
+      if (this.salesFacade.lastMutationType() === 'void-return') {
+        this.closeVoidReturn();
+        this.salesFacade.clearMutationStatus();
+      }
     });
   }
 
@@ -337,8 +356,49 @@ export class SaleDetailOverlayComponent {
     this.salesFacade.recordSaleReturn(detail.saleId, payload);
   }
 
+  openVoidReturn(saleReturn: SaleReturnDto): void {
+    if (!this.canSubmitReturns() || saleReturn.isVoided) {
+      return;
+    }
+
+    this.selectedReturnToVoid.set(saleReturn);
+    this.voidReason.set('');
+    this.validationMessages.set([]);
+    this.salesFacade.clearSaleReturnPreview();
+    this.showVoidReturn.set(true);
+  }
+
+  closeVoidReturn(): void {
+    this.showVoidReturn.set(false);
+    this.selectedReturnToVoid.set(null);
+    this.voidReason.set('');
+    this.validationMessages.set([]);
+  }
+
+  updateVoidReason(reason: string): void {
+    this.voidReason.set(reason);
+  }
+
+  submitVoidReturn(): void {
+    const detail = this.sale();
+    const saleReturn = this.selectedReturnToVoid();
+    const reason = this.normalizeOptional(this.voidReason());
+    if (!detail || !saleReturn) {
+      return;
+    }
+
+    if (!reason) {
+      this.validationMessages.set(['Void reason is required.']);
+      return;
+    }
+
+    const payload: VoidSaleReturnRequest = { reason };
+    this.salesFacade.voidSaleReturn(detail.saleId, saleReturn.saleReturnId, payload);
+  }
+
   onClose(): void {
     this.closeReturnPreview();
+    this.closeVoidReturn();
     this.visibleChange.emit(false);
   }
 
@@ -372,6 +432,14 @@ export class SaleDetailOverlayComponent {
   paymentMethodSeverity(method: number): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
     const map: Record<number, 'success' | 'info' | 'warn' | 'danger'> = { 1: 'success', 2: 'info', 3: 'warn', 4: 'danger' };
     return map[method] ?? 'secondary';
+  }
+
+  returnStatusLabel(saleReturn: SaleReturnDto): string {
+    return saleReturn.isVoided ? 'Voided' : 'Active';
+  }
+
+  returnStatusSeverity(saleReturn: SaleReturnDto): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    return saleReturn.isVoided ? 'secondary' : 'success';
   }
 
   private updateDraft(saleItemId: string, update: (draft: ReturnLineDraft) => ReturnLineDraft): void {

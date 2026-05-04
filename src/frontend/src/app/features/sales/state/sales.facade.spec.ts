@@ -26,7 +26,7 @@ describe('SalesFacade', () => {
   const boolSignal = signal(false);
   const errorSignal = signal('');
   const returnPreviewErrorSignal = signal('');
-  const mutationTypeSignal = signal<'record-sale' | 'record-return' | null>(null);
+  const mutationTypeSignal = signal<'record-sale' | 'record-return' | 'void-return' | null>(null);
   const selectedSaleSignal = signal(null);
   const returnPreviewSignal = signal(null);
 
@@ -78,6 +78,12 @@ describe('SalesFacade', () => {
     const payload = { payoutMethod: 1, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
     facade.recordSaleReturn('s1', payload);
     expect(dispatch).toHaveBeenCalledWith(SalesActions.recordSaleReturnRequested({ saleId: 's1', payload }));
+  });
+
+  it('voidSaleReturn dispatches voidSaleReturnRequested', () => {
+    const payload = { reason: 'Wrong return recorded' };
+    facade.voidSaleReturn('s1', 'return-1', payload);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.voidSaleReturnRequested({ saleId: 's1', saleReturnId: 'return-1', payload }));
   });
 
   it('clearError dispatches clearError', () => {

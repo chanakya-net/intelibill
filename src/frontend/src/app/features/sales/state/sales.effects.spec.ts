@@ -18,6 +18,7 @@ describe('SalesEffects', () => {
     getSaleById: vi.fn<SaleService['getSaleById']>(),
     recordSale: vi.fn<SaleService['recordSale']>(),
     recordSaleReturn: vi.fn<SaleService['recordSaleReturn']>(),
+    voidSaleReturn: vi.fn<SaleService['voidSaleReturn']>(),
     getProfitLossReport: vi.fn<SaleService['getProfitLossReport']>(),
     previewSaleReturn: vi.fn<SaleService['previewSaleReturn']>(),
   };
@@ -59,6 +60,7 @@ describe('SalesEffects', () => {
     saleService.getSaleById.mockReset();
     saleService.recordSale.mockReset();
     saleService.recordSaleReturn.mockReset();
+    saleService.voidSaleReturn.mockReset();
     saleService.getProfitLossReport.mockReset();
     saleService.previewSaleReturn.mockReset();
 
@@ -214,6 +216,32 @@ describe('SalesEffects', () => {
 
     await expect(output).resolves.toEqual(
       SalesActions.recordSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+    );
+  });
+
+  it('dispatches voidSaleReturnSucceeded with refreshed sale detail on void success', async () => {
+    const sale = makeSaleDto();
+    const payload = { reason: 'Wrong return recorded' };
+    saleService.voidSaleReturn.mockReturnValue(of(void 0));
+    saleService.getSaleById.mockReturnValue(of(sale));
+
+    const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+
+    await expect(output).resolves.toEqual(SalesActions.voidSaleReturnSucceeded({ sale }));
+    expect(saleService.voidSaleReturn).toHaveBeenCalledWith('return-1', payload);
+    expect(saleService.getSaleById).toHaveBeenCalledWith('sale-1');
+  });
+
+  it('dispatches voidSaleReturnFailed with backend detail on void failure', async () => {
+    const payload = { reason: 'Wrong return recorded' };
+    saleService.voidSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+
+    const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.voidSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
     );
   });
 

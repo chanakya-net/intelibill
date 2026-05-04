@@ -155,4 +155,17 @@ describe('SaleService', () => {
     req.flush(sale);
     http.verify();
   });
+
+  it('sends POST request to void return endpoint', () => {
+    const { service, http } = setup();
+    const payload = { reason: 'Wrong return recorded' };
+
+    service.voidSaleReturn('return-1', payload).subscribe();
+
+    const req = http.expectOne(`${SALE_ENDPOINTS.record}/returns/return-1/void`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(null);
+    http.verify();
+  });
 });
