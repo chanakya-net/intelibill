@@ -86,7 +86,7 @@ public sealed class VoidSaleReturnCommandHandler(
                 command.ShopId,
                 saleItem.ItemId,
                 saleItem.InventoryBatchId,
-                StockTransactionType.Reversal,
+                StockTransactionType.Out,
                 -returnItem.Quantity,
                 saleReturn.ReturnNumber,
                 command.Reason,
