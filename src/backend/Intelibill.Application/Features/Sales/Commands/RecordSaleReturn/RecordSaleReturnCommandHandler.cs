@@ -47,12 +47,13 @@ public sealed class RecordSaleReturnCommandHandler(
         if (validated.Calculation.DueReductionAmount > 0m)
             return Errors.Sale.ReturnCustomerDueNotSupported;
 
+        var noteValidation = ValidateRequiredNotes(validated.Calculation.Warnings);
+        if (noteValidation.IsError)
+            return noteValidation.Errors;
+
         var payoutValidation = ValidatePayoutMethod(validated.Calculation.PayoutAmount, command.PayoutMethod);
         if (payoutValidation.IsError)
             return payoutValidation.Errors;
-
-        if (validated.Lines.Any(line => line.Request.Condition != SaleReturnCondition.Restockable))
-            return Error.Validation("SaleReturn.UnsupportedCondition", "Only restockable returns can be recorded.");
 
         var processedAt = DateTimeOffset.UtcNow;
         var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
@@ -83,6 +84,9 @@ public sealed class RecordSaleReturnCommandHandler(
                 return returnItem.Errors;
 
             returnItems.Add(returnItem.Value);
+
+            if (line.Request.Condition == SaleReturnCondition.Wastage)
+                continue;
 
             var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, line.SaleItem.ItemId, cancellationToken);
             if (inventory is null)
@@ -157,6 +161,25 @@ public sealed class RecordSaleReturnCommandHandler(
         return payoutMethod.Value is PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card
             ? Result.Success
             : Errors.Sale.ReturnPayoutMethodInvalid;
+    }
+
+    private static ErrorOr<Success> ValidateRequiredNotes(
+        IReadOnlyList<SaleReturnCalculationWarning> warnings)
+    {
+        var errors = warnings
+            .Where(warning => warning.Code.StartsWith("sale_return.note_required.", StringComparison.Ordinal))
+            .Select(warning => warning.Code switch
+            {
+                "sale_return.note_required.wastage" => Errors.Sale.ReturnNoteRequired("wastage returns"),
+                "sale_return.note_required.partial_refund" => Errors.Sale.ReturnNoteRequired("partial refunds"),
+                "sale_return.note_required.zero_refund" => Errors.Sale.ReturnNoteRequired("zero refunds"),
+                _ => Errors.Sale.ReturnNoteRequired("this return"),
+            })
+            .ToList();
+
+        return errors.Count > 0
+            ? errors
+            : Result.Success;
     }
 
     private sealed record PreparedRestock(

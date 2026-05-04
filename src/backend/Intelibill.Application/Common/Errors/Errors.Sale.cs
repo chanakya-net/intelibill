@@ -84,6 +84,9 @@ public static partial class Errors
         public static Error ReturnCustomerDueNotSupported =>
             Error.Validation("SaleReturn.CustomerDueNotSupported", "Customer due returns are not supported yet.");
 
+        public static Error ReturnNoteRequired(string reason) =>
+            Error.Validation("SaleReturn.NoteRequired", $"Return line note is required for {reason}.");
+
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
     }
