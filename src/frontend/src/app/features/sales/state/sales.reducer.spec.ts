@@ -210,6 +210,7 @@ describe('salesReducer', () => {
         soldAt: '',
         customerName: null,
         totalCost: 100,
+        wastageCost: 0,
         revenueBeforeTax: 120,
         revenueAfterTax: 140,
         profitBeforeTax: 40,

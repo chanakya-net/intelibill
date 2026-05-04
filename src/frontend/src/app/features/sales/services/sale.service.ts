@@ -176,6 +176,7 @@ export interface ProfitLossReportItemDto {
   readonly soldAt: string;
   readonly customerName: string | null;
   readonly totalCost: number;
+  readonly wastageCost: number;
   readonly revenueBeforeTax: number;
   readonly revenueAfterTax: number;
   readonly profitBeforeTax: number;

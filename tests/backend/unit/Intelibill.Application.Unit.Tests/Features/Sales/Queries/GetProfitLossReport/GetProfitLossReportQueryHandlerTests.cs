@@ -13,9 +13,10 @@ public class GetProfitLossReportQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
 
     private GetProfitLossReportQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
@@ -109,5 +110,143 @@ public class GetProfitLossReportQueryHandlerTests
         Assert.Equal(88, report.RevenueAfterTax);
         Assert.Equal(-12, report.ProfitBeforeTax);
         Assert.Equal(-20, report.ProfitAfterTax);
+    }
+
+    [Fact]
+    public async Task Handle_AddsReturnAdjustmentRowsOnReturnDateAndExcludesVoidedReturns()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 2m, 60m, 100m, 120m, 10m, false, false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-003",
+            null,
+            "John Doe",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+            220m,
+            0m,
+            220m,
+            20m,
+            [saleItem]);
+        var restockableReturn = MakeReturn(
+            shop.Id,
+            sale.Id,
+            saleItem.Id,
+            "RET-RESTOCK",
+            SaleReturnCondition.Restockable,
+            quantity: 1m,
+            approvedRefund: 110m,
+            tax: 10m,
+            processedAt: new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero));
+        var partialRefundReturn = MakeReturn(
+            shop.Id,
+            sale.Id,
+            saleItem.Id,
+            "RET-PARTIAL",
+            SaleReturnCondition.Restockable,
+            quantity: 1m,
+            approvedRefund: 55m,
+            tax: 10m,
+            processedAt: new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero));
+        var wastageReturn = MakeReturn(
+            shop.Id,
+            sale.Id,
+            saleItem.Id,
+            "RET-WASTE",
+            SaleReturnCondition.Wastage,
+            quantity: 1m,
+            approvedRefund: 0m,
+            tax: 10m,
+            processedAt: new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero));
+        var voidedReturn = MakeReturn(
+            shop.Id,
+            sale.Id,
+            saleItem.Id,
+            "RET-VOID",
+            SaleReturnCondition.Restockable,
+            quantity: 1m,
+            approvedRefund: 110m,
+            tax: 10m,
+            processedAt: new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero));
+        voidedReturn.Void(DateTimeOffset.UtcNow, user.Id, "Mistake");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns([restockableReturn, partialRefundReturn, wastageReturn, voidedReturn]);
+
+        var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(4, result.Value.Count);
+        var wastageRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-WASTE"));
+        Assert.Equal(wastageReturn.ProcessedAt, wastageRow.SoldAt);
+        Assert.Equal(0m, wastageRow.TotalCost);
+        Assert.Equal(60m, wastageRow.WastageCost);
+        Assert.Equal(0m, wastageRow.RevenueBeforeTax);
+        Assert.Equal(0m, wastageRow.RevenueAfterTax);
+        var restockRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-RESTOCK"));
+        Assert.Equal(-60m, restockRow.TotalCost);
+        Assert.Equal(0m, restockRow.WastageCost);
+        Assert.Equal(-100m, restockRow.RevenueBeforeTax);
+        Assert.Equal(-110m, restockRow.RevenueAfterTax);
+        var partialRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-PARTIAL"));
+        Assert.Equal(-60m, partialRow.TotalCost);
+        Assert.Equal(-50m, partialRow.RevenueBeforeTax);
+        Assert.Equal(-55m, partialRow.RevenueAfterTax);
+        Assert.DoesNotContain(result.Value, r => r.InvoiceNumber.Contains("RET-VOID"));
+        var saleRow = result.Value.Single(r => r.InvoiceNumber == "INV-003");
+        Assert.Equal(120m, saleRow.TotalCost);
+        Assert.Equal(220m, saleRow.RevenueAfterTax);
+    }
+
+    private static SaleReturn MakeReturn(
+        Guid shopId,
+        Guid saleId,
+        Guid saleItemId,
+        string returnNumber,
+        SaleReturnCondition condition,
+        decimal quantity,
+        decimal approvedRefund,
+        decimal tax,
+        DateTimeOffset processedAt)
+    {
+        var item = SaleReturnItem.Create(
+            shopId,
+            saleId,
+            saleItemId,
+            quantity,
+            condition,
+            originalCostPrice: 60m,
+            originalSalesPrice: 100m,
+            originalTaxRatePercent: 10m,
+            originalIsPriceIncludingTax: false,
+            maxRefundAmount: 110m,
+            approvedRefund,
+            taxableAmount: 100m,
+            taxAmount: tax,
+            notes: "Return").Value;
+
+        return SaleReturn.Create(
+            shopId,
+            saleId,
+            returnNumber,
+            processedAt,
+            Guid.NewGuid(),
+            notes: null,
+            totalRefundAmount: approvedRefund,
+            dueReductionAmount: 0m,
+            payoutAmount: approvedRefund,
+            totalTaxableAmount: 100m,
+            totalTaxAmount: tax,
+            customerBalanceBefore: null,
+            customerBalanceAfter: null,
+            [item]).Value;
     }
 }

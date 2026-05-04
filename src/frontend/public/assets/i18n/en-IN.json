@@ -594,6 +594,7 @@
       "date": "Date",
       "customer": "Customer",
       "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
       "revenueExclTax": "Rev (Excl Tax)",
       "revenueInclTax": "Rev (Incl Tax)",
       "profitBeforeTax": "Profit (Before Tax)",
