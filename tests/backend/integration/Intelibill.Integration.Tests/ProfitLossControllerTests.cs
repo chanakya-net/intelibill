@@ -68,7 +68,6 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
 
     private static async Task SetupInventoryAsync(HttpClient client, string token, string barcode)
     {
-        // 1. Add Supplier
         using var supplierRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
         supplierRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         supplierRequest.Content = JsonContent.Create(new
@@ -87,7 +86,6 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var supplierBody = await supplierResponse.Content.ReadFromJsonAsync<JsonElement>();
         var supplierId = supplierBody.GetProperty("supplierId").GetGuid();
 
-        // 2. Add Item
         using var itemRequest = new HttpRequestMessage(HttpMethod.Post, "/api/items");
         itemRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         itemRequest.Content = JsonContent.Create(new
@@ -100,7 +98,6 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var itemResponse = await client.SendAsync(itemRequest);
         itemResponse.EnsureSuccessStatusCode();
 
-        // 3. Add Inventory Batch
         using var inventoryRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
         inventoryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         inventoryRequest.Content = JsonContent.Create(new
@@ -126,6 +123,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var inventoryResponse = await client.SendAsync(inventoryRequest);
         inventoryResponse.EnsureSuccessStatusCode();
     }
+
+    // ======================= EXISTING TEST (PRESERVED) =======================
 
     [Fact]
     public async Task GetProfitLossReport_ReturnsCorrectData()
@@ -173,12 +172,10 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var saleResponse = await client.SendAsync(saleRequest);
         Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
 
-        // Act
         using var reportRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
         reportRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var reportResponse = await client.SendAsync(reportRequest);
 
-        // Assert
         Assert.Equal(HttpStatusCode.OK, reportResponse.StatusCode);
         var report = await reportResponse.Content.ReadFromJsonAsync<List<JsonElement>>();
         Assert.NotEmpty(report!);
@@ -189,5 +186,66 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(118m, item.GetProperty("revenueAfterTax").GetDecimal());
         Assert.Equal(38m, item.GetProperty("profitBeforeTax").GetDecimal());
         Assert.Equal(20m, item.GetProperty("profitAfterTax").GetDecimal());
+    }
+
+    // ======================= NEW: NEGATIVE CASES =======================
+
+    [Fact]
+    public async Task GetProfitLossReport_WithNoSales_ReturnsEmpty()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<JsonElement>>();
+        Assert.Empty(body!);
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_WithoutAuth_Returns401()
+    {
+        using var client = CreateClient();
+        var response = await client.GetAsync("/api/sales/profit-loss");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_WithoutShop_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_OtherShopIsolation_ReturnsEmpty()
+    {
+        using var client = CreateClient();
+        var tokenA = await RegisterAsync(client);
+        var ownerTokenA = await CreateShopAsync(client, tokenA);
+
+        var barcode = UniqueBarcode();
+        await SetupInventoryAsync(client, ownerTokenA, barcode);
+
+        var tokenB = await RegisterAsync(client);
+        var ownerTokenB = await CreateShopAsync(client, tokenB);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<JsonElement>>();
+        Assert.Empty(body!);
     }
 }

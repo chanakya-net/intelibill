@@ -11,8 +11,8 @@ ISSUE_LABEL="${ISSUE_LABEL:-ready-for-agent}"
 COMMITS_LIMIT="${COMMITS_LIMIT:-5}"
 COPY_PROMPT="${COPY_PROMPT:-1}"
 PRINT_PROMPT="${PRINT_PROMPT:-0}"
-COPILOT_PERMISSION_MODE="${COPILOT_PERMISSION_MODE:---allow-all-tools}"
-COPILOT_EXTRA_ARGS="${COPILOT_EXTRA_ARGS:-}"
+CODEX_PERMISSION_MODE="${CODEX_PERMISSION_MODE:---dangerously-bypass-approvals-and-sandbox}"
+CODEX_EXTRA_ARGS="${CODEX_EXTRA_ARGS:-}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-20}"
 STOP_MARKER="${STOP_MARKER:-<promise>NO MORE TASKS</promise>}"
 
@@ -25,7 +25,7 @@ require_command() {
 
 require_command git
 require_command gh
-require_command copilot
+require_command codex
 
 if [[ ! -f "${PROMPT_FILE}" ]]; then
   echo "Prompt file not found: ${PROMPT_FILE}" >&2
@@ -98,7 +98,7 @@ build_payload() {
 cd "${REPO_ROOT}"
 
 for ((iteration = 1; iteration <= MAX_ITERATIONS; iteration++)); do
-  echo "== Copilot iteration ${iteration}/${MAX_ITERATIONS} ==" >&2
+  echo "== Codex iteration ${iteration}/${MAX_ITERATIONS} ==" >&2
   build_payload
 
   if [[ "${COPY_PROMPT}" == "1" ]] && command -v pbcopy >/dev/null 2>&1; then
@@ -110,7 +110,7 @@ for ((iteration = 1; iteration <= MAX_ITERATIONS; iteration++)); do
     exit 0
   fi
 
-  copilot ${COPILOT_PERMISSION_MODE} ${COPILOT_EXTRA_ARGS} -p "$(cat "${PAYLOAD_FILE}")" | tee "${OUTPUT_FILE}"
+  codex exec -C "${REPO_ROOT}" ${CODEX_PERMISSION_MODE} ${CODEX_EXTRA_ARGS} "$(cat "${PAYLOAD_FILE}")" | tee "${OUTPUT_FILE}"
 
   if grep -Fq "${STOP_MARKER}" "${OUTPUT_FILE}"; then
     exit 0
