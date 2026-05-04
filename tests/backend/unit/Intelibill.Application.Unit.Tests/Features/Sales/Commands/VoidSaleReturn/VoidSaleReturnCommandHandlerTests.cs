@@ -50,7 +50,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
         Assert.Equal(18m, fixture.Inventory.Quantity);
         await _stockTransactionRepository.Received(1).AddAsync(
             Arg.Is<StockTransaction>(tx =>
-                tx.TransactionType == StockTransactionType.Reversal
+                tx.TransactionType == StockTransactionType.Out
                 && tx.Quantity == -2m
                 && tx.ReferenceNumber == fixture.SaleReturn.ReturnNumber),
             Arg.Any<CancellationToken>());
