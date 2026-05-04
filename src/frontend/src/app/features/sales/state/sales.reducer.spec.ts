@@ -85,6 +85,7 @@ describe('salesReducer', () => {
       totalAmount: 0,
       totalTaxAmount: 0,
       items: [],
+      returns: [],
       warnings: [],
     };
     const next = salesReducer(
@@ -119,6 +120,7 @@ describe('salesReducer', () => {
       totalAmount: 0,
       totalTaxAmount: 0,
       items: [],
+      returns: [],
       warnings: [],
     };
     const next = salesReducer(
@@ -127,6 +129,47 @@ describe('salesReducer', () => {
     );
 
     expect(next.selectedSale).toBeNull();
+  });
+
+  it('sets loading state when return preview is requested', () => {
+    const next = salesReducer(
+      { ...initialState, returnPreviewErrorMessage: 'old error' },
+      SalesActions.previewSaleReturnRequested({
+        saleId: 's1',
+        payload: { dueReductionOverrideAmount: null, dueOverrideReason: null, items: [] },
+      })
+    );
+
+    expect(next.loadingReturnPreview).toBe(true);
+    expect(next.returnPreview).toBeNull();
+    expect(next.returnPreviewErrorMessage).toBe('');
+  });
+
+  it('stores return preview when preview succeeds', () => {
+    const preview = {
+      saleId: 's1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: null,
+      warnings: [],
+    };
+    const next = salesReducer(
+      { ...initialState, loadingReturnPreview: true },
+      SalesActions.previewSaleReturnSucceeded({ preview })
+    );
+
+    expect(next.loadingReturnPreview).toBe(false);
+    expect(next.returnPreview).toEqual(preview);
+  });
+
+  it('sets return preview error when preview fails', () => {
+    const next = salesReducer(
+      { ...initialState, loadingReturnPreview: true },
+      SalesActions.previewSaleReturnFailed({ errorMessage: 'Failed' })
+    );
+
+    expect(next.loadingReturnPreview).toBe(false);
+    expect(next.returnPreviewErrorMessage).toBe('Failed');
   });
 
   it('clears error on clearError', () => {

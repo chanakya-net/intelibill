@@ -2,7 +2,7 @@
   [visible]="visible"
   (visibleChange)="onClose()"
   [modal]="true"
-  [style]="{ width: '90vw', maxWidth: '640px' }"
+  [style]="{ width: '92vw', maxWidth: '860px' }"
   [draggable]="false"
   [resizable]="false"
   [closeOnEscape]="true"
@@ -44,11 +44,13 @@
             <th>{{ 'sales.detail.qty' | transloco }}</th>
             <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
             <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
+            <th>Returned</th>
+            <th>Returnable</th>
             <th>{{ 'sales.detail.itemTotal' | transloco }}</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-item>
-          <tr>
+          <tr [class.opacity-60]="isFullyReturned(item)">
             <td>{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
             <td>{{ item.quantity }}</td>
             <td>
@@ -57,6 +59,8 @@
               </div>
             </td>
             <td>₹{{ getLineTaxAmount(item) | number:'1.2-2' }} ({{ item.taxRatePercent | number:'1.0-2' }}%)</td>
+            <td>{{ item.returnedQuantity }}</td>
+            <td>{{ item.returnableQuantity }}</td>
             <td>₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
           </tr>
         </ng-template>
@@ -84,10 +88,226 @@
   }
 
   <ng-template pTemplate="footer">
+    @if (canPreviewReturns()) {
+      <p-button
+        label="Return items"
+        icon="pi pi-undo"
+        severity="warn"
+        [outlined]="true"
+        (click)="openReturnPreview()"
+      />
+    }
     <p-button
       [label]="'common.close' | transloco"
       severity="secondary"
       (click)="onClose()"
     />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="showReturnPreview()"
+  (visibleChange)="closeReturnPreview()"
+  [modal]="true"
+  [style]="{ width: '94vw', maxWidth: '980px' }"
+  [draggable]="false"
+  [resizable]="false"
+  header="Return preview"
+>
+  @if (sale()) {
+    <div class="flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Invoice</p>
+          <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
+        </div>
+        <p-tag [severity]="hasFinancialAccess() ? 'success' : 'secondary'" [value]="hasFinancialAccess() ? 'Financial preview' : 'Operational preview'" />
+      </div>
+
+      <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th class="w-12"></th>
+            <th>Item</th>
+            <th>Sold</th>
+            <th>Returned</th>
+            <th>Returnable</th>
+            <th>Return qty</th>
+            <th>Condition</th>
+            @if (hasFinancialAccess()) {
+              <th>Refund</th>
+            }
+            <th>Notes</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          @let draft = getDraft(item.saleItemId);
+          <tr [class.opacity-60]="isFullyReturned(item)">
+            <td>
+              <input
+                type="checkbox"
+                class="h-4 w-4"
+                [checked]="draft?.selected ?? false"
+                [disabled]="isFullyReturned(item)"
+                (change)="toggleReturnLine(item, $any($event.target).checked)"
+                [attr.aria-label]="'Select ' + (item.itemName || 'item')"
+              />
+            </td>
+            <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.returnedQuantity }}</td>
+            <td>{{ item.returnableQuantity }}</td>
+            <td>
+              <input
+                pInputText
+                type="number"
+                min="0"
+                [max]="item.returnableQuantity"
+                class="w-20"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.quantity ?? 0"
+                (ngModelChange)="updateReturnQuantity(item, $event)"
+              />
+            </td>
+            <td>
+              <p-select
+                [options]="returnConditionOptions"
+                optionLabel="label"
+                optionValue="value"
+                appendTo="body"
+                styleClass="w-36"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.condition ?? null"
+                (ngModelChange)="updateReturnCondition(item, $event)"
+                placeholder="Required"
+              />
+            </td>
+            @if (hasFinancialAccess()) {
+              <td>
+                <input
+                  pInputText
+                  type="number"
+                  min="0"
+                  [max]="getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity)"
+                  class="w-28"
+                  [disabled]="!draft?.selected || isFullyReturned(item)"
+                  [ngModel]="draft?.approvedRefundAmount ?? null"
+                  (ngModelChange)="updateRefundAmount(item, $event)"
+                />
+                @if (draft?.selected) {
+                  <p class="mt-1 text-xs text-slate-400">Max ₹{{ getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity) | number:'1.2-2' }}</p>
+                }
+              </td>
+            }
+            <td>
+              <textarea
+                pInputTextarea
+                rows="2"
+                class="w-44"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.notes ?? ''"
+                (ngModelChange)="updateNotes(item, $event)"
+              ></textarea>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      @if (hasFinancialAccess()) {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 rounded border border-slate-200 p-3">
+          <label class="flex flex-col gap-1 text-sm">
+            <span class="font-medium text-slate-600">Due reduction override</span>
+            <input
+              pInputText
+              type="number"
+              min="0"
+              [ngModel]="dueReductionOverrideAmount()"
+              (ngModelChange)="updateDueReductionOverride($event)"
+            />
+          </label>
+          <label class="flex flex-col gap-1 text-sm">
+            <span class="font-medium text-slate-600">Override reason</span>
+            <input
+              pInputText
+              type="text"
+              [ngModel]="dueOverrideReason()"
+              (ngModelChange)="updateDueOverrideReason($event)"
+            />
+          </label>
+        </div>
+      }
+
+      @if (validationMessages().length > 0) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          @for (message of validationMessages(); track message) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      }
+
+      @if (previewError()) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
+      }
+
+      @if (returnPreview()) {
+        <div class="rounded border border-slate-200">
+          <div class="border-b border-slate-200 px-3 py-2">
+            <p class="font-semibold text-slate-800">Calculated effects</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 text-sm">
+            @for (line of returnPreview()!.lines; track line.saleItemId) {
+              <div class="rounded border border-slate-100 p-3">
+                <div class="flex justify-between gap-2">
+                  <span class="font-medium text-slate-700">{{ getPreviewItemName(line.saleItemId) }}</span>
+                  <p-tag [severity]="line.willRestock ? 'success' : 'warn'" [value]="line.willRestock ? 'Restock' : 'No restock'" />
+                </div>
+                <p class="mt-1 text-slate-500">Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable {{ line.returnableQuantity }}</p>
+                @if (line.financial && returnPreview()!.hasFinancialAccess) {
+                  <p class="mt-2 font-medium text-slate-700">
+                    Refund ₹{{ line.financial.approvedRefundAmount | number:'1.2-2' }}
+                    <span class="text-slate-400">/ max ₹{{ line.financial.maxRefundAmount | number:'1.2-2' }}</span>
+                  </p>
+                }
+              </div>
+            }
+          </div>
+
+          @if (returnPreview()!.financial && returnPreview()!.hasFinancialAccess) {
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm">
+              <div>
+                <p class="text-slate-500">Total refund</p>
+                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.totalRefundAmount | number:'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Due reduction</p>
+                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.dueReductionAmount | number:'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Payout</p>
+                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.payoutAmount | number:'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Tax effect</p>
+                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.totalTaxAmount | number:'1.2-2' }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (returnPreview()?.warnings?.length) {
+        <div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <p class="font-semibold mb-1">Warnings</p>
+          @for (warning of returnPreview()!.warnings; track warning.code + warning.message) {
+            <p>{{ warning.message }}</p>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Preview" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" />
+    <p-button label="Close" severity="secondary" (click)="closeReturnPreview()" />
   </ng-template>
 </p-dialog>

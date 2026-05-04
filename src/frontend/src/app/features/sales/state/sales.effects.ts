@@ -64,6 +64,24 @@ export class SalesEffects {
     )
   );
 
+  previewSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.previewSaleReturnRequested),
+      switchMap(({ saleId, payload }) =>
+        this.saleService.previewSaleReturn(saleId, payload).pipe(
+          map((preview) => SalesActions.previewSaleReturnSucceeded({ preview })),
+          catchError((error) =>
+            of(
+              SalesActions.previewSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to preview sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   recordSale$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.recordSaleRequested),

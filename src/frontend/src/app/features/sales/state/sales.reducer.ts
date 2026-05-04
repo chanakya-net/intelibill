@@ -1,7 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { SaleDto, SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
+import { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto } from '../services/sale.service';
 import { SaleMutationType, SalesActions } from './sales.actions';
 
 export const salesFeatureKey = 'sales';
@@ -20,6 +20,9 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly lastMutationSucceeded: boolean;
   readonly selectedSale: SaleDto | null;
   readonly loadingSaleDetail: boolean;
+  readonly returnPreview: SaleReturnPreviewDto | null;
+  readonly loadingReturnPreview: boolean;
+  readonly returnPreviewErrorMessage: string;
   readonly profitLossReport: readonly ProfitLossReportItemDto[];
   readonly loadingProfitLossReport: boolean;
 }
@@ -32,6 +35,9 @@ const initialState: SalesState = salesAdapter.getInitialState({
   lastMutationSucceeded: false,
   selectedSale: null,
   loadingSaleDetail: false,
+  returnPreview: null,
+  loadingReturnPreview: false,
+  returnPreviewErrorMessage: '',
   profitLossReport: [],
   loadingProfitLossReport: false,
 });
@@ -78,6 +84,8 @@ export const salesReducer = createReducer(
     loadingSaleDetail: true,
     errorMessage: '',
     selectedSale: null,
+    returnPreview: null,
+    returnPreviewErrorMessage: '',
   })),
   on(SalesActions.loadSaleDetailSucceeded, (state, { sale }) => ({
     ...state,
@@ -88,6 +96,24 @@ export const salesReducer = createReducer(
     ...state,
     loadingSaleDetail: false,
     errorMessage,
+  })),
+
+  on(SalesActions.previewSaleReturnRequested, (state) => ({
+    ...state,
+    loadingReturnPreview: true,
+    returnPreview: null,
+    returnPreviewErrorMessage: '',
+  })),
+  on(SalesActions.previewSaleReturnSucceeded, (state, { preview }) => ({
+    ...state,
+    loadingReturnPreview: false,
+    returnPreview: preview,
+    returnPreviewErrorMessage: '',
+  })),
+  on(SalesActions.previewSaleReturnFailed, (state, { errorMessage }) => ({
+    ...state,
+    loadingReturnPreview: false,
+    returnPreviewErrorMessage: errorMessage,
   })),
 
   on(SalesActions.recordSaleRequested, (state) => ({
@@ -124,6 +150,14 @@ export const salesReducer = createReducer(
   on(SalesActions.clearSaleDetail, (state) => ({
     ...state,
     selectedSale: null,
+    returnPreview: null,
+    returnPreviewErrorMessage: '',
+  })),
+  on(SalesActions.clearSaleReturnPreview, (state) => ({
+    ...state,
+    returnPreview: null,
+    returnPreviewErrorMessage: '',
+    loadingReturnPreview: false,
   }))
 );
 

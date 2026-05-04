@@ -44,6 +44,31 @@ export interface SaleItemDto {
   readonly taxRatePercent: number;
   readonly isPriceIncludingTax: boolean;
   readonly hasPriceMismatch: boolean;
+  readonly returnedQuantity: number;
+  readonly returnableQuantity: number;
+  readonly returnStatus: string;
+}
+
+export interface SaleReturnDto {
+  readonly saleReturnId: string;
+  readonly returnNumber: string;
+  readonly returnedAt: string;
+  readonly totalRefundAmount: number;
+  readonly dueReductionAmount: number;
+  readonly payoutAmount: number;
+  readonly isVoided: boolean;
+  readonly voidedAt: string | null;
+  readonly voidReason: string | null;
+  readonly items: readonly SaleReturnItemDto[];
+}
+
+export interface SaleReturnItemDto {
+  readonly saleReturnItemId: string;
+  readonly saleItemId: string;
+  readonly quantity: number;
+  readonly condition: SaleReturnCondition;
+  readonly approvedRefundAmount: number;
+  readonly notes: string | null;
 }
 
 export interface SaleDto {
@@ -57,7 +82,76 @@ export interface SaleDto {
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly items: readonly SaleItemDto[];
+  readonly returns: readonly SaleReturnDto[];
   readonly warnings: readonly string[];
+}
+
+export type SaleReturnCondition = 1 | 2;
+
+export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string }[] = [
+  { value: 1, label: 'Restockable' },
+  { value: 2, label: 'Wastage' },
+];
+
+export interface PreviewSaleReturnItemRequest {
+  readonly saleItemId: string;
+  readonly quantity: number;
+  readonly condition: SaleReturnCondition;
+  readonly approvedRefundAmount: number | null;
+  readonly notes: string | null;
+}
+
+export interface PreviewSaleReturnRequest {
+  readonly dueReductionOverrideAmount: number | null;
+  readonly dueOverrideReason: string | null;
+  readonly items: readonly PreviewSaleReturnItemRequest[];
+}
+
+export interface SaleReturnPreviewLineFinancialDto {
+  readonly originalCostPrice: number;
+  readonly originalSalesPrice: number;
+  readonly originalTaxRatePercent: number;
+  readonly originalIsPriceIncludingTax: boolean;
+  readonly maxRefundAmount: number;
+  readonly approvedRefundAmount: number;
+  readonly taxableAmount: number;
+  readonly taxAmount: number;
+}
+
+export interface SaleReturnPreviewLineDto {
+  readonly saleItemId: string;
+  readonly itemId: string;
+  readonly inventoryBatchId: string;
+  readonly requestedQuantity: number;
+  readonly returnedQuantity: number;
+  readonly returnableQuantity: number;
+  readonly condition: SaleReturnCondition;
+  readonly willRestock: boolean;
+  readonly financial: SaleReturnPreviewLineFinancialDto | null;
+}
+
+export interface SaleReturnPreviewFinancialDto {
+  readonly totalRefundAmount: number;
+  readonly dueReductionAmount: number;
+  readonly payoutAmount: number;
+  readonly totalTaxableAmount: number;
+  readonly totalTaxAmount: number;
+  readonly customerBalanceBefore: number | null;
+  readonly customerBalanceAfter: number | null;
+}
+
+export interface SaleReturnPreviewWarningDto {
+  readonly code: string;
+  readonly message: string;
+  readonly severity: string;
+}
+
+export interface SaleReturnPreviewDto {
+  readonly saleId: string;
+  readonly hasFinancialAccess: boolean;
+  readonly lines: readonly SaleReturnPreviewLineDto[];
+  readonly financial: SaleReturnPreviewFinancialDto | null;
+  readonly warnings: readonly SaleReturnPreviewWarningDto[];
 }
 
 export interface SaleListItemDto {
@@ -101,6 +195,10 @@ export class SaleService {
 
   getSaleById(saleId: string): Observable<SaleDto> {
     return this.http.get<SaleDto>(SALE_ENDPOINTS.detail(saleId));
+  }
+
+  previewSaleReturn(saleId: string, request: PreviewSaleReturnRequest): Observable<SaleReturnPreviewDto> {
+    return this.http.post<SaleReturnPreviewDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns/preview`, request);
   }
 
   getProfitLossReport(): Observable<readonly ProfitLossReportItemDto[]> {
