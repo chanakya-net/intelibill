@@ -8,7 +8,8 @@ namespace Intelibill.Application.Features.Sales.Queries.GetSales;
 public sealed class GetSalesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISaleRepository saleRepository)
+    ISaleRepository saleRepository,
+    ISaleReturnRepository saleReturnRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<SaleListItemDto>>> Handle(
         GetSalesQuery query,
@@ -27,6 +28,15 @@ public sealed class GetSalesQueryHandler(
             return Errors.Shop.MembershipNotFound;
 
         var sales = await saleRepository.GetByShopAsync(query.ShopId, cancellationToken);
+        var returnsBySaleId = new Dictionary<Guid, List<string>>();
+        foreach (var sale in sales)
+        {
+            var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken);
+            returnsBySaleId[sale.Id] = saleReturns
+                .Where(r => !r.IsVoided)
+                .Select(r => r.ReturnNumber)
+                .ToList();
+        }
 
         return sales
             .Select(s => new SaleListItemDto(
@@ -41,7 +51,8 @@ public sealed class GetSalesQueryHandler(
                 s.TotalTaxAmount,
                 s.CustomerName,
                 s.CustomerPhone,
-                s.Items.Count))
+                s.Items.Count,
+                returnsBySaleId.GetValueOrDefault(s.Id, [])))
             .OrderByDescending(s => s.SoldAt)
             .ToList();
     }

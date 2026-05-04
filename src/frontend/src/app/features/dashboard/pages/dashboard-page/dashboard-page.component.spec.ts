@@ -31,6 +31,8 @@ const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
   salesCount: 5,
   hasNoSalesActivity: false,
   salesBooked: 500,
+  netSalesBooked: 500,
+  wastageCost: 0,
   cashCollected: 450,
   profitBeforeTax: 100,
   profitAfterTax: 130,
@@ -60,6 +62,8 @@ const makeStaffDto = (): DashboardDto => ({
   salesCount: 5,
   hasNoSalesActivity: false,
   salesBooked: null,
+  netSalesBooked: null,
+  wastageCost: null,
   cashCollected: null,
   profitBeforeTax: null,
   profitAfterTax: null,
@@ -231,8 +235,8 @@ describe('DashboardPageComponent', () => {
   it('renders sales trend chart when salesTrendSeries has data', () => {
     const dto = makeOwnerDto({
       salesTrendSeries: [
-        { date: '2026-04-28', amount: 200 },
-        { date: '2026-04-29', amount: 300 },
+        { date: '2026-04-28', amount: 200, netAmount: 200 },
+        { date: '2026-04-29', amount: 300, netAmount: 300 },
       ],
       profitTrendSeries: [
         { date: '2026-04-28', profitBeforeTax: 80, profitAfterTax: 100 },
@@ -246,7 +250,7 @@ describe('DashboardPageComponent', () => {
       formatDateForSpec('2026-04-28'),
       formatDateForSpec('2026-04-29'),
     ]);
-    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(3);
+    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(4);
   });
 
   it('hides sales trend chart when sales trend data is null (Staff role)', () => {
@@ -262,8 +266,8 @@ describe('DashboardPageComponent', () => {
         { date: '2026-04-29', profitBeforeTax: 100, profitAfterTax: 120 },
       ],
       salesTrendSeries: [
-        { date: '2026-04-28', amount: 200 },
-        { date: '2026-04-29', amount: 300 },
+        { date: '2026-04-28', amount: 200, netAmount: 200 },
+        { date: '2026-04-29', amount: 300, netAmount: 300 },
       ],
     });
     const fixture = createFixture(dto);
@@ -291,8 +295,8 @@ describe('DashboardPageComponent', () => {
   it('coerces sales pie selection to bar chart', () => {
     const dto = makeOwnerDto({
       salesTrendSeries: [
-        { date: '2026-04-28', amount: 200 },
-        { date: '2026-04-29', amount: 300 },
+        { date: '2026-04-28', amount: 200, netAmount: 200 },
+        { date: '2026-04-29', amount: 300, netAmount: 300 },
       ],
       profitTrendSeries: [
         { date: '2026-04-28', profitBeforeTax: 80, profitAfterTax: 100 },
@@ -419,9 +423,10 @@ describe('DashboardPageComponent', () => {
     const dto = makeOwnerDto({
       salesCount: 10,
       salesBooked: 1000,
+      netSalesBooked: 900,
       salesTrendSeries: [
-        { date: '2026-04-28', amount: 450 },
-        { date: '2026-04-29', amount: 550 },
+        { date: '2026-04-28', amount: 450, netAmount: 400 },
+        { date: '2026-04-29', amount: 550, netAmount: 500 },
       ],
       profitTrendSeries: [
         { date: '2026-04-28', profitBeforeTax: 150, profitAfterTax: 180 },
@@ -432,13 +437,14 @@ describe('DashboardPageComponent', () => {
         endDate: '2026-03-31',
         salesCount: 7,
         salesBooked: 700,
+        netSalesBooked: 650,
         profitAfterTax: 200,
         netExpense: 50,
         creditSalesPercentage: 0.1,
       },
     });
     const fixture = createFixture(dto);
-    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(3);
+    expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(4);
   });
 
   it('hides comparison badges when previousPeriodSummary is null (Staff role)', () => {

@@ -13,4 +13,7 @@ public sealed record SaleDto(
     decimal TotalAmount,
     decimal TotalTaxAmount,
     IReadOnlyList<SaleItemDto> Items,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings)
+{
+    public IReadOnlyList<SaleReturnDto> Returns { get; init; } = [];
+}

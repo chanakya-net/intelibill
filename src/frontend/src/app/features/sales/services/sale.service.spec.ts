@@ -35,6 +35,7 @@ describe('SaleService', () => {
       customerName: 'John',
       customerPhone: null,
       itemCount: 2,
+      returnNumbers: [],
     },
   ];
 
@@ -49,6 +50,7 @@ describe('SaleService', () => {
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
+    returns: [],
     warnings: [],
   });
 
@@ -103,6 +105,67 @@ describe('SaleService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
     req.flush(sale);
+    http.verify();
+  });
+
+  it('sends POST request to return preview endpoint', () => {
+    const { service, http } = setup();
+    const payload = {
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: null }],
+    };
+    const preview = {
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: null,
+      warnings: [],
+    };
+
+    service.previewSaleReturn('sale-1', payload).subscribe((result) => {
+      expect(result.saleId).toBe('sale-1');
+    });
+
+    const req = http.expectOne(`${SALE_ENDPOINTS.detail('sale-1')}/returns/preview`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(preview);
+    http.verify();
+  });
+
+  it('sends POST request to record return endpoint', () => {
+    const { service, http } = setup();
+    const sale = makeSaleDto();
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+
+    service.recordSaleReturn('sale-1', payload).subscribe((result) => {
+      expect(result.saleId).toBe('sale-1');
+    });
+
+    const req = http.expectOne(`${SALE_ENDPOINTS.detail('sale-1')}/returns`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(sale);
+    http.verify();
+  });
+
+  it('sends POST request to void return endpoint', () => {
+    const { service, http } = setup();
+    const payload = { reason: 'Wrong return recorded' };
+
+    service.voidSaleReturn('return-1', payload).subscribe();
+
+    const req = http.expectOne(`${SALE_ENDPOINTS.record}/returns/return-1/void`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(null);
     http.verify();
   });
 });

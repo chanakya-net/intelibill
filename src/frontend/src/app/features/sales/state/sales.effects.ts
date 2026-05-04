@@ -64,6 +64,61 @@ export class SalesEffects {
     )
   );
 
+  previewSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.previewSaleReturnRequested),
+      switchMap(({ saleId, payload }) =>
+        this.saleService.previewSaleReturn(saleId, payload).pipe(
+          map((preview) => SalesActions.previewSaleReturnSucceeded({ preview })),
+          catchError((error) =>
+            of(
+              SalesActions.previewSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to preview sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  recordSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.recordSaleReturnRequested),
+      switchMap(({ saleId, payload }) =>
+        this.saleService.recordSaleReturn(saleId, payload).pipe(
+          map((sale) => SalesActions.recordSaleReturnSucceeded({ sale })),
+          catchError((error) =>
+            of(
+              SalesActions.recordSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to record sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  voidSaleReturn$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SalesActions.voidSaleReturnRequested),
+      switchMap(({ saleId, saleReturnId, payload }) =>
+        this.saleService.voidSaleReturn(saleReturnId, payload).pipe(
+          switchMap(() => this.saleService.getSaleById(saleId)),
+          map((sale) => SalesActions.voidSaleReturnSucceeded({ sale })),
+          catchError((error) =>
+            of(
+              SalesActions.voidSaleReturnFailed({
+                errorMessage: error.error?.detail || error.error?.title || 'Failed to void sale return',
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   recordSale$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.recordSaleRequested),

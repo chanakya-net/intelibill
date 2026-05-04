@@ -23,7 +23,7 @@ internal sealed class CustomerLedgerEntryRepository(ApplicationDbContext context
             .Select(e => new { e.EntryType, e.Amount })
             .ToListAsync(cancellationToken);
 
-        return entries.Sum(e => e.EntryType == CustomerLedgerEntryType.PaymentReceived ? -e.Amount : e.Amount);
+        return entries.Sum(e => e.EntryType.ToBalanceDelta(e.Amount));
     }
 
     public async Task<IReadOnlyDictionary<Guid, decimal>> GetCustomerBalancesAsync(
@@ -45,6 +45,6 @@ internal sealed class CustomerLedgerEntryRepository(ApplicationDbContext context
             .GroupBy(e => e.CustomerId)
             .ToDictionary(
                 g => g.Key,
-                g => g.Sum(e => e.EntryType == CustomerLedgerEntryType.PaymentReceived ? -e.Amount : e.Amount));
+                g => g.Sum(e => e.EntryType.ToBalanceDelta(e.Amount)));
     }
 }

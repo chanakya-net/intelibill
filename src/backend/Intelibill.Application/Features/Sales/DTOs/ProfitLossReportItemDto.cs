@@ -6,6 +6,7 @@ public sealed record ProfitLossReportItemDto(
     DateTimeOffset SoldAt,
     string? CustomerName,
     decimal TotalCost,
+    decimal WastageCost,
     decimal RevenueBeforeTax,
     decimal RevenueAfterTax,
     decimal ProfitBeforeTax,

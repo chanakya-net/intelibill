@@ -5,6 +5,7 @@ public sealed record PreviousPeriodSummaryDto(
     DateOnly EndDate,
     int SalesCount,
     decimal SalesBooked,
+    decimal NetSalesBooked,
     decimal ProfitAfterTax,
     decimal NetExpense,
     decimal CreditSalesPercentage);

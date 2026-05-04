@@ -13,6 +13,9 @@ import {
   selectLastMutationType,
   selectLoadingSaleDetail,
   selectLoadingSales,
+  selectLoadingReturnPreview,
+  selectReturnPreview,
+  selectReturnPreviewErrorMessage,
   selectSelectedSale,
   selectSubmitting,
 } from './sales.selectors';
@@ -22,8 +25,10 @@ describe('SalesFacade', () => {
   const salesSignal = signal<SaleListItemDto[]>([]);
   const boolSignal = signal(false);
   const errorSignal = signal('');
-  const mutationTypeSignal = signal<'record-sale' | null>(null);
+  const returnPreviewErrorSignal = signal('');
+  const mutationTypeSignal = signal<'record-sale' | 'record-return' | 'void-return' | null>(null);
   const selectedSaleSignal = signal(null);
+  const returnPreviewSignal = signal(null);
 
   const store = {
     dispatch,
@@ -36,6 +41,9 @@ describe('SalesFacade', () => {
       if (selector === selectLastMutationSucceeded) return boolSignal;
       if (selector === selectSelectedSale) return selectedSaleSignal;
       if (selector === selectLoadingSaleDetail) return boolSignal;
+      if (selector === selectReturnPreview) return returnPreviewSignal;
+      if (selector === selectLoadingReturnPreview) return boolSignal;
+      if (selector === selectReturnPreviewErrorMessage) return returnPreviewErrorSignal;
       return signal(null);
     }),
   };
@@ -60,6 +68,24 @@ describe('SalesFacade', () => {
     expect(dispatch).toHaveBeenCalledWith(SalesActions.loadSaleDetailRequested({ saleId: 's1' }));
   });
 
+  it('previewSaleReturn dispatches previewSaleReturnRequested', () => {
+    const payload = { dueReductionOverrideAmount: null, dueOverrideReason: null, items: [] };
+    facade.previewSaleReturn('s1', payload);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.previewSaleReturnRequested({ saleId: 's1', payload }));
+  });
+
+  it('recordSaleReturn dispatches recordSaleReturnRequested', () => {
+    const payload = { payoutMethod: 1, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
+    facade.recordSaleReturn('s1', payload);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.recordSaleReturnRequested({ saleId: 's1', payload }));
+  });
+
+  it('voidSaleReturn dispatches voidSaleReturnRequested', () => {
+    const payload = { reason: 'Wrong return recorded' };
+    facade.voidSaleReturn('s1', 'return-1', payload);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.voidSaleReturnRequested({ saleId: 's1', saleReturnId: 'return-1', payload }));
+  });
+
   it('clearError dispatches clearError', () => {
     facade.clearError();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearError());
@@ -73,5 +99,10 @@ describe('SalesFacade', () => {
   it('clearSaleDetail dispatches clearSaleDetail', () => {
     facade.clearSaleDetail();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearSaleDetail());
+  });
+
+  it('clearSaleReturnPreview dispatches clearSaleReturnPreview', () => {
+    facade.clearSaleReturnPreview();
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.clearSaleReturnPreview());
   });
 });

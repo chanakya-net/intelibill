@@ -13,9 +13,10 @@ public class GetSalesQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
 
     private GetSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
@@ -110,4 +111,57 @@ public class GetSalesQueryHandlerTests
 
         await _saleRepository.Received(1).GetByShopAsync(shop.Id, Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_WhenSaleHasReturns_IncludesActiveReturnNumbers()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 0m,
+            []);
+        var activeReturn = MakeReturn(shop.Id, sale.Id, "RET-001");
+        var voidedReturn = MakeReturn(shop.Id, sale.Id, "RET-VOID");
+        voidedReturn.Void(DateTimeOffset.UtcNow, user.Id, "Mistake");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns([activeReturn, voidedReturn]);
+
+        var result = await CreateHandler().Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(["RET-001"], result.Value.Single().ReturnNumbers);
+    }
+
+    private static SaleReturn MakeReturn(Guid shopId, Guid saleId, string returnNumber) =>
+        SaleReturn.Create(
+            shopId,
+            saleId,
+            returnNumber,
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            totalRefundAmount: 0m,
+            dueReductionAmount: 0m,
+            payoutAmount: 0m,
+            totalTaxableAmount: 0m,
+            totalTaxAmount: 0m,
+            customerBalanceBefore: null,
+            customerBalanceAfter: null,
+            []).Value;
 }

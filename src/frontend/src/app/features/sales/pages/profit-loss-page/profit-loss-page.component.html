@@ -40,7 +40,7 @@
       </div>
 
       <div class="report-list flex flex-col gap-3 px-1">
-        @for (item of filteredReport(); track item.saleId) {
+        @for (item of filteredReport(); track item.invoiceNumber) {
           <p-card class="report-card-item" [pt]="{
             root: { class: 'border border-orange-100 shadow-none' },
             body: { class: 'p-3' },
@@ -59,6 +59,14 @@
                 }
               </div>
               <div class="grid grid-cols-2 gap-2 mt-1">
+                <div class="flex flex-col">
+                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.cost' | transloco }}</span>
+                  <span class="text-sm font-semibold text-slate-700">₹{{ item.totalCost | number:'1.2-2' }}</span>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.wastageCost' | transloco }}</span>
+                  <span class="text-sm font-semibold text-slate-700">₹{{ item.wastageCost | number:'1.2-2' }}</span>
+                </div>
                 <div class="flex flex-col">
                   <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</span>
                   <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="'₹' + (item.profitBeforeTax | number:'1.2-2')"></p-tag>
@@ -128,6 +136,7 @@
               </div>
             </th>
             <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
+            <th class="text-right">{{ 'sales.profitLoss.wastageCost' | transloco }}</th>
             <th class="text-right">{{ 'sales.profitLoss.revenueExclTax' | transloco }}</th>
             <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>
             <th class="text-center">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</th>
@@ -146,6 +155,7 @@
               }
             </td>
             <td class="text-right">₹{{ item.totalCost | number:'1.2-2' }}</td>
+            <td class="text-right">₹{{ item.wastageCost | number:'1.2-2' }}</td>
             <td class="text-right">₹{{ item.revenueBeforeTax | number:'1.2-2' }}</td>
             <td class="text-right">₹{{ item.revenueAfterTax | number:'1.2-2' }}</td>
             <td class="text-center">

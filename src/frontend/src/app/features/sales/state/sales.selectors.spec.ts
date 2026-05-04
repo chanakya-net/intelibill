@@ -6,6 +6,8 @@ import {
   selectLastMutationSucceeded,
   selectLastMutationType,
   selectLoadingSales,
+  selectReturnPreview,
+  selectReturnPreviewErrorMessage,
   selectSelectedSale,
   selectSubmitting,
 } from './sales.selectors';
@@ -23,6 +25,7 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerName: null,
   customerPhone: null,
   itemCount: 2,
+      returnNumbers: [],
 });
 
 function buildState(sales: SaleListItemDto[] = [], overrides = {}) {
@@ -68,5 +71,16 @@ describe('sales selectors', () => {
   it('selectSelectedSale returns null by default', () => {
     const state = buildState();
     expect(selectSelectedSale.projector(state)).toBeNull();
+  });
+
+  it('selectReturnPreview reflects state', () => {
+    const preview = { saleId: 's1', hasFinancialAccess: false, lines: [], financial: null, warnings: [] };
+    const state = buildState([], { returnPreview: preview });
+    expect(selectReturnPreview.projector(state)).toEqual(preview);
+  });
+
+  it('selectReturnPreviewErrorMessage reflects state', () => {
+    const state = buildState([], { returnPreviewErrorMessage: 'preview failed' });
+    expect(selectReturnPreviewErrorMessage.projector(state)).toBe('preview failed');
   });
 });

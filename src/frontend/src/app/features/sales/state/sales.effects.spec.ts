@@ -17,7 +17,10 @@ describe('SalesEffects', () => {
     getSales: vi.fn<SaleService['getSales']>(),
     getSaleById: vi.fn<SaleService['getSaleById']>(),
     recordSale: vi.fn<SaleService['recordSale']>(),
+    recordSaleReturn: vi.fn<SaleService['recordSaleReturn']>(),
+    voidSaleReturn: vi.fn<SaleService['voidSaleReturn']>(),
     getProfitLossReport: vi.fn<SaleService['getProfitLossReport']>(),
+    previewSaleReturn: vi.fn<SaleService['previewSaleReturn']>(),
   };
 
   const makeSale = (id = 'sale-1') => ({
@@ -33,6 +36,7 @@ describe('SalesEffects', () => {
     customerName: null,
     customerPhone: null,
     itemCount: 1,
+    returnNumbers: [],
   });
 
   const makeSaleDto = (id = 'sale-1') => ({
@@ -46,6 +50,7 @@ describe('SalesEffects', () => {
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
+    returns: [],
     warnings: [],
   });
 
@@ -54,7 +59,10 @@ describe('SalesEffects', () => {
     saleService.getSales.mockReset();
     saleService.getSaleById.mockReset();
     saleService.recordSale.mockReset();
+    saleService.recordSaleReturn.mockReset();
+    saleService.voidSaleReturn.mockReset();
     saleService.getProfitLossReport.mockReset();
+    saleService.previewSaleReturn.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -137,6 +145,104 @@ describe('SalesEffects', () => {
     );
 
     await expect(output).resolves.toEqual(SalesActions.recordSaleSucceeded({ sale }));
+  });
+
+  it('dispatches previewSaleReturnSucceeded on preview success', async () => {
+    const preview = {
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: null,
+      warnings: [],
+    };
+    const payload = {
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: null }],
+    };
+    saleService.previewSaleReturn.mockReturnValue(of(preview));
+
+    const output = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(SalesActions.previewSaleReturnSucceeded({ preview }));
+  });
+
+  it('dispatches previewSaleReturnFailed on preview failure', async () => {
+    const payload = {
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: null, notes: null }],
+    };
+    saleService.previewSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Quantity exceeds remaining' } })));
+
+    const output = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.previewSaleReturnFailed({ errorMessage: 'Quantity exceeds remaining' })
+    );
+  });
+
+  it('dispatches recordSaleReturnSucceeded on record return success', async () => {
+    const sale = makeSaleDto();
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+    saleService.recordSaleReturn.mockReturnValue(of(sale));
+
+    const output = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(SalesActions.recordSaleReturnSucceeded({ sale }));
+  });
+
+  it('dispatches recordSaleReturnFailed on record return failure', async () => {
+    const payload = {
+      payoutMethod: 1,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+    };
+    saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+
+    const output = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.recordSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+    );
+  });
+
+  it('dispatches voidSaleReturnSucceeded with refreshed sale detail on void success', async () => {
+    const sale = makeSaleDto();
+    const payload = { reason: 'Wrong return recorded' };
+    saleService.voidSaleReturn.mockReturnValue(of(void 0));
+    saleService.getSaleById.mockReturnValue(of(sale));
+
+    const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+
+    await expect(output).resolves.toEqual(SalesActions.voidSaleReturnSucceeded({ sale }));
+    expect(saleService.voidSaleReturn).toHaveBeenCalledWith('return-1', payload);
+    expect(saleService.getSaleById).toHaveBeenCalledWith('sale-1');
+  });
+
+  it('dispatches voidSaleReturnFailed with backend detail on void failure', async () => {
+    const payload = { reason: 'Wrong return recorded' };
+    saleService.voidSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+
+    const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.voidSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+    );
   });
 
   it('dispatches recordSaleFailed on record failure', async () => {

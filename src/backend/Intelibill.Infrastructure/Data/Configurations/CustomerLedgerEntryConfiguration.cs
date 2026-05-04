@@ -14,7 +14,7 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
             tableBuilder.HasCheckConstraint("ck_customer_ledger_entries_amount_positive", "amount > 0");
             tableBuilder.HasCheckConstraint(
                 "ck_customer_ledger_entries_sale_by_type",
-                "((entry_type = 'SALE_DUE' AND sale_id IS NOT NULL) OR (entry_type = 'PAYMENT_RECEIVED' AND sale_id IS NULL))");
+                "((entry_type = 'SALE_DUE' AND sale_id IS NOT NULL) OR (entry_type = 'PAYMENT_RECEIVED' AND sale_id IS NULL) OR entry_type IN ('RETURN_CREDIT', 'RETURN_CREDIT_REVERSAL'))");
         });
 
         builder.HasKey(e => e.Id);
@@ -29,7 +29,7 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
 
         builder.Property(e => e.EntryType)
             .HasConversion(e => ToProviderValue(e), value => FromProviderValue(value))
-            .HasMaxLength(20)
+            .HasMaxLength(30)
             .IsRequired();
 
         builder.Property(e => e.Amount)
@@ -70,6 +70,8 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
         {
             CustomerLedgerEntryType.SaleDue => "SALE_DUE",
             CustomerLedgerEntryType.PaymentReceived => "PAYMENT_RECEIVED",
+            CustomerLedgerEntryType.ReturnCredit => "RETURN_CREDIT",
+            CustomerLedgerEntryType.ReturnCreditReversal => "RETURN_CREDIT_REVERSAL",
             _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)
         };
     }
@@ -80,6 +82,8 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
         {
             "SALE_DUE" => CustomerLedgerEntryType.SaleDue,
             "PAYMENT_RECEIVED" => CustomerLedgerEntryType.PaymentReceived,
+            "RETURN_CREDIT" => CustomerLedgerEntryType.ReturnCredit,
+            "RETURN_CREDIT_REVERSAL" => CustomerLedgerEntryType.ReturnCreditReversal,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }

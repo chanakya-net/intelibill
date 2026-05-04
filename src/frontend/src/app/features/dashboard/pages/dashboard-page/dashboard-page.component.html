@@ -163,6 +163,73 @@
       </p-card>
     </div>
 
+    <!-- Sales KPIs -->
+    @if (dashboard.salesBooked !== null) {
+      <div class="dashboard-section card-style">
+        <button
+          type="button"
+          class="dashboard-section-toggle"
+          (click)="toggleSection('sales')"
+          [attr.aria-expanded]="sectionExpanded().sales"
+        >
+          <span>{{ 'dashboard.sectionSales' | transloco }}</span>
+          <span class="dashboard-section-summary">
+            {{ 'dashboard.netSalesBooked' | transloco }}: {{ dashboard.netSalesBooked | currency: 'INR' }}
+          </span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().sales" [class.pi-chevron-up]="sectionExpanded().sales"></span>
+        </button>
+        @if (sectionExpanded().sales) {
+          <div class="dashboard-kpi-grid">
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.salesBooked' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.salesBooked | currency: 'INR' }}</span>
+                @if (previousPeriodComparisons()?.salesBooked; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.netSalesBooked' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.netSalesBooked | currency: 'INR' }}</span>
+                @if (previousPeriodComparisons()?.netSalesBooked; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.profitBeforeTax' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.profitBeforeTax | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.profitAfterTax' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.profitAfterTax | currency: 'INR' }}</span>
+                @if (previousPeriodComparisons()?.profitAfterTax; as cmp) {
+                  <span class="kpi-comparison kpi-comparison--{{ cmp.direction }}">
+                    {{ directionIcon(cmp.direction) }} {{ cmp.delta | currency: 'INR' }}
+                  </span>
+                }
+              </div>
+            </p-card>
+            <p-card>
+              <div class="kpi-card">
+                <span class="kpi-label">{{ 'dashboard.wastageCost' | transloco }}</span>
+                <span class="kpi-value">{{ dashboard.wastageCost | currency: 'INR' }}</span>
+              </div>
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+
     <!-- Expense KPIs (collapsed by default) -->
     @if (dashboard.expenseRecorded !== null) {
       <div class="dashboard-section card-style">

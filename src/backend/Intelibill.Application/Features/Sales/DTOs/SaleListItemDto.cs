@@ -14,4 +14,5 @@ public sealed record SaleListItemDto(
     decimal TotalTaxAmount,
     string? CustomerName,
     string? CustomerPhone,
-    int ItemCount);
+    int ItemCount,
+    IReadOnlyList<string> ReturnNumbers);

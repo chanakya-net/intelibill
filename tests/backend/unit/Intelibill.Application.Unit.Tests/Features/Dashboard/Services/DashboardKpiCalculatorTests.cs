@@ -72,7 +72,7 @@ public class DashboardKpiCalculatorTests
             totalTaxAmount: 10m,
             [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
 
-        var trends = DashboardKpiCalculator.BuildTrendSeries([saleOnMiddleDay], start, end);
+        var trends = DashboardKpiCalculator.BuildTrendSeries([saleOnMiddleDay], [], start, end);
 
         Assert.Equal(3, trends.SalesTrend.Count);
         Assert.Equal(0m, trends.SalesTrend[0].Amount);
@@ -122,11 +122,13 @@ public class DashboardKpiCalculatorTests
 
         var summary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
             [partialCashSale, upiSale],
+            prevSaleReturns: [],
             prevExpenses: [],
             prevStartDate: prevStart,
             prevEndDate: prevEnd);
 
         Assert.Equal(200m, summary.SalesBooked);
+        Assert.Equal(200m, summary.NetSalesBooked);
         Assert.Equal(0.3m, summary.CreditSalesPercentage);
     }
 }

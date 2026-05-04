@@ -1,7 +1,7 @@
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import { RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
+import { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, VoidSaleReturnRequest } from '../services/sale.service';
 import { SalesActions } from './sales.actions';
 import * as SalesSelectors from './sales.selectors';
 
@@ -13,10 +13,13 @@ export class SalesFacade {
   readonly loadingSales: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSales);
   readonly submitting: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectSubmitting);
   readonly errorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectErrorMessage);
-  readonly lastMutationType: Signal<'record-sale' | null> = this.store.selectSignal(SalesSelectors.selectLastMutationType);
+  readonly lastMutationType: Signal<'record-sale' | 'record-return' | 'void-return' | null> = this.store.selectSignal(SalesSelectors.selectLastMutationType);
   readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLastMutationSucceeded);
   readonly selectedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectSelectedSale);
   readonly loadingSaleDetail: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSaleDetail);
+  readonly returnPreview: Signal<SaleReturnPreviewDto | null> = this.store.selectSignal(SalesSelectors.selectReturnPreview);
+  readonly loadingReturnPreview: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingReturnPreview);
+  readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectReturnPreviewErrorMessage);
   readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossReport);
   readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
 
@@ -30,6 +33,18 @@ export class SalesFacade {
 
   loadSaleDetail(saleId: string): void {
     this.store.dispatch(SalesActions.loadSaleDetailRequested({ saleId }));
+  }
+
+  previewSaleReturn(saleId: string, payload: PreviewSaleReturnRequest): void {
+    this.store.dispatch(SalesActions.previewSaleReturnRequested({ saleId, payload }));
+  }
+
+  recordSaleReturn(saleId: string, payload: RecordSaleReturnRequest): void {
+    this.store.dispatch(SalesActions.recordSaleReturnRequested({ saleId, payload }));
+  }
+
+  voidSaleReturn(saleId: string, saleReturnId: string, payload: VoidSaleReturnRequest): void {
+    this.store.dispatch(SalesActions.voidSaleReturnRequested({ saleId, saleReturnId, payload }));
   }
 
   recordSale(payload: RecordSaleRequest): void {
@@ -46,5 +61,9 @@ export class SalesFacade {
 
   clearSaleDetail(): void {
     this.store.dispatch(SalesActions.clearSaleDetail());
+  }
+
+  clearSaleReturnPreview(): void {
+    this.store.dispatch(SalesActions.clearSaleReturnPreview());
   }
 }

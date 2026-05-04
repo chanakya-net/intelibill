@@ -44,5 +44,68 @@ public static partial class Errors
 
         public static Error CustomerIdentityMismatch =>
             Error.Validation("Sale.CustomerIdentityMismatch", "Customer id and customer phone refer to different customers.");
+
+        public static Error NotFound(Guid saleId) =>
+            Error.NotFound("Sale.NotFound", $"Sale '{saleId}' was not found.");
+
+        public static Error ReturnItemsRequired =>
+            Error.Validation("SaleReturn.ItemsRequired", "At least one return item is required.");
+
+        public static Error ReturnQuantityMustBePositive(Guid saleItemId) =>
+            Error.Validation("SaleReturn.QuantityMustBePositive", $"Return quantity for sale item '{saleItemId}' must be greater than zero.");
+
+        public static Error ReturnDuplicateSaleItem(Guid saleItemId) =>
+            Error.Validation("SaleReturn.DuplicateSaleItem", $"Sale item '{saleItemId}' appears more than once in the return request.");
+
+        public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
+            Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
+
+        public static Error ReturnNotFound(Guid saleReturnId) =>
+            Error.NotFound("SaleReturn.NotFound", $"Sale return '{saleReturnId}' was not found.");
+
+        public static Error ReturnAlreadyVoided =>
+            Error.Validation("SaleReturn.AlreadyVoided", "Sale return is already voided.");
+
+        public static Error ReturnVoidReasonRequired =>
+            Error.Validation("SaleReturn.VoidReasonRequired", "Void reason is required.");
+
+        public static Error ReturnVoidInsufficientStock =>
+            Error.Conflict("SaleReturn.VoidInsufficientStock", "Void would make returned stock negative.");
+
+        public static Error ReturnQuantityExceedsRemaining(Guid saleItemId, decimal remainingQuantity) =>
+            Error.Validation("SaleReturn.QuantityExceedsRemaining", $"Return quantity for sale item '{saleItemId}' exceeds remaining returnable quantity '{remainingQuantity}'.");
+
+        public static Error ReturnBatchNotFound(Guid batchId) =>
+            Error.Validation("SaleReturn.BatchNotFound", $"Original batch '{batchId}' was not found for this sale item.");
+
+        public static Error ReturnBatchVoided(string batchNumber) =>
+            Error.Validation("SaleReturn.BatchVoided", $"Restockable return is blocked because original batch '{batchNumber}' is voided.");
+
+        public static Error ReturnBatchExpired(string batchNumber) =>
+            Error.Validation("SaleReturn.BatchExpired", $"Restockable return is blocked because original batch '{batchNumber}' is expired.");
+
+        public static Error ReturnForbidden =>
+            Error.Forbidden("SaleReturn.Forbidden", "Only owners and managers can record sale returns.");
+
+        public static Error ReturnPayoutMethodRequired =>
+            Error.Validation("SaleReturn.PayoutMethodRequired", "Payout method is required when payout amount is greater than zero.");
+
+        public static Error ReturnPayoutMethodInvalid =>
+            Error.Validation("SaleReturn.PayoutMethodInvalid", "Return payout method must be Cash, UPI, or Card.");
+
+        public static Error ReturnCustomerDueNotSupported =>
+            Error.Validation("SaleReturn.CustomerDueNotSupported", "Customer due returns are not supported yet.");
+
+        public static Error ReturnNoteRequired(string reason) =>
+            Error.Validation("SaleReturn.NoteRequired", $"Return line note is required for {reason}.");
+
+        public static Error ReturnDueOverrideReasonRequired =>
+            Error.Validation("SaleReturn.DueOverrideReasonRequired", "Due override reason is required when payout happens while customer due remains.");
+
+        public static Error ReturnDueReductionExceedsOutstandingDue =>
+            Error.Validation("SaleReturn.DueReductionExceedsOutstandingDue", "Due reduction cannot exceed current outstanding due.");
+
+        public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
+            Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
     }
 }

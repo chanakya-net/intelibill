@@ -1,8 +1,17 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
+import {
+  PreviewSaleReturnRequest,
+  RecordSaleReturnRequest,
+  RecordSaleRequest,
+  SaleDto,
+  SaleListItemDto,
+  ProfitLossReportItemDto,
+  SaleReturnPreviewDto,
+  VoidSaleReturnRequest,
+} from '../services/sale.service';
 
-export type SaleMutationType = 'record-sale';
+export type SaleMutationType = 'record-sale' | 'record-return' | 'void-return';
 
 export const SalesActions = createActionGroup({
   source: 'Sales',
@@ -19,12 +28,25 @@ export const SalesActions = createActionGroup({
     'Load Sale Detail Succeeded': props<{ sale: SaleDto }>(),
     'Load Sale Detail Failed': props<{ errorMessage: string }>(),
 
+    'Preview Sale Return Requested': props<{ saleId: string; payload: PreviewSaleReturnRequest }>(),
+    'Preview Sale Return Succeeded': props<{ preview: SaleReturnPreviewDto }>(),
+    'Preview Sale Return Failed': props<{ errorMessage: string }>(),
+
     'Record Sale Requested': props<{ payload: RecordSaleRequest }>(),
     'Record Sale Succeeded': props<{ sale: SaleDto }>(),
     'Record Sale Failed': props<{ errorMessage: string }>(),
 
+    'Record Sale Return Requested': props<{ saleId: string; payload: RecordSaleReturnRequest }>(),
+    'Record Sale Return Succeeded': props<{ sale: SaleDto }>(),
+    'Record Sale Return Failed': props<{ errorMessage: string }>(),
+
+    'Void Sale Return Requested': props<{ saleId: string; saleReturnId: string; payload: VoidSaleReturnRequest }>(),
+    'Void Sale Return Succeeded': props<{ sale: SaleDto }>(),
+    'Void Sale Return Failed': props<{ errorMessage: string }>(),
+
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),
     'Clear Sale Detail': emptyProps(),
+    'Clear Sale Return Preview': emptyProps(),
   },
 });
