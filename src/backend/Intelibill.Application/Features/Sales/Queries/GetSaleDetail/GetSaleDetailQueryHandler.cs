@@ -9,8 +9,13 @@ public sealed class GetSaleDetailQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
+    ISaleReturnRepository saleReturnRepository,
     IItemRepository itemRepository)
 {
+    private const string NotReturned = "NotReturned";
+    private const string PartiallyReturned = "PartiallyReturned";
+    private const string FullyReturned = "FullyReturned";
+
     public async Task<ErrorOr<SaleDto>> Handle(
         GetSaleDetailQuery query,
         CancellationToken cancellationToken)
@@ -35,6 +40,16 @@ public sealed class GetSaleDetailQueryHandler(
         var items = await itemRepository.GetByIdsAsync(query.ShopId, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
+        var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken);
+        var activeReturns = saleReturns
+            .Where(r => !r.IsVoided)
+            .OrderBy(r => r.ProcessedAt)
+            .ToList();
+        var returnedQuantityBySaleItemId = activeReturns
+            .SelectMany(r => r.Items)
+            .GroupBy(i => i.SaleItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
         return new SaleDto(
             sale.Id,
             sale.InvoiceNumber,
@@ -54,7 +69,47 @@ public sealed class GetSaleDetailQueryHandler(
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
-                si.HasPriceMismatch)).ToList(),
-            []);
+                si.HasPriceMismatch,
+                GetReturnedQuantity(si.Id),
+                GetReturnableQuantity(si.Id, si.Quantity),
+                GetReturnStatus(si.Id, si.Quantity))).ToList(),
+            [])
+        {
+            Returns = activeReturns.Select(r => new SaleReturnDto(
+                r.Id,
+                r.ReturnNumber,
+                r.ProcessedAt,
+                r.ProcessedBy,
+                r.Notes,
+                r.TotalRefundAmount,
+                r.DueReductionAmount,
+                r.PayoutAmount,
+                r.TotalTaxableAmount,
+                r.TotalTaxAmount,
+                r.Items.Select(i => new SaleReturnItemDto(
+                    i.Id,
+                    i.SaleItemId,
+                    i.Quantity,
+                    i.Condition,
+                    i.ApprovedRefundAmount,
+                    i.TaxableAmount,
+                    i.TaxAmount,
+                    i.Notes)).ToList())).ToList(),
+        };
+
+        decimal GetReturnedQuantity(Guid saleItemId) =>
+            returnedQuantityBySaleItemId.GetValueOrDefault(saleItemId);
+
+        decimal GetReturnableQuantity(Guid saleItemId, decimal soldQuantity) =>
+            Math.Max(0m, soldQuantity - GetReturnedQuantity(saleItemId));
+
+        string GetReturnStatus(Guid saleItemId, decimal soldQuantity)
+        {
+            var returnedQuantity = GetReturnedQuantity(saleItemId);
+            if (returnedQuantity <= 0m)
+                return NotReturned;
+
+            return returnedQuantity >= soldQuantity ? FullyReturned : PartiallyReturned;
+        }
     }
 }
