@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleInventoryMutator, SaleInventoryMutator>();
         services.AddScoped<ICustomerResolver, CustomerResolver>();
         services.AddScoped<ISaleAggregator, SaleAggregator>();
+        services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
 
         return services;
     }
