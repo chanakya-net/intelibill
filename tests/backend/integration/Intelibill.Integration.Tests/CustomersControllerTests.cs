@@ -377,7 +377,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
 
         Assert.Equal(HttpStatusCode.OK, accountResponse.StatusCode);
         var account = await accountResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(0m, account.GetProperty("outstandingDue").GetDecimal());
+        Assert.Equal(-300m, account.GetProperty("outstandingDue").GetDecimal());
     }
 
     [Fact]

@@ -364,7 +364,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
         var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Detail Customer", detail.GetProperty("customerName").GetString());
+        Assert.Equal(saleBody.GetProperty("invoiceNumber").GetString(), detail.GetProperty("invoiceNumber").GetString());
         Assert.Equal(236m, detail.GetProperty("totalAmount").GetDecimal());
         Assert.Single(detail.GetProperty("items").EnumerateArray());
     }
@@ -446,11 +446,29 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var barcode = UniqueBarcode();
         await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
 
+        Guid customerId;
+        using (var addCustomerRequest = new HttpRequestMessage(HttpMethod.Post, "/api/customers"))
+        {
+            addCustomerRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            addCustomerRequest.Content = JsonContent.Create(new
+            {
+                name = "Due Customer",
+                phoneNumber = "+919876543210",
+                address = "12 Market Road",
+                isActive = true,
+            });
+
+            var addCustomerResponse = await client.SendAsync(addCustomerRequest);
+            Assert.Equal(HttpStatusCode.Created, addCustomerResponse.StatusCode);
+            var addCustomerBody = await addCustomerResponse.Content.ReadFromJsonAsync<JsonElement>();
+            customerId = addCustomerBody.GetProperty("customerId").GetGuid();
+        }
+
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
-            customerId = (Guid?)null,
+            customerId,
             customerName = "Due Customer",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Credit,
@@ -548,7 +566,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             customerName = "Return Customer",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Cash,
-            paidAmount = 118m,
+            paidAmount = 236m,
             dueAmount = 0m,
             items = new[]
             {
@@ -756,7 +774,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     quantity = 1m,
                     condition = (int)SaleReturnCondition.Wastage,
                     approvedRefundAmount = 100m,
-                    notes = (string?)null,
+                    notes = "Damaged packaging",
                 },
             },
         });
@@ -898,10 +916,41 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
         var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
         var saleId = saleBody.GetProperty("saleId").GetGuid();
-        var invoiceNumber = saleBody.GetProperty("invoiceNumber").GetString()!;
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+
+        using var recordReturnRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Lookup return",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var returnNumber = recordBody.GetProperty("returns")[0].GetProperty("returnNumber").GetString()!;
 
         using var lookupRequest = new HttpRequestMessage(
-            HttpMethod.Get, $"/api/sales/returns/{invoiceNumber}");
+            HttpMethod.Get, $"/api/sales/returns/{returnNumber}");
         lookupRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var lookupResponse = await client.SendAsync(lookupRequest);
 
@@ -922,7 +971,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

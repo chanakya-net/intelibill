@@ -31,7 +31,8 @@ public sealed class BankAccountsControllerTests(PostgreSqlTestFixture fixture) :
     });
 
     private static string UniqueEmail() => $"bank-{Guid.NewGuid():N}@test.com";
-    private static string UniqueIfsc() => $"HDFC{Guid.NewGuid():N}".Replace("-", "").Substring(0, 11);
+    private static string UniqueIfsc() => $"HDFC0{Guid.NewGuid():N}"[..11].ToUpperInvariant();
+    private static string UniqueAccountNumber() => $"{Math.Abs(Guid.NewGuid().GetHashCode()):D10}{Math.Abs(Guid.NewGuid().GetHashCode()):D10}"[..14];
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
@@ -73,7 +74,7 @@ public sealed class BankAccountsControllerTests(PostgreSqlTestFixture fixture) :
         request.Content = JsonContent.Create(new
         {
             bankName = "HDFC Bank",
-            accountNumber = "12345678901234",
+            accountNumber = UniqueAccountNumber(),
             accountType = "Savings",
             ifscCode = ifscCode,
             accountHolderName = "Test Owner"
