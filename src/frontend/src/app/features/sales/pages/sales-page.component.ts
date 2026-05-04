@@ -52,6 +52,7 @@ export class SalesPageComponent {
     return this.sales().filter(
       (s) =>
         s.invoiceNumber.toLowerCase().includes(q) ||
+        s.returnNumbers.some((returnNumber) => returnNumber.toLowerCase().includes(q)) ||
         (s.customerName ?? '').toLowerCase().includes(q) ||
         (s.customerPhone ?? '').toLowerCase().includes(q),
     );

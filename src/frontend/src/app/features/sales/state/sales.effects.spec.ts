@@ -34,6 +34,7 @@ describe('SalesEffects', () => {
     customerName: null,
     customerPhone: null,
     itemCount: 1,
+    returnNumbers: [],
   });
 
   const makeSaleDto = (id = 'sale-1') => ({

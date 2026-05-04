@@ -35,6 +35,7 @@ describe('SaleService', () => {
       customerName: 'John',
       customerPhone: null,
       itemCount: 2,
+      returnNumbers: [],
     },
   ];
 

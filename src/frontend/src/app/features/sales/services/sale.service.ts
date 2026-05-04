@@ -167,6 +167,7 @@ export interface SaleListItemDto {
   readonly customerName: string | null;
   readonly customerPhone: string | null;
   readonly itemCount: number;
+  readonly returnNumbers: readonly string[];
 }
 
 export interface ProfitLossReportItemDto {

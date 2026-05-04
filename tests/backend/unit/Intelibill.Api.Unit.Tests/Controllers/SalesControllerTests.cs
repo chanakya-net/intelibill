@@ -7,6 +7,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
@@ -221,6 +222,40 @@ public class SalesControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(sale, ok.Value);
+    }
+
+    [Fact]
+    public async Task GetSaleByReturnNumber_WhenSuccessful_ReturnsOriginalSaleDetail()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 90m, [], []);
+        _bus.InvokeAsync<ErrorOr<Guid>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Guid>>(saleId));
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
+
+        var result = await _controller.GetSaleByReturnNumber("RET-001", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sale, ok.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Guid>>(
+            Arg.Is<GetSaleByReturnNumberQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.ReturnNumber == "RET-001"),
+            Arg.Any<CancellationToken>());
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
+            Arg.Is<GetSaleDetailQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SaleId == saleId),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

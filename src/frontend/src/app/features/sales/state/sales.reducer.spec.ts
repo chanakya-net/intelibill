@@ -15,6 +15,7 @@ const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleLis
   customerName: null,
   customerPhone: null,
   itemCount: 2,
+      returnNumbers: [],
   ...overrides,
 }) as SaleListItemDto;
 

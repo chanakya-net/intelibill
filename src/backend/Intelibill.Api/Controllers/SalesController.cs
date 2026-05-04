@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
+using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
@@ -93,6 +94,26 @@ public sealed class SalesController : AuthenticatedControllerBase
             cancellationToken);
 
         return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("returns/{returnNumber}")]
+    public async Task<IActionResult> GetSaleByReturnNumber(string returnNumber, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var saleIdResult = await Bus.InvokeAsync<ErrorOr<Guid>>(
+            new GetSaleByReturnNumberQuery(UserId!.Value, ActiveShopId!.Value, returnNumber),
+            cancellationToken);
+
+        if (saleIdResult.IsError)
+            return saleIdResult.ToActionResult(_ => NoContent());
+
+        var saleResult = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
+            new GetSaleDetailQuery(UserId!.Value, ActiveShopId!.Value, saleIdResult.Value),
+            cancellationToken);
+
+        return saleResult.ToActionResult(Ok);
     }
 
     [HttpPost("{saleId:guid}/returns/preview")]

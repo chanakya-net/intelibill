@@ -25,6 +25,7 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerName: null,
   customerPhone: null,
   itemCount: 2,
+      returnNumbers: [],
 });
 
 function buildState(sales: SaleListItemDto[] = [], overrides = {}) {
