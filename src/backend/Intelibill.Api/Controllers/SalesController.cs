@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
+using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -157,6 +158,27 @@ public sealed class SalesController : AuthenticatedControllerBase
 
         return saleResult.ToActionResult(Ok);
     }
+
+    [HttpPost("returns/{saleReturnId:guid}/void")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> VoidSaleReturn(
+        Guid saleReturnId,
+        [FromBody] VoidSaleReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<Success>>(
+            new VoidSaleReturnCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                saleReturnId,
+                request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(_ => NoContent());
+    }
 }
 
 public sealed record RecordSaleRequest(
@@ -204,3 +226,5 @@ public sealed record RecordSaleReturnItemRequest(
     SaleReturnCondition Condition,
     decimal? ApprovedRefundAmount,
     string? Notes);
+
+public sealed record VoidSaleReturnRequest(string Reason);

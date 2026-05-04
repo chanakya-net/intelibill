@@ -10,6 +10,11 @@ internal sealed class SaleReturnRepository(ApplicationDbContext context)
 {
     private readonly ApplicationDbContext _context = context;
 
+    public async Task<SaleReturn?> GetByIdWithItemsAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(r => r.Items)
+            .FirstOrDefaultAsync(r => r.ShopId == shopId && r.Id == saleReturnId, cancellationToken);
+
     public async Task<SaleReturn?> GetByReturnNumberAsync(Guid shopId, string returnNumber, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(r => r.Items)

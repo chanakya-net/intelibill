@@ -60,6 +60,18 @@ public static partial class Errors
         public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
             Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
 
+        public static Error ReturnNotFound(Guid saleReturnId) =>
+            Error.NotFound("SaleReturn.NotFound", $"Sale return '{saleReturnId}' was not found.");
+
+        public static Error ReturnAlreadyVoided =>
+            Error.Validation("SaleReturn.AlreadyVoided", "Sale return is already voided.");
+
+        public static Error ReturnVoidReasonRequired =>
+            Error.Validation("SaleReturn.VoidReasonRequired", "Void reason is required.");
+
+        public static Error ReturnVoidInsufficientStock =>
+            Error.Conflict("SaleReturn.VoidInsufficientStock", "Void would make returned stock negative.");
+
         public static Error ReturnQuantityExceedsRemaining(Guid saleItemId, decimal remainingQuantity) =>
             Error.Validation("SaleReturn.QuantityExceedsRemaining", $"Return quantity for sale item '{saleItemId}' exceeds remaining returnable quantity '{remainingQuantity}'.");
 

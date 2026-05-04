@@ -5,6 +5,7 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
+using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -374,6 +375,34 @@ public class SalesControllerTests
                 q.UserId == userId
                 && q.ShopId == shopId
                 && q.SaleId == saleId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VoidSaleReturn_WhenSuccessful_ReturnsNoContentAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleReturnId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+
+        var result = await _controller.VoidSaleReturn(
+            saleReturnId,
+            new VoidSaleReturnRequest("Duplicate return"),
+            CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<VoidSaleReturnCommand>(c =>
+                c.ActorUserId == userId
+                && c.ShopId == shopId
+                && c.SaleReturnId == saleReturnId
+                && c.Reason == "Duplicate return"),
             Arg.Any<CancellationToken>());
     }
 }
