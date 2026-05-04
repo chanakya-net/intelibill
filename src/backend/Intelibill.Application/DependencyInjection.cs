@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Features.Sales.Services.Returns;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerResolver, CustomerResolver>();
         services.AddScoped<ISaleAggregator, SaleAggregator>();
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
+        services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
 
         return services;
     }
