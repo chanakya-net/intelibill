@@ -19,6 +19,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ISaleReturnNumberGenerator _returnNumberGenerator = Substitute.For<ISaleReturnNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
@@ -31,12 +32,14 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _saleRepository,
                 _saleReturnRepository,
                 _inventoryBatchRepository,
+                _customerLedgerEntryRepository,
                 _calculator),
             _returnNumberGenerator,
             _inventoryRepository,
             _inventoryBatchRepository,
             _stockTransactionRepository,
             _saleReturnRepository,
+            _customerLedgerEntryRepository,
             _unitOfWork);
 
     [Theory]
@@ -270,17 +273,59 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenReturnWouldReduceDue_ReturnsValidationErrorUntilCustomerLedgerIsImplemented()
+    public async Task HandleAsync_WhenCustomerHasOutstandingDue_CreatesReturnCreditBeforePayout()
     {
-        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m);
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(100m);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-DUE001");
 
         var result = await CreateHandler().HandleAsync(
             Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
             CancellationToken.None);
 
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Sale.ReturnCustomerDueNotSupported.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.False(result.IsError);
+        await _customerLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<CustomerLedgerEntry>(entry =>
+                entry.CustomerId == fixture.Sale.CustomerId
+                && entry.SaleId == fixture.Sale.Id
+                && entry.EntryType == CustomerLedgerEntryType.ReturnCredit
+                && entry.Amount == 100m),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.DueReductionAmount == 100m
+                && r.PayoutAmount == 120m
+                && r.CustomerBalanceBefore == 100m
+                && r.CustomerBalanceAfter == 0m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCustomerHasNoOutstandingDue_PaysOutWithoutReturnCredit()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 0m, hasCustomer: true);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(0m);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-PAID001");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _customerLedgerEntryRepository.DidNotReceive().AddAsync(
+            Arg.Any<CustomerLedgerEntry>(),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.DueReductionAmount == 0m
+                && r.PayoutAmount == 220m
+                && r.CustomerBalanceBefore == 0m
+                && r.CustomerBalanceAfter == 0m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -300,10 +345,11 @@ public sealed class RecordSaleReturnCommandHandlerTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private SaleReturnFixture ArrangeSale(ShopRole role, decimal dueAmount = 0m)
+    private SaleReturnFixture ArrangeSale(ShopRole role, decimal dueAmount = 0m, bool hasCustomer = false)
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var customerId = hasCustomer ? Guid.NewGuid() : (Guid?)null;
         var itemId = Guid.NewGuid();
         var batch = InventoryBatch.Create(
             shop.Id,
@@ -340,8 +386,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var sale = Sale.Create(
             shop.Id,
             "INV-001",
-            customerId: null,
-            customerName: null,
+            customerId,
+            customerName: hasCustomer ? "Customer" : null,
             customerPhone: null,
             paymentMethod: PaymentMethod.Cash,
             DateTimeOffset.UtcNow,
@@ -359,6 +405,11 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        if (sale.CustomerId.HasValue)
+        {
+            _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId.Value, Arg.Any<CancellationToken>())
+                .Returns(dueAmount);
+        }
 
         return new SaleReturnFixture(user, shop, sale, saleItem, batch, inventory);
     }

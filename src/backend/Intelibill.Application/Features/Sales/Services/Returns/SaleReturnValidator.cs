@@ -12,6 +12,7 @@ internal sealed class SaleReturnValidator(
     ISaleRepository saleRepository,
     ISaleReturnRepository saleReturnRepository,
     IInventoryBatchRepository inventoryBatchRepository,
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ISaleReturnCalculator saleReturnCalculator)
     : ISaleReturnValidator
 {
@@ -93,6 +94,7 @@ internal sealed class SaleReturnValidator(
         if (validationErrors.Count > 0)
             return validationErrors;
 
+        var outstandingDue = await GetOutstandingDueAsync(request.ShopId, sale, activeReturns, cancellationToken);
         var calculation = saleReturnCalculator.Calculate(new SaleReturnCalculationRequest(
             lineInputs.Select(line => new SaleReturnLineCalculationRequest(
                 line.Request.SaleItemId,
@@ -104,8 +106,8 @@ internal sealed class SaleReturnValidator(
                 line.Request.Condition,
                 line.Request.ApprovedRefundAmount,
                 line.Request.Notes)).ToList(),
-            OutstandingDueAmount: GetOutstandingDue(sale, activeReturns),
-            CustomerBalanceBefore: sale.CustomerId.HasValue ? GetOutstandingDue(sale, activeReturns) : null,
+            OutstandingDueAmount: outstandingDue,
+            CustomerBalanceBefore: sale.CustomerId.HasValue ? outstandingDue : null,
             request.DueReductionOverrideAmount,
             request.DueOverrideReason));
 
@@ -135,6 +137,21 @@ internal sealed class SaleReturnValidator(
         return errors;
     }
 
-    private static decimal GetOutstandingDue(Sale sale, IReadOnlyList<SaleReturn> activeReturns) =>
-        Math.Max(0m, sale.DueAmount - activeReturns.Sum(r => r.DueReductionAmount));
+    private async Task<decimal> GetOutstandingDueAsync(
+        Guid shopId,
+        Sale sale,
+        IReadOnlyList<SaleReturn> activeReturns,
+        CancellationToken cancellationToken)
+    {
+        if (sale.CustomerId.HasValue)
+        {
+            var balance = await customerLedgerEntryRepository.GetCustomerBalanceAsync(
+                shopId,
+                sale.CustomerId.Value,
+                cancellationToken);
+            return Math.Max(0m, balance);
+        }
+
+        return Math.Max(0m, sale.DueAmount - activeReturns.Sum(r => r.DueReductionAmount));
+    }
 }

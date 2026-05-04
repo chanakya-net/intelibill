@@ -15,6 +15,7 @@ public class PreviewSaleReturnQueryHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
 
     private PreviewSaleReturnQueryHandler CreateHandler() =>
@@ -24,6 +25,7 @@ public class PreviewSaleReturnQueryHandlerTests
             _saleRepository,
             _saleReturnRepository,
             _inventoryBatchRepository,
+            _customerLedgerEntryRepository,
             _calculator));
 
     [Theory]
@@ -264,6 +266,8 @@ public class PreviewSaleReturnQueryHandlerTests
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(sale.DueAmount);
 
         return new SalePreviewFixture(user, shop, sale, saleItem, batch);
     }

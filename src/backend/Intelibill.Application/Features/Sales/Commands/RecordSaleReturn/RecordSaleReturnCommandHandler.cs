@@ -16,6 +16,7 @@ public sealed class RecordSaleReturnCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
     ISaleReturnRepository saleReturnRepository,
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
@@ -43,9 +44,6 @@ public sealed class RecordSaleReturnCommandHandler(
         var validated = validation.Value;
         if (validated.Membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Sale.ReturnForbidden;
-
-        if (validated.Calculation.DueReductionAmount > 0m)
-            return Errors.Sale.ReturnCustomerDueNotSupported;
 
         var noteValidation = ValidateRequiredNotes(validated.Calculation.Warnings);
         if (noteValidation.IsError)
@@ -129,6 +127,25 @@ public sealed class RecordSaleReturnCommandHandler(
         if (saleReturn.IsError)
             return saleReturn.Errors;
 
+        CustomerLedgerEntry? returnCredit = null;
+        if (validated.Sale.CustomerId.HasValue && validated.Calculation.DueReductionAmount > 0m)
+        {
+            var returnCreditResult = CustomerLedgerEntry.Create(
+                command.ShopId,
+                validated.Sale.CustomerId.Value,
+                validated.Sale.Id,
+                CustomerLedgerEntryType.ReturnCredit,
+                validated.Calculation.DueReductionAmount,
+                DateOnly.FromDateTime(processedAt.UtcDateTime),
+                $"Return credit from {returnNumber} for sale {validated.Sale.InvoiceNumber}",
+                command.ActorUserId);
+
+            if (returnCreditResult.IsError)
+                return returnCreditResult.Errors;
+
+            returnCredit = returnCreditResult.Value;
+        }
+
         foreach (var restock in restocks)
         {
             var batchResult = restock.Line.Batch.AddQuantity(restock.Line.Request.Quantity, command.ActorUserId);
@@ -145,6 +162,9 @@ public sealed class RecordSaleReturnCommandHandler(
         }
 
         await saleReturnRepository.AddAsync(saleReturn.Value, cancellationToken);
+        if (returnCredit is not null)
+            await customerLedgerEntryRepository.AddAsync(returnCredit, cancellationToken);
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success;
