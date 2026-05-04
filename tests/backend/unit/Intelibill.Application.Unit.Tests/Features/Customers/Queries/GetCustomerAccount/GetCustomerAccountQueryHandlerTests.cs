@@ -80,20 +80,45 @@ public class GetCustomerAccountQueryHandlerTests
             "Part payment",
             fixture.manager.Id).Value;
 
+        var returnCreditEntry = CustomerLedgerEntry.Create(
+            fixture.shop.Id,
+            fixture.customer.Id,
+            sale.Id,
+            CustomerLedgerEntryType.ReturnCredit,
+            3m,
+            new DateOnly(2026, 4, 21),
+            "Return credit",
+            fixture.manager.Id).Value;
+
+        var returnCreditReversalEntry = CustomerLedgerEntry.Create(
+            fixture.shop.Id,
+            fixture.customer.Id,
+            null,
+            CustomerLedgerEntryType.ReturnCreditReversal,
+            2m,
+            new DateOnly(2026, 4, 23),
+            "Return reversal",
+            fixture.manager.Id).Value;
+
         _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
         _saleRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns([sale]);
         _customerLedgerEntryRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
-            .Returns([dueEntry, paymentEntry]);
+            .Returns([dueEntry, paymentEntry, returnCreditEntry, returnCreditReversalEntry]);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
-            .Returns(15m);
+            .Returns(14m);
 
         var result = await CreateHandler().HandleAsync(query, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(15m, result.Value.OutstandingDue);
+        Assert.Equal(14m, result.Value.OutstandingDue);
         Assert.Single(result.Value.Sales);
-        Assert.Equal(paymentEntry.Id, result.Value.LedgerEntries[0].EntryId);
+        Assert.Equal(returnCreditReversalEntry.Id, result.Value.LedgerEntries[0].EntryId);
+        Assert.Equal(14m, result.Value.LedgerEntries[0].RunningBalance);
+        Assert.Equal(paymentEntry.Id, result.Value.LedgerEntries[1].EntryId);
+        Assert.Equal(12m, result.Value.LedgerEntries[1].RunningBalance);
+        Assert.Equal(returnCreditEntry.Id, result.Value.LedgerEntries[2].EntryId);
+        Assert.Equal(17m, result.Value.LedgerEntries[2].RunningBalance);
         Assert.Single(result.Value.PaymentHistory);
         Assert.Equal(paymentEntry.Id, result.Value.PaymentHistory[0].EntryId);
     }

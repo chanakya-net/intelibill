@@ -42,7 +42,7 @@ public sealed class GetCustomerAccountQueryHandler(
         var ledgerDtos = new List<CustomerLedgerEntryDto>(ledgerChronological.Count);
         foreach (var entry in ledgerChronological)
         {
-            runningBalance += entry.EntryType == CustomerLedgerEntryType.PaymentReceived ? -entry.Amount : entry.Amount;
+            runningBalance += entry.EntryType.ToBalanceDelta(entry.Amount);
             ledgerDtos.Add(new CustomerLedgerEntryDto(
                 entry.Id,
                 entry.SaleId,
