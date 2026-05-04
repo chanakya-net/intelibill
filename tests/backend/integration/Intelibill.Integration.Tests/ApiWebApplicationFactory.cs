@@ -28,15 +28,18 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 .WithPassword("integration")
                 .Build();
             await _localContainer.StartAsync();
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseNpgsql(_localContainer.GetConnectionString())
-                .UseSnakeCaseNamingConvention()
-                .Options;
-
-            using var context = new ApplicationDbContext(options);
-            await context.Database.MigrateAsync();
         }
+
+        // Tests in this project share the same PostgreSQL container through a collection fixture.
+        // Resetting the database per factory initialization prevents data leakage between tests.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(DbContainer.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+
+        await using var context = new ApplicationDbContext(options);
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.MigrateAsync();
     }
 
     async Task IAsyncLifetime.DisposeAsync()
