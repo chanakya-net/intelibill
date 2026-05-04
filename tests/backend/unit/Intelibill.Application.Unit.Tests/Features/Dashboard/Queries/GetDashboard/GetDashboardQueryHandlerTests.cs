@@ -13,6 +13,7 @@ public class GetDashboardQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
@@ -23,7 +24,7 @@ public class GetDashboardQueryHandlerTests
     private static DateOnly DefaultEnd => Today;
 
     private GetDashboardQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _expenseRepository,
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _expenseRepository,
             _inventoryRepository, _customerRepository, _customerLedgerEntryRepository);
 
     private static User MakeUser() =>
@@ -55,6 +56,7 @@ public class GetDashboardQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _expenseRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
@@ -213,6 +215,49 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(100m, result.Value.CashCollected);
         Assert.Equal(20m, result.Value.ProfitBeforeTax);
         Assert.Equal(10m, result.Value.ProfitAfterTax);
+    }
+
+    [Fact]
+    public async Task Handle_WhenReturnsExist_ReturnsGrossAndReturnAwareNetSalesKpis()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 2m, 60m, 100m, 120m, 10m, false, false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-RET",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 220m,
+            dueAmount: 0m,
+            totalAmount: 220m,
+            totalTaxAmount: 20m,
+            [saleItem]);
+        var restockableReturn = MakeReturn(shop.Id, sale.Id, saleItem.Id, "RET-RESTOCK", SaleReturnCondition.Restockable, 110m);
+        var wastageReturn = MakeReturn(shop.Id, sale.Id, saleItem.Id, "RET-WASTE", SaleReturnCondition.Wastage, 0m);
+        var voidedReturn = MakeReturn(shop.Id, sale.Id, saleItem.Id, "RET-VOID", SaleReturnCondition.Restockable, 110m);
+        voidedReturn.Void(DateTimeOffset.UtcNow, user.Id, "Mistake");
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, DefaultStart, DefaultEnd, Arg.Any<CancellationToken>())
+            .Returns([sale]);
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, DefaultStart, DefaultEnd, Arg.Any<CancellationToken>())
+            .Returns([restockableReturn, wastageReturn, voidedReturn]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(220m, result.Value.SalesBooked);
+        Assert.Equal(110m, result.Value.NetSalesBooked);
+        Assert.Equal(60m, result.Value.WastageCost);
+        Assert.Equal(50m, result.Value.ProfitBeforeTax);
+        Assert.Equal(40m, result.Value.ProfitAfterTax);
     }
 
     [Fact]
@@ -502,6 +547,8 @@ public class GetDashboardQueryHandlerTests
         var dto = result.Value;
         Assert.Equal(1, dto.SalesCount);
         Assert.Null(dto.SalesBooked);
+        Assert.Null(dto.NetSalesBooked);
+        Assert.Null(dto.WastageCost);
         Assert.Null(dto.CashCollected);
         Assert.Null(dto.ProfitBeforeTax);
         Assert.Null(dto.ProfitAfterTax);
@@ -769,5 +816,46 @@ public class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Null(result.Value.PreviousPeriodSummary);
+    }
+
+    private static SaleReturn MakeReturn(
+        Guid shopId,
+        Guid saleId,
+        Guid saleItemId,
+        string returnNumber,
+        SaleReturnCondition condition,
+        decimal approvedRefund)
+    {
+        var item = SaleReturnItem.Create(
+            shopId,
+            saleId,
+            saleItemId,
+            quantity: 1m,
+            condition,
+            originalCostPrice: 60m,
+            originalSalesPrice: 100m,
+            originalTaxRatePercent: 10m,
+            originalIsPriceIncludingTax: false,
+            maxRefundAmount: 110m,
+            approvedRefundAmount: approvedRefund,
+            taxableAmount: 100m,
+            taxAmount: 10m,
+            notes: "Return").Value;
+
+        return SaleReturn.Create(
+            shopId,
+            saleId,
+            returnNumber,
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            totalRefundAmount: approvedRefund,
+            dueReductionAmount: 0m,
+            payoutAmount: approvedRefund,
+            totalTaxableAmount: 100m,
+            totalTaxAmount: 10m,
+            customerBalanceBefore: null,
+            customerBalanceAfter: null,
+            [item]).Value;
     }
 }

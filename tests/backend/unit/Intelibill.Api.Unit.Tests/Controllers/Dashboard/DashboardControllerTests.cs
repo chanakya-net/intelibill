@@ -41,6 +41,8 @@ public class DashboardControllerTests
             SalesCount: 3,
             HasNoSalesActivity: false,
             SalesBooked: 300m,
+            NetSalesBooked: 300m,
+            WastageCost: 0m,
             CashCollected: 250m,
             ProfitBeforeTax: 90m,
             ProfitAfterTax: 60m,

@@ -32,6 +32,7 @@ export interface DashboardAlertDto {
 export interface SalesTrendPointDto {
   readonly date: string;
   readonly amount: number;
+  readonly netAmount: number;
 }
 
 export interface PreviousPeriodSummaryDto {
@@ -39,6 +40,7 @@ export interface PreviousPeriodSummaryDto {
   endDate: string;
   salesCount: number;
   salesBooked: number;
+  netSalesBooked: number;
   profitAfterTax: number;
   netExpense: number;
   creditSalesPercentage: number;
@@ -65,6 +67,8 @@ export interface DashboardDto {
   readonly salesCount: number;
   readonly hasNoSalesActivity: boolean;
   readonly salesBooked: number | null;
+  readonly netSalesBooked: number | null;
+  readonly wastageCost: number | null;
   readonly cashCollected: number | null;
   readonly profitBeforeTax: number | null;
   readonly profitAfterTax: number | null;
@@ -98,4 +102,3 @@ export class DashboardService {
     return this.http.get<DashboardDto>(DASHBOARD_ENDPOINTS.summary, { params });
   }
 }
-

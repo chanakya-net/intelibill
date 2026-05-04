@@ -11,6 +11,7 @@ public sealed class GetDashboardQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
+    ISaleReturnRepository saleReturnRepository,
     IExpenseRepository expenseRepository,
     IInventoryRepository inventoryRepository,
     ICustomerRepository customerRepository,
@@ -48,6 +49,7 @@ public sealed class GetDashboardQueryHandler(
         var isStaff = membership.Role == ShopRole.Staff;
 
         var sales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
+        var saleReturns = await saleReturnRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var expenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var inventories = await inventoryRepository.GetAllByShopWithItemAsync(query.ShopId, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
@@ -56,6 +58,7 @@ public sealed class GetDashboardQueryHandler(
         var prevEndDate = query.StartDate.AddDays(-1);
         var prevStartDate = prevEndDate.AddDays(-spanDays);
         var prevSales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
+        var prevSaleReturns = await saleReturnRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
         var prevExpenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
 
         var customerIds = customers.Select(c => c.Id).ToList();
@@ -63,7 +66,7 @@ public sealed class GetDashboardQueryHandler(
             query.ShopId, customerIds, cancellationToken);
 
         // Compute all KPIs using pure functions
-        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales);
+        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales, saleReturns);
         var expenseKpis = DashboardKpiCalculator.CalculateExpenseKpis(expenses);
         var paymentMix = DashboardKpiCalculator.CalculatePaymentMix(sales);
         var stockRisk = DashboardKpiCalculator.CalculateStockRisk(inventories);
@@ -87,13 +90,13 @@ public sealed class GetDashboardQueryHandler(
 
         if (!isStaff)
         {
-            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, query.StartDate, query.EndDate);
+            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate);
             salesTrendSeries = trends.SalesTrend;
             profitTrendSeries = trends.ProfitTrend;
             paymentMixTrendSeries = trends.PaymentMixTrend;
 
             previousPeriodSummary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
-                prevSales, prevExpenses, prevStartDate, prevEndDate);
+                prevSales, prevSaleReturns, prevExpenses, prevStartDate, prevEndDate);
         }
 
         return new DashboardDto(
@@ -101,8 +104,10 @@ public sealed class GetDashboardQueryHandler(
             StartDate: query.StartDate,
             EndDate: query.EndDate,
             SalesCount: salesKpis.SalesCount,
-            HasNoSalesActivity: salesKpis.SalesCount == 0,
+            HasNoSalesActivity: salesKpis.SalesCount == 0 && !saleReturns.Any(r => !r.IsVoided),
             SalesBooked: isStaff ? null : salesKpis.SalesBooked,
+            NetSalesBooked: isStaff ? null : salesKpis.NetSalesBooked,
+            WastageCost: isStaff ? null : salesKpis.WastageCost,
             CashCollected: isStaff ? null : salesKpis.CashCollected,
             ProfitBeforeTax: isStaff ? null : salesKpis.ProfitBeforeTax,
             ProfitAfterTax: isStaff ? null : salesKpis.ProfitAfterTax,

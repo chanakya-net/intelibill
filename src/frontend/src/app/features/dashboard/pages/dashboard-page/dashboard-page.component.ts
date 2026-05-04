@@ -229,6 +229,14 @@ export class DashboardPageComponent implements OnInit {
           tension: 0.25,
         },
         {
+          label: this.transloco.translate('dashboard.netSalesBooked'),
+          data: salesTrend.map((point: SalesTrendPointDto) => point.netAmount),
+          backgroundColor: '#2563eb',
+          borderColor: '#2563eb',
+          borderWidth: 1,
+          tension: 0.25,
+        },
+        {
           label: this.transloco.translate('dashboard.profitBeforeTax'),
           data: profitTrend.map((point: ProfitTrendPointDto) => point.profitBeforeTax),
           backgroundColor: '#ca8a04',
@@ -484,13 +492,14 @@ export class DashboardPageComponent implements OnInit {
   });
 
   readonly sectionExpanded = signal({
+    sales: false,
     expenses: false,
     paymentBehavior: false,
     stockRisk: false,
     receivables: false,
   });
 
-  toggleSection(section: 'expenses' | 'paymentBehavior' | 'stockRisk' | 'receivables'): void {
+  toggleSection(section: 'sales' | 'expenses' | 'paymentBehavior' | 'stockRisk' | 'receivables'): void {
     this.sectionExpanded.update((s) => ({ ...s, [section]: !s[section] }));
   }
 
@@ -505,6 +514,7 @@ export class DashboardPageComponent implements OnInit {
     return {
       salesCount: cmp(d.salesCount, prev.salesCount),
       salesBooked: d.salesBooked !== null ? cmp(d.salesBooked, prev.salesBooked) : null,
+      netSalesBooked: d.netSalesBooked !== null ? cmp(d.netSalesBooked, prev.netSalesBooked) : null,
       profitAfterTax: d.profitAfterTax !== null ? cmp(d.profitAfterTax, prev.profitAfterTax) : null,
       netExpense: d.netExpense !== null ? cmp(d.netExpense, prev.netExpense) : null,
       creditSalesPercentage: d.creditSalesPercentage !== null ? cmp(d.creditSalesPercentage, prev.creditSalesPercentage) : null,

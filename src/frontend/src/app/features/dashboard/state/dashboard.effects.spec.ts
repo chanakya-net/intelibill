@@ -24,6 +24,8 @@ describe('DashboardEffects', () => {
     salesCount: 5,
     hasNoSalesActivity: false,
     salesBooked: 500,
+    netSalesBooked: 500,
+    wastageCost: 0,
     cashCollected: 450,
     profitBeforeTax: 100,
     profitAfterTax: 130,

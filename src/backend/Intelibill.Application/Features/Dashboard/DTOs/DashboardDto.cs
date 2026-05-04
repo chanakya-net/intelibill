@@ -9,6 +9,8 @@ public sealed record DashboardDto(
     bool HasNoSalesActivity,
     // Sales and Profit KPIs (null for Staff)
     decimal? SalesBooked,
+    decimal? NetSalesBooked,
+    decimal? WastageCost,
     decimal? CashCollected,
     decimal? ProfitBeforeTax,
     decimal? ProfitAfterTax,
@@ -36,4 +38,3 @@ public sealed record DashboardDto(
     IReadOnlyList<PaymentMixTrendPointDto>? PaymentMixTrendSeries,
     // Previous-period comparison (null for Staff)
     PreviousPeriodSummaryDto? PreviousPeriodSummary);
-

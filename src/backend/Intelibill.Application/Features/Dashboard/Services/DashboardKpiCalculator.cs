@@ -11,8 +11,10 @@ public static class DashboardKpiCalculator
     public sealed record SalesKpis(
         int SalesCount,
         decimal SalesBooked,
+        decimal NetSalesBooked,
         decimal CashCollected,
         decimal TotalCost,
+        decimal WastageCost,
         decimal TotalTax,
         decimal ProfitBeforeTax,
         decimal ProfitAfterTax);
@@ -27,21 +29,39 @@ public static class DashboardKpiCalculator
         int CriticalStockCount,
         IReadOnlyList<StockShortageItemDto> RankedShortageList);
 
-    public static SalesKpis CalculateSalesKpis(IReadOnlyCollection<Sale> sales)
+    public static SalesKpis CalculateSalesKpis(
+        IReadOnlyCollection<Sale> sales,
+        IReadOnlyCollection<SaleReturn>? saleReturns = null)
     {
         var salesBooked = sales.Sum(s => s.TotalAmount);
         var cashCollected = sales.Sum(s => s.PaidAmount);
         var totalCost = sales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
         var totalTax = sales.Sum(s => s.TotalTaxAmount);
+        var activeReturns = GetActiveReturns(saleReturns);
+        var refundAmount = activeReturns.Sum(r => r.TotalRefundAmount);
+        var refundTax = CalculateApprovedRefundTax(activeReturns);
+        var restockableCost = activeReturns
+            .SelectMany(r => r.Items)
+            .Where(i => i.Condition == SaleReturnCondition.Restockable)
+            .Sum(i => i.OriginalCostPrice * i.Quantity);
+        var wastageCost = activeReturns
+            .SelectMany(r => r.Items)
+            .Where(i => i.Condition == SaleReturnCondition.Wastage)
+            .Sum(i => i.OriginalCostPrice * i.Quantity);
+        var netSalesBooked = salesBooked - refundAmount;
+        var netCost = totalCost - restockableCost;
+        var netTax = totalTax - refundTax;
 
         return new SalesKpis(
             sales.Count,
             salesBooked,
+            netSalesBooked,
             cashCollected,
             totalCost,
+            wastageCost,
             totalTax,
-            salesBooked - totalCost,
-            salesBooked - totalTax - totalCost);
+            netSalesBooked - netCost,
+            netSalesBooked - netTax - netCost);
     }
 
     public static ExpenseKpis CalculateExpenseKpis(IReadOnlyCollection<Expense> expenses)
@@ -149,9 +169,11 @@ public static class DashboardKpiCalculator
 
     public static (List<SalesTrendPointDto> SalesTrend, List<ProfitTrendPointDto> ProfitTrend, List<PaymentMixTrendPointDto> PaymentMixTrend) BuildTrendSeries(
         IReadOnlyCollection<Sale> sales,
+        IReadOnlyCollection<SaleReturn>? saleReturns,
         DateOnly startDate,
         DateOnly endDate)
     {
+        var activeReturns = GetActiveReturns(saleReturns);
         var byDay = sales
             .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
             .ToDictionary(
@@ -161,6 +183,16 @@ public static class DashboardKpiCalculator
                     Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity),
                     Tax: g.Sum(s => s.TotalTaxAmount),
                     PaymentMix: CalculatePaymentMix(g.ToList())));
+        var returnsByDay = activeReturns
+            .GroupBy(r => DateOnly.FromDateTime(r.ProcessedAt.UtcDateTime))
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    Refund: g.Sum(r => r.TotalRefundAmount),
+                    RefundTax: CalculateApprovedRefundTax(g),
+                    RestockableCost: g.SelectMany(r => r.Items)
+                        .Where(i => i.Condition == SaleReturnCondition.Restockable)
+                        .Sum(i => i.OriginalCostPrice * i.Quantity)));
 
         var salesTrend = new List<SalesTrendPointDto>();
         var profitTrend = new List<ProfitTrendPointDto>();
@@ -169,11 +201,15 @@ public static class DashboardKpiCalculator
         for (var day = startDate; day <= endDate; day = day.AddDays(1))
         {
             var dayData = byDay.GetValueOrDefault(day, (SalesBooked: 0m, Cost: 0m, Tax: 0m, PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m)));
-            salesTrend.Add(new SalesTrendPointDto(Date: day, Amount: dayData.SalesBooked));
+            var returnData = returnsByDay.GetValueOrDefault(day, (Refund: 0m, RefundTax: 0m, RestockableCost: 0m));
+            var netSalesBooked = dayData.SalesBooked - returnData.Refund;
+            var netCost = dayData.Cost - returnData.RestockableCost;
+            var netTax = dayData.Tax - returnData.RefundTax;
+            salesTrend.Add(new SalesTrendPointDto(Date: day, Amount: dayData.SalesBooked, NetAmount: netSalesBooked));
             profitTrend.Add(new ProfitTrendPointDto(
                 Date: day,
-                ProfitBeforeTax: dayData.SalesBooked - dayData.Cost,
-                ProfitAfterTax: dayData.SalesBooked - dayData.Tax - dayData.Cost));
+                ProfitBeforeTax: netSalesBooked - netCost,
+                ProfitAfterTax: netSalesBooked - netTax - netCost));
             paymentMixTrend.Add(new PaymentMixTrendPointDto(
                 Date: day, Cash: dayData.PaymentMix.Cash, Upi: dayData.PaymentMix.Upi,
                 Card: dayData.PaymentMix.Card, Credit: dayData.PaymentMix.Credit));
@@ -184,12 +220,12 @@ public static class DashboardKpiCalculator
 
     public static PreviousPeriodSummaryDto BuildPreviousPeriodSummary(
         IReadOnlyCollection<Sale> prevSales,
+        IReadOnlyCollection<SaleReturn>? prevSaleReturns,
         IReadOnlyCollection<Expense> prevExpenses,
         DateOnly prevStartDate,
         DateOnly prevEndDate)
     {
-        var prevSalesBooked = prevSales.Sum(s => s.TotalAmount);
-        var prevCost = prevSales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
+        var salesKpis = CalculateSalesKpis(prevSales, prevSaleReturns);
         var prevCreditSales = CalculatePaymentMix(prevSales).Credit;
         var prevExpenseRecorded = prevExpenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
         var prevExpenseCorrection = prevExpenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
@@ -198,9 +234,27 @@ public static class DashboardKpiCalculator
             StartDate: prevStartDate,
             EndDate: prevEndDate,
             SalesCount: prevSales.Count,
-            SalesBooked: prevSalesBooked,
-            ProfitAfterTax: prevSalesBooked - prevSales.Sum(s => s.TotalTaxAmount) - prevCost,
+            SalesBooked: salesKpis.SalesBooked,
+            NetSalesBooked: salesKpis.NetSalesBooked,
+            ProfitAfterTax: salesKpis.ProfitAfterTax,
             NetExpense: prevExpenseRecorded + prevExpenseCorrection,
-            CreditSalesPercentage: prevSalesBooked > 0 ? prevCreditSales / prevSalesBooked : 0m);
+            CreditSalesPercentage: salesKpis.SalesBooked > 0 ? prevCreditSales / salesKpis.SalesBooked : 0m);
+    }
+
+    private static List<SaleReturn> GetActiveReturns(IReadOnlyCollection<SaleReturn>? saleReturns) =>
+        saleReturns?.Where(r => !r.IsVoided).ToList() ?? [];
+
+    private static decimal CalculateApprovedRefundTax(IEnumerable<SaleReturn> saleReturns) =>
+        saleReturns.SelectMany(r => r.Items).Sum(CalculateApprovedRefundTax);
+
+    private static decimal CalculateApprovedRefundTax(SaleReturnItem item)
+    {
+        if (item.ApprovedRefundAmount <= 0m || item.MaxRefundAmount <= 0m || item.TaxAmount <= 0m)
+        {
+            return 0m;
+        }
+
+        var tax = item.ApprovedRefundAmount * item.TaxAmount / item.MaxRefundAmount;
+        return Math.Round(tax, 2, MidpointRounding.AwayFromZero);
     }
 }
