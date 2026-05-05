@@ -6,13 +6,16 @@
       <h1>{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
       <p>{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
     </div>
-    <button
-      pButton
-      type="button"
-      icon="pi pi-plus"
-      [label]="'inventory.newAdjustment' | transloco"
-      (click)="openNewAdjustment()"
-    ></button>
+    @if (canCreateAdjustments()) {
+      <button
+        pButton
+        type="button"
+        data-testid="new-adjustment-action"
+        icon="pi pi-plus"
+        [label]="'inventory.newAdjustment' | transloco"
+        (click)="openNewAdjustment()"
+      ></button>
+    }
   </header>
 
   <form [formGroup]="filterForm" class="filters" (ngSubmit)="onApplyFilters()">

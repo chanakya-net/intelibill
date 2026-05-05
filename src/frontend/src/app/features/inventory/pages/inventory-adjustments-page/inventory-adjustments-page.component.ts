@@ -98,6 +98,10 @@ export class InventoryAdjustmentsPageComponent {
       session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
+  readonly canCreateAdjustments = computed(() => {
+    const role = this.activeShopRole().toLowerCase();
+    return role === 'owner' || role === 'manager';
+  });
   readonly canVoidAdjustments = computed(() => this.activeShopRole().toLowerCase() === 'owner');
   private readonly adjustmentDirectionValue = signal<InventoryAdjustmentDirection>('Decrease');
 
@@ -272,6 +276,8 @@ export class InventoryAdjustmentsPageComponent {
   }
 
   openNewAdjustment(): void {
+    if (!this.canCreateAdjustments()) return;
+
     this.selectedBatch.set(null);
     this.batchSuggestions.set(this.availableBatches().slice(0, 15));
     this.adjustmentForm.reset({

@@ -214,6 +214,27 @@ describe('InventoryAdjustmentsPageComponent', () => {
     expect(component.canVoidAdjustment(adjustment)).toBe(false);
   });
 
+  it('allows staff to view adjustment history without create or void actions', () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null }],
+    });
+
+    fixture.detectChanges();
+    flushInitialLoad();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(component.adjustments()).toHaveLength(1);
+    expect(component.canCreateAdjustments()).toBe(false);
+    expect(component.canVoidAdjustment(adjustment)).toBe(false);
+    expect(host.querySelector('[data-testid="new-adjustment-action"]')).toBeNull();
+    expect(host.querySelector('[data-testid="void-adjustment-action"]')).toBeNull();
+
+    component.openNewAdjustment();
+    expect(component.isAdjustmentDialogOpen()).toBe(false);
+  });
+
   it('requires a reason before voiding an adjustment', () => {
     fixture.detectChanges();
     flushInitialLoad();

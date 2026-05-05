@@ -64,32 +64,12 @@ export class ShellComponent {
       icon: 'pi pi-home',
       command: () => this.onNavigateToDashboard(),
     });
-    if (this.isOwnerOrManagerOfActiveShop()) {
+    const inventoryItems = this.inventoryMenuItems();
+    if (inventoryItems.length > 0) {
       items.push({
         label: this.localizationService.translate('shell.manageInventory'),
         icon: 'pi pi-box',
-        items: [
-          {
-            label: this.localizationService.translate('shell.addNewProduct'),
-            icon: 'pi pi-plus-circle',
-            command: () => this.onOpenAddProduct(),
-          },
-          {
-            label: this.localizationService.translate('shell.batchInventoryInbound'),
-            icon: 'pi pi-plus',
-            command: () => this.onOpenInventoryBatch(),
-          },
-          {
-            label: this.localizationService.translate('shell.inventoryBatchesOverview'),
-            icon: 'pi pi-list',
-            command: () => this.onOpenInventoryBatchesOverview(),
-          },
-          {
-            label: this.localizationService.translate('shell.inventoryAdjustments'),
-            icon: 'pi pi-history',
-            command: () => this.onOpenInventoryAdjustments(),
-          },
-        ],
+        items: inventoryItems,
       });
     }
     if (this.canManageSuppliers()) {
@@ -329,32 +309,41 @@ export class ShellComponent {
     // Track language changes to re-evaluate menu labels
     this.currentLanguage();
 
-    if (!this.isOwnerOrManagerOfActiveShop()) {
+    if (!this.activeShop()) {
       return [];
     }
 
-    return [
-      {
-        label: this.localizationService.translate('shell.addNewProduct'),
-        icon: 'pi pi-plus-circle',
-        command: () => this.onOpenAddProduct(),
-      },
-      {
-        label: this.localizationService.translate('shell.batchInventoryInbound'),
-        icon: 'pi pi-plus',
-        command: () => this.onOpenInventoryBatch(),
-      },
-      {
-        label: this.localizationService.translate('shell.inventoryBatchesOverview'),
-        icon: 'pi pi-list',
-        command: () => this.onOpenInventoryBatchesOverview(),
-      },
+    const items: MenuItem[] = [];
+
+    if (this.isOwnerOrManagerOfActiveShop()) {
+      items.push(
+        {
+          label: this.localizationService.translate('shell.addNewProduct'),
+          icon: 'pi pi-plus-circle',
+          command: () => this.onOpenAddProduct(),
+        },
+        {
+          label: this.localizationService.translate('shell.batchInventoryInbound'),
+          icon: 'pi pi-plus',
+          command: () => this.onOpenInventoryBatch(),
+        },
+        {
+          label: this.localizationService.translate('shell.inventoryBatchesOverview'),
+          icon: 'pi pi-list',
+          command: () => this.onOpenInventoryBatchesOverview(),
+        },
+      );
+    }
+
+    items.push(
       {
         label: this.localizationService.translate('shell.inventoryAdjustments'),
         icon: 'pi pi-history',
         command: () => this.onOpenInventoryAdjustments(),
       },
-    ];
+    );
+
+    return items;
   });
   readonly salesMenuItems = computed<MenuItem[]>(() => {
     // Track language changes to re-evaluate menu labels
