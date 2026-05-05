@@ -65,5 +65,14 @@ public static partial class Errors
 
         public static Error AdjustmentQuantityExceedsBatchQuantity =>
             Error.Validation("Inventory.AdjustmentQuantityExceedsBatchQuantity", "Adjustment quantity cannot exceed the current batch quantity.");
+
+        public static Error AdjustmentNotFound =>
+            Error.NotFound("Inventory.AdjustmentNotFound", "Inventory adjustment was not found.");
+
+        public static Error AdjustmentAlreadyVoided =>
+            Error.Validation("Inventory.AdjustmentAlreadyVoided", "Inventory adjustment is already voided.");
+
+        public static Error AdjustmentVoidReasonRequired =>
+            Error.Validation("Inventory.AdjustmentVoidReasonRequired", "Void reason is required.");
     }
 }

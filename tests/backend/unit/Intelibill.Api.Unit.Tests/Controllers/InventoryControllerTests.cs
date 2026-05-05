@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
+using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -224,6 +225,45 @@ public class InventoryControllerTests
                 && c.ActiveShopId == shopId
                 && c.BatchId == batchId
                 && c.NewSupplierId == newSupplierId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VoidAdjustment_WhenValid_DispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var adjustmentId = Guid.NewGuid();
+
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = new VoidAdjustmentResultDto(
+            adjustmentId,
+            Guid.NewGuid(),
+            7m,
+            10m,
+            7m,
+            10m,
+            DateTimeOffset.UtcNow);
+
+        _bus.InvokeAsync<ErrorOr<VoidAdjustmentResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.VoidAdjustment(
+            adjustmentId,
+            new VoidAdjustmentRequest("Entered twice"),
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<VoidAdjustmentResultDto>>(
+            Arg.Is<VoidAdjustmentCommand>(c =>
+                c.AdjustmentId == adjustmentId
+                && c.ActorUserId == userId
+                && c.ActiveShopId == shopId
+                && c.Reason == "Entered twice"),
             Arg.Any<CancellationToken>());
     }
 

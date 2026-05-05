@@ -7,6 +7,7 @@ using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
@@ -193,6 +194,23 @@ public sealed class InventoryController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPost("adjustments/{adjustmentId:guid}/void")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> VoidAdjustment(
+        Guid adjustmentId,
+        [FromBody] VoidAdjustmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<VoidAdjustmentResultDto>>(
+            new VoidAdjustmentCommand(adjustmentId, UserId!.Value, ActiveShopId!.Value, request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPost("batches/{batchId:guid}/adjust")]
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> CreateAdjustment(Guid batchId, [FromBody] CreateAdjustmentRequest request, CancellationToken cancellationToken)
@@ -356,6 +374,8 @@ public sealed record CreateAdjustmentRequest(
     decimal Quantity,
     DateTimeOffset? PerformedAt,
     string? Notes);
+
+public sealed record VoidAdjustmentRequest(string Reason);
 
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 

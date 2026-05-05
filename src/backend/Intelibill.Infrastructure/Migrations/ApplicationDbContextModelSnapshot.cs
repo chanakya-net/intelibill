@@ -1503,7 +1503,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
 
-                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type = 'ADJ'))");
+                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
                         });
                 });
 

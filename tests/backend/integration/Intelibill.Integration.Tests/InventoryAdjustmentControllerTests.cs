@@ -204,6 +204,187 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
     }
 
     [Fact]
+    public async Task VoidAdjustment_AsOwnerForDecrease_RestoresStockCreatesReversalAndMarksAdjustmentVoided()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+        var inbound = await CreateInboundAsync(client, ownerToken, 10m, 80m);
+        var adjustment = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            inbound.BatchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            3m,
+            "Damaged in storage");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustment.AdjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { reason = "Entered twice" });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var reversalStockTransactionId = body.GetProperty("reversalStockTransactionId").GetGuid();
+        Assert.Equal(7m, body.GetProperty("batchQuantityBefore").GetDecimal());
+        Assert.Equal(10m, body.GetProperty("batchQuantityAfter").GetDecimal());
+        Assert.Equal(7m, body.GetProperty("inventoryQuantityBefore").GetDecimal());
+        Assert.Equal(10m, body.GetProperty("inventoryQuantityAfter").GetDecimal());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == inbound.BatchId);
+        Assert.Equal(10m, batch.Quantity);
+
+        var inventory = await db.Inventory.SingleAsync(i => i.ItemId == inbound.ItemId);
+        Assert.Equal(10m, inventory.Quantity);
+
+        var reversal = await db.StockTransactions.SingleAsync(t => t.Id == reversalStockTransactionId);
+        Assert.Equal(StockTransactionType.Reversal, reversal.TransactionType);
+        Assert.Equal(3m, reversal.Quantity);
+        Assert.Equal(adjustment.AdjustmentNumber, reversal.ReferenceNumber);
+        Assert.Equal("Entered twice", reversal.Notes);
+
+        var voidedAdjustment = await db.InventoryAdjustments.SingleAsync(a => a.Id == adjustment.AdjustmentId);
+        Assert.True(voidedAdjustment.IsVoided);
+        Assert.Equal("Entered twice", voidedAdjustment.VoidReason);
+        Assert.Equal(reversalStockTransactionId, voidedAdjustment.ReversalStockTransactionId);
+        Assert.NotNull(voidedAdjustment.VoidedAt);
+        Assert.NotNull(voidedAdjustment.VoidedBy);
+    }
+
+    [Theory]
+    [InlineData("Manager")]
+    [InlineData("Staff")]
+    public async Task VoidAdjustment_AsManagerOrStaff_ReturnsForbidden(string role)
+    {
+        using var client = CreateClient();
+        var ownerToken = await RegisterAsync(client);
+        var (shopId, ownerScopedToken) = await CreateShopAsync(client, ownerToken);
+        var inbound = await CreateInboundAsync(client, ownerScopedToken, 5m, 50m);
+        var adjustment = await CreateAdjustmentAsync(
+            client,
+            ownerScopedToken,
+            inbound.BatchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            "Damaged");
+        var memberToken = await AddUserAndLoginAsync(client, ownerScopedToken, shopId, role);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustment.AdjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
+        request.Content = JsonContent.Create(new { reason = "No access" });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task VoidAdjustment_WhenAlreadyVoided_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+        var inbound = await CreateInboundAsync(client, ownerToken, 5m, 50m);
+        var adjustment = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            inbound.BatchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            "Damaged");
+
+        using var first = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustment.AdjustmentId}/void");
+        first.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        first.Content = JsonContent.Create(new { reason = "Entered twice" });
+        var firstResponse = await client.SendAsync(first);
+        firstResponse.EnsureSuccessStatusCode();
+
+        using var second = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustment.AdjustmentId}/void");
+        second.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        second.Content = JsonContent.Create(new { reason = "Try again" });
+        var secondResponse = await client.SendAsync(second);
+
+        Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
+        var body = await secondResponse.Content.ReadAsStringAsync();
+        Assert.Contains("already voided", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task VoidAdjustment_ForIncreaseWhenReversalWouldMakeStockNegative_ReturnsConflictAndDoesNotVoid()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+        var inbound = await CreateInboundAsync(client, ownerToken, 1m, 50m);
+        var increase = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            inbound.BatchId,
+            InventoryAdjustmentDirection.Increase,
+            InventoryAdjustmentReason.FoundStock,
+            3m,
+            "Found stock");
+
+        using (var setupScope = _factory.Services.CreateScope())
+        {
+            var setupDb = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await setupDb.Inventory
+                .Where(i => i.ItemId == inbound.ItemId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Quantity, 1m));
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{increase.AdjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { reason = "Invalid found stock" });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var adjustment = await db.InventoryAdjustments.SingleAsync(a => a.Id == increase.AdjustmentId);
+        Assert.False(adjustment.IsVoided);
+        Assert.Null(adjustment.ReversalStockTransactionId);
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == inbound.BatchId);
+        Assert.Equal(4m, batch.Quantity);
+    }
+
+    [Fact]
+    public async Task VoidAdjustment_ForOtherShopAdjustment_ReturnsNotFound()
+    {
+        using var client = CreateClient();
+        var tokenA = await RegisterAsync(client);
+        var (_, ownerTokenA) = await CreateShopAsync(client, tokenA);
+        var inboundA = await CreateInboundAsync(client, ownerTokenA, 5m, 50m);
+        var adjustmentA = await CreateAdjustmentAsync(
+            client,
+            ownerTokenA,
+            inboundA.BatchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            "Damaged");
+
+        var tokenB = await RegisterAsync(client);
+        var (_, ownerTokenB) = await CreateShopAsync(client, tokenB);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustmentA.AdjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        request.Content = JsonContent.Create(new { reason = "Wrong shop" });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AdjustmentHistory_FiltersPaginatesSortsAndExcludesVoidedByDefault()
     {
         using var client = CreateClient();
@@ -561,6 +742,32 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("itemId").GetGuid(), body.GetProperty("inventoryBatchId").GetGuid());
+    }
+
+    private static async Task<(Guid AdjustmentId, string AdjustmentNumber)> CreateAdjustmentAsync(
+        HttpClient client,
+        string token,
+        Guid batchId,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal quantity,
+        string notes)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/batches/{batchId}/adjust");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            direction,
+            reason,
+            quantity,
+            performedAt = (DateTimeOffset?)null,
+            notes,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("adjustmentId").GetGuid(), body.GetProperty("adjustmentNumber").GetString()!);
     }
 
     private static async Task<string> AddUserAndLoginAsync(
