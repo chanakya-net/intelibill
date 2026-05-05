@@ -83,7 +83,33 @@
     "manageShop": "दुकान प्रबंधित करें",
     "language": "भाषा",
     "logout": "लॉगआउट",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
+    "dashboard": "डैशबोर्ड"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "खाता खोजें..."
   },
   "users": {
     "teamAccess": "टीम एक्सेस",
@@ -92,7 +118,7 @@
     "name": "नाम",
     "mobile": "मोबाइल",
     "email": "ईमेल",
-    "role": "भूमिका",
+    "role": "भూమికా",
     "login": "लॉगिन",
     "actions": "क्रियाएं",
     "enabled": "सक्षम",
@@ -105,7 +131,7 @@
     "addUserToShop": "दुकान में उपयोगकर्ता जोड़ें",
     "editShopUser": "दुकान उपयोगकर्ता संपादित करें",
     "shops": "दुकानें",
-    "default": "डिफ़ॉल्ट",
+    "default": "డిఫాల్ట్",
     "selectOneOrMoreShops": "इस उपयोगकर्ता के लिए एक या अधिक दुकानें चुनें।",
     "selectShopsForAccess": "चुनें कि इस उपयोगकर्ता को किन दुकानों तक पहुंच हो।",
     "mobileNumber": "मोबाइल नंबर",
@@ -214,7 +240,7 @@
       "ledger": "लेजर",
       "sales": "बिक्री",
       "date": "तारीख",
-      "type": "प्रकार",
+      "type": "ప్రకారం",
       "runningBalance": "चलती शेष राशि",
       "invoice": "चालान #",
       "total": "कुल",
@@ -239,6 +265,7 @@
     "uom": "माप इकाई",
     "currentStock": "वर्तमान स्टॉक",
     "status": "स्थिति",
+    "supplier": "Supplier",
     "active": "सक्रिय",
     "inactive": "निष्क्रिय",
     "isActive": "सक्रिय है",
@@ -247,9 +274,6 @@
     "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
     "editProduct": "उत्पाद संपादित करें",
     "editProductDescription": "वर्तमान सक्रिय दुकान के लिए उत्पाद विवरण अपडेट करें।",
-    "productForm": "उत्पाद फॉर्म जोड़ें",
-    "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
-    "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।",
     "batchInboundTitle": "इन्वेंटरी जोड़ें",
     "batchInboundSubtitle": "एकाधिक पंक्तियाँ जोड़ें, उन्हें ग्रिड में देखें, फिर एक साथ सहेजें।",
     "batchListTitle": "इन्वेंटरी बैचेस",
@@ -314,7 +338,10 @@
     "scannerActionAdded": "पंक्ति जोड़ी गई",
     "scannerActionReview": "समीक्षा आवश्यक",
     "scannerDetectionError": "बारकोड डिटेक्टर अनपेक्षित रूप से रुक गया। फिर कोशिश करने के लिए स्कैनर बंद करके दोबारा खोलें।",
-    "scannerOpenError": "कैमरा स्कैनर शुरू नहीं हो सका। कृपया फिर प्रयास करें।"
+    "scannerOpenError": "कैमरा स्कैनर शुरू नहीं हो सका। कृपया फिर प्रयास करें।",
+    "productForm": "उत्पाद फॉर्म जोड़ें",
+    "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
+    "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।"
   },
   "profile": {
     "account": "खाता",
@@ -475,6 +502,12 @@
       "unableToUpdateBankDetails": "अभी बैंक विवरण सहेजा नहीं जा सका। कृपया फिर प्रयास करें।",
       "ifscCodeInvalid": "मान्य भारतीय IFSC कोड दर्ज करें।",
       "bankAccountTypeInvalid": "खाते का प्रकार बचत या चालू होना चाहिए।"
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -527,7 +560,7 @@
       "paymentMethod": "भुगतान विधि",
       "selectPayment": "भुगतान विधि चुनें",
       "tax": "कर",
-      "totalDue": "देय राशि",
+      "totalDue": "देయ రాశీ",
       "taxIncludedPrice": "कर सहित मूल्य",
       "taxExcludedPrice": "कर रहित मूल्य",
       "recordSale": "बिक्री दर्ज करें",
@@ -550,8 +583,74 @@
       "tax": "कर %",
       "taxAmount": "कर राशि",
       "totalPrice": "कुल मूल्य",
-      "unknownItem": "अज्ञात आइटम"
-    }
+      "unknownItem": "अज्ञात आइटम",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "detail.returned": "Returned",
+    "detail.returnable": "Returnable",
+    "detail.pricePerUnit": "Price/Unit",
+    "detail.itemTotal": "Total Item Price",
+    "detail.taxAmount": "Tax Amount",
+    "detail.totalPrice": "Total Price",
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "noData": "No P&L data available"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "खर्चे",
@@ -573,9 +672,6 @@
     "noExpensesDescription": "खोज बदलें या नया खर्च दर्ज करें।",
     "searchPlaceholder": "खर्च खोजें...",
     "pageInfo": "पेज {{currentPage}} / {{totalPages}}"
-  },
-  "bankAccounts": {
-    "searchPlaceholder": "खाता खोजें..."
   },
   "dashboard": {
     "title": "डैशबोर्ड",
@@ -607,7 +703,7 @@
     "topFiveDueCustomers": "शीर्ष 5 बकाया ग्राहक",
     "noStockRisk": "कोई स्टॉक जोखिम नहीं",
     "noReceivableRisk": "कोई प्राप्य जोखिम नहीं",
-    "noActivity": "चयनित अवधि में कोई गतिविधि नहीं",
+    "noActivity": "చయనిత కాలంలో ఎటువంటి కార్యకలాపాలు లేవు",
     "staleDataWarning": "कैश्ड डेटा दिखाया जा रहा है — रीफ्रेश विफल",
     "alertCriticalStock": "आइटम स्टॉक समाप्त",
     "alertHighestDue": "उच्चतम ग्राहक बकाया",
@@ -615,21 +711,21 @@
     "alertCreditShareWarning": "क्रेडिट बिक्री सीमा पार",
     "rangeSummary": "तारीख सीमा",
     "apply": "लागू करें",
-    "rangeStart": "प्रारंभ तिथि",
-    "rangeEnd": "अंत तिथि",
+    "rangeStart": "ప్రారంభ తేదీ",
+    "rangeEnd": "ముగింపు తేదీ",
     "presetToday": "आज",
     "presetLast7": "पिछले 7 दिन",
     "presetLast30": "पिछले 30 दिन",
     "presetThisMonth": "इस महीने",
     "presetLastMonth": "पिछले महीने",
-    "presetCustom": "कस्टम",
+    "presetCustom": "Custom",
     "salesTrendTitle": "बिक्री और लाभ प्रवृत्ति",
-    "validationStartAfterEnd": "प्रारंभ तिथि अंत तिथि के बाद नहीं हो सकती",
-    "validationRangeExceeds90": "तारीख सीमा 90 दिन से अधिक नहीं हो सकती",
+    "validationStartAfterEnd": "ప్రారంభ తేదీ ముగింపు తేదీ కంటే ముందు ఉండాలి",
+    "validationRangeExceeds90": "తేదీ పరిధి 90 రోజులకు మించకూడదు",
     "futureDateCorrected": "भविष्य की तारीखें अनुमत नहीं हैं; अंत तिथि आज की तारीख पर सेट की गई",
     "profitTrendTitle": "लाभ ट्रेंड",
     "paymentMixTitle": "भुगतान मिश्रण",
-    "noPaymentActivity": "चयनित अवधि में कोई भुगतान गतिविधि नहीं",
+    "noPaymentActivity": "చయనిత కాలంలో ఎటువంటి చెల్లింపు కార్యకలాపాలు లేవు",
     "sectionSales": "बिक्री विवरण",
     "sectionExpenses": "व्यय विवरण",
     "sectionPaymentBehavior": "भुगतान व्यवहार",

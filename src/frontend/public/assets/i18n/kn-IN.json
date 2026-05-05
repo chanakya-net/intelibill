@@ -35,7 +35,7 @@
     "google": "ಗೂಗಲ್",
     "notMember": "ಸದಸ್ಯರಲ್ಲವೇ?",
     "signupNow": "ಈಗ ಸೈನ್ ಅಪ್ ಮಾಡಿ",
-    "rememberMe": "ನನ್ನನ್ನು ನೆനಪಿಡಿ",
+    "rememberMe": "ನನ್ನನ್ನು ನೆನಪಿಡಿ",
     "finishingExternalAuth": "ಬಾಹ್ಯ ದೃಢೀಕರಣವನ್ನು ಪೂರ್ಣಗೊಳಿಸಲಾಗುತ್ತಿದೆ.",
     "couldNotSignIn": "ಸೈನ್ ಇನ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ",
     "validation": {
@@ -83,7 +83,33 @@
     "manageShop": "ಅಂಗಡಿ ನಿರ್ವಹಿಸಿ",
     "language": "ಭಾಷೆ",
     "logout": "ಲಾಗ್‌ಔಟ್",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
+    "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "ಖಾತೆ ಹುಡುಕಿ..."
   },
   "users": {
     "teamAccess": "ತಂಡ ಪ್ರವೇಶ",
@@ -108,14 +134,14 @@
     "default": "ಡೀಫಾಲ್ಟ್",
     "selectOneOrMoreShops": "ಈ ಬಳಕೆದಾರರಿಗಾಗಿ ಒಂದು ಅಥವಾ ಹೆಚ್ಚಿನ ಅಂಗಡಿಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.",
     "selectShopsForAccess": "ಈ ಬಳಕೆದಾರರಿಗೆ ಯಾವ ಅಂಗಡಿಗಳ ಪ್ರವೇಶ ಬೇಕೆಂದು ಆಯ್ಕೆ ಮಾಡಿ.",
-    "mobileNumber": "ಮೊಬೈಲ್ ನಂಬರ್",
+    "mobileNumber": "ಮೊಬైಲ್ ನಂಬರ್",
     "allowUserLogin": "ಈ ಬಳಕೆದಾರರಿಗೆ ಲಾಗಿನ್ ಅನುಮತಿಸಿ",
     "saveChanges": "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
     "manager": "ಮ್ಯಾನೇಜರ್",
     "owner": "ಮಾಲೀಕ",
     "staff": "ಸ್ಟಾಫ್",
     "noUsersFound": "ಯಾವುದೇ ಬಳಕೆದಾರರು ಕಂಡುಬಂದಿಲ್ಲ",
-    "noUsersDescription": "ಈ ಅಂಗಡಿಗಾಗಿ ಮ್ಯಾನೇಜರ್ ಅಥವಾ ಮಾರಾಟಗಾರರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
+    "noUsersDescription": "ಈ ಅಂಗಡಿಗಾಗಿ ಮ್ಯಾನೇಜర్ ಅಥವಾ ಮಾರಾಟಗಾರರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
     "validation": {
       "passwordConfirmationMustMatch": "ಪಾಸ್‌ವರ್ಡ್ ಮತ್ತು ದೃಢೀಕರಣ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಕೆಯಾಗಬೇಕು.",
       "selectAtLeastOneShop": "ಕನಿಷ್ಠ ಒಂದು ಅಂಗಡಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ."
@@ -214,7 +240,7 @@
       "ledger": "ಲೆಡ್ಜರ್",
       "sales": "ಮಾರಾಟಗಳು",
       "date": "ದಿನಾಂಕ",
-      "type": "ಪ್ರಕಾರ",
+      "type": "ప్రకారం",
       "runningBalance": "ಚಾಲುವ ಶೇಷ",
       "invoice": "ಇನ್‌ವಾಯ್ಸ್ #",
       "total": "ಒಟ್ಟು",
@@ -239,6 +265,7 @@
     "uom": "ಅಳತೆಯ ಘಟಕ",
     "currentStock": "ಪ್ರಸ್ತುತ ಸ್ಟಾಕ್",
     "status": "ಸ್ಥಿತಿ",
+    "supplier": "Supplier",
     "active": "ಸಕ್ರಿಯ",
     "inactive": "ನಿಷ್ಕ್ರಿಯ",
     "isActive": "ಸಕ್ರಿಯವಾಗಿದೆ",
@@ -247,13 +274,10 @@
     "addNewProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಿ.",
     "editProduct": "ಉತ್ಪನ್ನ ಸಂಪಾದಿಸಿ",
     "editProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗಾಗಿ ಉತ್ಪನ್ನ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ.",
-    "productForm": "ಉತ್ಪನ್ನ ಫಾರ್ಮ್ ಸೇರಿಸಿ",
-    "noItemsFound": "ಇನ್ನೂ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ",
-    "noItemsDescription": "ಈ ಅಂಗಡಿಯಲ್ಲಿ ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಲು ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ ಬಳಸಿ.",
     "batchInboundTitle": "ಇನ್‌ವೆಂಟರಿ ಸೇರಿಸಿ",
     "batchInboundSubtitle": "ಅನೇಕ ಸಾಲುಗಳನ್ನು ಸೇರಿಸಿ, ಗ್ರಿಡ್‌ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿ, ನಂತರ ಒಂದೇ ಬಾರಿ ಉಳಿಸಿ.",
     "batchListTitle": "ಇನ್‌ವೆಂಟರಿ ಬ್ಯಾಚ್‌ಗಳು",
-    "batchListSubtitle": "ಸಕ್ರಿಯ ಅಂಗಡಿಯ ಎಲ್ಲಾ ಇನ್‌ವೆಂಟರಿ ಬ್ಯಾಚ್‌ಗಳನ್ನು ನೋಡಿ ಮತ್ತು ನಿರ್ವಹಿಸಿ.",
+    "batchListSubtitle": "ನಿಮ್ಮ ಸಬ್మిಟ್ ಮಾಡಿದ ಇನ್‌ವೆಂಟರಿ ಬ್ಯಾಚ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
     "item": "ಉತ್ಪನ್ನ",
     "voided": "ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ",
     "editBatch": "ಬ್ಯಾಚ್ ಸಂಪಾದಿಸಿ",
@@ -281,7 +305,7 @@
     "taxRatePercent": "ತೆರಿಗೆ %",
     "batchNumber": "ಬ್ಯಾಚ್ ಸಂಖ್ಯೆ",
     "expiryDate": "ಅವಧಿ ಮುಕ್ತಾಯ ದಿನಾಂಕ",
-    "manufacturingDate": "ತಯಾರಿಕೆ ದಿನಾಂಕ",
+    "manufacturingDate": "ತಯಾರಿಕೆ ದಿನಾಂక",
     "referenceNumber": "ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ",
     "notes": "ಟಿಪ್ಪಣಿಗಳು",
     "performedAt": "ನಿರ್ವಹಿಸಿದ ಸಮಯ",
@@ -303,7 +327,7 @@
     "scannerSubtitle": "ಕ್ಯಾಮೆರಾವನ್ನು ತೆರೆಯೇ ಇಡಿ ಮತ್ತು ಪ್ರತಿಯೊಂದು ಬಾರ್ಕೋಡ್‌ಗೆ ತೋರಿಸಿ. ಈಗಿರುವ ಡ್ರಾಫ್ಟ್ ಸಾಲುಗಳ ಪ್ರಮಾಣ ಸ್ವಯಂ ಹೆಚ್ಚುತ್ತದೆ.",
     "scannerEngine": "ಡಿಟೆಕ್ಟರ್",
     "scannerEngineNative": "ನೆಟಿವ್ ಡಿಟೆಕ್ಟರ್",
-    "scannerEngineZxing": "ZXing ಫಾಲ್ಬ್ಯಾಕ್",
+    "scannerEngineZxing": "ZXing ಫಾಲ್ಬ್ಯಾక్",
     "scannerLastCode": "ಕೊನೆಯ ಕೋಡ್",
     "scannerIdle": "ಬಾರ್ಕೋಡ್‌ಗಾಗಿ ಕಾಯುತ್ತಿದೆ",
     "scannerScanCount": "ಯಶಸ್ವಿ ಸ್ಕ್ಯಾನ್‌ಗಳು",
@@ -314,7 +338,10 @@
     "scannerActionAdded": "ಸಾಲು ಸೇರಿಸಲಾಗಿದೆ",
     "scannerActionReview": "ಪರಿಶೀಲನೆ ಅಗತ್ಯ",
     "scannerDetectionError": "ಬಾರ್ಕೋಡ್ ಡಿಟೆಕ್ಟರ್ ಅನಿರೀಕ್ಷಿತವಾಗಿ ನಿಂತಿದೆ. ಮರುಪ್ರಯತ್ನಿಸಲು ಸ್ಕ್ಯಾನರ್ ಮುಚ್ಚಿ ಮತ್ತೆ ತೆರೆಯಿರಿ.",
-    "scannerOpenError": "ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನರ್ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+    "scannerOpenError": "ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನರ್ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "productForm": "ಉತ್ಪನ್ನ ಫಾರ್ಮ್ ಸೇರಿಸಿ",
+    "noItemsFound": "ಇನ್ನೂ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ",
+    "noItemsDescription": "ಈ ಅಂಗಡಿಯಲ್ಲಿ ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಲು ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ ಬಳಸಿ."
   },
   "profile": {
     "account": "ಖಾತೆ",
@@ -415,14 +442,14 @@
       "invalidCurrentPassword": "ಪ್ರಸ್ತುತ ಪಾಸ್‌ವರ್ಡ್ ತಪ್ಪಾಗಿದೆ.",
       "passwordNotSet": "ಈ ಖಾತೆಗಾಗಿ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಲಾಗಿಲ್ಲ.",
       "sessionVerificationFailed": "ಅಂಗಡಿ ಕಾರ್ಯಾಚರಣೆಗಾಗಿ ನಿಮ್ಮ ಸೆಷನ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.",
-      "externalProviderError": "ಬಾಹ್ಯ ಪ್ರದಾತರು ದೋಷ ಹಿಂತಿರುಗಿಸಿದ್ದಾರೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "externalProviderError": "ಬಾಹ್ಯ ಪ್ರದಾತರು ದೋಷ ಹಿಂತಿರುಗಿಸಿದ್ದಾರೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
       "missingCallbackData": "ಕಾಲ್‌ಬ್ಯಾಕ್ ಕೋಡ್ ಅಥವಾ ಸ್ಟೇಟ್ ಇಲ್ಲ. ಮತ್ತೆ ಸೈನ್-ಇನ್ ಪ್ರಯತ್ನಿಸಿ.",
       "noSessionEstablished": "ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಂಡಿತು ಆದರೆ ಸೆಷನ್ ಸ್ಥಾಪಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       "signInTimeout": "ಸೈನ್-ಇನ್ ಸಮಯ ಮೀರಿತು. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       "externalStateInvalid": "ನಿಮ್ಮ ಸೈನ್-ಇನ್ ಸೆಷನ್ ಅವಧಿ ಮುಕ್ತಾಯಗೊಂಡಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       "unsupportedProvider": "ಈ ಲಾಗಿನ್ ಪ್ರದಾತ ಸಕ್ರಿಯಗೊಳಿಸಿಲ್ಲ.",
-      "unableToCompleteExternalSignIn": "ಬಾಹ್ಯ ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
-      "externalSignInIncomplete": "ಬಾಹ್ಯ ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+      "unableToCompleteExternalSignIn": "ಬಾಹ್ಯ ಸೈನ್-ಇన్ ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+      "externalSignInIncomplete": "ಬಾಹ್ಯ ಸೈನ್-ಇన్ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
     },
     "users": {
       "unableToUpdateProfile": "ಈಗ ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
@@ -452,29 +479,34 @@
       "nameRequired": "ಉತ್ಪನ್ನ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
       "barcodeRequired": "ಬಾರ್ಕೋಡ್ ಅಗತ್ಯವಿದೆ.",
       "uomRequired": "ಅಳತೆಯ ಘಟಕ ಅಗತ್ಯವಿದೆ.",
-      "preferredSupplierNotFound": "ಆದ್ಯತೆ ಪೂರೈಕೆದಾರ ಈ ಅಂಗಡಿಯಲ್ಲಿ ಕಂಡುಬರಲಿಲ್ಲ.",
-      "unableToAddItem": "ಈಗ ಉತ್ಪನ್ನವನ್ನು ಸೇರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
-      "unableToLoadItems": "ಈಗ ಇನ್‌ವೆಂಟರಿ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "unableToAddItem": "ಈಗ ಉತ್ಪನ್ನವನ್ನು ಸೇರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
+      "unableToLoadItems": "ಈಗ ಇನ್‌ವೆಂಟರಿ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
       "itemNotFound": "ಈ ಉತ್ಪನ್ನ ಇನ್ನು ಲಭ್ಯವಿಲ್ಲ.",
       "barcodeAlreadyExists": "ಈ ಬಾರ್ಕೋಡ್ ಹೊಂದಿರುವ ಉತ್ಪನ್ನ ಈ ಅಂಗಡಿಯಲ್ಲಿ ಈಗಾಗಲೇ ಇದೆ.",
-      "unableToUpdateItem": "ಈಗ ಉತ್ಪನ್ನವನ್ನು ನವೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+      "unableToUpdateItem": "ಈಗ ಉತ್ಪನ್ನವನ್ನು ನವೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి."
     },
     "shops": {
       "unableToLoadShops": "ಈಗ ನಿಮ್ಮ ಅಂಗಡಿಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       "unableToSetDefaultStore": "ಈಗ ಡೀಫಾಲ್ಟ್ ಅಂಗಡಿ ಹೊಂದಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       "membershipNotFound": "ನಿಮಗೆ ಈ ಅಂಗಡಿಗೆ ಪ್ರವೇಶವಿಲ್ಲ.",
       "shopNotFound": "ಆಯ್ಕೆ ಮಾಡಿದ ಅಂಗಡಿ ಇನ್ನು ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ.",
-      "unableToLoadDetails": "ಈಗ ಅಂಗಡಿ ವಿವರಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "unableToLoadDetails": "ಈಗ ಅಂಗಡಿ ವಿವರಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
       "onlyOwnersCanUpdate": "ಮಾಲೀಕರು ಮಾತ್ರ ಅಂಗಡಿ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಬಹುದು.",
       "nameRequired": "ಅಂಗಡಿ ಹೆಸರು ಅಗತ್ಯವಿದೆ.",
       "addressRequired": "ಅಂಗಡಿ ವಿಳಾಸ ಅಗತ್ಯವಿದೆ.",
       "cityRequired": "ಅಂಗಡಿ ನಗರ ಅಗತ್ಯವಿದೆ.",
       "stateRequired": "ಅಂಗಡಿ ರಾಜ್ಯ ಅಗತ್ಯವಿದೆ.",
       "pincodeRequired": "ಅಂಗಡಿ ಪಿನ್‌ಕೋಡ್ ಅಗತ್ಯವಿದೆ.",
-      "unableToUpdateShop": "ಈಗ ಅಂಗಡಿ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
-      "unableToUpdateBankDetails": "ಈಗ ಬ್ಯಾಂಕ್ ವಿವರಗಳನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "unableToUpdateShop": "ಈಗ ಅಂಗಡಿ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
+      "unableToUpdateBankDetails": "ಈಗ ಬ್ಯಾಂಕ್ ವಿವರಗಳನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ప్రయత్నించండి.",
       "ifscCodeInvalid": "ಮಾನ್ಯ ಭಾರತೀಯ IFSC ಕೋಡ್ ನಮೂದಿಸಿ.",
       "bankAccountTypeInvalid": "ಖಾತೆ ಪ್ರಕಾರ ಉಳಿತಾಯ ಅಥವಾ ಚಾಲ್ತಿ ಆಗಿರಬೇಕು."
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -511,7 +543,7 @@
       "addToCart": "ಕಾರ್ಟ್‌ಗೆ ಸೇರಿಸಿ",
       "exceedsStock": "ಪ್ರಮಾಣ ಸ್ಟಾಕ್ ಮೀರಿದೆ.",
       "cart": "ಕಾರ್ಟ್",
-      "emptyCart": "ಇನ್ನು ಉತ್ಪನ್ನಗಳು ಸೇರಿಸಲಾಗಿಲ್ಲ.",
+      "emptyCart": "ಇನ್ನು ಉತ್ಪನ್ನಗಳು ಸೇರಿಸಲಾಗಿಲ್ಲ. ಆರಂಭಿಸಲು ಬಾರ್ಕೋಡ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ.",
       "barcode": "ಬಾರ್‌ಕೋಡ್",
       "batch": "ಬ್ಯಾಚ್",
       "qty": "ಪ್ರಮಾಣ",
@@ -521,7 +553,7 @@
       "customerSection": "ಗ್ರಾಹಕ (ಐಚ್ಛಿಕ)",
       "customerName": "ಹೆಸರು",
       "customerPhone": "ಫೋನ್",
-      "walkIn": "ವಾಕ್-ಇನ್",
+      "walkIn": "ವಾಕ್-ಇన్",
       "invalidPhone": "ಮಾನ್ಯ ಫೋನ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ.",
       "paymentSection": "ಪಾವತಿ",
       "paymentMethod": "ಪಾವತಿ ವಿಧಾನ",
@@ -534,8 +566,8 @@
       "creditRequiresCustomerPhone": "ಗ್ರಾಹಕನ ಫೋನ್ ಸಂಖ್ಯೆ ನೀಡಿದಾಗ ಮಾತ್ರ ಕ್ರೆಡಿಟ್ ಆಯ್ಕೆ ಲಭ್ಯವಾಗುತ್ತದೆ.",
       "paidAmount": "ಪಾವತಿಸಿದ ಮೊತ್ತ",
       "dueAmount": "ಬಾಕಿ ಮೊತ್ತ",
-      "invalidPaymentSplit": "ಪಾವತಿಸಿದ ಮೊತ್ತ ಮತ್ತು ಬಾಕಿ ಮೊತ್ತದ ಮೊತ್ತ ಒಟ್ಟು ಮೊತ್ತಕ್ಕೆ ಸಮನಾಗಿರಬೇಕು.",
-      "customerRequiredForDue": "ಬಾಕಿ ಮೊತ್ತ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚು ಇದ್ದರೆ ಗ್ರಾಹಕನ ಫೋನ್ ಸಂಖ್ಯೆ ಅಗತ್ಯವಾಗಿದೆ."
+      "invalidPaymentSplit": "ಪಾವತಿಸಿದ ಮೊತ್ತ ಮತ್ತು ಬಾಕಿ ಮೊತ್ತದ ಮೊತ್ತ ಒಟ್ಟು ಮೊತ್ತానికి ಸಮನಾಗಿರಬೇಕು.",
+      "customerRequiredForDue": "ಬాಕಿ ಮೊತ್ತ శూన్యం కంటే ఎక్కువ ఉంటే కస్టమర్ ఫోన్ నంబర్ అవసరం."
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",
@@ -550,8 +582,68 @@
       "tax": "ತೆರಿಗೆ %",
       "taxAmount": "ತೆರಿಗೆ ಮೊತ್ತ",
       "totalPrice": "ಒಟ್ಟು ಬೆಲೆ",
-      "unknownItem": "ಅಪರಿಚಿತ ಐಟಂ"
-    }
+      "unknownItem": "అపరిచిత ఐటమ్",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "noData": "No P&L data available"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "ಖರ್ಚುಗಳು",
@@ -573,9 +665,6 @@
     "noExpensesDescription": "ಹುಡುಕಾಟವನ್ನು ಬದಲಿಸಿ ಅಥವಾ ಹೊಸ ಖರ್ಚು ದಾಖಲಿಸಿ.",
     "searchPlaceholder": "ಖರ್ಚುಗಳನ್ನು ಹುಡುಕಿ...",
     "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}"
-  },
-  "bankAccounts": {
-    "searchPlaceholder": "ಖಾತೆ ಹುಡುಕಿ..."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -607,7 +696,7 @@
     "topFiveDueCustomers": "Top 5 Due Customers",
     "noStockRisk": "No stock risk",
     "noReceivableRisk": "No receivable risk",
-    "noActivity": "No activity in selected period",
+    "noActivity": "చయనిత కాలంలో ఎటువంటి కార్యకలాపాలు లేవు",
     "staleDataWarning": "ಕ್ಯಾಶ್ಡ್ ಡೇಟಾ ತೋರಿಸಲಾಗುತ್ತಿದೆ — ರಿಫ್ರೆಶ್ ವಿಫಲ",
     "alertCriticalStock": "ಐಟಂ ಸ್ಟಾಕ್ ಮುಗಿದಿದೆ",
     "alertHighestDue": "ಅತಿ ಹೆಚ್ಚು ಗ್ರಾಹಕ ಬಾಕಿ",
@@ -615,8 +704,8 @@
     "alertCreditShareWarning": "ಕ್ರೆಡಿಟ್ ಮಾರಾಟ ಮಿತಿ ಮೀರಿದೆ",
     "rangeSummary": "Date Range",
     "apply": "Apply",
-    "rangeStart": "Start Date",
-    "rangeEnd": "End Date",
+    "rangeStart": "ప్రారంభ తేదీ",
+    "rangeEnd": "ముగింపు తేదీ",
     "presetToday": "Today",
     "presetLast7": "Last 7 Days",
     "presetLast30": "Last 30 Days",
@@ -624,12 +713,12 @@
     "presetLastMonth": "Last Month",
     "presetCustom": "Custom",
     "salesTrendTitle": "Sales and Profit Trend",
-    "validationStartAfterEnd": "Start date must not be after end date",
-    "validationRangeExceeds90": "Date range cannot exceed 90 days",
+    "validationStartAfterEnd": "ప్రారంభ తేదీ ముగింపు తేదీ కంటే ముందు ఉండాలి",
+    "validationRangeExceeds90": "తేదీ పరిధి 90 రోజులకు మించకూడదు",
     "futureDateCorrected": "End date adjusted to today (future dates not allowed)",
     "profitTrendTitle": "Profit Trend",
     "paymentMixTitle": "Payment Mix",
-    "noPaymentActivity": "No payment activity in selected period",
+    "noPaymentActivity": "చయనిత కాలంలో ఎటువంటి చెల్లింపు కార్యకలాపాలు లేవు",
     "sectionSales": "Sales Details",
     "sectionExpenses": "Expense Details",
     "sectionPaymentBehavior": "Payment Behavior",

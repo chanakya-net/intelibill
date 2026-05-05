@@ -83,7 +83,33 @@
     "manageShop": "കട നിയന്ത്രിക്കുക",
     "language": "ഭാഷ",
     "logout": "ലോഗ്ഔട്ട്",
-    "manageExpenses": "Expenses"
+    "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
+    "dashboard": "Dashboard"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "അക്കൗണ്ട് തിരയുക..."
   },
   "users": {
     "teamAccess": "ടീം ആക്സസ്",
@@ -239,6 +265,7 @@
     "uom": "അളവ് യൂണിറ്റ്",
     "currentStock": "നിലവിലെ സ്റ്റോക്ക്",
     "status": "സ്ഥിതി",
+    "supplier": "Supplier",
     "active": "സജീവം",
     "inactive": "നിഷ്ക്രിയം",
     "isActive": "സജീവമാണ്",
@@ -247,9 +274,6 @@
     "addNewProductDescription": "നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പുമായി ബന്ധിപ്പിച്ച ഒരു ഉൽപ്പന്നം സൃഷ്ടിക്കുക.",
     "editProduct": "ഉൽപ്പന്നം തിരുത്തുക",
     "editProductDescription": "നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പിനായി ഉൽപ്പന്ന വിവരങ്ങൾ അപ്‌ഡേറ്റ് ചെയ്യുക.",
-    "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക",
-    "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
-    "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക.",
     "batchInboundTitle": "ഇൻവെന്ററി ചേർക്കുക",
     "batchInboundSubtitle": "ഒന്നിലധികം വരികൾ ചേർത്ത്, ഗ്രിഡിൽ അവലോകനം ചെയ്ത്, ഒരേ സമയം സൂക്ഷിക്കുക.",
     "batchListTitle": "ഇൻവെന്ററി ബാച്ചുകൾ",
@@ -314,7 +338,10 @@
     "scannerActionAdded": "വരി ചേർത്തു",
     "scannerActionReview": "പരിശോധന ആവശ്യം",
     "scannerDetectionError": "ബാർകോഡ് ഡിറ്റക്ടർ പ്രതീക്ഷിക്കാത്തവിധം നിർത്തപ്പെട്ടു. വീണ്ടും ശ്രമിക്കാൻ സ്കാനർ അടച്ച് വീണ്ടും തുറക്കുക.",
-    "scannerOpenError": "ക്യാമറ സ്കാനർ ആരംഭിക്കാനായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക."
+    "scannerOpenError": "ക്യാമറ സ്കാനർ ആരംഭിക്കാനായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
+    "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക",
+    "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
+    "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക."
   },
   "profile": {
     "account": "അക്കൗണ്ട്",
@@ -442,13 +469,13 @@
       "invalidContactPhone": "ബന്ധപ്പെടേണ്ട വ്യക്തിയുടെ ഫോൺ നമ്പർ സാധുവായിരിക്കണം.",
       "unableToAddSupplier": "ഇപ്പോൾ വിതരണക്കാരനെ ചേർക്കാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
       "unableToUpdateSupplier": "ഇപ്പോൾ വിതരണക്കാരനെ അപ്‌ഡേറ്റ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
-      "onlyOwnerOrManagerCanMakePayment": "ഈ കടയ്ക്കായി ഉടമ അല്ലെങ്കിൽ മാനേജർ മാത്രമേ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിയൂ.",
+      "onlyOwnerOrManagerCanMakePayment": "ഈ കടയ്ക്കായി ഉടമ അല്ലെങ്കിൽ മാനേජർ മാത്രമേ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിയൂ.",
       "paymentAmountMustBePositive": "പേയ്മെന്റ് തുക പൂജ്യത്തിൽ കൂടുതൽ ആയിരിക്കണം.",
       "unableToMakePayment": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിയുന്നില്ല. വീണ്ടും ശ്രമിക്കുക."
     },
     "items": {
       "activeShopNotSelected": "ഉൽപ്പന്നങ്ങൾ ചേർക്കുന്നതിന് മുമ്പ് ഒരു സജീവ ഷോപ്പ് തിരഞ്ഞെടുക്കുക.",
-      "onlyOwnerOrManagerCanManageItems": "ഈ ഷോപ്പിൽ ഉൽപ്പന്നങ്ങൾ ചേർക്കാൻ ഉടമയ്ക്കോ മാനേജർക്കോ മാത്രമേ കഴിയൂ.",
+      "onlyOwnerOrManagerCanManageItems": "ഈ ഷോപ്പിൽ ഉൽപ്പന്നങ്ങൾ ചേർക്കാൻ ഉടമയ്ക്കോ മാനേජർക്കോ മാത്രമേ കഴിയൂ.",
       "nameRequired": "ഉൽപ്പന്ന നാമം ആവശ്യമാണ്.",
       "barcodeRequired": "ബാർകോഡ് ആവശ്യമാണ്.",
       "uomRequired": "അളവ് യൂണിറ്റ് ആവശ്യമാണ്.",
@@ -475,6 +502,12 @@
       "unableToUpdateBankDetails": "ഇപ്പോൾ ബാങ്ക് വിവരങ്ങൾ സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
       "ifscCodeInvalid": "സാധുവായ ഇന്ത്യൻ IFSC കോഡ് നൽകുക.",
       "bankAccountTypeInvalid": "അക്കൗണ്ട് തരം സേവിംഗ്സ് അല്ലെങ്കിൽ കറൻ്റ് ആയിരിക്കണം."
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -511,7 +544,7 @@
       "addToCart": "കാർട്ടിൽ ചേർക്കുക",
       "exceedsStock": "അളവ് സ്റ്റോക്കിനെ കടന്നുകഴിഞ്ഞു.",
       "cart": "കാർട്ട്",
-      "emptyCart": "ഇതുവരെ ഇനങ്ങൾ ഒന്നും ചേർത്തിട്ടില്ല.",
+      "emptyCart": "ഇതുവരെ ഇനങ്ങൾ ഒന്നും ചേർത്തിട്ടില്ല. തുടങ്ങാൻ ബാർകോഡ് സ്കാൻ ചെയ്യുക.",
       "barcode": "ബാർകോഡ്",
       "batch": "ബാച്ച്",
       "qty": "അളവ്",
@@ -550,8 +583,52 @@
       "tax": "നികുതി %",
       "taxAmount": "നികുതി തുക",
       "totalPrice": "മൊത്തം വില",
-      "unknownItem": "അറിയാത്ത ഇനം"
-    }
+      "unknownItem": "അറിയാത്ത ഇനം",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "ചെലവുകൾ",
@@ -573,9 +650,6 @@
     "noExpensesDescription": "തിരച്ചിൽ മാറ്റുക അല്ലെങ്കിൽ പുതിയ ചെലവ് രേഖപ്പെടുത്തുക.",
     "searchPlaceholder": "ചെലവുകൾ തിരയുക...",
     "pageInfo": "പേജ് {{currentPage}} / {{totalPages}}"
-  },
-  "bankAccounts": {
-    "searchPlaceholder": "അക്കൗണ്ട് തിരയുക..."
   },
   "dashboard": {
     "title": "Dashboard",

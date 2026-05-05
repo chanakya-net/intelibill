@@ -84,7 +84,32 @@
     "language": "భాష",
     "logout": "లాగౌట్",
     "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
     "dashboard": "డాష్‌బోర్డ్"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "ఖాతాను వెతుకు..."
   },
   "users": {
     "teamAccess": "టీమ్ యాక్సెస్",
@@ -108,7 +133,7 @@
     "shops": "దుకాణాలు",
     "default": "డీఫాల్ట్",
     "selectOneOrMoreShops": "ఈ వినియోగదారికి ఒకటి లేదా ఎక్కువ దుకాణాలను ఎంచుకోండి.",
-    "selectShopsForAccess": "ఈ వినియోగదారికి యాక్సెస్ ఉండాల్సిన దుకాణాలను ఎంచుకోండి.",
+    "selectShopsForAccess": "ఈ వినియోగదారికి ఏ దుకాణాల ప్రవేశం కావాలో ఎంచుకోండి.",
     "mobileNumber": "మొబైల్ నంబర్",
     "allowUserLogin": "ఈ వినియోగదారికి లాగిన్ అనుమతించండి",
     "saveChanges": "మార్పులు సేవ్ చేయండి",
@@ -240,6 +265,7 @@
     "uom": "కొలత యూనిట్",
     "currentStock": "ప్రస్తుత నిల్వ",
     "status": "స్థితి",
+    "supplier": "Supplier",
     "active": "యాక్టివ్",
     "inactive": "నిష్క్రియ",
     "isActive": "యాక్టివ్",
@@ -248,9 +274,6 @@
     "addNewProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.",
     "editProduct": "ఉత్పత్తి సవరించండి",
     "editProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్ కోసం ఉత్పత్తి వివరాలను నవీకరించండి.",
-    "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి",
-    "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
-    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి.",
     "batchInboundTitle": "ఇన్వెంటరీ జోడించండి",
     "batchInboundSubtitle": "బహుళ వరుసలను జోడించి, గ్రిడ్‌లో సమీక్షించి, అన్నింటినీ ఒకేసారి సేవ్ చేయండి.",
     "batchListTitle": "ఇన్వెంటరీ బ్యాచ్‌లు",
@@ -315,7 +338,10 @@
     "scannerActionAdded": "వరుస జోడించబడింది",
     "scannerActionReview": "సమీక్ష అవసరం",
     "scannerDetectionError": "బార్‌కోడ్ డిటెక్టర్ అనుకోకుండా ఆగిపోయింది. మళ్లీ ప్రయత్నించడానికి స్కానర్‌ను మూసి తిరిగి తెరవండి.",
-    "scannerOpenError": "కెమెరా స్కానర్‌ను ప్రారంభించలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి."
+    "scannerOpenError": "కెమెరా స్కానర్‌ను ప్రారంభించలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
+    "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి",
+    "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
+    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి."
   },
   "profile": {
     "account": "ఖాతా",
@@ -476,6 +502,12 @@
       "unableToUpdateBankDetails": "బ్యాంకు వివరాలను ఇప్పుడు సేవ్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.",
       "ifscCodeInvalid": "చెల్లుబాటు అయ్యే భారతీయ IFSC కోడ్ నమోదు చేయండి.",
       "bankAccountTypeInvalid": "ఖాతా రకం పొదుపు లేదా కరెంట్ అయి ఉండాలి."
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -512,7 +544,7 @@
       "addToCart": "కార్ట్‌కు జోడించు",
       "exceedsStock": "పరిమాణం నిల్వను మించిపోయింది.",
       "cart": "కార్ట్",
-      "emptyCart": "ఇంకా వస్తువులు జోడించలేదు.",
+      "emptyCart": "ఇంకా వస్తువులు జోడించలేదు. ప్రారంభించడానికి బార్కోడ్ స్కాన్ చేయండి.",
       "barcode": "బార్కోడ్",
       "batch": "బ్యాచ్",
       "qty": "పరిమాణం",
@@ -551,8 +583,68 @@
       "tax": "పన్ను %",
       "taxAmount": "పన్ను మొత్తం",
       "totalPrice": "మొత్తం ధర",
-      "unknownItem": "తెలియని ఐటెమ్"
-    }
+      "unknownItem": "తెలియని ఐటెమ్",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "noData": "No P&L data available"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "ఖర్చులు",
@@ -574,9 +666,6 @@
     "noExpensesDescription": "శోధనను మార్చండి లేదా కొత్త ఖర్చును నమోదు చేయండి.",
     "searchPlaceholder": "ఖర్చులను వెతకండి...",
     "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}"
-  },
-  "bankAccounts": {
-    "searchPlaceholder": "ఖాతాను వెతుకు..."
   },
   "dashboard": {
     "title": "డాష్‌బోర్డ్",

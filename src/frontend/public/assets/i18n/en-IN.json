@@ -583,7 +583,9 @@
       "tax": "Tax %",
       "taxAmount": "Tax Amount",
       "totalPrice": "Total Price",
-      "unknownItem": "Unknown Item"
+      "unknownItem": "Unknown Item",
+      "returned": "Returned",
+      "returnable": "Returnable"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",
@@ -600,7 +602,49 @@
       "profitBeforeTax": "Profit (Before Tax)",
       "profitAfterTax": "Profit (After Tax)",
       "noData": "No P&L data available"
-    }
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "Expenses",

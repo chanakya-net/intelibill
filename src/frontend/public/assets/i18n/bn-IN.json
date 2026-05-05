@@ -25,7 +25,7 @@
   },
   "auth": {
     "loginNow": "এখনই লগইন করুন",
-    "emailAddress": "ইমেল ঠিকানা",
+    "emailAddress": "イমেল ঠিকানা",
     "emailPlaceholder": "ইমেল বা ইউজারনেম",
     "password": "পাসওয়ার্ড",
     "signingIn": "সাইন-ইন হচ্ছে...",
@@ -84,7 +84,32 @@
     "language": "ভাষা",
     "logout": "লগআউট",
     "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
     "dashboard": "ড্যাশবোর্ড"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "অ্যাকাউন্ট খুঁজুন..."
   },
   "users": {
     "teamAccess": "টিম অ্যাক্সেস",
@@ -232,7 +257,7 @@
   "inventory": {
     "directory": "ইনভেন্টরি ডিরেক্টরি",
     "title": "ইনভেন্টরি",
-    "subtitle": "সক্রিয় শপের জন্য পণ্য যোগ করুন এবং স্টক কাজের জন্য ক্যাটালগ প্রস্তুত রাখুন।",
+    "subtitle": "সক্রিয় শপের জন্য পণ্য যোগ করুন এবং স্টক কাজের জন্য ক্যাটালగ প্রস্তুত রাখুন।",
     "searchPlaceholder": "পণ্য খুঁজুন",
     "name": "পণ্যের নাম",
     "barcode": "বারকোড",
@@ -240,6 +265,7 @@
     "uom": "পরিমাপ একক",
     "currentStock": "বর্তমান স্টক",
     "status": "অবস্থা",
+    "supplier": "Supplier",
     "active": "সক্রিয়",
     "inactive": "নিষ্ক্রিয়",
     "isActive": "সক্রিয়",
@@ -248,9 +274,6 @@
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
     "editProduct": "পণ্য সম্পাদনা করুন",
     "editProductDescription": "বর্তমান সক্রিয় শপের জন্য পণ্যের বিবরণ আপডেট করুন।",
-    "productForm": "পণ্য ফর্ম যোগ করুন",
-    "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
-    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
     "batchInboundTitle": "ইনভেন্টরি যোগ করুন",
     "batchInboundSubtitle": "একাধিক সারি যোগ করুন, গ্রিডে পর্যালোচনা করুন, তারপর একসাথে সংরক্ষণ করুন।",
     "batchListTitle": "ইনভেন্টরি ব্যাচ",
@@ -315,7 +338,10 @@
     "scannerActionAdded": "সারি যোগ হয়েছে",
     "scannerActionReview": "পর্যালোচনা প্রয়োজন",
     "scannerDetectionError": "বারকোড ডিটেক্টর অপ্রত্যাশিতভাবে বন্ধ হয়েছে। আবার চেষ্টা করতে স্ক্যানার বন্ধ করে পুনরায় খুলুন।",
-    "scannerOpenError": "ক্যামেরা স্ক্যানার শুরু করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+    "scannerOpenError": "ক্যামেরা স্ক্যানার শুরু করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+    "productForm": "পণ্য ফর্ম যোগ করুন",
+    "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
+    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।"
   },
   "profile": {
     "account": "অ্যাকাউন্ট",
@@ -448,16 +474,16 @@
       "unableToMakePayment": "এখন পেমেন্ট রেকর্ড করা সম্ভব হচ্ছে না। আবার চেষ্টা করুন।"
     },
     "items": {
-      "activeShopNotSelected": "পণ্য যোগ করার আগে অনুগ্রহ করে একটি সক্রিয় শপ নির্বাচন করুন।",
+      "activeShopNotSelected": "পণ্য যোগ করার আগে অনুগ্রহ করে একটি সক্রিয় শప్ নির্বাচন করুন।",
       "onlyOwnerOrManagerCanManageItems": "এই শপে কেবল মালিক বা ম্যানেজার পণ্য যোগ করতে পারেন।",
       "nameRequired": "পণ্যের নাম প্রয়োজন।",
       "barcodeRequired": "বারকোড প্রয়োজন।",
       "uomRequired": "পরিমাপ একক প্রয়োজন।",
-      "preferredSupplierNotFound": "পছন্দের সরবরাহকারী এই শপে পাওয়া যায়নি।",
       "unableToAddItem": "এখন পণ্য যোগ করা যাচ্ছে না। অনুগ্রহ করে আবার চেষ্টা করুন।",
       "unableToLoadItems": "এখন ইনভেন্টরি লোড করা যাচ্ছে না। অনুগ্রহ করে আবার চেষ্টা করুন।",
       "itemNotFound": "এই পণ্যটি আর বিদ্যমান নেই।",
       "barcodeAlreadyExists": "এই বারকোডসহ একটি পণ্য এই শপে ইতিমধ্যে আছে।",
+      "preferredSupplierNotFound": "পছন্দের সরবরাহকারী এই শপে পাওয়া যায়নি।",
       "unableToUpdateItem": "এখন পণ্য আপডেট করা যাচ্ছে না। অনুগ্রহ করে আবার চেষ্টা করুন।"
     },
     "shops": {
@@ -476,6 +502,12 @@
       "unableToUpdateBankDetails": "এই মুহূর্তে ব্যাংক বিবরণ সংরক্ষণ করা যাচ্ছে না। আবার চেষ্টা করুন।",
       "ifscCodeInvalid": "সঠিক ভারতীয় IFSC কোড দিন।",
       "bankAccountTypeInvalid": "অ্যাকাউন্টের ধরন সঞ্চয় বা চলতি হতে হবে।"
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -503,7 +535,7 @@
       "barcodePlaceholder": "বারকোড লিখুন…",
       "search": "অনুসন্ধান",
       "searching": "অনুসন্ধান করা হচ্ছে…",
-      "noBatchesFound": "এই বারকোডের জন্য ব্যাচ পাওয়া যায়নি।",
+      "noBatchesFound": "এই বারకోডের জন্য ব্যাচ পাওয়া যায়নি।",
       "searchError": "ব্যাচ অনুসন্ধান ব্যর্থ হয়েছে।",
       "selectBatch": "ব্যাচ নির্বাচন করুন",
       "expiry": "মেয়াদ",
@@ -512,7 +544,7 @@
       "addToCart": "কার্টে যোগ করুন",
       "exceedsStock": "পরিমাণ মজুদ ছাড়িয়ে গেছে।",
       "cart": "কার্ট",
-      "emptyCart": "এখনো কোনো আইটেম যোগ করা হয়নি।",
+      "emptyCart": "এখনো কোনো আইটেম যোগ করা হয়নি। শুরু করতে বারকোড স্ক্যান করুন।",
       "barcode": "বারকোড",
       "batch": "ব্যাচ",
       "qty": "পরিমাণ",
@@ -551,8 +583,68 @@
       "tax": "কর %",
       "taxAmount": "কর পরিমাণ",
       "totalPrice": "মোট মূল্য",
-      "unknownItem": "অজানা আইটেম"
-    }
+      "unknownItem": "অজানা আইটেম",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "noData": "No P&L data available"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "ব্যয়",
@@ -574,9 +666,6 @@
     "noExpensesDescription": "অনুসন্ধান বদলান বা নতুন ব্যয় নথিভুক্ত করুন।",
     "searchPlaceholder": "ব্যয় খুঁজুন...",
     "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}"
-  },
-  "bankAccounts": {
-    "searchPlaceholder": "অ্যাকাউন্ট খুঁজুন..."
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
