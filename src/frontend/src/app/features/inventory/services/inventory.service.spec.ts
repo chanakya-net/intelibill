@@ -2,7 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
+import {
+  API_BASE_URL,
+  INVENTORY_ENDPOINTS,
+  ITEM_ENDPOINTS,
+} from '../../../core/auth/auth.constants';
 import { InventoryService } from './inventory.service';
 
 describe('InventoryService', () => {
@@ -171,6 +175,51 @@ describe('InventoryService', () => {
         },
       ],
       failed: [],
+    });
+
+    http.verify();
+  });
+
+  it('sends batch adjustment request to batch adjust endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .adjustInventoryBatch('batch-1', {
+        direction: 'Decrease',
+        reason: 'Damaged',
+        quantity: 2.5,
+        performedAt: '2026-05-05T08:30:00.000Z',
+        notes: 'Damaged during handling',
+      })
+      .subscribe((response) => {
+        expect(response.adjustmentNumber).toBe('ADJ-0001');
+        expect(response.batchQuantityBefore).toBe(10);
+        expect(response.batchQuantityAfter).toBe(7.5);
+        expect(response.costImpact).toBe(-250);
+      });
+
+    const request = http.expectOne(`${API_BASE_URL}/inventory/batches/batch-1/adjust`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 2.5,
+      performedAt: '2026-05-05T08:30:00.000Z',
+      notes: 'Damaged during handling',
+    });
+
+    request.flush({
+      adjustmentId: 'adjustment-1',
+      adjustmentNumber: 'ADJ-0001',
+      quantity: 2.5,
+      unitCost: 100,
+      costImpact: -250,
+      batchQuantityBefore: 10,
+      batchQuantityAfter: 7.5,
+      inventoryQuantityBefore: 25,
+      inventoryQuantityAfter: 22.5,
+      stockTransactionId: 'tx-1',
+      performedAt: '2026-05-05T08:30:00.000Z',
     });
 
     http.verify();

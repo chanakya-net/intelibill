@@ -3,7 +3,11 @@ import { HttpClient } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
 
-import { API_BASE_URL, INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
+import {
+  API_BASE_URL,
+  INVENTORY_ENDPOINTS,
+  ITEM_ENDPOINTS,
+} from '../../../core/auth/auth.constants';
 
 export interface Item {
   readonly id: string;
@@ -129,6 +133,41 @@ export interface UpdateInventoryBatchRequest {
   readonly entryDate: string | null;
 }
 
+export type InventoryAdjustmentDirection = 'Increase' | 'Decrease';
+
+export type InventoryAdjustmentReason =
+  | 'Damaged'
+  | 'Expired'
+  | 'Stolen'
+  | 'MissingLost'
+  | 'StockCountCorrection'
+  | 'OtherLoss'
+  | 'FoundStock'
+  | 'ReturnRestockCorrection'
+  | 'OtherGain';
+
+export interface AdjustInventoryBatchRequest {
+  readonly direction: InventoryAdjustmentDirection;
+  readonly reason: InventoryAdjustmentReason;
+  readonly quantity: number;
+  readonly performedAt: string | null;
+  readonly notes: string | null;
+}
+
+export interface AdjustInventoryBatchResponse {
+  readonly adjustmentId: string;
+  readonly adjustmentNumber: string;
+  readonly quantity: number;
+  readonly unitCost: number;
+  readonly costImpact: number;
+  readonly batchQuantityBefore: number;
+  readonly batchQuantityAfter: number;
+  readonly inventoryQuantityBefore: number;
+  readonly inventoryQuantityAfter: number;
+  readonly stockTransactionId: string;
+  readonly performedAt: string;
+}
+
 export interface ProductDetailsDto {
   readonly name: string;
   readonly description: string;
@@ -158,7 +197,10 @@ export class InventoryService {
     return this.http.patch<void>(ITEM_ENDPOINTS.update(itemId), payload);
   }
 
-  getProductDetailsByNameOrBarcode(name: string | undefined, barcode: string | undefined): Observable<ProductDetailsDto> {
+  getProductDetailsByNameOrBarcode(
+    name: string | undefined,
+    barcode: string | undefined,
+  ): Observable<ProductDetailsDto> {
     const params = new URLSearchParams();
     if (name) {
       params.append('name', name);
@@ -185,8 +227,20 @@ export class InventoryService {
     return this.http.post<void>(`${API_BASE_URL}/inventory/batches/${batchId}/void`, {});
   }
 
+  adjustInventoryBatch(
+    batchId: string,
+    payload: AdjustInventoryBatchRequest,
+  ): Observable<AdjustInventoryBatchResponse> {
+    return this.http.post<AdjustInventoryBatchResponse>(
+      `${API_BASE_URL}/inventory/batches/${batchId}/adjust`,
+      payload,
+    );
+  }
+
   getAvailableBatchesBySearchTerm(searchTerm: string): Observable<readonly AvailableBatchDto[]> {
-    return this.http.get<readonly AvailableBatchDto[]>(INVENTORY_ENDPOINTS.availableBatches(searchTerm));
+    return this.http.get<readonly AvailableBatchDto[]>(
+      INVENTORY_ENDPOINTS.availableBatches(searchTerm),
+    );
   }
 }
 
