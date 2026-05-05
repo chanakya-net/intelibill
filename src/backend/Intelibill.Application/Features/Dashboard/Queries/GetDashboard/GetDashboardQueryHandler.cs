@@ -14,6 +14,7 @@ public sealed class GetDashboardQueryHandler(
     ISaleReturnRepository saleReturnRepository,
     IExpenseRepository expenseRepository,
     IInventoryRepository inventoryRepository,
+    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
@@ -52,6 +53,8 @@ public sealed class GetDashboardQueryHandler(
         var saleReturns = await saleReturnRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var expenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var inventories = await inventoryRepository.GetAllByShopWithItemAsync(query.ShopId, cancellationToken);
+        var adjustmentLosses = await inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(
+            query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
         var spanDays = query.EndDate.DayNumber - query.StartDate.DayNumber;
@@ -60,13 +63,15 @@ public sealed class GetDashboardQueryHandler(
         var prevSales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
         var prevSaleReturns = await saleReturnRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
         var prevExpenses = await expenseRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);
+        var prevAdjustmentLosses = await inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(
+            query.ShopId, prevStartDate, prevEndDate, cancellationToken);
 
         var customerIds = customers.Select(c => c.Id).ToList();
         var customerBalances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
             query.ShopId, customerIds, cancellationToken);
 
         // Compute all KPIs using pure functions
-        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales, saleReturns);
+        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales, saleReturns, adjustmentLosses);
         var expenseKpis = DashboardKpiCalculator.CalculateExpenseKpis(expenses);
         var paymentMix = DashboardKpiCalculator.CalculatePaymentMix(sales);
         var stockRisk = DashboardKpiCalculator.CalculateStockRisk(inventories);
@@ -90,13 +95,13 @@ public sealed class GetDashboardQueryHandler(
 
         if (!isStaff)
         {
-            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate);
+            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate, adjustmentLosses);
             salesTrendSeries = trends.SalesTrend;
             profitTrendSeries = trends.ProfitTrend;
             paymentMixTrendSeries = trends.PaymentMixTrend;
 
             previousPeriodSummary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
-                prevSales, prevSaleReturns, prevExpenses, prevStartDate, prevEndDate);
+                prevSales, prevSaleReturns, prevExpenses, prevStartDate, prevEndDate, prevAdjustmentLosses);
         }
 
         return new DashboardDto(
@@ -104,7 +109,9 @@ public sealed class GetDashboardQueryHandler(
             StartDate: query.StartDate,
             EndDate: query.EndDate,
             SalesCount: salesKpis.SalesCount,
-            HasNoSalesActivity: salesKpis.SalesCount == 0 && !saleReturns.Any(r => !r.IsVoided),
+            HasNoSalesActivity: salesKpis.SalesCount == 0
+                && !saleReturns.Any(r => !r.IsVoided)
+                && adjustmentLosses.Count == 0,
             SalesBooked: isStaff ? null : salesKpis.SalesBooked,
             NetSalesBooked: isStaff ? null : salesKpis.NetSalesBooked,
             WastageCost: isStaff ? null : salesKpis.WastageCost,

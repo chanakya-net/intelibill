@@ -31,7 +31,8 @@ public static class DashboardKpiCalculator
 
     public static SalesKpis CalculateSalesKpis(
         IReadOnlyCollection<Sale> sales,
-        IReadOnlyCollection<SaleReturn>? saleReturns = null)
+        IReadOnlyCollection<SaleReturn>? saleReturns = null,
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
     {
         var salesBooked = sales.Sum(s => s.TotalAmount);
         var cashCollected = sales.Sum(s => s.PaidAmount);
@@ -48,6 +49,7 @@ public static class DashboardKpiCalculator
             .SelectMany(r => r.Items)
             .Where(i => i.Condition == SaleReturnCondition.Wastage)
             .Sum(i => i.OriginalCostPrice * i.Quantity);
+        var adjustmentLossCost = CalculateActiveDecreaseAdjustmentLoss(adjustmentLosses);
         var netSalesBooked = salesBooked - refundAmount;
         var netCost = totalCost - restockableCost;
         var netTax = totalTax - refundTax;
@@ -58,10 +60,10 @@ public static class DashboardKpiCalculator
             netSalesBooked,
             cashCollected,
             totalCost,
-            wastageCost,
+            wastageCost + adjustmentLossCost,
             totalTax,
-            netSalesBooked - netCost,
-            netSalesBooked - netTax - netCost);
+            netSalesBooked - netCost - adjustmentLossCost,
+            netSalesBooked - netTax - netCost - adjustmentLossCost);
     }
 
     public static ExpenseKpis CalculateExpenseKpis(IReadOnlyCollection<Expense> expenses)
@@ -171,7 +173,8 @@ public static class DashboardKpiCalculator
         IReadOnlyCollection<Sale> sales,
         IReadOnlyCollection<SaleReturn>? saleReturns,
         DateOnly startDate,
-        DateOnly endDate)
+        DateOnly endDate,
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
     {
         var activeReturns = GetActiveReturns(saleReturns);
         var byDay = sales
@@ -193,6 +196,9 @@ public static class DashboardKpiCalculator
                     RestockableCost: g.SelectMany(r => r.Items)
                         .Where(i => i.Condition == SaleReturnCondition.Restockable)
                         .Sum(i => i.OriginalCostPrice * i.Quantity)));
+        var adjustmentLossByDay = GetActiveDecreaseAdjustments(adjustmentLosses)
+            .GroupBy(a => DateOnly.FromDateTime(a.PerformedAt.UtcDateTime))
+            .ToDictionary(g => g.Key, g => g.Sum(a => a.CostImpact));
 
         var salesTrend = new List<SalesTrendPointDto>();
         var profitTrend = new List<ProfitTrendPointDto>();
@@ -205,11 +211,12 @@ public static class DashboardKpiCalculator
             var netSalesBooked = dayData.SalesBooked - returnData.Refund;
             var netCost = dayData.Cost - returnData.RestockableCost;
             var netTax = dayData.Tax - returnData.RefundTax;
+            var adjustmentLoss = adjustmentLossByDay.GetValueOrDefault(day, 0m);
             salesTrend.Add(new SalesTrendPointDto(Date: day, Amount: dayData.SalesBooked, NetAmount: netSalesBooked));
             profitTrend.Add(new ProfitTrendPointDto(
                 Date: day,
-                ProfitBeforeTax: netSalesBooked - netCost,
-                ProfitAfterTax: netSalesBooked - netTax - netCost));
+                ProfitBeforeTax: netSalesBooked - netCost - adjustmentLoss,
+                ProfitAfterTax: netSalesBooked - netTax - netCost - adjustmentLoss));
             paymentMixTrend.Add(new PaymentMixTrendPointDto(
                 Date: day, Cash: dayData.PaymentMix.Cash, Upi: dayData.PaymentMix.Upi,
                 Card: dayData.PaymentMix.Card, Credit: dayData.PaymentMix.Credit));
@@ -223,9 +230,10 @@ public static class DashboardKpiCalculator
         IReadOnlyCollection<SaleReturn>? prevSaleReturns,
         IReadOnlyCollection<Expense> prevExpenses,
         DateOnly prevStartDate,
-        DateOnly prevEndDate)
+        DateOnly prevEndDate,
+        IReadOnlyCollection<InventoryAdjustment>? prevAdjustmentLosses = null)
     {
-        var salesKpis = CalculateSalesKpis(prevSales, prevSaleReturns);
+        var salesKpis = CalculateSalesKpis(prevSales, prevSaleReturns, prevAdjustmentLosses);
         var prevCreditSales = CalculatePaymentMix(prevSales).Credit;
         var prevExpenseRecorded = prevExpenses.Where(e => e.OriginalExpenseId is null).Sum(e => e.Amount);
         var prevExpenseCorrection = prevExpenses.Where(e => e.OriginalExpenseId is not null).Sum(e => e.Amount);
@@ -243,6 +251,12 @@ public static class DashboardKpiCalculator
 
     private static List<SaleReturn> GetActiveReturns(IReadOnlyCollection<SaleReturn>? saleReturns) =>
         saleReturns?.Where(r => !r.IsVoided).ToList() ?? [];
+
+    private static decimal CalculateActiveDecreaseAdjustmentLoss(IReadOnlyCollection<InventoryAdjustment>? adjustments) =>
+        GetActiveDecreaseAdjustments(adjustments).Sum(a => a.CostImpact);
+
+    private static IEnumerable<InventoryAdjustment> GetActiveDecreaseAdjustments(IReadOnlyCollection<InventoryAdjustment>? adjustments) =>
+        adjustments?.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided) ?? [];
 
     private static decimal CalculateApprovedRefundTax(IEnumerable<SaleReturn> saleReturns) =>
         saleReturns.SelectMany(r => r.Items).Sum(CalculateApprovedRefundTax);

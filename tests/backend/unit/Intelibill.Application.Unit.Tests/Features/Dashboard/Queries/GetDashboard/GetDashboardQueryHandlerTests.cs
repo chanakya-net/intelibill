@@ -16,6 +16,7 @@ public class GetDashboardQueryHandlerTests
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
+    private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
@@ -25,7 +26,7 @@ public class GetDashboardQueryHandlerTests
 
     private GetDashboardQueryHandler CreateHandler() =>
         new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _expenseRepository,
-            _inventoryRepository, _customerRepository, _customerLedgerEntryRepository);
+            _inventoryRepository, _inventoryAdjustmentRepository, _customerRepository, _customerLedgerEntryRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("dash@test.com", "hash", "Dash", "User");
@@ -59,6 +60,7 @@ public class GetDashboardQueryHandlerTests
         _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _expenseRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _inventoryRepository.GetAllByShopWithItemAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([]);
         _customerRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerLedgerEntryRepository.GetCustomerBalancesAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, decimal>());
@@ -215,6 +217,28 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(100m, result.Value.CashCollected);
         Assert.Equal(20m, result.Value.ProfitBeforeTax);
         Assert.Equal(10m, result.Value.ProfitAfterTax);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAdjustmentLossesExist_IncludesThemInFinancialKpisAndActivity()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var loss = MakeAdjustment(shop.Id, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
+        _inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(shop.Id, DefaultStart, DefaultEnd, Arg.Any<CancellationToken>())
+            .Returns([loss]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.HasNoSalesActivity);
+        Assert.Equal(25m, result.Value.WastageCost);
+        Assert.Equal(-25m, result.Value.ProfitBeforeTax);
+        Assert.Equal(-25m, result.Value.ProfitAfterTax);
     }
 
     [Fact]
@@ -564,6 +588,30 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenStaffRoleAndAdjustmentLossesExist_HidesFinancialAdjustmentMetrics()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var staffMembership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Staff, true);
+        SetupValidUserShopMembership(user, shop, staffMembership);
+
+        _inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(shop.Id, DefaultStart, DefaultEnd, Arg.Any<CancellationToken>())
+            .Returns([MakeAdjustment(shop.Id, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m)]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, DefaultStart, DefaultEnd), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.HasNoSalesActivity);
+        Assert.Null(result.Value.WastageCost);
+        Assert.Null(result.Value.ProfitBeforeTax);
+        Assert.Null(result.Value.ProfitAfterTax);
+        Assert.Null(result.Value.ProfitTrendSeries);
+        Assert.Null(result.Value.PreviousPeriodSummary);
+    }
+
+
+    [Fact]
     public async Task Handle_WhenStaffRole_StillReturnsStockKpis()
     {
         var user = MakeUser();
@@ -718,6 +766,35 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenAdjustmentLossesExist_SubtractsThemFromProfitTrend()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-1);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var todayLoss = MakeAdjustment(
+            shop.Id,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            25m,
+            new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        _inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
+            .Returns([todayLoss]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var trend = result.Value.ProfitTrendSeries!;
+        Assert.Equal(0m, trend[0].ProfitAfterTax);
+        Assert.Equal(-25m, trend[1].ProfitBeforeTax);
+        Assert.Equal(-25m, trend[1].ProfitAfterTax);
+    }
+
+    [Fact]
     public async Task Handle_WhenStaffRole_ProfitTrendSeriesIsNull()
     {
         var user = MakeUser();
@@ -765,6 +842,38 @@ public class GetDashboardQueryHandlerTests
         Assert.Equal(1, prev.SalesCount);
         Assert.Equal(100m, prev.SalesBooked);
         Assert.Equal(40m, prev.ProfitAfterTax); // 100 - 60 = 40
+    }
+
+    [Fact]
+    public async Task Handle_WhenPreviousPeriodAdjustmentLossesExist_SubtractsThemFromPreviousProfit()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-6);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var spanDays = end.DayNumber - start.DayNumber;
+        var prevEnd = start.AddDays(-1);
+        var prevStart = prevEnd.AddDays(-spanDays);
+
+        var prevSale = Sale.Create(shop.Id, "INV-PREV-ADJ", null, null, null, PaymentMethod.Cash,
+            new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            100m, 0m, 100m, 10m,
+            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+        var prevLoss = MakeAdjustment(shop.Id, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
+            .Returns([prevSale]);
+        _inventoryAdjustmentRepository.GetDashboardLossesByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
+            .Returns([prevLoss]);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(5m, result.Value.PreviousPeriodSummary!.ProfitAfterTax);
     }
 
     [Fact]
@@ -857,5 +966,38 @@ public class GetDashboardQueryHandlerTests
             customerBalanceBefore: null,
             customerBalanceAfter: null,
             [item]).Value;
+    }
+
+    private static InventoryAdjustment MakeAdjustment(
+        Guid shopId,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal costImpact,
+        DateTimeOffset? performedAt = null)
+    {
+        var quantityBefore = 10m;
+        var quantity = 1m;
+        var quantityAfter = direction == InventoryAdjustmentDirection.Increase
+            ? quantityBefore + quantity
+            : quantityBefore - quantity;
+
+        return InventoryAdjustment.Create(
+            shopId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            $"ADJ-{Guid.NewGuid():N}",
+            direction,
+            reason,
+            quantity,
+            unitCost: costImpact,
+            costImpact,
+            quantityBefore,
+            quantityAfter,
+            quantityBefore,
+            quantityAfter,
+            performedAt ?? DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            Guid.NewGuid()).Value;
     }
 }
