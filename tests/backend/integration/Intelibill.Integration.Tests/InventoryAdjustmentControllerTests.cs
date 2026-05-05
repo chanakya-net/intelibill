@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Domain.Common;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -201,6 +203,294 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
         Assert.Contains("future", body, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task AdjustmentHistory_FiltersPaginatesSortsAndExcludesVoidedByDefault()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+        var performedAt = new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero);
+
+        Guid itemId;
+        Guid batchId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var performer = User.CreateWithEmail($"history-performer-{Guid.NewGuid():N}@test.com", "hash", "History", "Actor");
+            db.Users.Add(performer);
+
+            var item = Item.Create(shopId, $"Filtered Item {Guid.NewGuid():N}", null, "kg", $"HIST-{Guid.NewGuid():N}", true, performer.Id);
+            var batch = InventoryBatch.Create(
+                shopId,
+                item.Id,
+                $"HB-{Guid.NewGuid():N}"[..18],
+                20m,
+                40m,
+                70m,
+                60m,
+                5m,
+                false,
+                null,
+                null,
+                null,
+                performer.Id).Value;
+            var otherItem = Item.Create(shopId, $"Other Item {Guid.NewGuid():N}", null, "kg", $"OTHER-{Guid.NewGuid():N}", true, performer.Id);
+            var otherBatch = InventoryBatch.Create(
+                shopId,
+                otherItem.Id,
+                $"OB-{Guid.NewGuid():N}"[..18],
+                20m,
+                50m,
+                80m,
+                70m,
+                5m,
+                false,
+                null,
+                null,
+                null,
+                performer.Id).Value;
+
+            itemId = item.Id;
+            batchId = batch.Id;
+
+            var olderMatch = CreateAdjustmentForTest(
+                shopId,
+                item.Id,
+                batch.Id,
+                performer.Id,
+                "ADJ-HIST-0001",
+                InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Damaged,
+                2m,
+                40m,
+                performedAt,
+                new DateTimeOffset(2026, 5, 2, 10, 1, 0, TimeSpan.Zero),
+                "Older matching row");
+            var newerMatch = CreateAdjustmentForTest(
+                shopId,
+                item.Id,
+                batch.Id,
+                performer.Id,
+                "ADJ-HIST-0002",
+                InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Damaged,
+                3m,
+                40m,
+                performedAt,
+                new DateTimeOffset(2026, 5, 2, 10, 2, 0, TimeSpan.Zero),
+                "Newer matching row");
+            var wrongReason = CreateAdjustmentForTest(
+                shopId,
+                item.Id,
+                batch.Id,
+                performer.Id,
+                "ADJ-HIST-0003",
+                InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Stolen,
+                1m,
+                40m,
+                performedAt,
+                new DateTimeOffset(2026, 5, 2, 10, 3, 0, TimeSpan.Zero),
+                "Wrong reason");
+            var wrongItem = CreateAdjustmentForTest(
+                shopId,
+                otherItem.Id,
+                otherBatch.Id,
+                performer.Id,
+                "ADJ-HIST-0004",
+                InventoryAdjustmentDirection.Increase,
+                InventoryAdjustmentReason.FoundStock,
+                1m,
+                50m,
+                performedAt.AddDays(1),
+                new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+                "Wrong item");
+
+            db.Items.AddRange(item, otherItem);
+            db.InventoryBatches.AddRange(batch, otherBatch);
+            db.InventoryAdjustments.AddRange(olderMatch, newerMatch, wrongReason, wrongItem);
+            await db.SaveChangesAsync();
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/inventory/adjustments?pageNumber=1&pageSize=1&itemId={itemId}&batchId={batchId}&direction=Decrease&reason=Damaged&from={Uri.EscapeDataString(new DateTimeOffset(2026, 5, 2, 0, 0, 0, TimeSpan.Zero).ToString("O"))}&to={Uri.EscapeDataString(new DateTimeOffset(2026, 5, 2, 23, 59, 59, TimeSpan.Zero).ToString("O"))}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, body.GetProperty("totalCount").GetInt32());
+        Assert.Equal(1, body.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(1, body.GetProperty("pageSize").GetInt32());
+
+        var row = Assert.Single(body.GetProperty("items").EnumerateArray());
+        Assert.Equal("ADJ-HIST-0002", row.GetProperty("adjustmentNumber").GetString());
+        Assert.Equal(itemId, row.GetProperty("itemId").GetGuid());
+        Assert.Equal(batchId, row.GetProperty("batchId").GetGuid());
+        Assert.Equal("Filtered Item", row.GetProperty("itemName").GetString()![..13]);
+        Assert.Equal("HB-", row.GetProperty("batchNumber").GetString()![..3]);
+        Assert.Equal("Decrease", row.GetProperty("direction").GetString());
+        Assert.Equal("Damaged", row.GetProperty("reason").GetString());
+        Assert.Equal(3m, row.GetProperty("quantity").GetDecimal());
+        Assert.Equal(120m, row.GetProperty("costImpact").GetDecimal());
+        Assert.Equal("Newer matching row", row.GetProperty("notes").GetString());
+        Assert.Equal("History Actor", row.GetProperty("performedByDisplayName").GetString());
+        Assert.False(row.GetProperty("isVoided").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AdjustmentHistory_OwnerManagerAndStaffCanViewActiveShopHistory()
+    {
+        using var client = CreateClient();
+        var ownerToken = await RegisterAsync(client);
+        var (shopId, ownerScopedToken) = await CreateShopAsync(client, ownerToken);
+        var managerToken = await AddUserAndLoginAsync(client, ownerScopedToken, shopId, "Manager");
+        var staffToken = await AddUserAndLoginAsync(client, ownerScopedToken, shopId, "Staff");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await SeedSimpleAdjustmentAsync(db, shopId);
+        }
+
+        foreach (var token in new[] { ownerScopedToken, managerToken, staffToken })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/adjustments");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
+        }
+    }
+
+    [Fact]
+    public async Task AdjustmentHistory_IsScopedToActiveShop()
+    {
+        using var client = CreateClient();
+        var tokenA = await RegisterAsync(client);
+        var (shopA, ownerTokenA) = await CreateShopAsync(client, tokenA);
+        var tokenB = await RegisterAsync(client);
+        var (_, ownerTokenB) = await CreateShopAsync(client, tokenB);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await SeedSimpleAdjustmentAsync(db, shopA);
+        }
+
+        using var requestA = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/adjustments");
+        requestA.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenA);
+        var responseA = await client.SendAsync(requestA);
+        responseA.EnsureSuccessStatusCode();
+        var bodyA = await responseA.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, bodyA.GetProperty("totalCount").GetInt32());
+
+        using var requestB = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/adjustments");
+        requestB.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        var responseB = await client.SendAsync(requestB);
+        responseB.EnsureSuccessStatusCode();
+        var bodyB = await responseB.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, bodyB.GetProperty("totalCount").GetInt32());
+        Assert.Empty(bodyB.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task AdjustmentHistory_IncludeVoidedReturnsVoidMetadataAndDisplayFallbacks()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token);
+        var performerEmail = $"fallback-performer-{Guid.NewGuid():N}@test.com";
+        var voidedByPhone = UniquePhone();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var performer = User.CreateWithEmail(performerEmail, "hash", string.Empty, string.Empty);
+            var voidedBy = User.CreateWithPhone(voidedByPhone, string.Empty, string.Empty);
+            db.Users.AddRange(performer, voidedBy);
+
+            var item = Item.Create(shopId, $"Voided Item {Guid.NewGuid():N}", null, "kg", $"VOID-{Guid.NewGuid():N}", true, performer.Id);
+            var batch = InventoryBatch.Create(
+                shopId,
+                item.Id,
+                $"VB-{Guid.NewGuid():N}"[..18],
+                10m,
+                25m,
+                40m,
+                35m,
+                5m,
+                false,
+                null,
+                null,
+                null,
+                performer.Id).Value;
+            var adjustment = CreateAdjustmentForTest(
+                shopId,
+                item.Id,
+                batch.Id,
+                performer.Id,
+                "ADJ-VOID-0001",
+                InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Damaged,
+                2m,
+                25m,
+                new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 5, 4, 12, 1, 0, TimeSpan.Zero),
+                "Voided row");
+            var reversal = StockTransaction.Create(
+                shopId,
+                item.Id,
+                batch.Id,
+                StockTransactionType.In,
+                2m,
+                "REV-VOID-0001",
+                "Void reversal",
+                new DateTimeOffset(2026, 5, 4, 13, 0, 0, TimeSpan.Zero),
+                voidedBy.Id,
+                voidedBy.Id).Value;
+            var voidResult = adjustment.Void(
+                new DateTimeOffset(2026, 5, 4, 13, 0, 0, TimeSpan.Zero),
+                voidedBy.Id,
+                "Wrong adjustment",
+                reversal.Id);
+            Assert.False(voidResult.IsError);
+
+            db.Items.Add(item);
+            db.InventoryBatches.Add(batch);
+            db.StockTransactions.Add(reversal);
+            db.InventoryAdjustments.Add(adjustment);
+            await db.SaveChangesAsync();
+        }
+
+        using var defaultRequest = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/adjustments");
+        defaultRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var defaultResponse = await client.SendAsync(defaultRequest);
+        defaultResponse.EnsureSuccessStatusCode();
+        var defaultBody = await defaultResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, defaultBody.GetProperty("totalCount").GetInt32());
+
+        using var includeVoidedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/adjustments?includeVoided=true");
+        includeVoidedRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var includeVoidedResponse = await client.SendAsync(includeVoidedRequest);
+
+        Assert.Equal(HttpStatusCode.OK, includeVoidedResponse.StatusCode);
+        var includeVoidedBody = await includeVoidedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var row = Assert.Single(includeVoidedBody.GetProperty("items").EnumerateArray());
+        Assert.Equal("ADJ-VOID-0001", row.GetProperty("adjustmentNumber").GetString());
+        Assert.True(row.GetProperty("isVoided").GetBoolean());
+        Assert.Equal("Wrong adjustment", row.GetProperty("voidReason").GetString());
+        Assert.Equal(performerEmail, row.GetProperty("performedByDisplayName").GetString());
+        Assert.Equal(voidedByPhone, row.GetProperty("voidedByDisplayName").GetString());
+        Assert.True(row.GetProperty("voidedAt").ValueKind == JsonValueKind.String);
+        Assert.True(row.GetProperty("reversalStockTransactionId").ValueKind == JsonValueKind.String);
+    }
+
     private static string UniqueEmail() => $"adjustment-{Guid.NewGuid():N}@test.com";
 
     private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
@@ -306,5 +596,85 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
         loginResponse.EnsureSuccessStatusCode();
         var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
         return loginBody.GetProperty("accessToken").GetString()!;
+    }
+
+    private static async Task SeedSimpleAdjustmentAsync(ApplicationDbContext db, Guid shopId)
+    {
+        var performer = User.CreateWithEmail($"history-simple-{Guid.NewGuid():N}@test.com", "hash", "History", "Viewer");
+        db.Users.Add(performer);
+        var item = Item.Create(shopId, $"Simple Item {Guid.NewGuid():N}", null, "kg", $"SIMPLE-{Guid.NewGuid():N}", true, performer.Id);
+        var batch = InventoryBatch.Create(
+            shopId,
+            item.Id,
+            $"SB-{Guid.NewGuid():N}"[..18],
+            10m,
+            30m,
+            50m,
+            45m,
+            5m,
+            false,
+            null,
+            null,
+            null,
+            performer.Id).Value;
+        var adjustment = CreateAdjustmentForTest(
+            shopId,
+            item.Id,
+            batch.Id,
+            performer.Id,
+            $"ADJ-SIMPLE-{Guid.NewGuid():N}"[..24],
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            30m,
+            new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 5, 1, 9, 1, 0, TimeSpan.Zero),
+            null);
+
+        db.Items.Add(item);
+        db.InventoryBatches.Add(batch);
+        db.InventoryAdjustments.Add(adjustment);
+        await db.SaveChangesAsync();
+    }
+
+    private static InventoryAdjustment CreateAdjustmentForTest(
+        Guid shopId,
+        Guid itemId,
+        Guid batchId,
+        Guid performedBy,
+        string adjustmentNumber,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal quantity,
+        decimal unitCost,
+        DateTimeOffset performedAt,
+        DateTimeOffset createdAt,
+        string? notes)
+    {
+        const decimal quantityBefore = 10m;
+        var quantityAfter = direction == InventoryAdjustmentDirection.Increase
+            ? quantityBefore + quantity
+            : quantityBefore - quantity;
+        var adjustment = InventoryAdjustment.Create(
+            shopId,
+            itemId,
+            batchId,
+            adjustmentNumber,
+            direction,
+            reason,
+            quantity,
+            unitCost,
+            decimal.Round(quantity * unitCost, 2, MidpointRounding.AwayFromZero),
+            quantityBefore,
+            quantityAfter,
+            quantityBefore,
+            quantityAfter,
+            performedAt,
+            performedBy,
+            notes,
+            performedBy).Value;
+
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.CreatedAt))!.SetValue(adjustment, createdAt);
+        return adjustment;
     }
 }

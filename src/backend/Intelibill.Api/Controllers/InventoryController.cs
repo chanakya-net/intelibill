@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
@@ -10,6 +11,7 @@ using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
 using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
+using Intelibill.Application.Features.Inventory.Queries.GetAdjustmentHistory;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,6 +36,40 @@ public sealed class InventoryController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<InventoryBatchDto>>>(
             new GetInventoryBatchesQuery(UserId!.Value, ActiveShopId!.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("adjustments")]
+    public async Task<IActionResult> GetAdjustmentHistory(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] Guid? itemId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] InventoryAdjustmentDirection? direction = null,
+        [FromQuery] InventoryAdjustmentReason? reason = null,
+        [FromQuery(Name = "from")] DateTimeOffset? from = null,
+        [FromQuery(Name = "to")] DateTimeOffset? to = null,
+        [FromQuery] bool includeVoided = false,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PaginatedList<InventoryAdjustmentHistoryDto>>>(
+            new GetAdjustmentHistoryQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                pageNumber,
+                pageSize,
+                itemId,
+                batchId,
+                direction,
+                reason,
+                from,
+                to,
+                includeVoided),
             cancellationToken);
 
         return result.ToActionResult(Ok);
