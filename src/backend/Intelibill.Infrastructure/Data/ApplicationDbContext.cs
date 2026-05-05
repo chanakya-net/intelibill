@@ -25,6 +25,7 @@ public class ApplicationDbContext(
     public DbSet<Item> Items => Set<Item>();
     public DbSet<Inventory> Inventory => Set<Inventory>();
     public DbSet<InventoryBatch> InventoryBatches => Set<InventoryBatch>();
+    public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
     public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
     public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
     public DbSet<Sale> Sales => Set<Sale>();
