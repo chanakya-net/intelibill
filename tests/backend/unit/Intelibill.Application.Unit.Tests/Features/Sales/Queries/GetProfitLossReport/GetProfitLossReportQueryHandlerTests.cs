@@ -57,6 +57,12 @@ public class GetProfitLossReportQueryHandlerTests
         // Assert
         Assert.False(result.IsError);
         var report = result.Value[0];
+        Assert.Equal(sale.Id, report.SaleId);
+        Assert.Equal("INV-001", report.ReferenceNumber);
+        Assert.Equal(sale.SoldAt, report.OccurredAt);
+        Assert.Equal("John Doe", report.PartyName);
+        Assert.Equal(ProfitLossReportRowTypes.Sale, report.RowType);
+        Assert.Null(report.InventoryAdjustmentId);
         
         // Total Cost: 80 + 150 = 230
         Assert.Equal(230, report.TotalCost);
@@ -104,6 +110,8 @@ public class GetProfitLossReportQueryHandlerTests
         // Assert
         Assert.False(result.IsError);
         var report = result.Value[0];
+        Assert.Equal(ProfitLossReportRowTypes.Sale, report.RowType);
+        Assert.Null(report.InventoryAdjustmentId);
         
         Assert.Equal(100, report.TotalCost);
         Assert.Equal(80, report.RevenueBeforeTax);
@@ -185,23 +193,31 @@ public class GetProfitLossReportQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(4, result.Value.Count);
-        var wastageRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-WASTE"));
-        Assert.Equal(wastageReturn.ProcessedAt, wastageRow.SoldAt);
+        var wastageRow = result.Value.Single(r => r.ReferenceNumber.Contains("RET-WASTE"));
+        Assert.Equal(sale.Id, wastageRow.SaleId);
+        Assert.Equal(wastageReturn.ProcessedAt, wastageRow.OccurredAt);
+        Assert.Equal("John Doe", wastageRow.PartyName);
+        Assert.Equal(ProfitLossReportRowTypes.SaleReturn, wastageRow.RowType);
+        Assert.Null(wastageRow.InventoryAdjustmentId);
         Assert.Equal(0m, wastageRow.TotalCost);
         Assert.Equal(60m, wastageRow.WastageCost);
         Assert.Equal(0m, wastageRow.RevenueBeforeTax);
         Assert.Equal(0m, wastageRow.RevenueAfterTax);
-        var restockRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-RESTOCK"));
+        var restockRow = result.Value.Single(r => r.ReferenceNumber.Contains("RET-RESTOCK"));
+        Assert.Equal(ProfitLossReportRowTypes.SaleReturn, restockRow.RowType);
+        Assert.Null(restockRow.InventoryAdjustmentId);
         Assert.Equal(-60m, restockRow.TotalCost);
         Assert.Equal(0m, restockRow.WastageCost);
         Assert.Equal(-100m, restockRow.RevenueBeforeTax);
         Assert.Equal(-110m, restockRow.RevenueAfterTax);
-        var partialRow = result.Value.Single(r => r.InvoiceNumber.Contains("RET-PARTIAL"));
+        var partialRow = result.Value.Single(r => r.ReferenceNumber.Contains("RET-PARTIAL"));
         Assert.Equal(-60m, partialRow.TotalCost);
         Assert.Equal(-50m, partialRow.RevenueBeforeTax);
         Assert.Equal(-55m, partialRow.RevenueAfterTax);
-        Assert.DoesNotContain(result.Value, r => r.InvoiceNumber.Contains("RET-VOID"));
-        var saleRow = result.Value.Single(r => r.InvoiceNumber == "INV-003");
+        Assert.DoesNotContain(result.Value, r => r.ReferenceNumber.Contains("RET-VOID"));
+        var saleRow = result.Value.Single(r => r.ReferenceNumber == "INV-003");
+        Assert.Equal(ProfitLossReportRowTypes.Sale, saleRow.RowType);
+        Assert.Null(saleRow.InventoryAdjustmentId);
         Assert.Equal(120m, saleRow.TotalCost);
         Assert.Equal(220m, saleRow.RevenueAfterTax);
     }

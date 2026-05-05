@@ -1,6 +1,6 @@
 import { SalesActions } from './sales.actions';
 import { salesReducer, SalesState } from './sales.reducer';
-import { SaleListItemDto } from '../services/sale.service';
+import { SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
 
 const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleListItemDto => ({
   saleId: id,
@@ -314,18 +314,20 @@ describe('salesReducer', () => {
   });
 
   it('sets report when load succeeds', () => {
-    const report = [
+    const report: ProfitLossReportItemDto[] = [
       {
         saleId: 's1',
-        invoiceNumber: 'INV-s1',
-        soldAt: '',
-        customerName: null,
+        referenceNumber: 'INV-s1',
+        occurredAt: '',
+        partyName: null,
         totalCost: 100,
         wastageCost: 0,
         revenueBeforeTax: 120,
         revenueAfterTax: 140,
         profitBeforeTax: 40,
         profitAfterTax: 20,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
       },
     ];
     const next = salesReducer(

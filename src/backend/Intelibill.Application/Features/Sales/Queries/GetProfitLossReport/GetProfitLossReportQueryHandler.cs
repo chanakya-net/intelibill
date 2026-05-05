@@ -62,7 +62,9 @@ public sealed class GetProfitLossReportQueryHandler(
                 revenueExclTax,
                 revenueInclTax,
                 revenueInclTax - totalCost,
-                revenueExclTax - totalCost));
+                revenueExclTax - totalCost,
+                ProfitLossReportRowTypes.Sale,
+                InventoryAdjustmentId: null));
 
             var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken) ?? [];
             foreach (var saleReturn in saleReturns.Where(r => !r.IsVoided))
@@ -88,12 +90,14 @@ public sealed class GetProfitLossReportQueryHandler(
                     returnRevenueExclTax,
                     returnRevenueInclTax,
                     returnRevenueInclTax - returnCostImpact,
-                    returnRevenueExclTax - returnCostImpact));
+                    returnRevenueExclTax - returnCostImpact,
+                    ProfitLossReportRowTypes.SaleReturn,
+                    InventoryAdjustmentId: null));
             }
         }
 
         return report
-            .OrderByDescending(s => s.SoldAt)
+            .OrderByDescending(s => s.OccurredAt)
             .ToList();
     }
 

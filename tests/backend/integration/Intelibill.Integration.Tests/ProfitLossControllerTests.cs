@@ -181,6 +181,15 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.NotEmpty(report!);
         var item = report![0];
         
+        Assert.Equal("INV-", item.GetProperty("referenceNumber").GetString()![..4]);
+        Assert.Equal("PL Customer", item.GetProperty("partyName").GetString());
+        Assert.Equal("Sale", item.GetProperty("rowType").GetString());
+        Assert.True(item.GetProperty("saleId").GetGuid() != Guid.Empty);
+        Assert.True(item.GetProperty("occurredAt").GetDateTimeOffset() <= DateTimeOffset.UtcNow.AddMinutes(1));
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("inventoryAdjustmentId").ValueKind);
+        Assert.False(item.TryGetProperty("invoiceNumber", out _));
+        Assert.False(item.TryGetProperty("soldAt", out _));
+        Assert.False(item.TryGetProperty("customerName", out _));
         Assert.Equal(80m, item.GetProperty("totalCost").GetDecimal());
         Assert.Equal(100m, item.GetProperty("revenueBeforeTax").GetDecimal());
         Assert.Equal(118m, item.GetProperty("revenueAfterTax").GetDecimal());

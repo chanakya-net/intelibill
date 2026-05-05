@@ -269,7 +269,20 @@ describe('SalesEffects', () => {
   });
 
   it('dispatches loadProfitLossReportSucceeded on success', async () => {
-    const report = [{ saleId: '1' }] as any;
+    const report = [{
+      saleId: '1',
+      referenceNumber: 'INV-1',
+      occurredAt: '2026-05-05T10:00:00Z',
+      partyName: null,
+      totalCost: 0,
+      wastageCost: 0,
+      revenueBeforeTax: 0,
+      revenueAfterTax: 0,
+      profitBeforeTax: 0,
+      profitAfterTax: 0,
+      rowType: 'Sale' as const,
+      inventoryAdjustmentId: null,
+    }];
     saleService.getProfitLossReport.mockReturnValue(of(report));
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));

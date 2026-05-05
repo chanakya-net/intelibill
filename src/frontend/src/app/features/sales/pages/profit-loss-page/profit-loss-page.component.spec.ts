@@ -39,17 +39,43 @@ describe('ProfitLossPageComponent', () => {
   it('filters report based on search value', async () => {
     const { component } = await setup();
     mockSalesFacade.profitLossReport.set([
-      { invoiceNumber: 'INV-1', customerName: 'Alice' },
-      { invoiceNumber: 'INV-2', customerName: 'Bob' },
+      {
+        saleId: 'sale-1',
+        referenceNumber: 'INV-1',
+        occurredAt: '2026-05-05T10:00:00Z',
+        partyName: 'Alice',
+        totalCost: 0,
+        wastageCost: 0,
+        revenueBeforeTax: 0,
+        revenueAfterTax: 0,
+        profitBeforeTax: 0,
+        profitAfterTax: 0,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
+      },
+      {
+        saleId: 'sale-2',
+        referenceNumber: 'INV-2 / RET-1',
+        occurredAt: '2026-05-06T10:00:00Z',
+        partyName: 'Bob',
+        totalCost: -10,
+        wastageCost: 0,
+        revenueBeforeTax: -20,
+        revenueAfterTax: -22,
+        profitBeforeTax: -12,
+        profitAfterTax: -10,
+        rowType: 'SaleReturn',
+        inventoryAdjustmentId: null,
+      },
     ] as any);
 
     component.searchValue.set('Alice');
     expect(component.filteredReport().length).toBe(1);
-    expect(component.filteredReport()[0].invoiceNumber).toBe('INV-1');
+    expect(component.filteredReport()[0].referenceNumber).toBe('INV-1');
 
-    component.searchValue.set('INV-2');
+    component.searchValue.set('RET-1');
     expect(component.filteredReport().length).toBe(1);
-    expect(component.filteredReport()[0].customerName).toBe('Bob');
+    expect(component.filteredReport()[0].partyName).toBe('Bob');
   });
 
   it('returns correct severity for profit/loss', async () => {

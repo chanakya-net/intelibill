@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
-import { SaleService, SaleDto, SaleListItemDto } from './sale.service';
+import { SaleService, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from './sale.service';
 
 describe('SaleService', () => {
   function setup(): { service: SaleService; http: HttpTestingController } {
@@ -166,6 +166,37 @@ describe('SaleService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
     req.flush(null);
+    http.verify();
+  });
+
+  it('loads profit loss report with neutral row fields', () => {
+    const { service, http } = setup();
+    const report: ProfitLossReportItemDto[] = [
+      {
+        saleId: 'sale-1',
+        referenceNumber: 'INV-001',
+        occurredAt: new Date().toISOString(),
+        partyName: 'John',
+        totalCost: 80,
+        wastageCost: 0,
+        revenueBeforeTax: 100,
+        revenueAfterTax: 118,
+        profitBeforeTax: 38,
+        profitAfterTax: 20,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
+      },
+    ];
+
+    service.getProfitLossReport().subscribe((result) => {
+      expect(result[0].referenceNumber).toBe('INV-001');
+      expect(result[0].rowType).toBe('Sale');
+      expect(result[0].inventoryAdjustmentId).toBeNull();
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    req.flush(report);
     http.verify();
   });
 });

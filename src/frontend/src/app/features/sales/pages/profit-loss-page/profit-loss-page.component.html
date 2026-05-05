@@ -40,7 +40,7 @@
       </div>
 
       <div class="report-list flex flex-col gap-3 px-1">
-        @for (item of filteredReport(); track item.invoiceNumber) {
+        @for (item of filteredReport(); track item.rowType + '-' + item.saleId + '-' + item.referenceNumber + '-' + item.occurredAt) {
           <p-card class="report-card-item" [pt]="{
             root: { class: 'border border-orange-100 shadow-none' },
             body: { class: 'p-3' },
@@ -48,12 +48,12 @@
           }">
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <span class="font-bold text-slate-800">{{ item.invoiceNumber }}</span>
-                <span class="text-xs text-slate-500">{{ item.soldAt | date:'dd MMM, h:mm a' }}</span>
+                <span class="font-bold text-slate-800">{{ item.referenceNumber }}</span>
+                <span class="text-xs text-slate-500">{{ item.occurredAt | date:'dd MMM, h:mm a' }}</span>
               </div>
               <div class="text-sm text-slate-600">
-                @if (item.customerName) {
-                  <span>{{ item.customerName }}</span>
+                @if (item.partyName) {
+                  <span>{{ item.partyName }}</span>
                 } @else {
                   <span class="italic text-slate-400 text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
                 }
@@ -94,7 +94,7 @@
       <p-table
         #reportTable
         [value]="tableData()"
-        [globalFilterFields]="['invoiceNumber', 'customerName']"
+        [globalFilterFields]="['referenceNumber', 'partyName']"
         [scrollable]="true"
         class="p-datatable-sm"
       >
@@ -108,30 +108,30 @@
         </ng-template>
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="invoiceNumber">
+            <th pSortableColumn="referenceNumber">
               <div class="flex items-center justify-between">
                 {{ 'sales.profitLoss.invoice' | transloco }}
                 <div class="flex items-center gap-1">
-                  <p-sortIcon field="invoiceNumber" />
-                  <p-columnFilter type="text" field="invoiceNumber" display="menu" />
+                  <p-sortIcon field="referenceNumber" />
+                  <p-columnFilter type="text" field="referenceNumber" display="menu" />
                 </div>
               </div>
             </th>
-            <th pSortableColumn="soldAt">
+            <th pSortableColumn="occurredAt">
               <div class="flex items-center justify-between">
                 {{ 'sales.profitLoss.date' | transloco }}
                 <div class="flex items-center gap-1">
-                  <p-sortIcon field="soldAt" />
-                  <p-columnFilter type="date" field="soldAt" display="menu" />
+                  <p-sortIcon field="occurredAt" />
+                  <p-columnFilter type="date" field="occurredAt" display="menu" />
                 </div>
               </div>
             </th>
-            <th pSortableColumn="customerName">
+            <th pSortableColumn="partyName">
               <div class="flex items-center justify-between">
                 {{ 'sales.profitLoss.customer' | transloco }}
                 <div class="flex items-center gap-1">
-                  <p-sortIcon field="customerName" />
-                  <p-columnFilter type="text" field="customerName" display="menu" />
+                  <p-sortIcon field="partyName" />
+                  <p-columnFilter type="text" field="partyName" display="menu" />
                 </div>
               </div>
             </th>
@@ -145,11 +145,11 @@
         </ng-template>
         <ng-template pTemplate="body" let-item>
           <tr>
-            <td class="font-bold">{{ item.invoiceNumber }}</td>
-            <td>{{ item.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
+            <td class="font-bold">{{ item.referenceNumber }}</td>
+            <td>{{ item.occurredAt | date:'dd MMM yyyy, h:mm a' }}</td>
             <td>
-              @if (item.customerName) {
-                {{ item.customerName }}
+              @if (item.partyName) {
+                {{ item.partyName }}
               } @else {
                 <span class="text-slate-400 italic text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
               }
