@@ -728,6 +728,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "Wastage includes active decrease inventory adjustments; profit is calculated after those losses.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

@@ -728,6 +728,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "વેડફાટમાં સક્રિય ઘટાડાના ઇન્વેન્ટરી સમાયોજનો સામેલ છે; આ નુકસાન બાદ નફો ગણવામાં આવે છે.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

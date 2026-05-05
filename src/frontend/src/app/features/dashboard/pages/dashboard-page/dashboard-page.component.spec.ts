@@ -134,6 +134,27 @@ describe('DashboardPageComponent', () => {
     expect(stockToggle.length).toBeGreaterThan(0);
   });
 
+  it('explains that wastage and profit include inventory adjustment losses for financial roles', () => {
+    const fixture = createFixture(makeOwnerDto({
+      wastageCost: 75,
+      profitBeforeTax: 25,
+      profitAfterTax: 40,
+    }));
+    const el = fixture.nativeElement as HTMLElement;
+    fixture.componentInstance.toggleSection('sales');
+    fixture.detectChanges();
+
+    expect(el.textContent).toContain('dashboard.adjustmentLossNote');
+    expect(el.textContent).toContain('₹75.00');
+  });
+
+  it('keeps adjustment loss financial copy hidden for Staff role', () => {
+    const fixture = createFixture(makeStaffDto());
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).not.toContain('dashboard.adjustmentLossNote');
+  });
+
   it('renders alert ribbon when alerts are present', () => {
     const dto = makeOwnerDto({
       alerts: [

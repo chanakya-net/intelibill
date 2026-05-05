@@ -728,6 +728,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "অপচয়ের মধ্যে সক্রিয় হ্রাসধর্মী ইনভেন্টরি সমন্বয় অন্তর্ভুক্ত; এই ক্ষতির পরে লাভ গণনা করা হয়।",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

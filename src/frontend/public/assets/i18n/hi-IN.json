@@ -734,6 +734,7 @@
     "salesBooked": "सकल बिक्री दर्ज",
     "netSalesBooked": "शुद्ध बिक्री दर्ज",
     "wastageCost": "बर्बादी लागत",
+    "adjustmentLossNote": "बर्बादी में सक्रिय घटाव वाले इन्वेंटरी समायोजन शामिल हैं; लाभ की गणना इन नुकसानों के बाद की जाती है।",
     "cashCollected": "नकद संग्रह",
     "profitBeforeTax": "कर से पहले लाभ",
     "profitAfterTax": "कर के बाद लाभ",

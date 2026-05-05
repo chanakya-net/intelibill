@@ -728,6 +728,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "వృథాలో సక్రియ తగ్గింపు ఇన్వెంటరీ సర్దుబాట్లు ఉంటాయి; ఆ నష్టాల తర్వాత లాభం లెక్కించబడుతుంది.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

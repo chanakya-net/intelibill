@@ -727,6 +727,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "ವ್ಯರ್ಥದಲ್ಲಿ ಸಕ್ರಿಯ ಕಡಿತದ ಇನ್ವೆಂಟರಿ ಸರಿಹೊಂದಿಕೆಗಳು ಸೇರಿವೆ; ಆ ನಷ್ಟಗಳ ನಂತರ ಲಾಭವನ್ನು ಲೆಕ್ಕಿಸಲಾಗುತ್ತದೆ.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

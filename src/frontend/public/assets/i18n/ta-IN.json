@@ -704,6 +704,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "வீணாக்கத்தில் செயலில் உள்ள குறைப்பு சரக்கு சரிசெய்தல்கள் அடங்கும்; அந்த இழப்புகளுக்குப் பிறகு லாபம் கணக்கிடப்படுகிறது.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

@@ -179,6 +179,10 @@
           <span class="pi" [class.pi-chevron-down]="!sectionExpanded().sales" [class.pi-chevron-up]="sectionExpanded().sales"></span>
         </button>
         @if (sectionExpanded().sales) {
+          <p class="dashboard-adjustment-loss-note">
+            <span class="pi pi-info-circle"></span>
+            <span>{{ 'dashboard.adjustmentLossNote' | transloco }}</span>
+          </p>
           <div class="dashboard-kpi-grid">
             <p-card>
               <div class="kpi-card">

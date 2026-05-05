@@ -705,6 +705,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "വേസ്റ്റേജിൽ സജീവ കുറവ് ഇൻവെന്ററി ക്രമീകരണങ്ങൾ ഉൾപ്പെടുന്നു; ആ നഷ്ടങ്ങൾക്കുശേഷമാണ് ലാഭം കണക്കാക്കുന്നത്.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

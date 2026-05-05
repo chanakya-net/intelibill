@@ -705,6 +705,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "वाया जाण्यात सक्रिय घट इन्व्हेंटरी समायोजनांचा समावेश आहे; त्या नुकसानीनंतर नफा मोजला जातो.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",
