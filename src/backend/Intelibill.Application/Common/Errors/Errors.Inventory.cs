@@ -50,5 +50,20 @@ public static partial class Errors
 
         public static Error SupplierLedgerEntryInvalid =>
             Error.Validation("Inventory.SupplierLedgerEntryInvalid", "Supplier ledger entry is invalid.");
+
+        public static Error AdjustmentQuantityScaleInvalid =>
+            Error.Validation("Inventory.AdjustmentQuantityScaleInvalid", "Adjustment quantity cannot have more than two decimal places.");
+
+        public static Error AdjustmentPerformedAtInFuture =>
+            Error.Validation("Inventory.AdjustmentPerformedAtInFuture", "Adjustment performed timestamp cannot be in the future.");
+
+        public static Error AdjustmentReasonDirectionMismatch =>
+            Error.Validation("Inventory.AdjustmentReasonDirectionMismatch", "Adjustment reason is not valid for the direction.");
+
+        public static Error AdjustmentNotesRequired =>
+            Error.Validation("Inventory.AdjustmentNotesRequired", "Notes are required for other loss or other gain adjustments.");
+
+        public static Error AdjustmentQuantityExceedsBatchQuantity =>
+            Error.Validation("Inventory.AdjustmentQuantityExceedsBatchQuantity", "Adjustment quantity cannot exceed the current batch quantity.");
     }
 }
