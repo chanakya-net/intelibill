@@ -225,6 +225,33 @@ describe('InventoryService', () => {
     http.verify();
   });
 
+  it('sends void adjustment request to adjustment void endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .voidAdjustment('adjustment-1', { reason: 'Duplicate stock count' })
+      .subscribe((response) => {
+        expect(response.adjustmentId).toBe('adjustment-1');
+        expect(response.reversalStockTransactionId).toBe('tx-reversal-1');
+      });
+
+    const request = http.expectOne(`${API_BASE_URL}/inventory/adjustments/adjustment-1/void`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ reason: 'Duplicate stock count' });
+
+    request.flush({
+      adjustmentId: 'adjustment-1',
+      reversalStockTransactionId: 'tx-reversal-1',
+      batchQuantityBefore: 8,
+      batchQuantityAfter: 10,
+      inventoryQuantityBefore: 18,
+      inventoryQuantityAfter: 20,
+      voidedAt: '2026-05-05T09:00:00.000Z',
+    });
+
+    http.verify();
+  });
+
   it('loads adjustment history with server-side filters and paging', () => {
     const { service, http } = setup();
 

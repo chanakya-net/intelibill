@@ -13,6 +13,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { SalesFacade } from '../../state/sales.facade';
+import { ProfitLossReportItemDto, ProfitLossReportRowType } from '../../services/sale.service';
 import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
@@ -47,6 +48,7 @@ export class ProfitLossPageComponent {
     return this.report().filter(
       (s) =>
         s.referenceNumber.toLowerCase().includes(q) ||
+        s.rowType.toLowerCase().includes(q) ||
         (s.partyName ?? '').toLowerCase().includes(q)
     );
   });
@@ -59,5 +61,15 @@ export class ProfitLossPageComponent {
 
   getProfitSeverity(amount: number): 'success' | 'danger' {
     return amount >= 0 ? 'success' : 'danger';
+  }
+
+  getRowTypeTranslationKey(rowType: ProfitLossReportRowType): string {
+    return `sales.profitLoss.rowTypes.${rowType}`;
+  }
+
+  getPartyFallbackTranslationKey(item: ProfitLossReportItemDto): string {
+    return item.rowType === 'InventoryAdjustment'
+      ? 'sales.profitLoss.adjustmentParty'
+      : 'sales.history.walkIn';
   }
 }

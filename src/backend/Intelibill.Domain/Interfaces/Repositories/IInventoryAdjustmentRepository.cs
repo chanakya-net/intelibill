@@ -8,6 +8,7 @@ public interface IInventoryAdjustmentRepository : IRepository<InventoryAdjustmen
     Task<InventoryAdjustment?> GetByAdjustmentNumberAsync(Guid shopId, string adjustmentNumber, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetByBatchAsync(Guid shopId, Guid inventoryBatchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InventoryAdjustment>> GetProfitLossAdjustmentsAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<InventoryAdjustmentHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         InventoryAdjustmentHistoryFilter filter,
         CancellationToken cancellationToken = default);

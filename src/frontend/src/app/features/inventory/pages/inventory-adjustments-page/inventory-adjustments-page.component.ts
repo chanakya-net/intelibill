@@ -35,6 +35,7 @@ import {
   InventoryBatchDto,
   InventoryService,
 } from '../../services/inventory.service';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 interface SelectOption<T extends string | boolean> {
   readonly label: string;
@@ -72,18 +73,32 @@ export class InventoryAdjustmentsPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
+  private readonly authService = inject(AuthService);
 
   readonly adjustments = signal<InventoryAdjustmentHistoryItem[]>([]);
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly batchSuggestions = signal<InventoryBatchDto[]>([]);
   readonly selectedBatch = signal<InventoryBatchDto | null>(null);
+  readonly selectedAdjustment = signal<InventoryAdjustmentHistoryItem | null>(null);
   readonly loading = signal(false);
   readonly loadingBatches = signal(false);
   readonly saving = signal(false);
+  readonly voidSaving = signal(false);
   readonly isAdjustmentDialogOpen = signal(false);
+  readonly isVoidDialogOpen = signal(false);
   readonly totalCount = signal(0);
   readonly pageNumber = signal(1);
   readonly pageSize = signal(20);
+  readonly session = this.authService.session;
+  readonly activeShopRole = computed(() => {
+    const session = this.session();
+    if (!session) return '';
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
+    return activeShop?.role ?? '';
+  });
+  readonly canVoidAdjustments = computed(() => this.activeShopRole().toLowerCase() === 'owner');
   private readonly adjustmentDirectionValue = signal<InventoryAdjustmentDirection>('Decrease');
 
   readonly availableBatches = computed(() => this.batches().filter((batch) => !batch.isVoided));
@@ -170,6 +185,10 @@ export class InventoryAdjustmentsPageComponent {
     quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]],
     performedAt: [''],
     notes: [''],
+  });
+
+  readonly voidForm = this.formBuilder.nonNullable.group({
+    reason: ['', [Validators.required, this.notBlankValidator(), Validators.maxLength(500)]],
   });
 
   constructor() {
@@ -333,6 +352,45 @@ export class InventoryAdjustmentsPageComponent {
     return adjustment.isVoided ? 'danger' : 'success';
   }
 
+  canVoidAdjustment(adjustment: InventoryAdjustmentHistoryItem): boolean {
+    return this.canVoidAdjustments() && !adjustment.isVoided;
+  }
+
+  onOpenVoidAdjustment(adjustment: InventoryAdjustmentHistoryItem): void {
+    if (!this.canVoidAdjustment(adjustment)) return;
+
+    this.selectedAdjustment.set(adjustment);
+    this.voidForm.reset({ reason: '' });
+    this.isVoidDialogOpen.set(true);
+  }
+
+  onSaveVoidAdjustment(): void {
+    const adjustment = this.selectedAdjustment();
+    if (!adjustment || this.voidForm.invalid || this.voidSaving()) {
+      this.voidForm.markAllAsTouched();
+      return;
+    }
+
+    this.voidSaving.set(true);
+    this.inventoryService
+      .voidAdjustment(adjustment.adjustmentId, {
+        reason: this.voidForm.controls.reason.value.trim(),
+      })
+      .pipe(finalize(() => this.voidSaving.set(false)))
+      .subscribe({
+        next: () => {
+          this.showSuccess('inventory.adjustmentVoided');
+          this.isVoidDialogOpen.set(false);
+          this.selectedAdjustment.set(null);
+          this.loadHistory(1);
+        },
+        error: (err) => {
+          const detail = err.error?.detail || this.translate('inventory.voidAdjustmentError');
+          this.messageService.add({ severity: 'error', summary: 'Error', detail });
+        },
+      });
+  }
+
   private updateQuantityValidators(): void {
     const validators: ValidatorFn[] = [
       Validators.required,
@@ -377,6 +435,12 @@ export class InventoryAdjustmentsPageComponent {
       return decimalPart && decimalPart.length > digits
         ? { maxFractionDigits: { requiredDigits: digits } }
         : null;
+    };
+  }
+
+  private notBlankValidator(): ValidatorFn {
+    return (control: AbstractControl<string>): ValidationErrors | null => {
+      return control.value.trim().length === 0 ? { required: true } : null;
     };
   }
 

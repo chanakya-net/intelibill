@@ -114,15 +114,44 @@
 }
 
 .adjustment-form,
+.void-form,
 .field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.adjustment-form {
+.adjustment-form,
+.void-form {
   margin-top: 0.5rem;
   gap: 1rem;
+}
+
+.void-metadata,
+.void-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.void-metadata {
+  color: var(--text-color-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin-top: 0.5rem;
+  min-width: 12rem;
+}
+
+.void-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.void-summary span,
+.muted {
+  color: var(--text-color-secondary);
 }
 
 .form-grid {

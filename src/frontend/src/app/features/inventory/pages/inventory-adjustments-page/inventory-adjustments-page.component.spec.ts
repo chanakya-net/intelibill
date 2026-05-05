@@ -1,9 +1,12 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { MessageService } from 'primeng/api';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../../core/auth/auth.service';
 import { API_BASE_URL } from '../../../../core/auth/auth.constants';
 import {
   InventoryAdjustmentHistoryItem,
@@ -15,6 +18,22 @@ describe('InventoryAdjustmentsPageComponent', () => {
   let component: InventoryAdjustmentsPageComponent;
   let fixture: ComponentFixture<InventoryAdjustmentsPageComponent>;
   let httpMock: HttpTestingController;
+  const sessionSignal = signal({
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+    rememberMe: true,
+    user: {
+      id: 'owner-1',
+      email: 'owner@test.com',
+      phoneNumber: null,
+      firstName: 'Owner',
+      lastName: 'User',
+    },
+    activeShopId: 'shop-1',
+    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+  });
 
   const adjustment: InventoryAdjustmentHistoryItem = {
     adjustmentId: 'adjustment-1',
@@ -115,6 +134,12 @@ describe('InventoryAdjustmentsPageComponent', () => {
   ];
 
   beforeEach(async () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    });
+
     await TestBed.configureTestingModule({
       imports: [
         InventoryAdjustmentsPageComponent,
@@ -122,6 +147,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
         NoopAnimationsModule,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
+      providers: [{ provide: AuthService, useValue: { session: sessionSignal } }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(InventoryAdjustmentsPageComponent);
@@ -166,6 +192,148 @@ describe('InventoryAdjustmentsPageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('.desktop-table')?.textContent).toContain('ADJ-0001');
     expect(host.querySelector('.mobile-grid-container')?.textContent).toContain('Rice');
+  });
+
+  it('allows void action only for owners on active adjustments', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+
+    expect(component.canVoidAdjustment(adjustment)).toBe(true);
+    expect(component.canVoidAdjustment({ ...adjustment, isVoided: true })).toBe(false);
+
+    sessionSignal.set({
+      ...sessionSignal(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null }],
+    });
+    expect(component.canVoidAdjustment(adjustment)).toBe(false);
+
+    sessionSignal.set({
+      ...sessionSignal(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null }],
+    });
+    expect(component.canVoidAdjustment(adjustment)).toBe(false);
+  });
+
+  it('requires a reason before voiding an adjustment', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+
+    component.onOpenVoidAdjustment(adjustment);
+    expect(component.isVoidDialogOpen()).toBe(true);
+    expect(component.selectedAdjustment()).toEqual(adjustment);
+
+    component.voidForm.controls.reason.setValue('   ');
+    component.onSaveVoidAdjustment();
+
+    expect(component.voidForm.invalid).toBe(true);
+    httpMock.expectNone(`${API_BASE_URL}/inventory/adjustments/adjustment-1/void`);
+  });
+
+  it('voids an adjustment and refreshes history with void metadata', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+
+    component.onOpenVoidAdjustment(adjustment);
+    component.voidForm.controls.reason.setValue('Duplicate stock count');
+    component.onSaveVoidAdjustment();
+
+    const voidReq = httpMock.expectOne(`${API_BASE_URL}/inventory/adjustments/adjustment-1/void`);
+    expect(voidReq.request.method).toBe('POST');
+    expect(voidReq.request.body).toEqual({ reason: 'Duplicate stock count' });
+    voidReq.flush({
+      adjustmentId: 'adjustment-1',
+      reversalStockTransactionId: 'tx-reversal-1',
+      batchQuantityBefore: 8,
+      batchQuantityAfter: 10,
+      inventoryQuantityBefore: 18,
+      inventoryQuantityAfter: 20,
+      voidedAt: '2026-05-05T09:00:00.000Z',
+    });
+
+    const voidedAdjustment: InventoryAdjustmentHistoryItem = {
+      ...adjustment,
+      isVoided: true,
+      voidedAt: '2026-05-05T09:00:00.000Z',
+      voidedByUserId: 'owner-1',
+      voidedByDisplayName: 'Owner User',
+      voidReason: 'Duplicate stock count',
+      reversalStockTransactionId: 'tx-reversal-1',
+    };
+    const refreshHistoryReq = httpMock.expectOne(
+      (req) => req.url === `${API_BASE_URL}/inventory/adjustments`,
+    );
+    expect(refreshHistoryReq.request.params.get('pageNumber')).toBe('1');
+    refreshHistoryReq.flush({
+      items: [voidedAdjustment],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+
+    expect(component.isVoidDialogOpen()).toBe(false);
+    expect(component.adjustments()[0].isVoided).toBe(true);
+    expect(component.adjustments()[0].voidReason).toBe('Duplicate stock count');
+    expect(component.adjustments()[0].reversalStockTransactionId).toBe('tx-reversal-1');
+  });
+
+  it('shows backend detail when voiding an adjustment fails', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
+
+    component.onOpenVoidAdjustment(adjustment);
+    component.voidForm.controls.reason.setValue('Duplicate stock count');
+    component.onSaveVoidAdjustment();
+
+    const voidReq = httpMock.expectOne(`${API_BASE_URL}/inventory/adjustments/adjustment-1/void`);
+    voidReq.flush(
+      { detail: 'Adjustment has already been voided.' },
+      { status: 409, statusText: 'Conflict' },
+    );
+
+    expect(component.isVoidDialogOpen()).toBe(true);
+    expect(component.voidSaving()).toBe(false);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'error',
+        detail: 'Adjustment has already been voided.',
+      }),
+    );
+  });
+
+  it('renders owner void action and void metadata', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+    component.adjustments.set([
+      adjustment,
+      {
+        ...adjustment,
+        adjustmentId: 'adjustment-voided',
+        adjustmentNumber: 'ADJ-0002',
+        isVoided: true,
+        voidedAt: '2026-05-05T09:00:00.000Z',
+        voidedByUserId: 'owner-1',
+        voidedByDisplayName: 'Owner User',
+        voidReason: 'Duplicate stock count',
+        reversalStockTransactionId: 'tx-reversal-1',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('[data-testid="void-adjustment-action"]')).toHaveLength(2);
+    expect(host.textContent).toContain('Owner User');
+    expect(host.textContent).toContain('Duplicate stock count');
+    expect(host.textContent).toContain('tx-reversal-1');
+
+    sessionSignal.set({
+      ...sessionSignal(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null }],
+    });
+    fixture.detectChanges();
+
+    expect(host.querySelectorAll('[data-testid="void-adjustment-action"]')).toHaveLength(0);
   });
 
   it('applies filters with server-side paging', () => {

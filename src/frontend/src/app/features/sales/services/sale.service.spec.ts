@@ -186,12 +186,29 @@ describe('SaleService', () => {
         rowType: 'Sale',
         inventoryAdjustmentId: null,
       },
+      {
+        saleId: null,
+        referenceNumber: 'ADJ-001',
+        occurredAt: new Date().toISOString(),
+        partyName: null,
+        totalCost: 0,
+        wastageCost: 80,
+        revenueBeforeTax: 0,
+        revenueAfterTax: 0,
+        profitBeforeTax: -80,
+        profitAfterTax: -80,
+        rowType: 'InventoryAdjustment',
+        inventoryAdjustmentId: 'adjustment-1',
+      },
     ];
 
     service.getProfitLossReport().subscribe((result) => {
       expect(result[0].referenceNumber).toBe('INV-001');
       expect(result[0].rowType).toBe('Sale');
       expect(result[0].inventoryAdjustmentId).toBeNull();
+      expect(result[1].saleId).toBeNull();
+      expect(result[1].rowType).toBe('InventoryAdjustment');
+      expect(result[1].inventoryAdjustmentId).toBe('adjustment-1');
     });
 
     const req = http.expectOne(SALE_ENDPOINTS.profitLoss);

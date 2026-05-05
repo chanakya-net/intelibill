@@ -179,10 +179,10 @@ export interface SaleListItemDto {
   readonly returnNumbers: readonly string[];
 }
 
-export type ProfitLossReportRowType = 'Sale' | 'SaleReturn';
+export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
 
 export interface ProfitLossReportItemDto {
-  readonly saleId: string;
+  readonly saleId: string | null;
   readonly referenceNumber: string;
   readonly occurredAt: string;
   readonly partyName: string | null;

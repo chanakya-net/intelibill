@@ -80,10 +80,34 @@
                 [severity]="directionSeverity(adjustment.direction)"
                 [value]="adjustment.direction"
               ></p-tag>
+              <p-tag
+                [severity]="statusSeverity(adjustment)"
+                [value]="(adjustment.isVoided ? 'inventory.voided' : 'inventory.active') | transloco"
+              ></p-tag>
               <span>{{ adjustment.quantity | number: '1.0-2' }}</span>
               <span>{{ 'common.currencySymbol' | transloco }} {{ adjustment.costImpact | number: '1.2-2' }}</span>
+              @if (canVoidAdjustment(adjustment)) {
+                <button
+                  pButton
+                  type="button"
+                  data-testid="void-adjustment-action"
+                  icon="pi pi-ban"
+                  severity="danger"
+                  [outlined]="true"
+                  [label]="'inventory.voidAdjustment' | transloco"
+                  (click)="onOpenVoidAdjustment(adjustment)"
+                ></button>
+              }
             </div>
           </div>
+          @if (adjustment.isVoided) {
+            <div class="void-metadata">
+              <span>{{ 'inventory.voidedAt' | transloco }}: {{ adjustment.voidedAt | date: 'medium' }}</span>
+              <span>{{ 'inventory.voidedBy' | transloco }}: {{ adjustment.voidedByDisplayName || '-' }}</span>
+              <span>{{ 'inventory.voidReason' | transloco }}: {{ adjustment.voidReason || '-' }}</span>
+              <span>{{ 'inventory.reversalStockTransactionId' | transloco }}: {{ adjustment.reversalStockTransactionId || '-' }}</span>
+            </div>
+          }
         </p-card>
       }
 
@@ -114,6 +138,8 @@
           <th>{{ 'inventory.costImpact' | transloco }}</th>
           <th>{{ 'inventory.performedAt' | transloco }}</th>
           <th>{{ 'inventory.status' | transloco }}</th>
+          <th>{{ 'inventory.voidMetadata' | transloco }}</th>
+          <th>{{ 'inventory.actions' | transloco }}</th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-adjustment>
@@ -147,11 +173,37 @@
               [value]="(adjustment.isVoided ? 'inventory.voided' : 'inventory.active') | transloco"
             ></p-tag>
           </td>
+          <td>
+            @if (adjustment.isVoided) {
+              <div class="void-metadata">
+                <span>{{ 'inventory.voidedAt' | transloco }}: {{ adjustment.voidedAt | date: 'medium' }}</span>
+                <span>{{ 'inventory.voidedBy' | transloco }}: {{ adjustment.voidedByDisplayName || '-' }}</span>
+                <span>{{ 'inventory.voidReason' | transloco }}: {{ adjustment.voidReason || '-' }}</span>
+                <span>{{ 'inventory.reversalStockTransactionId' | transloco }}: {{ adjustment.reversalStockTransactionId || '-' }}</span>
+              </div>
+            } @else {
+              <span class="muted">-</span>
+            }
+          </td>
+          <td>
+            @if (canVoidAdjustment(adjustment)) {
+              <button
+                pButton
+                type="button"
+                data-testid="void-adjustment-action"
+                icon="pi pi-ban"
+                severity="danger"
+                [text]="true"
+                [label]="'inventory.voidAdjustment' | transloco"
+                (click)="onOpenVoidAdjustment(adjustment)"
+              ></button>
+            }
+          </td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="9">
+          <td colspan="11">
             <div class="empty-state">
               <h2>{{ 'inventory.noAdjustments' | transloco }}</h2>
               <p>{{ 'inventory.noAdjustmentsDescription' | transloco }}</p>
@@ -284,6 +336,56 @@
         [label]="'inventory.submitAdjustment' | transloco"
         [loading]="saving()"
         [disabled]="!selectedBatch() || adjustmentForm.invalid || saving()"
+      ></button>
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [header]="'inventory.voidAdjustment' | transloco"
+  [(visible)]="isVoidDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form [formGroup]="voidForm" class="void-form" (ngSubmit)="onSaveVoidAdjustment()">
+    @if (selectedAdjustment()) {
+      <div class="void-summary">
+        <strong>{{ selectedAdjustment()?.adjustmentNumber }}</strong>
+        <span>{{ selectedAdjustment()?.itemName }} · {{ selectedAdjustment()?.batchNumber }}</span>
+      </div>
+    }
+
+    <div class="field">
+      <label>{{ 'inventory.voidReason' | transloco }}</label>
+      <textarea
+        pTextarea
+        formControlName="reason"
+        rows="4"
+        [placeholder]="'inventory.voidReasonPlaceholder' | transloco"
+      ></textarea>
+      @if (voidForm.controls.reason.touched && voidForm.controls.reason.invalid) {
+        <span class="validation-message">{{ 'inventory.voidReasonRequired' | transloco }}</span>
+      }
+    </div>
+
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        class="p-button-text"
+        [label]="'common.cancel' | transloco"
+        [disabled]="voidSaving()"
+        (click)="isVoidDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        severity="danger"
+        [label]="'inventory.voidAdjustment' | transloco"
+        [loading]="voidSaving()"
+        [disabled]="voidForm.invalid || voidSaving()"
       ></button>
     </div>
   </form>

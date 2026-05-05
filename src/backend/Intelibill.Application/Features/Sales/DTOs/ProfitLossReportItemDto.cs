@@ -1,7 +1,7 @@
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public sealed record ProfitLossReportItemDto(
-    Guid SaleId,
+    Guid? SaleId,
     string ReferenceNumber,
     DateTimeOffset OccurredAt,
     string? PartyName,
@@ -18,4 +18,5 @@ public static class ProfitLossReportRowTypes
 {
     public const string Sale = nameof(Sale);
     public const string SaleReturn = nameof(SaleReturn);
+    public const string InventoryAdjustment = nameof(InventoryAdjustment);
 }

@@ -10,7 +10,8 @@ public sealed class GetProfitLossReportQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
-    ISaleReturnRepository saleReturnRepository)
+    ISaleReturnRepository saleReturnRepository,
+    IInventoryAdjustmentRepository inventoryAdjustmentRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>> Handle(
         GetProfitLossReportQuery query,
@@ -94,6 +95,24 @@ public sealed class GetProfitLossReportQueryHandler(
                     ProfitLossReportRowTypes.SaleReturn,
                     InventoryAdjustmentId: null));
             }
+        }
+
+        var adjustments = await inventoryAdjustmentRepository.GetProfitLossAdjustmentsAsync(query.ShopId, cancellationToken);
+        foreach (var adjustment in adjustments.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
+        {
+            report.Add(new ProfitLossReportItemDto(
+                SaleId: null,
+                adjustment.AdjustmentNumber,
+                adjustment.PerformedAt,
+                PartyName: null,
+                TotalCost: 0m,
+                WastageCost: adjustment.CostImpact,
+                RevenueBeforeTax: 0m,
+                RevenueAfterTax: 0m,
+                ProfitBeforeTax: -adjustment.CostImpact,
+                ProfitAfterTax: -adjustment.CostImpact,
+                ProfitLossReportRowTypes.InventoryAdjustment,
+                adjustment.Id));
         }
 
         return report

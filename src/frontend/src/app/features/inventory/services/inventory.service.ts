@@ -168,6 +168,20 @@ export interface AdjustInventoryBatchResponse {
   readonly performedAt: string;
 }
 
+export interface VoidInventoryAdjustmentRequest {
+  readonly reason: string;
+}
+
+export interface VoidInventoryAdjustmentResponse {
+  readonly adjustmentId: string;
+  readonly reversalStockTransactionId: string;
+  readonly batchQuantityBefore: number;
+  readonly batchQuantityAfter: number;
+  readonly inventoryQuantityBefore: number;
+  readonly inventoryQuantityAfter: number;
+  readonly voidedAt: string;
+}
+
 export interface InventoryAdjustmentHistoryItem {
   readonly adjustmentId: string;
   readonly adjustmentNumber: string;
@@ -305,6 +319,16 @@ export class InventoryService {
     return this.http.get<InventoryAdjustmentHistoryResponse>(
       `${API_BASE_URL}/inventory/adjustments`,
       { params },
+    );
+  }
+
+  voidAdjustment(
+    adjustmentId: string,
+    payload: VoidInventoryAdjustmentRequest,
+  ): Observable<VoidInventoryAdjustmentResponse> {
+    return this.http.post<VoidInventoryAdjustmentResponse>(
+      `${API_BASE_URL}/inventory/adjustments/${adjustmentId}/void`,
+      payload,
     );
   }
 

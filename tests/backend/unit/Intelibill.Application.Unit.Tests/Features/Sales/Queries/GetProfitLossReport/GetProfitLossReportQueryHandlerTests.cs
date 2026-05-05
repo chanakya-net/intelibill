@@ -14,9 +14,10 @@ public class GetProfitLossReportQueryHandlerTests
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
 
     private GetProfitLossReportQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _inventoryAdjustmentRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
@@ -222,6 +223,81 @@ public class GetProfitLossReportQueryHandlerTests
         Assert.Equal(220m, saleRow.RevenueAfterTax);
     }
 
+    [Fact]
+    public async Task Handle_AddsActiveDecreaseInventoryAdjustmentsAsLossRowsAndExcludesIncreasesAndVoidedAdjustments()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 120m, 10m, false, false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-ADJ",
+            null,
+            "Adjustment Customer",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+            110m,
+            0m,
+            110m,
+            10m,
+            [saleItem]);
+        var decrease = MakeAdjustment(
+            shop.Id,
+            "ADJ-LOSS",
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            costImpact: 45m,
+            performedAt: new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            user.Id);
+        var increase = MakeAdjustment(
+            shop.Id,
+            "ADJ-GAIN",
+            InventoryAdjustmentDirection.Increase,
+            InventoryAdjustmentReason.FoundStock,
+            costImpact: 25m,
+            performedAt: new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            user.Id);
+        var voidedDecrease = MakeAdjustment(
+            shop.Id,
+            "ADJ-VOID",
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Expired,
+            costImpact: 35m,
+            performedAt: new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero),
+            user.Id);
+        voidedDecrease.Void(DateTimeOffset.UtcNow, user.Id, "Incorrect adjustment", Guid.NewGuid());
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryAdjustmentRepository.GetProfitLossAdjustmentsAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns([decrease, increase, voidedDecrease]);
+
+        var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(["ADJ-LOSS", "INV-ADJ"], result.Value.Select(r => r.ReferenceNumber).ToArray());
+
+        var adjustmentRow = result.Value[0];
+        Assert.Null(adjustmentRow.SaleId);
+        Assert.Equal(decrease.Id, adjustmentRow.InventoryAdjustmentId);
+        Assert.Equal("ADJ-LOSS", adjustmentRow.ReferenceNumber);
+        Assert.Equal(decrease.PerformedAt, adjustmentRow.OccurredAt);
+        Assert.Null(adjustmentRow.PartyName);
+        Assert.Equal(ProfitLossReportRowTypes.InventoryAdjustment, adjustmentRow.RowType);
+        Assert.Equal(0m, adjustmentRow.TotalCost);
+        Assert.Equal(45m, adjustmentRow.WastageCost);
+        Assert.Equal(0m, adjustmentRow.RevenueBeforeTax);
+        Assert.Equal(0m, adjustmentRow.RevenueAfterTax);
+        Assert.Equal(-45m, adjustmentRow.ProfitBeforeTax);
+        Assert.Equal(-45m, adjustmentRow.ProfitAfterTax);
+        Assert.DoesNotContain(result.Value, r => r.ReferenceNumber is "ADJ-GAIN" or "ADJ-VOID");
+    }
+
     private static SaleReturn MakeReturn(
         Guid shopId,
         Guid saleId,
@@ -264,5 +340,38 @@ public class GetProfitLossReportQueryHandlerTests
             customerBalanceBefore: null,
             customerBalanceAfter: null,
             [item]).Value;
+    }
+
+    private static InventoryAdjustment MakeAdjustment(
+        Guid shopId,
+        string adjustmentNumber,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal costImpact,
+        DateTimeOffset performedAt,
+        Guid userId)
+    {
+        const decimal quantity = 1m;
+        var quantityBefore = direction == InventoryAdjustmentDirection.Decrease ? 5m : 4m;
+        var quantityAfter = direction == InventoryAdjustmentDirection.Decrease ? 4m : 5m;
+
+        return InventoryAdjustment.Create(
+            shopId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            adjustmentNumber,
+            direction,
+            reason,
+            quantity,
+            unitCost: costImpact,
+            costImpact,
+            batchQuantityBefore: quantityBefore,
+            batchQuantityAfter: quantityAfter,
+            inventoryQuantityBefore: quantityBefore,
+            inventoryQuantityAfter: quantityAfter,
+            performedAt,
+            performedBy: userId,
+            notes: null,
+            createdBy: userId).Value;
     }
 }

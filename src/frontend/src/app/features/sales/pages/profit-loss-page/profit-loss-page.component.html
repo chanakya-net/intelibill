@@ -49,13 +49,16 @@
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <span class="font-bold text-slate-800">{{ item.referenceNumber }}</span>
-                <span class="text-xs text-slate-500">{{ item.occurredAt | date:'dd MMM, h:mm a' }}</span>
+                <div class="flex items-center gap-2">
+                  <p-tag severity="info" [value]="getRowTypeTranslationKey(item.rowType) | transloco"></p-tag>
+                  <span class="text-xs text-slate-500">{{ item.occurredAt | date:'dd MMM, h:mm a' }}</span>
+                </div>
               </div>
               <div class="text-sm text-slate-600">
                 @if (item.partyName) {
                   <span>{{ item.partyName }}</span>
                 } @else {
-                  <span class="italic text-slate-400 text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
+                  <span class="italic text-slate-400 text-xs">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
                 }
               </div>
               <div class="grid grid-cols-2 gap-2 mt-1">
@@ -126,6 +129,15 @@
                 </div>
               </div>
             </th>
+            <th pSortableColumn="rowType">
+              <div class="flex items-center justify-between">
+                {{ 'sales.profitLoss.rowType' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="rowType" />
+                  <p-columnFilter type="text" field="rowType" display="menu" />
+                </div>
+              </div>
+            </th>
             <th pSortableColumn="partyName">
               <div class="flex items-center justify-between">
                 {{ 'sales.profitLoss.customer' | transloco }}
@@ -148,10 +160,13 @@
             <td class="font-bold">{{ item.referenceNumber }}</td>
             <td>{{ item.occurredAt | date:'dd MMM yyyy, h:mm a' }}</td>
             <td>
+              <p-tag severity="info" [value]="getRowTypeTranslationKey(item.rowType) | transloco"></p-tag>
+            </td>
+            <td>
               @if (item.partyName) {
                 {{ item.partyName }}
               } @else {
-                <span class="text-slate-400 italic text-xs">{{ 'sales.history.walkIn' | transloco }}</span>
+                <span class="text-slate-400 italic text-xs">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
               }
             </td>
             <td class="text-right">₹{{ item.totalCost | number:'1.2-2' }}</td>

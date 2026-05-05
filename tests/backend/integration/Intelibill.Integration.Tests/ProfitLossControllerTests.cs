@@ -66,7 +66,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         return body.GetProperty("accessToken").GetString()!;
     }
 
-    private static async Task SetupInventoryAsync(HttpClient client, string token, string barcode)
+    private static async Task<Guid> SetupInventoryAsync(HttpClient client, string token, string barcode)
     {
         using var supplierRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
         supplierRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -122,6 +122,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         });
         var inventoryResponse = await client.SendAsync(inventoryRequest);
         inventoryResponse.EnsureSuccessStatusCode();
+        var inventoryBody = await inventoryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        return inventoryBody.GetProperty("inventoryBatchId").GetGuid();
     }
 
     // ======================= EXISTING TEST (PRESERVED) =======================
@@ -256,5 +258,101 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<List<JsonElement>>();
         Assert.Empty(body!);
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_IncludesActiveDecreaseAdjustmentsAndExcludesIncreasesAndVoidedAdjustments()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
+        var decrease = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 1m,
+            notes: "Damaged stock");
+        var increase = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Increase,
+            InventoryAdjustmentReason.FoundStock,
+            quantity: 1m,
+            notes: "Found stock");
+        var voidedDecrease = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Expired,
+            quantity: 1m,
+            notes: "Expired stock");
+        await VoidAdjustmentAsync(client, ownerToken, voidedDecrease.AdjustmentId);
+
+        using var reportRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
+        reportRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var reportResponse = await client.SendAsync(reportRequest);
+
+        Assert.Equal(HttpStatusCode.OK, reportResponse.StatusCode);
+        var report = await reportResponse.Content.ReadFromJsonAsync<List<JsonElement>>();
+        Assert.NotNull(report);
+        var adjustmentRow = Assert.Single(report!, row => row.GetProperty("referenceNumber").GetString() == decrease.AdjustmentNumber);
+        Assert.Equal("InventoryAdjustment", adjustmentRow.GetProperty("rowType").GetString());
+        Assert.Equal(JsonValueKind.Null, adjustmentRow.GetProperty("saleId").ValueKind);
+        Assert.Equal(decrease.AdjustmentId, adjustmentRow.GetProperty("inventoryAdjustmentId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, adjustmentRow.GetProperty("partyName").ValueKind);
+        Assert.Equal(0m, adjustmentRow.GetProperty("totalCost").GetDecimal());
+        Assert.Equal(80m, adjustmentRow.GetProperty("wastageCost").GetDecimal());
+        Assert.Equal(0m, adjustmentRow.GetProperty("revenueBeforeTax").GetDecimal());
+        Assert.Equal(0m, adjustmentRow.GetProperty("revenueAfterTax").GetDecimal());
+        Assert.Equal(-80m, adjustmentRow.GetProperty("profitBeforeTax").GetDecimal());
+        Assert.Equal(-80m, adjustmentRow.GetProperty("profitAfterTax").GetDecimal());
+        Assert.DoesNotContain(report!, row => row.GetProperty("referenceNumber").GetString() == increase.AdjustmentNumber);
+        Assert.DoesNotContain(report!, row => row.GetProperty("referenceNumber").GetString() == voidedDecrease.AdjustmentNumber);
+    }
+
+    private static async Task<(Guid AdjustmentId, string AdjustmentNumber)> CreateAdjustmentAsync(
+        HttpClient client,
+        string token,
+        Guid batchId,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal quantity,
+        string notes)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/batches/{batchId}/adjust");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            direction,
+            reason,
+            quantity,
+            performedAt = (DateTimeOffset?)null,
+            notes,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("adjustmentId").GetGuid(), body.GetProperty("adjustmentNumber").GetString()!);
+    }
+
+    private static async Task VoidAdjustmentAsync(HttpClient client, string token, Guid adjustmentId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            reason = "Entered by mistake",
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
     }
 }
