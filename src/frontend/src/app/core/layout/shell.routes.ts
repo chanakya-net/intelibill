@@ -106,6 +106,13 @@ export const shellRoutes: Routes = [
 					).then((m) => m.InventoryBatchesListPageComponent),
 			},
 			{
+				path: 'inventory/adjustments',
+				loadComponent: () =>
+					import(
+						'../../features/inventory/pages/inventory-adjustments-page/inventory-adjustments-page.component'
+					).then((m) => m.InventoryAdjustmentsPageComponent),
+			},
+			{
 				path: 'inventory',
 				loadComponent: () =>
 					import('../../features/inventory/pages/inventory-page.component').then(

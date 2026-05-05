@@ -78,12 +78,17 @@ export class ShellComponent {
             label: this.localizationService.translate('shell.batchInventoryInbound'),
             icon: 'pi pi-plus',
             command: () => this.onOpenInventoryBatch(),
-            },
-            {
+          },
+          {
             label: this.localizationService.translate('shell.inventoryBatchesOverview'),
             icon: 'pi pi-list',
             command: () => this.onOpenInventoryBatchesOverview(),
-            },
+          },
+          {
+            label: this.localizationService.translate('shell.inventoryAdjustments'),
+            icon: 'pi pi-history',
+            command: () => this.onOpenInventoryAdjustments(),
+          },
         ],
       });
     }
@@ -338,12 +343,17 @@ export class ShellComponent {
         label: this.localizationService.translate('shell.batchInventoryInbound'),
         icon: 'pi pi-plus',
         command: () => this.onOpenInventoryBatch(),
-        },
-        {
+      },
+      {
         label: this.localizationService.translate('shell.inventoryBatchesOverview'),
         icon: 'pi pi-list',
         command: () => this.onOpenInventoryBatchesOverview(),
-        },
+      },
+      {
+        label: this.localizationService.translate('shell.inventoryAdjustments'),
+        icon: 'pi pi-history',
+        command: () => this.onOpenInventoryAdjustments(),
+      },
     ];
   });
   readonly salesMenuItems = computed<MenuItem[]>(() => {
@@ -629,6 +639,11 @@ export class ShellComponent {
   onOpenInventoryBatchesOverview(): void {
     this.onCloseMenus();
     void this.router.navigate(['/inventory/batches']);
+  }
+
+  onOpenInventoryAdjustments(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/inventory/adjustments']);
   }
 
   onNavigateToSuppliers(): void {

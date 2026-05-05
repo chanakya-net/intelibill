@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
 
@@ -168,6 +168,54 @@ export interface AdjustInventoryBatchResponse {
   readonly performedAt: string;
 }
 
+export interface InventoryAdjustmentHistoryItem {
+  readonly adjustmentId: string;
+  readonly adjustmentNumber: string;
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly barcode: string;
+  readonly batchId: string;
+  readonly batchNumber: string;
+  readonly direction: InventoryAdjustmentDirection;
+  readonly reason: InventoryAdjustmentReason;
+  readonly quantity: number;
+  readonly unitCost: number;
+  readonly costImpact: number;
+  readonly batchQuantityBefore: number;
+  readonly batchQuantityAfter: number;
+  readonly inventoryQuantityBefore: number;
+  readonly inventoryQuantityAfter: number;
+  readonly performedAt: string;
+  readonly performedByUserId: string;
+  readonly performedByDisplayName: string;
+  readonly notes: string | null;
+  readonly isVoided: boolean;
+  readonly voidedAt: string | null;
+  readonly voidedByUserId: string | null;
+  readonly voidedByDisplayName: string | null;
+  readonly voidReason: string | null;
+  readonly reversalStockTransactionId: string | null;
+}
+
+export interface InventoryAdjustmentHistoryQuery {
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly itemId?: string | null;
+  readonly batchId?: string | null;
+  readonly direction?: InventoryAdjustmentDirection | null;
+  readonly reason?: InventoryAdjustmentReason | null;
+  readonly from?: string | null;
+  readonly to?: string | null;
+  readonly includeVoided?: boolean | null;
+}
+
+export interface InventoryAdjustmentHistoryResponse {
+  readonly items: readonly InventoryAdjustmentHistoryItem[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+}
+
 export interface ProductDetailsDto {
   readonly name: string;
   readonly description: string;
@@ -234,6 +282,29 @@ export class InventoryService {
     return this.http.post<AdjustInventoryBatchResponse>(
       `${API_BASE_URL}/inventory/batches/${batchId}/adjust`,
       payload,
+    );
+  }
+
+  getAdjustmentHistory(
+    query: InventoryAdjustmentHistoryQuery,
+  ): Observable<InventoryAdjustmentHistoryResponse> {
+    let params = new HttpParams()
+      .set('pageNumber', query.pageNumber)
+      .set('pageSize', query.pageSize);
+
+    if (query.itemId) params = params.set('itemId', query.itemId);
+    if (query.batchId) params = params.set('batchId', query.batchId);
+    if (query.direction) params = params.set('direction', query.direction);
+    if (query.reason) params = params.set('reason', query.reason);
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+    if (query.includeVoided !== null && query.includeVoided !== undefined) {
+      params = params.set('includeVoided', query.includeVoided);
+    }
+
+    return this.http.get<InventoryAdjustmentHistoryResponse>(
+      `${API_BASE_URL}/inventory/adjustments`,
+      { params },
     );
   }
 

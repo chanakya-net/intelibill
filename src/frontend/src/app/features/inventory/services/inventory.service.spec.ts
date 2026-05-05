@@ -224,4 +224,75 @@ describe('InventoryService', () => {
 
     http.verify();
   });
+
+  it('loads adjustment history with server-side filters and paging', () => {
+    const { service, http } = setup();
+
+    service
+      .getAdjustmentHistory({
+        pageNumber: 2,
+        pageSize: 25,
+        itemId: 'item-1',
+        batchId: 'batch-1',
+        direction: 'Decrease',
+        reason: 'Damaged',
+        from: '2026-05-01',
+        to: '2026-05-05',
+        includeVoided: true,
+      })
+      .subscribe((response) => {
+        expect(response.totalCount).toBe(1);
+        expect(response.items[0].adjustmentNumber).toBe('ADJ-0001');
+      });
+
+    const request = http.expectOne((req) => req.url === `${API_BASE_URL}/inventory/adjustments`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('pageNumber')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('25');
+    expect(request.request.params.get('itemId')).toBe('item-1');
+    expect(request.request.params.get('batchId')).toBe('batch-1');
+    expect(request.request.params.get('direction')).toBe('Decrease');
+    expect(request.request.params.get('reason')).toBe('Damaged');
+    expect(request.request.params.get('from')).toBe('2026-05-01');
+    expect(request.request.params.get('to')).toBe('2026-05-05');
+    expect(request.request.params.get('includeVoided')).toBe('true');
+
+    request.flush({
+      items: [
+        {
+          adjustmentId: 'adjustment-1',
+          adjustmentNumber: 'ADJ-0001',
+          itemId: 'item-1',
+          itemName: 'Rice',
+          barcode: '111',
+          batchId: 'batch-1',
+          batchNumber: 'BATCH-001',
+          direction: 'Decrease',
+          reason: 'Damaged',
+          quantity: 2,
+          unitCost: 100,
+          costImpact: -200,
+          batchQuantityBefore: 10,
+          batchQuantityAfter: 8,
+          inventoryQuantityBefore: 20,
+          inventoryQuantityAfter: 18,
+          performedAt: '2026-05-05T08:30:00.000Z',
+          performedByUserId: 'user-1',
+          performedByDisplayName: 'Test User',
+          notes: 'Damaged',
+          isVoided: false,
+          voidedAt: null,
+          voidedByUserId: null,
+          voidedByDisplayName: null,
+          voidReason: null,
+          reversalStockTransactionId: null,
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 25,
+    });
+
+    http.verify();
+  });
 });
