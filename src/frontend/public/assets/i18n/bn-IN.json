@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "এখনই লগইন করুন",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "イমেল ঠিকানা",
     "emailPlaceholder": "ইমেল বা ইউজারনেম",
     "password": "পাসওয়ার্ড",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "সাইন ইন করতে সক্ষম হয়নি",
     "validation": {
       "emailInvalid": "সঠিক ইমেল ঠিকানা লিখুন।",
-      "passwordRequired": "পাসওয়ার্ড আবশ্যক।"
+      "passwordRequired": "পাসওয়ার্ড আবশ্যক।",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

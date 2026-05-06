@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "ഇപ്പോൾ ലോഗിൻ ചെയ്യുക",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "ഇമെയിൽ വിലാസം",
     "emailPlaceholder": "ഇമെയിൽ അല്ലെങ്കിൽ യൂസർനേം",
     "password": "പാസ്‌വേഡ്",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "സൈൻ ഇൻ ചെയ്യാൻ കഴിഞ്ഞില്ല",
     "validation": {
       "emailInvalid": "സാധുവായ ഇമെയിൽ നൽകുക.",
-      "passwordRequired": "പാസ്‌വേഡ് ആവശ്യമാണ്."
+      "passwordRequired": "പാസ്‌വേഡ് ആവശ്യമാണ്.",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

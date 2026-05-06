@@ -184,13 +184,13 @@ describe('AuthService', () => {
     const result = buildAuthResult();
     let emitted: AuthSession | undefined;
 
-    service.loginWithEmail(' user@example.com ', 'pw', true).subscribe((session) => {
+    service.login(' user@example.com ', 'pw', true).subscribe((session) => {
       emitted = session;
     });
 
-    const request = http.expectOne(AUTH_ENDPOINTS.loginWithEmail);
+    const request = http.expectOne(AUTH_ENDPOINTS.login);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: ' user@example.com ', password: 'pw' });
+    expect(request.request.body).toEqual({ identifier: ' user@example.com ', password: 'pw' });
     request.flush(result);
 
     expect(emitted?.accessToken).toBe(result.accessToken);
@@ -206,9 +206,9 @@ describe('AuthService', () => {
   it('clears last email when rememberMe is false', () => {
     const { service, http } = setup();
 
-    service.loginWithEmail('user@example.com', 'pw', false).subscribe();
+    service.login('user@example.com', 'pw', false).subscribe();
 
-    const request = http.expectOne(AUTH_ENDPOINTS.loginWithEmail);
+    const request = http.expectOne(AUTH_ENDPOINTS.login);
     request.flush(buildAuthResult());
 
     expect(storage.clearLastEmail).toHaveBeenCalledTimes(1);

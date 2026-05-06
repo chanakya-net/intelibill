@@ -13,7 +13,7 @@ import {
   ExternalLoginCallbackRequest,
   ExternalLoginInitRequest,
   ExternalLoginInitResponse,
-  LoginWithEmailRequest,
+  LoginRequest,
   RefreshTokenRequest,
   RegisterWithEmailRequest,
 } from './auth.models';
@@ -68,15 +68,15 @@ export class AuthService {
     }
   }
 
-  loginWithEmail(email: string, password: string, rememberMe: boolean): Observable<AuthSession> {
-    const payload: LoginWithEmailRequest = { email, password };
+  login(identifier: string, password: string, rememberMe: boolean): Observable<AuthSession> {
+    const payload: LoginRequest = { identifier, password };
 
-    return this.http.post<AuthResult>(AUTH_ENDPOINTS.loginWithEmail, payload).pipe(
+    return this.http.post<AuthResult>(AUTH_ENDPOINTS.login, payload).pipe(
       map((result) => this.toSession(result, rememberMe)),
       tap((session) => {
         this.setSession(session);
         if (rememberMe) {
-          this.storage.saveLastEmail(email);
+          this.storage.saveLastEmail(identifier);
         } else {
           this.storage.clearLastEmail();
         }

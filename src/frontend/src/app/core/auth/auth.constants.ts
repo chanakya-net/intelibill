@@ -5,7 +5,8 @@ export const HUB_BASE_URL = environment.hubBaseUrl;
 
 export const AUTH_ENDPOINTS = {
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
-  loginWithEmail: `${API_BASE_URL}/auth/login/email`,
+  login: `${API_BASE_URL}/auth/login`,
+  loginWithEmail: `${API_BASE_URL}/auth/login`,
   loginExternalInit: `${API_BASE_URL}/auth/login/external/init`,
   loginExternalCallback: `${API_BASE_URL}/auth/login/external/callback`,
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,

@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "இப்போது உள்நுழைக",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "மின்னஞ்சல் முகவரி",
     "emailPlaceholder": "மின்னஞ்சல் அல்லது பயனர்பெயர்",
     "password": "கடவுச்சொல்",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "உள்நுழைய முடியவில்லை",
     "validation": {
       "emailInvalid": "சரியான மின்னஞ்சலை உள்ளிடவும்.",
-      "passwordRequired": "கடவுச்சொல் அவசியம்."
+      "passwordRequired": "கடவுச்சொல் அவசியம்.",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

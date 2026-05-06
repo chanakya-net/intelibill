@@ -15,7 +15,7 @@ describe('LoginPageComponent', () => {
   const authService = {
     isAuthenticated: vi.fn<AuthService['isAuthenticated']>(),
     getLastRememberedEmail: vi.fn<AuthService['getLastRememberedEmail']>(),
-    loginWithEmail: vi.fn<AuthService['loginWithEmail']>(),
+    login: vi.fn<AuthService['login']>(),
     initializeExternalLogin: vi.fn<AuthService['initializeExternalLogin']>(),
   };
 
@@ -54,7 +54,7 @@ describe('LoginPageComponent', () => {
   beforeEach(() => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.getLastRememberedEmail.mockReturnValue('');
-    authService.loginWithEmail.mockReturnValue(of({} as AuthSession));
+    authService.login.mockReturnValue(of({} as AuthSession));
     authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
     store.selectSignal.mockImplementation(() => signal(false));
     sessionStorage.clear();
@@ -75,40 +75,61 @@ describe('LoginPageComponent', () => {
     authService.getLastRememberedEmail.mockReturnValue('remembered@example.com');
     const { component } = setup();
 
-    expect(component.form.controls.email.value).toBe('remembered@example.com');
+    expect(component.form.controls.identifier.value).toBe('remembered@example.com');
     expect(component.form.controls.rememberMe.value).toBe(true);
   });
 
   it('does not submit when form is invalid', () => {
     const { component } = setup();
-    component.form.controls.email.setValue('');
+    component.form.controls.identifier.setValue('');
     component.form.controls.password.setValue('');
 
     component.onSubmit();
 
     expect(component.form.touched).toBe(true);
-    expect(authService.loginWithEmail).not.toHaveBeenCalled();
+    expect(authService.login).not.toHaveBeenCalled();
   });
 
   it('submits and navigates on success', () => {
     const { component, navigateByUrl } = setup();
-    component.form.controls.email.setValue('user@example.com');
+    component.form.controls.identifier.setValue('user@example.com');
     component.form.controls.password.setValue('Password123!');
     component.form.controls.rememberMe.setValue(true);
 
     component.onSubmit();
 
-    expect(authService.loginWithEmail).toHaveBeenCalledWith('user@example.com', 'Password123!', true);
+    expect(authService.login).toHaveBeenCalledWith('user@example.com', 'Password123!', true);
     expect(navigateByUrl).toHaveBeenCalledWith('/');
     expect(component.serverError()).toBeNull();
   });
 
+  it('accepts phone-like identifier and calls generic auth login', () => {
+    const { component } = setup();
+    component.form.controls.identifier.setValue('9876543210');
+    component.form.controls.password.setValue('Password123!');
+    component.form.controls.rememberMe.setValue(false);
+
+    component.onSubmit();
+
+    expect(authService.login).toHaveBeenCalledWith('9876543210', 'Password123!', false);
+  });
+
+  it('trims identifier before submit', () => {
+    const { component } = setup();
+    component.form.controls.identifier.setValue('  user@example.com  ');
+    component.form.controls.password.setValue('Password123!');
+
+    component.onSubmit();
+
+    expect(authService.login).toHaveBeenCalledWith('user@example.com', 'Password123!', true);
+  });
+
   it('maps invalid credential error into friendly message', () => {
-    authService.loginWithEmail.mockReturnValue(
+    authService.login.mockReturnValue(
       throwError(() => ({ error: { title: 'Auth.InvalidCredentials' } }))
     );
     const { component } = setup();
-    component.form.controls.email.setValue('user@example.com');
+    component.form.controls.identifier.setValue('user@example.com');
     component.form.controls.password.setValue('Password123!');
 
     component.onSubmit();

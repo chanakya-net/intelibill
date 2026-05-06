@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "ఇప్పుడే లాగిన్ అవ్వండి",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "ఇమెయిల్ చిరునామా",
     "emailPlaceholder": "ఇమెయిల్ లేదా యూజర్‌నేమ్",
     "password": "పాస్‌వర్డ్",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "సైన్ ఇన్ చేయడం సాధ్యం కాలేదు",
     "validation": {
       "emailInvalid": "చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.",
-      "passwordRequired": "పాస్‌వర్డ్ అవసరం."
+      "passwordRequired": "పాస్‌వర్డ్ అవసరం.",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

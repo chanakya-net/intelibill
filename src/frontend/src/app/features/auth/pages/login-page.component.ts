@@ -48,7 +48,7 @@ export class LoginPageComponent implements OnInit {
   readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
 
   readonly form = this.formBuilder.nonNullable.group({
-    email: ['', [Validators.required, Validators.email]],
+    identifier: ['', [Validators.required]],
     password: ['', [Validators.required]],
     rememberMe: [true],
   });
@@ -73,7 +73,7 @@ export class LoginPageComponent implements OnInit {
 
     const rememberedEmail = this.authService.getLastRememberedEmail();
     if (rememberedEmail) {
-      this.form.controls.email.setValue(rememberedEmail);
+      this.form.controls.identifier.setValue(rememberedEmail);
       this.form.controls.rememberMe.setValue(true);
     }
 
@@ -135,9 +135,9 @@ export class LoginPageComponent implements OnInit {
 
     this.serverError.set(null);
 
-    const { email, password, rememberMe } = this.form.getRawValue();
+    const { identifier, password, rememberMe } = this.form.getRawValue();
 
-    this.authService.loginWithEmail(email.trim(), password, rememberMe).subscribe({
+    this.authService.login(identifier.trim(), password, rememberMe).subscribe({
       next: () => {
         void this.router.navigateByUrl('/');
       },
