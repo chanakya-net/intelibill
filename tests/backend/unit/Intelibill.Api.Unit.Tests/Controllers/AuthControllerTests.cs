@@ -5,6 +5,8 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Models;
 using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
+using Intelibill.Application.Features.Auth.Commands.Login;
+using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Enums;
@@ -100,6 +102,23 @@ public class AuthControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(authResult, ok.Value);
+    }
+
+    [Fact]
+    public async Task Login_WhenSuccessful_ReturnsOkAndDispatchesGenericCommand()
+    {
+        var authResult = CreateAuthResult();
+        ArrangeBusResponse<AuthResult>(authResult);
+        var request = new LoginRequest("user@test.com", "Pass123!");
+
+        var result = await _controller.Login(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(authResult, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+            Arg.Is<LoginCommand>(c => c.Identifier == request.Identifier && c.Password == request.Password),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -330,6 +349,35 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task LoginWithEmail_DispatchesGenericCommandForCompatibility()
+    {
+        var request = new LoginWithEmailRequest("user@test.com", "Pass123!");
+        ArrangeBusResponse<AuthResult>(CreateAuthResult());
+
+        _ = await _controller.LoginWithEmail(request, CancellationToken.None);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+            Arg.Is<LoginCommand>(c => c.Identifier == request.Email && c.Password == request.Password),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Login_WhenInvalidCredentials_ReturnsUnauthorized()
+    {
+        ArrangeBusResponse<AuthResult>(Errors.Auth.InvalidCredentials);
+
+        var result = await _controller.Login(
+            new LoginRequest("user@test.com", "Pass123!"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
+
+        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal(Errors.Auth.InvalidCredentials.Code, details.Title);
+    }
+
+    [Fact]
     public async Task RefreshToken_WhenUnexpectedError_ReturnsInternalServerError()
     {
         ArrangeBusResponse<AuthResult>(Error.Unexpected("Auth.Unexpected", "Unexpected failure"));
@@ -387,6 +435,19 @@ public class AuthControllerTests
 
         var result = await _controller.LoginWithEmail(
             new LoginWithEmailRequest("user@test.com", "Pass123!"),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_WhenUnexpectedError_ReturnsInternalServerError()
+    {
+        ArrangeBusResponse<AuthResult>(Error.Unexpected("Auth.Unexpected", "Unexpected failure"));
+
+        var result = await _controller.Login(
+            new LoginRequest("user@test.com", "Pass123!"),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);

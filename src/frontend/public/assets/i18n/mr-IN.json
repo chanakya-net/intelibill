@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "आता लॉगिन करा",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "ईमेल पत्ता",
     "emailPlaceholder": "ईमेल किंवा वापरकर्ता नाव",
     "password": "पासवर्ड",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "साइन इन करता आले नाही",
     "validation": {
       "emailInvalid": "वैध ईमेल पत्ता प्रविष्ट करा.",
-      "passwordRequired": "पासवर्ड आवश्यक आहे."
+      "passwordRequired": "पासवर्ड आवश्यक आहे.",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

@@ -25,6 +25,8 @@
   },
   "auth": {
     "loginNow": "Login Now",
+    "loginIdentifierLabel": "Email or mobile number",
+    "loginIdentifierPlaceholder": "Enter email or mobile number",
     "emailAddress": "Email Address",
     "emailPlaceholder": "Email or Username",
     "password": "Password",
@@ -40,7 +42,8 @@
     "couldNotSignIn": "Could not sign in",
     "validation": {
       "emailInvalid": "Enter a valid email address.",
-      "passwordRequired": "Password is required."
+      "passwordRequired": "Password is required.",
+      "loginIdentifierRequired": "Enter your email or mobile number."
     }
   },
   "register": {

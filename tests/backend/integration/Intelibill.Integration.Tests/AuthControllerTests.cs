@@ -160,6 +160,135 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task LoginWithPhone_ExactStoredPhoneAndPassword_Returns200()
+    {
+        using var client = CreateClient();
+        var phone = UniquePhone();
+        var password = "StaffPass1!";
+        var email = UniqueEmail();
+
+        var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(),
+            password = "Pass123!",
+            firstName = "Owner",
+            lastName = "User"
+        });
+        ownerRegister.EnsureSuccessStatusCode();
+        var ownerBody = await ownerRegister.Content.ReadFromJsonAsync<JsonElement>();
+        var ownerToken = ownerBody.GetProperty("accessToken").GetString()!;
+
+        using var createShopRequest = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
+        createShopRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerToken);
+        createShopRequest.Content = JsonContent.Create(new
+        {
+            name = $"Shop {Guid.NewGuid():N}",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560001"
+        });
+        var createShopResponse = await client.SendAsync(createShopRequest);
+        createShopResponse.EnsureSuccessStatusCode();
+        var shopBody = await createShopResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var shopId = shopBody.GetProperty("activeShopId").GetGuid();
+        var scopedOwnerToken = shopBody.GetProperty("accessToken").GetString()!;
+
+        using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        addUserRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", scopedOwnerToken);
+        addUserRequest.Content = JsonContent.Create(new
+        {
+            shopIds = new[] { shopId },
+            email,
+            firstName = "Staff",
+            lastName = "Member",
+            phoneNumber = phone,
+            password,
+            confirmPassword = password,
+            role = "Manager"
+        });
+        var addUserResponse = await client.SendAsync(addUserRequest);
+        addUserResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            identifier = $"  {phone}  ",
+            password
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(phone, body.GetProperty("user").GetProperty("phoneNumber").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
+    }
+
+    [Fact]
+    public async Task LoginWithPhone_MismatchOrWrongPassword_Returns401()
+    {
+        using var client = CreateClient();
+        var phone = UniquePhone();
+        var password = "StaffPass1!";
+        var email = UniqueEmail();
+
+        var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
+        {
+            email = UniqueEmail(),
+            password = "Pass123!",
+            firstName = "Owner",
+            lastName = "User"
+        });
+        ownerRegister.EnsureSuccessStatusCode();
+        var ownerBody = await ownerRegister.Content.ReadFromJsonAsync<JsonElement>();
+        var ownerToken = ownerBody.GetProperty("accessToken").GetString()!;
+
+        using var createShopRequest = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
+        createShopRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerToken);
+        createShopRequest.Content = JsonContent.Create(new
+        {
+            name = $"Shop {Guid.NewGuid():N}",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560001"
+        });
+        var createShopResponse = await client.SendAsync(createShopRequest);
+        createShopResponse.EnsureSuccessStatusCode();
+        var shopBody = await createShopResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var shopId = shopBody.GetProperty("activeShopId").GetGuid();
+        var scopedOwnerToken = shopBody.GetProperty("accessToken").GetString()!;
+
+        using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        addUserRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", scopedOwnerToken);
+        addUserRequest.Content = JsonContent.Create(new
+        {
+            shopIds = new[] { shopId },
+            email,
+            firstName = "Staff",
+            lastName = "Member",
+            phoneNumber = phone,
+            password,
+            confirmPassword = password,
+            role = "Manager"
+        });
+        var addUserResponse = await client.SendAsync(addUserRequest);
+        addUserResponse.EnsureSuccessStatusCode();
+
+        var mismatchResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            identifier = phone.TrimStart('+'),
+            password
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, mismatchResponse.StatusCode);
+
+        var wrongPasswordResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            identifier = phone,
+            password = "WrongPass!"
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongPasswordResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task RequestPasswordReset_ForAnyEmail_AlwaysReturns200()
     {
         using var client = CreateClient();

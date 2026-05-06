@@ -22,20 +22,20 @@
         [class.form-busy]="isHttpLoading()"
       >
         <div class="field-wrap space-y-1.5">
-          <label for="email">{{ 'auth.emailAddress' | transloco }}</label>
+          <label for="identifier">{{ 'auth.loginIdentifierLabel' | transloco }}</label>
           <input
-            id="email"
-            type="email"
+            id="identifier"
+            type="text"
             pInputText
-            formControlName="email"
-            autocomplete="email"
+            formControlName="identifier"
+            autocomplete="username"
             class="w-full"
-            [placeholder]="'auth.emailPlaceholder' | transloco"
-            [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            [placeholder]="'auth.loginIdentifierPlaceholder' | transloco"
+            [class.ng-invalid]="form.controls.identifier.invalid && form.controls.identifier.touched"
             [pt]="emailInputPt"
           />
-          @if (form.controls.email.invalid && form.controls.email.touched) {
-            <p class="field-error">{{ 'auth.validation.emailInvalid' | transloco }}</p>
+          @if (form.controls.identifier.invalid && form.controls.identifier.touched) {
+            <p class="field-error">{{ 'auth.validation.loginIdentifierRequired' | transloco }}</p>
           }
         </div>
 

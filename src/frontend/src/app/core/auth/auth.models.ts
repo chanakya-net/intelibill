@@ -1,5 +1,5 @@
-export interface LoginWithEmailRequest {
-  readonly email: string;
+export interface LoginRequest {
+  readonly identifier: string;
   readonly password: string;
 }
 
