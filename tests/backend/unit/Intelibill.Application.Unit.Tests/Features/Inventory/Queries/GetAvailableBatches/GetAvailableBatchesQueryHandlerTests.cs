@@ -26,23 +26,27 @@ public class GetAvailableBatchesQueryHandlerTests
     private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
         ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
 
-    private static InventoryBatch MakeBatch(Guid shopId, Guid itemId, string barcode = "BC-001")
+    private static InventoryBatch MakeBatch(Guid shopId, Guid itemId)
     {
         var result = InventoryBatch.Create(shopId, itemId, "B-01",
             50m, 80m, 120m, 100m, 18m, false, null, null, null, Guid.NewGuid());
         return result.Value;
     }
 
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
+
     [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsNotFoundError()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
+        var searchTerm = CreateQrLikeBarcode();
 
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns((User?)null);
 
         var handler = CreateHandler();
-        var result = await handler.Handle(new GetAvailableBatchesQuery(userId, shopId, "BC-001"), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableBatchesQuery(userId, shopId, searchTerm), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("User.NotFound", result.FirstError.Code);
@@ -53,12 +57,13 @@ public class GetAvailableBatchesQueryHandlerTests
     {
         var user = MakeUser();
         var shopId = Guid.NewGuid();
+        var searchTerm = CreateQrLikeBarcode();
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns((Shop?)null);
 
         var handler = CreateHandler();
-        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shopId, "BC-001"), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shopId, searchTerm), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.ShopNotFound.Code, result.FirstError.Code);
@@ -69,13 +74,14 @@ public class GetAvailableBatchesQueryHandlerTests
     {
         var user = MakeUser();
         var shop = MakeShop();
+        var searchTerm = CreateQrLikeBarcode();
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns((ShopMembership?)null);
 
         var handler = CreateHandler();
-        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, "BC-001"), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.MembershipNotFound.Code, result.FirstError.Code);
@@ -88,19 +94,22 @@ public class GetAvailableBatchesQueryHandlerTests
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
         var itemId = Guid.NewGuid();
+        var searchTerm = CreateQrLikeBarcode();
         var batch = MakeBatch(shop.Id, itemId);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _batchRepository.GetAvailableByBarcodeAsync(shop.Id, "BC-001", Arg.Any<CancellationToken>())
+        _batchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>())
             .Returns(new[] { batch });
 
         var handler = CreateHandler();
-        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, "BC-001"), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Single(result.Value);
+        Assert.Equal(searchTerm, result.Value[0].Barcode);
+        Assert.Equal(searchTerm, result.Value[0].ItemName);
         Assert.Equal(batch.BatchNumber, result.Value[0].BatchNumber);
         Assert.Equal(batch.Quantity, result.Value[0].Quantity);
         Assert.Equal(batch.SalesPrice, result.Value[0].SalesPrice);

@@ -74,6 +74,7 @@ public class ItemsControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
+        var barcode = CreateQrLikeBarcode();
         _controller.HttpContext.Request.Headers.Authorization = "Bearer token-123";
 
         var dto = new ProductDetailsDto(
@@ -91,7 +92,7 @@ public class ItemsControllerTests
         _bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(dto);
 
-        var result = await _controller.GetProductDetails(name: null, barcode: "111", CancellationToken.None);
+        var result = await _controller.GetProductDetails(name: null, barcode: barcode, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(dto, ok.Value);
@@ -101,10 +102,13 @@ public class ItemsControllerTests
                 q.UserId == userId
                 && q.ActiveShopId == shopId
                 && q.ProductName == null
-                && q.Barcode == "111"
+                && q.Barcode == barcode
                 && q.AuthorizationHeader == "Bearer token-123"),
             Arg.Any<CancellationToken>());
     }
+
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('C', 24)}";
 
     [Fact]
     public async Task AddItem_WhenNoUserClaim_ReturnsUnauthorized()

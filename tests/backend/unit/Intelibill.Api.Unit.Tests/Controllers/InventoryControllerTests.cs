@@ -8,6 +8,7 @@ using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -84,6 +85,32 @@ public class InventoryControllerTests
                 && c.Barcode == request.Barcode
                 && c.SupplierId == request.SupplierId
                 && c.Quantity == request.Quantity),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAvailableBatches_WhenValid_ForwardsQrBarcode()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var barcode = CreateQrLikeBarcode();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(Array.Empty<AvailableBatchDto>().ToList()));
+
+        var result = await _controller.GetAvailableBatches(searchTerm: null, barcode: barcode, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
+            Arg.Is<GetAvailableBatchesQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SearchTerm == barcode),
             Arg.Any<CancellationToken>());
     }
 
@@ -307,6 +334,9 @@ public class InventoryControllerTests
             ReferenceNumber: null,
             Notes: null,
             PerformedAt: null);
+
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('D', 24)}";
 
     private void SetUserClaims(params Claim[] claims)
     {

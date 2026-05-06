@@ -16,7 +16,7 @@ export interface BarcodeDetection {
   engine: DetectionEngine;
 }
 
-type NativeBarcodeFormat = 'code_128' | 'code_39' | 'ean_13' | 'ean_8' | 'upc_a' | 'upc_e';
+type NativeBarcodeFormat = 'code_128' | 'code_39' | 'ean_13' | 'ean_8' | 'qr_code' | 'upc_a' | 'upc_e';
 
 interface NativeDetectedBarcode {
   rawValue?: string;
@@ -41,6 +41,7 @@ export class BarcodeDetectorService {
     'code_39',
     'ean_13',
     'ean_8',
+    'qr_code',
     'upc_a',
     'upc_e',
   ];
@@ -50,6 +51,7 @@ export class BarcodeDetectorService {
     BarcodeFormat.CODE_39,
     BarcodeFormat.EAN_13,
     BarcodeFormat.EAN_8,
+    BarcodeFormat.QR_CODE,
     BarcodeFormat.UPC_A,
     BarcodeFormat.UPC_E,
   ];

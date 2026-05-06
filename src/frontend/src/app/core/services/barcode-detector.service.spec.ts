@@ -21,7 +21,7 @@ describe('BarcodeDetectorService', () => {
     TestBed.resetTestingModule();
   });
 
-  it('falls back to ZXing and reports detections', async () => {
+  it('falls back to ZXing and reports QR detections', async () => {
     (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector = undefined;
     const stop = vi.fn();
     const controls = { stop };
@@ -29,8 +29,8 @@ describe('BarcodeDetectorService', () => {
     vi.spyOn(BrowserMultiFormatReader.prototype, 'decodeFromVideoElement').mockImplementation(async (_video, callback) => {
       callback(
         {
-          getText: () => 'ZX-123',
-          getBarcodeFormat: () => BarcodeFormat.CODE_128,
+          getText: () => 'QR-123',
+          getBarcodeFormat: () => BarcodeFormat.QR_CODE,
         } as never,
         undefined,
         controls as never,
@@ -49,21 +49,21 @@ describe('BarcodeDetectorService', () => {
 
     expect(service.preferredEngineLabel).toBe('ZXing fallback');
     expect(onDetected).toHaveBeenCalledWith({
-      value: 'ZX-123',
-      format: 'CODE-128',
+      value: 'QR-123',
+      format: 'QR-CODE',
       engine: 'zxing',
     });
     expect(onFailure).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledTimes(1);
   });
 
-  it('uses native detector when supported formats are available', async () => {
-    const detect = vi.fn(async () => [{ rawValue: 'NATIVE-1', format: 'code_128' }]);
+  it('uses native detector when QR is supported', async () => {
+    const detect = vi.fn(async () => [{ rawValue: 'NATIVE-QR-1', format: 'qr_code' }]);
     const rafCallbacks: FrameRequestCallback[] = [];
 
     class FakeBarcodeDetector {
       static async getSupportedFormats(): Promise<string[]> {
-        return ['code_128'];
+        return ['qr_code'];
       }
 
       constructor(_options?: { formats?: string[] }) {}
@@ -96,8 +96,8 @@ describe('BarcodeDetectorService', () => {
     expect(service.preferredEngineLabel).toBe('Native detector');
     expect(detect).toHaveBeenCalledTimes(1);
     expect(onDetected).toHaveBeenCalledWith({
-      value: 'NATIVE-1',
-      format: 'CODE-128',
+      value: 'NATIVE-QR-1',
+      format: 'QR-CODE',
       engine: 'native',
     });
   });

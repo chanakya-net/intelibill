@@ -304,12 +304,13 @@ describe('InventoryBatchPageComponent', () => {
     const component = fixture.componentInstance;
     const messageService = fixture.debugElement.injector.get(MessageService);
     const addSpy = vi.spyOn(messageService, 'add');
+    const barcode = createQrLikeBarcode();
 
     component.pendingRows.set([
       {
         clientRowId: 'row-1',
         itemName: 'Milk',
-        barcode: 'B001',
+        barcode,
         itemDescription: null,
         uom: 'ltr',
         batchNumber: 'BN-1',
@@ -329,8 +330,8 @@ describe('InventoryBatchPageComponent', () => {
     ]);
 
     await component.handleScannedBarcode({
-      value: 'B001',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'native',
     });
 
@@ -339,27 +340,28 @@ describe('InventoryBatchPageComponent', () => {
     expect(draftStorage.saveRows).toHaveBeenCalledTimes(1);
     expect(audioService.beep).toHaveBeenCalledTimes(1);
     expect(addSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'success', detail: expect.stringContaining('B001') }),
+      expect.objectContaining({ severity: 'success', detail: expect.stringContaining(barcode) }),
     );
   });
 
   it('adds a new pending row when a scanned barcode resolves to a known product', async () => {
+    const barcode = createQrLikeBarcode();
     productCatalogSync.findByBarcode.mockReturnValue({
       name: 'Tea',
-      barcode: 'B002',
+      barcode,
     });
 
     const fixture = await setup();
     const component = fixture.componentInstance;
 
     await component.handleScannedBarcode({
-      value: 'B002',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'zxing',
     });
 
     expect(component.pendingRows()).toHaveLength(1);
-    expect(component.pendingRows()[0].barcode).toBe('B002');
+    expect(component.pendingRows()[0].barcode).toBe(barcode);
     expect(component.pendingRows()[0].itemName).toBe('Tea');
     expect(component.scannerSessionCount()).toBe(1);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionAdded');
@@ -367,6 +369,7 @@ describe('InventoryBatchPageComponent', () => {
   });
 
   it('adds a new pending row on scanner cache miss when API returns product details', async () => {
+    const barcode = createQrLikeBarcode();
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
 
     const fixture = await setup();
@@ -376,26 +379,27 @@ describe('InventoryBatchPageComponent', () => {
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
-      value: 'B020',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'zxing',
     });
 
-    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, 'B020');
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, barcode);
     expect(component.pendingRows()).toHaveLength(1);
     expect(component.pendingRows()[0].itemName).toBe(productDetails.name);
-    expect(component.pendingRows()[0].barcode).toBe('B020');
+    expect(component.pendingRows()[0].barcode).toBe(barcode);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionAdded');
     expect(component.isScannerOpen()).toBe(true);
     expect(addSpy).toHaveBeenCalledTimes(1);
     expect(addSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'success', detail: expect.stringContaining('B020') }),
+      expect.objectContaining({ severity: 'success', detail: expect.stringContaining(barcode) }),
     );
   });
 
   it('stops scanner and waits for manual input when only name and barcode are available', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
+    const barcode = createQrLikeBarcode();
 
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -405,14 +409,14 @@ describe('InventoryBatchPageComponent', () => {
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
-      value: 'ONLY-NAME-BARCODE',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'zxing',
     });
 
     expect(component.pendingRows()).toHaveLength(0);
     expect(component.form.controls.itemName.value).toBe(productDetails.name);
-    expect(component.form.controls.barcode.value).toBe('ONLY-NAME-BARCODE');
+    expect(component.form.controls.barcode.value).toBe(barcode);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
   });
@@ -480,6 +484,7 @@ describe('InventoryBatchPageComponent', () => {
     const component = fixture.componentInstance;
     const messageService = fixture.debugElement.injector.get(MessageService);
     const addSpy = vi.spyOn(messageService, 'add');
+    const barcode = createQrLikeBarcode();
 
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
     inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
@@ -488,14 +493,14 @@ describe('InventoryBatchPageComponent', () => {
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
-      value: 'UNKNOWN-001',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'zxing',
     });
 
     expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(
       undefined,
-      'UNKNOWN-001',
+      barcode,
     );
     expect(component.pendingRows()).toHaveLength(0);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
@@ -511,6 +516,7 @@ describe('InventoryBatchPageComponent', () => {
     const component = fixture.componentInstance;
     const messageService = fixture.debugElement.injector.get(MessageService);
     const addSpy = vi.spyOn(messageService, 'add');
+    const barcode = createQrLikeBarcode();
 
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -518,14 +524,14 @@ describe('InventoryBatchPageComponent', () => {
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
-      value: 'UNKNOWN-002',
-      format: 'CODE-128',
+      value: barcode,
+      format: 'QR-CODE',
       engine: 'zxing',
     });
 
     expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(
       undefined,
-      'UNKNOWN-002',
+      barcode,
     );
     expect(component.pendingRows()).toHaveLength(0);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
@@ -730,5 +736,9 @@ describe('InventoryBatchPageComponent', () => {
       stockTransactionId: `tx-${suffix}`,
       performedAt: new Date().toISOString(),
     };
+  }
+
+  function createQrLikeBarcode() {
+    return `QR|01|${crypto.randomUUID()}|TRACE|${crypto.randomUUID()}|PAYLOAD|AAAAAAAAAAAAAAAAAAAAAAAA`;
   }
 });
