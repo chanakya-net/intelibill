@@ -3,6 +3,7 @@ using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
+using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
 using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
@@ -55,12 +56,24 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     [HttpPost("login/email")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
     public async Task<IActionResult> LoginWithEmail(
-
         [FromBody] LoginWithEmailRequest request,
         CancellationToken cancellationToken)
     {
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new LoginWithEmailCommand(request.Email, request.Password),
+            new LoginCommand(request.Email, request.Password),
+            cancellationToken);
+
+        return result.ToActionResult(auth => Ok(auth));
+    }
+
+    [HttpPost("login")]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
+            new LoginCommand(request.Identifier, request.Password),
             cancellationToken);
 
         return result.ToActionResult(auth => Ok(auth));
@@ -187,6 +200,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
 public sealed record RegisterWithEmailRequest(string Email, string Password, string FirstName, string LastName);
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
 public sealed record LoginWithEmailRequest(string Email, string Password);
+public sealed record LoginRequest(string Identifier, string Password);
 public sealed record ExternalLoginRequest(ExternalAuthProvider Provider, string Token, string? FirstName, string? LastName);
 public sealed record ExternalLoginInitRequest(ExternalAuthProvider Provider);
 public sealed record ExternalLoginCallbackRequest(string Code, string State, string? FirstName, string? LastName);

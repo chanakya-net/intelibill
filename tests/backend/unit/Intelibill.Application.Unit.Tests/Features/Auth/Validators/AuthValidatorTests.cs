@@ -1,5 +1,6 @@
 using FluentValidation.TestHelper;
 using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
+using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
 using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
@@ -10,6 +11,23 @@ using Intelibill.Application.Features.Auth.Commands.RevokeToken;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Unit.Tests.Features.Auth.Validators;
+
+public class LoginCommandValidatorTests
+{
+    private readonly LoginCommandValidator _v = new();
+
+    [Fact] public void Validate_WhenIdentifierEmpty_ReturnsError() =>
+        _v.TestValidate(new LoginCommand("", "password")).ShouldHaveValidationErrorFor(x => x.Identifier);
+
+    [Fact] public void Validate_WhenIdentifierWhitespace_ReturnsError() =>
+        _v.TestValidate(new LoginCommand("   ", "password")).ShouldHaveValidationErrorFor(x => x.Identifier);
+
+    [Fact] public void Validate_WhenPasswordEmpty_ReturnsError() =>
+        _v.TestValidate(new LoginCommand("a@b.com", "")).ShouldHaveValidationErrorFor(x => x.Password);
+
+    [Fact] public void Validate_WhenValid_NoErrors() =>
+        _v.TestValidate(new LoginCommand("a@b.com", "secret123")).ShouldNotHaveAnyValidationErrors();
+}
 
 public class LoginWithEmailCommandValidatorTests
 {
