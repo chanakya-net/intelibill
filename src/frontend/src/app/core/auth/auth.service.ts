@@ -69,16 +69,17 @@ export class AuthService {
   }
 
   login(identifier: string, password: string, rememberMe: boolean): Observable<AuthSession> {
-    const payload: LoginRequest = { identifier, password };
+    const trimmedIdentifier = identifier.trim();
+    const payload: LoginRequest = { identifier: trimmedIdentifier, password };
 
     return this.http.post<AuthResult>(AUTH_ENDPOINTS.login, payload).pipe(
       map((result) => this.toSession(result, rememberMe)),
       tap((session) => {
         this.setSession(session);
         if (rememberMe) {
-          this.storage.saveLastEmail(identifier);
+          this.storage.saveLastIdentifier(trimmedIdentifier);
         } else {
-          this.storage.clearLastEmail();
+          this.storage.clearLastIdentifier();
         }
       })
     );
@@ -104,9 +105,9 @@ export class AuthService {
         this.setSession(session);
 
         if (rememberMe) {
-          this.storage.saveLastEmail(email);
+          this.storage.saveLastIdentifier(email);
         } else {
-          this.storage.clearLastEmail();
+          this.storage.clearLastIdentifier();
         }
       })
     );
@@ -252,12 +253,12 @@ export class AuthService {
     return !this.isExpired(this.sessionSignal()!.refreshTokenExpiresAt);
   }
 
-  getLastRememberedEmail(): string {
+  getLastRememberedIdentifier(): string {
     if (!this.isBrowser()) {
       return '';
     }
 
-    return this.storage.getLastEmail();
+    return this.storage.getLastIdentifier();
   }
 
   clearSession(): void {

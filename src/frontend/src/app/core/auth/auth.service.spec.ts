@@ -118,9 +118,9 @@ describe('AuthService', () => {
     loadSession: vi.fn<AuthStorage['loadSession']>(),
     saveSession: vi.fn<AuthStorage['saveSession']>(),
     clearSession: vi.fn<AuthStorage['clearSession']>(),
-    saveLastEmail: vi.fn<AuthStorage['saveLastEmail']>(),
-    getLastEmail: vi.fn<AuthStorage['getLastEmail']>(),
-    clearLastEmail: vi.fn<AuthStorage['clearLastEmail']>(),
+    saveLastIdentifier: vi.fn<AuthStorage['saveLastIdentifier']>(),
+    getLastIdentifier: vi.fn<AuthStorage['getLastIdentifier']>(),
+    clearLastIdentifier: vi.fn<AuthStorage['clearLastIdentifier']>(),
   };
 
   const router = {
@@ -158,9 +158,9 @@ describe('AuthService', () => {
     storage.loadSession.mockReturnValue(null);
     storage.saveSession.mockReset();
     storage.clearSession.mockReset();
-    storage.saveLastEmail.mockReset();
-    storage.getLastEmail.mockReturnValue('');
-    storage.clearLastEmail.mockReset();
+    storage.saveLastIdentifier.mockReset();
+    storage.getLastIdentifier.mockReturnValue('');
+    storage.clearLastIdentifier.mockReset();
     router.navigateByUrl.mockResolvedValue(true);
     localizationService.setLanguage.mockClear();
   });
@@ -179,7 +179,7 @@ describe('AuthService', () => {
     vi.unstubAllGlobals();
   });
 
-  it('logs in and stores last email when rememberMe is true', () => {
+  it('logs in and stores trimmed last identifier when rememberMe is true', () => {
     const { service, http } = setup();
     const result = buildAuthResult();
     let emitted: AuthSession | undefined;
@@ -190,20 +190,20 @@ describe('AuthService', () => {
 
     const request = http.expectOne(AUTH_ENDPOINTS.login);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ identifier: ' user@example.com ', password: 'pw' });
+    expect(request.request.body).toEqual({ identifier: 'user@example.com', password: 'pw' });
     request.flush(result);
 
     expect(emitted?.accessToken).toBe(result.accessToken);
     expect(emitted?.rememberMe).toBe(true);
     expect(storage.saveSession).toHaveBeenCalledTimes(1);
-    expect(storage.saveLastEmail).toHaveBeenCalledWith(' user@example.com ');
-    expect(storage.clearLastEmail).not.toHaveBeenCalled();
+    expect(storage.saveLastIdentifier).toHaveBeenCalledWith('user@example.com');
+    expect(storage.clearLastIdentifier).not.toHaveBeenCalled();
     expect(service.isAuthenticated()).toBe(true);
 
     http.verify();
   });
 
-  it('clears last email when rememberMe is false', () => {
+  it('clears last identifier when rememberMe is false', () => {
     const { service, http } = setup();
 
     service.login('user@example.com', 'pw', false).subscribe();
@@ -211,8 +211,8 @@ describe('AuthService', () => {
     const request = http.expectOne(AUTH_ENDPOINTS.login);
     request.flush(buildAuthResult());
 
-    expect(storage.clearLastEmail).toHaveBeenCalledTimes(1);
-    expect(storage.saveLastEmail).not.toHaveBeenCalled();
+    expect(storage.clearLastIdentifier).toHaveBeenCalledTimes(1);
+    expect(storage.saveLastIdentifier).not.toHaveBeenCalled();
 
     http.verify();
   });

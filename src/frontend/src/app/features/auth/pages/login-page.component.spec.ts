@@ -14,7 +14,7 @@ import { LoginPageComponent } from './login-page.component';
 describe('LoginPageComponent', () => {
   const authService = {
     isAuthenticated: vi.fn<AuthService['isAuthenticated']>(),
-    getLastRememberedEmail: vi.fn<AuthService['getLastRememberedEmail']>(),
+    getLastRememberedIdentifier: vi.fn<AuthService['getLastRememberedIdentifier']>(),
     login: vi.fn<AuthService['login']>(),
     initializeExternalLogin: vi.fn<AuthService['initializeExternalLogin']>(),
   };
@@ -53,7 +53,7 @@ describe('LoginPageComponent', () => {
 
   beforeEach(() => {
     authService.isAuthenticated.mockReturnValue(false);
-    authService.getLastRememberedEmail.mockReturnValue('');
+    authService.getLastRememberedIdentifier.mockReturnValue('');
     authService.login.mockReturnValue(of({} as AuthSession));
     authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
     store.selectSignal.mockImplementation(() => signal(false));
@@ -72,10 +72,18 @@ describe('LoginPageComponent', () => {
   });
 
   it('prefills remembered email on init', () => {
-    authService.getLastRememberedEmail.mockReturnValue('remembered@example.com');
+    authService.getLastRememberedIdentifier.mockReturnValue('remembered@example.com');
     const { component } = setup();
 
     expect(component.form.controls.identifier.value).toBe('remembered@example.com');
+    expect(component.form.controls.rememberMe.value).toBe(true);
+  });
+
+  it('prefills remembered phone identifier on init', () => {
+    authService.getLastRememberedIdentifier.mockReturnValue('9876543210');
+    const { component } = setup();
+
+    expect(component.form.controls.identifier.value).toBe('9876543210');
     expect(component.form.controls.rememberMe.value).toBe(true);
   });
 

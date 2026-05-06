@@ -71,9 +71,9 @@ export class LoginPageComponent implements OnInit {
       return;
     }
 
-    const rememberedEmail = this.authService.getLastRememberedEmail();
-    if (rememberedEmail) {
-      this.form.controls.identifier.setValue(rememberedEmail);
+    const rememberedIdentifier = this.authService.getLastRememberedIdentifier();
+    if (rememberedIdentifier) {
+      this.form.controls.identifier.setValue(rememberedIdentifier);
       this.form.controls.rememberMe.setValue(true);
     }
 
