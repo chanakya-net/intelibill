@@ -406,13 +406,13 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         ledgerResponse.EnsureSuccessStatusCode();
         var ledger = await ledgerResponse.Content.ReadFromJsonAsync<JsonElement>();
 
-        // entryType 2 = PaymentMade (stored positive, represents debit → negate for net balance)
+        // entryType "PaymentMade" (stored positive, represents debit → negate for net balance)
         var ledgerTotal = ledger.EnumerateArray()
             .Sum(e =>
             {
                 var amount = e.GetProperty("amount").GetDecimal();
-                var entryType = e.GetProperty("entryType").GetInt32();
-                return entryType == 2 ? -amount : amount;
+                var entryType = e.GetProperty("entryType").GetString();
+                return entryType == "PaymentMade" ? -amount : amount;
             });
 
         Assert.Equal(suppliers2[0].GetProperty("balanceDue").GetDecimal(), ledgerTotal);
