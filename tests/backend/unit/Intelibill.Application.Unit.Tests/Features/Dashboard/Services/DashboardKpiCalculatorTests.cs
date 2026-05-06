@@ -7,6 +7,38 @@ namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Services;
 public class DashboardKpiCalculatorTests
 {
     [Fact]
+    public void CalculateSalesKpis_WhenAdjustmentLossesExist_IncludesOnlyActiveDecreaseLosses()
+    {
+        var shopId = Guid.NewGuid();
+        var sale = Sale.Create(
+            shopId,
+            "INV-ADJ",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 10m,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+        var activeDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
+        var increase = MakeAdjustment(shopId, InventoryAdjustmentDirection.Increase, InventoryAdjustmentReason.FoundStock, 15m);
+        var voidedDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Expired, 10m);
+        voidedDecrease.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake", Guid.NewGuid());
+
+        var kpis = DashboardKpiCalculator.CalculateSalesKpis(
+            [sale],
+            saleReturns: [],
+            adjustmentLosses: [activeDecrease, increase, voidedDecrease]);
+
+        Assert.Equal(25m, kpis.WastageCost);
+        Assert.Equal(15m, kpis.ProfitBeforeTax);
+        Assert.Equal(5m, kpis.ProfitAfterTax);
+    }
+
+    [Fact]
     public void CalculatePaymentMix_WhenCashSaleHasDue_AllocatesDueToCredit()
     {
         var shopId = Guid.NewGuid();
@@ -86,6 +118,64 @@ public class DashboardKpiCalculatorTests
     }
 
     [Fact]
+    public void BuildTrendSeries_WhenAdjustmentLossesExist_SubtractsDailyActiveDecreaseLosses()
+    {
+        var shopId = Guid.NewGuid();
+        var start = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1));
+        var end = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var saleToday = Sale.Create(
+            shopId,
+            "INV-ADJ-TREND",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 10m,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+        var yesterdayLoss = MakeAdjustment(
+            shopId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            30m,
+            new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        var todayLoss = MakeAdjustment(
+            shopId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Expired,
+            25m,
+            new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        var ignoredIncrease = MakeAdjustment(
+            shopId,
+            InventoryAdjustmentDirection.Increase,
+            InventoryAdjustmentReason.FoundStock,
+            15m,
+            new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        var ignoredVoided = MakeAdjustment(
+            shopId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Stolen,
+            10m,
+            new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
+        ignoredVoided.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake", Guid.NewGuid());
+
+        var trends = DashboardKpiCalculator.BuildTrendSeries(
+            [saleToday],
+            saleReturns: [],
+            startDate: start,
+            endDate: end,
+            adjustmentLosses: [yesterdayLoss, todayLoss, ignoredIncrease, ignoredVoided]);
+
+        Assert.Equal(-30m, trends.ProfitTrend[0].ProfitBeforeTax);
+        Assert.Equal(-30m, trends.ProfitTrend[0].ProfitAfterTax);
+        Assert.Equal(15m, trends.ProfitTrend[1].ProfitBeforeTax);
+        Assert.Equal(5m, trends.ProfitTrend[1].ProfitAfterTax);
+    }
+
+    [Fact]
     public void BuildPreviousPeriodSummary_WhenDueExists_UsesDueInCreditSalesPercentage()
     {
         var shopId = Guid.NewGuid();
@@ -130,5 +220,69 @@ public class DashboardKpiCalculatorTests
         Assert.Equal(200m, summary.SalesBooked);
         Assert.Equal(200m, summary.NetSalesBooked);
         Assert.Equal(0.3m, summary.CreditSalesPercentage);
+    }
+
+    [Fact]
+    public void BuildPreviousPeriodSummary_WhenAdjustmentLossesExist_SubtractsActiveDecreaseLossesFromProfit()
+    {
+        var shopId = Guid.NewGuid();
+        var prevStart = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-14));
+        var prevEnd = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-8));
+        var sale = Sale.Create(
+            shopId,
+            "INV-PREV-ADJ",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 10m,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+
+        var summary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
+            [sale],
+            prevSaleReturns: [],
+            prevExpenses: [],
+            prevStartDate: prevStart,
+            prevEndDate: prevEnd,
+            prevAdjustmentLosses: [MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m)]);
+
+        Assert.Equal(5m, summary.ProfitAfterTax);
+    }
+
+    private static InventoryAdjustment MakeAdjustment(
+        Guid shopId,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal costImpact,
+        DateTimeOffset? performedAt = null)
+    {
+        var quantityBefore = 10m;
+        var quantity = 1m;
+        var quantityAfter = direction == InventoryAdjustmentDirection.Increase
+            ? quantityBefore + quantity
+            : quantityBefore - quantity;
+
+        return InventoryAdjustment.Create(
+            shopId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            $"ADJ-{Guid.NewGuid():N}",
+            direction,
+            reason,
+            quantity,
+            unitCost: costImpact,
+            costImpact,
+            quantityBefore,
+            quantityAfter,
+            quantityBefore,
+            quantityAfter,
+            performedAt ?? DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            Guid.NewGuid()).Value;
     }
 }

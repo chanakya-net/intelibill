@@ -1,14 +1,19 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Expenses.DTOs;
+using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
+using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
 using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
+using Intelibill.Application.Features.Inventory.Queries.GetAdjustmentHistory;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -32,6 +37,40 @@ public sealed class InventoryController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<InventoryBatchDto>>>(
             new GetInventoryBatchesQuery(UserId!.Value, ActiveShopId!.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("adjustments")]
+    public async Task<IActionResult> GetAdjustmentHistory(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] Guid? itemId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] InventoryAdjustmentDirection? direction = null,
+        [FromQuery] InventoryAdjustmentReason? reason = null,
+        [FromQuery(Name = "from")] DateTimeOffset? from = null,
+        [FromQuery(Name = "to")] DateTimeOffset? to = null,
+        [FromQuery] bool includeVoided = false,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PaginatedList<InventoryAdjustmentHistoryDto>>>(
+            new GetAdjustmentHistoryQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                pageNumber,
+                pageSize,
+                itemId,
+                batchId,
+                direction,
+                reason,
+                from,
+                to,
+                includeVoided),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -150,6 +189,45 @@ public sealed class InventoryController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<VoidBatchResultDto>>(
             new VoidBatchCommand(batchId, UserId!.Value, ActiveShopId!.Value),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("adjustments/{adjustmentId:guid}/void")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> VoidAdjustment(
+        Guid adjustmentId,
+        [FromBody] VoidAdjustmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<VoidAdjustmentResultDto>>(
+            new VoidAdjustmentCommand(adjustmentId, UserId!.Value, ActiveShopId!.Value, request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("batches/{batchId:guid}/adjust")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> CreateAdjustment(Guid batchId, [FromBody] CreateAdjustmentRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<InventoryAdjustmentResultDto>>(
+            new CreateAdjustmentCommand(
+                batchId,
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.Direction,
+                request.Reason,
+                request.Quantity,
+                request.PerformedAt,
+                request.Notes),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -289,6 +367,15 @@ public sealed record UpdateInventoryBatchRequest(
     DateOnly? EntryDate);
 
 public sealed record ReassignBatchSupplierRequest(Guid NewSupplierId);
+
+public sealed record CreateAdjustmentRequest(
+    InventoryAdjustmentDirection Direction,
+    InventoryAdjustmentReason Reason,
+    decimal Quantity,
+    DateTimeOffset? PerformedAt,
+    string? Notes);
+
+public sealed record VoidAdjustmentRequest(string Reason);
 
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 

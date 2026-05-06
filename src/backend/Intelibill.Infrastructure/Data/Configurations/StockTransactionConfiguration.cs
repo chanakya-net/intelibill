@@ -14,7 +14,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             tableBuilder.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
             tableBuilder.HasCheckConstraint(
                 "ck_stock_transactions_quantity_sign_by_type",
-                "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type = 'ADJ'))");
+                "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
         });
 
         builder.HasKey(t => t.Id);

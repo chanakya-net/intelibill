@@ -179,17 +179,21 @@ export interface SaleListItemDto {
   readonly returnNumbers: readonly string[];
 }
 
+export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
+
 export interface ProfitLossReportItemDto {
-  readonly saleId: string;
-  readonly invoiceNumber: string;
-  readonly soldAt: string;
-  readonly customerName: string | null;
+  readonly saleId: string | null;
+  readonly referenceNumber: string;
+  readonly occurredAt: string;
+  readonly partyName: string | null;
   readonly totalCost: number;
   readonly wastageCost: number;
   readonly revenueBeforeTax: number;
   readonly revenueAfterTax: number;
   readonly profitBeforeTax: number;
   readonly profitAfterTax: number;
+  readonly rowType: ProfitLossReportRowType;
+  readonly inventoryAdjustmentId: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

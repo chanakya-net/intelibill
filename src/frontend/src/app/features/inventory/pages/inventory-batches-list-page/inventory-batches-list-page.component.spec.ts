@@ -56,10 +56,7 @@ describe('InventoryBatchesListPageComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [
-        MessageService,
-        { provide: SuppliersFacade, useValue: suppliersFacadeMock },
-      ],
+      providers: [MessageService, { provide: SuppliersFacade, useValue: suppliersFacadeMock }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(InventoryBatchesListPageComponent);
@@ -94,6 +91,110 @@ describe('InventoryBatchesListPageComponent', () => {
     expect(component.editForm.value.newBatchNumber).toBe('');
   });
 
+  it('should open adjustment dialog with default decrease form values', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(mockBatches[0]);
+
+    expect(component.isAdjustmentDialogOpen()).toBe(true);
+    expect(component.selectedBatch()?.id).toBe('b1');
+    expect(component.adjustmentForm.getRawValue()).toMatchObject({
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 1,
+      performedAt: '',
+      notes: '',
+    });
+  });
+
+  it('should ignore adjustment attempts for voided batches', () => {
+    const voidedBatch: InventoryBatchDto = {
+      ...mockBatches[0],
+      id: 'b2',
+      batchNumber: 'BATCH-VOID',
+      isVoided: true,
+    };
+
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(voidedBatch);
+
+    expect(component.isAdjustmentDialogOpen()).toBe(false);
+    expect(component.selectedBatch()).toBeNull();
+  });
+
+  it('should filter adjustment reasons by direction', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(mockBatches[0]);
+
+    component.adjustmentForm.controls.direction.setValue('Decrease');
+    expect(component.adjustmentReasonOptions().map((option) => option.value)).toContain('Damaged');
+    expect(component.adjustmentReasonOptions().map((option) => option.value)).not.toContain(
+      'FoundStock',
+    );
+
+    component.adjustmentForm.controls.direction.setValue('Increase');
+    expect(component.adjustmentReasonOptions().map((option) => option.value)).toContain(
+      'FoundStock',
+    );
+    expect(component.adjustmentReasonOptions().map((option) => option.value)).not.toContain(
+      'Damaged',
+    );
+  });
+
+  it('should require notes for other gain or loss adjustment reasons', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(mockBatches[0]);
+    component.adjustmentForm.patchValue({
+      direction: 'Decrease',
+      reason: 'OtherLoss',
+      quantity: 1,
+      notes: '',
+    });
+
+    expect(component.adjustmentForm.controls.notes.hasError('required')).toBe(true);
+    expect(component.adjustmentForm.invalid).toBe(true);
+
+    component.adjustmentForm.controls.notes.setValue('Lost during count');
+    expect(component.adjustmentForm.controls.notes.hasError('required')).toBe(false);
+  });
+
+  it('should preview adjusted quantity and cost impact', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(mockBatches[0]);
+    component.adjustmentForm.patchValue({
+      direction: 'Decrease',
+      quantity: 2.5,
+    });
+
+    expect(component.adjustmentPreview()).toEqual({
+      batchQuantityBefore: 10,
+      batchQuantityAfter: 7.5,
+      unitCost: 100,
+      costImpact: -250,
+    });
+
+    component.adjustmentForm.patchValue({
+      direction: 'Increase',
+      quantity: 3,
+    });
+
+    expect(component.adjustmentPreview()).toEqual({
+      batchQuantityBefore: 10,
+      batchQuantityAfter: 13,
+      unitCost: 100,
+      costImpact: 300,
+    });
+  });
+
   it('should send correction request and reload batches on save', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
@@ -116,6 +217,49 @@ describe('InventoryBatchesListPageComponent', () => {
     const reloadReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
     expect(reloadReq.request.method).toBe('GET');
     expect(component.isEditDialogOpen()).toBe(false);
+  });
+
+  it('should send adjustment request and reload batches on success', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onAdjustBatch(mockBatches[0]);
+    component.adjustmentForm.patchValue({
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 2,
+      performedAt: '2026-05-05T08:30',
+      notes: 'Damaged while unloading',
+    });
+
+    component.onSaveAdjustment();
+
+    const adjustReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/adjust`);
+    expect(adjustReq.request.method).toBe('POST');
+    expect(adjustReq.request.body).toEqual({
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 2,
+      performedAt: new Date('2026-05-05T08:30').toISOString(),
+      notes: 'Damaged while unloading',
+    });
+    adjustReq.flush({
+      adjustmentId: 'adjustment-1',
+      adjustmentNumber: 'ADJ-0001',
+      quantity: 2,
+      unitCost: 100,
+      costImpact: -200,
+      batchQuantityBefore: 10,
+      batchQuantityAfter: 8,
+      inventoryQuantityBefore: 20,
+      inventoryQuantityAfter: 18,
+      stockTransactionId: 'tx-1',
+      performedAt: '2026-05-05T03:00:00.000Z',
+    });
+
+    const reloadReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+    expect(reloadReq.request.method).toBe('GET');
+    expect(component.isAdjustmentDialogOpen()).toBe(false);
   });
 
   it('should send void request when onVoidBatch is called', () => {

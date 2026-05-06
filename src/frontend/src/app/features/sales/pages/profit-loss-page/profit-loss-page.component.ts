@@ -12,8 +12,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
-import { ProfitLossReportItemDto } from '../../services/sale.service';
 import { SalesFacade } from '../../state/sales.facade';
+import { ProfitLossReportItemDto, ProfitLossReportRowType } from '../../services/sale.service';
 import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
@@ -47,8 +47,9 @@ export class ProfitLossPageComponent {
     if (!q) return [...this.report()];
     return this.report().filter(
       (s) =>
-        s.invoiceNumber.toLowerCase().includes(q) ||
-        (s.customerName ?? '').toLowerCase().includes(q)
+        s.referenceNumber.toLowerCase().includes(q) ||
+        s.rowType.toLowerCase().includes(q) ||
+        (s.partyName ?? '').toLowerCase().includes(q)
     );
   });
   readonly isLoading = this.salesFacade.loadingProfitLossReport;
@@ -60,5 +61,15 @@ export class ProfitLossPageComponent {
 
   getProfitSeverity(amount: number): 'success' | 'danger' {
     return amount >= 0 ? 'success' : 'danger';
+  }
+
+  getRowTypeTranslationKey(rowType: ProfitLossReportRowType): string {
+    return `sales.profitLoss.rowTypes.${rowType}`;
+  }
+
+  getPartyFallbackTranslationKey(item: ProfitLossReportItemDto): string {
+    return item.rowType === 'InventoryAdjustment'
+      ? 'sales.profitLoss.adjustmentParty'
+      : 'sales.history.walkIn';
   }
 }

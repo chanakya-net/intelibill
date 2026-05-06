@@ -10,7 +10,8 @@ public sealed class GetProfitLossReportQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
-    ISaleReturnRepository saleReturnRepository)
+    ISaleReturnRepository saleReturnRepository,
+    IInventoryAdjustmentRepository inventoryAdjustmentRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>> Handle(
         GetProfitLossReportQuery query,
@@ -62,7 +63,9 @@ public sealed class GetProfitLossReportQueryHandler(
                 revenueExclTax,
                 revenueInclTax,
                 revenueInclTax - totalCost,
-                revenueExclTax - totalCost));
+                revenueExclTax - totalCost,
+                ProfitLossReportRowTypes.Sale,
+                InventoryAdjustmentId: null));
 
             var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken) ?? [];
             foreach (var saleReturn in saleReturns.Where(r => !r.IsVoided))
@@ -88,12 +91,32 @@ public sealed class GetProfitLossReportQueryHandler(
                     returnRevenueExclTax,
                     returnRevenueInclTax,
                     returnRevenueInclTax - returnCostImpact,
-                    returnRevenueExclTax - returnCostImpact));
+                    returnRevenueExclTax - returnCostImpact,
+                    ProfitLossReportRowTypes.SaleReturn,
+                    InventoryAdjustmentId: null));
             }
         }
 
+        var adjustments = await inventoryAdjustmentRepository.GetProfitLossAdjustmentsAsync(query.ShopId, cancellationToken);
+        foreach (var adjustment in adjustments.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
+        {
+            report.Add(new ProfitLossReportItemDto(
+                SaleId: null,
+                adjustment.AdjustmentNumber,
+                adjustment.PerformedAt,
+                PartyName: null,
+                TotalCost: 0m,
+                WastageCost: adjustment.CostImpact,
+                RevenueBeforeTax: 0m,
+                RevenueAfterTax: 0m,
+                ProfitBeforeTax: -adjustment.CostImpact,
+                ProfitAfterTax: -adjustment.CostImpact,
+                ProfitLossReportRowTypes.InventoryAdjustment,
+                adjustment.Id));
+        }
+
         return report
-            .OrderByDescending(s => s.SoldAt)
+            .OrderByDescending(s => s.OccurredAt)
             .ToList();
     }
 

@@ -181,6 +181,95 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
     }
 
     [Fact]
+    public async Task GetDashboard_WithAdjustmentLosses_IncludesActiveDecreaseOnlyInFinancialKpis()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
+
+        await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 2m,
+            performedAt: DateTimeOffset.UtcNow,
+            notes: "Damaged");
+        await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Increase,
+            InventoryAdjustmentReason.FoundStock,
+            quantity: 1m,
+            performedAt: DateTimeOffset.UtcNow,
+            notes: "Found stock");
+        var voided = await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Expired,
+            quantity: 1m,
+            performedAt: DateTimeOffset.UtcNow,
+            notes: "Expired");
+        await VoidAdjustmentAsync(client, ownerToken, voided);
+
+        using var dashRequest = new HttpRequestMessage(HttpMethod.Get, "/api/dashboard");
+        dashRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var dashResponse = await client.SendAsync(dashRequest);
+
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        var body = await dashResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.False(body.GetProperty("hasNoSalesActivity").GetBoolean());
+        Assert.Equal(100m, body.GetProperty("wastageCost").GetDecimal());
+        Assert.Equal(-100m, body.GetProperty("profitBeforeTax").GetDecimal());
+        Assert.Equal(-100m, body.GetProperty("profitAfterTax").GetDecimal());
+        Assert.Contains(
+            body.GetProperty("profitTrendSeries").EnumerateArray(),
+            point => point.GetProperty("date").GetDateTime().Date == DateTimeOffset.UtcNow.UtcDateTime.Date
+                && point.GetProperty("profitAfterTax").GetDecimal() == -100m);
+    }
+
+    [Fact]
+    public async Task GetDashboard_WithPreviousPeriodAdjustmentLosses_SubtractsLossesFromPreviousProfit()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var startDate = today.AddDays(-6);
+        var endDate = today;
+        var previousDate = startDate.AddDays(-1);
+
+        await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 2m,
+            performedAt: new DateTimeOffset(previousDate.ToDateTime(TimeOnly.FromTimeSpan(TimeSpan.FromHours(9))), TimeSpan.Zero),
+            notes: "Previous damaged");
+
+        using var dashRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/dashboard?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}");
+        dashRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var dashResponse = await client.SendAsync(dashRequest);
+
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        var body = await dashResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var previous = body.GetProperty("previousPeriodSummary");
+
+        Assert.Equal(-100m, previous.GetProperty("profitAfterTax").GetDecimal());
+    }
+
+    [Fact]
     public async Task GetDashboard_WithDateRange_FiltersResults()
     {
         using var client = CreateClient();
@@ -245,6 +334,40 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.True(body.GetProperty("hasNoSalesActivity").GetBoolean());
     }
 
+    [Fact]
+    public async Task GetDashboard_AsStaffWithAdjustmentLosses_HidesFinancialFields()
+    {
+        using var client = CreateClient();
+        var ownerToken = await RegisterAsync(client);
+        var ownerScopedToken = await CreateShopAsync(client, ownerToken);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerScopedToken);
+        var batchId = await CreateInboundAsync(client, ownerScopedToken, quantity: 10m, costPrice: 50m);
+        await CreateAdjustmentAsync(
+            client,
+            ownerScopedToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 2m,
+            performedAt: DateTimeOffset.UtcNow,
+            notes: "Damaged");
+
+        var staffToken = await AddUserAndLoginAsync(client, ownerScopedToken, shopId, "Staff");
+
+        using var dashRequest = new HttpRequestMessage(HttpMethod.Get, "/api/dashboard");
+        dashRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        var dashResponse = await client.SendAsync(dashRequest);
+
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        var body = await dashResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.False(body.GetProperty("hasNoSalesActivity").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("wastageCost").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("profitAfterTax").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("profitTrendSeries").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("previousPeriodSummary").ValueKind);
+    }
+
     private static async Task<Guid> GetShopIdFromTokenAsync(HttpClient client, string token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/shops/me");
@@ -253,5 +376,112 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.EnumerateArray().First().GetProperty("shopId").GetGuid();
+    }
+
+    private static async Task<Guid> CreateInboundAsync(
+        HttpClient client,
+        string token,
+        decimal quantity,
+        decimal costPrice)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            itemName = $"Dashboard Adjustment Item {Guid.NewGuid():N}",
+            barcode = UniqueBarcode(),
+            itemDescription = (string?)null,
+            uom = "PCS",
+            batchNumber = $"B-{Guid.NewGuid():N}"[..18],
+            quantity,
+            costPrice,
+            mrp = 80m,
+            salesPrice = 75m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = (string?)null,
+            notes = (string?)null,
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("inventoryBatchId").GetGuid();
+    }
+
+    private static async Task<Guid> CreateAdjustmentAsync(
+        HttpClient client,
+        string token,
+        Guid batchId,
+        InventoryAdjustmentDirection direction,
+        InventoryAdjustmentReason reason,
+        decimal quantity,
+        DateTimeOffset performedAt,
+        string notes)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/batches/{batchId}/adjust");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            direction,
+            reason,
+            quantity,
+            performedAt,
+            notes,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("adjustmentId").GetGuid();
+    }
+
+    private static async Task VoidAdjustmentAsync(HttpClient client, string token, Guid adjustmentId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/adjustments/{adjustmentId}/void");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { reason = "Dashboard exclusion test" });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<string> AddUserAndLoginAsync(
+        HttpClient client,
+        string ownerToken,
+        Guid shopId,
+        string role)
+    {
+        var email = UniqueEmail();
+        const string password = "Pass123!";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            shopIds = new[] { shopId },
+            email,
+            firstName = role,
+            lastName = "Dash",
+            phoneNumber = $"+91{Random.Shared.NextInt64(7000000000, 9999999999)}",
+            password,
+            confirmPassword = password,
+            role,
+        });
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new
+        {
+            email,
+            password,
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
+        return loginBody.GetProperty("accessToken").GetString()!;
     }
 }

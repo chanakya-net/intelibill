@@ -27,6 +27,7 @@ import { ShopDetails } from '../../features/shops/services/shop.service';
 import { ShopsActions } from '../../features/shops/state/shops.actions';
 import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
 import { ShellComponent } from './shell.component';
+import { shellRoutes } from './shell.routes';
 
 describe('ShellComponent', () => {
   const sessionSignal = signal({
@@ -223,7 +224,35 @@ describe('ShellComponent', () => {
     ]);
 
     const staffItems = component.inventoryMenuItems();
-    expect(staffItems).toHaveLength(0);
+    expect(staffItems).toHaveLength(1);
+    expect(staffItems[0].icon).toBe('pi pi-history');
+  });
+
+  it('exposes adjustment history in shell routes and inventory navigation for every shop role', () => {
+    const component = setup();
+    const shellRoute = shellRoutes.find((route) => route.component === ShellComponent);
+    const adjustmentRoute = shellRoute?.children?.find(
+      (route) => route.path === 'inventory/adjustments',
+    );
+
+    expect(adjustmentRoute).toBeDefined();
+
+    for (const role of ['Owner', 'Manager', 'Staff'] as const) {
+      shopsSignal.set([
+        { shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null },
+      ]);
+      sessionSignal.set({
+        ...sessionSignal(),
+        shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
+      });
+
+      expect(component.inventoryMenuItems().some((item) => item.icon === 'pi pi-history')).toBe(true);
+      expect(
+        component.mainMenuItems().some((item) =>
+          item.items?.some((child) => child.icon === 'pi pi-history'),
+        ),
+      ).toBe(true);
+    }
   });
 
   it('shows sales menu for all roles including staff', () => {

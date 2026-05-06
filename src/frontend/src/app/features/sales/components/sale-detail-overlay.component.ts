@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
@@ -42,8 +44,10 @@ interface ReturnLineDraft {
     CommonModule,
     FormsModule,
     ButtonModule,
+    CheckboxModule,
     DialogModule,
     DividerModule,
+    InputNumberModule,
     InputTextModule,
     ProgressSpinnerModule,
     SelectModule,

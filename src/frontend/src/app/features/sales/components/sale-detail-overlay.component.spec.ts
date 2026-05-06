@@ -1,7 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { vi } from 'vitest';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SaleDto, SaleReturnDto, SaleReturnPreviewDto } from '../services/sale.service';
@@ -127,7 +131,11 @@ describe('SaleDetailOverlayComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleDetailOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
       providers: [
         { provide: SalesFacade, useValue: salesFacade },

@@ -77,6 +77,7 @@
     "addNewProduct": "பொருட்கள்",
     "batchInventoryInbound": "சரக்கு சேர்க்க",
     "inventoryBatchesOverview": "தொகுதிகள் கண்ணோட்டம்",
+    "inventoryAdjustments": "Adjustment History",
     "updateProfile": "சுயவிவரத்தை புதுப்பி",
     "changePassword": "கடவுச்சொல்லை மாற்று",
     "addShop": "கடை சேர்க்க",
@@ -84,7 +85,32 @@
     "language": "மொழி",
     "logout": "வெளியேறு",
     "manageExpenses": "Expenses",
+    "manageBankAccounts": "Bank Accounts",
+    "profitLossReport": "Profit & Loss",
     "dashboard": "டாஷ்போர்டு"
+  },
+  "bankAccounts": {
+    "directory": "Bank Account Directory",
+    "title": "Bank Accounts",
+    "subtitle": "Manage bank accounts for the active shop. Only owners can add or edit accounts.",
+    "bankName": "Bank Name",
+    "accountNumber": "Account Number",
+    "accountType": "Account Type",
+    "ifscCode": "IFSC Code",
+    "accountHolderName": "Account Holder Name",
+    "addAccount": "Add Bank Account",
+    "editAccount": "Edit Bank Account",
+    "addAccountDescription": "Create a new bank account record for this shop.",
+    "editAccountDescription": "Update bank account details.",
+    "deleteAccount": "Delete Bank Account",
+    "deleteConfirm": "Are you sure you want to delete this bank account?",
+    "noAccountsFound": "No bank accounts found",
+    "noAccountsDescription": "Start by adding your first bank account.",
+    "savings": "Savings",
+    "current": "Current",
+    "accountForm": "Bank account form",
+    "saveChanges": "Save Changes",
+    "searchPlaceholder": "கணக்கை தேடு..."
   },
   "users": {
     "teamAccess": "குழு அணுகல்",
@@ -240,6 +266,7 @@
     "uom": "அளவு அலகு",
     "currentStock": "தற்போதைய இருப்பு",
     "status": "நிலை",
+    "supplier": "வழங்குநர்",
     "active": "செயலில்",
     "inactive": "செயலற்ற",
     "isActive": "செயலில் உள்ளது",
@@ -248,13 +275,13 @@
     "addNewProductDescription": "தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.",
     "editProduct": "பொருளை திருத்து",
     "editProductDescription": "தற்போதைய செயலில் உள்ள கடைக்கான பொருள் விவரங்களை புதுப்பிக்கவும்.",
-    "productForm": "பொருள் படிவத்தைச் சேர்க்கவும்",
-    "noItemsFound": "இன்னும் பொருட்கள் சேர்க்கப்படவில்லை",
-    "noItemsDescription": "இந்த கடையில் உங்கள் முதல் பொருளை உருவாக்க புதிய பொருள் சேர்க்க பயன்பாட்டை பயன்படுத்தவும்.",
     "batchInboundTitle": "சரக்கு சேர்க்க",
     "batchInboundSubtitle": "பல வரிசைகளை சேர்க்க, கட்டத்தில் மதிப்பாய்வு செய்ய, பின்னர் ஒரே நேரத்தில் சேமிக்கவும்.",
     "batchListTitle": "சரக்கு தொகுதிகள்",
     "batchListSubtitle": "சமர்ப்பிக்கப்பட்ட சரக்கு தொகுதிகளை நிர்வகிக்கவும்",
+    "adjustmentsTitle": "Adjustment History",
+    "adjustmentsSubtitle": "Review stock increases and decreases across batches.",
+    "newAdjustment": "New Adjustment",
     "item": "பொருள்",
     "voided": "ரத்து செய்யப்பட்டது",
     "editBatch": "சரக்கு தொகுதி திருத்து",
@@ -263,6 +290,47 @@
     "loadBatchesError": "சரக்கு தொகுதிகள் ஏற்ற தோல்வி",
     "batchVoided": "சரக்கு தொகுதி வெற்றிகரமாக ரத்து செய்யப்பட்டது",
     "voidBatchError": "சரக்கு தொகுதி ரத்து செய்ய தோல்வி",
+    "adjustmentVoided": "Adjustment voided successfully",
+    "voidAdjustmentError": "Failed to void adjustment",
+    "voidAdjustment": "Void",
+    "voidedAt": "Voided at",
+    "voidedBy": "Voided by",
+    "voidReason": "Void reason",
+    "reversalStockTransactionId": "Reversal transaction",
+    "voidMetadata": "Void details",
+    "voidReasonPlaceholder": "Enter the reason for voiding this adjustment",
+    "voidReasonRequired": "Void reason is required.",
+    "adjustBatch": "Adjust Batch",
+    "batchAdjusted": "Inventory batch adjusted successfully",
+    "adjustBatchError": "Failed to adjust inventory batch",
+    "loadAdjustmentsError": "Failed to load adjustment history",
+    "adjustmentDirectionLabel": "Direction",
+    "adjustmentReasonLabel": "Reason",
+    "adjustmentNumber": "Adjustment #",
+    "fromDate": "From date",
+    "toDate": "To date",
+    "includeVoided": "Include voided",
+    "currentBatchQuantity": "Current batch quantity",
+    "newBatchQuantity": "New batch quantity",
+    "unitCost": "Unit cost",
+    "costImpact": "P/L impact",
+    "submitAdjustment": "Submit Adjustment",
+    "adjustmentNotesPlaceholder": "Add notes for this adjustment",
+    "adjustmentDirection": {
+      "increase": "Increase",
+      "decrease": "Decrease"
+    },
+    "adjustmentReason": {
+      "damaged": "Damaged",
+      "expired": "Expired",
+      "stolen": "Stolen",
+      "missingLost": "Missing / lost",
+      "stockCountCorrection": "Stock count correction",
+      "otherLoss": "Other loss",
+      "foundStock": "Found stock",
+      "returnRestockCorrection": "Return restock correction",
+      "otherGain": "Other gain"
+    },
     "correctBatch": "சரக்கு தொகுதி சரிசெய்",
     "originalBatch": "அசல் தொகுதி",
     "newBatchNumber": "புதிய தொகுதி எண்",
@@ -315,7 +383,10 @@
     "scannerActionAdded": "வரிசை சேர்க்கப்பட்டது",
     "scannerActionReview": "மதிப்பாய்வு தேவை",
     "scannerDetectionError": "பார்கோடு கண்டறிவான் எதிர்பாராத விதமாக நின்றுவிட்டது. மீண்டும் முயற்சிக்க ஸ்கேனரை மூடி மறுபடியும் திறக்கவும்.",
-    "scannerOpenError": "கேமரா ஸ்கேனரை தொடங்க முடியவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்."
+    "scannerOpenError": "கேமரா ஸ்கேனரை தொடங்க முடியவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
+    "productForm": "பொருள் படிவத்தைச் சேர்க்கவும்",
+    "noItemsFound": "இன்னும் பொருட்கள் சேர்க்கப்படவில்லை",
+    "noItemsDescription": "இந்த கடையில் உங்கள் முதல் பொருளை உருவாக்க புதிய பொருள் சேர்க்க பயன்பாட்டை பயன்படுத்தவும்."
   },
   "profile": {
     "account": "கணக்கு",
@@ -476,6 +547,12 @@
       "unableToUpdateBankDetails": "இப்போது வங்கி விவரங்களை சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
       "ifscCodeInvalid": "சரியான இந்திய IFSC குறியீட்டை உள்ளிடவும்.",
       "bankAccountTypeInvalid": "கணக்கு வகை சேமிப்பு அல்லது நடப்பாக இருக்க வேண்டும்."
+    },
+    "bankAccounts": {
+      "unableToLoad": "Unable to load bank accounts right now. Please try again.",
+      "unableToAdd": "Unable to add bank account right now. Please try again.",
+      "unableToUpdate": "Unable to update bank account right now. Please try again.",
+      "unableToDelete": "Unable to delete bank account right now. Please try again."
     }
   },
   "sales": {
@@ -512,7 +589,7 @@
       "addToCart": "கூடையில் சேர்",
       "exceedsStock": "அளவு கையிருப்பை மீறுகிறது.",
       "cart": "கூடை",
-      "emptyCart": "இன்னும் பொருட்கள் இல்லை.",
+      "emptyCart": "இன்னும் பொருட்கள் இல்லை. தொடங்க பார்கோடு ஸ்கேன் செய்யவும்.",
       "barcode": "பார்கோட்",
       "batch": "தொகுதி",
       "qty": "அளவு",
@@ -551,8 +628,75 @@
       "tax": "வரி %",
       "taxAmount": "வரி தொகை",
       "totalPrice": "மொத்த விலை",
-      "unknownItem": "அறியாத பொருள்"
-    }
+      "unknownItem": "அறியாத பொருள்",
+      "returned": "Returned",
+      "returnable": "Returnable"
+    },
+    "profitLoss": {
+      "eyebrow": "Sales Report",
+      "title": "Profit & Loss Report",
+      "subtitle": "Analyze your margins from each sale",
+      "search": "Search by invoice or customer...",
+      "invoice": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "rowType": "Type",
+      "cost": "Total Cost",
+      "wastageCost": "Wastage Cost",
+      "revenueExclTax": "Rev (Excl Tax)",
+      "revenueInclTax": "Rev (Incl Tax)",
+      "profitBeforeTax": "Profit (Before Tax)",
+      "profitAfterTax": "Profit (After Tax)",
+      "adjustmentParty": "Inventory adjustment",
+      "rowTypes": {
+        "Sale": "Sale",
+        "SaleReturn": "Sale return",
+        "InventoryAdjustment": "Inventory adjustment"
+      },
+      "noData": "No P&L data available"
+    },
+    "returns": {
+      "history": "Return history",
+      "col": {
+        "returnNumber": "Return",
+        "date": "Date",
+        "refund": "Refund",
+        "status": "Status",
+        "action": "Action",
+        "voidReason": "Reason:"
+      },
+      "void": {
+        "title": "Void return",
+        "returnLabel": "Return",
+        "reason": "Reason",
+        "submit": "Void return"
+      },
+      "preview": {
+        "title": "Return preview",
+        "invoice": "Invoice",
+        "financialPreview": "Financial preview",
+        "operationalPreview": "Operational preview",
+        "col": {
+          "item": "Item",
+          "sold": "Sold",
+          "returned": "Returned",
+          "returnable": "Returnable",
+          "returnQty": "Return qty",
+          "condition": "Condition",
+          "refund": "Refund",
+          "notes": "Notes"
+        },
+        "dueReductionOverride": "Due reduction override",
+        "overrideReason": "Override reason",
+        "payoutMethod": "Refund payout method",
+        "confirmDueOverride": "Confirm due override",
+        "calculatedEffects": "Calculated effects",
+        "warnings": "Warnings",
+        "previewBtn": "Preview",
+        "recordBtn": "Record return"
+      }
+    },
+    "searchPlaceholder": "Search sales..."
   },
   "expenses": {
     "title": "செலவுகள்",
@@ -575,9 +719,6 @@
     "searchPlaceholder": "செலவுகளை தேடவும்...",
     "pageInfo": "பக்கம் {{currentPage}} / {{totalPages}}"
   },
-  "bankAccounts": {
-    "searchPlaceholder": "கணக்கை தேடு..."
-  },
   "dashboard": {
     "title": "டாஷ்போர்டு",
     "refresh": "புதுப்பி",
@@ -587,6 +728,7 @@
     "salesBooked": "Gross Sales Booked",
     "netSalesBooked": "Net Sales Booked",
     "wastageCost": "Wastage Cost",
+    "adjustmentLossNote": "வீணாக்கத்தில் செயலில் உள்ள குறைப்பு சரக்கு சரிசெய்தல்கள் அடங்கும்; அந்த இழப்புகளுக்குப் பிறகு லாபம் கணக்கிடப்படுகிறது.",
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",

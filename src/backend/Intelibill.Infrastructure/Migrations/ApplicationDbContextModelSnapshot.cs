@@ -410,6 +410,175 @@ namespace Intelibill.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.InventoryAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AdjustmentNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("adjustment_number");
+
+                    b.Property<decimal>("BatchQuantityAfter")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("batch_quantity_after");
+
+                    b.Property<decimal>("BatchQuantityBefore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("batch_quantity_before");
+
+                    b.Property<decimal>("CostImpact")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cost_impact");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("direction");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<decimal>("InventoryQuantityAfter")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("inventory_quantity_after");
+
+                    b.Property<decimal>("InventoryQuantityBefore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("inventory_quantity_before");
+
+                    b.Property<bool>("IsVoided")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_voided");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateTimeOffset>("PerformedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at");
+
+                    b.Property<Guid>("PerformedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("performed_by");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("quantity");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid?>("ReversalStockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reversal_stock_transaction_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("void_reason");
+
+                    b.Property<DateTimeOffset?>("VoidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voided_at");
+
+                    b.Property<Guid?>("VoidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("voided_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inventory_adjustments");
+
+                    b.HasIndex("ReversalStockTransactionId")
+                        .HasDatabaseName("ix_inventory_adjustments_reversal_stock_transaction_id");
+
+                    b.HasIndex("ItemId", "ShopId")
+                        .HasDatabaseName("ix_inventory_adjustments_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "AdjustmentNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inventory_adjustments_shop_id_adjustment_number");
+
+                    b.HasIndex("ShopId", "IsVoided")
+                        .HasDatabaseName("ix_inventory_adjustments_shop_id_is_voided");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_inventory_adjustments_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId", "PerformedAt")
+                        .HasDatabaseName("ix_inventory_adjustments_shop_id_inventory_batch_id_performed_");
+
+                    b.HasIndex("ShopId", "ItemId", "PerformedAt")
+                        .HasDatabaseName("ix_inventory_adjustments_shop_id_item_id_performed_at");
+
+                    b.ToTable("inventory_adjustments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_inventory_adjustments_cost_impact_positive", "cost_impact > 0");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_direction_reason", "((direction = 'Decrease' AND reason IN ('Damaged', 'Expired', 'Stolen', 'MissingLost', 'StockCountCorrection', 'OtherLoss')) OR (direction = 'Increase' AND reason IN ('FoundStock', 'StockCountCorrection', 'ReturnRestockCorrection', 'OtherGain')))");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_other_reason_notes", "(reason NOT IN ('OtherLoss', 'OtherGain')) OR (notes IS NOT NULL AND length(btrim(notes)) > 0)");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_quantity_positive", "quantity > 0");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_quantity_snapshots", "((direction = 'Decrease' AND batch_quantity_before - quantity = batch_quantity_after AND inventory_quantity_before - quantity = inventory_quantity_after) OR (direction = 'Increase' AND batch_quantity_before + quantity = batch_quantity_after AND inventory_quantity_before + quantity = inventory_quantity_after))");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_quantity_snapshots_non_negative", "batch_quantity_before >= 0 AND batch_quantity_after >= 0 AND inventory_quantity_before >= 0 AND inventory_quantity_after >= 0");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_unit_cost_non_negative", "unit_cost >= 0");
+
+                            t.HasCheckConstraint("ck_inventory_adjustments_void_audit", "(is_voided = false AND voided_at IS NULL AND voided_by IS NULL AND void_reason IS NULL AND reversal_stock_transaction_id IS NULL) OR (is_voided = true AND voided_at IS NOT NULL AND voided_by IS NOT NULL AND void_reason IS NOT NULL AND reversal_stock_transaction_id IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.InventoryBatch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1334,7 +1503,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
 
-                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type = 'ADJ'))");
+                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
                         });
                 });
 
@@ -1723,6 +1892,44 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_inventory_items_item_id_shop_id");
 
                     b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.InventoryAdjustment", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", "ReversalStockTransaction")
+                        .WithMany()
+                        .HasForeignKey("ReversalStockTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_inventory_adjustments_stock_transactions_reversal_stock_tra");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_inventory_adjustments_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_inventory_adjustments_items_item_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", "InventoryBatch")
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_inventory_adjustments_inventory_batches_inventory_batch_id_");
+
+                    b.Navigation("InventoryBatch");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("ReversalStockTransaction");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.InventoryBatch", b =>

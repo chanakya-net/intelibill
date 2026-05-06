@@ -400,6 +400,27 @@
   }
 }
 
+.dashboard-adjustment-loss-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+
+  .pi {
+    color: #2563eb;
+    font-size: 0.9rem;
+  }
+}
+
 .range-hint,
 .range-validation-error {
   display: inline-flex;

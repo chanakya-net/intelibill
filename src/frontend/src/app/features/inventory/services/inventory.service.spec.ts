@@ -2,7 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { INVENTORY_ENDPOINTS, ITEM_ENDPOINTS } from '../../../core/auth/auth.constants';
+import {
+  API_BASE_URL,
+  INVENTORY_ENDPOINTS,
+  ITEM_ENDPOINTS,
+} from '../../../core/auth/auth.constants';
 import { InventoryService } from './inventory.service';
 
 describe('InventoryService', () => {
@@ -171,6 +175,149 @@ describe('InventoryService', () => {
         },
       ],
       failed: [],
+    });
+
+    http.verify();
+  });
+
+  it('sends batch adjustment request to batch adjust endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .adjustInventoryBatch('batch-1', {
+        direction: 'Decrease',
+        reason: 'Damaged',
+        quantity: 2.5,
+        performedAt: '2026-05-05T08:30:00.000Z',
+        notes: 'Damaged during handling',
+      })
+      .subscribe((response) => {
+        expect(response.adjustmentNumber).toBe('ADJ-0001');
+        expect(response.batchQuantityBefore).toBe(10);
+        expect(response.batchQuantityAfter).toBe(7.5);
+        expect(response.costImpact).toBe(-250);
+      });
+
+    const request = http.expectOne(`${API_BASE_URL}/inventory/batches/batch-1/adjust`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 2.5,
+      performedAt: '2026-05-05T08:30:00.000Z',
+      notes: 'Damaged during handling',
+    });
+
+    request.flush({
+      adjustmentId: 'adjustment-1',
+      adjustmentNumber: 'ADJ-0001',
+      quantity: 2.5,
+      unitCost: 100,
+      costImpact: -250,
+      batchQuantityBefore: 10,
+      batchQuantityAfter: 7.5,
+      inventoryQuantityBefore: 25,
+      inventoryQuantityAfter: 22.5,
+      stockTransactionId: 'tx-1',
+      performedAt: '2026-05-05T08:30:00.000Z',
+    });
+
+    http.verify();
+  });
+
+  it('sends void adjustment request to adjustment void endpoint', () => {
+    const { service, http } = setup();
+
+    service
+      .voidAdjustment('adjustment-1', { reason: 'Duplicate stock count' })
+      .subscribe((response) => {
+        expect(response.adjustmentId).toBe('adjustment-1');
+        expect(response.reversalStockTransactionId).toBe('tx-reversal-1');
+      });
+
+    const request = http.expectOne(`${API_BASE_URL}/inventory/adjustments/adjustment-1/void`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ reason: 'Duplicate stock count' });
+
+    request.flush({
+      adjustmentId: 'adjustment-1',
+      reversalStockTransactionId: 'tx-reversal-1',
+      batchQuantityBefore: 8,
+      batchQuantityAfter: 10,
+      inventoryQuantityBefore: 18,
+      inventoryQuantityAfter: 20,
+      voidedAt: '2026-05-05T09:00:00.000Z',
+    });
+
+    http.verify();
+  });
+
+  it('loads adjustment history with server-side filters and paging', () => {
+    const { service, http } = setup();
+
+    service
+      .getAdjustmentHistory({
+        pageNumber: 2,
+        pageSize: 25,
+        itemId: 'item-1',
+        batchId: 'batch-1',
+        direction: 'Decrease',
+        reason: 'Damaged',
+        from: '2026-05-01',
+        to: '2026-05-05',
+        includeVoided: true,
+      })
+      .subscribe((response) => {
+        expect(response.totalCount).toBe(1);
+        expect(response.items[0].adjustmentNumber).toBe('ADJ-0001');
+      });
+
+    const request = http.expectOne((req) => req.url === `${API_BASE_URL}/inventory/adjustments`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('pageNumber')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('25');
+    expect(request.request.params.get('itemId')).toBe('item-1');
+    expect(request.request.params.get('batchId')).toBe('batch-1');
+    expect(request.request.params.get('direction')).toBe('Decrease');
+    expect(request.request.params.get('reason')).toBe('Damaged');
+    expect(request.request.params.get('from')).toBe('2026-05-01');
+    expect(request.request.params.get('to')).toBe('2026-05-05');
+    expect(request.request.params.get('includeVoided')).toBe('true');
+
+    request.flush({
+      items: [
+        {
+          adjustmentId: 'adjustment-1',
+          adjustmentNumber: 'ADJ-0001',
+          itemId: 'item-1',
+          itemName: 'Rice',
+          barcode: '111',
+          batchId: 'batch-1',
+          batchNumber: 'BATCH-001',
+          direction: 'Decrease',
+          reason: 'Damaged',
+          quantity: 2,
+          unitCost: 100,
+          costImpact: -200,
+          batchQuantityBefore: 10,
+          batchQuantityAfter: 8,
+          inventoryQuantityBefore: 20,
+          inventoryQuantityAfter: 18,
+          performedAt: '2026-05-05T08:30:00.000Z',
+          performedByUserId: 'user-1',
+          performedByDisplayName: 'Test User',
+          notes: 'Damaged',
+          isVoided: false,
+          voidedAt: null,
+          voidedByUserId: null,
+          voidedByDisplayName: null,
+          voidReason: null,
+          reversalStockTransactionId: null,
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 25,
     });
 
     http.verify();

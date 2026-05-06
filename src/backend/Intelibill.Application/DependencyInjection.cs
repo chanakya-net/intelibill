@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<ISupplierResolver, SupplierResolver>();
         services.AddScoped<IBatchFactory, BatchFactory>();
         services.AddScoped<IInventoryUpdater, InventoryUpdater>();
+        services.AddScoped<IInventoryAdjustmentNumberGenerator, InventoryAdjustmentNumberGenerator>();
 
         services.AddScoped<ISaleLineValidator, SaleLineValidator>();
         services.AddScoped<ISaleInventoryMutator, SaleInventoryMutator>();
