@@ -102,4 +102,82 @@ public class LoginCommandHandlerTests
 
         await _userRepository.Received(1).GetByEmailAsync("test.user@test.com", Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_ValidPhoneCredentials_ReturnsAuthResult()
+    {
+        var command = new LoginCommand(" +911234567890 ", "Pass123!");
+        var user = User.CreateWithPhone("+911234567890", "First", "Last");
+        user.UpdatePassword("hashed");
+
+        _userRepository.GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
+        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.CreateRefreshToken(user.Id).Returns(Domain.Entities.RefreshToken.Create(user.Id, "refreshToken", DateTimeOffset.UtcNow.AddDays(7)));
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("accessToken", result.Value.AccessToken);
+        await _userRepository.Received(1).GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>());
+        await _userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PhoneIdentifier_DoesNotNormalizeBeforeLookup()
+    {
+        var command = new LoginCommand("  9876543210  ", "Pass123!");
+        _userRepository.GetByPhoneAsync("9876543210", Arg.Any<CancellationToken>()).Returns((User?)null);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidCredentials.Code);
+        await _userRepository.Received(1).GetByPhoneAsync("9876543210", Arg.Any<CancellationToken>());
+        await _userRepository.DidNotReceive().GetByPhoneAsync("+919876543210", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PhoneWrongPassword_ReturnsInvalidCredentialsError()
+    {
+        var command = new LoginCommand("+911234567890", "WrongPass!");
+        var user = User.CreateWithPhone("+911234567890", "First", "Last");
+        user.UpdatePassword("hashed");
+        _userRepository.GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(false);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidCredentials.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PhoneUserWithoutPasswordHash_ReturnsInvalidCredentialsError()
+    {
+        var command = new LoginCommand("+911234567890", "Pass123!");
+        var user = User.CreateWithPhone("+911234567890", "First", "Last");
+        _userRepository.GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>()).Returns(user);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidCredentials.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PhoneUserLoginDisabled_ReturnsUserLoginDisabledError()
+    {
+        var command = new LoginCommand("+911234567890", "Pass123!");
+        var user = User.CreateWithPhone("+911234567890", "First", "Last");
+        user.UpdatePassword("hashed");
+        user.SetLoginEnabled(false);
+        _userRepository.GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.UserLoginDisabled.Code);
+    }
 }

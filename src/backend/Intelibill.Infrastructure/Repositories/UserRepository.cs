@@ -20,6 +20,9 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
 
     public async Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default) =>
         await DbSet
+            .Include(u => u.ExternalLogins)
+            .Include(u => u.ShopMemberships)
+            .ThenInclude(sm => sm.Shop)
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 
     public async Task<User?> GetByExternalLoginAsync(

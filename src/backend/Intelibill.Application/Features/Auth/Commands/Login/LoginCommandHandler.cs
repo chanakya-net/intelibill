@@ -18,8 +18,11 @@ public sealed class LoginCommandHandler(
         LoginCommand command,
         CancellationToken cancellationToken)
     {
-        var normalizedIdentifier = command.Identifier.Trim().ToLowerInvariant();
-        var user = await userRepository.GetByEmailAsync(normalizedIdentifier, cancellationToken);
+        var trimmedIdentifier = command.Identifier.Trim();
+        var isEmailIdentifier = trimmedIdentifier.Contains('@');
+        var user = isEmailIdentifier
+            ? await userRepository.GetByEmailAsync(trimmedIdentifier.ToLowerInvariant(), cancellationToken)
+            : await userRepository.GetByPhoneAsync(trimmedIdentifier, cancellationToken);
 
         if (user is null || user.PasswordHash is null || !passwordHasher.Verify(command.Password, user.PasswordHash))
             return Errors.Auth.InvalidCredentials;
