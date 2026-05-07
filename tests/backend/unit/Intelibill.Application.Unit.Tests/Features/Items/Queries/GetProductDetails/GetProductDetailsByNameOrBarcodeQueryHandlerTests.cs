@@ -89,17 +89,18 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
-        var item = Item.Create(shop.Id, "Tea", null, "box", "222", true, owner.Id);
+        var barcode = CreateQrLikeBarcode();
+        var item = Item.Create(shop.Id, "Tea", null, "box", barcode, true, owner.Id);
         var inactiveSupplier = Supplier.Create(owner.Id, "Old Supplier", null, null, "Street", "City", "State", "560001", false, false);
         var batch = CreateBatch(shop.Id, item.Id, owner.Id, inactiveSupplier.Id, costPrice: 20m, mrp: 30m, salesPrice: 25m, taxRatePercent: 12m, taxIncluded: true);
 
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetByBarcodeAsync(shop.Id, barcode, Arg.Any<CancellationToken>()).Returns(item);
         _inventoryBatchRepository.GetByItemAsync(shop.Id, item.Id, Arg.Any<CancellationToken>()).Returns([batch]);
         _supplierRepository.GetByIdAsync(inactiveSupplier.Id, Arg.Any<CancellationToken>()).Returns(inactiveSupplier);
 
         var sut = CreateSut();
-        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: "222", authorizationHeader: null), CancellationToken.None);
+        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: barcode, authorizationHeader: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("Tea", result.Value.Name);
@@ -116,7 +117,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
-        const string barcode = "1234567890123";
+        var barcode = CreateQrLikeBarcode();
         const string authHeader = "Bearer token-123";
 
         Item? persistedItem = null;
@@ -161,13 +162,14 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
+        var barcode = CreateQrLikeBarcode();
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "404", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _externalProductLookupService.LookupByBarcodeAsync("404", "Bearer token-404", Arg.Any<CancellationToken>())
+        _itemRepository.GetByBarcodeAsync(shop.Id, barcode, Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _externalProductLookupService.LookupByBarcodeAsync(barcode, "Bearer token-404", Arg.Any<CancellationToken>())
             .Returns((ExternalProductLookupResult?)null);
 
         var sut = CreateSut();
-        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: "404", authorizationHeader: "Bearer token-404"), CancellationToken.None);
+        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: barcode, authorizationHeader: "Bearer token-404"), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("product.not_found", result.FirstError.Code);
@@ -183,13 +185,14 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
+        var barcode = CreateQrLikeBarcode();
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "500", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _externalProductLookupService.LookupByBarcodeAsync("500", "Bearer token-500", Arg.Any<CancellationToken>())
+        _itemRepository.GetByBarcodeAsync(shop.Id, barcode, Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _externalProductLookupService.LookupByBarcodeAsync(barcode, "Bearer token-500", Arg.Any<CancellationToken>())
             .Returns(Error.Failure("product.lookup.failed", "External lookup failed."));
 
         var sut = CreateSut();
-        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: "500", authorizationHeader: "Bearer token-500"), CancellationToken.None);
+        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: barcode, authorizationHeader: "Bearer token-500"), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("product.lookup.failed", result.FirstError.Code);
@@ -204,19 +207,23 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
 
-        var item = Item.Create(shop.Id, "Known", null, "kg", "111", true, owner.Id);
+        var barcode = CreateQrLikeBarcode();
+        var item = Item.Create(shop.Id, "Known", null, "kg", barcode, true, owner.Id);
 
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetByBarcodeAsync(shop.Id, barcode, Arg.Any<CancellationToken>()).Returns(item);
         _inventoryBatchRepository.GetByItemAsync(shop.Id, item.Id, Arg.Any<CancellationToken>()).Returns([]);
 
         var sut = CreateSut();
-        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: "111", authorizationHeader: "Bearer token"), CancellationToken.None);
+        var result = await sut.HandleAsync(CreateQuery(owner.Id, shop.Id, productName: null, barcode: barcode, authorizationHeader: "Bearer token"), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("product.no_batches", result.FirstError.Code);
         await _externalProductLookupService.DidNotReceive().LookupByBarcodeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
+
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('A', 24)}";
 
     private GetProductDetailsByNameOrBarcodeQueryHandler CreateSut() =>
         new(

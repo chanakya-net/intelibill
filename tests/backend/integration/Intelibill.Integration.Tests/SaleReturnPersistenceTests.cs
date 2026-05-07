@@ -1,6 +1,7 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -133,7 +134,22 @@ public sealed class SaleReturnPersistenceTests(PostgreSqlTestFixture fixture) : 
             taxAmount: 18m,
             notes: null).Value;
 
-        var saleReturn = SaleReturn.Create(
+        var line = new SaleReturnLineInput(
+            returnLine.ShopId,
+            returnLine.SaleItemId,
+            returnLine.Quantity,
+            returnLine.Condition,
+            returnLine.OriginalCostPrice,
+            returnLine.OriginalSalesPrice,
+            returnLine.OriginalTaxRatePercent,
+            returnLine.OriginalIsPriceIncludingTax,
+            returnLine.MaxRefundAmount,
+            returnLine.ApprovedRefundAmount,
+            returnLine.TaxableAmount,
+            returnLine.TaxAmount,
+            returnLine.Notes);
+
+        var saleReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
             "RET-20260504-ABC123EF",
@@ -143,11 +159,12 @@ public sealed class SaleReturnPersistenceTests(PostgreSqlTestFixture fixture) : 
             totalRefundAmount: 118m,
             dueReductionAmount: 0m,
             payoutAmount: 118m,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: 100m,
             totalTaxAmount: 18m,
             customerBalanceBefore: null,
             customerBalanceAfter: null,
-            [returnLine]).Value;
+            [line]).Value;
 
         db.Shops.Add(shop);
         db.Items.Add(item);

@@ -212,7 +212,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
         var productName = $"Product {Guid.NewGuid():N}";
-        var barcode = $"BCODE-{Guid.NewGuid():N}";
+        var barcode = CreateQrLikeBarcode();
 
         // Create item and batch
         using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
@@ -256,7 +256,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     [Fact]
     public async Task GetProductDetails_WhenBarcodeMissing_UsesExternalLookupAndPersistsItem()
     {
-        var barcode = $"EXT-{Guid.NewGuid():N}";
+        var barcode = CreateQrLikeBarcode();
         var fakeLookup = new FakeExternalProductLookupService(
             new ExternalProductLookupResult("External Product", "External Description", null));
 
@@ -302,7 +302,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     [Fact]
     public async Task GetProductDetails_WhenExternalLookupFails_ReturnsServerError()
     {
-        var barcode = $"ERR-{Guid.NewGuid():N}";
+        var barcode = CreateQrLikeBarcode();
         var fakeLookup = new FakeExternalProductLookupService(
             Error.Failure("product.lookup.failed", "External lookup failed."));
 
@@ -387,4 +387,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             return Task.FromResult(result);
         }
     }
+
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('E', 24)}";
 }

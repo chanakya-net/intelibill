@@ -75,7 +75,7 @@ describe('NewSalePageComponent', () => {
     inventoryService.getAvailableBatchesBySearchTerm.mockReturnValue(
       of([
         {
-          barcode: 'BC-001',
+          barcode: createQrLikeBarcode(),
           itemName: 'Oreo',
           batchNumber: 'B-01',
           quantity: 10,
@@ -134,13 +134,14 @@ describe('NewSalePageComponent', () => {
   it('triggers search immediately when scanner detects a barcode', () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     const component = fixture.componentInstance;
+    const barcode = createQrLikeBarcode();
     component.isScannerOpen.set(true);
 
-    component.onScannedBarcode({ value: 'BC-001', format: 'CODE-128', engine: 'native' });
+    component.onScannedBarcode({ value: barcode, format: 'QR-CODE', engine: 'native' });
 
     expect(component.searchInput()).toBe('');
     expect(component.isScannerOpen()).toBe(false);
-    expect(inventoryService.getAvailableBatchesBySearchTerm).toHaveBeenCalledWith('BC-001');
+    expect(inventoryService.getAvailableBatchesBySearchTerm).toHaveBeenCalledWith(barcode);
     expect(component.cart()).toHaveLength(1);
     expect(component.cart()[0].quantity).toBe(1);
     expect(component.showBatchPicker()).toBe(false);
@@ -151,7 +152,7 @@ describe('NewSalePageComponent', () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     const component = fixture.componentInstance;
 
-    component.onScannedBarcode({ value: '   ', format: 'CODE-128', engine: 'native' });
+    component.onScannedBarcode({ value: '   ', format: 'QR-CODE', engine: 'native' });
 
     expect(inventoryService.getAvailableBatchesBySearchTerm).not.toHaveBeenCalled();
   });
@@ -389,4 +390,8 @@ describe('NewSalePageComponent', () => {
     expect(component.paymentForm.controls.dueAmount.value).toBe(0);
     expect(component.paymentForm.controls.paidAmount.value).toBe(150);
   });
+
+  function createQrLikeBarcode() {
+    return `QR|01|${crypto.randomUUID()}|TRACE|${crypto.randomUUID()}|PAYLOAD|AAAAAAAAAAAAAAAAAAAAAAAA`;
+  }
 });

@@ -480,4 +480,57 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal(1020m, entries[2].Amount);
         Assert.Equal(newBatch.Id, entries[2].BatchId);
     }
+
+    [Fact]
+    public async Task GetAvailableBatches_WithQrBarcode_ReturnsMatchingBatch()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = CreateQrLikeBarcode();
+
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = "QR Rice",
+            barcode,
+            itemDescription = "QR seeded item",
+            uom = "kg",
+            batchNumber = "B-QR-1",
+            quantity = 7m,
+            costPrice = 45m,
+            mrp = 60m,
+            salesPrice = 55m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = "PO-QR-1",
+            notes = "Seeded for QR availability lookup",
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        Assert.Equal(HttpStatusCode.OK, inboundResponse.StatusCode);
+
+        using var availableRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/inventory/batches/available?barcode={Uri.EscapeDataString(barcode)}");
+        availableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var availableResponse = await client.SendAsync(availableRequest);
+
+        Assert.Equal(HttpStatusCode.OK, availableResponse.StatusCode);
+        var body = await availableResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, body.ValueKind);
+
+        var first = body.EnumerateArray().First();
+        Assert.Equal(barcode, first.GetProperty("barcode").GetString());
+        Assert.Equal("QR Rice", first.GetProperty("itemName").GetString());
+        Assert.Equal("B-QR-1", first.GetProperty("batchNumber").GetString());
+        Assert.Equal(7m, first.GetProperty("quantity").GetDecimal());
+    }
+
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('F', 24)}";
 }

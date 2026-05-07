@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.PreviewSaleReturn;
@@ -330,7 +331,22 @@ public class PreviewSaleReturnQueryHandlerTests
             taxAmount: quantity * 10m,
             notes: null).Value;
 
-        var saleReturn = SaleReturn.Create(
+        var line = new SaleReturnLineInput(
+            returnItem.ShopId,
+            returnItem.SaleItemId,
+            returnItem.Quantity,
+            returnItem.Condition,
+            returnItem.OriginalCostPrice,
+            returnItem.OriginalSalesPrice,
+            returnItem.OriginalTaxRatePercent,
+            returnItem.OriginalIsPriceIncludingTax,
+            returnItem.MaxRefundAmount,
+            returnItem.ApprovedRefundAmount,
+            returnItem.TaxableAmount,
+            returnItem.TaxAmount,
+            returnItem.Notes);
+
+        var saleReturn = SaleReturn.Record(
             shopId,
             saleId,
             $"RET-{Guid.NewGuid():N}",
@@ -340,11 +356,12 @@ public class PreviewSaleReturnQueryHandlerTests
             totalRefundAmount: quantity * 110m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 110m,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,
             customerBalanceAfter: null,
-            [returnItem]).Value;
+            [line]).Value;
 
         if (voided)
             saleReturn.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake");

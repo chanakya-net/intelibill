@@ -49,7 +49,7 @@ describe('BarcodeScannerDialogComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('emits detected barcode after scanner starts', async () => {
+  it('emits detected QR once after scanner starts', async () => {
     const fixture = TestBed.createComponent(BarcodeScannerDialogComponent);
     const component = fixture.componentInstance;
     const detectedSpy = vi.fn();
@@ -60,11 +60,13 @@ describe('BarcodeScannerDialogComponent', () => {
 
     expect(barcodeDetectorService.start).toHaveBeenCalledTimes(1);
 
-    onDetectedCallback?.({ value: 'BC-001', format: 'CODE-128', engine: 'native' });
+    onDetectedCallback?.({ value: 'QR-001', format: 'QR-CODE', engine: 'native' });
+    onDetectedCallback?.({ value: 'QR-001', format: 'QR-CODE', engine: 'native' });
 
+    expect(detectedSpy).toHaveBeenCalledTimes(1);
     expect(detectedSpy).toHaveBeenCalledWith({
-      value: 'BC-001',
-      format: 'CODE-128',
+      value: 'QR-001',
+      format: 'QR-CODE',
       engine: 'native',
     });
   });

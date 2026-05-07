@@ -18,7 +18,7 @@ public sealed class SaleItem : BaseEntity
 
     private SaleItem() { }
 
-    public static SaleItem Create(
+    internal static SaleItem Create(
         Guid shopId,
         Guid itemId,
         Guid inventoryBatchId,

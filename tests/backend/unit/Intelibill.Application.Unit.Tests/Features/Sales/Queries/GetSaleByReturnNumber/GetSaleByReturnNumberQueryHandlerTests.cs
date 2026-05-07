@@ -2,6 +2,7 @@ using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.GetSaleByReturnNumber;
@@ -21,7 +22,7 @@ public sealed class GetSaleByReturnNumberQueryHandlerTests
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
         var saleId = Guid.NewGuid();
-        var saleReturn = SaleReturn.Create(
+        var saleReturn = SaleReturn.Record(
             shop.Id,
             saleId,
             "RET-001",
@@ -31,6 +32,7 @@ public sealed class GetSaleByReturnNumberQueryHandlerTests
             totalRefundAmount: 0m,
             dueReductionAmount: 0m,
             payoutAmount: 0m,
+            payoutMethod: null,
             totalTaxableAmount: 0m,
             totalTaxAmount: 0m,
             customerBalanceBefore: null,

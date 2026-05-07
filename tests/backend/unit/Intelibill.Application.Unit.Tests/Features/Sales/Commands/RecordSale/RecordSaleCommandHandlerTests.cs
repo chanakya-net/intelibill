@@ -6,17 +6,18 @@ using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
+using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
-using NSubstitute.ReturnsExtensions;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 
 public class RecordSaleCommandHandlerTests
 {
     private readonly ISaleLineValidator _saleLineValidator = Substitute.For<ISaleLineValidator>();
-    private readonly ISaleInventoryMutator _saleInventoryMutator = Substitute.For<ISaleInventoryMutator>();
     private readonly ICustomerResolver _customerResolver = Substitute.For<ICustomerResolver>();
-    private readonly ISaleAggregator _saleAggregator = Substitute.For<ISaleAggregator>();
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public RecordSaleCommandHandlerTests()
@@ -26,7 +27,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _saleInventoryMutator, _customerResolver, _saleAggregator, _unitOfWork);
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
@@ -66,31 +67,20 @@ public class RecordSaleCommandHandlerTests
         var command = MakeCommand(shopId, actorId);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
-        var validResult1 = new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
-            .Returns(validResult1);
-
-        var si = SaleItem.Create(shopId, item.Id, batch.Id, 5m, 80m, 100m, 120m, 18m, false, false);
-        var tx = StockTransaction.Create(shopId, item.Id, batch.Id, StockTransactionType.Out, -5m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(si, tx, 90m));
-
-        var dto = new SaleDto(Guid.NewGuid(), "INV-TEST-00000001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 590m, 0m, 590m, 90m,
-            [new SaleItemDto(si.Id, si.ItemId, "Rice", si.InventoryBatchId, 5m, 100m, 18m, false, false)], []);
-        _saleAggregator.AggregateAsync(Arg.Any<string>(), shopId, Arg.Any<decimal>(), Arg.Any<decimal>(),
-                actorId, Arg.Any<Customer?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-                Arg.Any<PaymentMethod>(), Arg.Any<IReadOnlyList<MutatedSaleLine>>(),
-                Arg.Any<List<string>>(), Arg.Any<IReadOnlyDictionary<Guid, string>>(), Arg.Any<CancellationToken>())
-            .Returns(new SaleAggregation(null!, null, dto));
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.NotEmpty(result.Value.InvoiceNumber);
         Assert.StartsWith("INV-", result.Value.InvoiceNumber);
         Assert.Single(result.Value.Items);
         Assert.Equal("Rice", result.Value.Items[0].ItemName);
+        Assert.Equal(95m, batch.Quantity);
+        Assert.Equal(95m, inventory.Quantity);
+        await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -160,33 +150,16 @@ public class RecordSaleCommandHandlerTests
         var line2 = new ValidatedSaleLine(command.Items[1], item2, batch2, inv2, false);
 
         var itemNameById = new Dictionary<Guid, string> { { item1.Id, "Rice" }, { item2.Id, "Dal" } };
-        var validResult2 = new SaleLineValidationResult(new List<ValidatedSaleLine> { line1, line2 }, itemNameById);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
-            .Returns(validResult2);
-
-        var si1 = SaleItem.Create(shopId, item1.Id, batch1.Id, 5m, 80m, 100m, 120m, 18m, false, false);
-        var si2 = SaleItem.Create(shopId, item2.Id, batch2.Id, 3m, 60m, 80m, 100m, 5m, false, false);
-        var tx1 = StockTransaction.Create(shopId, item1.Id, batch1.Id, StockTransactionType.Out, -5m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        var tx2 = StockTransaction.Create(shopId, item2.Id, batch2.Id, StockTransactionType.Out, -3m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line1, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(si1, tx1, 90m));
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line2, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(si2, tx2, 12m));
-
-        var dto = new SaleDto(Guid.NewGuid(), "INV-TEST", null, PaymentMethod.UPI, DateTimeOffset.UtcNow, 842m, 0m, 842m, 102m,
-            [new SaleItemDto(si1.Id, si1.ItemId, "Rice", si1.InventoryBatchId, 5m, 100m, 18m, false, false),
-             new SaleItemDto(si2.Id, si2.ItemId, "Dal", si2.InventoryBatchId, 3m, 80m, 5m, false, false)], []);
-        _saleAggregator.AggregateAsync(Arg.Any<string>(), shopId, 842m, 0m, actorId, Arg.Any<Customer?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-                PaymentMethod.UPI, Arg.Any<IReadOnlyList<MutatedSaleLine>>(), Arg.Any<List<string>>(),
-                Arg.Any<IReadOnlyDictionary<Guid, string>>(), Arg.Any<CancellationToken>())
-            .Returns(new SaleAggregation(null!, null, dto));
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line1, line2 }, itemNameById));
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(2, result.Value.Items.Count);
+        await _stockTransactionRepository.Received(2).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -202,60 +175,39 @@ public class RecordSaleCommandHandlerTests
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
 
-        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(),
                 Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
-            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
 
-        var si = SaleItem.Create(shopId, item.Id, batch.Id, 5m, 80m, 100m, 120m, 18m, false, false);
-        var tx = StockTransaction.Create(shopId, item.Id, batch.Id, StockTransactionType.Out, -5m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(si, tx, 90m));
-
-        Customer? capturedCustomer = null;
-        string? capturedName = null;
-        string? capturedPhone = null;
-        _saleAggregator.AggregateAsync(
-                Arg.Any<string>(), shopId, 590m, 0m, actorId,
-                Arg.Do<Customer?>(c => capturedCustomer = c),
-                Arg.Do<string?>(n => capturedName = n),
-                Arg.Do<string?>(p => capturedPhone = p),
-                PaymentMethod.Cash,
-                Arg.Any<IReadOnlyList<MutatedSaleLine>>(),
-                Arg.Any<List<string>>(),
-                Arg.Any<IReadOnlyDictionary<Guid, string>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new SaleAggregation(null!, null, new SaleDto(
-                Guid.NewGuid(), "INV-TEST-00000001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow,
-                590m, 0m, 590m, 90m,
-                [new SaleItemDto(si.Id, si.ItemId, "Rice", si.InventoryBatchId, 5m, 100m, 18m, false, false)], [])));
+        Sale? capturedSale = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(s => capturedSale = s), Arg.Any<CancellationToken>());
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Null(capturedCustomer);
-        Assert.Equal("Guest Raj", capturedName);
-        Assert.Equal("+919999999999", capturedPhone);
+        Assert.NotNull(capturedSale);
+        Assert.Equal("Guest Raj", capturedSale!.CustomerName);
+        Assert.Equal("+919999999999", capturedSale!.CustomerPhone);
     }
 
     [Fact]
-    public async Task HandleAsync_WhenSecondLineMutationFails_ReturnsErrorWithoutSaving()
+    public async Task HandleAsync_WhenSecondLineBatchHasInsufficientStock_ReturnsErrorWithoutSaving()
     {
         var shopId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
 
         var item1 = MakeItem(shopId, "BC-001", "Rice");
         var item2 = MakeItem(shopId, "BC-002", "Dal");
-        var batch1 = MakeBatch(shopId, item1.Id, "B-01");
-        var batch2 = MakeBatch(shopId, item2.Id, "B-02");
+        var batch1 = MakeBatch(shopId, item1.Id, "B-01", quantity: 100m);
+        var batch2 = MakeBatch(shopId, item2.Id, "B-02", quantity: 1m);
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
         var command = new RecordSaleCommand(actorId, shopId, null, "Guest", "+911111111111", PaymentMethod.Cash, 842m, 0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false),
-                new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false)
+                new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false),
             ]);
 
         var line1 = new ValidatedSaleLine(command.Items[0], item1, batch1, inv1, false);
@@ -265,25 +217,14 @@ public class RecordSaleCommandHandlerTests
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line1, line2 }, itemNameById));
 
-        var si1 = SaleItem.Create(shopId, item1.Id, batch1.Id, 5m, 80m, 100m, 120m, 18m, false, false);
-        var tx1 = StockTransaction.Create(shopId, item1.Id, batch1.Id, StockTransactionType.Out, -5m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line1, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(si1, tx1, 90m));
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line2, actorId, Arg.Any<CancellationToken>())
-            .Returns(Errors.Sale.InsufficientStock("BC-002", "B-02"));
-
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.Sale.InsufficientStock("BC-002", "B-02").Code, result.FirstError.Code);
-        await _saleAggregator.DidNotReceive().AggregateAsync(
-            Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<decimal>(),
-            Arg.Any<Guid>(), Arg.Any<Customer?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-            Arg.Any<PaymentMethod>(), Arg.Any<IReadOnlyList<MutatedSaleLine>>(), Arg.Any<List<string>>(),
-            Arg.Any<IReadOnlyDictionary<Guid, string>>(), Arg.Any<CancellationToken>());
+        Assert.Equal("InventoryBatch.InsufficientStock", result.FirstError.Code);
         await _customerResolver.DidNotReceive().ResolveAsync(
             Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<PaymentMethod>(), Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -304,11 +245,6 @@ public class RecordSaleCommandHandlerTests
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
 
-        var saleItem = SaleItem.Create(shopId, item.Id, batch.Id, 1m, 80m, 100m, 120m, 18m, false, false);
-        var tx = StockTransaction.Create(shopId, item.Id, batch.Id, StockTransactionType.Out, -1m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(saleItem, tx, 18m));
-
         _customerResolver.ResolveAsync(shopId, command.CustomerId, command.CustomerPhone, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
             .Returns(Errors.Sale.CreditCustomerNotFound);
 
@@ -317,16 +253,12 @@ public class RecordSaleCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.CreditCustomerNotFound.Code, result.FirstError.Code);
-        await _saleAggregator.DidNotReceive().AggregateAsync(
-            Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<decimal>(),
-            Arg.Any<Guid>(), Arg.Any<Customer?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-            Arg.Any<PaymentMethod>(), Arg.Any<IReadOnlyList<MutatedSaleLine>>(), Arg.Any<List<string>>(),
-            Arg.Any<IReadOnlyDictionary<Guid, string>>(), Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_WhenAggregatorReturnsValidationError_DoesNotSaveChanges()
+    public async Task HandleAsync_WhenPaidAndDueMismatch_DoesNotSaveChanges()
     {
         var shopId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
@@ -334,24 +266,15 @@ public class RecordSaleCommandHandlerTests
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
 
-        var command = MakeCommand(shopId, actorId, quantity: 1m);
+        // qty=1, price=100, tax=18% exclusive → total=118, but PaidAmount=999 → mismatch
+        var command = new RecordSaleCommand(actorId, shopId, null, "Ravi", "+919876543210",
+            PaymentMethod.Cash, PaidAmount: 999m, DueAmount: 0m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
 
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
-
-        var saleItem = SaleItem.Create(shopId, item.Id, batch.Id, 1m, 80m, 100m, 120m, 18m, false, false);
-        var tx = StockTransaction.Create(shopId, item.Id, batch.Id, StockTransactionType.Out, -1m, "INV-TEST", null, DateTimeOffset.UtcNow, actorId, actorId).Value;
-        _saleInventoryMutator.MutateAsync(shopId, Arg.Any<string>(), line, actorId, Arg.Any<CancellationToken>())
-            .Returns(new MutatedSaleLine(saleItem, tx, 18m));
-
-        _saleAggregator.AggregateAsync(
-                Arg.Any<string>(), shopId, Arg.Any<decimal>(), Arg.Any<decimal>(),
-                actorId, Arg.Any<Customer?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-                PaymentMethod.Cash, Arg.Any<IReadOnlyList<MutatedSaleLine>>(), Arg.Any<List<string>>(),
-                Arg.Any<IReadOnlyDictionary<Guid, string>>(), Arg.Any<CancellationToken>())
-            .Returns(Errors.Sale.PaidAndDueAmountMismatch);
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -359,5 +282,35 @@ public class RecordSaleCommandHandlerTests
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.PaidAndDueAmountMismatch.Code, result.FirstError.Code);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditSaleWithResolvedCustomer_CreatesSaleAndLedgerEntry()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Reg User", "+911234567890", null, true);
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        // qty=1, price=100, tax=18% → total=118, paidAmount=78, dueAmount=40
+        var command = new RecordSaleCommand(actorId, shopId, customer.Id, null, null,
+            PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _customerResolver.ResolveAsync(shopId, customer.Id, null, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
