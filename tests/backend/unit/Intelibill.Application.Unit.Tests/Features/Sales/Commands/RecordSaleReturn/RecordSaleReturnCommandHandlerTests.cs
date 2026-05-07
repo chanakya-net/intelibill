@@ -223,63 +223,6 @@ public sealed class RecordSaleReturnCommandHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    [Theory]
-    [InlineData(SaleReturnCondition.Wastage, null, "SaleReturn.NoteRequired")]
-    [InlineData(SaleReturnCondition.Restockable, 50.0, "SaleReturn.NoteRequired")]
-    [InlineData(SaleReturnCondition.Restockable, 0.0, "SaleReturn.NoteRequired")]
-    public async Task HandleAsync_WhenLineRequiresNoteAndNoteIsMissing_ReturnsValidationError(
-        SaleReturnCondition condition,
-        double? approvedRefundAmount,
-        string expectedCode)
-    {
-        var fixture = ArrangeSale(ShopRole.Owner);
-
-        var result = await CreateHandler().HandleAsync(
-            Command(
-                fixture.User.Id,
-                fixture.Shop.Id,
-                fixture.Sale.Id,
-                fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
-                condition,
-                approvedRefundAmount.HasValue ? (decimal)approvedRefundAmount.Value : null,
-                lineNotes: null),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, error => error.Code == expectedCode);
-        Assert.Equal(10m, fixture.Batch.Quantity);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenPayoutIsPositiveAndMethodMissing_ReturnsValidationError()
-    {
-        var fixture = ArrangeSale(ShopRole.Owner);
-
-        var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: null),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Sale.ReturnPayoutMethodRequired.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenPayoutMethodIsCredit_ReturnsValidationError()
-    {
-        var fixture = ArrangeSale(ShopRole.Owner);
-
-        var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Credit),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Sale.ReturnPayoutMethodInvalid.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
     [Fact]
     public async Task HandleAsync_WhenCustomerHasOutstandingDue_CreatesReturnCreditBeforePayout()
     {

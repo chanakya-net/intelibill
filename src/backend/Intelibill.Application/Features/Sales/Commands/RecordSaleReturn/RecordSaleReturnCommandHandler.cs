@@ -54,7 +54,6 @@ public sealed class RecordSaleReturnCommandHandler(
         var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
         var calculationBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
         var returnLines = new List<SaleReturnLineInput>();
-        var restocks = new List<PreparedRestock>();
 
         foreach (var line in validated.Lines)
         {
@@ -96,7 +95,17 @@ public sealed class RecordSaleReturnCommandHandler(
             if (transaction.IsError)
                 return transaction.Errors;
 
-            restocks.Add(new PreparedRestock(line, inventory, transaction.Value));
+            var batchResult = line.Batch.AddQuantity(line.Request.Quantity, command.ActorUserId);
+            if (batchResult.IsError)
+                return batchResult.Errors;
+
+            var inventoryResult = inventory.AddQuantity(line.Request.Quantity, command.ActorUserId);
+            if (inventoryResult.IsError)
+                return inventoryResult.Errors;
+
+            inventoryBatchRepository.Update(line.Batch);
+            inventoryRepository.Update(inventory);
+            await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
         }
 
         var saleReturn = SaleReturn.Record(
@@ -138,21 +147,6 @@ public sealed class RecordSaleReturnCommandHandler(
             returnCredit = returnCreditResult.Value;
         }
 
-        foreach (var restock in restocks)
-        {
-            var batchResult = restock.Line.Batch.AddQuantity(restock.Line.Request.Quantity, command.ActorUserId);
-            if (batchResult.IsError)
-                return batchResult.Errors;
-
-            var inventoryResult = restock.Inventory.AddQuantity(restock.Line.Request.Quantity, command.ActorUserId);
-            if (inventoryResult.IsError)
-                return inventoryResult.Errors;
-
-            inventoryBatchRepository.Update(restock.Line.Batch);
-            inventoryRepository.Update(restock.Inventory);
-            await stockTransactionRepository.AddAsync(restock.StockTransaction, cancellationToken);
-        }
-
         await saleReturnRepository.AddAsync(saleReturn.Value, cancellationToken);
         if (returnCredit is not null)
             await customerLedgerEntryRepository.AddAsync(returnCredit, cancellationToken);
@@ -161,11 +155,6 @@ public sealed class RecordSaleReturnCommandHandler(
 
         return Result.Success;
     }
-
-    private sealed record PreparedRestock(
-        ValidatedSaleReturnLine Line,
-        Intelibill.Domain.Entities.Inventory Inventory,
-        StockTransaction StockTransaction);
 
     private static ErrorOr<Success> ValidateDueOverrideWarnings(
         IReadOnlyList<SaleReturnCalculationWarning> warnings)
