@@ -1,3 +1,4 @@
+using System.Reflection;
 using Intelibill.Domain.Entities;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
@@ -35,5 +36,13 @@ public class SaleItemTests
             taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: true);
 
         Assert.True(saleItem.HasPriceMismatch);
+    }
+
+    [Fact]
+    public void Create_IsNotPublic()
+    {
+        var method = typeof(SaleItem).GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Null(method);
     }
 }

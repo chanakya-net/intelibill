@@ -1,54 +1,133 @@
+using System.Reflection;
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
 public class SaleTests
 {
     [Fact]
-    public void Create_WithValidData_SetsSaleProperties()
+    public void Record_WithValidData_ComputesTotalsAndCreatesItems()
     {
         var shopId = Guid.NewGuid();
         var invoiceNumber = "INV-20260416-ABCD1234";
         var customerId = Guid.NewGuid();
         var soldAt = DateTimeOffset.UtcNow;
-        var items = new List<SaleItem>();
+        SaleLineInput[] lines =
+        [
+            new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 2m, 80m, 100m, 120m, 18m, false, false),
+            new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 118m, 120m, 18m, true, true),
+        ];
 
-        var sale = Sale.Create(shopId, invoiceNumber, customerId, null, null,
-            PaymentMethod.Cash, soldAt, 500m, 0m, 500m, 45m, items);
+        var result = Sale.Record(
+            shopId,
+            invoiceNumber,
+            lines,
+            customerId,
+            "  Ravi Kumar  ",
+            "  +919876543210  ",
+            PaymentMethod.Cash,
+            354m,
+            0m,
+            soldAt);
+
+        Assert.False(result.IsError);
+        var sale = result.Value;
 
         Assert.Equal(shopId, sale.ShopId);
         Assert.Equal(invoiceNumber, sale.InvoiceNumber);
         Assert.Equal(customerId, sale.CustomerId);
-        Assert.Equal(PaymentMethod.Cash, sale.PaymentMethod);
-        Assert.Equal(soldAt, sale.SoldAt);
-        Assert.Equal(500m, sale.TotalAmount);
-        Assert.Equal(45m, sale.TotalTaxAmount);
-    }
-
-    [Fact]
-    public void Create_WithWalkInCustomer_StoresNameAndPhone()
-    {
-        var sale = Sale.Create(Guid.NewGuid(), "INV-20260416-ABCD1234",
-            null, "  Ravi Kumar  ", "  +919876543210  ",
-            PaymentMethod.UPI, DateTimeOffset.UtcNow, 200m, 0m, 200m, 18m, []);
-
-        Assert.Null(sale.CustomerId);
         Assert.Equal("Ravi Kumar", sale.CustomerName);
         Assert.Equal("+919876543210", sale.CustomerPhone);
+        Assert.Equal(PaymentMethod.Cash, sale.PaymentMethod);
+        Assert.Equal(soldAt, sale.SoldAt);
+        Assert.Equal(354m, sale.TotalAmount);
+        Assert.Equal(54m, sale.TotalTaxAmount);
+        Assert.Equal(2, sale.Items.Count);
+        Assert.Equal(200m, sale.Items[0].SalesPrice * sale.Items[0].Quantity);
+        Assert.False(sale.Items[0].IsPriceIncludingTax);
+        Assert.True(sale.Items[1].IsPriceIncludingTax);
+        Assert.True(sale.Items[1].HasPriceMismatch);
     }
 
     [Fact]
-    public void Create_WithItems_AttachesItemsToSale()
+    public void Record_WhenPaidAndDueDoNotMatchRoundedTotal_ReturnsMismatchError()
     {
         var shopId = Guid.NewGuid();
-        var saleItem = SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(),
-            5m, 80m, 100m, 120m, 18m, false, false);
+        var line = new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 2m, 10m, 50.0025m, 60m, 0m, false, false);
 
-        var sale = Sale.Create(shopId, "INV-20260416-ABCD1234",
-            null, null, null, PaymentMethod.Card, DateTimeOffset.UtcNow, 500m, 0m, 500m, 45m,
-            [saleItem]);
+        var result = Sale.Record(
+            shopId,
+            "INV-20260416-ABCD1234",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            100.004m,
+            0m,
+            DateTimeOffset.UtcNow);
 
-        Assert.Single(sale.Items);
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.PaidAndDueAmountMismatch.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public void Record_WhenCreditHasNoDue_ReturnsCreditRequiresDueAmount()
+    {
+        var shopId = Guid.NewGuid();
+        var line = new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false);
+
+        var result = Sale.Record(
+            shopId,
+            "INV-20260416-ABCD1234",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Credit,
+            118m,
+            0m,
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditRequiresDueAmount.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public void Record_WhenNoLines_ReturnsItemsRequired()
+    {
+        var result = Sale.Record(
+            Guid.NewGuid(),
+            "INV-20260416-ABCD1234",
+            [],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            0m,
+            0m,
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.ItemsRequired.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public void Create_IsNotPublic()
+    {
+        var method = typeof(Sale).GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Null(method);
+    }
+
+    [Fact]
+    public void Record_IsPublic()
+    {
+        var method = typeof(Sale).GetMethod(nameof(Sale.Record), BindingFlags.Public | BindingFlags.Static);
+
+        Assert.NotNull(method);
     }
 }

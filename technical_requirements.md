@@ -1,239 +1,269 @@
-# Email Or Mobile Login Technical Requirements
+# Rich Domain Model: Sale & SaleReturn Aggregates — Technical Requirements
 
-## Summary
+## Problem Statement
 
-Allow users to sign in with either email address or mobile number in the same login field, plus password. The current login flow is email-only on both frontend and backend. The new flow must introduce a generic login identifier while preserving the existing email login endpoint for compatibility.
+Business logic for recording a sale and a sale return is scattered across shallow application-layer services (`SaleAggregator`, `SaleInventoryMutator`) and fat handlers. Domain entities are data bags with no invariant enforcement. Invariants (total = paid + due, credit requires due, notes required for wastage/partial/zero refunds, payout method required when payout > 0) live outside the aggregate that owns them.
 
-## Resolved Decisions
+---
 
-- The login page has one identifier field where the user can enter either email or mobile number.
-- Phone login uses exact stored phone-number matching after trimming leading/trailing whitespace.
-- No country-specific normalization is required.
-- No automatic conversion from `9876543210` to `+919876543210`.
-- If a user enters a phone number that does not exactly match the stored `users.phone_number`, login fails with the generic invalid credentials response.
-- Identifiers containing `@` use the email path.
-- Identifiers without `@` use the phone path.
-- Email identifiers are trimmed and lowercased before lookup.
-- Phone identifiers are trimmed only.
-- Do not remove internal spaces or other internal characters from either identifier type.
-- Empty identifiers are validation errors.
-- Non-empty identifiers should not be rejected because of phone format.
-- Malformed or unknown non-empty identifiers should flow to lookup/password verification and return generic invalid credentials on failure.
-- Phone/password login only succeeds for users with an existing `PasswordHash`.
-- Phone-only users created without a password hash return generic invalid credentials when attempting password login.
-- Shop-created users with stored phone numbers and passwords must be able to log in with exact stored phone plus password.
-- Login must continue to respect `IsLoginEnabled`.
-- The existing filtered unique index on `users.phone_number` is sufficient; no duplicate-resolution behavior is required.
-- No DB migration is expected. Add one only if implementation discovers a real schema requirement.
-- Rate limiting must apply to both generic and legacy login endpoints.
+## Decisions
 
-## Backend Requirements
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | Scope | Both `Sale.Record()` and `SaleReturn.Record()` in one refactor |
+| 2 | Invoice / return number generation | Handler generates, passes in as parameter |
+| 3 | Line item input type | New domain-level `SaleLineInput` record; tax calculation + `SaleItem` creation move inside `Sale.Record()` |
+| 4 | `CustomerLedgerEntry` ownership | Handler creates it (cross-aggregate orchestration, not a Sale invariant) |
+| 5 | `SaleInventoryMutator` fate | Inlined into handler (3 ops per line after stripping tax + SaleItem creation) |
+| 6 | `SaleReturn` invariants scope | Notes required + payout method validation move into `SaleReturn.Record()`; role check stays in handler (authorization) |
+| 7 | Test strategy | TDD — write failing domain tests first, then implement |
 
-### API Contract
+---
 
-Add a new endpoint:
+## New Domain Types
 
-```http
-POST /api/auth/login
-```
-
-Request:
+### `SaleLineInput` — `Intelibill.Domain/ValueObjects/SaleLineInput.cs`
 
 ```csharp
-public sealed record LoginRequest(string Identifier, string Password);
+public record SaleLineInput(
+    Guid ShopId,
+    Guid ItemId,
+    Guid InventoryBatchId,
+    decimal Quantity,
+    decimal CostPrice,
+    decimal SalesPrice,
+    decimal Mrp,
+    decimal TaxRatePercent,
+    bool IsPriceIncludingTax,
+    bool HasPriceMismatch);
 ```
 
-Response:
-
-- Same `AuthResult` payload as the current email login.
-- `200 OK` on success.
-- `400 Bad Request` for empty identifier/password validation failures.
-- `401 Unauthorized` with `Auth.InvalidCredentials` for unknown identifier, wrong password, missing password hash, or non-matching phone.
-- `401 Unauthorized` with `Auth.UserLoginDisabled` when matching user login is disabled.
-
-### Legacy Compatibility
-
-Keep:
-
-```http
-POST /api/auth/login/email
-```
-
-The legacy endpoint should dispatch to the same generic login command. Its existing `email` request field should be treated as the generic identifier for compatibility:
+### `SaleReturnLineInput` — `Intelibill.Domain/ValueObjects/SaleReturnLineInput.cs`
 
 ```csharp
-public sealed record LoginWithEmailRequest(string Email, string Password);
+public record SaleReturnLineInput(
+    Guid ShopId,
+    Guid SaleItemId,
+    decimal Quantity,
+    SaleReturnCondition Condition,
+    decimal OriginalCostPrice,
+    decimal OriginalSalesPrice,
+    decimal OriginalTaxRatePercent,
+    bool OriginalIsPriceIncludingTax,
+    decimal MaxRefundAmount,
+    decimal ApprovedRefundAmount,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    string? Notes);
 ```
 
-New clients should use `POST /api/auth/login`.
+---
 
-### Application Layer
+## Domain Changes
 
-Add new generic login command types:
+### `Sale.cs` — add `Sale.Record()`
 
+**Signature:**
 ```csharp
-public sealed record LoginCommand(string Identifier, string Password);
+public static ErrorOr<Sale> Record(
+    Guid shopId,
+    string invoiceNumber,
+    IReadOnlyList<SaleLineInput> lines,
+    Guid? customerId,
+    string? customerName,
+    string? customerPhone,
+    PaymentMethod paymentMethod,
+    decimal paidAmount,
+    decimal dueAmount,
+    DateTimeOffset soldAt)
 ```
 
-Recommended command behavior:
+**Internal logic (moves from `SaleAggregator`):**
+1. For each `SaleLineInput`, compute tax and create a `SaleItem` internally
+2. Compute `totalAmount` — per line: `salesPrice × qty`, add tax if `!IsPriceIncludingTax`
+3. Compute `totalTaxAmount` — tax formula:
+   - Tax-inclusive: `qty × salesPrice × taxRate / (100 + taxRate)`
+   - Tax-exclusive: `qty × salesPrice × taxRate / 100`
+4. **Invariant:** `Round(totalAmount, 2) != Round(paidAmount + dueAmount, 2)` → `Errors.Sale.PaidAndDueAmountMismatch`
+5. **Invariant:** `paymentMethod == Credit && dueAmount <= 0` → `Errors.Sale.CreditRequiresDueAmount`
+6. Return constructed `Sale` with items
 
-1. Trim `Identifier`.
-2. If trimmed identifier is empty, return validation error.
-3. If identifier contains `@`:
-   - Lowercase it.
-   - Lookup via `IUserRepository.GetByEmailAsync`.
-4. Otherwise:
-   - Lookup via `IUserRepository.GetByPhoneAsync` using the exact trimmed value.
-5. If user is missing, `PasswordHash` is null, or password verification fails, return `Errors.Auth.InvalidCredentials`.
-6. If `IsLoginEnabled` is false, return `Errors.Auth.UserLoginDisabled`.
-7. Reuse the current token, refresh token, active shop selection, and `AuthResult` behavior.
+**`Sale.Create()` fate:** Remove the public 11-parameter static factory. EF Core uses the `private Sale() {}` parameterless constructor for materialization — no change needed there.
 
-### Repository Requirements
+### `SaleReturn.cs` — add `SaleReturn.Record()`
 
-Existing repository methods are sufficient:
+**Signature:**
+```csharp
+public static ErrorOr<SaleReturn> Record(
+    Guid shopId,
+    Guid saleId,
+    string returnNumber,
+    DateTimeOffset processedAt,
+    Guid actorUserId,
+    string? notes,
+    decimal totalRefundAmount,
+    decimal dueReductionAmount,
+    decimal payoutAmount,
+    PaymentMethod? payoutMethod,
+    decimal totalTaxableAmount,
+    decimal totalTaxAmount,
+    decimal customerBalanceBefore,
+    decimal customerBalanceAfter,
+    IReadOnlyList<SaleReturnLineInput> lines)
+```
 
-- `GetByEmailAsync(string email, CancellationToken cancellationToken = default)`
-- `GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default)`
+**Internal logic (moves from handler):**
+1. **Invariant:** Per line, validate required notes:
+   - `Condition == Wastage` and `Notes` is null/empty → `Errors.Sale.ReturnNoteRequired("wastage returns")`
+   - `ApprovedRefundAmount < MaxRefundAmount` (partial) and no notes → `Errors.Sale.ReturnNoteRequired("partial refunds")`
+   - `ApprovedRefundAmount == 0` and no notes → `Errors.Sale.ReturnNoteRequired("zero refunds")`
+2. **Invariant:** Payout method validation:
+   - `payoutAmount > 0` and no `payoutMethod` → `Errors.Sale.ReturnPayoutMethodRequired`
+   - `payoutAmount > 0` and `payoutMethod` not in `{Cash, UPI, Card}` → `Errors.Sale.ReturnPayoutMethodInvalid`
+3. Create `SaleReturnItem` list from `lines`
+4. Construct and return `SaleReturn`
 
-`GetByPhoneAsync` must include the same details needed by login token creation, especially shop memberships and shops. Current `GetByEmailAsync` includes these details; phone lookup must be equivalent for login.
+**`SaleReturn.Create()` fate:** Remove the public static factory, same as `Sale.Create()`.
 
-### Rate Limiting
+### `SaleItem.cs` and `SaleReturnItem.cs`
 
-Apply the current login rate limit to both endpoints:
+Make `SaleItem.Create()` and `SaleReturnItem.Create()` `internal` — they are called only from within the domain (`Sale.Record()` and `SaleReturn.Record()` respectively), never from the application layer.
 
-- Limit: 10 attempts.
-- Period: 1 minute.
-- Backoff: 3 minutes.
+---
 
-## Frontend Requirements
+## Application Layer Changes
 
-### Login Page
+### `RecordSaleCommandHandler.cs` — simplified orchestration
 
-Replace the email-specific login form control with a generic identifier concept.
+**Constructor after refactor:**
+`ISaleLineValidator`, `ICustomerResolver`, `ISaleRepository`, `ICustomerLedgerEntryRepository`, `IStockTransactionRepository`, `IInventoryRepository`, `IInventoryBatchRepository`, `IUnitOfWork`
 
-UI copy:
+**New flow:**
+```
+1. saleLineValidator.ValidateLinesAsync(...)
+2. Generate invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid():N[..8].ToUpper()}"
+3. foreach validatedLine:
+   a. batch.SubtractQuantity(qty, actorUserId)              → error → return
+   b. inventory.SubtractQuantity(qty, actorUserId)          → error → return
+   c. StockTransaction.Create(type: Out, ...)               → error → return
+   d. stockTransactionRepository.AddAsync(transaction)
+   e. Build SaleLineInput from (cmdItem, batch)
+4. customerResolver.ResolveAsync(...)
+5. Sale.Record(shopId, invoiceNumber, lineInputs, customerId, customerName,
+               customerPhone, paymentMethod, paidAmount, dueAmount, soldAt)
+6. saleRepository.AddAsync(sale)
+7. if sale.DueAmount > 0 && sale.CustomerId.HasValue:
+       CustomerLedgerEntry.Create(type: SaleDue, ...)
+       customerLedgerEntryRepository.AddAsync(ledgerEntry)
+8. unitOfWork.SaveChangesAsync()
+9. Build and return SaleDto
+```
 
-- Label: `Email or mobile number`
-- Placeholder: `Enter email or mobile number`
-- Validation: `Enter your email or mobile number.`
+### `RecordSaleReturnCommandHandler.cs` — simplified orchestration
 
-Frontend validation:
+**Constructor after refactor:** unchanged (role check + saleReturnValidator stay)
 
-- Required only.
-- Remove Angular `Validators.email` from the combined identifier field.
-- Trim leading/trailing whitespace before submit.
-- Do not alter internal characters.
+**New flow:**
+```
+1. saleReturnValidator.ValidateAsync(...)
+2. Role check: Owner or Manager only (stays in handler — authorization)
+3. returnNumber = saleReturnNumberGenerator.Generate(processedAt)
+4. foreach line where Condition != Wastage:
+   a. StockTransaction.Create(type: Ret, ...)               → error → return
+   b. stockTransactionRepository.AddAsync(transaction)
+   c. batch.AddQuantity(qty, actorUserId)                   → error → return
+   d. inventory.AddQuantity(qty, actorUserId)               → error → return
+   e. inventoryBatchRepository.Update(batch)
+   f. inventoryRepository.Update(inventory)
+   g. Build SaleReturnLineInput from (line, calculated)
+5. SaleReturn.Record(shopId, saleId, returnNumber, processedAt, actorUserId,
+                     notes, amounts..., lineInputs)
+   → enforces notes invariants + payout method invariants
+6. saleReturnRepository.AddAsync(saleReturn)
+7. if sale.CustomerId && dueReductionAmount > 0:
+       CustomerLedgerEntry.Create(type: ReturnCredit, ...)
+       customerLedgerEntryRepository.AddAsync(ledgerEntry)
+8. unitOfWork.SaveChangesAsync()
+```
 
-Submit behavior:
+---
 
-- Call a generic auth service method such as `login(identifier, password, rememberMe)`.
-- Send payload `{ identifier, password }`.
-- Use the new endpoint constant for `POST /api/auth/login`.
+## Deleted Files
 
-### Remember Me
+| File | Reason |
+|------|--------|
+| `Application/Sales/Services/SaleAggregator.cs` | Logic moves into `Sale.Record()` |
+| `Application/Sales/Services/ISaleAggregator.cs` | Interface deleted with implementation |
+| `Application/Sales/Services/SaleInventoryMutator.cs` | Inlined into handler |
+| `Application/Sales/Services/ISaleInventoryMutator.cs` | Interface deleted with implementation |
+| `Application/Sales/Commands/RecordSale/SaleAggregation.cs` (return type) | Handler builds DTO directly |
 
-Rename the concept from last email to last login identifier.
+---
 
-Required behavior:
+## Test Plan (TDD Order)
 
-- Remember the trimmed identifier when `rememberMe` is true.
-- Remember either email or phone values.
-- Clear the remembered identifier when `rememberMe` is false.
-- Prefill the login field with the last remembered identifier, regardless of whether it is email or phone.
-- Read the old storage key `inventory.auth.last-email` as a migration fallback.
-- Save future values to a new key such as `inventory.auth.last-identifier`.
+### Phase 1 — Write failing domain tests first
 
-## Data Requirements
+**`SaleTests.cs` — new `Sale.Record()` tests:**
+- Total mismatch → `PaidAndDueAmountMismatch`
+- Credit payment, `dueAmount == 0` → `CreditRequiresDueAmount`
+- Tax-inclusive single line: `totalAmount` and `totalTaxAmount` computed correctly
+- Tax-exclusive single line: `totalAmount` and `totalTaxAmount` computed correctly
+- Valid cash sale, single line → returns `Sale` with correct totals and one `SaleItem`
+- Valid credit sale with due → returns `Sale`
+- Multi-line sale → totals are sum of all lines
 
-No planned schema change.
+**`SaleReturnTests.cs` — new `SaleReturn.Record()` tests:**
+- Wastage line, no notes → `ReturnNoteRequired`
+- Partial refund line, no notes → `ReturnNoteRequired`
+- Zero refund line, no notes → `ReturnNoteRequired`
+- `payoutAmount > 0`, no `payoutMethod` → `ReturnPayoutMethodRequired`
+- `payoutAmount > 0`, `payoutMethod = Credit` → `ReturnPayoutMethodInvalid`
+- Valid return, all notes present → returns `SaleReturn` with correct items
 
-Existing columns:
+### Phase 2 — Implement domain methods until tests pass
 
-- `users.email`
-- `users.phone_number`
-- `users.password_hash`
-- `users.is_login_enabled`
+Implement `Sale.Record()` and `SaleReturn.Record()`. Keep existing `Sale.Create()` and `SaleReturn.Create()` alive until handlers are updated.
 
-Existing filtered unique indexes on email and phone number should remain the source of uniqueness.
+### Phase 3 — Update handler tests and implementations
 
-## Security And Error Handling
+Update `RecordSaleCommandHandler` and `RecordSaleReturnCommandHandler` to use the new domain methods. Update handler unit tests to remove `ISaleAggregator` / `ISaleInventoryMutator` mocks.
 
-- Do not reveal whether a phone number exists.
-- Do not reveal whether an account has no password hash.
-- Preserve generic invalid credentials behavior for lookup and password failures.
-- Keep disabled-login behavior unchanged.
-- Preserve rate limiting on login attempts.
-- Avoid adding phone-format-specific error messages that could create inconsistent client/server behavior.
+### Phase 4 — Delete obsolete code and tests
 
-## Test Coverage Requirements
+- Remove `SaleAggregator`, `ISaleAggregator`, `SaleInventoryMutator`, `ISaleInventoryMutator`, `SaleAggregation`
+- Remove public `Sale.Create()` and `SaleReturn.Create()`
+- Delete or prune `SalesServicesTests.cs` sections covering deleted services
 
-The implementation should add high coverage for positive and negative cases.
+---
 
-Backend unit tests:
+## Files Touched (Summary)
 
-- Email identifier success.
-- Email lookup remains case-insensitive.
-- Phone identifier success with exact stored phone value.
-- Phone identifier does not normalize.
-- Phone identifier with non-matching format returns invalid credentials.
-- Unknown email returns invalid credentials.
-- Unknown phone returns invalid credentials.
-- Wrong password returns invalid credentials.
-- Matching user with null password hash returns invalid credentials.
-- Disabled matching user returns user-login-disabled error.
-- Identifier is trimmed before lookup.
-- Phone internal characters are not changed.
-- Email internal characters are not changed except lowercasing.
+| File | Change |
+|------|--------|
+| `Domain/Entities/Sale.cs` | Add `Sale.Record()`, remove public `Sale.Create()` |
+| `Domain/Entities/SaleReturn.cs` | Add `SaleReturn.Record()`, remove public `SaleReturn.Create()` |
+| `Domain/Entities/SaleItem.cs` | Make `SaleItem.Create()` `internal` |
+| `Domain/Entities/SaleReturnItem.cs` | Make `SaleReturnItem.Create()` `internal` |
+| `Domain/ValueObjects/SaleLineInput.cs` | **New** |
+| `Domain/ValueObjects/SaleReturnLineInput.cs` | **New** |
+| `Application/.../RecordSaleCommandHandler.cs` | Simplified orchestration, inline mutation loop |
+| `Application/.../RecordSaleReturnCommandHandler.cs` | Simplified orchestration, inline restock loop |
+| `Application/Sales/Services/SaleAggregator.cs` | **Delete** |
+| `Application/Sales/Services/ISaleAggregator.cs` | **Delete** |
+| `Application/Sales/Services/SaleInventoryMutator.cs` | **Delete** |
+| `Application/Sales/Services/ISaleInventoryMutator.cs` | **Delete** |
+| `Domain.Unit.Tests/Entities/SaleTests.cs` | Add `Sale.Record()` invariant tests |
+| `Domain.Unit.Tests/Entities/SaleReturnTests.cs` | Add `SaleReturn.Record()` invariant tests |
+| `Application.Unit.Tests/.../RecordSaleCommandHandlerTests.cs` | Update mocks, remove service mocks |
+| `Application.Unit.Tests/.../RecordSaleReturnCommandHandlerTests.cs` | Remove inline invariant tests |
+| `Application.Unit.Tests/Sales/Services/SalesServicesTests.cs` | Delete aggregator + mutator sections |
 
-Validator tests:
+---
 
-- Empty identifier is rejected.
-- Whitespace-only identifier is rejected.
-- Empty password is rejected.
-- Non-empty email-like identifier is accepted by command validation.
-- Non-empty phone-like identifier is accepted by command validation.
-- No phone format normalization is asserted in validation.
+## Non-Goals
 
-API controller tests:
-
-- `POST /api/auth/login` dispatches `LoginCommand`.
-- `POST /api/auth/login` returns `200 OK` on success.
-- `POST /api/auth/login` maps invalid credentials to `401`.
-- `POST /api/auth/login` maps validation failure to `400`.
-- Legacy `POST /api/auth/login/email` dispatches the same generic command.
-- Legacy endpoint remains successful for email credentials.
-- Legacy endpoint accepts its `email` field as the identifier.
-
-Integration tests:
-
-- Registered email user can log in via `POST /api/auth/login`.
-- Existing legacy email login still works.
-- Shop-created user with phone number and password can log in via exact phone identifier.
-- Exact phone mismatch returns `401`.
-- Phone-only user with no password hash cannot password-login and receives `401`.
-- Disabled user cannot login by email or phone.
-- Login rate limit still applies to the generic endpoint.
-
-Frontend unit tests:
-
-- Login form accepts phone input.
-- Login form no longer rejects non-email input solely because it is not an email.
-- Empty identifier blocks submit and shows the new validation copy.
-- Submit trims identifier before calling auth service.
-- Auth service posts `{ identifier, password }` to `AUTH_ENDPOINTS.login`.
-- Auth service stores trimmed remembered identifier when `rememberMe` is true.
-- Auth service clears remembered identifier when `rememberMe` is false.
-- Login page pre-fills remembered phone identifier.
-- Login page pre-fills remembered email identifier.
-- Storage reads old last-email key as fallback.
-- Storage writes new last-identifier key for future saves.
-
-## Out Of Scope
-
-- Phone OTP login.
-- Password setup or reset by phone number.
-- Country detection.
-- Phone number normalization.
-- Username login.
-- DB schema redesign.
-- Removing the legacy `login/email` endpoint.
+- No API contract changes (`POST /api/sales`, `POST /api/sales/{id}/returns` unchanged)
+- No database schema or migration changes
+- No changes to `SaleLineValidator`, `CustomerResolver`, `SaleReturnValidator`, `SaleReturnNumberGenerator`, `SaleReturnCalculator`
+- No domain events pattern introduced

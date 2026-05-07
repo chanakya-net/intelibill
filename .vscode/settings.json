@@ -22,6 +22,9 @@
         },
         "git checkout": true,
         "true": true,
-        "set": true
+        "set": true,
+        "uname": true,
+        "command": true,
+        "git rev-parse": true
     }
 }
