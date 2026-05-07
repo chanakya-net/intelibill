@@ -22,9 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IInventoryAdjustmentNumberGenerator, InventoryAdjustmentNumberGenerator>();
 
         services.AddScoped<ISaleLineValidator, SaleLineValidator>();
-        services.AddScoped<ISaleInventoryMutator, SaleInventoryMutator>();
         services.AddScoped<ICustomerResolver, CustomerResolver>();
-        services.AddScoped<ISaleAggregator, SaleAggregator>();
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
