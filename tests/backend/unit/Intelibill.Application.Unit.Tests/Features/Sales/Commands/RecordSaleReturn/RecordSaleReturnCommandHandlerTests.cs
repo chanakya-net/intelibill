@@ -6,6 +6,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSaleReturn;
@@ -24,8 +25,14 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
 
-    private RecordSaleReturnCommandHandler CreateHandler() =>
-        new(
+    public RecordSaleReturnCommandHandlerTests()
+    {
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-TEST-DEFAULT");
+    }
+
+    private RecordSaleReturnCommandHandler CreateHandler()
+    {
+        return new(
             new SaleReturnValidator(
                 _userRepository,
                 _shopRepository,
@@ -41,6 +48,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _saleReturnRepository,
             _customerLedgerEntryRepository,
             _unitOfWork);
+    }
 
     [Theory]
     [InlineData(ShopRole.Owner)]
@@ -531,7 +539,22 @@ public sealed class RecordSaleReturnCommandHandlerTests
             taxAmount: quantity * 10m,
             notes: null).Value;
 
-        return SaleReturn.Create(
+        var returnLine = new SaleReturnLineInput(
+            returnItem.ShopId,
+            returnItem.SaleItemId,
+            returnItem.Quantity,
+            returnItem.Condition,
+            returnItem.OriginalCostPrice,
+            returnItem.OriginalSalesPrice,
+            returnItem.OriginalTaxRatePercent,
+            returnItem.OriginalIsPriceIncludingTax,
+            returnItem.MaxRefundAmount,
+            returnItem.ApprovedRefundAmount,
+            returnItem.TaxableAmount,
+            returnItem.TaxAmount,
+            returnItem.Notes);
+
+        return SaleReturn.Record(
             shopId,
             saleId,
             $"RET-{Guid.NewGuid():N}",
@@ -541,11 +564,12 @@ public sealed class RecordSaleReturnCommandHandlerTests
             totalRefundAmount: quantity * 110m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 110m,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,
             customerBalanceAfter: null,
-            [returnItem]).Value;
+            [returnLine]).Value;
     }
 
     private sealed record SaleReturnFixture(

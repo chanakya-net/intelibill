@@ -24,7 +24,7 @@ public sealed class SaleReturnItem : BaseEntity
 
     private SaleReturnItem() { }
 
-    public static ErrorOr<SaleReturnItem> Create(
+    internal static ErrorOr<SaleReturnItem> Create(
         Guid shopId,
         Guid saleId,
         Guid saleItemId,

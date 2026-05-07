@@ -6,6 +6,15 @@ public static partial class Errors
 {
     public static class Sale
     {
+        public static Error ReturnNoteRequired(string reason) =>
+            Error.Validation("SaleReturn.NoteRequired", $"Return line note is required for {reason}.");
+
+        public static Error ReturnPayoutMethodRequired =>
+            Error.Validation("SaleReturn.PayoutMethodRequired", "Payout method is required when payout amount is greater than zero.");
+
+        public static Error ReturnPayoutMethodInvalid =>
+            Error.Validation("SaleReturn.PayoutMethodInvalid", "Return payout method must be Cash, UPI, or Card.");
+
         public static Error ItemsRequired =>
             Error.Validation("Sale.ItemsRequired", "At least one sale item is required.");
 

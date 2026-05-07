@@ -6,6 +6,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 
@@ -45,26 +46,21 @@ public sealed class RecordSaleReturnCommandHandler(
         if (validated.Membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Sale.ReturnForbidden;
 
-        var noteValidation = ValidateRequiredNotes(validated.Calculation.Warnings);
-        if (noteValidation.IsError)
-            return noteValidation.Errors;
-
-        var payoutValidation = ValidatePayoutMethod(validated.Calculation.PayoutAmount, command.PayoutMethod);
-        if (payoutValidation.IsError)
-            return payoutValidation.Errors;
+        var dueOverrideValidation = ValidateDueOverrideWarnings(validated.Calculation.Warnings);
+        if (dueOverrideValidation.IsError)
+            return dueOverrideValidation.Errors;
 
         var processedAt = DateTimeOffset.UtcNow;
         var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
         var calculationBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
-        var returnItems = new List<SaleReturnItem>();
+        var returnLines = new List<SaleReturnLineInput>();
         var restocks = new List<PreparedRestock>();
 
         foreach (var line in validated.Lines)
         {
             var calculated = calculationBySaleItemId[line.Request.SaleItemId];
-            var returnItem = SaleReturnItem.Create(
+            returnLines.Add(new SaleReturnLineInput(
                 command.ShopId,
-                validated.Sale.Id,
                 line.SaleItem.Id,
                 calculated.Quantity,
                 calculated.Condition,
@@ -76,12 +72,7 @@ public sealed class RecordSaleReturnCommandHandler(
                 calculated.ApprovedRefundAmount,
                 calculated.TaxableAmount,
                 calculated.TaxAmount,
-                calculated.Notes);
-
-            if (returnItem.IsError)
-                return returnItem.Errors;
-
-            returnItems.Add(returnItem.Value);
+                calculated.Notes));
 
             if (line.Request.Condition == SaleReturnCondition.Wastage)
                 continue;
@@ -108,7 +99,7 @@ public sealed class RecordSaleReturnCommandHandler(
             restocks.Add(new PreparedRestock(line, inventory, transaction.Value));
         }
 
-        var saleReturn = SaleReturn.Create(
+        var saleReturn = SaleReturn.Record(
             command.ShopId,
             validated.Sale.Id,
             returnNumber,
@@ -118,11 +109,12 @@ public sealed class RecordSaleReturnCommandHandler(
             validated.Calculation.TotalRefundAmount,
             validated.Calculation.DueReductionAmount,
             validated.Calculation.PayoutAmount,
+            command.PayoutMethod,
             validated.Calculation.TotalTaxableAmount,
             validated.Calculation.TotalTaxAmount,
             validated.Calculation.CustomerBalanceBefore,
             validated.Calculation.CustomerBalanceAfter,
-            returnItems);
+            returnLines);
 
         if (saleReturn.IsError)
             return saleReturn.Errors;
@@ -170,34 +162,23 @@ public sealed class RecordSaleReturnCommandHandler(
         return Result.Success;
     }
 
-    private static ErrorOr<Success> ValidatePayoutMethod(decimal payoutAmount, PaymentMethod? payoutMethod)
-    {
-        if (payoutAmount <= 0m)
-            return Result.Success;
+    private sealed record PreparedRestock(
+        ValidatedSaleReturnLine Line,
+        Intelibill.Domain.Entities.Inventory Inventory,
+        StockTransaction StockTransaction);
 
-        if (!payoutMethod.HasValue)
-            return Errors.Sale.ReturnPayoutMethodRequired;
-
-        return payoutMethod.Value is PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card
-            ? Result.Success
-            : Errors.Sale.ReturnPayoutMethodInvalid;
-    }
-
-    private static ErrorOr<Success> ValidateRequiredNotes(
+    private static ErrorOr<Success> ValidateDueOverrideWarnings(
         IReadOnlyList<SaleReturnCalculationWarning> warnings)
     {
         var errors = warnings
             .Where(warning =>
-                warning.Code.StartsWith("sale_return.note_required.", StringComparison.Ordinal)
+                warning.Code == "sale_return.note_required.due_override"
                 || warning.Code == "sale_return.due_override_exceeds_outstanding")
             .Select(warning => warning.Code switch
             {
-                "sale_return.note_required.wastage" => Errors.Sale.ReturnNoteRequired("wastage returns"),
-                "sale_return.note_required.partial_refund" => Errors.Sale.ReturnNoteRequired("partial refunds"),
-                "sale_return.note_required.zero_refund" => Errors.Sale.ReturnNoteRequired("zero refunds"),
                 "sale_return.note_required.due_override" => Errors.Sale.ReturnDueOverrideReasonRequired,
                 "sale_return.due_override_exceeds_outstanding" => Errors.Sale.ReturnDueReductionExceedsOutstandingDue,
-                _ => Errors.Sale.ReturnNoteRequired("this return"),
+                _ => Errors.Sale.ReturnDueOverrideReasonRequired,
             })
             .ToList();
 
@@ -205,9 +186,4 @@ public sealed class RecordSaleReturnCommandHandler(
             ? errors
             : Result.Success;
     }
-
-    private sealed record PreparedRestock(
-        ValidatedSaleReturnLine Line,
-        Intelibill.Domain.Entities.Inventory Inventory,
-        StockTransaction StockTransaction);
 }

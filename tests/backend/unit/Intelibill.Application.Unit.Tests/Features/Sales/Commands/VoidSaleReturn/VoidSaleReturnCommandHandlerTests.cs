@@ -4,6 +4,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.VoidSaleReturn;
@@ -208,7 +209,22 @@ public sealed class VoidSaleReturnCommandHandlerTests
             taxableAmount: 200m,
             taxAmount: 20m,
             notes: condition == SaleReturnCondition.Wastage ? "Damaged" : "Sealed").Value;
-        var saleReturn = SaleReturn.Create(
+        var saleReturnLine = new SaleReturnLineInput(
+            returnItem.ShopId,
+            returnItem.SaleItemId,
+            returnItem.Quantity,
+            returnItem.Condition,
+            returnItem.OriginalCostPrice,
+            returnItem.OriginalSalesPrice,
+            returnItem.OriginalTaxRatePercent,
+            returnItem.OriginalIsPriceIncludingTax,
+            returnItem.MaxRefundAmount,
+            returnItem.ApprovedRefundAmount,
+            returnItem.TaxableAmount,
+            returnItem.TaxAmount,
+            returnItem.Notes);
+
+        var saleReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
             "RET-20260505-VOID01",
@@ -218,11 +234,12 @@ public sealed class VoidSaleReturnCommandHandlerTests
             totalRefundAmount: 220m,
             dueReductionAmount: returnDueReductionAmount,
             payoutAmount: 220m - returnDueReductionAmount,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: 200m,
             totalTaxAmount: 20m,
             customerBalanceBefore: 250m,
             customerBalanceAfter: 250m - returnDueReductionAmount,
-            [returnItem]).Value;
+            [saleReturnLine]).Value;
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);

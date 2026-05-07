@@ -3,6 +3,7 @@ using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
@@ -951,7 +952,22 @@ public class GetDashboardQueryHandlerTests
             taxAmount: 10m,
             notes: "Return").Value;
 
-        return SaleReturn.Create(
+        var line = new SaleReturnLineInput(
+            item.ShopId,
+            item.SaleItemId,
+            item.Quantity,
+            item.Condition,
+            item.OriginalCostPrice,
+            item.OriginalSalesPrice,
+            item.OriginalTaxRatePercent,
+            item.OriginalIsPriceIncludingTax,
+            item.MaxRefundAmount,
+            item.ApprovedRefundAmount,
+            item.TaxableAmount,
+            item.TaxAmount,
+            item.Notes);
+
+        return SaleReturn.Record(
             shopId,
             saleId,
             returnNumber,
@@ -961,11 +977,12 @@ public class GetDashboardQueryHandlerTests
             totalRefundAmount: approvedRefund,
             dueReductionAmount: 0m,
             payoutAmount: approvedRefund,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: 100m,
             totalTaxAmount: 10m,
             customerBalanceBefore: null,
             customerBalanceAfter: null,
-            [item]).Value;
+            [line]).Value;
     }
 
     private static InventoryAdjustment MakeAdjustment(

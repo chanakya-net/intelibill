@@ -1,5 +1,7 @@
 using ErrorOr;
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Entities;
 
@@ -29,7 +31,7 @@ public sealed class SaleReturn : BaseEntity
 
     private SaleReturn() { }
 
-    public static ErrorOr<SaleReturn> Create(
+    public static ErrorOr<SaleReturn> Record(
         Guid shopId,
         Guid saleId,
         string returnNumber,
@@ -39,11 +41,12 @@ public sealed class SaleReturn : BaseEntity
         decimal totalRefundAmount,
         decimal dueReductionAmount,
         decimal payoutAmount,
+        PaymentMethod? payoutMethod,
         decimal totalTaxableAmount,
         decimal totalTaxAmount,
         decimal? customerBalanceBefore,
         decimal? customerBalanceAfter,
-        IReadOnlyList<SaleReturnItem> items)
+        IReadOnlyList<SaleReturnLineInput> lines)
     {
         if (string.IsNullOrWhiteSpace(returnNumber))
         {
@@ -58,6 +61,45 @@ public sealed class SaleReturn : BaseEntity
         if (dueReductionAmount + payoutAmount != totalRefundAmount)
         {
             return Error.Validation("SaleReturn.RefundSplitMismatch", "Due reduction plus payout must equal total refund.");
+        }
+
+        var noteValidation = ValidateLineNotes(lines);
+        if (noteValidation.IsError)
+        {
+            return noteValidation.Errors;
+        }
+
+        var payoutValidation = ValidatePayoutMethod(payoutAmount, payoutMethod);
+        if (payoutValidation.IsError)
+        {
+            return payoutValidation.Errors;
+        }
+
+        var items = new List<SaleReturnItem>(lines.Count);
+        foreach (var line in lines)
+        {
+            var itemResult = SaleReturnItem.Create(
+                line.ShopId,
+                saleId,
+                line.SaleItemId,
+                line.Quantity,
+                line.Condition,
+                line.OriginalCostPrice,
+                line.OriginalSalesPrice,
+                line.OriginalTaxRatePercent,
+                line.OriginalIsPriceIncludingTax,
+                line.MaxRefundAmount,
+                line.ApprovedRefundAmount,
+                line.TaxableAmount,
+                line.TaxAmount,
+                NormalizeOptional(line.Notes));
+
+            if (itemResult.IsError)
+            {
+                return itemResult.Errors;
+            }
+
+            items.Add(itemResult.Value);
         }
 
         var saleReturn = new SaleReturn
@@ -100,6 +142,51 @@ public sealed class SaleReturn : BaseEntity
         VoidReason = reason.Trim();
 
         return Result.Success;
+    }
+
+    private static ErrorOr<Success> ValidateLineNotes(IReadOnlyList<SaleReturnLineInput> lines)
+    {
+        foreach (var line in lines)
+        {
+            if (!string.IsNullOrWhiteSpace(line.Notes))
+            {
+                continue;
+            }
+
+            if (line.Condition == SaleReturnCondition.Wastage)
+            {
+                return Errors.Sale.ReturnNoteRequired("wastage returns");
+            }
+
+            if (line.ApprovedRefundAmount == 0m)
+            {
+                return Errors.Sale.ReturnNoteRequired("zero refunds");
+            }
+
+            if (line.ApprovedRefundAmount < line.MaxRefundAmount)
+            {
+                return Errors.Sale.ReturnNoteRequired("partial refunds");
+            }
+        }
+
+        return Result.Success;
+    }
+
+    private static ErrorOr<Success> ValidatePayoutMethod(decimal payoutAmount, PaymentMethod? payoutMethod)
+    {
+        if (payoutAmount <= 0m)
+        {
+            return Result.Success;
+        }
+
+        if (!payoutMethod.HasValue)
+        {
+            return Errors.Sale.ReturnPayoutMethodRequired;
+        }
+
+        return payoutMethod.Value is PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card
+            ? Result.Success
+            : Errors.Sale.ReturnPayoutMethodInvalid;
     }
 
     private static string? NormalizeOptional(string? value) =>

@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.GetProfitLossReport;
@@ -325,7 +326,22 @@ public class GetProfitLossReportQueryHandlerTests
             taxAmount: tax,
             notes: "Return").Value;
 
-        return SaleReturn.Create(
+        var line = new SaleReturnLineInput(
+            item.ShopId,
+            item.SaleItemId,
+            item.Quantity,
+            item.Condition,
+            item.OriginalCostPrice,
+            item.OriginalSalesPrice,
+            item.OriginalTaxRatePercent,
+            item.OriginalIsPriceIncludingTax,
+            item.MaxRefundAmount,
+            item.ApprovedRefundAmount,
+            item.TaxableAmount,
+            item.TaxAmount,
+            item.Notes);
+
+        return SaleReturn.Record(
             shopId,
             saleId,
             returnNumber,
@@ -335,11 +351,12 @@ public class GetProfitLossReportQueryHandlerTests
             totalRefundAmount: approvedRefund,
             dueReductionAmount: 0m,
             payoutAmount: approvedRefund,
+            payoutMethod: PaymentMethod.Cash,
             totalTaxableAmount: 100m,
             totalTaxAmount: tax,
             customerBalanceBefore: null,
             customerBalanceAfter: null,
-            [item]).Value;
+            [line]).Value;
     }
 
     private static InventoryAdjustment MakeAdjustment(

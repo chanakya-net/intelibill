@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.GetSales;
@@ -149,7 +150,7 @@ public class GetSalesQueryHandlerTests
     }
 
     private static SaleReturn MakeReturn(Guid shopId, Guid saleId, string returnNumber) =>
-        SaleReturn.Create(
+        SaleReturn.Record(
             shopId,
             saleId,
             returnNumber,
@@ -159,6 +160,7 @@ public class GetSalesQueryHandlerTests
             totalRefundAmount: 0m,
             dueReductionAmount: 0m,
             payoutAmount: 0m,
+            payoutMethod: null,
             totalTaxableAmount: 0m,
             totalTaxAmount: 0m,
             customerBalanceBefore: null,
