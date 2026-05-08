@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DashboardDto } from '../../services/dashboard.service';
 import { DashboardFacade } from '../../state/dashboard.facade';
@@ -22,6 +22,13 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, wri
 function formatDateForSpec(value: string): string {
   const [year, month, day] = value.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(year, month - 1, day));
+}
+
+function toLocalIsoDateForSpec(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
@@ -85,7 +92,28 @@ const makeStaffDto = (): DashboardDto => ({
   previousPeriodSummary: null,
 });
 
+type TestDashboardFacade = {
+  data$: ReturnType<typeof of>;
+  loading$: ReturnType<typeof of>;
+  error$: ReturnType<typeof of>;
+  hasDashboardData$: ReturnType<typeof of>;
+  startDate$: ReturnType<typeof of>;
+  endDate$: ReturnType<typeof of>;
+  selectedPreset$: ReturnType<typeof of>;
+  loadDashboard: ReturnType<typeof vi.fn>;
+  refresh: ReturnType<typeof vi.fn>;
+  applyRange: ReturnType<typeof vi.fn>;
+};
+
 function createFixture(dto: DashboardDto | null, errorMessage = '') {
+  return createFixtureWithFacade(dto, errorMessage).fixture;
+}
+
+function createFixtureWithFacade(
+  dto: DashboardDto | null,
+  errorMessage = '',
+  overrides: Partial<TestDashboardFacade> = {},
+) {
   const facade = {
     data$: of(dto),
     loading$: of(false),
@@ -94,10 +122,11 @@ function createFixture(dto: DashboardDto | null, errorMessage = '') {
     startDate$: of('2026-03-31'),
     endDate$: of('2026-04-29'),
     selectedPreset$: of('last30'),
-    loadDashboard: () => {},
-    refresh: () => {},
-    applyRange: () => {},
-  };
+    loadDashboard: vi.fn(),
+    refresh: vi.fn(),
+    applyRange: vi.fn(),
+    ...overrides,
+  } as TestDashboardFacade;
 
   TestBed.configureTestingModule({
     imports: [
@@ -109,7 +138,7 @@ function createFixture(dto: DashboardDto | null, errorMessage = '') {
 
   const fixture = TestBed.createComponent(DashboardPageComponent);
   fixture.detectChanges();
-  return fixture;
+  return { fixture, facade };
 }
 
 describe('DashboardPageComponent', () => {
@@ -272,6 +301,32 @@ describe('DashboardPageComponent', () => {
       formatDateForSpec('2026-04-29'),
     ]);
     expect(fixture.componentInstance.salesChartData()?.datasets).toHaveLength(4);
+  });
+
+  it('continues rendering chart data when negative profits and wastage are returned after Apply', () => {
+    const { fixture, facade } = createFixtureWithFacade(makeOwnerDto({
+      wastageCost: 60,
+      salesTrendSeries: [
+        { date: '2026-04-28', amount: 200, netAmount: 160 },
+        { date: '2026-04-29', amount: 320, netAmount: 260 },
+      ],
+      profitTrendSeries: [
+        { date: '2026-04-28', profitBeforeTax: -40, profitAfterTax: -20 },
+        { date: '2026-04-29', profitBeforeTax: -10, profitAfterTax: -5 },
+      ],
+    }), '', {
+      applyRange: vi.fn(),
+    });
+
+    const component = fixture.componentInstance;
+    component.onSelectPreset('last7');
+    component.onApply();
+
+    expect(facade.applyRange).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'last7');
+    expect(component.salesChartData()).not.toBeNull();
+    expect(component.salesChartData()?.datasets).toHaveLength(4);
+    expect(component.salesChartData()?.datasets[2]?.data).toEqual([-40, -10]);
+    expect(component.salesChartData()?.datasets[3]?.data).toEqual([-20, -5]);
   });
 
   it('hides sales trend chart when sales trend data is null (Staff role)', () => {
@@ -571,6 +626,76 @@ describe('DashboardPageComponent', () => {
       expect(component.pendingStartDate()).toBe('2026-04-01');
       expect(component.pendingEndDate()).toBe('2026-04-15');
       expect(component.pendingPreset()).toBe('custom');
+    });
+  });
+
+  describe('Preset ranges (local calendar)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('Today uses local yyyy-MM-dd (not UTC date)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-08T20:00:00.000Z'));
+
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.onSelectPreset('today');
+
+      const expected = toLocalIsoDateForSpec(new Date());
+      expect(component.pendingStartDate()).toBe(expected);
+      expect(component.pendingEndDate()).toBe(expected);
+    });
+
+    it('Last 7 days is 7 inclusive local calendar days', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-08T20:00:00.000Z'));
+
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.onSelectPreset('last7');
+
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 6);
+      expect(component.pendingEndDate()).toBe(toLocalIsoDateForSpec(end));
+      expect(component.pendingStartDate()).toBe(toLocalIsoDateForSpec(start));
+    });
+
+    it('Last 7 days applies expected range via Apply', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-08T20:00:00.000Z'));
+
+      const { fixture, facade } = createFixtureWithFacade(makeOwnerDto(), '', {
+        applyRange: vi.fn(),
+      });
+      const component = fixture.componentInstance;
+
+      component.onSelectPreset('last7');
+      component.onApply();
+
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 6);
+      expect(facade.applyRange).toHaveBeenCalledWith(
+        toLocalIsoDateForSpec(start),
+        toLocalIsoDateForSpec(end),
+        'last7',
+      );
+    });
+
+    it('does not Apply when custom range is invalid', () => {
+      const { fixture, facade } = createFixtureWithFacade(makeOwnerDto(), '', {
+        applyRange: vi.fn(),
+      });
+
+      const component = fixture.componentInstance;
+      component.pendingPreset.set('custom');
+      component.pendingStartDate.set('2026-04-10');
+      component.pendingEndDate.set('2026-04-05');
+      component.onApply();
+
+      expect(facade.applyRange).not.toHaveBeenCalled();
     });
   });
 

@@ -8,6 +8,12 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class SaleRepository(ApplicationDbContext context)
     : RepositoryBase<Sale>(context), ISaleRepository
 {
+    private static DateTime ToUtcStart(DateOnly localDate)
+    {
+        var localMidnight = localDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(localMidnight, TimeZoneInfo.Local);
+    }
+
     public async Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)
@@ -30,7 +36,9 @@ internal sealed class SaleRepository(ApplicationDbContext context)
     public async Task<IReadOnlyList<Sale>> GetByShopAndDateAsync(Guid shopId, DateOnly reportingDay, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)
-            .Where(s => s.ShopId == shopId && DateOnly.FromDateTime(s.SoldAt.UtcDateTime) == reportingDay)
+            .Where(s => s.ShopId == shopId
+                && s.SoldAt >= ToUtcStart(reportingDay)
+                && s.SoldAt < ToUtcStart(reportingDay.AddDays(1)))
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
 
@@ -38,8 +46,8 @@ internal sealed class SaleRepository(ApplicationDbContext context)
         await DbSet
             .Include(s => s.Items)
             .Where(s => s.ShopId == shopId
-                && DateOnly.FromDateTime(s.SoldAt.UtcDateTime) >= startDate
-                && DateOnly.FromDateTime(s.SoldAt.UtcDateTime) <= endDate)
+                && s.SoldAt >= ToUtcStart(startDate)
+                && s.SoldAt < ToUtcStart(endDate.AddDays(1)))
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
 }

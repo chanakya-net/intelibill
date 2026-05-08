@@ -176,9 +176,11 @@ public static class DashboardKpiCalculator
         DateOnly endDate,
         IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
     {
+        static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.ToLocalTime().DateTime);
+
         var activeReturns = GetActiveReturns(saleReturns);
         var byDay = sales
-            .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+            .GroupBy(s => LocalDate(s.SoldAt))
             .ToDictionary(
                 g => g.Key,
                 g => (
@@ -187,7 +189,7 @@ public static class DashboardKpiCalculator
                     Tax: g.Sum(s => s.TotalTaxAmount),
                     PaymentMix: CalculatePaymentMix(g.ToList())));
         var returnsByDay = activeReturns
-            .GroupBy(r => DateOnly.FromDateTime(r.ProcessedAt.UtcDateTime))
+            .GroupBy(r => LocalDate(r.ProcessedAt))
             .ToDictionary(
                 g => g.Key,
                 g => (
@@ -197,7 +199,7 @@ public static class DashboardKpiCalculator
                         .Where(i => i.Condition == SaleReturnCondition.Restockable)
                         .Sum(i => i.OriginalCostPrice * i.Quantity)));
         var adjustmentLossByDay = GetActiveDecreaseAdjustments(adjustmentLosses)
-            .GroupBy(a => DateOnly.FromDateTime(a.PerformedAt.UtcDateTime))
+            .GroupBy(a => LocalDate(a.PerformedAt))
             .ToDictionary(g => g.Key, g => g.Sum(a => a.CostImpact));
 
         var salesTrend = new List<SalesTrendPointDto>();

@@ -1,269 +1,176 @@
-# Rich Domain Model: Sale & SaleReturn Aggregates — Technical Requirements
+# Dashboard Date Range Inventory Loss Bug - Technical Requirements
 
 ## Problem Statement
 
-Business logic for recording a sale and a sale return is scattered across shallow application-layer services (`SaleAggregator`, `SaleInventoryMutator`) and fat handlers. Domain entities are data bags with no invariant enforcement. Invariants (total = paid + due, credit requires due, notes required for wastage/partial/zero refunds, payout method required when payout > 0) live outside the aggregate that owns them.
+The dashboard initially loads correct profit/loss data, including losses from inventory decrease adjustments such as damaged, expired, stolen, missing/lost, stock count correction, and other loss. After selecting **Last 7 days** and clicking **Apply**, those inventory correction losses disappear from dashboard financial calculations, leaving only sales-based profit data.
 
----
+This is incorrect. Applying a date range must preserve the same profit/loss semantics as the initial dashboard load, constrained only by the selected range.
+
+## Scope
+
+Fix the dashboard summary flow for selected date ranges, especially the **Last 7 days** preset, so in-range inventory decrease adjustment losses remain included in:
+
+- `wastageCost`
+- `profitBeforeTax`
+- `profitAfterTax`
+- `profitTrendSeries`
+- `previousPeriodSummary.profitAfterTax`
+- `hasNoSalesActivity`
+
+Do not change the meaning of expense corrections. Expense correction fields continue to use expense correction records, while inventory correction losses continue to be represented through the sales/profit loss side as adjustment loss or wastage cost.
 
 ## Decisions
 
 | # | Question | Decision |
-|---|----------|----------|
-| 1 | Scope | Both `Sale.Record()` and `SaleReturn.Record()` in one refactor |
-| 2 | Invoice / return number generation | Handler generates, passes in as parameter |
-| 3 | Line item input type | New domain-level `SaleLineInput` record; tax calculation + `SaleItem` creation move inside `Sale.Record()` |
-| 4 | `CustomerLedgerEntry` ownership | Handler creates it (cross-aggregate orchestration, not a Sale invariant) |
-| 5 | `SaleInventoryMutator` fate | Inlined into handler (3 ops per line after stripping tax + SaleItem creation) |
-| 6 | `SaleReturn` invariants scope | Notes required + payout method validation move into `SaleReturn.Record()`; role check stays in handler (authorization) |
-| 7 | Test strategy | TDD — write failing domain tests first, then implement |
+|---|---|---|
+| 1 | Should selected ranges include all historical inventory correction losses? | No. Include only active inventory decrease adjustments whose performed date falls inside the selected range. |
+| 2 | Should **Last 7 days** be local-calendar based or backend UTC-calendar based? | Use one consistent calendar basis everywhere, preferably shop/user local calendar date for India usage. A correction made today locally must remain inside Today/Last 7 Days after Apply. |
+| 3 | Should Staff users see financial loss fields? | No. Preserve existing Staff behavior: financial fields, profit trends, and previous period summary remain hidden/null. |
+| 4 | Should voided and increase adjustments affect dashboard losses? | No. Continue including only non-voided decrease adjustments. |
+| 5 | Should CodeGraph be used? | No. The user requested graphify instead of CodeGraph if graph help is required. Full graphify output is not required for this requirements pass and would violate the break-req file-write limit. |
 
----
+## Current System Findings
 
-## New Domain Types
+### UI
 
-### `SaleLineInput` — `Intelibill.Domain/ValueObjects/SaleLineInput.cs`
+Dashboard UI lives under:
 
-```csharp
-public record SaleLineInput(
-    Guid ShopId,
-    Guid ItemId,
-    Guid InventoryBatchId,
-    decimal Quantity,
-    decimal CostPrice,
-    decimal SalesPrice,
-    decimal Mrp,
-    decimal TaxRatePercent,
-    bool IsPriceIncludingTax,
-    bool HasPriceMismatch);
-```
+- `src/frontend/src/app/features/dashboard/pages/dashboard-page/dashboard-page.component.ts`
+- `src/frontend/src/app/features/dashboard/pages/dashboard-page/dashboard-page.component.html`
+- `src/frontend/src/app/features/dashboard/state/dashboard.actions.ts`
+- `src/frontend/src/app/features/dashboard/state/dashboard.effects.ts`
+- `src/frontend/src/app/features/dashboard/state/dashboard.reducer.ts`
+- `src/frontend/src/app/features/dashboard/services/dashboard.service.ts`
 
-### `SaleReturnLineInput` — `Intelibill.Domain/ValueObjects/SaleReturnLineInput.cs`
+The UI computes presets in the browser and sends `startDate` / `endDate` query params to `GET /api/dashboard`.
 
-```csharp
-public record SaleReturnLineInput(
-    Guid ShopId,
-    Guid SaleItemId,
-    decimal Quantity,
-    SaleReturnCondition Condition,
-    decimal OriginalCostPrice,
-    decimal OriginalSalesPrice,
-    decimal OriginalTaxRatePercent,
-    bool OriginalIsPriceIncludingTax,
-    decimal MaxRefundAmount,
-    decimal ApprovedRefundAmount,
-    decimal TaxableAmount,
-    decimal TaxAmount,
-    string? Notes);
-```
+Risk found:
 
----
+- Frontend preset dates are generated from JavaScript `Date` and serialized with `toISOString().slice(0, 10)`.
+- Backend default dates and range filters use UTC-derived dates.
+- This mixed date basis can drop same-day local adjustments near timezone boundaries when a range is applied.
 
-## Domain Changes
+### Backend
 
-### `Sale.cs` — add `Sale.Record()`
+Dashboard endpoint and handler:
 
-**Signature:**
-```csharp
-public static ErrorOr<Sale> Record(
-    Guid shopId,
-    string invoiceNumber,
-    IReadOnlyList<SaleLineInput> lines,
-    Guid? customerId,
-    string? customerName,
-    string? customerPhone,
-    PaymentMethod paymentMethod,
-    decimal paidAmount,
-    decimal dueAmount,
-    DateTimeOffset soldAt)
-```
+- `src/backend/Intelibill.Api/Controllers/DashboardController.cs`
+- `src/backend/Intelibill.Application/Features/Dashboard/Queries/GetDashboard/GetDashboardQueryHandler.cs`
+- `src/backend/Intelibill.Application/Features/Dashboard/Services/DashboardKpiCalculator.cs`
 
-**Internal logic (moves from `SaleAggregator`):**
-1. For each `SaleLineInput`, compute tax and create a `SaleItem` internally
-2. Compute `totalAmount` — per line: `salesPrice × qty`, add tax if `!IsPriceIncludingTax`
-3. Compute `totalTaxAmount` — tax formula:
-   - Tax-inclusive: `qty × salesPrice × taxRate / (100 + taxRate)`
-   - Tax-exclusive: `qty × salesPrice × taxRate / 100`
-4. **Invariant:** `Round(totalAmount, 2) != Round(paidAmount + dueAmount, 2)` → `Errors.Sale.PaidAndDueAmountMismatch`
-5. **Invariant:** `paymentMethod == Credit && dueAmount <= 0` → `Errors.Sale.CreditRequiresDueAmount`
-6. Return constructed `Sale` with items
+Existing backend behavior already has the right model:
 
-**`Sale.Create()` fate:** Remove the public 11-parameter static factory. EF Core uses the `private Sale() {}` parameterless constructor for materialization — no change needed there.
+- `GetDashboardQueryHandler` fetches `adjustmentLosses` through `GetDashboardLossesByShopAndDateRangeAsync`.
+- `DashboardKpiCalculator.CalculateSalesKpis` subtracts active decrease adjustment loss cost from profit.
+- `DashboardKpiCalculator.BuildTrendSeries` subtracts adjustment losses per day.
+- `DashboardKpiCalculator.BuildPreviousPeriodSummary` subtracts previous-period adjustment losses.
 
-### `SaleReturn.cs` — add `SaleReturn.Record()`
+Implementation should preserve this model and fix the range/date consistency defect if confirmed.
 
-**Signature:**
-```csharp
-public static ErrorOr<SaleReturn> Record(
-    Guid shopId,
-    Guid saleId,
-    string returnNumber,
-    DateTimeOffset processedAt,
-    Guid actorUserId,
-    string? notes,
-    decimal totalRefundAmount,
-    decimal dueReductionAmount,
-    decimal payoutAmount,
-    PaymentMethod? payoutMethod,
-    decimal totalTaxableAmount,
-    decimal totalTaxAmount,
-    decimal customerBalanceBefore,
-    decimal customerBalanceAfter,
-    IReadOnlyList<SaleReturnLineInput> lines)
-```
+### Data
 
-**Internal logic (moves from handler):**
-1. **Invariant:** Per line, validate required notes:
-   - `Condition == Wastage` and `Notes` is null/empty → `Errors.Sale.ReturnNoteRequired("wastage returns")`
-   - `ApprovedRefundAmount < MaxRefundAmount` (partial) and no notes → `Errors.Sale.ReturnNoteRequired("partial refunds")`
-   - `ApprovedRefundAmount == 0` and no notes → `Errors.Sale.ReturnNoteRequired("zero refunds")`
-2. **Invariant:** Payout method validation:
-   - `payoutAmount > 0` and no `payoutMethod` → `Errors.Sale.ReturnPayoutMethodRequired`
-   - `payoutAmount > 0` and `payoutMethod` not in `{Cash, UPI, Card}` → `Errors.Sale.ReturnPayoutMethodInvalid`
-3. Create `SaleReturnItem` list from `lines`
-4. Construct and return `SaleReturn`
+Inventory adjustment repository:
 
-**`SaleReturn.Create()` fate:** Remove the public static factory, same as `Sale.Create()`.
+- `src/backend/Intelibill.Infrastructure/Repositories/InventoryAdjustmentRepository.cs`
 
-### `SaleItem.cs` and `SaleReturnItem.cs`
+Relevant query:
 
-Make `SaleItem.Create()` and `SaleReturnItem.Create()` `internal` — they are called only from within the domain (`Sale.Record()` and `SaleReturn.Record()` respectively), never from the application layer.
+- `GetDashboardLossesByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, ...)`
 
----
+It filters:
 
-## Application Layer Changes
+- `ShopId == shopId`
+- `Direction == InventoryAdjustmentDirection.Decrease`
+- `!IsVoided`
+- `PerformedAt >= start`
+- `PerformedAt < exclusiveEnd`
 
-### `RecordSaleCommandHandler.cs` — simplified orchestration
+Requirement:
 
-**Constructor after refactor:**
-`ISaleLineValidator`, `ICustomerResolver`, `ISaleRepository`, `ICustomerLedgerEntryRepository`, `IStockTransactionRepository`, `IInventoryRepository`, `IInventoryBatchRepository`, `IUnitOfWork`
+- Continue using `PerformedAt` as the date source for dashboard inclusion.
+- Ensure conversion from `DateOnly` range to `DateTimeOffset`/database boundaries uses the same intended local calendar basis as the frontend presets.
+- Do not introduce schema changes unless the implementation discovers shop timezone storage is needed and already available elsewhere.
 
-**New flow:**
-```
-1. saleLineValidator.ValidateLinesAsync(...)
-2. Generate invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid():N[..8].ToUpper()}"
-3. foreach validatedLine:
-   a. batch.SubtractQuantity(qty, actorUserId)              → error → return
-   b. inventory.SubtractQuantity(qty, actorUserId)          → error → return
-   c. StockTransaction.Create(type: Out, ...)               → error → return
-   d. stockTransactionRepository.AddAsync(transaction)
-   e. Build SaleLineInput from (cmdItem, batch)
-4. customerResolver.ResolveAsync(...)
-5. Sale.Record(shopId, invoiceNumber, lineInputs, customerId, customerName,
-               customerPhone, paymentMethod, paidAmount, dueAmount, soldAt)
-6. saleRepository.AddAsync(sale)
-7. if sale.DueAmount > 0 && sale.CustomerId.HasValue:
-       CustomerLedgerEntry.Create(type: SaleDue, ...)
-       customerLedgerEntryRepository.AddAsync(ledgerEntry)
-8. unitOfWork.SaveChangesAsync()
-9. Build and return SaleDto
-```
+## Functional Requirements
 
-### `RecordSaleReturnCommandHandler.cs` — simplified orchestration
+1. Initial dashboard load and **Last 7 days + Apply** must calculate inventory adjustment losses consistently for the same effective date range.
+2. A non-voided decrease adjustment inside the selected range must increase `wastageCost` by its `CostImpact`.
+3. That same adjustment must reduce `profitBeforeTax` and `profitAfterTax` by its `CostImpact`.
+4. An in-range decrease adjustment with no sales must still make `hasNoSalesActivity` false for Owner/Manager and Staff responses.
+5. Increase adjustments must not affect wastage/profit loss.
+6. Voided decrease adjustments must not affect wastage/profit loss.
+7. Previous-period comparison must include decrease adjustment losses that fall in the computed previous period.
+8. Staff responses must keep financial fields null while still reflecting activity presence through `hasNoSalesActivity`.
+9. The dashboard freshness/range badge should continue showing the effective API response range.
+10. Persisted dashboard ranges in local storage must not cause stale or invalid date basis behavior.
 
-**Constructor after refactor:** unchanged (role check + saleReturnValidator stay)
+## Non-Functional Requirements
 
-**New flow:**
-```
-1. saleReturnValidator.ValidateAsync(...)
-2. Role check: Owner or Manager only (stays in handler — authorization)
-3. returnNumber = saleReturnNumberGenerator.Generate(processedAt)
-4. foreach line where Condition != Wastage:
-   a. StockTransaction.Create(type: Ret, ...)               → error → return
-   b. stockTransactionRepository.AddAsync(transaction)
-   c. batch.AddQuantity(qty, actorUserId)                   → error → return
-   d. inventory.AddQuantity(qty, actorUserId)               → error → return
-   e. inventoryBatchRepository.Update(batch)
-   f. inventoryRepository.Update(inventory)
-   g. Build SaleReturnLineInput from (line, calculated)
-5. SaleReturn.Record(shopId, saleId, returnNumber, processedAt, actorUserId,
-                     notes, amounts..., lineInputs)
-   → enforces notes invariants + payout method invariants
-6. saleReturnRepository.AddAsync(saleReturn)
-7. if sale.CustomerId && dueReductionAmount > 0:
-       CustomerLedgerEntry.Create(type: ReturnCredit, ...)
-       customerLedgerEntryRepository.AddAsync(ledgerEntry)
-8. unitOfWork.SaveChangesAsync()
-```
+1. Keep changes narrowly scoped to dashboard range calculation and tests.
+2. Preserve existing API shape for `GET /api/dashboard`.
+3. Preserve existing DTO property names and nullability semantics.
+4. Avoid adding a new frontend date library unless the existing stack cannot express the required local-date behavior cleanly.
+5. Use deterministic date helpers where possible to make tests stable.
+6. Do not use CodeGraph for this fix.
 
----
+## Acceptance Criteria
 
-## Deleted Files
+1. Given an Owner/Manager shop with one inventory batch at cost price 50 and one active decrease adjustment of quantity 2 performed inside the Last 7 Days range, applying Last 7 Days returns:
+   - `wastageCost == 100`
+   - `profitBeforeTax == -100` when there are no sales
+   - `profitAfterTax == -100` when there are no sales
+   - `hasNoSalesActivity == false`
+2. Given the same data on initial dashboard load for the same effective range, the response values match the applied-range response.
+3. Given an adjustment just inside the local end date, it is included.
+4. Given an adjustment just outside the local start date, it is excluded.
+5. Given an increase adjustment inside the range, profit is unchanged by that adjustment.
+6. Given a voided decrease adjustment inside the range, profit is unchanged by that adjustment.
+7. Given a Staff user with in-range adjustment loss, financial fields remain null and `hasNoSalesActivity == false`.
 
-| File | Reason |
-|------|--------|
-| `Application/Sales/Services/SaleAggregator.cs` | Logic moves into `Sale.Record()` |
-| `Application/Sales/Services/ISaleAggregator.cs` | Interface deleted with implementation |
-| `Application/Sales/Services/SaleInventoryMutator.cs` | Inlined into handler |
-| `Application/Sales/Services/ISaleInventoryMutator.cs` | Interface deleted with implementation |
-| `Application/Sales/Commands/RecordSale/SaleAggregation.cs` (return type) | Handler builds DTO directly |
+## Test Requirements
 
----
+### Backend Integration Tests
 
-## Test Plan (TDD Order)
+Add or update tests in:
 
-### Phase 1 — Write failing domain tests first
+- `tests/backend/integration/Intelibill.Integration.Tests/DashboardControllerTests.cs`
 
-**`SaleTests.cs` — new `Sale.Record()` tests:**
-- Total mismatch → `PaidAndDueAmountMismatch`
-- Credit payment, `dueAmount == 0` → `CreditRequiresDueAmount`
-- Tax-inclusive single line: `totalAmount` and `totalTaxAmount` computed correctly
-- Tax-exclusive single line: `totalAmount` and `totalTaxAmount` computed correctly
-- Valid cash sale, single line → returns `Sale` with correct totals and one `SaleItem`
-- Valid credit sale with due → returns `Sale`
-- Multi-line sale → totals are sum of all lines
+Required scenarios:
 
-**`SaleReturnTests.cs` — new `SaleReturn.Record()` tests:**
-- Wastage line, no notes → `ReturnNoteRequired`
-- Partial refund line, no notes → `ReturnNoteRequired`
-- Zero refund line, no notes → `ReturnNoteRequired`
-- `payoutAmount > 0`, no `payoutMethod` → `ReturnPayoutMethodRequired`
-- `payoutAmount > 0`, `payoutMethod = Credit` → `ReturnPayoutMethodInvalid`
-- Valid return, all notes present → returns `SaleReturn` with correct items
+1. `GetDashboard_WithLast7DaysRange_IncludesInRangeInventoryDecreaseLosses`
+2. `GetDashboard_WithLast7DaysRange_ExcludesOutOfRangeInventoryDecreaseLosses`
+3. `GetDashboard_WithLast7DaysRange_UsesConsistentLocalDateBoundaries`
+4. `GetDashboard_WithDateRange_InitialAndAppliedRangeUseSameLossSemantics`
 
-### Phase 2 — Implement domain methods until tests pass
+Existing tests already cover active decrease only, previous period losses, and Staff hiding behavior; keep them passing.
 
-Implement `Sale.Record()` and `SaleReturn.Record()`. Keep existing `Sale.Create()` and `SaleReturn.Create()` alive until handlers are updated.
+### Frontend Unit Tests
 
-### Phase 3 — Update handler tests and implementations
+Add or update tests in:
 
-Update `RecordSaleCommandHandler` and `RecordSaleReturnCommandHandler` to use the new domain methods. Update handler unit tests to remove `ISaleAggregator` / `ISaleInventoryMutator` mocks.
+- `src/frontend/src/app/features/dashboard/pages/dashboard-page/dashboard-page.component.spec.ts`
+- `src/frontend/src/app/features/dashboard/state/dashboard.effects.spec.ts`
 
-### Phase 4 — Delete obsolete code and tests
+Required scenarios:
 
-- Remove `SaleAggregator`, `ISaleAggregator`, `SaleInventoryMutator`, `ISaleInventoryMutator`, `SaleAggregation`
-- Remove public `Sale.Create()` and `SaleReturn.Create()`
-- Delete or prune `SalesServicesTests.cs` sections covering deleted services
+1. Selecting `last7` computes a 7-calendar-day inclusive range and dispatches `applyRange(startDate, endDate, 'last7')`.
+2. Apply sends the computed `startDate` and `endDate` to `DashboardService.getDashboard`.
+3. A dashboard response with `wastageCost`, negative `profitAfterTax`, and profit trend points after Apply still renders/selects chart data correctly.
+4. Date helper behavior is deterministic around timezone-sensitive cases, preferably by isolating date calculation into a testable helper.
 
----
+## Implementation Notes
 
-## Files Touched (Summary)
+Recommended fix path:
 
-| File | Change |
-|------|--------|
-| `Domain/Entities/Sale.cs` | Add `Sale.Record()`, remove public `Sale.Create()` |
-| `Domain/Entities/SaleReturn.cs` | Add `SaleReturn.Record()`, remove public `SaleReturn.Create()` |
-| `Domain/Entities/SaleItem.cs` | Make `SaleItem.Create()` `internal` |
-| `Domain/Entities/SaleReturnItem.cs` | Make `SaleReturnItem.Create()` `internal` |
-| `Domain/ValueObjects/SaleLineInput.cs` | **New** |
-| `Domain/ValueObjects/SaleReturnLineInput.cs` | **New** |
-| `Application/.../RecordSaleCommandHandler.cs` | Simplified orchestration, inline mutation loop |
-| `Application/.../RecordSaleReturnCommandHandler.cs` | Simplified orchestration, inline restock loop |
-| `Application/Sales/Services/SaleAggregator.cs` | **Delete** |
-| `Application/Sales/Services/ISaleAggregator.cs` | **Delete** |
-| `Application/Sales/Services/SaleInventoryMutator.cs` | **Delete** |
-| `Application/Sales/Services/ISaleInventoryMutator.cs` | **Delete** |
-| `Domain.Unit.Tests/Entities/SaleTests.cs` | Add `Sale.Record()` invariant tests |
-| `Domain.Unit.Tests/Entities/SaleReturnTests.cs` | Add `SaleReturn.Record()` invariant tests |
-| `Application.Unit.Tests/.../RecordSaleCommandHandlerTests.cs` | Update mocks, remove service mocks |
-| `Application.Unit.Tests/.../RecordSaleReturnCommandHandlerTests.cs` | Remove inline invariant tests |
-| `Application.Unit.Tests/Sales/Services/SalesServicesTests.cs` | Delete aggregator + mutator sections |
+1. Isolate frontend date preset computation into a small pure helper that works in local calendar dates without `toISOString()` date shifts.
+2. Align backend `DateOnly` to `PerformedAt` boundary conversion with the chosen calendar basis.
+3. Keep `GetDashboardLossesByShopAndDateRangeAsync` as the single source for dashboard inventory loss filtering.
+4. Add regression tests before or alongside the fix so the Last 7 Days Apply path cannot regress again.
 
----
+## Out of Scope
 
-## Non-Goals
-
-- No API contract changes (`POST /api/sales`, `POST /api/sales/{id}/returns` unchanged)
-- No database schema or migration changes
-- No changes to `SaleLineValidator`, `CustomerResolver`, `SaleReturnValidator`, `SaleReturnNumberGenerator`, `SaleReturnCalculator`
-- No domain events pattern introduced
+- Changing dashboard API response contract.
+- Adding new dashboard cards or new UX copy.
+- Changing profit/loss report endpoint behavior under `GET /api/sales/profit-loss`.
+- Changing inventory adjustment creation rules.
+- Creating GitHub issues or implementing code as part of this requirements-only pass.

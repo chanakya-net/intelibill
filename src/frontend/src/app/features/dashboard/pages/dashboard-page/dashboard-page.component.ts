@@ -87,17 +87,23 @@ function loadRange(): PersistedRange | null {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalIsoDate(new Date());
 }
 
 function daysBetween(start: string, end: string): number {
   return (new Date(end).getTime() - new Date(start).getTime()) / 86_400_000;
 }
 
+function toLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function computePresetDates(preset: DashboardPreset): { start: string; end: string } {
   const today = new Date();
-  const toIso = (d: Date) => d.toISOString().slice(0, 10);
-  const end = toIso(today);
+  const end = toLocalIsoDate(today);
 
   switch (preset) {
     case 'today':
@@ -105,21 +111,21 @@ function computePresetDates(preset: DashboardPreset): { start: string; end: stri
     case 'last7': {
       const s = new Date(today);
       s.setDate(s.getDate() - 6);
-      return { start: toIso(s), end };
+      return { start: toLocalIsoDate(s), end };
     }
     case 'last30': {
       const s = new Date(today);
       s.setDate(s.getDate() - 29);
-      return { start: toIso(s), end };
+      return { start: toLocalIsoDate(s), end };
     }
     case 'thisMonth': {
       const s = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start: toIso(s), end };
+      return { start: toLocalIsoDate(s), end };
     }
     case 'lastMonth': {
       const last = new Date(today.getFullYear(), today.getMonth(), 0);
       const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      return { start: toIso(first), end: toIso(last) };
+      return { start: toLocalIsoDate(first), end: toLocalIsoDate(last) };
     }
     default:
       return { start: '', end: '' };
