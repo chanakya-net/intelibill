@@ -127,11 +127,11 @@ describe('DashboardEffects', () => {
 
     const result$ = effects.applyRange$;
     const resultPromise = firstValueFrom(result$);
-    actions$.next(DashboardActions.applyRange({ startDate: '2026-04-01', endDate: '2026-04-29', preset: 'custom' }));
+    actions$.next(DashboardActions.applyRange({ startDate: '2026-05-02', endDate: '2026-05-08', preset: 'last7' }));
 
     const action = await resultPromise;
     expect(action).toEqual(DashboardActions.loadDashboardSucceeded({ dashboard }));
-    expect(dashboardService.getDashboard).toHaveBeenCalledWith('2026-04-01', '2026-04-29');
+    expect(dashboardService.getDashboard).toHaveBeenCalledWith('2026-05-02', '2026-05-08');
   });
 
   it('applyRange$ dispatches loadDashboardFailed on error', async () => {
