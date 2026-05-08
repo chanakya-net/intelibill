@@ -26,8 +26,8 @@ internal sealed class SaleReturnRepository(ApplicationDbContext context)
         DateOnly endDate,
         CancellationToken cancellationToken = default)
     {
-        var start = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var exclusiveEnd = endDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var start = ToUtcStart(startDate);
+        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
 
         return await DbSet
             .Include(r => r.Items)
@@ -36,6 +36,12 @@ internal sealed class SaleReturnRepository(ApplicationDbContext context)
                 && r.ProcessedAt < exclusiveEnd)
             .OrderByDescending(r => r.ProcessedAt)
             .ToListAsync(cancellationToken);
+    }
+
+    private static DateTime ToUtcStart(DateOnly localDate)
+    {
+        var localMidnight = localDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(localMidnight, TimeZoneInfo.Local);
     }
 
     public async Task<IReadOnlyList<SaleReturn>> GetBySaleAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default) =>

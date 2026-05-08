@@ -24,7 +24,7 @@ public sealed class GetDashboardQueryHandler(
         GetDashboardQuery query,
         CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
 
         if (query.StartDate > query.EndDate)
             return Errors.Dashboard.InvalidDateRange;

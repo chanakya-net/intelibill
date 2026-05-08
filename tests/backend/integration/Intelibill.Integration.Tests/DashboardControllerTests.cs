@@ -230,8 +230,63 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal(-100m, body.GetProperty("profitAfterTax").GetDecimal());
         Assert.Contains(
             body.GetProperty("profitTrendSeries").EnumerateArray(),
-            point => point.GetProperty("date").GetDateTime().Date == DateTimeOffset.UtcNow.UtcDateTime.Date
+            point => point.GetProperty("date").GetDateTime().Date == DateTime.Now.Date
                 && point.GetProperty("profitAfterTax").GetDecimal() == -100m);
+    }
+
+    [Fact]
+    public async Task GetDashboard_WithLocalDayRange_IncludesAdjustmentsInsideLocalCalendarDay()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
+
+        var localToday = DateOnly.FromDateTime(DateTime.Now);
+        var timeZone = TimeZoneInfo.Local;
+
+        var insideLocalDayOffset = timeZone.GetUtcOffset(localToday.ToDateTime(new TimeOnly(0, 15)));
+        var performedAtInsideLocalDay = new DateTimeOffset(
+            localToday.ToDateTime(new TimeOnly(0, 15)),
+            insideLocalDayOffset).ToUniversalTime();
+
+        var localYesterday = localToday.AddDays(-1);
+        var outsideLocalDayOffset = timeZone.GetUtcOffset(localYesterday.ToDateTime(new TimeOnly(23, 45)));
+        var performedAtOutsideLocalDay = new DateTimeOffset(
+            localYesterday.ToDateTime(new TimeOnly(23, 45)),
+            outsideLocalDayOffset).ToUniversalTime();
+
+        await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 2m,
+            performedAt: performedAtInsideLocalDay,
+            notes: "Inside local day");
+
+        await CreateAdjustmentAsync(
+            client,
+            ownerToken,
+            batchId,
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 1m,
+            performedAt: performedAtOutsideLocalDay,
+            notes: "Outside local day");
+
+        using var dashRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/dashboard?startDate={localToday:yyyy-MM-dd}&endDate={localToday:yyyy-MM-dd}");
+        dashRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var dashResponse = await client.SendAsync(dashRequest);
+
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        var body = await dashResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.False(body.GetProperty("hasNoSalesActivity").GetBoolean());
+        Assert.Equal(100m, body.GetProperty("wastageCost").GetDecimal());
     }
 
     [Fact]
@@ -241,7 +296,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
         var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
         var startDate = today.AddDays(-6);
         var endDate = today;
         var previousDate = startDate.AddDays(-1);
@@ -276,7 +331,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
         var startDate = today.AddDays(-7);
         var endDate = today.AddDays(-1);
 

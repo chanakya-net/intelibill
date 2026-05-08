@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DashboardDto } from '../../services/dashboard.service';
 import { DashboardFacade } from '../../state/dashboard.facade';
@@ -22,6 +22,13 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, wri
 function formatDateForSpec(value: string): string {
   const [year, month, day] = value.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(year, month - 1, day));
+}
+
+function toLocalIsoDateForSpec(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const makeOwnerDto = (overrides?: Partial<DashboardDto>): DashboardDto => ({
@@ -571,6 +578,40 @@ describe('DashboardPageComponent', () => {
       expect(component.pendingStartDate()).toBe('2026-04-01');
       expect(component.pendingEndDate()).toBe('2026-04-15');
       expect(component.pendingPreset()).toBe('custom');
+    });
+  });
+
+  describe('Preset ranges (local calendar)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('Today uses local yyyy-MM-dd (not UTC date)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-08T20:00:00.000Z'));
+
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.onSelectPreset('today');
+
+      const expected = toLocalIsoDateForSpec(new Date());
+      expect(component.pendingStartDate()).toBe(expected);
+      expect(component.pendingEndDate()).toBe(expected);
+    });
+
+    it('Last 7 days is 7 inclusive local calendar days', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-08T20:00:00.000Z'));
+
+      const fixture = createFixture(makeOwnerDto());
+      const component = fixture.componentInstance;
+      component.onSelectPreset('last7');
+
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 6);
+      expect(component.pendingEndDate()).toBe(toLocalIsoDateForSpec(end));
+      expect(component.pendingStartDate()).toBe(toLocalIsoDateForSpec(start));
     });
   });
 

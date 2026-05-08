@@ -1,0 +1,2171 @@
+{
+  "communities": {
+    "0": [
+      "addbankaccountcommandhandler_addbankaccountcommandhandler",
+      "addbankaccountcommandhandler_addbankaccountcommandhandler_handleasync",
+      "addcustomercommandhandler_addcustomercommandhandler",
+      "addcustomercommandhandler_addcustomercommandhandler_handleasync",
+      "addinventorycommandhandler_addinventorycommandhandler",
+      "addinventorycommandhandler_addinventorycommandhandler_computeledgeramount",
+      "addinventorycommandhandler_addinventorycommandhandler_handleasync",
+      "addinventorycommandhandler_addinventorycommandhandler_resolveeffectivesupplierasync",
+      "addinventorycommandhandler_addinventorycommandhandler_upsertinventorywithretryasync",
+      "additemcommandhandler_additemcommandhandler",
+      "additemcommandhandler_additemcommandhandler_handleasync",
+      "addshopusercommandhandler_addshopusercommandhandler",
+      "addshopusercommandhandler_addshopusercommandhandler_handleasync",
+      "addshopusercommandhandler_addshopusercommandhandler_torolelabel",
+      "addshopusercommandhandler_addshopusercommandhandler_tryparseshoprole",
+      "addsuppliercommandhandler_addsuppliercommandhandler",
+      "addsuppliercommandhandler_addsuppliercommandhandler_handleasync",
+      "addsuppliercommandhandler_addsuppliercommandhandler_todto",
+      "applicationdbcontext_applicationdbcontext_savechangesasync",
+      "authshopselection_authshopselection",
+      "authshopselection_authshopselection_resolve",
+      "batchfactory_batchfactory_createbatchasync",
+      "correctexpensecommandhandler_correctexpensecommandhandler",
+      "correctexpensecommandhandler_correctexpensecommandhandler_handleasync",
+      "correctexpensecommandhandler_correctexpensecommandhandler_todto",
+      "createadjustmentcommandhandler_createadjustmentcommandhandler",
+      "createadjustmentcommandhandler_createadjustmentcommandhandler_applybatchadjustment",
+      "createadjustmentcommandhandler_createadjustmentcommandhandler_applyinventoryadjustment",
+      "createadjustmentcommandhandler_createadjustmentcommandhandler_handleasync",
+      "createadjustmentcommandhandler_createadjustmentcommandhandler_mapstocktransactiontype",
+      "createshopcommandhandler_createshopcommandhandler",
+      "createshopcommandhandler_createshopcommandhandler_handleasync",
+      "customerledgerentry_customerledgerentry_create",
+      "customerrepository_customerrepository_getbyshopandidasync",
+      "deletebankaccountcommandhandler_deletebankaccountcommandhandler",
+      "deletebankaccountcommandhandler_deletebankaccountcommandhandler_handleasync",
+      "deletesuppliercommandhandler_deletesuppliercommandhandler",
+      "deletesuppliercommandhandler_deletesuppliercommandhandler_handleasync",
+      "editcustomercommandhandler_editcustomercommandhandler",
+      "editcustomercommandhandler_editcustomercommandhandler_handleasync",
+      "editshopusercommandhandler_editshopusercommandhandler",
+      "editshopusercommandhandler_editshopusercommandhandler_handleasync",
+      "editshopusercommandhandler_editshopusercommandhandler_torolelabel",
+      "editshopusercommandhandler_editshopusercommandhandler_tryparseshoprole",
+      "editsuppliercommandhandler_editsuppliercommandhandler",
+      "editsuppliercommandhandler_editsuppliercommandhandler_handleasync",
+      "errors_general",
+      "errors_general_conflict",
+      "errors_general_notfound",
+      "errors_general_unexpected",
+      "expensecategoryrepository_expensecategoryrepository_addasync",
+      "expensecategoryrepository_expensecategoryrepository_getbynameasync",
+      "expenserepository_expenserepository_update",
+      "externallogincommandhandler_externallogincommandhandler",
+      "externallogincommandhandler_externallogincommandhandler_handleasync",
+      "getinventorybatchesqueryhandler_getinventorybatchesqueryhandler",
+      "getinventorybatchesqueryhandler_getinventorybatchesqueryhandler_handle",
+      "getproductdetailsbynameorbarcodequeryhandler_getproductdetailsbynameorbarcodequeryhandler",
+      "getproductdetailsbynameorbarcodequeryhandler_getproductdetailsbynameorbarcodequeryhandler_handleasync",
+      "getshopdetailsqueryhandler_getshopdetailsqueryhandler",
+      "getshopdetailsqueryhandler_getshopdetailsqueryhandler_handleasync",
+      "iinventoryadjustmentnumbergenerator_iinventoryadjustmentnumbergenerator",
+      "iinventoryadjustmentnumbergenerator_iinventoryadjustmentnumbergenerator_generate",
+      "iitemresolver",
+      "inventory_inventory_addquantity",
+      "inventory_inventory_subtractquantity",
+      "inventorybatch_inventorybatch_void",
+      "inventorybatchrepository_inventorybatchrepository_getbybatchnumberasync",
+      "inventoryupdater_inventoryupdater_getorupdateasync",
+      "itemrepository_itemrepository_getbybarcodeasync",
+      "itemresolver_itemresolver",
+      "itemresolver_itemresolver_buildcachekey",
+      "itemresolver_itemresolver_resolveasync",
+      "iuserrepository",
+      "logincommandhandler_logincommandhandler",
+      "logincommandhandler_logincommandhandler_handleasync",
+      "loginwithemailcommandhandler_loginwithemailcommandhandler",
+      "loginwithemailcommandhandler_loginwithemailcommandhandler_handleasync",
+      "makesupplierpaymentcommandhandler_makesupplierpaymentcommandhandler",
+      "makesupplierpaymentcommandhandler_makesupplierpaymentcommandhandler_handleasync",
+      "recordcustomerpaymentcommandhandler_recordcustomerpaymentcommandhandler",
+      "recordcustomerpaymentcommandhandler_recordcustomerpaymentcommandhandler_handleasync",
+      "recordexpensecommandhandler_recordexpensecommandhandler",
+      "recordexpensecommandhandler_recordexpensecommandhandler_handleasync",
+      "recordexpensecommandhandler_recordexpensecommandhandler_todto",
+      "recordsalecommandhandler_recordsalecommandhandler",
+      "recordsalecommandhandler_recordsalecommandhandler_handleasync",
+      "recordsalereturncommandhandler_recordsalereturncommandhandler",
+      "recordsalereturncommandhandler_recordsalereturncommandhandler_handleasync",
+      "recordsalereturncommandhandler_recordsalereturncommandhandler_validatedueoverridewarnings",
+      "registerwithemailcommandhandler_registerwithemailcommandhandler",
+      "registerwithemailcommandhandler_registerwithemailcommandhandler_buildresult",
+      "registerwithemailcommandhandler_registerwithemailcommandhandler_handleasync",
+      "registerwithphonecommandhandler_registerwithphonecommandhandler",
+      "registerwithphonecommandhandler_registerwithphonecommandhandler_handleasync",
+      "repositorybase_repositorybase_remove",
+      "salerepository_salerepository_getbyidasync",
+      "setdefaultshopcommandhandler_setdefaultshopcommandhandler",
+      "setdefaultshopcommandhandler_setdefaultshopcommandhandler_handleasync",
+      "shop_shop_addmembership",
+      "shopmembership_shopmembership",
+      "shopmembership_shopmembership_attachshop",
+      "shopmembership_shopmembership_attachuser",
+      "shopmembership_shopmembership_create",
+      "shopmembership_shopmembership_markused",
+      "shopmembership_shopmembership_setdefault",
+      "shopmembership_shopmembership_setrole",
+      "shoprepository_shoprepository_addmembershipasync",
+      "shoprepository_shoprepository_removemembership",
+      "src_backend_intelibill_application_common_extensions_validationextensions_cs",
+      "src_backend_intelibill_application_features_auth_commands_externallogin_externallogincommandhandler_cs",
+      "src_backend_intelibill_application_features_auth_commands_login_logincommandhandler_cs",
+      "src_backend_intelibill_application_features_auth_commands_loginwithemail_loginwithemailcommandhandler_cs",
+      "src_backend_intelibill_application_features_auth_commands_registerwithemail_registerwithemailcommandhandler_cs",
+      "src_backend_intelibill_application_features_auth_commands_registerwithphone_registerwithphonecommandhandler_cs",
+      "src_backend_intelibill_application_features_auth_dtos_authshopselection_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_addbankaccount_addbankaccountcommandhandler_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_deletebankaccount_deletebankaccountcommandhandler_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_updatebankaccount_updatebankaccountcommandhandler_cs",
+      "src_backend_intelibill_application_features_customers_commands_addcustomer_addcustomercommandhandler_cs",
+      "src_backend_intelibill_application_features_customers_commands_editcustomer_editcustomercommandhandler_cs",
+      "src_backend_intelibill_application_features_customers_commands_recordcustomerpayment_recordcustomerpaymentcommandhandler_cs",
+      "src_backend_intelibill_application_features_expenses_commands_correctexpense_correctexpensecommandhandler_cs",
+      "src_backend_intelibill_application_features_expenses_commands_recordexpense_recordexpensecommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_commands_addinventory_addinventorycommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_commands_createadjustment_createadjustmentcommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_commands_voidadjustment_voidadjustmentcommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_commands_voidbatch_voidbatchcommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_queries_getinventorybatches_getinventorybatchesqueryhandler_cs",
+      "src_backend_intelibill_application_features_inventory_services_iinventoryadjustmentnumbergenerator_cs",
+      "src_backend_intelibill_application_features_inventory_services_itemresolver_cs",
+      "src_backend_intelibill_application_features_items_commands_additem_additemcommandhandler_cs",
+      "src_backend_intelibill_application_features_items_commands_updateitem_updateitemcommandhandler_cs",
+      "src_backend_intelibill_application_features_items_queries_getproductdetails_getproductdetailsbynameorbarcodequeryhandler_cs",
+      "src_backend_intelibill_application_features_sales_commands_recordsale_recordsalecommandhandler_cs",
+      "src_backend_intelibill_application_features_sales_commands_recordsalereturn_recordsalereturncommandhandler_cs",
+      "src_backend_intelibill_application_features_sales_commands_voidsalereturn_voidsalereturncommandhandler_cs",
+      "src_backend_intelibill_application_features_shops_commands_createshop_createshopcommandhandler_cs",
+      "src_backend_intelibill_application_features_shops_commands_setdefaultshop_setdefaultshopcommandhandler_cs",
+      "src_backend_intelibill_application_features_shops_commands_switchactiveshop_switchactiveshopcommandhandler_cs",
+      "src_backend_intelibill_application_features_shops_commands_updateshop_updateshopcommandhandler_cs",
+      "src_backend_intelibill_application_features_shops_queries_getshopdetails_getshopdetailsqueryhandler_cs",
+      "src_backend_intelibill_application_features_supplierledger_commands_makesupplierpayment_makesupplierpaymentcommandhandler_cs",
+      "src_backend_intelibill_application_features_suppliers_commands_addsupplier_addsuppliercommandhandler_cs",
+      "src_backend_intelibill_application_features_suppliers_commands_deletesupplier_deletesuppliercommandhandler_cs",
+      "src_backend_intelibill_application_features_suppliers_commands_editsupplier_editsuppliercommandhandler_cs",
+      "src_backend_intelibill_application_features_users_commands_addshopuser_addshopusercommandhandler_cs",
+      "src_backend_intelibill_application_features_users_commands_editshopuser_editshopusercommandhandler_cs",
+      "src_backend_intelibill_application_features_users_commands_updatemyprofile_updatemyprofilecommandhandler_cs",
+      "src_backend_intelibill_domain_entities_shopmembership_cs",
+      "src_backend_intelibill_infrastructure_repositories_userrepository_cs",
+      "stocktransactionrepository_stocktransactionrepository_getbyitemasync",
+      "switchactiveshopcommandhandler_switchactiveshopcommandhandler",
+      "switchactiveshopcommandhandler_switchactiveshopcommandhandler_handleasync",
+      "updatebankaccountcommandhandler_updatebankaccountcommandhandler",
+      "updatebankaccountcommandhandler_updatebankaccountcommandhandler_handleasync",
+      "updateinventorybatchcommandhandler_updateinventorybatchcommandhandler_handle",
+      "updateitemcommandhandler_updateitemcommandhandler",
+      "updateitemcommandhandler_updateitemcommandhandler_handleasync",
+      "updatemyprofilecommandhandler_updatemyprofilecommandhandler",
+      "updatemyprofilecommandhandler_updatemyprofilecommandhandler_handleasync",
+      "updateshopcommandhandler_updateshopcommandhandler",
+      "updateshopcommandhandler_updateshopcommandhandler_handleasync",
+      "user_user_addshopmembership",
+      "user_user_createwithemail",
+      "user_user_updateshopuserprofile",
+      "userrepository_userrepository",
+      "userrepository_userrepository_existsbyemailasync",
+      "userrepository_userrepository_existsbyphoneasync",
+      "userrepository_userrepository_getbyemailasync",
+      "userrepository_userrepository_getbyexternalloginasync",
+      "userrepository_userrepository_getbyidwithdetailsasync",
+      "userrepository_userrepository_getbyphoneasync",
+      "validationextensions_validationextensions",
+      "validationextensions_validationextensions_validatecommandasync",
+      "voidadjustmentcommandhandler_voidadjustmentcommandhandler",
+      "voidadjustmentcommandhandler_voidadjustmentcommandhandler_applystockreversal",
+      "voidadjustmentcommandhandler_voidadjustmentcommandhandler_ensurereversalwillnotmakestocknegative",
+      "voidadjustmentcommandhandler_voidadjustmentcommandhandler_handleasync",
+      "voidbatchcommandhandler_voidbatchcommandhandler",
+      "voidbatchcommandhandler_voidbatchcommandhandler_handleasync",
+      "voidbatchcommandhandler_voidbatchcommandhandler_subtractinventorywithretryasync",
+      "voidsalereturncommandhandler_voidsalereturncommandhandler",
+      "voidsalereturncommandhandler_voidsalereturncommandhandler_handleasync"
+    ],
+    "1": [
+      "authcontroller_authcontroller",
+      "authcontroller_authcontroller_completeexternallogin",
+      "authcontroller_authcontroller_externallogin",
+      "authcontroller_authcontroller_facebookcallbackrelay",
+      "authcontroller_authcontroller_googlecallbackrelay",
+      "authcontroller_authcontroller_initializeexternallogin",
+      "authcontroller_authcontroller_login",
+      "authcontroller_authcontroller_loginwithemail",
+      "authcontroller_authcontroller_redirecttofrontendcallback",
+      "authcontroller_authcontroller_refreshtoken",
+      "authcontroller_authcontroller_registerwithemail",
+      "authcontroller_authcontroller_registerwithphone",
+      "authcontroller_authcontroller_requestpasswordreset",
+      "authcontroller_authcontroller_resetpassword",
+      "authcontroller_authcontroller_revoketoken",
+      "authenticatedcontrollerbase",
+      "authenticatedcontrollerbase_authenticatedcontrollerbase",
+      "authenticatedcontrollerbase_authenticatedcontrollerbase_checkauth",
+      "authenticatedcontrollerbase_authenticatedcontrollerbase_checkauthandshop",
+      "authenticatedcontrollerbase_authenticatedcontrollerbase_checkshop",
+      "authenticatedcontrollerbase_authenticatedcontrollerbase_trygetguidclaim",
+      "bankaccountscontroller_bankaccountscontroller",
+      "bankaccountscontroller_bankaccountscontroller_addbankaccount",
+      "bankaccountscontroller_bankaccountscontroller_deletebankaccount",
+      "bankaccountscontroller_bankaccountscontroller_getbankaccounts",
+      "bankaccountscontroller_bankaccountscontroller_updatebankaccount",
+      "controllerbase",
+      "customerscontroller_customerscontroller",
+      "customerscontroller_customerscontroller_addcustomer",
+      "customerscontroller_customerscontroller_editcustomer",
+      "customerscontroller_customerscontroller_getcustomeraccount",
+      "customerscontroller_customerscontroller_getcustomers",
+      "customerscontroller_customerscontroller_recordpayment",
+      "dashboardcontroller_dashboardcontroller",
+      "dashboardcontroller_dashboardcontroller_getdashboard",
+      "errororextensions_errororextensions",
+      "errororextensions_errororextensions_toactionresult",
+      "errororextensions_errororextensions_toproblemresult",
+      "expensescontroller_expensescontroller",
+      "expensescontroller_expensescontroller_correctexpense",
+      "expensescontroller_expensescontroller_getcategories",
+      "expensescontroller_expensescontroller_getexpense",
+      "expensescontroller_expensescontroller_getexpenses",
+      "expensescontroller_expensescontroller_recordexpense",
+      "facebookauthprovider_facebookauthprovider_createauthorizationurlasync",
+      "inventorycontroller_inventorycontroller",
+      "inventorycontroller_inventorycontroller_addinventory",
+      "inventorycontroller_inventorycontroller_addinventorybatch",
+      "inventorycontroller_inventorycontroller_createadjustment",
+      "inventorycontroller_inventorycontroller_getadjustmenthistory",
+      "inventorycontroller_inventorycontroller_getavailablebatches",
+      "inventorycontroller_inventorycontroller_getinventorybatches",
+      "inventorycontroller_inventorycontroller_reassignbatchsupplier",
+      "inventorycontroller_inventorycontroller_updateinventorybatch",
+      "inventorycontroller_inventorycontroller_voidadjustment",
+      "inventorycontroller_inventorycontroller_voidbatch",
+      "itemscontroller_itemscontroller",
+      "itemscontroller_itemscontroller_additem",
+      "itemscontroller_itemscontroller_getitems",
+      "itemscontroller_itemscontroller_getproductdetails",
+      "itemscontroller_itemscontroller_updateitem",
+      "salescontroller_salescontroller",
+      "salescontroller_salescontroller_getprofitlossreport",
+      "salescontroller_salescontroller_getsalebyreturnnumber",
+      "salescontroller_salescontroller_getsaledetail",
+      "salescontroller_salescontroller_getsales",
+      "salescontroller_salescontroller_previewsalereturn",
+      "salescontroller_salescontroller_recordsale",
+      "salescontroller_salescontroller_recordsalereturn",
+      "salescontroller_salescontroller_voidsalereturn",
+      "shopscontroller_shopscontroller",
+      "shopscontroller_shopscontroller_createshop",
+      "shopscontroller_shopscontroller_getmyshops",
+      "shopscontroller_shopscontroller_getshopdetails",
+      "shopscontroller_shopscontroller_setdefaultshop",
+      "shopscontroller_shopscontroller_switchactiveshop",
+      "shopscontroller_shopscontroller_updateshop",
+      "src_backend_intelibill_api_controllers_authcontroller_cs",
+      "src_backend_intelibill_api_controllers_bankaccountscontroller_cs",
+      "src_backend_intelibill_api_controllers_customerscontroller_cs",
+      "src_backend_intelibill_api_controllers_dashboardcontroller_cs",
+      "src_backend_intelibill_api_controllers_expensescontroller_cs",
+      "src_backend_intelibill_api_controllers_inventorycontroller_cs",
+      "src_backend_intelibill_api_controllers_itemscontroller_cs",
+      "src_backend_intelibill_api_controllers_salescontroller_cs",
+      "src_backend_intelibill_api_controllers_shopscontroller_cs",
+      "src_backend_intelibill_api_controllers_supplierscontroller_cs",
+      "src_backend_intelibill_api_controllers_userscontroller_cs",
+      "src_backend_intelibill_api_extensions_authenticatedcontrollerbase_cs",
+      "src_backend_intelibill_api_extensions_errororextensions_cs",
+      "supplierscontroller_supplierscontroller",
+      "supplierscontroller_supplierscontroller_addsupplier",
+      "supplierscontroller_supplierscontroller_deletesupplier",
+      "supplierscontroller_supplierscontroller_editsupplier",
+      "supplierscontroller_supplierscontroller_getsupplierledger",
+      "supplierscontroller_supplierscontroller_getsuppliers",
+      "supplierscontroller_supplierscontroller_makepayment",
+      "userscontroller_userscontroller",
+      "userscontroller_userscontroller_addshopuser",
+      "userscontroller_userscontroller_changemypassword",
+      "userscontroller_userscontroller_editshopuser",
+      "userscontroller_userscontroller_getshopusers",
+      "userscontroller_userscontroller_updatemyprofile"
+    ],
+    "2": [
+      "ibankaccountrepository_ibankaccountrepository",
+      "ibankaccountrepository_ibankaccountrepository_getbyshopidasync",
+      "icustomerledgerentryrepository_icustomerledgerentryrepository",
+      "icustomerledgerentryrepository_icustomerledgerentryrepository_getbycustomerasync",
+      "icustomerledgerentryrepository_icustomerledgerentryrepository_getcustomerbalanceasync",
+      "icustomerledgerentryrepository_icustomerledgerentryrepository_getcustomerbalancesasync",
+      "icustomerrepository_icustomerrepository",
+      "icustomerrepository_icustomerrepository_getbyshopandidasync",
+      "icustomerrepository_icustomerrepository_getbyshopandphoneasync",
+      "icustomerrepository_icustomerrepository_getbyshopidasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_getbyadjustmentnumberasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_getbybatchasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_getbyshopanddaterangeasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_getdashboardlossesbyshopanddaterangeasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_gethistoryasync",
+      "iinventoryadjustmentrepository_iinventoryadjustmentrepository_getprofitlossadjustmentsasync",
+      "iinventorybatchrepository_iinventorybatchrepository",
+      "iinventorybatchrepository_iinventorybatchrepository_getavailablebybarcodeasync",
+      "iinventorybatchrepository_iinventorybatchrepository_getbybatchnumberasync",
+      "iinventorybatchrepository_iinventorybatchrepository_getbyitemasync",
+      "iinventorybatchrepository_iinventorybatchrepository_getbyitemidsandbatchnumbersasync",
+      "iinventorybatchrepository_iinventorybatchrepository_getbyshopasync",
+      "iinventoryrepository_iinventoryrepository",
+      "iinventoryrepository_iinventoryrepository_getallbyshopwithitemasync",
+      "iinventoryrepository_iinventoryrepository_getbyitemasync",
+      "iinventoryrepository_iinventoryrepository_getbyitemidsasync",
+      "iinventoryrepository_iinventoryrepository_getquantitiesbyshopidasync",
+      "iitemrepository_iitemrepository",
+      "iitemrepository_iitemrepository_getbybarcodeasync",
+      "iitemrepository_iitemrepository_getbybarcodesasync",
+      "iitemrepository_iitemrepository_getbyidsasync",
+      "iitemrepository_iitemrepository_getbynameasync",
+      "iitemrepository_iitemrepository_getbyshopidasync",
+      "iitemrepository_iitemrepository_streambyshopidasync",
+      "irepository",
+      "isalerepository_isalerepository",
+      "isalerepository_isalerepository_getbycustomerasync",
+      "isalerepository_isalerepository_getbyidasync",
+      "isalerepository_isalerepository_getbyshopanddateasync",
+      "isalerepository_isalerepository_getbyshopanddaterangeasync",
+      "isalerepository_isalerepository_getbyshopasync",
+      "isalereturnrepository_isalereturnrepository",
+      "isalereturnrepository_isalereturnrepository_getbyidwithitemsasync",
+      "isalereturnrepository_isalereturnrepository_getbyreturnnumberasync",
+      "isalereturnrepository_isalereturnrepository_getbysaleasync",
+      "isalereturnrepository_isalereturnrepository_getbyshopanddaterangeasync",
+      "isalereturnrepository_isalereturnrepository_getlinesbysaleitemasync",
+      "ishoprepository_ishoprepository",
+      "ishoprepository_ishoprepository_addmembershipasync",
+      "ishoprepository_ishoprepository_cleardefaultforuserasync",
+      "ishoprepository_ishoprepository_getbyidwithmembersasync",
+      "ishoprepository_ishoprepository_getdefaultmembershipasync",
+      "ishoprepository_ishoprepository_getmembershipasync",
+      "ishoprepository_ishoprepository_getmembershipsforuserasync",
+      "ishoprepository_ishoprepository_getmembershipsforusersinshopsasync",
+      "ishoprepository_ishoprepository_getmostrecentlyusedmembershipasync",
+      "ishoprepository_ishoprepository_removemembership",
+      "ishoprepository_ishoprepository_userhasmembershipasync",
+      "istocktransactionrepository_istocktransactionrepository",
+      "istocktransactionrepository_istocktransactionrepository_getbybatchasync",
+      "istocktransactionrepository_istocktransactionrepository_getbyitemasync",
+      "isupplierledgerentryrepository_isupplierledgerentryrepository",
+      "isupplierledgerentryrepository_isupplierledgerentryrepository_getbybatchasync",
+      "isupplierledgerentryrepository_isupplierledgerentryrepository_getbysupplierasync",
+      "isupplierledgerentryrepository_isupplierledgerentryrepository_getsupplierbalanceasync",
+      "isupplierrepository_isupplierrepository",
+      "isupplierrepository_isupplierrepository_getbyshopidasync",
+      "isupplierrepository_isupplierrepository_getsystembyshopidasync",
+      "iuserrepository_iuserrepository",
+      "iuserrepository_iuserrepository_existsbyemailasync",
+      "iuserrepository_iuserrepository_existsbyphoneasync",
+      "iuserrepository_iuserrepository_getbyemailasync",
+      "iuserrepository_iuserrepository_getbyexternalloginasync",
+      "iuserrepository_iuserrepository_getbyidwithdetailsasync",
+      "iuserrepository_iuserrepository_getbyphoneasync",
+      "src_backend_intelibill_domain_interfaces_repositories_ibankaccountrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_icustomerledgerentryrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_icustomerrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_iinventoryadjustmentrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_iinventorybatchrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_iinventoryrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_iitemrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_isalerepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_isalereturnrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_ishoprepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_istocktransactionrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_isupplierledgerentryrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_isupplierrepository_cs",
+      "src_backend_intelibill_domain_interfaces_repositories_iuserrepository_cs"
+    ],
+    "3": [
+      "bankaccountrepository_bankaccountrepository",
+      "bankaccountrepository_bankaccountrepository_getbyshopidasync",
+      "customerrepository_customerrepository",
+      "customerrepository_customerrepository_getbyshopandphoneasync",
+      "customerrepository_customerrepository_getbyshopidasync",
+      "customerresolver_customerresolver",
+      "customerresolver_customerresolver_resolveasync",
+      "getadjustmenthistoryqueryhandler_getadjustmenthistoryqueryhandler",
+      "getadjustmenthistoryqueryhandler_getadjustmenthistoryqueryhandler_handle",
+      "getadjustmenthistoryqueryhandler_getadjustmenthistoryqueryhandler_maptodto",
+      "getadjustmenthistoryqueryhandler_getadjustmenthistoryqueryhandler_normalizepagesize",
+      "getavailablebatchesqueryhandler_getavailablebatchesqueryhandler",
+      "getavailablebatchesqueryhandler_getavailablebatchesqueryhandler_handle",
+      "getexpensecategoriesqueryhandler_getexpensecategoriesqueryhandler",
+      "getexpensecategoriesqueryhandler_getexpensecategoriesqueryhandler_handle",
+      "getprofitlossreportqueryhandler_getprofitlossreportqueryhandler",
+      "getprofitlossreportqueryhandler_getprofitlossreportqueryhandler_calculateapprovedrefundtax",
+      "getprofitlossreportqueryhandler_getprofitlossreportqueryhandler_handle",
+      "getsalebyreturnnumberqueryhandler_getsalebyreturnnumberqueryhandler",
+      "getsalebyreturnnumberqueryhandler_getsalebyreturnnumberqueryhandler_handle",
+      "getsaledetailqueryhandler_getsaledetailqueryhandler",
+      "getsaledetailqueryhandler_getsaledetailqueryhandler_handle",
+      "getsalesqueryhandler_getsalesqueryhandler",
+      "getsalesqueryhandler_getsalesqueryhandler_handle",
+      "ibankaccountrepository",
+      "icustomerrepository",
+      "icustomerresolver",
+      "iinventoryadjustmentrepository",
+      "iinventorybatchrepository",
+      "iitemcatalogstreamingservice",
+      "iitemrepository",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_formatdisplayname",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_getbyadjustmentnumberasync",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_getbybatchasync",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_getbyshopanddaterangeasync",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_getdashboardlossesbyshopanddaterangeasync",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_gethistoryasync",
+      "inventoryadjustmentrepository_inventoryadjustmentrepository_getprofitlossadjustmentsasync",
+      "inventorybatchrepository_inventorybatchrepository",
+      "inventorybatchrepository_inventorybatchrepository_getavailablebybarcodeasync",
+      "inventorybatchrepository_inventorybatchrepository_getbyitemasync",
+      "inventorybatchrepository_inventorybatchrepository_getbyitemidsandbatchnumbersasync",
+      "inventorybatchrepository_inventorybatchrepository_getbyshopasync",
+      "isalereturnrepository",
+      "istocktransactionrepository",
+      "itemcatalogstreamingservice_itemcatalogstreamingservice",
+      "itemcatalogstreamingservice_itemcatalogstreamingservice_streambyshopasync",
+      "itemcatalogstreamingservice_itemcatalogstreamingservice_validateaccessasync",
+      "itemrepository_itemrepository",
+      "itemrepository_itemrepository_getbybarcodesasync",
+      "itemrepository_itemrepository_getbyidsasync",
+      "itemrepository_itemrepository_getbynameasync",
+      "itemrepository_itemrepository_getbyshopidasync",
+      "itemrepository_itemrepository_streambyshopidasync",
+      "repositorybase",
+      "salerepository_salerepository_getbyshopasync",
+      "salereturnrepository_salereturnrepository",
+      "salereturnrepository_salereturnrepository_getbyidwithitemsasync",
+      "salereturnrepository_salereturnrepository_getbyreturnnumberasync",
+      "salereturnrepository_salereturnrepository_getbysaleasync",
+      "salereturnrepository_salereturnrepository_getbyshopanddaterangeasync",
+      "salereturnrepository_salereturnrepository_getlinesbysaleitemasync",
+      "shoprepository_shoprepository_getmembershipasync",
+      "src_backend_intelibill_application_features_expenses_queries_getexpensecategories_getexpensecategoriesqueryhandler_cs",
+      "src_backend_intelibill_application_features_inventory_queries_getadjustmenthistory_getadjustmenthistoryqueryhandler_cs",
+      "src_backend_intelibill_application_features_inventory_queries_getavailablebatches_getavailablebatchesqueryhandler_cs",
+      "src_backend_intelibill_application_features_items_services_itemcatalogstreamingservice_cs",
+      "src_backend_intelibill_application_features_sales_queries_getprofitlossreport_getprofitlossreportqueryhandler_cs",
+      "src_backend_intelibill_application_features_sales_queries_getsalebyreturnnumber_getsalebyreturnnumberqueryhandler_cs",
+      "src_backend_intelibill_application_features_sales_queries_getsaledetail_getsaledetailqueryhandler_cs",
+      "src_backend_intelibill_application_features_sales_queries_getsales_getsalesqueryhandler_cs",
+      "src_backend_intelibill_application_features_sales_services_customerresolver_cs",
+      "src_backend_intelibill_infrastructure_repositories_bankaccountrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_customerrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_inventoryadjustmentrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_inventorybatchrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_itemrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_salereturnrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_stocktransactionrepository_cs",
+      "stocktransactionrepository_stocktransactionrepository",
+      "stocktransactionrepository_stocktransactionrepository_getbybatchasync"
+    ],
+    "4": [
+      "bankaccountconfiguration_bankaccountconfiguration",
+      "bankaccountconfiguration_bankaccountconfiguration_configure",
+      "customerconfiguration_customerconfiguration",
+      "customerconfiguration_customerconfiguration_configure",
+      "customerledgerentryconfiguration_customerledgerentryconfiguration",
+      "customerledgerentryconfiguration_customerledgerentryconfiguration_configure",
+      "customerledgerentryconfiguration_customerledgerentryconfiguration_fromprovidervalue",
+      "customerledgerentryconfiguration_customerledgerentryconfiguration_toprovidervalue",
+      "expensecategoryconfiguration_expensecategoryconfiguration",
+      "expensecategoryconfiguration_expensecategoryconfiguration_configure",
+      "expenseconfiguration_expenseconfiguration",
+      "expenseconfiguration_expenseconfiguration_configure",
+      "ientitytypeconfiguration",
+      "inventoryadjustmentconfiguration_inventoryadjustmentconfiguration",
+      "inventoryadjustmentconfiguration_inventoryadjustmentconfiguration_configure",
+      "inventoryadjustmentconfiguration_inventoryadjustmentconfiguration_directionfromprovidervalue",
+      "inventoryadjustmentconfiguration_inventoryadjustmentconfiguration_reasonfromprovidervalue",
+      "inventoryadjustmentconfiguration_inventoryadjustmentconfiguration_toprovidervalue",
+      "inventorybatchconfiguration_inventorybatchconfiguration",
+      "inventorybatchconfiguration_inventorybatchconfiguration_configure",
+      "inventoryconfiguration_inventoryconfiguration",
+      "inventoryconfiguration_inventoryconfiguration_configure",
+      "itemconfiguration_itemconfiguration",
+      "itemconfiguration_itemconfiguration_configure",
+      "saleconfiguration_saleconfiguration",
+      "saleconfiguration_saleconfiguration_configure",
+      "saleitemconfiguration_saleitemconfiguration",
+      "saleitemconfiguration_saleitemconfiguration_configure",
+      "salereturnconfiguration_salereturnconfiguration",
+      "salereturnconfiguration_salereturnconfiguration_configure",
+      "salereturnitemconfiguration_salereturnitemconfiguration",
+      "salereturnitemconfiguration_salereturnitemconfiguration_configure",
+      "salereturnitemconfiguration_salereturnitemconfiguration_fromprovidervalue",
+      "salereturnitemconfiguration_salereturnitemconfiguration_toprovidervalue",
+      "shopconfiguration_shopconfiguration",
+      "shopconfiguration_shopconfiguration_configure",
+      "shopmembershipconfiguration_shopmembershipconfiguration",
+      "shopmembershipconfiguration_shopmembershipconfiguration_configure",
+      "src_backend_intelibill_infrastructure_data_configurations_bankaccountconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_customerconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_customerledgerentryconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_expensecategoryconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_expenseconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_inventoryadjustmentconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_inventorybatchconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_inventoryconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_itemconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_saleconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_saleitemconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_salereturnconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_salereturnitemconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_shopconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_shopmembershipconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_stocktransactionconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_supplierconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_supplierledgerentryconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_userconfiguration_cs",
+      "src_backend_intelibill_infrastructure_data_configurations_userexternalloginconfiguration_cs",
+      "stocktransactionconfiguration_stocktransactionconfiguration",
+      "stocktransactionconfiguration_stocktransactionconfiguration_configure",
+      "stocktransactionconfiguration_stocktransactionconfiguration_fromprovidervalue",
+      "stocktransactionconfiguration_stocktransactionconfiguration_toprovidervalue",
+      "supplierconfiguration_supplierconfiguration",
+      "supplierconfiguration_supplierconfiguration_configure",
+      "supplierledgerentryconfiguration_supplierledgerentryconfiguration",
+      "supplierledgerentryconfiguration_supplierledgerentryconfiguration_configure",
+      "supplierledgerentryconfiguration_supplierledgerentryconfiguration_fromprovidervalue",
+      "supplierledgerentryconfiguration_supplierledgerentryconfiguration_toprovidervalue",
+      "userconfiguration_userconfiguration",
+      "userconfiguration_userconfiguration_configure",
+      "userexternalloginconfiguration_userexternalloginconfiguration",
+      "userexternalloginconfiguration_userexternalloginconfiguration_configure"
+    ],
+    "5": [
+      "customerledgerentryrepository_customerledgerentryrepository",
+      "customerledgerentryrepository_customerledgerentryrepository_getbycustomerasync",
+      "customerledgerentryrepository_customerledgerentryrepository_getcustomerbalanceasync",
+      "customerledgerentryrepository_customerledgerentryrepository_getcustomerbalancesasync",
+      "customerledgerentrytype_customerledgerentrytypeextensions",
+      "customerledgerentrytype_customerledgerentrytypeextensions_tobalancedelta",
+      "dashboardkpicalculator_dashboardkpicalculator",
+      "dashboardkpicalculator_dashboardkpicalculator_buildalerts",
+      "dashboardkpicalculator_dashboardkpicalculator_buildpreviousperiodsummary",
+      "dashboardkpicalculator_dashboardkpicalculator_buildtrendseries",
+      "dashboardkpicalculator_dashboardkpicalculator_calculateactivedecreaseadjustmentloss",
+      "dashboardkpicalculator_dashboardkpicalculator_calculateapprovedrefundtax",
+      "dashboardkpicalculator_dashboardkpicalculator_calculatecustomerdues",
+      "dashboardkpicalculator_dashboardkpicalculator_calculateexpensekpis",
+      "dashboardkpicalculator_dashboardkpicalculator_calculatepaymentmix",
+      "dashboardkpicalculator_dashboardkpicalculator_calculatesaleskpis",
+      "dashboardkpicalculator_dashboardkpicalculator_calculatestockrisk",
+      "dashboardkpicalculator_dashboardkpicalculator_getactivedecreaseadjustments",
+      "dashboardkpicalculator_dashboardkpicalculator_getactivereturns",
+      "getbankaccountsqueryhandler_getbankaccountsqueryhandler",
+      "getbankaccountsqueryhandler_getbankaccountsqueryhandler_handleasync",
+      "getcustomeraccountqueryhandler_getcustomeraccountqueryhandler",
+      "getcustomeraccountqueryhandler_getcustomeraccountqueryhandler_handleasync",
+      "getcustomersqueryhandler_getcustomersqueryhandler",
+      "getcustomersqueryhandler_getcustomersqueryhandler_handleasync",
+      "getdashboardqueryhandler_getdashboardqueryhandler",
+      "getdashboardqueryhandler_getdashboardqueryhandler_handle",
+      "getitemsqueryhandler_getitemsqueryhandler",
+      "getitemsqueryhandler_getitemsqueryhandler_handleasync",
+      "getsuppliersqueryhandler_getsuppliersqueryhandler",
+      "getsuppliersqueryhandler_getsuppliersqueryhandler_handleasync",
+      "icustomerledgerentryrepository",
+      "iinventoryrepository",
+      "inventoryrepository_inventoryrepository",
+      "inventoryrepository_inventoryrepository_getallbyshopwithitemasync",
+      "inventoryrepository_inventoryrepository_getbyitemasync",
+      "inventoryrepository_inventoryrepository_getbyitemidsasync",
+      "inventoryrepository_inventoryrepository_getquantitiesbyshopidasync",
+      "isalerepository",
+      "isupplierrepository",
+      "isupplierresolver",
+      "salerepository_salerepository",
+      "salerepository_salerepository_getbycustomerasync",
+      "salerepository_salerepository_getbyshopanddateasync",
+      "salerepository_salerepository_getbyshopanddaterangeasync",
+      "salereturnvalidator_salereturnvalidator_getoutstandingdueasync",
+      "src_backend_intelibill_application_features_bankaccounts_queries_getbankaccounts_getbankaccountsqueryhandler_cs",
+      "src_backend_intelibill_application_features_customers_queries_getcustomeraccount_getcustomeraccountqueryhandler_cs",
+      "src_backend_intelibill_application_features_customers_queries_getcustomers_getcustomersqueryhandler_cs",
+      "src_backend_intelibill_application_features_dashboard_queries_getdashboard_getdashboardqueryhandler_cs",
+      "src_backend_intelibill_application_features_dashboard_services_dashboardkpicalculator_cs",
+      "src_backend_intelibill_application_features_inventory_commands_updateinventorybatch_updateinventorybatchcommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_services_supplierresolver_cs",
+      "src_backend_intelibill_application_features_items_queries_getitems_getitemsqueryhandler_cs",
+      "src_backend_intelibill_application_features_suppliers_queries_getsuppliers_getsuppliersqueryhandler_cs",
+      "src_backend_intelibill_domain_enums_customerledgerentrytype_cs",
+      "src_backend_intelibill_infrastructure_repositories_customerledgerentryrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_inventoryrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_salerepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_supplierrepository_cs",
+      "supplierledgerentryrepository_supplierledgerentryrepository_getsupplierbalanceasync",
+      "supplierrepository_supplierrepository",
+      "supplierrepository_supplierrepository_getbyshopidasync",
+      "supplierrepository_supplierrepository_getsystembyshopidasync",
+      "supplierresolver_supplierresolver",
+      "supplierresolver_supplierresolver_resolveasync",
+      "updateinventorybatchcommandhandler_updateinventorybatchcommandhandler",
+      "updateinventorybatchcommandhandler_updateinventorybatchcommandhandler_resolveeffectivesupplieridasync"
+    ],
+    "6": [
+      "abstractvalidator",
+      "addbankaccountcommandvalidator_addbankaccountcommandvalidator",
+      "addcustomercommandvalidator_addcustomercommandvalidator",
+      "addinventorycommandvalidator_addinventorycommandvalidator",
+      "additemcommandvalidator_additemcommandvalidator",
+      "addshopusercommandvalidator_addshopusercommandvalidator",
+      "addsuppliercommandvalidator_addsuppliercommandvalidator",
+      "correctexpensecommandvalidator_correctexpensecommandvalidator",
+      "createadjustmentcommandvalidator_createadjustmentcommandvalidator",
+      "createadjustmentcommandvalidator_createadjustmentcommandvalidator_isreasonallowedfordirection",
+      "createadjustmentcommandvalidator_createadjustmentcommandvalidator_nothavemorethantwodecimalplaces",
+      "createshopcommandvalidator_createshopcommandvalidator",
+      "deletebankaccountcommandvalidator_deletebankaccountcommandvalidator",
+      "editcustomercommandvalidator_editcustomercommandvalidator",
+      "editshopusercommandvalidator_editshopusercommandvalidator",
+      "editsuppliercommandvalidator_editsuppliercommandvalidator",
+      "externallogincommandvalidator_externallogincommandvalidator",
+      "logincommandvalidator_logincommandvalidator",
+      "loginwithemailcommandvalidator_loginwithemailcommandvalidator",
+      "makesupplierpaymentcommandvalidator_makesupplierpaymentcommandvalidator",
+      "recordcustomerpaymentcommandvalidator_recordcustomerpaymentcommandvalidator",
+      "recordexpensecommandvalidator_recordexpensecommandvalidator",
+      "recordsalecommandvalidator_recordsalecommandvalidator",
+      "registerwithemailcommandvalidator_registerwithemailcommandvalidator",
+      "registerwithphonecommandvalidator_registerwithphonecommandvalidator",
+      "src_backend_intelibill_application_features_auth_commands_externallogin_externallogincommandvalidator_cs",
+      "src_backend_intelibill_application_features_auth_commands_login_logincommandvalidator_cs",
+      "src_backend_intelibill_application_features_auth_commands_loginwithemail_loginwithemailcommandvalidator_cs",
+      "src_backend_intelibill_application_features_auth_commands_registerwithemail_registerwithemailcommandvalidator_cs",
+      "src_backend_intelibill_application_features_auth_commands_registerwithphone_registerwithphonecommandvalidator_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_addbankaccount_addbankaccountcommandvalidator_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_deletebankaccount_deletebankaccountcommandvalidator_cs",
+      "src_backend_intelibill_application_features_bankaccounts_commands_updatebankaccount_updatebankaccountcommandvalidator_cs",
+      "src_backend_intelibill_application_features_customers_commands_addcustomer_addcustomercommandvalidator_cs",
+      "src_backend_intelibill_application_features_customers_commands_editcustomer_editcustomercommandvalidator_cs",
+      "src_backend_intelibill_application_features_customers_commands_recordcustomerpayment_recordcustomerpaymentcommandvalidator_cs",
+      "src_backend_intelibill_application_features_expenses_commands_correctexpense_correctexpensecommandvalidator_cs",
+      "src_backend_intelibill_application_features_expenses_commands_recordexpense_recordexpensecommandvalidator_cs",
+      "src_backend_intelibill_application_features_inventory_commands_addinventory_addinventorycommandvalidator_cs",
+      "src_backend_intelibill_application_features_inventory_commands_createadjustment_createadjustmentcommandvalidator_cs",
+      "src_backend_intelibill_application_features_inventory_commands_updateinventorybatch_updateinventorybatchcommandvalidator_cs",
+      "src_backend_intelibill_application_features_inventory_commands_voidadjustment_voidadjustmentcommandvalidator_cs",
+      "src_backend_intelibill_application_features_items_commands_additem_additemcommandvalidator_cs",
+      "src_backend_intelibill_application_features_items_commands_updateitem_updateitemcommandvalidator_cs",
+      "src_backend_intelibill_application_features_sales_commands_recordsale_recordsalecommandvalidator_cs",
+      "src_backend_intelibill_application_features_shops_commands_createshop_createshopcommandvalidator_cs",
+      "src_backend_intelibill_application_features_shops_commands_updateshop_updateshopcommandvalidator_cs",
+      "src_backend_intelibill_application_features_supplierledger_commands_makesupplierpayment_makesupplierpaymentcommandvalidator_cs",
+      "src_backend_intelibill_application_features_suppliers_commands_addsupplier_addsuppliercommandvalidator_cs",
+      "src_backend_intelibill_application_features_suppliers_commands_editsupplier_editsuppliercommandvalidator_cs",
+      "src_backend_intelibill_application_features_users_commands_addshopuser_addshopusercommandvalidator_cs",
+      "src_backend_intelibill_application_features_users_commands_editshopuser_editshopusercommandvalidator_cs",
+      "src_backend_intelibill_application_features_users_commands_updatemyprofile_updatemyprofilecommandvalidator_cs",
+      "updatebankaccountcommandvalidator_updatebankaccountcommandvalidator",
+      "updateinventorybatchcommandvalidator_updateinventorybatchcommandvalidator",
+      "updateitemcommandvalidator_updateitemcommandvalidator",
+      "updatemyprofilecommandvalidator_updatemyprofilecommandvalidator",
+      "updateshopcommandvalidator_updateshopcommandvalidator",
+      "voidadjustmentcommandvalidator_voidadjustmentcommandvalidator"
+    ],
+    "7": [
+      "bankaccount_bankaccount",
+      "bankaccount_bankaccount_create",
+      "bankaccount_bankaccount_update",
+      "baseentity",
+      "customer_customer",
+      "customer_customer_create",
+      "customer_customer_normalizeoptional",
+      "customer_customer_update",
+      "customerledgerentry_customerledgerentry",
+      "customerledgerentry_customerledgerentry_normalizeoptional",
+      "customerledgerentry_customerledgerentry_validate",
+      "expense_expense",
+      "expense_expense_create",
+      "expense_expense_createcorrection",
+      "expense_expense_createfromsupplierpayment",
+      "expense_expense_markvoided",
+      "expensecategory_expensecategory",
+      "expensecategory_expensecategory_create",
+      "inventory_inventory",
+      "inventory_inventory_create",
+      "inventory_inventory_markupdatedby",
+      "inventory_inventory_updatelevels",
+      "inventory_inventory_validatelevels",
+      "saleitem_saleitem",
+      "saleitem_saleitem_create",
+      "salereturnitem_salereturnitem",
+      "salereturnitem_salereturnitem_create",
+      "salereturnitem_salereturnitem_normalizeoptional",
+      "shop_shop",
+      "shop_shop_create",
+      "shop_shop_normalizeoptional",
+      "shop_shop_rename",
+      "shop_shop_updatedetails",
+      "src_backend_intelibill_domain_entities_bankaccount_cs",
+      "src_backend_intelibill_domain_entities_customer_cs",
+      "src_backend_intelibill_domain_entities_customerledgerentry_cs",
+      "src_backend_intelibill_domain_entities_expense_cs",
+      "src_backend_intelibill_domain_entities_expensecategory_cs",
+      "src_backend_intelibill_domain_entities_inventory_cs",
+      "src_backend_intelibill_domain_entities_saleitem_cs",
+      "src_backend_intelibill_domain_entities_salereturnitem_cs",
+      "src_backend_intelibill_domain_entities_shop_cs",
+      "src_backend_intelibill_domain_entities_stocktransaction_cs",
+      "src_backend_intelibill_domain_entities_supplier_cs",
+      "src_backend_intelibill_domain_entities_userexternallogin_cs",
+      "stocktransaction_stocktransaction",
+      "stocktransaction_stocktransaction_create",
+      "stocktransaction_stocktransaction_markupdatedby",
+      "stocktransaction_stocktransaction_normalizeoptional",
+      "stocktransaction_stocktransaction_updatenotes",
+      "stocktransaction_stocktransaction_validatequantity",
+      "supplier_supplier",
+      "supplier_supplier_create",
+      "supplier_supplier_createunknownsystemsupplier",
+      "supplier_supplier_normalizeoptional",
+      "supplier_supplier_update",
+      "userexternallogin_userexternallogin",
+      "userexternallogin_userexternallogin_create"
+    ],
+    "8": [
+      "appleauthprovider_appleauthprovider",
+      "appleauthprovider_appleauthprovider_validatetokenasync",
+      "errors_auth_auth",
+      "errors_auth_auth_externalprovidererror",
+      "errors_auth_errors",
+      "externaloauthflowservice_externaloauthflowservice",
+      "externaloauthflowservice_externaloauthflowservice_base64urlencode",
+      "externaloauthflowservice_externaloauthflowservice_computecodechallenge",
+      "externaloauthflowservice_externaloauthflowservice_createauthorizationurlasync",
+      "externaloauthflowservice_externaloauthflowservice_exchangecodeasync",
+      "externaloauthflowservice_externaloauthflowservice_generatebase64urltoken",
+      "facebookauthprovider_facebookauthprovider",
+      "facebookauthprovider_facebookauthprovider_exchangecodeforlogintokenasync",
+      "facebookauthprovider_facebookauthprovider_validatetokenasync",
+      "facebookauthprovider_facebookdebugresponse",
+      "facebookauthprovider_facebooktokendata",
+      "facebookauthprovider_facebooktokenresponse",
+      "facebookauthprovider_facebookuserresponse",
+      "googleauthprovider_googleauthprovider",
+      "googleauthprovider_googleauthprovider_createauthorizationurlasync",
+      "googleauthprovider_googleauthprovider_exchangecodeforlogintokenasync",
+      "googleauthprovider_googleauthprovider_validatetokenasync",
+      "googleauthprovider_googletokenresponse",
+      "iexternalauthprovider",
+      "iexternaloauthcodeprovider",
+      "iexternaloauthflowservice",
+      "iexternaloauthstatestore",
+      "inmemoryexternaloauthstatestore_inmemoryexternaloauthstatestore",
+      "inmemoryexternaloauthstatestore_inmemoryexternaloauthstatestore_consumeasync",
+      "inmemoryexternaloauthstatestore_inmemoryexternaloauthstatestore_getcachekey",
+      "inmemoryexternaloauthstatestore_inmemoryexternaloauthstatestore_storeasync",
+      "microsoftauthprovider_microsoftauthprovider",
+      "microsoftauthprovider_microsoftauthprovider_validatetokenasync",
+      "src_backend_intelibill_application_common_errors_errors_auth_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_appleauthprovider_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_externaloauthflowservice_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_facebookauthprovider_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_googleauthprovider_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_inmemoryexternaloauthstatestore_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_microsoftauthprovider_cs",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_twitterauthprovider_cs",
+      "twitterauthprovider_twitterauthprovider",
+      "twitterauthprovider_twitterauthprovider_validatetokenasync",
+      "twitterauthprovider_twitteruserdata",
+      "twitterauthprovider_twitteruserresponse"
+    ],
+    "9": [
+      "errors_sale_errors",
+      "errors_sale_sale",
+      "errors_sale_sale_batchnotfound",
+      "errors_sale_sale_batchvoided",
+      "errors_sale_sale_insufficientstock",
+      "errors_sale_sale_inventoryaggregatenotfound",
+      "errors_sale_sale_itemnotfound",
+      "errors_sale_sale_notfound",
+      "errors_sale_sale_returnbatchexpired",
+      "errors_sale_sale_returnbatchnotfound",
+      "errors_sale_sale_returnbatchvoided",
+      "errors_sale_sale_returnduplicatesaleitem",
+      "errors_sale_sale_returninventoryaggregatenotfound",
+      "errors_sale_sale_returnnoterequired",
+      "errors_sale_sale_returnnotfound",
+      "errors_sale_sale_returnquantityexceedsremaining",
+      "errors_sale_sale_returnquantitymustbepositive",
+      "errors_sale_sale_returnsaleitemnotfound",
+      "isalelinevalidator",
+      "isalereturncalculator_isalereturncalculator",
+      "isalereturncalculator_isalereturncalculator_calculate",
+      "isalereturnvalidator",
+      "previewsalereturnqueryhandler_previewsalereturnqueryhandler",
+      "previewsalereturnqueryhandler_previewsalereturnqueryhandler_filterwarnings",
+      "previewsalereturnqueryhandler_previewsalereturnqueryhandler_handle",
+      "salelinevalidator_salelinevalidator",
+      "salelinevalidator_salelinevalidator_validatelinesasync",
+      "salereturnvalidator_salereturnvalidator",
+      "salereturnvalidator_salereturnvalidator_validateasync",
+      "salereturnvalidator_salereturnvalidator_validaterequestshape",
+      "src_backend_intelibill_application_common_behaviours_validationbehaviour_cs",
+      "src_backend_intelibill_application_common_errors_errors_sale_cs",
+      "src_backend_intelibill_application_features_sales_queries_previewsalereturn_previewsalereturnqueryhandler_cs",
+      "src_backend_intelibill_application_features_sales_services_returns_isalereturncalculator_cs",
+      "src_backend_intelibill_application_features_sales_services_returns_salereturnvalidator_cs",
+      "src_backend_intelibill_application_features_sales_services_salelinevalidator_cs",
+      "validationbehaviour_validationmiddleware",
+      "validationbehaviour_validationmiddleware_beforeasync"
+    ],
+    "10": [
+      "getsupplierentriesqueryhandler_getsupplierentriesqueryhandler",
+      "getsupplierentriesqueryhandler_getsupplierentriesqueryhandler_handleasync",
+      "inventorybatch_inventorybatch",
+      "inventorybatch_inventorybatch_addquantity",
+      "inventorybatch_inventorybatch_assignsupplier",
+      "inventorybatch_inventorybatch_create",
+      "inventorybatch_inventorybatch_gettaxamountperunit",
+      "inventorybatch_inventorybatch_markupdatedby",
+      "inventorybatch_inventorybatch_subtractquantity",
+      "inventorybatch_inventorybatch_update",
+      "inventorybatch_inventorybatch_validatebatch",
+      "isupplierledgerentryrepository",
+      "reassignbatchsuppliercommandhandler_reassignbatchsuppliercommandhandler",
+      "reassignbatchsuppliercommandhandler_reassignbatchsuppliercommandhandler_handleasync",
+      "src_backend_intelibill_application_features_inventory_commands_reassignbatchsupplier_reassignbatchsuppliercommandhandler_cs",
+      "src_backend_intelibill_application_features_supplierledger_queries_getsupplierentries_getsupplierentriesqueryhandler_cs",
+      "src_backend_intelibill_domain_entities_inventorybatch_cs",
+      "src_backend_intelibill_domain_entities_supplierledgerentry_cs",
+      "src_backend_intelibill_infrastructure_repositories_supplierledgerentryrepository_cs",
+      "supplierledgerentry_supplierledgerentry",
+      "supplierledgerentry_supplierledgerentry_create",
+      "supplierledgerentry_supplierledgerentry_normalizeoptional",
+      "supplierledgerentry_supplierledgerentry_reassignsupplier",
+      "supplierledgerentry_supplierledgerentry_validate",
+      "supplierledgerentryrepository_supplierledgerentryrepository",
+      "supplierledgerentryrepository_supplierledgerentryrepository_getbybatchasync",
+      "supplierledgerentryrepository_supplierledgerentryrepository_getbysupplierasync"
+    ],
+    "11": [
+      "20260425075353_initialcreate_initialcreate",
+      "20260425075353_initialcreate_initialcreate_down",
+      "20260425075353_initialcreate_initialcreate_up",
+      "20260425075353_initialcreate_intelibill_infrastructure_migrations",
+      "20260504184022_addsalereturns_addsalereturns",
+      "20260504184022_addsalereturns_addsalereturns_down",
+      "20260504184022_addsalereturns_addsalereturns_up",
+      "20260504184022_addsalereturns_intelibill_infrastructure_migrations",
+      "20260504185231_addcustomerreturnledgertypes_addcustomerreturnledgertypes",
+      "20260504185231_addcustomerreturnledgertypes_addcustomerreturnledgertypes_down",
+      "20260504185231_addcustomerreturnledgertypes_addcustomerreturnledgertypes_up",
+      "20260504185231_addcustomerreturnledgertypes_intelibill_infrastructure_migrations",
+      "20260505152201_addinventoryadjustments_addinventoryadjustments",
+      "20260505152201_addinventoryadjustments_addinventoryadjustments_down",
+      "20260505152201_addinventoryadjustments_addinventoryadjustments_up",
+      "20260505152201_addinventoryadjustments_intelibill_infrastructure_migrations",
+      "20260505170000_allowreversalstocktransactionsign_allowreversalstocktransactionsign",
+      "20260505170000_allowreversalstocktransactionsign_allowreversalstocktransactionsign_down",
+      "20260505170000_allowreversalstocktransactionsign_allowreversalstocktransactionsign_up",
+      "migration",
+      "src_backend_intelibill_infrastructure_migrations_20260425075353_initialcreate_cs",
+      "src_backend_intelibill_infrastructure_migrations_20260504184022_addsalereturns_cs",
+      "src_backend_intelibill_infrastructure_migrations_20260504185231_addcustomerreturnledgertypes_cs",
+      "src_backend_intelibill_infrastructure_migrations_20260505152201_addinventoryadjustments_cs",
+      "src_backend_intelibill_infrastructure_migrations_20260505170000_allowreversalstocktransactionsign_cs"
+    ],
+    "12": [
+      "baseentity_baseentity",
+      "baseentity_baseentity_adddomainevent",
+      "baseentity_baseentity_cleardomainevents",
+      "item_item",
+      "item_item_create",
+      "item_item_markupdatedby",
+      "item_item_normalizeoptional",
+      "item_item_update",
+      "src_backend_intelibill_domain_common_baseentity_cs",
+      "src_backend_intelibill_domain_entities_item_cs",
+      "src_backend_intelibill_domain_entities_user_cs",
+      "user_user",
+      "user_user_addexternallogin",
+      "user_user_createfromexternalprovider",
+      "user_user_createwithphone",
+      "user_user_setlanguage",
+      "user_user_setloginenabled",
+      "user_user_updatepassword",
+      "user_user_updateprofile"
+    ],
+    "13": [
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler",
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler_authorizeasync",
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler_handleasync",
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler_processrowasync",
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler_tofailedrow",
+      "addinventorybatchcommandhandler_addinventorybatchcommandhandler_validaterow",
+      "externalauthoptionsvalidator_externalauthoptionsvalidator",
+      "externalauthoptionsvalidator_externalauthoptionsvalidator_ensurerequired",
+      "externalauthoptionsvalidator_externalauthoptionsvalidator_validate",
+      "isupplierresolver_isupplierresolver",
+      "isupplierresolver_isupplierresolver_resolveasync",
+      "ivalidateoptions",
+      "src_backend_intelibill_application_features_inventory_commands_addinventorybatch_addinventorybatchcommandhandler_cs",
+      "src_backend_intelibill_application_features_inventory_services_isupplierresolver_cs",
+      "src_backend_intelibill_infrastructure_options_externalauthoptionsvalidator_cs"
+    ],
+    "14": [
+      "externalproductlookupservice_externalproductlookupservice",
+      "externalproductlookupservice_externalproductlookupservice_createlookuprequest",
+      "externalproductlookupservice_externalproductlookupservice_getstringproperty",
+      "externalproductlookupservice_externalproductlookupservice_lookupbybarcodeasync",
+      "externalproductlookupservice_externalproductlookupservice_parselookupresponse",
+      "externalproductlookupservice_externalproductlookupservice_trygetnotfoundproperty",
+      "externalproductlookupservice_externalproductlookupservice_trygetproductsproperty",
+      "iequatable",
+      "iexternalproductlookupservice",
+      "src_backend_intelibill_domain_common_valueobject_cs",
+      "src_backend_intelibill_infrastructure_services_productlookup_externalproductlookupservice_cs",
+      "valueobject_valueobject",
+      "valueobject_valueobject_equals",
+      "valueobject_valueobject_getequalitycomponents",
+      "valueobject_valueobject_gethashcode"
+    ],
+    "15": [
+      "getshopusersqueryhandler_getshopusersqueryhandler",
+      "getshopusersqueryhandler_getshopusersqueryhandler_getroleorder",
+      "getshopusersqueryhandler_getshopusersqueryhandler_handleasync",
+      "ishoprepository",
+      "shoprepository_shoprepository",
+      "shoprepository_shoprepository_cleardefaultforuserasync",
+      "shoprepository_shoprepository_getbyidwithmembersasync",
+      "shoprepository_shoprepository_getdefaultmembershipasync",
+      "shoprepository_shoprepository_getmembershipsforuserasync",
+      "shoprepository_shoprepository_getmembershipsforusersinshopsasync",
+      "shoprepository_shoprepository_getmostrecentlyusedmembershipasync",
+      "shoprepository_shoprepository_userhasmembershipasync",
+      "src_backend_intelibill_application_features_users_queries_getshopusers_getshopusersqueryhandler_cs",
+      "src_backend_intelibill_infrastructure_repositories_shoprepository_cs"
+    ],
+    "16": [
+      "errors_dashboard",
+      "errors_errors",
+      "errors_sale",
+      "errors_sale_returnnoterequired",
+      "salereturn_salereturn",
+      "salereturn_salereturn_normalizeoptional",
+      "salereturn_salereturn_record",
+      "salereturn_salereturn_validatelinenotes",
+      "salereturn_salereturn_validatepayoutmethod",
+      "salereturn_salereturn_void",
+      "src_backend_intelibill_application_common_errors_errors_cs",
+      "src_backend_intelibill_domain_common_errors_cs",
+      "src_backend_intelibill_domain_entities_salereturn_cs"
+    ],
+    "17": [
+      "expenserepository_expenserepository",
+      "expenserepository_expenserepository_addasync",
+      "expenserepository_expenserepository_getbyidasync",
+      "expenserepository_expenserepository_getbyshopanddateasync",
+      "expenserepository_expenserepository_getbyshopanddaterangeasync",
+      "expenserepository_expenserepository_getbyshopasync",
+      "expenserepository_expenserepository_getpagedbyshopasync",
+      "getexpensesqueryhandler_getexpensesqueryhandler",
+      "getexpensesqueryhandler_getexpensesqueryhandler_handle",
+      "iexpenserepository",
+      "src_backend_intelibill_application_features_expenses_queries_getexpenses_getexpensesqueryhandler_cs",
+      "src_backend_intelibill_infrastructure_repositories_expenserepository_cs"
+    ],
+    "18": [
+      "expensecategoryrepository_expensecategoryrepository",
+      "expensecategoryrepository_expensecategoryrepository_getbyidasync",
+      "expensecategoryrepository_expensecategoryrepository_getbyshopasync",
+      "iexpensecategoryrepository",
+      "repositorybase_repositorybase",
+      "repositorybase_repositorybase_addasync",
+      "repositorybase_repositorybase_findasync",
+      "repositorybase_repositorybase_getallasync",
+      "repositorybase_repositorybase_getbyidasync",
+      "repositorybase_repositorybase_update",
+      "src_backend_intelibill_infrastructure_repositories_expensecategoryrepository_cs",
+      "src_backend_intelibill_infrastructure_repositories_repositorybase_cs"
+    ],
+    "19": [
+      "isalereturncalculator",
+      "salereturncalculator_salereturncalculator",
+      "salereturncalculator_salereturncalculator_addrequirednotewarnings",
+      "salereturncalculator_salereturncalculator_calculate",
+      "salereturncalculator_salereturncalculator_calculateline",
+      "salereturncalculator_salereturncalculator_calculatetaxamount",
+      "salereturncalculator_salereturncalculator_normalizeoptional",
+      "salereturncalculator_salereturncalculator_roundmoney",
+      "src_backend_intelibill_application_features_sales_services_returns_salereturncalculator_cs"
+    ],
+    "20": [
+      "inventoryadjustment_inventoryadjustment",
+      "inventoryadjustment_inventoryadjustment_create",
+      "inventoryadjustment_inventoryadjustment_hasmorethantwodecimalplaces",
+      "inventoryadjustment_inventoryadjustment_isreasonallowedfordirection",
+      "inventoryadjustment_inventoryadjustment_markupdatedby",
+      "inventoryadjustment_inventoryadjustment_normalizeoptional",
+      "inventoryadjustment_inventoryadjustment_validateadjustment",
+      "inventoryadjustment_inventoryadjustment_void",
+      "src_backend_intelibill_domain_entities_inventoryadjustment_cs"
+    ],
+    "21": [
+      "iexpenserepository_iexpenserepository",
+      "iexpenserepository_iexpenserepository_addasync",
+      "iexpenserepository_iexpenserepository_getbyidasync",
+      "iexpenserepository_iexpenserepository_getbyshopanddateasync",
+      "iexpenserepository_iexpenserepository_getbyshopanddaterangeasync",
+      "iexpenserepository_iexpenserepository_getbyshopasync",
+      "iexpenserepository_iexpenserepository_getpagedbyshopasync",
+      "iexpenserepository_iexpenserepository_update",
+      "src_backend_intelibill_domain_interfaces_repositories_iexpenserepository_cs"
+    ],
+    "22": [
+      "databaseoptions_databaseoptions",
+      "databaseoptions_databaseoptions_toconnectionstring",
+      "dependencyinjection_dependencyinjection",
+      "dependencyinjection_dependencyinjection_addapplication",
+      "dependencyinjection_dependencyinjection_addinfrastructure",
+      "dependencyinjection_dependencyinjection_applymigrationsasync",
+      "src_backend_intelibill_application_dependencyinjection_cs",
+      "src_backend_intelibill_infrastructure_dependencyinjection_cs",
+      "src_backend_intelibill_infrastructure_options_databaseoptions_cs"
+    ],
+    "23": [
+      "sale_sale",
+      "sale_sale_calculatetaxamount",
+      "sale_sale_create",
+      "sale_sale_createsaleitem",
+      "sale_sale_normalizeoptional",
+      "sale_sale_record",
+      "sale_sale_withitems",
+      "src_backend_intelibill_domain_entities_sale_cs"
+    ],
+    "24": [
+      "irepository_irepository",
+      "irepository_irepository_addasync",
+      "irepository_irepository_findasync",
+      "irepository_irepository_getallasync",
+      "irepository_irepository_getbyidasync",
+      "irepository_irepository_remove",
+      "irepository_irepository_update",
+      "src_backend_intelibill_domain_interfaces_repositories_irepository_cs"
+    ],
+    "25": [
+      "dbconnectioninterceptor",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor_addparameters",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor_applysessioncontext",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor_applysessioncontextasync",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor_connectionopened",
+      "postgressessioncontextinterceptor_postgressessioncontextinterceptor_connectionopenedasync",
+      "src_backend_intelibill_infrastructure_data_interceptors_postgressessioncontextinterceptor_cs"
+    ],
+    "26": [
+      "iproducthubnotifier",
+      "itemcreateddomaineventhandler_itemcreateddomainhandler",
+      "itemcreateddomaineventhandler_itemcreateddomainhandler_handleasync",
+      "signalrproducthubnotifier_signalrproducthubnotifier",
+      "signalrproducthubnotifier_signalrproducthubnotifier_notifyproductcreatedasync",
+      "src_backend_intelibill_api_services_signalrproducthubnotifier_cs",
+      "src_backend_intelibill_application_features_items_events_itemcreateddomaineventhandler_cs"
+    ],
+    "27": [
+      "ienveloperule",
+      "src_backend_intelibill_application_common_behaviours_w3cenvelopemiddleware_cs",
+      "w3cenvelopemiddleware_w3cinboundenvelopemiddleware",
+      "w3cenvelopemiddleware_w3cinboundenvelopemiddleware_after",
+      "w3cenvelopemiddleware_w3cinboundenvelopemiddleware_before",
+      "w3cenvelopemiddleware_w3coutboundenvelopemodifier",
+      "w3cenvelopemiddleware_w3coutboundenvelopemodifier_modify"
+    ],
+    "28": [
+      "attribute",
+      "ifilterfactory",
+      "ratelimitattribute_ratelimitattribute",
+      "ratelimitattribute_ratelimitattribute_createinstance",
+      "sensitivedataattribute_sensitivedataattribute",
+      "src_backend_intelibill_api_middleware_ratelimiting_ratelimitattribute_cs",
+      "src_backend_intelibill_domain_attributes_sensitivedataattribute_cs"
+    ],
+    "29": [
+      "externalauthoptions_appleoptions",
+      "externalauthoptions_externalauthoptions",
+      "externalauthoptions_facebookoptions",
+      "externalauthoptions_googleoptions",
+      "externalauthoptions_microsoftoptions",
+      "externalauthoptions_twitteroptions",
+      "src_backend_intelibill_infrastructure_options_externalauthoptions_cs"
+    ],
+    "30": [
+      "iexpensecategoryrepository_iexpensecategoryrepository",
+      "iexpensecategoryrepository_iexpensecategoryrepository_addasync",
+      "iexpensecategoryrepository_iexpensecategoryrepository_getbyidasync",
+      "iexpensecategoryrepository_iexpensecategoryrepository_getbynameasync",
+      "iexpensecategoryrepository_iexpensecategoryrepository_getbyshopasync",
+      "src_backend_intelibill_domain_interfaces_repositories_iexpensecategoryrepository_cs"
+    ],
+    "31": [
+      "observabilityoptions_loggingoptions",
+      "observabilityoptions_metricsoptions",
+      "observabilityoptions_newrelicoptions",
+      "observabilityoptions_observabilityoptions",
+      "observabilityoptions_tracingoptions",
+      "src_backend_intelibill_infrastructure_options_observabilityoptions_cs"
+    ],
+    "32": [
+      "applicationdbcontextmodelsnapshot_applicationdbcontextmodelsnapshot",
+      "applicationdbcontextmodelsnapshot_applicationdbcontextmodelsnapshot_buildmodel",
+      "applicationdbcontextmodelsnapshot_intelibill_infrastructure_migrations",
+      "modelsnapshot",
+      "src_backend_intelibill_infrastructure_migrations_applicationdbcontextmodelsnapshot_cs"
+    ],
+    "33": [
+      "applicationdbcontext_applicationdbcontext",
+      "applicationdbcontext_applicationdbcontext_onmodelcreating",
+      "applicationdbcontext_applicationdbcontext_updateauditfields",
+      "dbcontext",
+      "src_backend_intelibill_infrastructure_data_applicationdbcontext_cs"
+    ],
+    "34": [
+      "iemailservice",
+      "noopemailservice_noopemailservice",
+      "noopemailservice_noopemailservice_logpasswordresetlink",
+      "noopemailservice_noopemailservice_sendpasswordresetasync",
+      "src_backend_intelibill_infrastructure_services_auth_noopemailservice_cs"
+    ],
+    "35": [
+      "exceptionhandlingmiddleware_exceptionhandlingmiddleware",
+      "exceptionhandlingmiddleware_exceptionhandlingmiddleware_handleexceptionasync",
+      "exceptionhandlingmiddleware_exceptionhandlingmiddleware_invokeasync",
+      "exceptionhandlingmiddleware_exceptionhandlingmiddleware_logunhandledexception",
+      "src_backend_intelibill_api_middleware_exceptionhandlingmiddleware_cs"
+    ],
+    "36": [
+      "iasyncactionfilter",
+      "ratelimitfilter_ratelimitfilter",
+      "ratelimitfilter_ratelimitfilter_createtoomanyrequestsresult",
+      "ratelimitfilter_ratelimitfilter_onactionexecutionasync",
+      "src_backend_intelibill_api_middleware_ratelimiting_ratelimitfilter_cs"
+    ],
+    "37": [
+      "iitemcatalogstreamingservice_iitemcatalogstreamingservice",
+      "iitemcatalogstreamingservice_iitemcatalogstreamingservice_streambyshopasync",
+      "iitemcatalogstreamingservice_iitemcatalogstreamingservice_validateaccessasync",
+      "itemscontroller_itemscontroller_streamitems",
+      "src_backend_intelibill_application_common_interfaces_iitemcatalogstreamingservice_cs"
+    ],
+    "38": [
+      "isalereturnnumbergenerator",
+      "salereturnnumbergenerator_salereturnnumbergenerator",
+      "salereturnnumbergenerator_salereturnnumbergenerator_generate",
+      "src_backend_intelibill_application_features_sales_services_salereturnnumbergenerator_cs"
+    ],
+    "39": [
+      "getexpensedetailqueryhandler_getexpensedetailqueryhandler",
+      "getexpensedetailqueryhandler_getexpensedetailqueryhandler_handle",
+      "getexpensedetailqueryhandler_getexpensedetailqueryhandler_todto",
+      "src_backend_intelibill_application_features_expenses_queries_getexpensedetail_getexpensedetailqueryhandler_cs"
+    ],
+    "40": [
+      "iinventoryupdater_iinventoryupdater",
+      "iinventoryupdater_iinventoryupdater_getorupdateasync",
+      "iinventoryupdater_inventoryupdatecontext",
+      "src_backend_intelibill_application_features_inventory_services_iinventoryupdater_cs"
+    ],
+    "41": [
+      "iinventoryadjustmentnumbergenerator",
+      "inventoryadjustmentnumbergenerator_inventoryadjustmentnumbergenerator",
+      "inventoryadjustmentnumbergenerator_inventoryadjustmentnumbergenerator_generate",
+      "src_backend_intelibill_application_features_inventory_services_inventoryadjustmentnumbergenerator_cs"
+    ],
+    "42": [
+      "iitemresolver_iitemresolver",
+      "iitemresolver_iitemresolver_resolveasync",
+      "iitemresolver_itemresolutioncontext",
+      "src_backend_intelibill_application_features_inventory_services_iitemresolver_cs"
+    ],
+    "43": [
+      "iexternaloauthflowservice_iexternaloauthflowservice",
+      "iexternaloauthflowservice_iexternaloauthflowservice_createauthorizationurlasync",
+      "iexternaloauthflowservice_iexternaloauthflowservice_exchangecodeasync",
+      "src_backend_intelibill_application_common_interfaces_iexternaloauthflowservice_cs"
+    ],
+    "44": [
+      "20260504184022_addsalereturns_designer_addsalereturns",
+      "20260504184022_addsalereturns_designer_addsalereturns_buildtargetmodel",
+      "20260504184022_addsalereturns_designer_intelibill_infrastructure_migrations",
+      "src_backend_intelibill_infrastructure_migrations_20260504184022_addsalereturns_designer_cs"
+    ],
+    "45": [
+      "20260425075353_initialcreate_designer_initialcreate",
+      "20260425075353_initialcreate_designer_initialcreate_buildtargetmodel",
+      "20260425075353_initialcreate_designer_intelibill_infrastructure_migrations",
+      "src_backend_intelibill_infrastructure_migrations_20260425075353_initialcreate_designer_cs"
+    ],
+    "46": [
+      "20260504185231_addcustomerreturnledgertypes_designer_addcustomerreturnledgertypes",
+      "20260504185231_addcustomerreturnledgertypes_designer_addcustomerreturnledgertypes_buildtargetmodel",
+      "20260504185231_addcustomerreturnledgertypes_designer_intelibill_infrastructure_migrations",
+      "src_backend_intelibill_infrastructure_migrations_20260504185231_addcustomerreturnledgertypes_designer_cs"
+    ],
+    "47": [
+      "20260505152201_addinventoryadjustments_designer_addinventoryadjustments",
+      "20260505152201_addinventoryadjustments_designer_addinventoryadjustments_buildtargetmodel",
+      "20260505152201_addinventoryadjustments_designer_intelibill_infrastructure_migrations",
+      "src_backend_intelibill_infrastructure_migrations_20260505152201_addinventoryadjustments_designer_cs"
+    ],
+    "48": [
+      "iunitofwork",
+      "src_backend_intelibill_infrastructure_data_unitofwork_cs",
+      "unitofwork_unitofwork",
+      "unitofwork_unitofwork_savechangesasync"
+    ],
+    "49": [
+      "iexternaloauthcodeprovider_iexternaloauthcodeprovider",
+      "iexternaloauthcodeprovider_iexternaloauthcodeprovider_createauthorizationurlasync",
+      "iexternaloauthcodeprovider_iexternaloauthcodeprovider_exchangecodeforlogintokenasync",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_iexternaloauthcodeprovider_cs"
+    ],
+    "50": [
+      "externaloauthstate_iexternaloauthstatestore",
+      "externaloauthstate_iexternaloauthstatestore_consumeasync",
+      "externaloauthstate_iexternaloauthstatestore_storeasync",
+      "src_backend_intelibill_infrastructure_services_auth_externalauth_externaloauthstate_cs"
+    ],
+    "51": [
+      "httpcurrentsessioncontext_httpcurrentsessioncontext",
+      "httpcurrentsessioncontext_httpcurrentsessioncontext_tryreadguidclaim",
+      "icurrentsessioncontext",
+      "src_backend_intelibill_api_extensions_httpcurrentsessioncontext_cs"
+    ],
+    "52": [
+      "ilogeventenricher",
+      "piiscrubbingenricher_piiscrubbingenricher",
+      "piiscrubbingenricher_piiscrubbingenricher_enrich",
+      "src_backend_intelibill_api_logging_piiscrubbingenricher_cs"
+    ],
+    "53": [
+      "idestructuringpolicy",
+      "sensitivedatadestructuringpolicy_sensitivedatadestructuringpolicy",
+      "sensitivedatadestructuringpolicy_sensitivedatadestructuringpolicy_trydestructure",
+      "src_backend_intelibill_api_logging_sensitivedatadestructuringpolicy_cs"
+    ],
+    "54": [
+      "class1_class1",
+      "src_backend_intelibill_application_class1_cs",
+      "src_backend_intelibill_infrastructure_class1_cs"
+    ],
+    "55": [
+      "icustomerresolver_icustomerresolver",
+      "icustomerresolver_icustomerresolver_resolveasync",
+      "src_backend_intelibill_application_features_sales_services_icustomerresolver_cs"
+    ],
+    "56": [
+      "isalereturnnumbergenerator_isalereturnnumbergenerator",
+      "isalereturnnumbergenerator_isalereturnnumbergenerator_generate",
+      "src_backend_intelibill_application_features_sales_services_isalereturnnumbergenerator_cs"
+    ],
+    "57": [
+      "isalelinevalidator_isalelinevalidator",
+      "isalelinevalidator_isalelinevalidator_validatelinesasync",
+      "src_backend_intelibill_application_features_sales_services_isalelinevalidator_cs"
+    ],
+    "58": [
+      "isalereturnvalidator_isalereturnvalidator",
+      "isalereturnvalidator_isalereturnvalidator_validateasync",
+      "src_backend_intelibill_application_features_sales_services_returns_isalereturnvalidator_cs"
+    ],
+    "59": [
+      "getmyshopsqueryhandler_getmyshopsqueryhandler",
+      "getmyshopsqueryhandler_getmyshopsqueryhandler_handleasync",
+      "src_backend_intelibill_application_features_shops_queries_getmyshops_getmyshopsqueryhandler_cs"
+    ],
+    "60": [
+      "iinventoryupdater",
+      "inventoryupdater_inventoryupdater",
+      "src_backend_intelibill_application_features_inventory_services_inventoryupdater_cs"
+    ],
+    "61": [
+      "ibatchfactory_ibatchfactory",
+      "ibatchfactory_ibatchfactory_createbatchasync",
+      "src_backend_intelibill_application_features_inventory_services_ibatchfactory_cs"
+    ],
+    "62": [
+      "batchfactory_batchfactory",
+      "ibatchfactory",
+      "src_backend_intelibill_application_features_inventory_services_batchfactory_cs"
+    ],
+    "63": [
+      "errororresultmiddleware_errororresultmiddleware",
+      "errororresultmiddleware_errororresultmiddleware_after",
+      "src_backend_intelibill_application_common_behaviours_errororresultmiddleware_cs"
+    ],
+    "64": [
+      "errors_item_errors",
+      "errors_item_item",
+      "src_backend_intelibill_application_common_errors_errors_item_cs"
+    ],
+    "65": [
+      "errors_shop_errors",
+      "errors_shop_shop",
+      "src_backend_intelibill_application_common_errors_errors_shop_cs"
+    ],
+    "66": [
+      "errors_customer_customer",
+      "errors_customer_errors",
+      "src_backend_intelibill_application_common_errors_errors_customer_cs"
+    ],
+    "67": [
+      "errors_supplier_errors",
+      "errors_supplier_supplier",
+      "src_backend_intelibill_application_common_errors_errors_supplier_cs"
+    ],
+    "68": [
+      "errors_expense_errors",
+      "errors_expense_expense",
+      "src_backend_intelibill_application_common_errors_errors_expense_cs"
+    ],
+    "69": [
+      "errors_bankaccount_bankaccount",
+      "errors_bankaccount_errors",
+      "src_backend_intelibill_application_common_errors_errors_bankaccount_cs"
+    ],
+    "70": [
+      "errors_users_errors",
+      "errors_users_users",
+      "src_backend_intelibill_application_common_errors_errors_users_cs"
+    ],
+    "71": [
+      "errors_inventory_errors",
+      "errors_inventory_inventory",
+      "src_backend_intelibill_application_common_errors_errors_inventory_cs"
+    ],
+    "72": [
+      "iexternalproductlookupservice_iexternalproductlookupservice",
+      "iexternalproductlookupservice_iexternalproductlookupservice_lookupbybarcodeasync",
+      "src_backend_intelibill_application_common_interfaces_iexternalproductlookupservice_cs"
+    ],
+    "73": [
+      "iemailservice_iemailservice",
+      "iemailservice_iemailservice_sendpasswordresetasync",
+      "src_backend_intelibill_application_common_interfaces_iemailservice_cs"
+    ],
+    "74": [
+      "iexternalauthprovider_iexternalauthprovider",
+      "iexternalauthprovider_iexternalauthprovider_validatetokenasync",
+      "src_backend_intelibill_application_common_interfaces_iexternalauthprovider_cs"
+    ],
+    "75": [
+      "iproducthubnotifier_iproducthubnotifier",
+      "iproducthubnotifier_iproducthubnotifier_notifyproductcreatedasync",
+      "src_backend_intelibill_application_common_interfaces_iproducthubnotifier_cs"
+    ],
+    "76": [
+      "domainexception_domainexception",
+      "exception",
+      "src_backend_intelibill_domain_exceptions_domainexception_cs"
+    ],
+    "77": [
+      "iunitofwork_iunitofwork",
+      "iunitofwork_iunitofwork_savechangesasync",
+      "src_backend_intelibill_domain_interfaces_iunitofwork_cs"
+    ],
+    "78": [
+      "opentelemetryservicecollectionextensions_opentelemetryservicecollectionextensions",
+      "opentelemetryservicecollectionextensions_opentelemetryservicecollectionextensions_addintelibillopentelemetry",
+      "src_backend_intelibill_infrastructure_extensions_opentelemetryservicecollectionextensions_cs"
+    ],
+    "79": [
+      "observabilityservicecollectionextensions_observabilityservicecollectionextensions",
+      "observabilityservicecollectionextensions_observabilityservicecollectionextensions_addobservabilityoptions",
+      "src_backend_intelibill_infrastructure_extensions_observabilityservicecollectionextensions_cs"
+    ],
+    "80": [
+      "jwtcontextenrichmentmiddleware_jwtcontextenrichmentmiddleware",
+      "jwtcontextenrichmentmiddleware_jwtcontextenrichmentmiddleware_invokeasync",
+      "src_backend_intelibill_api_middleware_jwtcontextenrichmentmiddleware_cs"
+    ],
+    "81": [
+      "serilogextensions_serilogextensions",
+      "serilogextensions_serilogextensions_addintelibillserilog",
+      "src_backend_intelibill_api_extensions_serilogextensions_cs"
+    ],
+    "82": [
+      "hub",
+      "producthub_producthub",
+      "src_backend_intelibill_api_hubs_producthub_cs"
+    ],
+    "83": [
+      "profitlossreportitemdto_profitlossreportrowtypes",
+      "src_backend_intelibill_application_features_sales_dtos_profitlossreportitemdto_cs"
+    ],
+    "84": [
+      "icurrentsessioncontext_icurrentsessioncontext",
+      "src_backend_intelibill_application_common_interfaces_icurrentsessioncontext_cs"
+    ],
+    "85": [
+      "idomainevent_idomainevent",
+      "src_backend_intelibill_domain_common_idomainevent_cs"
+    ],
+    "86": [
+      "distributedcacheoptions_distributedcacheoptions",
+      "src_backend_intelibill_infrastructure_options_distributedcacheoptions_cs"
+    ],
+    "87": [
+      "circuitbreakeroptions_circuitbreakeroptions",
+      "src_backend_intelibill_infrastructure_options_circuitbreakeroptions_cs"
+    ],
+    "88": [
+      "jwtoptions_jwtoptions",
+      "src_backend_intelibill_infrastructure_options_jwtoptions_cs"
+    ],
+    "89": [
+      "productlookupoptions_productlookupoptions",
+      "src_backend_intelibill_infrastructure_options_productlookupoptions_cs"
+    ],
+    "90": [
+      "src_backend_intelibill_api_weatherforecast_cs",
+      "weatherforecast_weatherforecast"
+    ],
+    "91": [
+      "program_program",
+      "src_backend_intelibill_api_program_cs"
+    ],
+    "92": [
+      "appoptions_appoptions",
+      "src_backend_intelibill_api_options_appoptions_cs"
+    ],
+    "93": [
+      "src_backend_intelibill_application_obj_debug_net10_0_intelibill_application_globalusings_g_cs"
+    ],
+    "94": [
+      "src_backend_intelibill_application_obj_debug_net10_0_intelibill_application_assemblyinfo_cs"
+    ],
+    "95": [
+      "src_backend_intelibill_application_features_customers_queries_getcustomers_getcustomersquery_cs"
+    ],
+    "96": [
+      "src_backend_intelibill_application_features_customers_queries_getcustomeraccount_getcustomeraccountquery_cs"
+    ],
+    "97": [
+      "src_backend_intelibill_application_features_customers_dtos_customeraccountsaledto_cs"
+    ],
+    "98": [
+      "src_backend_intelibill_application_features_customers_dtos_customerdto_cs"
+    ],
+    "99": [
+      "src_backend_intelibill_application_features_customers_dtos_customerledgerentrydto_cs"
+    ],
+    "100": [
+      "src_backend_intelibill_application_features_customers_dtos_customeraccountdto_cs"
+    ],
+    "101": [
+      "src_backend_intelibill_application_features_customers_commands_addcustomer_addcustomercommand_cs"
+    ],
+    "102": [
+      "src_backend_intelibill_application_features_customers_commands_editcustomer_editcustomercommand_cs"
+    ],
+    "103": [
+      "src_backend_intelibill_application_features_customers_commands_recordcustomerpayment_recordcustomerpaymentcommand_cs"
+    ],
+    "104": [
+      "src_backend_intelibill_application_features_bankaccounts_queries_getbankaccounts_getbankaccountsquery_cs"
+    ],
+    "105": [
+      "src_backend_intelibill_application_features_bankaccounts_dtos_bankaccountdto_cs"
+    ],
+    "106": [
+      "src_backend_intelibill_application_features_bankaccounts_commands_addbankaccount_addbankaccountcommand_cs"
+    ],
+    "107": [
+      "src_backend_intelibill_application_features_bankaccounts_commands_updatebankaccount_updatebankaccountcommand_cs"
+    ],
+    "108": [
+      "src_backend_intelibill_application_features_bankaccounts_commands_deletebankaccount_deletebankaccountcommand_cs"
+    ],
+    "109": [
+      "src_backend_intelibill_application_features_suppliers_queries_getsuppliers_getsuppliersquery_cs"
+    ],
+    "110": [
+      "src_backend_intelibill_application_features_suppliers_dtos_supplierdto_cs"
+    ],
+    "111": [
+      "src_backend_intelibill_application_features_suppliers_commands_addsupplier_addsuppliercommand_cs"
+    ],
+    "112": [
+      "src_backend_intelibill_application_features_suppliers_commands_editsupplier_editsuppliercommand_cs"
+    ],
+    "113": [
+      "src_backend_intelibill_application_features_suppliers_commands_deletesupplier_deletesuppliercommand_cs"
+    ],
+    "114": [
+      "src_backend_intelibill_application_features_sales_queries_getsaledetail_getsaledetailquery_cs"
+    ],
+    "115": [
+      "src_backend_intelibill_application_features_sales_queries_getsalebyreturnnumber_getsalebyreturnnumberquery_cs"
+    ],
+    "116": [
+      "src_backend_intelibill_application_features_sales_queries_previewsalereturn_previewsalereturnquery_cs"
+    ],
+    "117": [
+      "src_backend_intelibill_application_features_sales_queries_getsales_getsalesquery_cs"
+    ],
+    "118": [
+      "src_backend_intelibill_application_features_sales_queries_getprofitlossreport_getprofitlossreportquery_cs"
+    ],
+    "119": [
+      "src_backend_intelibill_application_features_sales_dtos_saleitemdto_cs"
+    ],
+    "120": [
+      "src_backend_intelibill_application_features_sales_dtos_salereturndto_cs"
+    ],
+    "121": [
+      "src_backend_intelibill_application_features_sales_dtos_saledto_cs"
+    ],
+    "122": [
+      "src_backend_intelibill_application_features_sales_dtos_salelistitemdto_cs"
+    ],
+    "123": [
+      "src_backend_intelibill_application_features_sales_dtos_salereturnpreviewdto_cs"
+    ],
+    "124": [
+      "src_backend_intelibill_application_features_sales_commands_voidsalereturn_voidsalereturncommand_cs"
+    ],
+    "125": [
+      "src_backend_intelibill_application_features_sales_commands_recordsale_recordsalecommand_cs"
+    ],
+    "126": [
+      "src_backend_intelibill_application_features_sales_commands_recordsalereturn_recordsalereturncommand_cs"
+    ],
+    "127": [
+      "src_backend_intelibill_application_features_auth_dtos_authresult_cs"
+    ],
+    "128": [
+      "src_backend_intelibill_application_features_auth_commands_loginwithemail_loginwithemailcommand_cs"
+    ],
+    "129": [
+      "src_backend_intelibill_application_features_auth_commands_registerwithemail_registerwithemailcommand_cs"
+    ],
+    "130": [
+      "src_backend_intelibill_application_features_auth_commands_externallogin_externallogincommand_cs"
+    ],
+    "131": [
+      "src_backend_intelibill_application_features_auth_commands_registerwithphone_registerwithphonecommand_cs"
+    ],
+    "132": [
+      "src_backend_intelibill_application_features_auth_commands_login_logincommand_cs"
+    ],
+    "133": [
+      "src_backend_intelibill_application_features_expenses_queries_getexpenses_getexpensesquery_cs"
+    ],
+    "134": [
+      "src_backend_intelibill_application_features_expenses_queries_getexpensecategories_getexpensecategoriesquery_cs"
+    ],
+    "135": [
+      "src_backend_intelibill_application_features_expenses_queries_getexpensedetail_getexpensedetailquery_cs"
+    ],
+    "136": [
+      "src_backend_intelibill_application_features_expenses_dtos_expensedto_cs"
+    ],
+    "137": [
+      "src_backend_intelibill_application_features_expenses_dtos_expenselistitemdto_cs"
+    ],
+    "138": [
+      "src_backend_intelibill_application_features_expenses_dtos_paginatedlist_cs"
+    ],
+    "139": [
+      "src_backend_intelibill_application_features_expenses_dtos_expensecategorydto_cs"
+    ],
+    "140": [
+      "src_backend_intelibill_application_features_expenses_commands_correctexpense_correctexpensecommand_cs"
+    ],
+    "141": [
+      "src_backend_intelibill_application_features_expenses_commands_recordexpense_recordexpensecommand_cs"
+    ],
+    "142": [
+      "src_backend_intelibill_application_features_shops_queries_getshopdetails_getshopdetailsquery_cs"
+    ],
+    "143": [
+      "src_backend_intelibill_application_features_shops_queries_getmyshops_getmyshopsquery_cs"
+    ],
+    "144": [
+      "src_backend_intelibill_application_features_shops_dtos_shopdetailsdto_cs"
+    ],
+    "145": [
+      "src_backend_intelibill_application_features_shops_commands_setdefaultshop_setdefaultshopcommand_cs"
+    ],
+    "146": [
+      "src_backend_intelibill_application_features_shops_commands_updateshop_updateshopcommand_cs"
+    ],
+    "147": [
+      "src_backend_intelibill_application_features_shops_commands_switchactiveshop_switchactiveshopcommand_cs"
+    ],
+    "148": [
+      "src_backend_intelibill_application_features_shops_commands_createshop_createshopcommand_cs"
+    ],
+    "149": [
+      "src_backend_intelibill_application_features_dashboard_queries_getdashboard_getdashboardquery_cs"
+    ],
+    "150": [
+      "src_backend_intelibill_application_features_dashboard_dtos_salestrendpointdto_cs"
+    ],
+    "151": [
+      "src_backend_intelibill_application_features_dashboard_dtos_stockshortageitemdto_cs"
+    ],
+    "152": [
+      "src_backend_intelibill_application_features_dashboard_dtos_profittrendpointdto_cs"
+    ],
+    "153": [
+      "src_backend_intelibill_application_features_dashboard_dtos_paymentmixtrendpointdto_cs"
+    ],
+    "154": [
+      "src_backend_intelibill_application_features_dashboard_dtos_dashboarddto_cs"
+    ],
+    "155": [
+      "src_backend_intelibill_application_features_dashboard_dtos_dashboardalertdto_cs"
+    ],
+    "156": [
+      "src_backend_intelibill_application_features_dashboard_dtos_customerduedto_cs"
+    ],
+    "157": [
+      "src_backend_intelibill_application_features_dashboard_dtos_paymentmixdto_cs"
+    ],
+    "158": [
+      "src_backend_intelibill_application_features_dashboard_dtos_previousperiodsummarydto_cs"
+    ],
+    "159": [
+      "src_backend_intelibill_application_features_supplierledger_queries_getsupplierentries_getsupplierentriesquery_cs"
+    ],
+    "160": [
+      "src_backend_intelibill_application_features_supplierledger_dtos_supplierledgerentrydto_cs"
+    ],
+    "161": [
+      "src_backend_intelibill_application_features_supplierledger_commands_makesupplierpayment_makesupplierpaymentcommand_cs"
+    ],
+    "162": [
+      "src_backend_intelibill_application_features_inventory_queries_getavailablebatches_getavailablebatchesquery_cs"
+    ],
+    "163": [
+      "src_backend_intelibill_application_features_inventory_queries_getadjustmenthistory_getadjustmenthistoryquery_cs"
+    ],
+    "164": [
+      "src_backend_intelibill_application_features_inventory_queries_getinventorybatches_getinventorybatchesquery_cs"
+    ],
+    "165": [
+      "src_backend_intelibill_application_features_inventory_dtos_voidbatchresultdto_cs"
+    ],
+    "166": [
+      "src_backend_intelibill_application_features_inventory_dtos_inventorybatchdto_cs"
+    ],
+    "167": [
+      "src_backend_intelibill_application_features_inventory_dtos_inventoryadjustmentresultdto_cs"
+    ],
+    "168": [
+      "src_backend_intelibill_application_features_inventory_dtos_addinventoryresultdto_cs"
+    ],
+    "169": [
+      "src_backend_intelibill_application_features_inventory_dtos_voidadjustmentresultdto_cs"
+    ],
+    "170": [
+      "src_backend_intelibill_application_features_inventory_dtos_inventoryadjustmenthistorydto_cs"
+    ],
+    "171": [
+      "src_backend_intelibill_application_features_inventory_dtos_availablebatchdto_cs"
+    ],
+    "172": [
+      "src_backend_intelibill_application_features_inventory_commands_addinventorybatch_addinventorybatchcommand_cs"
+    ],
+    "173": [
+      "src_backend_intelibill_application_features_inventory_commands_createadjustment_createadjustmentcommand_cs"
+    ],
+    "174": [
+      "src_backend_intelibill_application_features_inventory_commands_reassignbatchsupplier_reassignbatchsuppliercommand_cs"
+    ],
+    "175": [
+      "src_backend_intelibill_application_features_inventory_commands_addinventory_addinventorycommand_cs"
+    ],
+    "176": [
+      "src_backend_intelibill_application_features_inventory_commands_voidadjustment_voidadjustmentcommand_cs"
+    ],
+    "177": [
+      "src_backend_intelibill_application_features_inventory_commands_updateinventorybatch_updateinventorybatchcommand_cs"
+    ],
+    "178": [
+      "src_backend_intelibill_application_features_inventory_commands_voidbatch_voidbatchcommand_cs"
+    ],
+    "179": [
+      "src_backend_intelibill_application_features_users_queries_getshopusers_getshopusersquery_cs"
+    ],
+    "180": [
+      "src_backend_intelibill_application_features_users_dtos_shopuserdto_cs"
+    ],
+    "181": [
+      "src_backend_intelibill_application_features_users_commands_updatemyprofile_updatemyprofilecommand_cs"
+    ],
+    "182": [
+      "src_backend_intelibill_application_features_users_commands_editshopuser_editshopusercommand_cs"
+    ],
+    "183": [
+      "src_backend_intelibill_application_features_users_commands_addshopuser_addshopusercommand_cs"
+    ],
+    "184": [
+      "src_backend_intelibill_application_features_items_queries_getitems_getitemsquery_cs"
+    ],
+    "185": [
+      "src_backend_intelibill_application_features_items_queries_getproductdetails_getproductdetailsbynameorbarcodequery_cs"
+    ],
+    "186": [
+      "src_backend_intelibill_application_features_items_dtos_itemcatalogentrydto_cs"
+    ],
+    "187": [
+      "src_backend_intelibill_application_features_items_dtos_productdetailsdto_cs"
+    ],
+    "188": [
+      "src_backend_intelibill_application_features_items_dtos_itemdto_cs"
+    ],
+    "189": [
+      "src_backend_intelibill_application_features_items_commands_updateitem_updateitemcommand_cs"
+    ],
+    "190": [
+      "src_backend_intelibill_application_features_items_commands_additem_additemcommand_cs"
+    ],
+    "191": [
+      "src_backend_intelibill_application_common_models_externaloauthinitresult_cs"
+    ],
+    "192": [
+      "src_backend_intelibill_application_common_models_externaluserinfo_cs"
+    ],
+    "193": [
+      "src_backend_intelibill_domain_obj_debug_net10_0_intelibill_domain_globalusings_g_cs"
+    ],
+    "194": [
+      "src_backend_intelibill_domain_obj_debug_net10_0_intelibill_domain_assemblyinfo_cs"
+    ],
+    "195": [
+      "src_backend_intelibill_domain_enums_inventoryadjustmentreason_cs"
+    ],
+    "196": [
+      "src_backend_intelibill_domain_enums_supplierstatus_cs"
+    ],
+    "197": [
+      "src_backend_intelibill_domain_enums_salereturncondition_cs"
+    ],
+    "198": [
+      "src_backend_intelibill_domain_enums_stocktransactiontype_cs"
+    ],
+    "199": [
+      "src_backend_intelibill_domain_enums_supplierledgerentrytype_cs"
+    ],
+    "200": [
+      "src_backend_intelibill_domain_enums_paymentmethod_cs"
+    ],
+    "201": [
+      "src_backend_intelibill_domain_enums_shoprole_cs"
+    ],
+    "202": [
+      "src_backend_intelibill_domain_enums_externalauthprovider_cs"
+    ],
+    "203": [
+      "src_backend_intelibill_domain_enums_inventoryadjustmentdirection_cs"
+    ],
+    "204": [
+      "src_backend_intelibill_domain_enums_bankaccounttype_cs"
+    ],
+    "205": [
+      "src_backend_intelibill_domain_events_itemcreateddomainevent_cs"
+    ],
+    "206": [
+      "src_backend_intelibill_domain_events_userregisteredevent_cs"
+    ],
+    "207": [
+      "src_backend_intelibill_domain_valueobjects_salereturnlineinput_cs"
+    ],
+    "208": [
+      "src_backend_intelibill_domain_valueobjects_salelineinput_cs"
+    ],
+    "209": [
+      "src_backend_intelibill_infrastructure_obj_debug_net10_0_intelibill_infrastructure_assemblyinfo_cs"
+    ],
+    "210": [
+      "src_backend_intelibill_infrastructure_obj_debug_net10_0_intelibill_infrastructure_globalusings_g_cs"
+    ],
+    "211": [
+      "src_backend_intelibill_api_obj_debug_net10_0_intelibill_api_globalusings_g_cs"
+    ],
+    "212": [
+      "src_backend_intelibill_api_obj_debug_net10_0_intelibill_api_assemblyinfo_cs"
+    ],
+    "213": [
+      "src_backend_intelibill_api_obj_debug_net10_0_intelibill_api_mvcapplicationpartsassemblyinfo_cs"
+    ],
+    "214": [
+      "src_backend_intelibill_api_properties_assemblyinfo_cs"
+    ]
+  },
+  "cohesion": {
+    "0": 0.02,
+    "1": 0.04,
+    "2": 0.02,
+    "3": 0.03,
+    "4": 0.03,
+    "5": 0.04,
+    "6": 0.03,
+    "7": 0.04,
+    "8": 0.06,
+    "9": 0.08,
+    "10": 0.09,
+    "11": 0.08,
+    "12": 0.13,
+    "13": 0.18,
+    "14": 0.23,
+    "15": 0.16,
+    "16": 0.19,
+    "17": 0.17,
+    "18": 0.18,
+    "19": 0.42,
+    "20": 0.33,
+    "21": 0.22,
+    "22": 0.22,
+    "23": 0.46,
+    "24": 0.25,
+    "25": 0.39,
+    "26": 0.29,
+    "27": 0.29,
+    "28": 0.29,
+    "29": 0.29,
+    "30": 0.33,
+    "31": 0.33,
+    "32": 0.4,
+    "33": 0.4,
+    "34": 0.5,
+    "35": 0.6,
+    "36": 0.5,
+    "37": 0.5,
+    "38": 0.5,
+    "39": 0.67,
+    "40": 0.5,
+    "41": 0.5,
+    "42": 0.5,
+    "43": 0.5,
+    "44": 0.5,
+    "45": 0.5,
+    "46": 0.5,
+    "47": 0.5,
+    "48": 0.5,
+    "49": 0.5,
+    "50": 0.5,
+    "51": 0.5,
+    "52": 0.5,
+    "53": 0.5,
+    "54": 0.67,
+    "55": 0.67,
+    "56": 0.67,
+    "57": 0.67,
+    "58": 0.67,
+    "59": 0.67,
+    "60": 0.67,
+    "61": 0.67,
+    "62": 0.67,
+    "63": 0.67,
+    "64": 0.67,
+    "65": 0.67,
+    "66": 0.67,
+    "67": 0.67,
+    "68": 0.67,
+    "69": 0.67,
+    "70": 0.67,
+    "71": 0.67,
+    "72": 0.67,
+    "73": 0.67,
+    "74": 0.67,
+    "75": 0.67,
+    "76": 0.67,
+    "77": 0.67,
+    "78": 0.67,
+    "79": 0.67,
+    "80": 0.67,
+    "81": 0.67,
+    "82": 0.67,
+    "83": 1.0,
+    "84": 1.0,
+    "85": 1.0,
+    "86": 1.0,
+    "87": 1.0,
+    "88": 1.0,
+    "89": 1.0,
+    "90": 1.0,
+    "91": 1.0,
+    "92": 1.0,
+    "93": 1.0,
+    "94": 1.0,
+    "95": 1.0,
+    "96": 1.0,
+    "97": 1.0,
+    "98": 1.0,
+    "99": 1.0,
+    "100": 1.0,
+    "101": 1.0,
+    "102": 1.0,
+    "103": 1.0,
+    "104": 1.0,
+    "105": 1.0,
+    "106": 1.0,
+    "107": 1.0,
+    "108": 1.0,
+    "109": 1.0,
+    "110": 1.0,
+    "111": 1.0,
+    "112": 1.0,
+    "113": 1.0,
+    "114": 1.0,
+    "115": 1.0,
+    "116": 1.0,
+    "117": 1.0,
+    "118": 1.0,
+    "119": 1.0,
+    "120": 1.0,
+    "121": 1.0,
+    "122": 1.0,
+    "123": 1.0,
+    "124": 1.0,
+    "125": 1.0,
+    "126": 1.0,
+    "127": 1.0,
+    "128": 1.0,
+    "129": 1.0,
+    "130": 1.0,
+    "131": 1.0,
+    "132": 1.0,
+    "133": 1.0,
+    "134": 1.0,
+    "135": 1.0,
+    "136": 1.0,
+    "137": 1.0,
+    "138": 1.0,
+    "139": 1.0,
+    "140": 1.0,
+    "141": 1.0,
+    "142": 1.0,
+    "143": 1.0,
+    "144": 1.0,
+    "145": 1.0,
+    "146": 1.0,
+    "147": 1.0,
+    "148": 1.0,
+    "149": 1.0,
+    "150": 1.0,
+    "151": 1.0,
+    "152": 1.0,
+    "153": 1.0,
+    "154": 1.0,
+    "155": 1.0,
+    "156": 1.0,
+    "157": 1.0,
+    "158": 1.0,
+    "159": 1.0,
+    "160": 1.0,
+    "161": 1.0,
+    "162": 1.0,
+    "163": 1.0,
+    "164": 1.0,
+    "165": 1.0,
+    "166": 1.0,
+    "167": 1.0,
+    "168": 1.0,
+    "169": 1.0,
+    "170": 1.0,
+    "171": 1.0,
+    "172": 1.0,
+    "173": 1.0,
+    "174": 1.0,
+    "175": 1.0,
+    "176": 1.0,
+    "177": 1.0,
+    "178": 1.0,
+    "179": 1.0,
+    "180": 1.0,
+    "181": 1.0,
+    "182": 1.0,
+    "183": 1.0,
+    "184": 1.0,
+    "185": 1.0,
+    "186": 1.0,
+    "187": 1.0,
+    "188": 1.0,
+    "189": 1.0,
+    "190": 1.0,
+    "191": 1.0,
+    "192": 1.0,
+    "193": 1.0,
+    "194": 1.0,
+    "195": 1.0,
+    "196": 1.0,
+    "197": 1.0,
+    "198": 1.0,
+    "199": 1.0,
+    "200": 1.0,
+    "201": 1.0,
+    "202": 1.0,
+    "203": 1.0,
+    "204": 1.0,
+    "205": 1.0,
+    "206": 1.0,
+    "207": 1.0,
+    "208": 1.0,
+    "209": 1.0,
+    "210": 1.0,
+    "211": 1.0,
+    "212": 1.0,
+    "213": 1.0,
+    "214": 1.0
+  },
+  "gods": [
+    {
+      "id": "errors_sale_sale",
+      "label": "Sale",
+      "degree": 17
+    },
+    {
+      "id": "authcontroller_authcontroller",
+      "label": "AuthController",
+      "degree": 16
+    },
+    {
+      "id": "dashboardkpicalculator_dashboardkpicalculator",
+      "label": "DashboardKpiCalculator",
+      "degree": 13
+    },
+    {
+      "id": "shoprepository_shoprepository",
+      "label": "ShopRepository",
+      "degree": 13
+    },
+    {
+      "id": "user_user",
+      "label": "User",
+      "degree": 12
+    },
+    {
+      "id": "ishoprepository_ishoprepository",
+      "label": "IShopRepository",
+      "degree": 12
+    },
+    {
+      "id": "inventorycontroller_inventorycontroller",
+      "label": "InventoryController",
+      "degree": 12
+    },
+    {
+      "id": "inventorybatch_inventorybatch",
+      "label": "InventoryBatch",
+      "degree": 11
+    },
+    {
+      "id": "inventoryadjustmentrepository_inventoryadjustmentrepository",
+      "label": "InventoryAdjustmentRepository",
+      "degree": 10
+    },
+    {
+      "id": "salescontroller_salescontroller",
+      "label": "SalesController",
+      "degree": 10
+    }
+  ],
+  "surprises": [
+    {
+      "source": "User",
+      "target": "BaseEntity",
+      "source_files": [
+        "src/backend/Intelibill.Domain/Entities/User.cs",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "note": "Bridges community 7 \u2192 community 12"
+    },
+    {
+      "source": "InventoryAdjustment",
+      "target": "BaseEntity",
+      "source_files": [
+        "src/backend/Intelibill.Domain/Entities/InventoryAdjustment.cs",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "note": "Bridges community 7 \u2192 community 20"
+    },
+    {
+      "source": "ShopMembership",
+      "target": "BaseEntity",
+      "source_files": [
+        "src/backend/Intelibill.Domain/Entities/ShopMembership.cs",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "note": "Bridges community 7 \u2192 community 0"
+    },
+    {
+      "source": "SaleReturn",
+      "target": "BaseEntity",
+      "source_files": [
+        "src/backend/Intelibill.Domain/Entities/SaleReturn.cs",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "note": "Bridges community 7 \u2192 community 16"
+    },
+    {
+      "source": "InventoryBatch",
+      "target": "BaseEntity",
+      "source_files": [
+        "src/backend/Intelibill.Domain/Entities/InventoryBatch.cs",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "note": "Bridges community 7 \u2192 community 10"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `RepositoryBase` connect `Expenses` to `Authentication`, `Sales`?",
+      "why": "High betweenness centrality (0.079) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `FacebookAuthProvider` connect `Authentication` to `Authentication`?",
+      "why": "High betweenness centrality (0.043) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `ShopRepository` connect `Shop Tenancy` to `Authentication`, `Sales`?",
+      "why": "High betweenness centrality (0.036) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `ProfitLossReportRowTypes`, `InventoryUpdateContext`, `ItemResolutionContext` to the rest of the system?",
+      "why": "58 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Authentication` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.02 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Authentication` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.04 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Sales` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.02 - nodes in this community are weakly interconnected."
+    }
+  ]
+}
