@@ -41,7 +41,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
         });
@@ -280,7 +280,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
 
         // Add staff member to the shop
         var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!";
+        var staffPassword = "Pass123!Aa";
         using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         addUserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         addUserRequest.Content = JsonContent.Create(new

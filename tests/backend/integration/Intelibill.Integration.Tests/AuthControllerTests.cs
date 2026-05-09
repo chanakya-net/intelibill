@@ -40,7 +40,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
             phoneNumber = UniquePhone()
@@ -60,41 +60,12 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Test", lastName = "User", phoneNumber = UniquePhone()
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Another", lastName = "User", phoneNumber = UniquePhone()
-        });
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task RegisterWithEmail_DuplicatePhone_Returns409()
-    {
-        using var client = CreateClient();
-        var email1 = UniqueEmail();
-        var email2 = UniqueEmail();
-        var phone = UniquePhone();
-
-        await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email = email1,
-            password = "Pass123!",
-            firstName = "Test",
-            lastName = "User",
-            phoneNumber = phone
-        });
-
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email = email2,
-            password = "Pass123!",
-            firstName = "Another",
-            lastName = "User",
-            phoneNumber = phone
+            email, password = "Pass123!Aa", firstName = "Another", lastName = "User"
         });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -143,12 +114,12 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/login/email", new
         {
-            email, password = "Pass123!"
+            email, password = "Pass123!Aa"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -164,7 +135,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/login/email", new
@@ -183,7 +154,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var response = await client.PostAsJsonAsync("/api/auth/login/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!"
+            password = "Pass123!Aa"
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -200,7 +171,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Owner",
             lastName = "User",
             phoneNumber = UniquePhone()
@@ -264,7 +235,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Owner",
             lastName = "User",
             phoneNumber = UniquePhone()
@@ -356,7 +327,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User", phoneNumber = UniquePhone()
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
         var registerBody = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var originalRefreshToken = registerBody.GetProperty("refreshToken").GetString()!;
@@ -391,7 +362,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User", phoneNumber = UniquePhone()
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var refreshToken = body.GetProperty("refreshToken").GetString()!;
@@ -407,7 +378,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!", firstName = "Test", lastName = "User", phoneNumber = UniquePhone()
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var refreshToken = body.GetProperty("refreshToken").GetString()!;

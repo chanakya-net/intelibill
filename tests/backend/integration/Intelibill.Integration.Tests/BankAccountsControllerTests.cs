@@ -39,7 +39,7 @@ public sealed class BankAccountsControllerTests(PostgreSqlTestFixture fixture) :
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
         });

@@ -39,7 +39,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Dash",
             lastName = "Tester",
         });
@@ -420,7 +420,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var ownerScopedToken = await CreateShopAsync(client, ownerToken);
 
         var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!";
+        var staffPassword = "Pass123!Aa";
         using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         addUserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         addUserRequest.Content = JsonContent.Create(new
@@ -585,7 +585,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         string role)
     {
         var email = UniqueEmail();
-        const string password = "Pass123!";
+        const string password = "Pass123!Aa";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);

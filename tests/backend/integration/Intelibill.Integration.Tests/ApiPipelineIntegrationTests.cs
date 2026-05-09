@@ -57,7 +57,7 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email,
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Integration",
             lastName = "User"
         });
@@ -70,7 +70,7 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login/email", new
         {
             email,
-            password = "Pass123!"
+            password = "Pass123!Aa"
         });
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);

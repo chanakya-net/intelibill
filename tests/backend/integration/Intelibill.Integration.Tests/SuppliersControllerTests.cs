@@ -37,7 +37,7 @@ public sealed class SuppliersControllerTests(PostgreSqlTestFixture fixture) : IA
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
         });
