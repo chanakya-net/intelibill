@@ -2,6 +2,17 @@
 
 AI-powered inventory management system backend.
 
+## Graphify
+
+Use Graphify instead of CodeGraph for graph-based codebase exploration.
+
+- Prefer the `graphify` workflow for architecture review, dependency mapping, broad context gathering, and knowledge graph work.
+- Do not use CodeGraph tools unless the user explicitly asks for CodeGraph or Graphify is unavailable.
+- If the user types `/graphify`, invoke the `graphify` skill before doing anything else.
+- For small direct lookups, normal repo tools like `rg`, `rg --files`, and file reads are acceptable.
+- When Graphify output exists, consult `graphify-out/GRAPH_REPORT.md` and `graphify-out/wiki/index.md` when relevant before broad architecture answers.
+- After modifying code files in a session that relies on Graphify, run `graphify update .` when practical to keep the graph current.
+
 ## Current Backend Snapshot (April 2026)
 
 - Full inventory management system: items, inventory batches, sales, expenses, customers, suppliers, bank accounts.

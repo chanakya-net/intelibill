@@ -24,6 +24,9 @@ yarn-error.log*
 src/frontend/src/environments/*.js
 src/frontend/src/environments/*.js.map
 
+# Graphify generated output
+graphify-out/
+
 # Service worker
 ngsw-worker.js
 ngsw.json
