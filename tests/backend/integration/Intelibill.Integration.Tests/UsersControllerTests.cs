@@ -39,9 +39,10 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email,
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
-            lastName = "User"
+            lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -229,8 +230,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
             firstName = "Test",
             lastName = "User",
             phoneNumber = UniquePhone(),
-            password = "Pass123!",
-            confirmPassword = "Pass123!",
+            password = "Pass123!Aa",
+            confirmPassword = "Pass123!Aa",
             role = "Owner" // Cannot assign Owner role
         });
         var response = await client.SendAsync(request);
@@ -255,8 +256,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
             firstName = "First",
             lastName = "User",
             phoneNumber = UniquePhone(),
-            password = "Pass123!",
-            confirmPassword = "Pass123!",
+            password = "Pass123!Aa",
+            confirmPassword = "Pass123!Aa",
             role = "Manager"
         });
         await client.SendAsync(request1);
@@ -270,8 +271,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
             firstName = "Second",
             lastName = "User",
             phoneNumber = UniquePhone(),
-            password = "Pass123!",
-            confirmPassword = "Pass123!",
+            password = "Pass123!Aa",
+            confirmPassword = "Pass123!Aa",
             role = "Manager"
         });
         var response = await client.SendAsync(request2);
@@ -428,7 +429,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         var response = await client.PostAsJsonAsync("/api/users/me/change-password", new
         {
-            currentPassword = "Pass123!", newPassword = "NewPass456!"
+            currentPassword = "Pass123!Aa", newPassword = "NewPass456!"
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -441,7 +442,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var email = UniqueEmail();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = body.GetProperty("accessToken").GetString()!;
@@ -450,7 +452,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
         {
-            currentPassword = "Pass123!",
+            currentPassword = "Pass123!Aa",
             newPassword = "NewPass456!"
         });
         var response = await client.SendAsync(request);
@@ -467,7 +469,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var email = UniqueEmail();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = body.GetProperty("accessToken").GetString()!;

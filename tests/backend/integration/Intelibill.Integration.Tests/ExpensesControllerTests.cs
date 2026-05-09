@@ -34,6 +34,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
     });
 
     private static string UniqueEmail() => $"expense-{Guid.NewGuid():N}@test.com";
+    private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     // Helper: register user, get token
     private static async Task<string> RegisterAsync(HttpClient client)
@@ -41,9 +42,10 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
+            phoneNumber = UniquePhone(),
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -280,7 +282,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
 
         // Add staff member to the shop
         var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!";
+        var staffPassword = "Pass123!Aa";
         using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         addUserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         addUserRequest.Content = JsonContent.Create(new

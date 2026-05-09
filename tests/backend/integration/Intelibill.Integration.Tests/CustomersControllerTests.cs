@@ -39,9 +39,10 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
             email = UniqueEmail(),
-            password = "Pass123!",
+            password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -225,7 +226,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken);
 
         var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!";
+        var staffPassword = "Pass123!Aa";
         using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         addUserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         addUserRequest.Content = JsonContent.Create(new
@@ -388,7 +389,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken);
 
         var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!";
+        var staffPassword = "Pass123!Aa";
         using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         addUserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
         addUserRequest.Content = JsonContent.Create(new
