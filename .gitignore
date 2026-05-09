@@ -255,3 +255,10 @@ secrets.json
 *.pfx
 *.p12
 .aider*
+
+# Project-internal documentation / planning
+# (Not committed to version control)
+# ------------------------------------------------------------
+issues.md
+prd.md
+technical_requirements.md
