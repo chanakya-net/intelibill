@@ -9,6 +9,11 @@ public sealed class RateLimitPolicyResolver(IOptions<RateLimitingOptions> option
 {
     public RateLimitPolicy Resolve(ActionExecutingContext context)
     {
+        if (HasDisableMetadata(context))
+        {
+            return RateLimitPolicy.Disabled;
+        }
+
         var defaults = options.Value;
         var policy = new RateLimitPolicy(defaults.Limit, defaults.PeriodInMinutes, defaults.BackoffMinutes);
         var overrideAttribute = ResolveOverride(context);
@@ -21,6 +26,22 @@ public sealed class RateLimitPolicyResolver(IOptions<RateLimitingOptions> option
             Limit: overrideAttribute.Limit > 0 ? overrideAttribute.Limit : policy.Limit,
             PeriodInMinutes: overrideAttribute.PeriodInMinutes > 0 ? overrideAttribute.PeriodInMinutes : policy.PeriodInMinutes,
             BackoffMinutes: overrideAttribute.BackoffMinutes >= 0 ? overrideAttribute.BackoffMinutes : policy.BackoffMinutes);
+    }
+
+    private static bool HasDisableMetadata(ActionExecutingContext context)
+    {
+        if (context.ActionDescriptor.EndpointMetadata.OfType<DisableRateLimitAttribute>().Any())
+        {
+            return true;
+        }
+
+        if (context.ActionDescriptor is not ControllerActionDescriptor controllerAction)
+        {
+            return false;
+        }
+
+        return controllerAction.MethodInfo.GetCustomAttributes(typeof(DisableRateLimitAttribute), inherit: true).Length > 0
+            || controllerAction.ControllerTypeInfo.GetCustomAttributes(typeof(DisableRateLimitAttribute), inherit: true).Length > 0;
     }
 
     private static RateLimitAttribute? ResolveOverride(ActionExecutingContext context)

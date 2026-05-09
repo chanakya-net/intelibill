@@ -84,6 +84,80 @@ public sealed class RateLimitPolicyResolverTests
         Assert.Equal(4, policy.BackoffMinutes);
     }
 
+    [Fact]
+    public void Resolve_WhenMvcActionHasDisableMetadata_ReturnsDisabledPolicy()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(TestController).GetTypeInfo(),
+            MethodInfo = typeof(TestController).GetMethod(nameof(TestController.DisabledAction))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.True(policy.IsDisabled);
+    }
+
+    [Fact]
+    public void Resolve_WhenMvcControllerHasDisableMetadata_ReturnsDisabledPolicy()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(DisabledController).GetTypeInfo(),
+            MethodInfo = typeof(DisabledController).GetMethod(nameof(DisabledController.AnyAction))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.True(policy.IsDisabled);
+    }
+
+    [Fact]
+    public void Resolve_WhenEndpointMetadataHasDisableMetadata_ReturnsDisabledPolicy()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ActionDescriptor
+        {
+            EndpointMetadata = [new DisableRateLimitAttribute()]
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.True(policy.IsDisabled);
+    }
+
+    [Fact]
+    public void Resolve_WhenNonDisabledActionHasOverride_ContinuesToReturnOverrideValues()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(TestController).GetTypeInfo(),
+            MethodInfo = typeof(TestController).GetMethod(nameof(TestController.Limited))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.False(policy.IsDisabled);
+        Assert.Equal(10, policy.Limit);
+        Assert.Equal(2, policy.PeriodInMinutes);
+        Assert.Equal(4, policy.BackoffMinutes);
+    }
+
+    private static RateLimitPolicyResolver CreateResolver()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions
+        {
+            Limit = 100,
+            PeriodInMinutes = 1,
+            BackoffMinutes = 3
+        });
+
+        return new RateLimitPolicyResolver(options);
+    }
+
     private static ActionExecutingContext CreateContext(ActionDescriptor actionDescriptor)
     {
         var actionContext = new ActionContext(
@@ -102,6 +176,19 @@ public sealed class RateLimitPolicyResolverTests
     {
         [RateLimit(Limit = 10, PeriodInMinutes = 2, BackoffMinutes = 4)]
         public static void Limited()
+        {
+        }
+
+        [DisableRateLimit]
+        public static void DisabledAction()
+        {
+        }
+    }
+
+    [DisableRateLimit]
+    private sealed class DisabledController
+    {
+        public static void AnyAction()
         {
         }
     }

@@ -100,6 +100,26 @@ public sealed class RateLimitFilterTests
         Assert.Equal(FixedNow.AddMinutes(3).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), blocked.HttpContext.Response.Headers["X-RateLimit-Reset"]);
     }
 
+    [Fact]
+    public async Task OnActionExecutionAsync_WhenPolicyIsDisabled_SkipsCacheAndContinues()
+    {
+        var cache = new RecordingDistributedCache();
+        var filter = CreateFilter(cache, RateLimitPolicy.Disabled);
+        var context = CreateContext("/api/items", string.Empty, "GET");
+        var nextWasCalled = false;
+
+        await filter.OnActionExecutionAsync(context, () =>
+        {
+            nextWasCalled = true;
+            return Task.FromResult(new ActionExecutedContext(context, filters: [], controller: new object()));
+        });
+
+        Assert.True(nextWasCalled);
+        Assert.Null(context.Result);
+        Assert.Empty(cache.SetKeys);
+        Assert.Empty(context.HttpContext.Response.Headers);
+    }
+
     private static RateLimitFilter CreateFilter(RecordingDistributedCache cache, RateLimitPolicy policy)
         => new(cache, new StaticRateLimitPolicyResolver(policy), new FakeTimeProvider(FixedNow));
 

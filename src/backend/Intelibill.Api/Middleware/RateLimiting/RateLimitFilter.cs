@@ -27,6 +27,12 @@ public class RateLimitFilter : IAsyncActionFilter
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var policy = _policyResolver.Resolve(context);
+        if (policy.IsDisabled)
+        {
+            await next();
+            return;
+        }
+
         var now = _timeProvider.GetUtcNow();
         var bucketKey = BuildBucketKey(context.HttpContext);
         var cacheKey = $"RL_{bucketKey}";
