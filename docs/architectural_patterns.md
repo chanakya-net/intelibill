@@ -1,12 +1,11 @@
 # Architectural Patterns
 
-Implementation patterns with canonical file references. For high-level architecture overview see:
-- **Backend**: [`backend-architecture.md`](backend-architecture.md)
-- **Frontend**: [`frontend-architecture.md`](frontend-architecture.md)
+Implementation patterns with canonical file references. For high-level architecture overview and build commands see:
+- **Source of truth**: [`AGENTS.md`](../AGENTS.md) (repo root) — build/test commands, tech stack, domain model, all endpoints
+- **Backend details**: [`backend-architecture.md`](backend-architecture.md)
+- **Frontend details**: [`frontend-architecture.md`](frontend-architecture.md)
 
 Check the referenced files for the canonical implementation before adding new code.
-
----
 
 ## Backend Patterns
 

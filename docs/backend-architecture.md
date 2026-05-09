@@ -1,6 +1,6 @@
 # Backend Architecture
 
-> High-level architecture reference. For implementation patterns (DI, Repository, ErrorOr, Options, etc.) see [`docs/architectural_patterns.md`](architectural_patterns.md). For build commands, config, and test snapshots see [`src/backend/CLAUDE.md`](../src/backend/CLAUDE.md).
+> High-level architecture reference. For implementation patterns (DI, Repository, ErrorOr, Options, etc.) see [`docs/architectural_patterns.md`](architectural_patterns.md). For build commands, config, and test snapshots see [`AGENTS.md`](../AGENTS.md) at repo root.
 
 ## Stack
 
@@ -8,11 +8,12 @@
 |---|---|
 | Platform | .NET 10, ASP.NET Core, C# latest |
 | Architecture | Clean Architecture / Onion (`Domain → Application → Infrastructure → Api`) |
-| Request handling | Wolverine message bus — command/query handlers in Application |
-| Validation | FluentValidation — validators auto-discovered from Application assembly |
+| Request handling | Wolverine 5.24 message bus — command/query handlers in Application |
+| Validation | FluentValidation 12 — validators auto-discovered from Application assembly |
 | Data access | EF Core 10 + PostgreSQL (snake_case), repository + unit-of-work abstractions |
-| Error flow | ErrorOr result pattern mapped to HTTP ProblemDetails at API boundary |
+| Error flow | ErrorOr 2.0 result pattern mapped to HTTP ProblemDetails at API boundary |
 | Tenancy | Multi-shop isolation: JWT `active_shop_id` + PostgreSQL RLS session context |
+| Testing | xUnit 2.9 + coverlet; integration via Testcontainers (real PostgreSQL) |
 
 ## Layer Responsibilities
 
@@ -42,13 +43,13 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 - **Shops**: create/update shop, list memberships, switch active shop, set default shop; `GET /api/shops/me`
 - **Items**: catalog CRUD + SSE streaming endpoint (`GET /api/items/stream`)
 - **Inventory**: inbound stock (single + batch), batch management, void/reassign
-- **Sales**: record sale, list/detail, profit-loss report
+- **Sales**: record sale, list/detail, profit-loss report, cost tracking per batch at sale time
 - **Customers**: CRUD + credit ledger + payment recording
-- **Suppliers**: CRUD + purchase ledger + payment recording
+- **Suppliers**: CRUD + purchase ledger + payment recording, status tracking
 - **Expenses**: record + correct + categorise
 - **Bank Accounts**: CRUD per shop
-- **Users**: shop user management (add/edit), profile self-service, password change
-- **Security**: JWT bearer, `active_shop_id` claim, RLS, 403 mapping, rate limiting middleware
+- **Users**: shop user management (add/edit/roles), profile self-service, password change
+- **Security**: JWT bearer, `active_shop_id` claim, RLS, 403 mapping, rate limiting middleware (`RateLimitAttribute` / `RateLimitFilter`)
 
 ## Multi-Shop Tenancy
 
@@ -65,5 +66,6 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 | Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 330 |
 | API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 139 |
 | Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 115 |
+| **Total** | | **667** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 552+ passing.

@@ -1,188 +1,157 @@
-# intelibill
-
-AI-powered inventory management system backend.
-
-## Graphify
-
-Use Graphify instead of CodeGraph for graph-based codebase exploration.
-
-- Prefer the `graphify` workflow for architecture review, dependency mapping, broad context gathering, and knowledge graph work.
-- Do not use CodeGraph tools unless the user explicitly asks for CodeGraph or Graphify is unavailable.
-- If the user types `/graphify`, invoke the `graphify` skill before doing anything else.
-- For small direct lookups, normal repo tools like `rg`, `rg --files`, and file reads are acceptable.
-- When Graphify output exists, consult `graphify-out/GRAPH_REPORT.md` and `graphify-out/wiki/index.md` when relevant before broad architecture answers.
-- After modifying code files in a session that relies on Graphify, run `graphify update .` when practical to keep the graph current.
-
-## Current Backend Snapshot (April 2026)
-
-- Full inventory management system: items, inventory batches, sales, expenses, customers, suppliers, bank accounts.
-- Multi-shop tenancy: memberships with per-shop role (`Owner`, `Manager`, `Staff`), default shop + active shop switching.
-- JWT carries `active_shop_id`; shop switch returns new scoped token; RLS enforces row isolation.
-- Auth: email + phone registration, external OAuth (Google/Facebook), password reset, token refresh/revoke.
-- Rate limiting middleware (`RateLimitAttribute` / `RateLimitFilter`) on sensitive endpoints.
-- Structured logging via Serilog with `SensitiveDataDestructuringPolicy`.
-- Items catalog streaming endpoint (`GET /api/items/stream`).
-- Profit/loss report endpoint (`GET /api/sales/profit-loss`).
-- Integration tests use Testcontainers (real PostgreSQL via Docker).
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend API | ASP.NET Core 10, C# latest, .NET 10.0.105 |
-| Database | PostgreSQL via Npgsql + EF Core 10 |
-| Messaging / CQRS | Wolverine 5.24 |
-| Validation | FluentValidation 12 |
-| Error handling | ErrorOr 2.0 (result pattern) |
-| Tests | xUnit 2.9 + coverlet |
-| Frontend | Angular 21 (separate workspace under `src/frontend/`) |
-| Mobile | .NET MAUI *(scaffolding only)* |
-
-## Key Directories
-
-Paths relative to repo root.
-
-| Path | Purpose |
-|---|---|
-| `/backend/Intelibill.Domain/` | Entities, value objects, domain interfaces — zero dependencies |
-| `/backend/Intelibill.Application/` | Wolverine handlers, validators, error definitions — depends on Domain only |
-| `/backend/Intelibill.Infrastructure/` | EF Core DbContext, repositories, database options — depends on Domain + Application |
-| `/backend/Intelibill.Api/` | ASP.NET Core host, controllers, middleware — depends on Application + Infrastructure |
-| `tests/backend/unit/` | Domain and Application unit tests |
-| `tests/backend/integration/` | Integration tests referencing the API project |
-| `Directory.Build.props` | Shared MSBuild properties: nullable, warnings-as-errors, analysis level, CPM flag |
-| `Directory.Packages.props` | Central Package Management — all NuGet versions declared here |
-| `global.json` | Pins SDK to 10.0.105 with `latestMinor` roll-forward |
-
-## Domain Model
-
-### Entities
-
-| Entity | Notes |
-|---|---|
-| `User` | Auth identity; tracks shop memberships, external logins, refresh tokens, password reset tokens |
-| `UserExternalLogin` | OAuth provider link (Google, Facebook) |
-| `Shop` | Tenant root — address, GST, contact |
-| `ShopMembership` | User ↔ Shop with `ShopRole` |
-| `Item` | Catalog entry (name, barcode, tax rates) |
-| `Inventory` | Stock record per item per shop |
-| `InventoryBatch` | Purchase batch — cost price, qty, supplier, expiry |
-| `StockTransaction` | Append-only stock movement log |
-| `Sale` | Sale header (payment method, discount, customer) |
-| `SaleItem` | Line item — links to batch, records cost/price at time of sale |
-| `Customer` | Customer profile |
-| `CustomerLedgerEntry` | Credit/payment ledger per customer |
-| `Supplier` | Supplier profile |
-| `SupplierLedgerEntry` | Purchase/payment ledger per supplier |
-| `Expense` | Shop expense with category |
-| `ExpenseCategory` | Expense taxonomy |
-| `BankAccount` | Bank account reference per shop |
-| `RefreshToken` | JWT refresh token |
-| `PasswordResetToken` | One-time password reset token |
-
-### Key Enums
-
-`ShopRole`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
-
-## Infrastructure
-
-- Migration: `20260425075353_InitialCreate` (single consolidated migration)
-- RLS session context interceptor sets `app.current_user_id` + `app.active_shop_id` per request
-- Integration tests use **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required
-
-## API Endpoints
-
-### Auth — `api/auth`
-- `POST register/email`, `POST register/phone`
-- `POST login/email`, `POST login/external`, `POST login/external/init`, `POST login/external/callback`
-- `GET ~/auth/google/callback`, `GET ~/auth/facebook/callback`
-- `POST password-reset/request`, `POST password-reset/confirm`
-- `POST token/refresh`, `POST token/revoke`
-
-### Shops — `api/shops`
-- `GET me`, `GET {shopId}`, `POST`, `POST switch`, `POST default`, `PUT {shopId}`
-
-### Items — `api/items`
-- `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
-
-### Inventory — `api/inventory`
-- `POST inbound`, `POST inbound/batch`
-- `GET batches`, `GET batches/available`
-- `PUT batches/{batchId}`, `POST batches/{batchId}/void`, `POST batches/{batchId}/reassign-supplier`
-
-### Sales — `api/sales`
-- `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
-
-### Customers — `api/customers`
-- `GET`, `POST`, `PUT {customerId}`, `GET {customerId}/account`, `POST {customerId}/payments`
-
-### Suppliers — `api/suppliers`
-- `GET`, `POST`, `PUT {supplierId}`, `DELETE {supplierId}`
-- `GET {supplierId}/ledger`, `POST {supplierId}/payments`
-
-### Expenses — `api/expenses`
-- `GET`, `POST`, `GET {id}`, `POST {id}/correct`, `GET categories`
-
-### Bank Accounts — `api/bank-accounts`
-- `GET`, `POST`, `PUT {id}`, `DELETE {id}`
-
-### Users — `api/users`
-- `GET` (shop users), `POST` (add shop user), `PUT {targetUserId}`
-- `POST me/change-password`, `PUT me`
+# intelibill — AI inventory management system backend
 
 ## Build & Test
 
-Commands from **repo root** unless noted. Solution: `src/backend/Intelibill.slnx`.
+**Backend** (repo root, solution: `src/backend/Intelibill.slnx`):
+- Build: `dotnet build src/backend/Intelibill.slnx`
+- Run: `dotnet run --project src/backend/Intelibill.Api`
+- Test full: `dotnet test src/backend/Intelibill.slnx`
+- Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
+- Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
+- Snapshot: 83 + 330 + 139 + 115 = 667 tests (552+ non-integration passing)
 
+**Migrations** (EF Core):
 ```bash
-# Build
-dotnet build src/backend/Intelibill.slnx
-
-# Run API (picks up appsettings.Development.json automatically)
-dotnet run --project src/backend/Intelibill.Api
-
-# Test — full solution
-dotnet test src/backend/Intelibill.slnx
-
-# Test — individual projects
-dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests
-dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests
-dotnet test tests/backend/integration/Intelibill.Integration.Tests
-
-# EF Core migrations
 dotnet ef migrations add <MigrationName> \
   --project src/backend/Intelibill.Infrastructure \
   --startup-project src/backend/Intelibill.Api
-
 dotnet ef database update \
   --project src/backend/Intelibill.Infrastructure \
   --startup-project src/backend/Intelibill.Api
 ```
 
-Test snapshot:
+**Frontend** (`src/frontend`, Bun only—no npm/yarn):
+- Install: `bun install`
+- Start: `bun run start`
+- Build: `bun run build`
+- Test: `bun run test`
 
-- `Intelibill.Domain.Unit.Tests`: 83
-- `Intelibill.Application.Unit.Tests`: 330
-- `Intelibill.Api.Unit.Tests`: 139
-- `Intelibill.Integration.Tests`: 115 *(requires Docker)*
-- Total: 552+ passing (non-integration)
+## Architecture
 
-## Configuration
+**Layer order**: Domain ← Application ← Infrastructure ← Api
 
-DB credentials use Options Pattern bound to `"Database"` config section.
-See `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`.
+| Layer | Deps | Purpose |
+|---|---|---|
+| **Domain** | None | Entities, value objects, domain interfaces |
+| **Application** | Domain | Wolverine handlers, validators, errors (`Application/Common/Errors/Errors.cs`) |
+| **Infrastructure** | Domain + App | EF Core DbContext, repos, configs in `Infrastructure/Data/Configurations` |
+| **Api** | App + Infra | ASP.NET Core, controllers, middleware |
 
-- `src/backend/Intelibill.Api/appsettings.json` — intentionally empty strings; safe to commit
-- `src/backend/Intelibill.Api/appsettings.Development.json` — local defaults (`localhost:5432/inventoryai_dev`)
-- Production — supply via env vars or secrets manager
+Dependency registration: each layer's `DependencyInjection.cs`
 
-## Adding NuGet Packages
+**Conventions**:
+- ErrorOr result pattern (no exception-driven control flow)
+- FluentValidation for requests
+- Repository abstractions + `IUnitOfWork` for writes
+- No data annotations on entities
+- C# warnings = errors (analyzer-clean builds)
+- EF: `IEntityTypeConfiguration<T>` for mappings
+- Central Package Management (CPM): versions in `Directory.Packages.props` only, csproj entries versionless
+- Angular: standalone components, NgRx root/feature stores, PrimeNG styling
+- i18n: `src/frontend/public/assets/i18n` locale files
 
-1. Add `<PackageVersion Include="..." Version="..." />` to `Directory.Packages.props`
-2. Add `<PackageReference Include="..." />` (no version) to relevant `.csproj`
+## Multi-Shop Tenancy & Auth
 
-## Additional Documentation
+- RLS-enforced row isolation per `active_shop_id`
+- JWT carries `active_shop_id` claim; switching returns new scoped token
+- Auth methods: email + phone registration, OAuth (Google/Facebook), password reset, token refresh/revoke
+- Shop memberships: roles = `Owner`, `Manager`, `Staff`
+- Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
+- Logging: Serilog + `SensitiveDataDestructuringPolicy`
 
-| Topic | File |
+## Environment
+
+- .NET SDK: pinned via `global.json` (10.0.105, latestMinor roll-forward)
+- Local DB: PostgreSQL, creds in `src/backend/Intelibill.Api/appsettings.Development.json` or `docker compose up -d`
+- `appsettings.json`: intentionally empty (safe to commit)
+- Production: env vars or secrets manager
+
+DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`, Pattern in `"Database"` config section
+
+## Tech Stack
+
+| Layer | Tech |
 |---|---|
-| Architecture, design patterns, conventions | [docs/architectural_patterns.md](docs/architectural_patterns.md) |
+| Backend | ASP.NET Core 10, C# latest, .NET 10.0.105 |
+| Database | PostgreSQL + Npgsql + EF Core 10 |
+| Messaging | Wolverine 5.24 (CQRS) |
+| Validation | FluentValidation 12 |
+| Errors | ErrorOr 2.0 |
+| Tests | xUnit 2.9 + coverlet |
+| Frontend | Angular 21 (`src/frontend/`) |
+| Mobile | .NET MAUI (scaffolding only) |
+
+## Current State (May 2026)
+
+**Features**: Full inventory system (items, batches, sales, expenses, customers, suppliers, bank accounts)
+
+**Key endpoints**:
+- Auth: `POST register/email`, `register/phone`, `login/email`, `login/external/{init,callback}`, `password-reset/{request,confirm}`, `token/{refresh,revoke}`
+- Shops: `GET me`, `{shopId}`, `POST`, `POST switch`, `PUT {shopId}`
+- Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
+- Inventory: `POST inbound`, `inbound/batch`, `GET batches`, `batches/available`, `PUT/POST/void batches/{batchId}`
+- Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
+- Customers: CRUD + `account`, `payments`
+- Suppliers: CRUD + `ledger`, `payments`
+- Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories`
+- Bank Accounts: CRUD
+- Users: `GET` (shop), `POST` (add), `PUT {userId}`, `me/change-password`
+
+**Infrastructure**:
+- Migration: `20260425075353_InitialCreate` (single consolidated)
+- RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
+- Tests: Testcontainers (real PostgreSQL via Docker)
+
+## Domain Model
+
+**Entities**: `User`, `UserExternalLogin`, `Shop`, `ShopMembership`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
+
+**Enums**: `ShopRole`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
+
+## Structure
+
+| Path | Purpose |
+|---|---|
+| `src/backend/Intelibill.Domain/` | Entities, value objects, domain interfaces (zero deps) |
+| `src/backend/Intelibill.Application/` | Handlers, validators (depends: Domain only) |
+| `src/backend/Intelibill.Infrastructure/` | DbContext, repos, configs (depends: Domain + Application) |
+| `src/backend/Intelibill.Api/` | Controllers, middleware (depends: Application + Infrastructure) |
+| `tests/backend/unit/` | Domain + Application unit tests |
+| `tests/backend/integration/` | Integration tests vs API |
+| `Directory.Build.props` | Shared MSBuild (nullable, warnings-as-errors, analysis, CPM) |
+| `Directory.Packages.props` | Central Package Management (all NuGet versions) |
+| `global.json` | SDK pin (10.0.105, latestMinor roll-forward) |
+
+## NuGet Packages
+
+Add version to `Directory.Packages.props`:
+```xml
+<PackageVersion Include="Pkg.Name" Version="X.Y.Z" />
+```
+Add to `.csproj` (no version):
+```xml
+<PackageReference Include="Pkg.Name" />
+```
+
+## Graphify Knowledge Graph
+
+Graph at `graphify-out/`
+
+**Before architecture/codebase Q**: read `graphify-out/GRAPH_REPORT.md` (god nodes, communities) + `graphify-out/wiki/index.md` (if exists)
+
+**Workflow**: `/graphify` → read GRAPH_REPORT.md → use graphify tools (not CodeGraph unless asked)
+
+**After changes**: `graphify update .` (AST-only, no API cost)
+
+**Direct lookups**: `rg`, `rg --files`, file reads OK
+
+## Links (Reference—Don't Duplicate)
+
+- README.md
+- AGENTS.md (this file)
+- docs/architectural_patterns.md
+- docs/backend-architecture.md
+- docs/frontend-architecture.md
+- Directory.Build.props
+- Directory.Packages.props
+- global.json

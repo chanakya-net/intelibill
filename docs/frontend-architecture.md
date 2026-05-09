@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-> High-level architecture reference. For implementation patterns see [`docs/architectural_patterns.md`](architectural_patterns.md).
+> High-level architecture reference. For implementation patterns see [`docs/architectural_patterns.md`](architectural_patterns.md). For build commands and dependencies see [`AGENTS.md`](../AGENTS.md) at repo root.
 
 ## Stack
 
@@ -12,8 +12,8 @@
 | UI | PrimeNG 21 + Tailwind CSS 4 |
 | State | NgRx 21 — root store + feature providers |
 | Data / Auth | HttpClient with interceptors (JWT bearer + 401 refresh) |
-| i18n | Transloco — HTTP-loaded JSON translation files |
-| Package manager | Bun 1.3+ |
+| i18n | Transloco — HTTP-loaded JSON translation files (locale files under `public/assets/i18n/`) |
+| Package manager | **Bun only** (1.3+) — no npm/yarn |
 
 ## Folder Structure
 
@@ -70,9 +70,9 @@ src/frontend/src/app/
 | Service | Purpose |
 |---|---|
 | `ProductCatalogSyncService` | Streams item catalog from backend SSE endpoint into IndexedDB |
-| `BarcodeDetectorService` | Wraps browser BarcodeDetector API for scanning |
-| `CameraStreamService` | Manages camera access for barcode/inventory use |
-| `AudioService` | Plays feedback sounds (e.g., scan beep) |
+| `BarcodeDetectorService` | Wraps browser BarcodeDetector API for scanning (barcode cache + lookup) |
+| `CameraStreamService` | Manages camera access for barcode/inventory capture |
+| `AudioService` | Plays feedback sounds (e.g., scan beep, transaction confirm) |
 
 ## IndexedDB Storage (core/storage)
 
