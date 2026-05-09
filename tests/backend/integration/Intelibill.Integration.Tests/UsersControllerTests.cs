@@ -41,7 +41,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
             email,
             password = "Pass123!Aa",
             firstName = "Test",
-            lastName = "User"
+            lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -441,7 +442,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var email = UniqueEmail();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = body.GetProperty("accessToken").GetString()!;
@@ -467,7 +469,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var email = UniqueEmail();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var token = body.GetProperty("accessToken").GetString()!;

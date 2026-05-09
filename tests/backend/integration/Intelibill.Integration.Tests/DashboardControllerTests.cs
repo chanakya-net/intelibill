@@ -42,6 +42,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
             password = "Pass123!Aa",
             firstName = "Dash",
             lastName = "Tester",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();

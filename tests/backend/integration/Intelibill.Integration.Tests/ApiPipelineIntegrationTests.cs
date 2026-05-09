@@ -59,7 +59,8 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
             email,
             password = "Pass123!Aa",
             firstName = "Integration",
-            lastName = "User"
+            lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);

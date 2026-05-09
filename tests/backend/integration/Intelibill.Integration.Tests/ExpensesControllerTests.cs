@@ -34,6 +34,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
     });
 
     private static string UniqueEmail() => $"expense-{Guid.NewGuid():N}@test.com";
+    private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     // Helper: register user, get token
     private static async Task<string> RegisterAsync(HttpClient client)
@@ -44,6 +45,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
             password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
+            phoneNumber = UniquePhone(),
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();

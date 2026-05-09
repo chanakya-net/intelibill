@@ -60,12 +60,14 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Another", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Another", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -114,7 +116,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/login/email", new
@@ -135,7 +138,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
         var response = await client.PostAsJsonAsync("/api/auth/login/email", new
@@ -327,7 +331,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var registerBody = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var originalRefreshToken = registerBody.GetProperty("refreshToken").GetString()!;
@@ -362,7 +367,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var refreshToken = body.GetProperty("refreshToken").GetString()!;
@@ -378,7 +384,8 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         using var client = CreateClient();
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
         {
-            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User"
+            email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         var body = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var refreshToken = body.GetProperty("refreshToken").GetString()!;

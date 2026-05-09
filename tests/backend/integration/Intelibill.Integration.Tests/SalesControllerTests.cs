@@ -45,6 +45,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             password = "Pass123!Aa",
             firstName = "Test",
             lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
