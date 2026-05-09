@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "పాస్‌వర్డ్ 8 నుండి 100 అక్షరాల మధ్య ఉండాలి.",
       "confirmPasswordRequired": "దయచేసి మీ పాస్‌వర్డ్ మళ్లీ నమోదు చేయండి.",
-      "passwordMismatch": "పాస్‌వర్డ్‌లు సరిపోలడం లేదు."
+      "passwordMismatch": "పాస్‌వర్డ్‌లు సరిపోలడం లేదు.",
+      "phoneRequired": "ఫోన్ నంబర్ అవసరం."
     }
   },
   "shell": {

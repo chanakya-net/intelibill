@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "ಪಾಸ್‌ವರ್ಡ್ 8 ರಿಂದ 100 ಅಕ್ಷರಗಳ ನಡುವೆ ಇರಬೇಕು.",
       "confirmPasswordRequired": "ದಯವಿಟ್ಟು ಪಾಸ್‌ವರ್ಡ್ ಮತ್ತೆ ನಮೂದಿಸಿ.",
-      "passwordMismatch": "ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುತ್ತಿಲ್ಲ."
+      "passwordMismatch": "ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುತ್ತಿಲ್ಲ.",
+      "phoneRequired": "ಫೋನ್ ಸಂಖ್ಯೆ ಅಗತ್ಯವಿದೆ."
     }
   },
   "shell": {

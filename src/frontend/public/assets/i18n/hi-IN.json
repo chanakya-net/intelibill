@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "पासवर्ड 8 से 100 अक्षरों के बीच होना चाहिए।",
       "confirmPasswordRequired": "कृपया पासवर्ड दोबारा दर्ज करें।",
-      "passwordMismatch": "पासवर्ड मेल नहीं खाते।"
+      "passwordMismatch": "पासवर्ड मेल नहीं खाते।",
+      "phoneRequired": "फ़ोन नंबर आवश्यक है।"
     }
   },
   "shell": {

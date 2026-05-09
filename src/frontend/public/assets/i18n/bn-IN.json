@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "পাসওয়ার্ড 8 থেকে 100 অক্ষরের মধ্যে হতে হবে।",
       "confirmPasswordRequired": "দয়া করে পাসওয়ার্ড আবার লিখুন।",
-      "passwordMismatch": "পাসওয়ার্ড মিলছে না।"
+      "passwordMismatch": "পাসওয়ার্ড মিলছে না।",
+      "phoneRequired": "ফোন নম্বর আবশ্যক।"
     }
   },
   "shell": {

@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "પાસવર્ડ 8 થી 100 અક્ષરો વચ્ચે હોવો જોઈએ.",
       "confirmPasswordRequired": "કૃપા કરી પાસવર્ડ ફરી દાખલ કરો.",
-      "passwordMismatch": "પાસવર્ડ મેળ ખાતા નથી."
+      "passwordMismatch": "પાસવર્ડ મેળ ખાતા નથી.",
+      "phoneRequired": "ફોન નંબર આવશ્યક છે."
     }
   },
   "shell": {

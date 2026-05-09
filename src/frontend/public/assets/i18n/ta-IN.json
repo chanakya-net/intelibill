@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "கடவுச்சொல் 8 முதல் 100 எழுத்துகள் இருக்க வேண்டும்.",
       "confirmPasswordRequired": "கடவுச்சொல்லை மீண்டும் உள்ளிடவும்.",
-      "passwordMismatch": "கடவுச்சொற்கள் பொருந்தவில்லை."
+      "passwordMismatch": "கடவுச்சொற்கள் பொருந்தவில்லை.",
+      "phoneRequired": "தொலைபேசி எண் அவசியம்."
     }
   },
   "shell": {
