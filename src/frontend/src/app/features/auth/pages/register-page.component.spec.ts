@@ -59,6 +59,7 @@ describe('RegisterPageComponent', () => {
     component.form.controls.firstName.setValue('');
     component.form.controls.lastName.setValue('');
     component.form.controls.email.setValue('');
+    component.form.controls.phoneNumber.setValue('');
     component.form.controls.password.setValue('');
     component.form.controls.confirmPassword.setValue('');
 
@@ -87,6 +88,7 @@ describe('RegisterPageComponent', () => {
     component.form.controls.firstName.setValue('  Ada  ');
     component.form.controls.lastName.setValue('  Lovelace  ');
     component.form.controls.email.setValue('ada@example.com');
+    component.form.controls.phoneNumber.setValue('  +15551234567  ');
     component.form.controls.password.setValue('Password123!');
     component.form.controls.confirmPassword.setValue('Password123!');
     component.form.controls.rememberMe.setValue(false);
@@ -100,6 +102,7 @@ describe('RegisterPageComponent', () => {
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: 'ada@example.com',
+        phoneNumber: '+15551234567',
         password: 'Password123!',
         rememberMe: false,
       })

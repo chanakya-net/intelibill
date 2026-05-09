@@ -16,6 +16,10 @@ internal sealed class RegisterWithEmailCommandValidator : AbstractValidator<Regi
             .MinimumLength(8)
             .MaximumLength(100);
 
+        RuleFor(x => x.PhoneNumber)
+            .NotEmpty()
+            .MaximumLength(20);
+
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .MaximumLength(100);

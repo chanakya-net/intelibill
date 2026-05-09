@@ -44,7 +44,14 @@ describe('RegisterEffects', () => {
     TestBed.resetTestingModule();
   });
 
-  const requestedPayload = { firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'Pass1!', rememberMe: false };
+  const requestedPayload = {
+    firstName: 'A',
+    lastName: 'B',
+    email: 'a@b.com',
+    phoneNumber: '+15551234567',
+    password: 'Pass1!',
+    rememberMe: false,
+  };
 
   it('dispatches succeeded on successful registration', async () => {
     const mockSession = { accessToken: 'tok', refreshToken: 'ref', accessTokenExpiresAt: '', refreshTokenExpiresAt: '', rememberMe: false };
@@ -66,6 +73,19 @@ describe('RegisterEffects', () => {
 
     await expect(output).resolves.toEqual(
       RegisterActions.failed({ errorMessage: 'errors.auth.emailAlreadyInUse' })
+    );
+  });
+
+  it('dispatches failed with phoneAlreadyInUse error', async () => {
+    authService.registerWithEmail.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.PhoneAlreadyInUse' } }))
+    );
+
+    const output = firstValueFrom(effects.register$.pipe(take(1)));
+    actions$.next(RegisterActions.requested(requestedPayload));
+
+    await expect(output).resolves.toEqual(
+      RegisterActions.failed({ errorMessage: 'errors.auth.phoneAlreadyInUseByAnother' })
     );
   });
 

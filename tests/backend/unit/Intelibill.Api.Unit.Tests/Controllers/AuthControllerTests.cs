@@ -7,6 +7,7 @@ using Intelibill.Application.Common.Models;
 using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
+using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Enums;
@@ -33,7 +34,7 @@ public class AuthControllerTests
     [Fact]
     public async Task RegisterWithEmail_WhenSuccessful_ReturnsCreatedAtAction()
     {
-        var request = new RegisterWithEmailRequest("user@test.com", "Pass123!", "First", "Last");
+        var request = new RegisterWithEmailRequest("user@test.com", "Pass123!", "First", "Last", "+15551234567");
         var authResult = CreateAuthResult();
         ArrangeBusResponse<AuthResult>(authResult);
 
@@ -42,6 +43,15 @@ public class AuthControllerTests
         var created = Assert.IsType<CreatedAtActionResult>(result);
         Assert.Equal(nameof(AuthController.RegisterWithEmail), created.ActionName);
         Assert.Equal(authResult, created.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+            Arg.Is<RegisterWithEmailCommand>(command =>
+                command.Email == request.Email &&
+                command.Password == request.Password &&
+                command.FirstName == request.FirstName &&
+                command.LastName == request.LastName &&
+                command.PhoneNumber == request.PhoneNumber),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -50,7 +60,7 @@ public class AuthControllerTests
         ArrangeBusResponse<AuthResult>(Errors.Auth.EmailAlreadyInUse);
 
         var result = await _controller.RegisterWithEmail(
-            new RegisterWithEmailRequest("user@test.com", "Pass123!", "First", "Last"),
+            new RegisterWithEmailRequest("user@test.com", "Pass123!", "First", "Last", "+15551234567"),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);

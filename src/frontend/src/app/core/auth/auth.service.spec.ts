@@ -203,6 +203,35 @@ describe('AuthService', () => {
     http.verify();
   });
 
+  it('registers with email and sends phone number in the payload', () => {
+    const { service, http } = setup();
+    const result = buildAuthResult();
+    let emitted: AuthSession | undefined;
+
+    service
+      .registerWithEmail('First', 'Last', 'user@example.com', '+15551234567', 'pw', true)
+      .subscribe((session) => {
+        emitted = session;
+      });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.registerWithEmail);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      firstName: 'First',
+      lastName: 'Last',
+      email: 'user@example.com',
+      phoneNumber: '+15551234567',
+      password: 'pw',
+    });
+    request.flush(result);
+
+    expect(emitted?.accessToken).toBe(result.accessToken);
+    expect(storage.saveSession).toHaveBeenCalledTimes(1);
+    expect(storage.saveLastIdentifier).toHaveBeenCalledWith('user@example.com');
+
+    http.verify();
+  });
+
   it('clears last identifier when rememberMe is false', () => {
     const { service, http } = setup();
 

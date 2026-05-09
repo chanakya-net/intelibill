@@ -22,8 +22,17 @@ public sealed class RegisterWithEmailCommandHandler(
         if (await userRepository.ExistsByEmailAsync(command.Email, cancellationToken))
             return Errors.Auth.EmailAlreadyInUse;
 
+        var normalizedPhoneNumber = command.PhoneNumber.Trim();
+        if (await userRepository.ExistsByPhoneAsync(normalizedPhoneNumber, cancellationToken))
+            return Errors.Auth.PhoneAlreadyInUse;
+
         var passwordHash = passwordHasher.Hash(command.Password);
-        var user = User.CreateWithEmail(command.Email, passwordHash, command.FirstName, command.LastName);
+        var user = User.CreateWithEmail(
+            command.Email,
+            passwordHash,
+            command.FirstName,
+            command.LastName,
+            normalizedPhoneNumber);
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
 
         await userRepository.AddAsync(user, cancellationToken);

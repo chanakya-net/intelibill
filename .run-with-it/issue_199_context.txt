@@ -1,0 +1,35 @@
+# Issue #199 Context
+
+## Issue Details
+Number: 199
+Title: API: wire phone number into RegisterWithEmail endpoint request and command
+Status: ready-for-agent
+
+## What to build
+Expose `phoneNumber` in the API layer's email registration endpoint:
+
+1. Add `string PhoneNumber` to the `RegisterWithEmailRequest` record in `AuthController.cs`
+2. Pass `request.PhoneNumber` to `RegisterWithEmailCommand` in the `RegisterWithEmail` action method
+
+## Technical Context
+- Backend: ASP.NET Core 10, C# latest, .NET 10.0.105
+- API layer: minimal controllers; request records defined as nested `sealed record` inside the controller file
+- Tests: xUnit 2.9; API unit test project at `tests/backend/unit/Intelibill.Api.Unit.Tests`
+- No new packages; purely wiring the new command property through the existing request → command mapping
+- C# warnings treated as errors; keep build analyzer-clean
+
+## Architecture Alignment
+- Api layer depends on Application; it maps HTTP request records to Application commands
+- Request records are `sealed record` types; follow existing pattern in `AuthController.cs`
+
+## Verification
+- dotnet build src/backend/Intelibill.slnx
+- dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests
+
+## Dependencies
+- Slice 1 (#198) must establish `RegisterWithEmailCommand.PhoneNumber` first
+- This slice completes the API wiring
+
+## Ownership Scope
+- src/backend/Intelibill.Api/Controllers/AuthController.cs
+

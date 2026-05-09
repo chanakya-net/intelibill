@@ -89,6 +89,7 @@ export class AuthService {
     firstName: string,
     lastName: string,
     email: string,
+    phoneNumber: string,
     password: string,
     rememberMe: boolean
   ): Observable<AuthSession> {
@@ -96,6 +97,7 @@ export class AuthService {
       firstName,
       lastName,
       email,
+      phoneNumber,
       password,
     };
 

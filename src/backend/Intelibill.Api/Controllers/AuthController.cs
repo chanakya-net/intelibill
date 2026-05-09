@@ -28,12 +28,16 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     [HttpPost("register/email")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
     public async Task<IActionResult> RegisterWithEmail(
-
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
     {
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RegisterWithEmailCommand(request.Email, request.Password, request.FirstName, request.LastName),
+            new RegisterWithEmailCommand(
+                request.Email,
+                request.Password,
+                request.FirstName,
+                request.LastName,
+                request.PhoneNumber),
             cancellationToken);
 
         return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithEmail), auth));
@@ -197,7 +201,12 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
 
 // ── Request models ─────────────────────────────────────────────────────────────
 
-public sealed record RegisterWithEmailRequest(string Email, string Password, string FirstName, string LastName);
+public sealed record RegisterWithEmailRequest(
+    string Email,
+    string Password,
+    string FirstName,
+    string LastName,
+    string PhoneNumber);
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
 public sealed record LoginWithEmailRequest(string Email, string Password);
 public sealed record LoginRequest(string Identifier, string Password);

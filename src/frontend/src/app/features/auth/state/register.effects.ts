@@ -16,8 +16,8 @@ export class RegisterEffects {
   readonly register$ = createEffect(() =>
     this.actions$.pipe(
       ofType(RegisterActions.requested),
-      switchMap(({ firstName, lastName, email, password, rememberMe }) =>
-        this.authService.registerWithEmail(firstName, lastName, email, password, rememberMe).pipe(
+      switchMap(({ firstName, lastName, email, phoneNumber, password, rememberMe }) =>
+        this.authService.registerWithEmail(firstName, lastName, email, phoneNumber, password, rememberMe).pipe(
           map(() => RegisterActions.succeeded()),
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
@@ -48,6 +48,10 @@ function getRegisterErrorMessage(error: ApiErrorPayload | undefined): string {
 
   if (title === 'Auth.EmailAlreadyInUse') {
     return 'errors.auth.emailAlreadyInUse';
+  }
+
+  if (title === 'Auth.PhoneAlreadyInUse') {
+    return 'errors.auth.phoneAlreadyInUseByAnother';
   }
 
   return 'errors.auth.unableToCreateAccount';

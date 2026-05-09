@@ -57,7 +57,8 @@
     "validation": {
       "passwordLength": "Password must be between 8 and 100 characters.",
       "confirmPasswordRequired": "Please re-enter your password.",
-      "passwordMismatch": "Passwords do not match."
+      "passwordMismatch": "Passwords do not match.",
+      "phoneRequired": "Phone number is required."
     }
   },
   "shell": {
