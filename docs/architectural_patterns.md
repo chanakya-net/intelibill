@@ -169,13 +169,17 @@ Large catalog reads are streamed via `IAsyncEnumerable<T>` to avoid loading all 
 
 ### 14. Rate Limiting
 
-Per-endpoint rate limiting is applied via a custom filter attribute, not ASP.NET Core's built-in rate limiting middleware.
+MVC controller actions are rate-limited by default via a custom action filter, not ASP.NET Core's built-in rate limiting middleware.
 
 **Where it appears:**
-- Attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitAttribute.cs`
+- Default config: `src/backend/Intelibill.Api/appsettings.json` — `RateLimiting:Limit`, `PeriodInMinutes`, `BackoffMinutes`
+- Override attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitAttribute.cs`
+- Opt-out attribute: `src/backend/Intelibill.Api/Middleware/RateLimiting/DisableRateLimitAttribute.cs`
 - Filter: `src/backend/Intelibill.Api/Middleware/RateLimiting/RateLimitFilter.cs`
 
-**Convention:** Decorate sensitive endpoints (auth, password reset) with `[RateLimit]`. Configure limits via the attribute parameters.
+**Convention:** Configure global defaults in the `RateLimiting` section (`Limit = 100`, `PeriodInMinutes = 1`, `BackoffMinutes = 3` in committed config). Use `[RateLimit]` only when an action or controller needs stricter/custom limits. Use `[DisableRateLimit]` as the explicit manual exemption for a controller or action.
+
+This filter applies to MVC controllers only. Scalar/OpenAPI endpoints, Wolverine HTTP endpoints, and SignalR hubs are outside this MVC filter and need separate rate-limit protection if exposed.
 
 ---
 
