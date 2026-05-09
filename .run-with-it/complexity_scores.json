@@ -1,0 +1,39 @@
+{
+  "issues": [
+    {
+      "issue_number": 199,
+      "title": "API: wire phone number into RegisterWithEmail",
+      "complexity_level": "quite-easy",
+      "complexity_score": 11,
+      "per_dimension": {
+        "requirement_clarity": 9,
+        "technical_depth": 2,
+        "testing_scope": 1,
+        "integration_risk": 1,
+        "parallel_feasibility": 5,
+        "knowledge_requirements": 1,
+        "rollback_complexity": 1,
+        "blast_radius": 1,
+        "time_criticality": 1
+      }
+    },
+    {
+      "issue_number": 200,
+      "title": "Frontend: add phone number field",
+      "complexity_level": "easy",
+      "complexity_score": 16,
+      "per_dimension": {
+        "requirement_clarity": 9,
+        "technical_depth": 3,
+        "testing_scope": 2,
+        "integration_risk": 1,
+        "parallel_feasibility": 2,
+        "knowledge_requirements": 3,
+        "rollback_complexity": 1,
+        "blast_radius": 1,
+        "time_criticality": 1
+      }
+    }
+  ],
+  "complexity_source": "sub-agent"
+}

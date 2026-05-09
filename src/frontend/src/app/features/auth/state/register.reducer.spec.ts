@@ -11,7 +11,7 @@ describe('registerReducer', () => {
 
   it('sets submitting on requested', () => {
     const next = registerReducer(initial, RegisterActions.requested({
-      firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'Pass1!', rememberMe: false,
+      firstName: 'A', lastName: 'B', email: 'a@b.com', phoneNumber: '+15551234567', password: 'Pass1!', rememberMe: false,
     }));
     expect(next.submitting).toBe(true);
     expect(next.errorMessage).toBe('');
@@ -19,7 +19,7 @@ describe('registerReducer', () => {
 
   it('clears submitting on succeeded', () => {
     const submitting = registerReducer(initial, RegisterActions.requested({
-      firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'Pass1!', rememberMe: false,
+      firstName: 'A', lastName: 'B', email: 'a@b.com', phoneNumber: '+15551234567', password: 'Pass1!', rememberMe: false,
     }));
     const next = registerReducer(submitting, RegisterActions.succeeded());
     expect(next.submitting).toBe(false);

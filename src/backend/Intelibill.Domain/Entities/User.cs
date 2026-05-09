@@ -33,7 +33,12 @@ public sealed class User : BaseEntity
 
     private User() { }
 
-    public static User CreateWithEmail(string email, string passwordHash, string firstName, string lastName)
+    public static User CreateWithEmail(
+        string email,
+        string passwordHash,
+        string firstName,
+        string lastName,
+        string? phoneNumber = null)
     {
         var user = new User
         {
@@ -41,6 +46,7 @@ public sealed class User : BaseEntity
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
+            PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
         };
         user.AddDomainEvent(new UserRegisteredEvent(user.Id, user.Email));
         return user;

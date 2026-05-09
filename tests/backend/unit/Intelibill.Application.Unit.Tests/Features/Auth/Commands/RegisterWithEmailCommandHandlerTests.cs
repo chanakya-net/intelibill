@@ -25,7 +25,7 @@ public class RegisterWithEmailCommandHandlerTests
     [Fact]
     public async Task HandleAsync_EmailAlreadyInUse_ReturnsError()
     {
-        var command = new RegisterWithEmailCommand("test@test.com", "Pass123!", "First", "Last");
+        var command = new RegisterWithEmailCommand("test@test.com", "Pass123!", "First", "Last", "+1234567890");
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(true);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
@@ -35,10 +35,24 @@ public class RegisterWithEmailCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_PhoneAlreadyInUse_ReturnsError()
+    {
+        var command = new RegisterWithEmailCommand("test@test.com", "Pass123!", "First", "Last", "+1234567890");
+        _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(false);
+        _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.PhoneAlreadyInUse.Code);
+    }
+
+    [Fact]
     public async Task HandleAsync_ValidCommand_RegistersUserAndReturnsAuthResult()
     {
-        var command = new RegisterWithEmailCommand("test@test.com", "Pass123!", "First", "Last");
+        var command = new RegisterWithEmailCommand("test@test.com", "Pass123!", "First", "Last", "+1234567890");
         _userRepository.ExistsByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(false);
+        _userRepository.ExistsByPhoneAsync(command.PhoneNumber, Arg.Any<CancellationToken>()).Returns(false);
         _passwordHasher.Hash(command.Password).Returns("hashedPassword");
 
         var expiry = DateTimeOffset.UtcNow.AddMinutes(15);
@@ -53,10 +67,12 @@ public class RegisterWithEmailCommandHandlerTests
         Assert.Equal("accessToken", result.Value.AccessToken);
         Assert.Equal("refreshToken", result.Value.RefreshToken);
         Assert.Equal("test@test.com", result.Value.User.Email);
+        Assert.Equal(command.PhoneNumber, result.Value.User.PhoneNumber);
         Assert.Equal("First", result.Value.User.FirstName);
 
         await _userRepository.Received(1).AddAsync(Arg.Is<User>(u =>
             string.Equals(u.Email, command.Email, StringComparison.OrdinalIgnoreCase)
+            && u.PhoneNumber == command.PhoneNumber
             && u.PasswordHash == "hashedPassword"), Arg.Any<CancellationToken>());
         await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());

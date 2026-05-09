@@ -25,6 +25,7 @@
         "set": true,
         "uname": true,
         "command": true,
-        "git rev-parse": true
+        "git rev-parse": true,
+        "mkdir": true
     }
 }

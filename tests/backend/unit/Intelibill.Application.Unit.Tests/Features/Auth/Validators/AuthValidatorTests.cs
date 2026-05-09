@@ -51,22 +51,28 @@ public class RegisterWithEmailCommandValidatorTests
     private readonly RegisterWithEmailCommandValidator _v = new();
 
     [Fact] public void Validate_WhenEmailEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("", "Pass1234!", "First", "Last")).ShouldHaveValidationErrorFor(x => x.Email);
+        _v.TestValidate(new RegisterWithEmailCommand("", "Pass1234!", "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Email);
 
     [Fact] public void Validate_WhenPasswordTooShort_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "short", "First", "Last")).ShouldHaveValidationErrorFor(x => x.Password);
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "short", "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Password);
 
     [Fact] public void Validate_WhenPasswordTooLong_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", new string('x', 101), "First", "Last")).ShouldHaveValidationErrorFor(x => x.Password);
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", new string('x', 101), "First", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.Password);
 
     [Fact] public void Validate_WhenFirstNameEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "", "Last")).ShouldHaveValidationErrorFor(x => x.FirstName);
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "", "Last", "+1234567890")).ShouldHaveValidationErrorFor(x => x.FirstName);
 
     [Fact] public void Validate_WhenLastNameEmpty_ReturnsError() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "")).ShouldHaveValidationErrorFor(x => x.LastName);
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "", "+1234567890")).ShouldHaveValidationErrorFor(x => x.LastName);
+
+    [Fact] public void Validate_WhenPhoneEmpty_ReturnsError() =>
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", "")).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
+
+    [Fact] public void Validate_WhenPhoneTooLong_ReturnsError() =>
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", new string('+', 21))).ShouldHaveValidationErrorFor(x => x.PhoneNumber);
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last")).ShouldNotHaveAnyValidationErrors();
+        _v.TestValidate(new RegisterWithEmailCommand("a@b.com", "Pass1234!", "First", "Last", "+919876543210")).ShouldNotHaveAnyValidationErrors();
 }
 
 public class RegisterWithPhoneCommandValidatorTests

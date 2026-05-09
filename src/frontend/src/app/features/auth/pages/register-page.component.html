@@ -69,6 +69,22 @@
         </div>
 
         <div class="field-wrap space-y-1.5">
+          <label for="phoneNumber">{{ 'auth.phoneNumber' | transloco }}</label>
+          <input
+            id="phoneNumber"
+            type="tel"
+            pInputText
+            formControlName="phoneNumber"
+            autocomplete="tel"
+            class="w-full"
+            [pt]="phoneNumberInputPt"
+          />
+          @if (form.controls.phoneNumber.invalid && form.controls.phoneNumber.touched) {
+            <p class="field-error">{{ 'register.validation.phoneRequired' | transloco }}</p>
+          }
+        </div>
+
+        <div class="field-wrap space-y-1.5">
           <label for="password">{{ 'auth.password' | transloco }}</label>
           <p-password
             inputId="password"

@@ -54,6 +54,7 @@ export class RegisterPageComponent implements OnInit {
       firstName: ['', [Validators.required, Validators.maxLength(100)]],
       lastName: ['', [Validators.required, Validators.maxLength(100)]],
       email: ['', [Validators.required, Validators.email]],
+      phoneNumber: ['', [Validators.required, Validators.maxLength(20)]],
       password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
       confirmPassword: ['', [Validators.required]],
       rememberMe: [true],
@@ -71,6 +72,10 @@ export class RegisterPageComponent implements OnInit {
 
   readonly emailInputPt = {
     root: { class: 'register-email-input' },
+  };
+
+  readonly phoneNumberInputPt = {
+    root: { class: 'register-phone-number-input' },
   };
 
   readonly passwordInputPt = {
@@ -95,7 +100,7 @@ export class RegisterPageComponent implements OnInit {
       return;
     }
 
-    const { firstName, lastName, email, password, rememberMe } = this.form.getRawValue();
+    const { firstName, lastName, email, phoneNumber, password, rememberMe } = this.form.getRawValue();
 
     this.store.dispatch(RegisterActions.clearError());
     this.store.dispatch(
@@ -103,6 +108,7 @@ export class RegisterPageComponent implements OnInit {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
+        phoneNumber: phoneNumber.trim(),
         password,
         rememberMe,
       }),
