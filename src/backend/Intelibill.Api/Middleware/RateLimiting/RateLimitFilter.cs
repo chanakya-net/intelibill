@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Distributed;
@@ -9,20 +7,17 @@ namespace Intelibill.Api.Middleware.RateLimiting;
 public class RateLimitFilter : IAsyncActionFilter
 {
     private readonly IDistributedCache _cache;
-    private readonly int _limit;
-    private readonly int _periodInMinutes;
-    private readonly int _backoffMinutes;
+    private readonly IRateLimitPolicyResolver _policyResolver;
 
-    public RateLimitFilter(IDistributedCache cache, int limit, int periodInMinutes, int backoffMinutes)
+    public RateLimitFilter(IDistributedCache cache, IRateLimitPolicyResolver policyResolver)
     {
         _cache = cache;
-        _limit = limit;
-        _periodInMinutes = periodInMinutes;
-        _backoffMinutes = backoffMinutes;
+        _policyResolver = policyResolver;
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
+        var policy = _policyResolver.Resolve(context);
         var ipAddress = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var user = context.HttpContext.User.Identity?.IsAuthenticated == true
             ? context.HttpContext.User.FindFirst("sub")?.Value ?? "anonymous"
@@ -49,14 +44,14 @@ public class RateLimitFilter : IAsyncActionFilter
             currentCount = BitConverter.ToInt32(cachedValue, 0);
         }
 
-        if (currentCount >= _limit)
+        if (currentCount >= policy.Limit)
         {
             // Apply backoff if specified
-            if (_backoffMinutes > 0)
+            if (policy.BackoffMinutes > 0)
             {
                 await _cache.SetAsync(blockKey, BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()), new DistributedCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_backoffMinutes)
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(policy.BackoffMinutes)
                 });
             }
 
@@ -68,7 +63,7 @@ public class RateLimitFilter : IAsyncActionFilter
         currentCount++;
         var options = new DistributedCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_periodInMinutes)
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(policy.PeriodInMinutes)
         };
 
         await _cache.SetAsync(cacheKey, BitConverter.GetBytes(currentCount), options);

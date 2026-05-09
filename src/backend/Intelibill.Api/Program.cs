@@ -2,6 +2,7 @@ using System.Text;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
+using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Api.Services;
 using Intelibill.Application;
@@ -29,12 +30,14 @@ builder.AddInteliBillSerilog();
 builder.Services.AddInteliBillOpenTelemetry(configuration);
 
 // ── Core services ─────────────────────────────────────────────────────────────
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => { options.Filters.AddService<RateLimitFilter>(); })
     .AddJsonOptions(opts =>
         opts.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
+builder.Services.AddScoped<RateLimitFilter>();
+builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
 
 builder.Services.AddCors(options =>
 {
@@ -59,6 +62,11 @@ builder.Services.AddWolverineHttp();
 // ── App options ───────────────────────────────────────────────────────────────
 builder.Services.AddOptions<AppOptions>()
     .Bind(configuration.GetSection(AppOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<RateLimitingOptions>()
+    .Bind(configuration.GetSection(RateLimitingOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
