@@ -1,1 +1,0 @@
-{"nodes": [{"id": "src_backend_intelibill_application_features_expenses_commands_recordexpense_recordexpensecommand_cs", "label": "RecordExpenseCommand.cs", "file_type": "code", "source_file": "src/backend/Intelibill.Application/Features/Expenses/Commands/RecordExpense/RecordExpenseCommand.cs", "source_location": "L1"}], "edges": [], "raw_calls": []}
