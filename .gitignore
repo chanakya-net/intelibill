@@ -24,9 +24,12 @@ yarn-error.log*
 src/frontend/src/environments/*.js
 src/frontend/src/environments/*.js.map
 
-# Graphify generated files
+# Graphify generated files and analysis output
 graphify-out/
+graphify_analysis/
+graphify_analysis.*
 .graphify*
+.opencode/plugins/graphify.js
 
 # Service worker
 ngsw-worker.js
