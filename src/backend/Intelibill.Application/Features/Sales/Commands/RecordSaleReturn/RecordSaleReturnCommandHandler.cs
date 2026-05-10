@@ -46,9 +46,9 @@ public sealed class RecordSaleReturnCommandHandler(
         if (validated.Membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Sale.ReturnForbidden;
 
-        var dueOverrideValidation = ValidateDueOverrideWarnings(validated.Calculation.Warnings);
-        if (dueOverrideValidation.IsError)
-            return dueOverrideValidation.Errors;
+        var warningValidation = ValidateWarnings(validated.Calculation.Warnings);
+        if (warningValidation.IsError)
+            return warningValidation.Errors;
 
         var processedAt = DateTimeOffset.UtcNow;
         var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
@@ -156,17 +156,19 @@ public sealed class RecordSaleReturnCommandHandler(
         return Result.Success;
     }
 
-    private static ErrorOr<Success> ValidateDueOverrideWarnings(
+    private static ErrorOr<Success> ValidateWarnings(
         IReadOnlyList<SaleReturnCalculationWarning> warnings)
     {
         var errors = warnings
             .Where(warning =>
                 warning.Code == "sale_return.note_required.due_override"
-                || warning.Code == "sale_return.due_override_exceeds_outstanding")
+                || warning.Code == "sale_return.due_override_exceeds_outstanding"
+                || warning.Code == "sale_return.note_required.refund_override")
             .Select(warning => warning.Code switch
             {
                 "sale_return.note_required.due_override" => Errors.Sale.ReturnDueOverrideReasonRequired,
                 "sale_return.due_override_exceeds_outstanding" => Errors.Sale.ReturnDueReductionExceedsOutstandingDue,
+                "sale_return.note_required.refund_override" => Errors.Sale.ReturnRefundOverrideReasonRequired,
                 _ => Errors.Sale.ReturnDueOverrideReasonRequired,
             })
             .ToList();

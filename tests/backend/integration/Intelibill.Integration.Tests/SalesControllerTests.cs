@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -977,6 +978,207 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.True(preview.GetProperty("hasFinancialAccess").GetBoolean());
         Assert.Single(preview.GetProperty("lines").EnumerateArray());
         Assert.True(preview.GetProperty("warnings").GetArrayLength() >= 0);
+    }
+
+    [Fact]
+    public async Task SaleReturn_UsesDiscountedPaidAmountForDefaultAndRequiresReasonForOverride()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-DISC-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var previewSaleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/preview");
+        previewSaleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        previewSaleRequest.Content = JsonContent.Create(new
+        {
+            saleDiscount = new { type = (int)InstantDiscountType.Flat, value = 5m },
+            items = new[]
+            {
+                new
+                {
+                    inventoryBatchId = batchId,
+                    barcode,
+                    batchNumber = "B-DISC-001",
+                    itemName = "Discount Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    itemDiscount = new { type = (int)InstantDiscountType.Flat, value = 10m },
+                    clientLineKey = (string?)null,
+                },
+            },
+        });
+
+        var previewSaleResponse = await client.SendAsync(previewSaleRequest);
+        Assert.Equal(HttpStatusCode.OK, previewSaleResponse.StatusCode);
+        var previewSale = await previewSaleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var discountedTotal = previewSale.GetProperty("totalAmount").GetDecimal();
+
+        using var recordSaleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        recordSaleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordSaleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Discount Return Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = discountedTotal,
+            dueAmount = 0m,
+            saleDiscount = new { type = (int)InstantDiscountType.Flat, value = 5m },
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-DISC-001",
+                    itemName = "Discount Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                    itemDiscount = new { type = (int)InstantDiscountType.Flat, value = 10m },
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(recordSaleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItem = sale.Items.Single();
+
+        var expectedMaxRefund = Math.Round(saleItem.TotalAmount / saleItem.Quantity, 2, MidpointRounding.AwayFromZero);
+        var overrideRefundAmount = expectedMaxRefund + 1m;
+
+        using var previewReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns/preview");
+        previewReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        previewReturnRequest.Content = JsonContent.Create(new
+        {
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            items = new[]
+            {
+                new
+                {
+                    saleItemId = saleItem.Id,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = (decimal?)null,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var previewReturnResponse = await client.SendAsync(previewReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, previewReturnResponse.StatusCode);
+        var previewReturn = await previewReturnResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var previewLine = previewReturn.GetProperty("lines").EnumerateArray().Single();
+        var financial = previewLine.GetProperty("financial");
+        Assert.Equal(expectedMaxRefund, financial.GetProperty("maxRefundAmount").GetDecimal());
+        Assert.Equal(expectedMaxRefund, financial.GetProperty("approvedRefundAmount").GetDecimal());
+
+        using var previewOverrideRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns/preview");
+        previewOverrideRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        previewOverrideRequest.Content = JsonContent.Create(new
+        {
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            items = new[]
+            {
+                new
+                {
+                    saleItemId = saleItem.Id,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = overrideRefundAmount,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var previewOverrideResponse = await client.SendAsync(previewOverrideRequest);
+        Assert.Equal(HttpStatusCode.OK, previewOverrideResponse.StatusCode);
+        var previewOverride = await previewOverrideResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var previewWarnings = previewOverride.GetProperty("warnings")
+            .EnumerateArray()
+            .Select(w => w.GetProperty("code").GetString()!)
+            .ToList();
+        Assert.Contains("sale_return.note_required.refund_override", previewWarnings);
+
+        using var recordOverrideNoReasonRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordOverrideNoReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordOverrideNoReasonRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Override refund",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId = saleItem.Id,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = overrideRefundAmount,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var recordNoReasonResponse = await client.SendAsync(recordOverrideNoReasonRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, recordNoReasonResponse.StatusCode);
+        var problem = await recordNoReasonResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("SaleReturn.RefundOverrideReasonRequired", problem.GetProperty("title").GetString());
+
+        using var recordOverrideWithReasonRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordOverrideWithReasonRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordOverrideWithReasonRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Override refund",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId = saleItem.Id,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = overrideRefundAmount,
+                    notes = "Goodwill",
+                },
+            },
+        });
+
+        var recordWithReasonResponse = await client.SendAsync(recordOverrideWithReasonRequest);
+        Assert.Equal(HttpStatusCode.OK, recordWithReasonResponse.StatusCode);
+        var recordedSale = await recordWithReasonResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var returnEntry = recordedSale.GetProperty("returns").EnumerateArray().Single();
+        var returnItem = returnEntry.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(overrideRefundAmount, returnItem.GetProperty("approvedRefundAmount").GetDecimal());
+
+        var persistedReturn = await db.SaleReturns.Include(r => r.Items).SingleAsync(r => r.SaleId == saleId);
+        var persistedItem = persistedReturn.Items.Single();
+        Assert.Equal(expectedMaxRefund, persistedItem.MaxRefundAmount);
+        Assert.Equal(overrideRefundAmount, persistedItem.ApprovedRefundAmount);
+        Assert.Equal("Goodwill", persistedItem.Notes);
     }
 
     [Fact]

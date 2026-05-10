@@ -74,19 +74,32 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
         SaleReturnLineCalculationRequest line,
         List<SaleReturnCalculationWarning> warnings)
     {
+        var ratio = line.OriginalSaleItemQuantity <= 0m
+            ? 0m
+            : line.Quantity / line.OriginalSaleItemQuantity;
+        ratio = Math.Clamp(ratio, 0m, 1m);
+
+        var taxableAmount = RoundMoney(line.OriginalPaidTaxableAmount * ratio);
+        var taxAmount = RoundMoney(line.OriginalPaidTaxAmount * ratio);
+
+        var discountedMaxRefundAmount = RoundMoney(line.OriginalPaidTotalAmount * ratio);
         var grossOriginalValue = RoundMoney(line.Quantity * line.OriginalSalesPrice);
-        var taxAmount = CalculateTaxAmount(grossOriginalValue, line.OriginalTaxRatePercent, line.OriginalIsPriceIncludingTax);
-        var taxableAmount = line.OriginalIsPriceIncludingTax
-            ? RoundMoney(grossOriginalValue - taxAmount)
-            : grossOriginalValue;
-        var maxRefundAmount = line.OriginalIsPriceIncludingTax
+        var taxAmountBeforeDiscount = CalculateTaxAmount(
+            grossOriginalValue,
+            line.OriginalTaxRatePercent,
+            line.OriginalIsPriceIncludingTax);
+        var maxRefundOverrideAmount = line.OriginalIsPriceIncludingTax
             ? grossOriginalValue
-            : RoundMoney(grossOriginalValue + taxAmount);
-        var requestedRefund = line.ApprovedRefundAmount ?? maxRefundAmount;
-        var approvedRefundAmount = RoundMoney(Math.Clamp(requestedRefund, 0m, maxRefundAmount));
+            : RoundMoney(grossOriginalValue + taxAmountBeforeDiscount);
+
+        var requestedRefund = line.ApprovedRefundAmount ?? discountedMaxRefundAmount;
+        var approvedRefundAmount = RoundMoney(Math.Clamp(requestedRefund, 0m, maxRefundOverrideAmount));
         var notes = NormalizeOptional(line.Notes);
 
-        AddRequiredNoteWarnings(line, maxRefundAmount, approvedRefundAmount, notes, warnings);
+        AddRequiredNoteWarnings(line, discountedMaxRefundAmount, approvedRefundAmount, notes, warnings);
+        AddRefundOverrideWarnings(discountedMaxRefundAmount, approvedRefundAmount, notes, warnings);
+
+        var maxRefundAmount = discountedMaxRefundAmount;
 
         return new SaleReturnLineCalculation(
             line.SaleItemId,
@@ -153,6 +166,28 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
                 "Add a note when approving a partial refund.",
                 SaleReturnWarningSeverity.Warning));
         }
+    }
+
+    private static void AddRefundOverrideWarnings(
+        decimal maxRefundAmount,
+        decimal approvedRefundAmount,
+        string? notes,
+        List<SaleReturnCalculationWarning> warnings)
+    {
+        if (approvedRefundAmount <= maxRefundAmount)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            return;
+        }
+
+        warnings.Add(new SaleReturnCalculationWarning(
+            "sale_return.note_required.refund_override",
+            "Add a note when approving a refund above the discounted paid amount.",
+            SaleReturnWarningSeverity.Warning));
     }
 
     private static decimal RoundMoney(decimal value) =>

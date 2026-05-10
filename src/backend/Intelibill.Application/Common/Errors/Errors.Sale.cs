@@ -117,6 +117,9 @@ public static partial class Errors
         public static Error ReturnDueReductionExceedsOutstandingDue =>
             Error.Validation("SaleReturn.DueReductionExceedsOutstandingDue", "Due reduction cannot exceed current outstanding due.");
 
+        public static Error ReturnRefundOverrideReasonRequired =>
+            Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
+
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
 
