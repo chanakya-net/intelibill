@@ -78,6 +78,7 @@ describe('NewSalePageComponent', () => {
           barcode: createQrLikeBarcode(),
           itemName: 'Oreo',
           batchNumber: 'B-01',
+          inventoryBatchId: 'batch-1',
           quantity: 10,
           salesPrice: 50,
           mrp: 60,
@@ -144,6 +145,7 @@ describe('NewSalePageComponent', () => {
     expect(inventoryService.getAvailableBatchesBySearchTerm).toHaveBeenCalledWith(barcode);
     expect(component.cart()).toHaveLength(1);
     expect(component.cart()[0].quantity).toBe(1);
+    expect(component.cart()[0].inventoryBatchId).toBe('batch-1');
     expect(component.showBatchPicker()).toBe(false);
     expect(component.searchInput()).toBe('');
   });
@@ -192,6 +194,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'A',
         itemName: 'Tax Included',
         batchNumber: 'B-INC',
+        inventoryBatchId: 'batch-inc',
         quantity: 2,
         availableQuantity: 5,
         salesPrice: 118,
@@ -204,6 +207,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'B',
         itemName: 'Tax Excluded',
         batchNumber: 'B-EXC',
+        inventoryBatchId: 'batch-exc',
         quantity: 1,
         availableQuantity: 3,
         salesPrice: 100,
@@ -229,6 +233,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'A',
         itemName: 'Tax Included',
         batchNumber: 'B-INC',
+        inventoryBatchId: 'batch-inc',
         quantity: 1,
         availableQuantity: 5,
         salesPrice: 118,
@@ -253,6 +258,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'A',
         itemName: 'Item A',
         batchNumber: 'B-A',
+        inventoryBatchId: 'batch-a',
         quantity: 1,
         availableQuantity: 5,
         salesPrice: 100,
@@ -265,6 +271,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'B',
         itemName: 'Item B',
         batchNumber: 'B-B',
+        inventoryBatchId: 'batch-b',
         quantity: 1,
         availableQuantity: 5,
         salesPrice: 50,
@@ -352,6 +359,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'A',
         itemName: 'Item A',
         batchNumber: 'B-A',
+        inventoryBatchId: 'batch-a',
         quantity: 1,
         availableQuantity: 5,
         salesPrice: 100,
@@ -364,6 +372,7 @@ describe('NewSalePageComponent', () => {
         barcode: 'B',
         itemName: 'Item B',
         batchNumber: 'B-B',
+        inventoryBatchId: 'batch-b',
         quantity: 1,
         availableQuantity: 5,
         salesPrice: 50,

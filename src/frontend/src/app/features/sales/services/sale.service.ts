@@ -22,6 +22,8 @@ export interface RecordSaleItemRequest {
   readonly mrp: number;
   readonly taxRatePercent: number;
   readonly isPriceIncludingTax: boolean;
+  readonly inventoryBatchId: string;
+  readonly clientLineKey: string | null;
 }
 
 export interface RecordSaleRequest {

@@ -22,4 +22,6 @@ public sealed record RecordSaleItemCommand(
     decimal SalesPrice,
     decimal Mrp,
     decimal TaxRatePercent,
-    bool IsPriceIncludingTax);
+    bool IsPriceIncludingTax,
+    Guid InventoryBatchId,
+    string? ClientLineKey = null);

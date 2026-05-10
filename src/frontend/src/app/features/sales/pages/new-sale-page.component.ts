@@ -469,6 +469,8 @@ export class NewSalePageComponent {
       mrp: item.mrp,
       taxRatePercent: item.taxRatePercent,
       isPriceIncludingTax: item.taxIncluded,
+      inventoryBatchId: item.inventoryBatchId,
+      clientLineKey: item.inventoryBatchId,
     }));
 
     const customerName = this.customerForm.controls.customerName.value.trim() || null;
@@ -595,7 +597,7 @@ export class NewSalePageComponent {
 
     this.cart.update((items) => {
       const existingIndex = items.findIndex(
-        (item) => item.barcode === barcode && item.batchNumber === batch.batchNumber,
+        (item) => item.inventoryBatchId === batch.inventoryBatchId,
       );
 
       if (existingIndex >= 0) {
@@ -629,6 +631,7 @@ export class NewSalePageComponent {
           barcode,
           itemName: batch.itemName,
           batchNumber: batch.batchNumber,
+          inventoryBatchId: batch.inventoryBatchId,
           quantity: quantityToAdd,
           availableQuantity: batch.quantity,
           salesPrice: batch.salesPrice,

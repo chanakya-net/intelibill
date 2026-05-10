@@ -15,17 +15,17 @@ public class SalesServicesTests
         var item = MakeItem(shopId, "BC-001", "Rice");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
-        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Wheat", 2m, 81m, 101m, 121m, 19m, false);
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Wheat", 2m, 81m, 101m, 121m, 19m, false, batch.Id);
         var warnings = new List<string>();
 
         var itemRepository = Substitute.For<IItemRepository>();
         var batchRepository = Substitute.For<IInventoryBatchRepository>();
         var inventoryRepository = Substitute.For<IInventoryRepository>();
 
-        itemRepository.GetByBarcodesAsync(shopId, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([item]);
-        batchRepository.GetByItemIdsAndBatchNumbersAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
-            .Returns([batch]);
         inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([inventory]);
 
@@ -37,6 +37,28 @@ public class SalesServicesTests
         Assert.Same(commandLine, line.Command);
         Assert.True(line.HasPriceMismatch);
         Assert.Equal(2, warnings.Count);
+        await itemRepository.Received(1).GetByIdsAsync(shopId, Arg.Is<IReadOnlyList<Guid>>(ids => ids.SequenceEqual(new[] { item.Id })), Arg.Any<CancellationToken>());
+        await batchRepository.Received(1).GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenBatchIdMissing_ReturnsBatchNotFound()
+    {
+        var shopId = Guid.NewGuid();
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, Guid.NewGuid());
+
+        batchRepository.GetByIdWithItemAsync(commandLine.InventoryBatchId, shopId, Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.BatchNotFound", result.FirstError.Code);
+        await batchRepository.Received(1).GetByIdWithItemAsync(commandLine.InventoryBatchId, shopId, Arg.Any<CancellationToken>());
     }
 
     private static Item MakeItem(Guid shopId, string barcode, string name) =>

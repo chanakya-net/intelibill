@@ -94,7 +94,19 @@ describe('SaleService', () => {
       paymentMethod: 1,
       paidAmount: 200,
       dueAmount: 0,
-      items: [{ barcode: 'BC-001', batchNumber: 'B-01', itemName: 'Item 1', quantity: 2, costPrice: 80, salesPrice: 100, mrp: 120, taxRatePercent: 18, isPriceIncludingTax: false }],
+      items: [{
+        barcode: 'BC-001',
+        batchNumber: 'B-01',
+        itemName: 'Item 1',
+        quantity: 2,
+        costPrice: 80,
+        salesPrice: 100,
+        mrp: 120,
+        taxRatePercent: 18,
+        isPriceIncludingTax: false,
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'batch-1',
+      }],
     };
 
     service.recordSale(payload).subscribe((result) => {

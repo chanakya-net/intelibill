@@ -137,7 +137,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await SetupInventoryAsync(client, ownerToken, barcode);
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
 
         // Item: 80 cost, 100 sales, 18% tax -> 118 total. 1 unit.
         // Revenue Before Tax: 100
@@ -169,6 +169,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });

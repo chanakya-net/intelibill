@@ -160,6 +160,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -206,7 +207,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -231,6 +233,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -253,7 +256,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -278,6 +282,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -326,7 +331,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -351,6 +357,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -392,7 +399,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerTokenA = await CreateShopAsync(client, tokenA);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerTokenA, barcode, "B-001", 50m);
+        var inboundBody = await AddInventoryAsync(client, ownerTokenA, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenA);
@@ -417,6 +425,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -445,7 +454,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         Guid customerId;
         using (var addCustomerRequest = new HttpRequestMessage(HttpMethod.Post, "/api/customers"))
@@ -488,6 +498,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -557,7 +568,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -582,6 +594,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -659,6 +672,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -745,6 +759,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -798,7 +813,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -823,6 +839,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -885,7 +902,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -910,6 +928,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });

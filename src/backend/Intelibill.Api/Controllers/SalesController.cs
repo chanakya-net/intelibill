@@ -51,7 +51,9 @@ public sealed class SalesController : AuthenticatedControllerBase
                     i.SalesPrice,
                     i.Mrp,
                     i.TaxRatePercent,
-                    i.IsPriceIncludingTax)).ToList()),
+                    i.IsPriceIncludingTax,
+                    i.InventoryBatchId,
+                    i.ClientLineKey)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
@@ -220,7 +222,9 @@ public sealed record RecordSaleItemRequest(
     decimal SalesPrice,
     decimal Mrp,
     decimal TaxRatePercent,
-    bool IsPriceIncludingTax);
+    bool IsPriceIncludingTax,
+    Guid InventoryBatchId,
+    string? ClientLineKey = null);
 
 public sealed record PreviewSaleReturnRequest(
     decimal? DueReductionOverrideAmount,

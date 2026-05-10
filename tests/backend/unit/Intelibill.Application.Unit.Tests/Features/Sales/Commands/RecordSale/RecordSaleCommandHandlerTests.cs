@@ -50,10 +50,11 @@ public class RecordSaleCommandHandlerTests
     private static RecordSaleCommand MakeCommand(
         Guid shopId, Guid actorId,
         string barcode = "BC-001", string batchNumber = "B-01",
-        decimal quantity = 5m) =>
+        decimal quantity = 5m,
+        Guid? inventoryBatchId = null) =>
         new(actorId, shopId, null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
-            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
 
     [Fact]
     public async Task HandleAsync_WhenValid_CreatesSaleAndDeductsStock()
@@ -143,8 +144,8 @@ public class RecordSaleCommandHandlerTests
         var inv2 = MakeInventory(shopId, item2.Id);
 
         var command = new RecordSaleCommand(actorId, shopId, null, null, null, PaymentMethod.UPI, 842m, 0m,
-            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false),
-             new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false)]);
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
+             new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id)]);
 
         var line1 = new ValidatedSaleLine(command.Items[0], item1, batch1, inv1, false);
         var line2 = new ValidatedSaleLine(command.Items[1], item2, batch2, inv2, false);
@@ -172,7 +173,7 @@ public class RecordSaleCommandHandlerTests
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
         var command = new RecordSaleCommand(actorId, shopId, null, "Guest Raj", "+919999999999", PaymentMethod.Cash, 590m, 0m,
-            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
 
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(),
@@ -206,8 +207,8 @@ public class RecordSaleCommandHandlerTests
 
         var command = new RecordSaleCommand(actorId, shopId, null, "Guest", "+911111111111", PaymentMethod.Cash, 842m, 0m,
             [
-                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false),
-                new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false),
+                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
+                new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id),
             ]);
 
         var line1 = new ValidatedSaleLine(command.Items[0], item1, batch1, inv1, false);
@@ -238,7 +239,7 @@ public class RecordSaleCommandHandlerTests
         var inventory = MakeInventory(shopId, item.Id);
 
         var command = new RecordSaleCommand(actorId, shopId, null, "Walk In", "+919999999999", PaymentMethod.Credit, 78m, 40m,
-            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
 
@@ -269,7 +270,7 @@ public class RecordSaleCommandHandlerTests
         // qty=1, price=100, tax=18% exclusive → total=118, but PaidAmount=999 → mismatch
         var command = new RecordSaleCommand(actorId, shopId, null, "Ravi", "+919876543210",
             PaymentMethod.Cash, PaidAmount: 999m, DueAmount: 0m,
-            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
 
@@ -297,7 +298,7 @@ public class RecordSaleCommandHandlerTests
         // qty=1, price=100, tax=18% → total=118, paidAmount=78, dueAmount=40
         var command = new RecordSaleCommand(actorId, shopId, customer.Id, null, null,
             PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
-            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
 
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())

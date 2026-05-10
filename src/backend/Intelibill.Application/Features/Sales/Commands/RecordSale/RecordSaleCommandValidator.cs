@@ -25,6 +25,11 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .WithErrorCode("Sale.BatchNumberRequired")
                 .WithMessage("Batch number is required.");
 
+            item.RuleFor(i => i.InventoryBatchId)
+                .NotEmpty()
+                .WithErrorCode("Sale.InventoryBatchIdRequired")
+                .WithMessage("Inventory batch id is required.");
+
             item.RuleFor(i => i.Quantity)
                 .GreaterThan(0)
                 .WithErrorCode("Sale.QuantityMustBePositive")

@@ -21,7 +21,7 @@ public class RecordSaleCommandValidatorTests
             items ?? [ValidItem()]);
 
     private static RecordSaleItemCommand ValidItem() =>
-        new("BARCODE-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false);
+        new("BARCODE-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.NewGuid());
 
     [Fact]
     public void Validate_WhenItemsEmpty_ReturnsError()
@@ -36,7 +36,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenItemBarcodeEmpty_ReturnsError()
     {
-        var command = ValidCommand([new("", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
+        var command = ValidCommand([new("", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -46,7 +46,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenItemBatchNumberEmpty_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -54,9 +54,19 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenInventoryBatchIdEmpty_ReturnsError()
+    {
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.Empty)]);
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor("Items[0].InventoryBatchId");
+    }
+
+    [Fact]
     public void Validate_WhenQuantityIsZero_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 0m, 80m, 100m, 120m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 0m, 80m, 100m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -66,7 +76,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenQuantityIsNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", -1m, 80m, 100m, 120m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", -1m, 80m, 100m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -76,7 +86,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenCostPriceIsNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, -1m, 100m, 120m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, -1m, 100m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -86,7 +96,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenTaxRateExceedsHundred_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 101m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 101m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -96,7 +106,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenTaxRateIsNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, -1m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, -1m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -114,7 +124,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenSalesPriceIsNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, -1m, 120m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, -1m, 120m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 
@@ -124,7 +134,7 @@ public class RecordSaleCommandValidatorTests
     [Fact]
     public void Validate_WhenMrpIsNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, -1m, 18m, false)]);
+        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, -1m, 18m, false, Guid.NewGuid())]);
 
         var result = _validator.TestValidate(command);
 

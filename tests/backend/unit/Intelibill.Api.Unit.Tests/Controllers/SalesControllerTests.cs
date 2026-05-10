@@ -41,7 +41,7 @@ public class SalesControllerTests
         };
     }
 
-    private static RecordSaleRequest CreateRequest() =>
+    private static RecordSaleRequest CreateRequest(Guid? inventoryBatchId = null) =>
         new(
             null,
             "Ravi Kumar",
@@ -49,7 +49,7 @@ public class SalesControllerTests
             PaymentMethod.Cash,
             500m,
             0m,
-            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false)]);
+            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
 
     private static SaleDto CreateDto() =>
         new(
@@ -91,15 +91,17 @@ public class SalesControllerTests
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
         SetUserClaims(
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
+        var request = CreateRequest(batchId);
         var dto = CreateDto();
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(dto);
 
-        var result = await _controller.RecordSale(CreateRequest(), CancellationToken.None);
+        var result = await _controller.RecordSale(request, CancellationToken.None);
 
         var createdResult = Assert.IsType<CreatedAtActionResult>(result);
         Assert.Equal(StatusCodes.Status201Created, createdResult.StatusCode);
@@ -113,7 +115,8 @@ public class SalesControllerTests
                 && c.PaidAmount == 500m
                 && c.DueAmount == 0m
                 && c.Items.Count == 1
-                && c.Items[0].Barcode == "BC-001"),
+                && c.Items[0].Barcode == "BC-001"
+                && c.Items[0].InventoryBatchId == batchId),
             Arg.Any<CancellationToken>());
     }
 

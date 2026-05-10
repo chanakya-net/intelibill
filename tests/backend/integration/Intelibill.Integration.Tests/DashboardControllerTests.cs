@@ -140,6 +140,8 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         });
         var inventoryResponse = await client.SendAsync(inventoryRequest);
         inventoryResponse.EnsureSuccessStatusCode();
+        var inventoryBody = await inventoryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var batchId = inventoryBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -164,6 +166,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
                     mrp = 80m,
                     taxRatePercent = 5m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });

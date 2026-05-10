@@ -111,6 +111,7 @@ public class GetAvailableBatchesQueryHandlerTests
         Assert.Equal(searchTerm, result.Value[0].Barcode);
         Assert.Equal(searchTerm, result.Value[0].ItemName);
         Assert.Equal(batch.BatchNumber, result.Value[0].BatchNumber);
+        Assert.Equal(batch.Id, result.Value[0].InventoryBatchId);
         Assert.Equal(batch.Quantity, result.Value[0].Quantity);
         Assert.Equal(batch.SalesPrice, result.Value[0].SalesPrice);
     }

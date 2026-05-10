@@ -4,6 +4,7 @@ export interface SalesCartDraftItem {
   readonly barcode: string;
   readonly itemName: string;
   readonly batchNumber: string;
+  readonly inventoryBatchId: string;
   readonly quantity: number;
   readonly availableQuantity: number;
   readonly salesPrice: number;
@@ -54,7 +55,17 @@ export class SalesCartIndexedDbService {
       return [];
     }
 
-    return record.items ?? [];
+    const items = record.items ?? [];
+    if (!Array.isArray(items) || items.length === 0) {
+      return [];
+    }
+
+    if (items.some((item) => !this.isPersistedCartItem(item))) {
+      await this.clearCart(shopId);
+      return [];
+    }
+
+    return items;
   }
 
   async saveCart(shopId: string, items: readonly SalesCartDraftItem[]): Promise<void> {
@@ -105,5 +116,13 @@ export class SalesCartIndexedDbService {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+  }
+
+  private isPersistedCartItem(item: unknown): item is SalesCartDraftItem {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+
+    return typeof (item as { inventoryBatchId?: unknown }).inventoryBatchId === 'string';
   }
 }
