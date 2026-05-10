@@ -58,7 +58,20 @@ public class GetCustomerAccountQueryHandlerTests
             20m,
             100m,
             0m,
-            []);
+            [
+                SaleItem.Create(
+                    fixture.shop.Id,
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    1m,
+                    80m,
+                    100m,
+                    120m,
+                    0m,
+                    false,
+                    false,
+                    totalAmount: 100m)
+            ]);
 
         var dueEntry = CustomerLedgerEntry.Create(
             fixture.shop.Id,
@@ -127,6 +140,59 @@ public class GetCustomerAccountQueryHandlerTests
         Assert.Equal(CustomerLedgerEntryType.SaleDue, result.Value.LedgerEntries[3].EntryType);
         Assert.Single(result.Value.PaymentHistory);
         Assert.Equal(paymentEntry.Id, result.Value.PaymentHistory[0].EntryId);
+        Assert.Equal(100m, result.Value.Sales[0].TotalAmount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ManagerRole_ReturnsDiscountedSaleTotal()
+    {
+        var fixture = BuildFixture();
+        var query = new GetCustomerAccountQuery(fixture.manager.Id, fixture.shop.Id, fixture.customer.Id);
+
+        var discountedItem = SaleItem.Create(
+            fixture.shop.Id,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1m,
+            50m,
+            100m,
+            120m,
+            0m,
+            false,
+            false,
+            finalSalesPrice: 80m,
+            itemDiscountAmount: 20m,
+            taxableAmount: 80m,
+            taxAmount: 0m,
+            totalAmount: 80m);
+
+        var sale = Sale.Create(
+            fixture.shop.Id,
+            "INV-DISC",
+            fixture.customer.Id,
+            fixture.customer.Name,
+            fixture.customer.PhoneNumber,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            80m,
+            20m,
+            100m,
+            0m,
+            [discountedItem]);
+
+        _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
+        _saleRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+        _customerLedgerEntryRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<CustomerLedgerEntry>());
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
+            .Returns(20m);
+
+        var result = await CreateHandler().HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value.Sales);
+        Assert.Equal(80m, result.Value.Sales[0].TotalAmount);
     }
 
     [Fact]

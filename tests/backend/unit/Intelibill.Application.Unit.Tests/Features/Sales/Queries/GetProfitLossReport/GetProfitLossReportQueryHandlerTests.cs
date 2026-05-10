@@ -83,6 +83,60 @@ public class GetProfitLossReportQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_CalculatesDiscountedProfitLossUsingFinalLineValues()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+
+        var discountedItem = SaleItem.Create(
+            shop.Id,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1m,
+            50m,
+            100m,
+            120m,
+            10m,
+            false,
+            false,
+            finalSalesPrice: 80m,
+            itemDiscountAmount: 20m,
+            taxableAmount: 80m,
+            taxAmount: 8m,
+            totalAmount: 88m);
+
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-DISC",
+            null,
+            "Discount Customer",
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.Now,
+            88m,
+            0m,
+            88m,
+            8m,
+            [discountedItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
+
+        var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var report = result.Value[0];
+        Assert.Equal(50, report.TotalCost);
+        Assert.Equal(80, report.RevenueBeforeTax);
+        Assert.Equal(88, report.RevenueAfterTax);
+        Assert.Equal(38, report.ProfitBeforeTax);
+        Assert.Equal(30, report.ProfitAfterTax);
+    }
+
+    [Fact]
     public async Task Handle_CalculatesLossCorrectly()
     {
         // Arrange
