@@ -44,7 +44,13 @@ public sealed class Sale : BaseEntity
         PaymentMethod paymentMethod,
         decimal paidAmount,
         decimal dueAmount,
-        DateTimeOffset soldAt)
+        DateTimeOffset soldAt,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m)
     {
         if (lines is null || lines.Count == 0)
         {
@@ -111,8 +117,12 @@ public sealed class Sale : BaseEntity
             TotalDiscountAmount = decimal.Round(totalDiscountAmount, 2, MidpointRounding.AwayFromZero),
             TotalAmount = totalAmount,
             TotalTaxAmount = totalTaxAmount,
-            SaleDiscountOverrideType = InstantDiscountType.None,
-            SaleDiscountOverrideValue = 0m,
+            ConfiguredSaleRuleId = configuredSaleRuleId,
+            ConfiguredSaleRuleType = configuredSaleRuleType,
+            ConfiguredSaleRulePercentage = configuredSaleRulePercentage,
+            ConfiguredSaleRuleThresholdAmount = configuredSaleRuleThresholdAmount,
+            SaleDiscountOverrideType = saleDiscountOverrideType,
+            SaleDiscountOverrideValue = saleDiscountOverrideValue,
         }.WithItems(saleItems);
     }
 
@@ -185,7 +195,17 @@ public sealed class Sale : BaseEntity
             line.Mrp,
             line.TaxRatePercent,
             line.IsPriceIncludingTax,
-            line.HasPriceMismatch);
+            line.HasPriceMismatch,
+            preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+            itemDiscountAmount: line.ItemDiscountAmount,
+            saleDiscountAmount: line.SaleDiscountAmount,
+            taxableAmount: line.TaxableAmount,
+            taxAmount: line.TaxAmount,
+            totalAmount: line.TotalAmount,
+            configuredBatchRuleId: line.ConfiguredBatchRuleId,
+            configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
+            itemDiscountOverrideType: line.ItemDiscountOverrideType,
+            itemDiscountOverrideValue: line.ItemDiscountOverrideValue);
 
     private Sale WithItems(IReadOnlyCollection<SaleItem> items)
     {

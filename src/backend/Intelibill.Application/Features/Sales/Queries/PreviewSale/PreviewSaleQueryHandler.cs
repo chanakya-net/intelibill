@@ -45,6 +45,7 @@ public sealed class PreviewSaleQueryHandler(
             i.TaxRatePercent,
             i.IsPriceIncludingTax,
             i.InventoryBatchId,
+            i.ItemDiscount,
             i.ClientLineKey)).ToList();
 
         var validationWarnings = new List<string>();

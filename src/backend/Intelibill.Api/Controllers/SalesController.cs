@@ -28,7 +28,7 @@ public sealed class SalesController : AuthenticatedControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "OwnerOrManager")]
+    [Authorize(Policy = "OwnerManagerOrStaff")]
     public async Task<IActionResult> RecordSale([FromBody] RecordSaleRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -55,7 +55,11 @@ public sealed class SalesController : AuthenticatedControllerBase
                     i.TaxRatePercent,
                     i.IsPriceIncludingTax,
                     i.InventoryBatchId,
-                    i.ClientLineKey)).ToList()),
+                    i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
+                    i.ClientLineKey)).ToList(),
+                request.SaleDiscount is null
+                    ? null
+                    : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value)),
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
@@ -243,7 +247,8 @@ public sealed record RecordSaleRequest(
     PaymentMethod PaymentMethod,
     decimal PaidAmount,
     decimal DueAmount,
-    IReadOnlyList<RecordSaleItemRequest> Items);
+    IReadOnlyList<RecordSaleItemRequest> Items,
+    InstantDiscountRequest? SaleDiscount = null);
 
 public sealed record RecordSaleItemRequest(
     string Barcode,
@@ -256,6 +261,7 @@ public sealed record RecordSaleItemRequest(
     decimal TaxRatePercent,
     bool IsPriceIncludingTax,
     Guid InventoryBatchId,
+    InstantDiscountRequest? ItemDiscount = null,
     string? ClientLineKey = null);
 
 public sealed record PreviewSaleRequest(

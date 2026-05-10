@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -14,6 +15,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 public class RecordSaleCommandHandlerTests
 {
     private readonly ISaleLineValidator _saleLineValidator = Substitute.For<ISaleLineValidator>();
+    private readonly ISalePricingCalculator _salePricingCalculator = Substitute.For<ISalePricingCalculator>();
     private readonly ICustomerResolver _customerResolver = Substitute.For<ICustomerResolver>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
@@ -24,10 +26,33 @@ public class RecordSaleCommandHandlerTests
     {
         _customerResolver.ResolveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<PaymentMethod>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>((Customer?)null));
+        _salePricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                var request = ci.ArgAt<SalePricingCalculationRequest>(0);
+                var lines = request.Lines.Select(line =>
+                {
+                    var preTax = decimal.Round(line.Quantity * line.SalesPrice, 2, MidpointRounding.AwayFromZero);
+                    var tax = decimal.Round(preTax * line.TaxRatePercent / 100m, 2, MidpointRounding.AwayFromZero);
+                    var total = decimal.Round(preTax + tax, 2, MidpointRounding.AwayFromZero);
+                    return new SalePricingLineCalculation(
+                        line.InventoryBatchId, line.Quantity, line.CostPrice, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax,
+                        preTax, 0m, 0m, preTax, tax, total, 0m, 0m, null, null);
+                }).ToList();
+                return Task.FromResult<ErrorOr<SalePricingCalculationResult>>(new SalePricingCalculationResult(
+                    lines,
+                    lines.Sum(x => x.TaxableAmount),
+                    lines.Sum(x => x.TaxableAmount),
+                    lines.Sum(x => x.TaxAmount),
+                    0m,
+                    lines.Sum(x => x.TotalAmount),
+                    null,
+                    []));
+            });
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
@@ -55,6 +80,38 @@ public class RecordSaleCommandHandlerTests
         new(actorId, shopId, null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
+
+    private static SalePricingCalculationResult BuildPricingResult(params ValidatedSaleLine[] lines)
+    {
+        var calculatedLines = lines.Select(line =>
+            new SalePricingLineCalculation(
+                line.Batch.Id,
+                line.Command.Quantity,
+                line.Batch.CostPrice,
+                line.Batch.SalesPrice,
+                line.Batch.TaxRatePercent,
+                line.Batch.TaxIncluded,
+                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice, 2, MidpointRounding.AwayFromZero),
+                0m,
+                0m,
+                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice * line.Batch.TaxRatePercent / 100m, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice * (1 + line.Batch.TaxRatePercent / 100m), 2, MidpointRounding.AwayFromZero),
+                0m,
+                0m,
+                null,
+                null)).ToList();
+
+        return new SalePricingCalculationResult(
+            calculatedLines,
+            calculatedLines.Sum(x => x.TaxableAmount),
+            calculatedLines.Sum(x => x.TaxableAmount),
+            calculatedLines.Sum(x => x.TaxAmount),
+            0m,
+            calculatedLines.Sum(x => x.TotalAmount),
+            null,
+            []);
+    }
 
     [Fact]
     public async Task HandleAsync_WhenValid_CreatesSaleAndDeductsStock()
@@ -143,7 +200,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, null, null, null, PaymentMethod.UPI, 842m, 0m,
+        var command = new RecordSaleCommand(actorId, shopId, null, null, null, PaymentMethod.UPI, 944m, 0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
              new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id)]);
 
@@ -205,7 +262,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, null, "Guest", "+911111111111", PaymentMethod.Cash, 842m, 0m,
+        var command = new RecordSaleCommand(actorId, shopId, null, "Guest", "+911111111111", PaymentMethod.Cash, 944m, 0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
                 new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id),
@@ -223,8 +280,6 @@ public class RecordSaleCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal("InventoryBatch.InsufficientStock", result.FirstError.Code);
-        await _customerResolver.DidNotReceive().ResolveAsync(
-            Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<PaymentMethod>(), Arg.Any<CancellationToken>());
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -313,5 +368,78 @@ public class RecordSaleCommandHandlerTests
         await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _customerLedgerEntryRepository.Received(1).AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPricingFailsBelowCost_DoesNotMutateOrSave()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _salePricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Sale.LineWouldBeBelowCost(batch.Id));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.LineWouldBeBelowCost(batch.Id).Code, result.FirstError.Code);
+        Assert.Equal(100m, batch.Quantity);
+        Assert.Equal(100m, inventory.Quantity);
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PersistsConfiguredAndOverrideDiscountSnapshots()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId) with
+        {
+            SaleDiscount = new Intelibill.Domain.ValueObjects.InstantDiscount(Intelibill.Domain.ValueObjects.InstantDiscountType.Percentage, 10m),
+            Items = [MakeCommand(shopId, actorId, inventoryBatchId: batch.Id).Items[0] with
+            {
+                ItemDiscount = new Intelibill.Domain.ValueObjects.InstantDiscount(Intelibill.Domain.ValueObjects.InstantDiscountType.Flat, 2m),
+            }],
+            PaidAmount = 106.2m,
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var configuredRuleId = Guid.NewGuid();
+        var batchRuleId = Guid.NewGuid();
+
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _salePricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new SalePricingCalculationResult(
+                [
+                    new SalePricingLineCalculation(batch.Id, 1m, 80m, 100m, 18m, false, 100m, 2m, 8m, 90m, 16.2m, 106.2m, 10m, 10m, batchRuleId, 5m),
+                ],
+                100m, 90m, 16.2m, 10m, 106.2m,
+                new SalePricingConfiguredSaleRule(configuredRuleId, DiscountRuleType.SalePercentage, 8m, null),
+                []));
+
+        Sale? capturedSale = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(s => capturedSale = s), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(capturedSale);
+        Assert.Equal(configuredRuleId, capturedSale!.ConfiguredSaleRuleId);
+        Assert.Equal(Intelibill.Domain.ValueObjects.InstantDiscountType.Percentage, capturedSale.SaleDiscountOverrideType);
+        Assert.Single(capturedSale.Items);
+        Assert.Equal(batchRuleId, capturedSale.Items[0].ConfiguredBatchRuleId);
+        Assert.Equal(Intelibill.Domain.ValueObjects.InstantDiscountType.Flat, capturedSale.Items[0].ItemDiscountOverrideType);
+        Assert.Equal(2m, capturedSale.Items[0].ItemDiscountOverrideValue);
     }
 }

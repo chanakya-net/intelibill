@@ -218,7 +218,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             customerName = (string?)null,
             customerPhone = (string?)null,
             paymentMethod = (int)PaymentMethod.UPI,
-            paidAmount = 247.8m,
+            paidAmount = 236m,
             dueAmount = 0m,
             items = new[]
             {
@@ -515,7 +515,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
-    public async Task RecordSale_StaffGetsForbidden()
+    public async Task RecordSale_StaffCanRecordSale()
     {
         using var client = CreateClient();
         var ownerToken = await RegisterAsync(client);
@@ -540,6 +540,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerScopedToken, barcode, "B-STAFF", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
 
         using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
@@ -549,13 +552,70 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             customerName = "Staff Sale",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Cash,
-            paidAmount = 100m,
+            paidAmount = 118m,
             dueAmount = 0m,
-            items = Array.Empty<object>(),
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-STAFF",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
         });
         var saleResponse = await client.SendAsync(saleRequest);
 
-        Assert.Equal(HttpStatusCode.Forbidden, saleResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RecordSale_WhenPaidDueDoNotMatchDiscountedTotal_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-MISMATCH", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            customerId = (Guid?)null,
+            customerName = "Mismatch",
+            customerPhone = "+919876543200",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 999m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-MISMATCH",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var response = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     // ======================= NEW: SALE RETURN FLOW =======================

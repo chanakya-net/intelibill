@@ -1,6 +1,7 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
@@ -35,26 +36,16 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .WithErrorCode("Sale.QuantityMustBePositive")
                 .WithMessage("Quantity must be greater than zero.");
 
-            item.RuleFor(i => i.CostPrice)
-                .GreaterThanOrEqualTo(0)
-                .WithErrorCode("Sale.CostPriceInvalid")
-                .WithMessage("Cost price cannot be negative.");
-
-            item.RuleFor(i => i.SalesPrice)
-                .GreaterThanOrEqualTo(0)
-                .WithErrorCode("Sale.SalesPriceInvalid")
-                .WithMessage("Sales price cannot be negative.");
-
-            item.RuleFor(i => i.Mrp)
-                .GreaterThanOrEqualTo(0)
-                .WithErrorCode("Sale.MrpInvalid")
-                .WithMessage("MRP cannot be negative.");
-
-            item.RuleFor(i => i.TaxRatePercent)
-                .InclusiveBetween(0, 100)
-                .WithErrorCode("Sale.TaxRateOutOfRange")
-                .WithMessage("Tax rate must be between 0 and 100.");
+            item.RuleFor(i => i.ItemDiscount)
+                .Must(IsValidDiscount)
+                .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
+                .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
         });
+
+        RuleFor(x => x.SaleDiscount)
+            .Must(IsValidDiscount)
+            .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
+            .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
 
         RuleFor(x => x.PaidAmount)
             .GreaterThanOrEqualTo(0)
@@ -76,4 +67,13 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .WithErrorCode(Errors.Sale.CustomerIdentityRequiredForDue.Code)
             .WithMessage(Errors.Sale.CustomerIdentityRequiredForDue.Description);
     }
+
+    private static bool IsValidDiscount(InstantDiscount? discount) =>
+        discount is null || discount.Type switch
+        {
+            InstantDiscountType.None => discount.Value == 0m,
+            InstantDiscountType.Percentage => discount.Value > 0m && discount.Value <= 100m,
+            InstantDiscountType.Flat => discount.Value > 0m,
+            _ => false,
+        };
 }

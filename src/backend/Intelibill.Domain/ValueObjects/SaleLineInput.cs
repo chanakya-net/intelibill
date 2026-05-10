@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Domain.ValueObjects;
 
 public sealed record SaleLineInput(
@@ -10,4 +12,14 @@ public sealed record SaleLineInput(
     decimal Mrp,
     decimal TaxRatePercent,
     bool IsPriceIncludingTax,
-    bool HasPriceMismatch);
+    bool HasPriceMismatch,
+    decimal? PreTaxAmountBeforeDiscount = null,
+    decimal ItemDiscountAmount = 0m,
+    decimal SaleDiscountAmount = 0m,
+    decimal? TaxableAmount = null,
+    decimal? TaxAmount = null,
+    decimal? TotalAmount = null,
+    Guid? ConfiguredBatchRuleId = null,
+    decimal? ConfiguredBatchRulePercentage = null,
+    InstantDiscountType ItemDiscountOverrideType = InstantDiscountType.None,
+    decimal ItemDiscountOverrideValue = 0m);

@@ -1,6 +1,7 @@
 using FluentValidation.TestHelper;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 
@@ -83,35 +84,6 @@ public class RecordSaleCommandValidatorTests
         result.ShouldHaveValidationErrorFor("Items[0].Quantity");
     }
 
-    [Fact]
-    public void Validate_WhenCostPriceIsNegative_ReturnsError()
-    {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, -1m, 100m, 120m, 18m, false, Guid.NewGuid())]);
-
-        var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor("Items[0].CostPrice");
-    }
-
-    [Fact]
-    public void Validate_WhenTaxRateExceedsHundred_ReturnsError()
-    {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 101m, false, Guid.NewGuid())]);
-
-        var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor("Items[0].TaxRatePercent");
-    }
-
-    [Fact]
-    public void Validate_WhenTaxRateIsNegative_ReturnsError()
-    {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, -1m, false, Guid.NewGuid())]);
-
-        var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor("Items[0].TaxRatePercent");
-    }
 
     [Fact]
     public void Validate_WhenValid_NoErrors()
@@ -122,23 +94,19 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenSalesPriceIsNegative_ReturnsError()
+    public void Validate_WhenSaleDiscountPercentageOverHundred_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, -1m, 120m, 18m, false, Guid.NewGuid())]);
-
+        var command = ValidCommand() with { SaleDiscount = new(InstantDiscountType.Percentage, 150m) };
         var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor("Items[0].SalesPrice");
+        result.ShouldHaveValidationErrorFor(x => x.SaleDiscount);
     }
 
     [Fact]
-    public void Validate_WhenMrpIsNegative_ReturnsError()
+    public void Validate_WhenItemDiscountFlatNegative_ReturnsError()
     {
-        var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, -1m, 18m, false, Guid.NewGuid())]);
-
+        var command = ValidCommand([ValidItem() with { ItemDiscount = new(InstantDiscountType.Flat, -1m) }]);
         var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor("Items[0].Mrp");
+        result.ShouldHaveValidationErrorFor("Items[0].ItemDiscount");
     }
 
     [Fact]

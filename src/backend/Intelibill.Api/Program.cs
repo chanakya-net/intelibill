@@ -104,6 +104,12 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser();
         policy.RequireClaim("active_shop_role", "Owner", "Manager");
     });
+
+    options.AddPolicy("OwnerManagerOrStaff", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("active_shop_role", "Owner", "Manager", "Staff");
+    });
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────

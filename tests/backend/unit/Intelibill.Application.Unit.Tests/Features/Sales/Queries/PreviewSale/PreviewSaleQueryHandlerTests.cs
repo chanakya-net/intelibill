@@ -155,7 +155,7 @@ public class PreviewSaleQueryHandlerTests
             .Returns(MakeShop());
         _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
-        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id, "line-1");
+        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id, ClientLineKey: "line-1");
         var validated = new ValidatedSaleLine(cmdItem, item, batch, inventory, HasPriceMismatch: false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<SaleLineValidationResult>>(
@@ -253,7 +253,7 @@ public class PreviewSaleQueryHandlerTests
             .Returns(MakeShop());
         _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
-        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 70m, 100m, 120m, 18m, false, batch.Id, "line-1");
+        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 70m, 100m, 120m, 18m, false, batch.Id, ClientLineKey: "line-1");
         var validated = new ValidatedSaleLine(cmdItem, item, batch, inventory, HasPriceMismatch: true);
 
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
@@ -321,7 +321,7 @@ public class PreviewSaleQueryHandlerTests
         _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
 
-        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 50m, 120m, 0m, false, batch.Id, "line-1");
+        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 50m, 120m, 0m, false, batch.Id, ClientLineKey: "line-1");
         var validated = new ValidatedSaleLine(cmdItem, item, batch, inventory, HasPriceMismatch: false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<SaleLineValidationResult>>(
@@ -389,7 +389,7 @@ public class PreviewSaleQueryHandlerTests
                 inventory,
                 HasPriceMismatch: false),
             new(
-                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 18m, false, batch.Id, "line-2"),
+                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 18m, false, batch.Id, ClientLineKey: "line-2"),
                 item,
                 batch,
                 inventory,
