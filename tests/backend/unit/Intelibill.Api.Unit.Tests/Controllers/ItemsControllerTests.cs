@@ -310,6 +310,33 @@ public class ItemsControllerTests
     }
 
     [Fact]
+    public async Task UpdateItem_WhenIsActiveProvided_ForwardsIsActiveToCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateUpdateRequest(isActive: false);
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+
+        var result = await _controller.UpdateItem(itemId, request, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<UpdateItemCommand>(c =>
+                c.ActorUserId == userId &&
+                c.ActiveShopId == shopId &&
+                c.ItemId == itemId &&
+                c.IsActive == false),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task UpdateItem_WhenItemNotFound_ReturnsNotFound()
     {
         var userId = Guid.NewGuid();
@@ -355,12 +382,13 @@ public class ItemsControllerTests
             Uom: "kg",
             IsActive: true);
 
-    private static UpdateItemRequest CreateUpdateRequest() =>
+    private static UpdateItemRequest CreateUpdateRequest(bool? isActive = null) =>
         new(
             Name: "Premium Rice",
             Barcode: "112",
             Description: "High Quality",
-            Uom: "kg");
+            Uom: "kg",
+            IsActive: isActive);
 
     private System.IO.MemoryStream SetResponseBody()
     {

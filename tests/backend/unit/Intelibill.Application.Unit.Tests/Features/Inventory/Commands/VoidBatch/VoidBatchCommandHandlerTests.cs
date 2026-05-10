@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Wolverine;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.VoidBatch;
@@ -20,6 +22,7 @@ public class VoidBatchCommandHandlerTests
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
 
     [Fact]
     public async Task HandleAsync_WhenBatchNotFound_ReturnsError()
@@ -36,6 +39,7 @@ public class VoidBatchCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchNotFound.Code, result.FirstError.Code);
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchVoidedDomainEvent>());
     }
 
     [Fact]
@@ -164,6 +168,11 @@ public class VoidBatchCommandHandlerTests
         await _supplierLedgerEntryRepository.Received(1).AddAsync(Arg.Is<SupplierLedgerEntry>(e => e.EntryType == SupplierLedgerEntryType.Reversal && e.Amount == -800m), Arg.Any<CancellationToken>());
         _inventoryRepository.Received(1).Update(inventory);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _messageBus.Received(1).PublishAsync(
+            Arg.Is<InventoryBatchVoidedDomainEvent>(@event =>
+                @event.ShopId == shop.Id &&
+                @event.ItemId == itemId &&
+                @event.BatchId == batch.Id));
     }
 
     [Fact]
@@ -250,5 +259,12 @@ public class VoidBatchCommandHandlerTests
     }
 
     private VoidBatchCommandHandler CreateHandler() =>
-        new(_userRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _inventoryRepository, _unitOfWork);
+        new(
+            _userRepository,
+            _inventoryBatchRepository,
+            _stockTransactionRepository,
+            _supplierLedgerEntryRepository,
+            _inventoryRepository,
+            _unitOfWork,
+            _messageBus);
 }

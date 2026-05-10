@@ -7,4 +7,5 @@ public sealed record UpdateItemCommand(
     string Name,
     string Barcode,
     string? Description,
-    string Uom);
+    string Uom,
+    bool? IsActive = null);

@@ -295,6 +295,36 @@ describe('ShellComponent', () => {
     expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(false);
   });
 
+  it('shows discounts menu for owner and manager, but hides for staff', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageDiscounts()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageDiscounts()).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.canManageDiscounts()).toBe(false);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
+  });
+
+  it('exposes discounts route in shell routes', () => {
+    setup();
+    const shellRoute = shellRoutes.find((route) => route.component === ShellComponent);
+    const discountsRoute = shellRoute?.children?.find((route) => route.path === 'discounts');
+
+    expect(discountsRoute).toBeDefined();
+  });
+
   it('opens update profile overlay from profile actions', () => {
     const component = setup();
 

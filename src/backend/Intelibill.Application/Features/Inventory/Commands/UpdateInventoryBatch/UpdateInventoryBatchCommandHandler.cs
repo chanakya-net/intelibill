@@ -2,9 +2,11 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 
@@ -16,7 +18,8 @@ public sealed class UpdateInventoryBatchCommandHandler(
     IInventoryRepository inventoryRepository,
     IStockTransactionRepository stockTransactionRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IMessageBus messageBus)
 {
     public async Task<ErrorOr<Success>> Handle(UpdateInventoryBatchCommand command, CancellationToken cancellationToken)
     {
@@ -59,7 +62,15 @@ public sealed class UpdateInventoryBatchCommandHandler(
 
         var oldQuantity = originalBatch.Quantity;
         var oldCostPrice = originalBatch.CostPrice;
+        var oldSalesPrice = originalBatch.SalesPrice;
+        var oldTaxRatePercent = originalBatch.TaxRatePercent;
+        var oldTaxIncluded = originalBatch.TaxIncluded;
         var oldSupplierId = originalBatch.SupplierId;
+        var pricingInputsChanged =
+            command.CostPrice != oldCostPrice ||
+            command.SalesPrice != oldSalesPrice ||
+            command.TaxRatePercent != oldTaxRatePercent ||
+            command.TaxIncluded != oldTaxIncluded;
         var effectiveSupplierIdOrError = await ResolveEffectiveSupplierIdAsync(command.SupplierId, command.ShopId, cancellationToken);
         if (effectiveSupplierIdOrError.IsError)
             return effectiveSupplierIdOrError.Errors;
@@ -190,6 +201,16 @@ public sealed class UpdateInventoryBatchCommandHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (pricingInputsChanged)
+        {
+            await messageBus.PublishAsync(
+                new InventoryBatchPricingChangedDomainEvent(
+                    command.ShopId,
+                    originalBatch.ItemId,
+                    newBatch.Id));
+        }
+
         return Result.Success;
     }
 

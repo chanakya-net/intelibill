@@ -75,3 +75,11 @@ export const EXPENSE_ENDPOINTS = {
 export const DASHBOARD_ENDPOINTS = {
   summary: `${API_BASE_URL}/dashboard`,
 } as const;
+
+export const DISCOUNT_ENDPOINTS = {
+  list: `${API_BASE_URL}/discounts`,
+  create: `${API_BASE_URL}/discounts`,
+  detail: (id: string) => `${API_BASE_URL}/discounts/${id}`,
+  disable: (id: string) => `${API_BASE_URL}/discounts/${id}/disable`,
+  preview: `${API_BASE_URL}/discounts/preview`,
+} as const;

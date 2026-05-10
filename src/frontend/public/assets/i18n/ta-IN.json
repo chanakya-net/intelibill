@@ -91,7 +91,8 @@
     "manageExpenses": "Expenses",
     "manageBankAccounts": "Bank Accounts",
     "profitLossReport": "Profit & Loss",
-    "dashboard": "டாஷ்போர்டு"
+    "dashboard": "டாஷ்போர்டு",
+    "manageDiscounts": "Discounts"
   },
   "bankAccounts": {
     "directory": "Bank Account Directory",
@@ -782,5 +783,26 @@
     "sectionPaymentBehavior": "Payment Behavior",
     "sectionStockRisk": "Stock Risk",
     "sectionReceivables": "Receivables"
+  },
+  "discounts": {
+    "title": "Discount Rules",
+    "ruleType": {
+      "BatchPercentage": "Batch Discount",
+      "SalePercentage": "Sale Discount",
+      "SaleThresholdPercentage": "Threshold Discount"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "fields": {
+      "name": "Rule Name",
+      "ruleType": "Rule Type",
+      "percentage": "Discount %",
+      "thresholdAmount": "Minimum Sale Amount",
+      "startsAt": "Starts At",
+      "endsAt": "Ends At",
+      "isActive": "Status"
+    }
   }
 }

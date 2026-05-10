@@ -1,10 +1,13 @@
 using ErrorOr;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
+using Wolverine;
+using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.UpdateInventoryBatch;
 
@@ -18,6 +21,7 @@ public class UpdateInventoryBatchCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ISupplierLedgerEntryRepository _ledgerRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
     private readonly UpdateInventoryBatchCommandHandler _handler;
 
     public UpdateInventoryBatchCommandHandlerTests()
@@ -25,7 +29,7 @@ public class UpdateInventoryBatchCommandHandlerTests
         _handler = new UpdateInventoryBatchCommandHandler(
             _userRepository, _shopRepository, _supplierRepository,
             _batchRepository, _inventoryRepository, _stockTransactionRepository,
-            _ledgerRepository, _unitOfWork);
+            _ledgerRepository, _unitOfWork, _messageBus);
     }
 
     private static UpdateInventoryBatchCommand ValidCommand(Guid userId, Guid shopId, Guid batchId) =>
@@ -135,5 +139,101 @@ public class UpdateInventoryBatchCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPricingFieldsChange_PublishesPricingChangedEvent()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "pass", "Test", "Owner");
+        var shop = Shop.Create("S", "A", "C", "S", "560001", null, null, null);
+        var itemId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(
+            shop.Id,
+            itemId,
+            "BATCH-001",
+            10m,
+            100m,
+            200m,
+            180m,
+            18m,
+            false,
+            null,
+            null,
+            supplierId,
+            user.Id).Value;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, false));
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _batchRepository.GetByBatchNumberAsync(shop.Id, itemId, "BATCH-CORR", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+        _ledgerRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        var command = ValidCommand(user.Id, shop.Id, batch.Id) with
+        {
+            SalesPrice = 170m,
+            SupplierId = supplierId
+        };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _messageBus.Received(1).PublishAsync(
+            Arg.Is<InventoryBatchPricingChangedDomainEvent>(@event =>
+                @event.ShopId == shop.Id &&
+                @event.ItemId == itemId &&
+                @event.BatchId != Guid.Empty));
+    }
+
+    [Fact]
+    public async Task Handle_WhenOnlyQuantityChanges_DoesNotPublishPricingChangedEvent()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "pass", "Test", "Owner");
+        var shop = Shop.Create("S", "A", "C", "S", "560001", null, null, null);
+        var itemId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(
+            shop.Id,
+            itemId,
+            "BATCH-001",
+            10m,
+            100m,
+            200m,
+            180m,
+            18m,
+            false,
+            null,
+            null,
+            supplierId,
+            user.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 10m, 2m, 50m, user.Id).Value;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, false));
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _batchRepository.GetByBatchNumberAsync(shop.Id, itemId, "BATCH-CORR", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>())
+            .Returns(inventory);
+        _ledgerRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        var command = ValidCommand(user.Id, shop.Id, batch.Id) with
+        {
+            Quantity = 12m,
+            SupplierId = supplierId
+        };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _messageBus.DidNotReceive().PublishAsync(
+            Arg.Any<InventoryBatchPricingChangedDomainEvent>());
     }
 }

@@ -116,6 +116,13 @@ export class ShellComponent {
         command: () => this.onNavigateToExpenses(),
       });
     }
+    if (this.canManageDiscounts()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageDiscounts'),
+        icon: 'pi pi-tag',
+        command: () => this.onNavigateToDiscounts(),
+      });
+    }
     if (this.isOwnerOfActiveShop()) {
       items.push({
         label: this.localizationService.translate('shell.manageBankAccounts'),
@@ -220,6 +227,14 @@ export class ShellComponent {
     return role === 'owner' || role === 'manager' || role === 'staff';
   });
   readonly canManageExpenses = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+    const role = activeShop.role.toLowerCase();
+    return role === 'owner' || role === 'manager';
+  });
+  readonly canManageDiscounts = computed(() => {
     const activeShop = this.activeShop();
     if (!activeShop) {
       return false;
@@ -663,6 +678,11 @@ export class ShellComponent {
   onNavigateToExpenses(): void {
     this.onCloseMenus();
     void this.router.navigate(['/expenses']);
+  }
+
+  onNavigateToDiscounts(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/discounts']);
   }
 
   onNavigateToBankAccounts(): void {

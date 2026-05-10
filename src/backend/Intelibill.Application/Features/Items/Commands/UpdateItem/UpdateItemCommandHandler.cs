@@ -1,15 +1,18 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Wolverine;
 
 namespace Intelibill.Application.Features.Items.Commands.UpdateItem;
 
 public sealed class UpdateItemCommandHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IMessageBus messageBus)
 {
     public async Task<ErrorOr<Success>> HandleAsync(UpdateItemCommand command, CancellationToken cancellationToken)
     {
@@ -31,7 +34,13 @@ public sealed class UpdateItemCommandHandler(
         if (item.ShopId != command.ActiveShopId)
             return Errors.Item.ItemNotFound;
 
+        var normalizedName = command.Name.Trim();
         var normalizedBarcode = command.Barcode.Trim();
+        var normalizedUom = command.Uom.Trim();
+        var targetIsActive = command.IsActive ?? item.IsActive;
+        var isRenamed = normalizedName != item.Name;
+        var isDeactivated = item.IsActive && !targetIsActive;
+
         if (normalizedBarcode != item.Barcode)
         {
             var existingBarcode = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, normalizedBarcode, cancellationToken);
@@ -40,15 +49,23 @@ public sealed class UpdateItemCommandHandler(
         }
 
         item.Update(
-            command.Name,
+            normalizedName,
             command.Description,
-            command.Uom,
+            normalizedUom,
             normalizedBarcode,
-            item.IsActive,
+            targetIsActive,
             command.ActorUserId);
 
         itemRepository.Update(item);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (isRenamed || isDeactivated)
+        {
+            await messageBus.PublishAsync(
+                new ItemApplicabilityChangedDomainEvent(
+                    command.ActiveShopId,
+                    item.Id));
+        }
 
         return Result.Success;
     }

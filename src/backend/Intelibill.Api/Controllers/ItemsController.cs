@@ -141,7 +141,8 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Name,
                 request.Barcode,
                 request.Description,
-                request.Uom),
+                request.Uom,
+                request.IsActive),
             cancellationToken);
 
         if (result.IsError)
@@ -162,4 +163,5 @@ public sealed record UpdateItemRequest(
     string Name,
     string Barcode,
     string? Description,
-    string Uom);
+    string Uom,
+    bool? IsActive);

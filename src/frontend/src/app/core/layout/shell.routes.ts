@@ -148,6 +148,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'discounts',
+				loadComponent: () =>
+					import('../../features/discounts/pages/discounts-page.component').then(
+						(m) => m.DiscountsPageComponent
+					),
+			},
+			{
 				path: '',
 				pathMatch: 'full',
 				redirectTo: 'dashboard',
