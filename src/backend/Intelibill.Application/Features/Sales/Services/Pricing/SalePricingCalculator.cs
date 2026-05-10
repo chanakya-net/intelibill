@@ -1,0 +1,335 @@
+using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.ValueObjects;
+
+namespace Intelibill.Application.Features.Sales.Services.Pricing;
+
+internal sealed class SalePricingCalculator : ISalePricingCalculator
+{
+    public ErrorOr<SalePricingCalculationResult> Calculate(SalePricingCalculationRequest request)
+    {
+        if (request.Lines is null || request.Lines.Count == 0)
+        {
+            return Errors.Sale.ItemsRequired;
+        }
+
+        var lineDrafts = new List<LineDraft>(request.Lines.Count);
+        for (var lineIndex = 0; lineIndex < request.Lines.Count; lineIndex++)
+        {
+            var draftOrError = DraftLine(request.Lines[lineIndex], lineIndex);
+            if (draftOrError.IsError)
+                return draftOrError.Errors;
+            lineDrafts.Add(draftOrError.Value);
+        }
+
+        var eligibleDrafts = lineDrafts
+            .Where(d => d.IsSaleDiscountEligible)
+            .ToList();
+
+        var saleLevelEligibleSubtotal = RoundMoney(eligibleDrafts.Sum(d => d.TaxableAfterItemDiscount));
+
+        if (!IsValidInstantDiscount(request.SaleDiscount))
+        {
+            return Errors.Sale.InvalidSaleDiscount;
+        }
+
+        var isSaleDiscountRequested = request.SaleDiscount.Type != InstantDiscountType.None && request.SaleDiscount.Value > 0m;
+        if (isSaleDiscountRequested && saleLevelEligibleSubtotal <= 0m)
+        {
+            return Errors.Sale.NoEligibleLinesForSaleDiscount;
+        }
+
+        var saleDiscountAmount = CalculateSaleDiscountAmount(request.SaleDiscount, saleLevelEligibleSubtotal);
+
+        var totalCapacity = RoundMoney(eligibleDrafts.Sum(d => d.SaleDiscountCapacity));
+        if (saleDiscountAmount > totalCapacity)
+        {
+            return Errors.Sale.SaleDiscountWouldBeBelowCost;
+        }
+
+        var saleDiscountByLineIndex = AllocateSaleDiscountAmounts(
+            eligibleDrafts,
+            lineDrafts.Count,
+            saleLevelEligibleSubtotal,
+            saleDiscountAmount);
+
+        var finalLines = new List<SalePricingLineCalculation>(lineDrafts.Count);
+        foreach (var draft in lineDrafts)
+        {
+            var saleDiscountForLine = saleDiscountByLineIndex[draft.LineIndex];
+
+            if (saleDiscountForLine > draft.SaleDiscountCapacity)
+            {
+                return Errors.Sale.SaleDiscountWouldBeBelowCost;
+            }
+
+            var taxableAfterAllDiscounts = RoundMoney(draft.TaxableAfterItemDiscount - saleDiscountForLine);
+            if (taxableAfterAllDiscounts < draft.CostTotal)
+            {
+                return Errors.Sale.LineWouldBeBelowCost(draft.InventoryBatchId);
+            }
+
+            var taxAmount = CalculateTaxAmount(taxableAfterAllDiscounts, draft.TaxRatePercent);
+            var totalAmount = RoundMoney(taxableAfterAllDiscounts + taxAmount);
+
+            finalLines.Add(new SalePricingLineCalculation(
+                draft.InventoryBatchId,
+                draft.Quantity,
+                draft.CostPrice,
+                draft.SalesPrice,
+                draft.TaxRatePercent,
+                draft.IsPriceIncludingTax,
+                draft.PreTaxBeforeDiscount,
+                draft.ItemDiscountAmount,
+                saleDiscountForLine,
+                taxableAfterAllDiscounts,
+                taxAmount,
+                totalAmount,
+                draft.MaxAllowedItemDiscountFlat,
+                draft.MaxAllowedItemDiscountPercent));
+        }
+
+        var totalTaxableAmount = RoundMoney(finalLines.Sum(l => l.TaxableAmount));
+        var totalTaxAmount = RoundMoney(finalLines.Sum(l => l.TaxAmount));
+        var totalDiscountAmount = RoundMoney(finalLines.Sum(l => l.ItemDiscountAmount + l.SaleDiscountAmount));
+        var totalAmountSum = RoundMoney(finalLines.Sum(l => l.TotalAmount));
+
+        return new SalePricingCalculationResult(
+            finalLines,
+            saleLevelEligibleSubtotal,
+            totalTaxableAmount,
+            totalTaxAmount,
+            totalDiscountAmount,
+            totalAmountSum);
+    }
+
+    private static ErrorOr<LineDraft> DraftLine(SalePricingLineCalculationRequest line, int lineIndex)
+    {
+        if (line.Quantity <= 0m)
+        {
+            return Errors.Sale.QuantityMustBePositive(line.InventoryBatchId);
+        }
+
+        if (line.SalesPrice < 0m || line.CostPrice < 0m || line.TaxRatePercent < 0m)
+        {
+            return Errors.Sale.InvalidPricingInput(line.InventoryBatchId);
+        }
+
+        if (!IsValidInstantDiscount(line.ItemDiscount))
+        {
+            return Errors.Sale.InvalidDiscount(line.InventoryBatchId);
+        }
+
+        var preTaxBeforeDiscount = RoundMoney(ExtractPreTaxAmount(line.Quantity, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax));
+        var costTotal = RoundMoney(line.CostPrice * line.Quantity);
+
+        var maxAllowedItemDiscountFlat = RoundMoney(Math.Max(0m, preTaxBeforeDiscount - costTotal));
+        var maxAllowedItemDiscountPercent = ComputeSafeMaxPercent(preTaxBeforeDiscount, costTotal);
+
+        var itemDiscountAmount = CalculateLineDiscountAmount(line.ItemDiscount, preTaxBeforeDiscount);
+
+        if (itemDiscountAmount > maxAllowedItemDiscountFlat)
+        {
+            return Errors.Sale.ItemDiscountWouldBeBelowCost(line.InventoryBatchId);
+        }
+
+        var taxableAfterItemDiscount = RoundMoney(preTaxBeforeDiscount - itemDiscountAmount);
+        if (taxableAfterItemDiscount < costTotal)
+        {
+            return Errors.Sale.LineWouldBeBelowCost(line.InventoryBatchId);
+        }
+
+        var saleDiscountCapacity = RoundMoney(Math.Max(0m, taxableAfterItemDiscount - costTotal));
+
+        return new LineDraft(
+            lineIndex,
+            line.InventoryBatchId,
+            line.Quantity,
+            line.CostPrice,
+            line.SalesPrice,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax,
+            preTaxBeforeDiscount,
+            costTotal,
+            itemDiscountAmount,
+            taxableAfterItemDiscount,
+            saleDiscountCapacity,
+            maxAllowedItemDiscountFlat,
+            maxAllowedItemDiscountPercent);
+    }
+
+    private static decimal ExtractPreTaxAmount(decimal quantity, decimal salesPrice, decimal taxRatePercent, bool isPriceIncludingTax)
+    {
+        var gross = quantity * salesPrice;
+        if (taxRatePercent <= 0m)
+            return gross;
+
+        return isPriceIncludingTax
+            ? gross * 100m / (100m + taxRatePercent)
+            : gross;
+    }
+
+    private static decimal CalculateTaxAmount(decimal taxableAmount, decimal taxRatePercent)
+    {
+        if (taxRatePercent <= 0m)
+            return 0m;
+        return RoundMoney(taxableAmount * taxRatePercent / 100m);
+    }
+
+    private static decimal CalculateLineDiscountAmount(InstantDiscount discount, decimal preTaxAmount)
+    {
+        return discount.Type switch
+        {
+            InstantDiscountType.None => 0m,
+            InstantDiscountType.Percentage => CalculatePercentDiscount(discount.Value, preTaxAmount),
+            InstantDiscountType.Flat => RoundMoney(discount.Value),
+            _ => 0m,
+        };
+    }
+
+    private static decimal CalculateSaleDiscountAmount(InstantDiscount discount, decimal eligibleSubtotal)
+    {
+        if (eligibleSubtotal <= 0m)
+            return 0m;
+
+        return discount.Type switch
+        {
+            InstantDiscountType.None => 0m,
+            InstantDiscountType.Percentage => CalculatePercentDiscount(discount.Value, eligibleSubtotal),
+            InstantDiscountType.Flat => RoundMoney(discount.Value),
+            _ => 0m,
+        };
+    }
+
+    private static decimal CalculatePercentDiscount(decimal percent, decimal baseAmount)
+    {
+        if (percent <= 0m)
+            return 0m;
+        return RoundMoney(baseAmount * percent / 100m);
+    }
+
+    private static decimal[] AllocateSaleDiscountAmounts(
+        IReadOnlyList<LineDraft> eligibleDrafts,
+        int totalLines,
+        decimal eligibleSubtotal,
+        decimal saleDiscountAmount)
+    {
+        var result = new decimal[totalLines];
+        if (saleDiscountAmount <= 0m || eligibleDrafts.Count == 0 || eligibleSubtotal <= 0m || totalLines <= 0)
+            return result;
+
+        var totalCents = ToCents(saleDiscountAmount);
+        var subtotalCents = ToCents(eligibleSubtotal);
+        if (totalCents <= 0 || subtotalCents <= 0)
+            return result;
+
+        var allocations = new long[eligibleDrafts.Count];
+        var remainders = new decimal[eligibleDrafts.Count];
+        var capacities = eligibleDrafts.Select(d => ToCents(d.SaleDiscountCapacity)).ToArray();
+
+        long allocatedCents = 0;
+        for (var i = 0; i < eligibleDrafts.Count; i++)
+        {
+            var draft = eligibleDrafts[i];
+            var weightCents = ToCents(draft.TaxableAfterItemDiscount);
+            if (weightCents <= 0)
+            {
+                allocations[i] = 0;
+                remainders[i] = 0m;
+                continue;
+            }
+
+            var exactShare = (decimal)totalCents * weightCents / subtotalCents;
+            var floorShare = (long)Math.Floor(exactShare);
+            var capped = Math.Min(floorShare, capacities[i]);
+            allocations[i] = capped;
+            allocatedCents += capped;
+            remainders[i] = exactShare - floorShare;
+        }
+
+        var remaining = totalCents - allocatedCents;
+        if (remaining > 0)
+        {
+            var candidates = Enumerable.Range(0, eligibleDrafts.Count)
+                .Where(i => allocations[i] < capacities[i])
+                .OrderByDescending(i => remainders[i])
+                .ToList();
+
+            var idx = 0;
+            while (remaining > 0 && candidates.Count > 0)
+            {
+                var i = candidates[idx];
+                if (allocations[i] < capacities[i])
+                {
+                    allocations[i] += 1;
+                    remaining -= 1;
+                }
+
+                idx++;
+                if (idx >= candidates.Count) idx = 0;
+
+                if (idx == 0 && candidates.All(j => allocations[j] >= capacities[j]))
+                    break;
+            }
+        }
+
+        for (var i = 0; i < eligibleDrafts.Count; i++)
+        {
+            if (allocations[i] <= 0) continue;
+            result[eligibleDrafts[i].LineIndex] = FromCents(allocations[i]);
+        }
+
+        return result;
+    }
+
+    private static decimal ComputeSafeMaxPercent(decimal preTaxAmount, decimal costAmount)
+    {
+        if (preTaxAmount <= 0m)
+            return 0m;
+
+        if (costAmount <= 0m)
+            return 100m;
+
+        if (preTaxAmount <= costAmount)
+            return 0m;
+        return Math.Floor((1m - costAmount / preTaxAmount) * 10000m) / 100m;
+    }
+
+    private static bool IsValidInstantDiscount(InstantDiscount discount)
+    {
+        return discount.Type switch
+        {
+            InstantDiscountType.None => discount.Value == 0m,
+            InstantDiscountType.Flat => discount.Value >= 0m,
+            InstantDiscountType.Percentage => discount.Value >= 0m && discount.Value <= 100m,
+            _ => false,
+        };
+    }
+
+    private static decimal RoundMoney(decimal value) =>
+        Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static long ToCents(decimal value) =>
+        (long)Math.Round(value * 100m, 0, MidpointRounding.AwayFromZero);
+
+    private static decimal FromCents(long cents) => cents / 100m;
+
+    private sealed record LineDraft(
+        int LineIndex,
+        Guid InventoryBatchId,
+        decimal Quantity,
+        decimal CostPrice,
+        decimal SalesPrice,
+        decimal TaxRatePercent,
+        bool IsPriceIncludingTax,
+        decimal PreTaxBeforeDiscount,
+        decimal CostTotal,
+        decimal ItemDiscountAmount,
+        decimal TaxableAfterItemDiscount,
+        decimal SaleDiscountCapacity,
+        decimal MaxAllowedItemDiscountFlat,
+        decimal MaxAllowedItemDiscountPercent)
+    {
+        public bool IsSaleDiscountEligible => SaleDiscountCapacity > 0m && TaxableAfterItemDiscount > 0m;
+    }
+}

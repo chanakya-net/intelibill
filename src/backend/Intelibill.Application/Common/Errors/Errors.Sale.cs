@@ -107,5 +107,29 @@ public static partial class Errors
 
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
+
+        public static Error InvalidPricingInput(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.InvalidInput", $"Invalid pricing input for batch '{inventoryBatchId}'.");
+
+        public static Error QuantityMustBePositive(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.QuantityMustBePositive", $"Quantity for batch '{inventoryBatchId}' must be greater than zero.");
+
+        public static Error InvalidDiscount(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.InvalidDiscount", $"Invalid discount input for batch '{inventoryBatchId}'.");
+
+        public static Error ItemDiscountWouldBeBelowCost(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.ItemDiscountBelowCost", $"Item discount would make batch '{inventoryBatchId}' sell below cost.");
+
+        public static Error LineWouldBeBelowCost(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.BelowCost", $"Pricing would make batch '{inventoryBatchId}' sell below cost.");
+
+        public static readonly Error SaleDiscountWouldBeBelowCost =
+            Error.Validation("SalePricing.SaleDiscountBelowCost", "Sale discount would make one or more lines sell below cost.");
+
+        public static readonly Error NoEligibleLinesForSaleDiscount =
+            Error.Validation("SalePricing.NoEligibleLines", "No eligible lines available for sale-level discount.");
+
+        public static readonly Error InvalidSaleDiscount =
+            Error.Validation("SalePricing.InvalidSaleDiscount", "Invalid sale discount input.");
     }
 }

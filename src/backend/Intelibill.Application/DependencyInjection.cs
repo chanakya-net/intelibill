@@ -3,6 +3,7 @@ using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
+        services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 
         services.AddScoped<DiscountRuleValidationService>();
 
