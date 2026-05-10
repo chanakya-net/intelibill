@@ -317,12 +317,14 @@ describe('ShellComponent', () => {
     expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
   });
 
-  it('exposes discounts route in shell routes', () => {
+  it('exposes discounts route in shell routes with role guard configured', () => {
     setup();
     const shellRoute = shellRoutes.find((route) => route.component === ShellComponent);
     const discountsRoute = shellRoute?.children?.find((route) => route.path === 'discounts');
 
     expect(discountsRoute).toBeDefined();
+    expect(discountsRoute?.canActivate).toBeDefined();
+    expect((discountsRoute?.canActivate ?? []).length).toBeGreaterThan(0);
   });
 
   it('opens update profile overlay from profile actions', () => {
