@@ -20,6 +20,8 @@ const makeSale = (id: string): SaleListItemDto => ({
   soldAt: '2026-04-19T10:00:00Z',
   paidAmount: 500,
   dueAmount: 0,
+  totalBeforeDiscount: 500,
+  totalDiscountAmount: 0,
   totalAmount: 500,
   totalTaxAmount: 50,
   customerName: null,

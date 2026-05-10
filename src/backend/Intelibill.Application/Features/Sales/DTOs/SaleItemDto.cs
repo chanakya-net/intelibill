@@ -36,6 +36,15 @@ public sealed record SaleItemDto
     public Guid InventoryBatchId { get; init; }
     public decimal Quantity { get; init; }
     public decimal SalesPrice { get; init; }
+    public decimal OriginalSalesPrice { get; init; }
+    public decimal FinalSalesPrice { get; init; }
+    public decimal PreTaxAmountBeforeDiscount { get; init; }
+    public decimal ItemDiscountAmount { get; init; }
+    public decimal SaleDiscountAmount { get; init; }
+    public decimal TaxableAmount { get; init; }
+    public decimal TaxAmount { get; init; }
+    public decimal TotalAmount { get; init; }
+    public decimal SavingsAmount { get; init; }
     public decimal TaxRatePercent { get; init; }
     public bool IsPriceIncludingTax { get; init; }
     public bool HasPriceMismatch { get; init; }

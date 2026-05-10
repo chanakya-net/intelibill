@@ -235,7 +235,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal(-100m, body.GetProperty("profitAfterTax").GetDecimal());
         Assert.Contains(
             body.GetProperty("profitTrendSeries").EnumerateArray(),
-            point => point.GetProperty("date").GetDateTime().Date == DateTime.Now.Date
+            point => point.GetProperty("date").GetDateTime().Date == DateTime.UtcNow.Date
                 && point.GetProperty("profitAfterTax").GetDecimal() == -100m);
     }
 
@@ -247,7 +247,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var ownerToken = await CreateShopAsync(client, token);
         var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var startDate = today.AddDays(-6);
         var outsidePerformedAt = DateTimeOffset.Now.AddDays(-7).ToUniversalTime();
         var inRangePerformedAt = DateTimeOffset.Now.AddMinutes(-30).ToUniversalTime();
@@ -321,7 +321,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
         var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var startDate = today.AddDays(-6);
         var endDate = today;
         var previousDate = startDate.AddDays(-1);
@@ -357,7 +357,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var startDate = today;
         var endDate = today;
         var inRangePerformedAt = DateTimeOffset.Now.AddMinutes(-25).ToUniversalTime();

@@ -88,11 +88,8 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
             .ToListAsync(cancellationToken);
     }
 
-    private static DateTime ToUtcStart(DateOnly localDate)
-    {
-        var localMidnight = localDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(localMidnight, TimeZoneInfo.Local);
-    }
+    private static DateTime ToUtcStart(DateOnly utcDate) =>
+        DateTime.SpecifyKind(utcDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
     public async Task<(IReadOnlyList<InventoryAdjustmentHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         InventoryAdjustmentHistoryFilter filter,

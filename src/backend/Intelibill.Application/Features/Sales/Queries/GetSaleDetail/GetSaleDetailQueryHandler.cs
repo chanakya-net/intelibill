@@ -58,6 +58,8 @@ public sealed class GetSaleDetailQueryHandler(
             sale.SoldAt,
             sale.PaidAmount,
             sale.DueAmount,
+            sale.TotalBeforeDiscount,
+            sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items.Select(si => new SaleItemDto(
@@ -72,7 +74,18 @@ public sealed class GetSaleDetailQueryHandler(
                 si.HasPriceMismatch,
                 GetReturnedQuantity(si.Id),
                 GetReturnableQuantity(si.Id, si.Quantity),
-                GetReturnStatus(si.Id, si.Quantity))).ToList(),
+                GetReturnStatus(si.Id, si.Quantity))
+            {
+                OriginalSalesPrice = si.OriginalSalesPrice,
+                FinalSalesPrice = si.FinalSalesPrice,
+                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
+                ItemDiscountAmount = si.ItemDiscountAmount,
+                SaleDiscountAmount = si.SaleDiscountAmount,
+                TaxableAmount = si.TaxableAmount,
+                TaxAmount = si.TaxAmount,
+                TotalAmount = si.TotalAmount,
+                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+            }).ToList(),
             [])
         {
             Returns = activeReturns.Select(r => new SaleReturnDto(

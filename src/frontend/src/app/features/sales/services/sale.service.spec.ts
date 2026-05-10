@@ -21,24 +21,6 @@ describe('SaleService', () => {
     TestBed.resetTestingModule();
   });
 
-  const makeSaleList = (): SaleListItemDto[] => [
-    {
-      saleId: 'sale-1',
-      invoiceNumber: 'INV-001',
-      customerId: null,
-      paymentMethod: 1,
-      soldAt: new Date().toISOString(),
-      paidAmount: 500,
-      dueAmount: 0,
-      totalAmount: 500,
-      totalTaxAmount: 50,
-      customerName: 'John',
-      customerPhone: null,
-      itemCount: 2,
-      returnNumbers: [],
-    },
-  ];
-
   const makeSaleDto = (): SaleDto => ({
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
@@ -47,6 +29,8 @@ describe('SaleService', () => {
     soldAt: new Date().toISOString(),
     paidAmount: 500,
     dueAmount: 0,
+    totalBeforeDiscount: 500,
+    totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
@@ -56,11 +40,49 @@ describe('SaleService', () => {
 
   it('sends GET request to list endpoint', () => {
     const { service, http } = setup();
-    const sales = makeSaleList();
+    const sales: SaleListItemDto[] = [
+      {
+        saleId: 'sale-1',
+        invoiceNumber: 'INV-001',
+        customerId: null,
+        paymentMethod: 1,
+        soldAt: '2026-05-11T00:00:00.000Z',
+        paidAmount: 500,
+        dueAmount: 0,
+        totalBeforeDiscount: 500,
+        totalDiscountAmount: 0,
+        totalAmount: 500,
+        totalTaxAmount: 50,
+        customerName: 'John',
+        customerPhone: null,
+        itemCount: 2,
+        returnNumbers: [],
+      },
+      {
+        saleId: 'sale-2',
+        invoiceNumber: 'INV-002',
+        customerId: 'cust-1',
+        paymentMethod: 1,
+        soldAt: '2026-05-11T01:00:00.000Z',
+        paidAmount: 495,
+        dueAmount: 0,
+        totalBeforeDiscount: 550,
+        totalDiscountAmount: 55,
+        totalAmount: 495,
+        totalTaxAmount: 45,
+        customerName: 'Jane',
+        customerPhone: '9999999999',
+        itemCount: 1,
+        returnNumbers: ['RET-001'],
+      },
+    ];
 
     service.getSales().subscribe((result) => {
-      expect(result).toHaveLength(1);
-      expect(result[0].saleId).toBe('sale-1');
+      expect(result).toHaveLength(2);
+      expect(result[0].totalBeforeDiscount).toBe(500);
+      expect(result[0].totalDiscountAmount).toBe(0);
+      expect(result[1].totalBeforeDiscount).toBe(550);
+      expect(result[1].totalDiscountAmount).toBe(55);
     });
 
     const req = http.expectOne(SALE_ENDPOINTS.list);
@@ -76,9 +98,72 @@ describe('SaleService', () => {
     service.getSaleById('sale-1').subscribe((result) => {
       expect(result.saleId).toBe('sale-1');
       expect(result.invoiceNumber).toBe('INV-001');
+      expect(result.totalBeforeDiscount).toBe(500);
+      expect(result.totalDiscountAmount).toBe(0);
     });
 
     const req = http.expectOne(SALE_ENDPOINTS.detail('sale-1'));
+    expect(req.request.method).toBe('GET');
+    req.flush(sale);
+    http.verify();
+  });
+
+  it('maps discounted sale detail fields from the API payload', () => {
+    const { service, http } = setup();
+    const sale: SaleDto = {
+      saleId: 'sale-2',
+      invoiceNumber: 'INV-002',
+      customerId: 'cust-1',
+      paymentMethod: 1,
+      soldAt: '2026-05-11T01:00:00.000Z',
+      paidAmount: 495,
+      dueAmount: 0,
+      totalBeforeDiscount: 550,
+      totalDiscountAmount: 55,
+      totalAmount: 495,
+      totalTaxAmount: 45,
+      items: [
+        {
+          saleItemId: 'line-1',
+          itemId: 'item-1',
+          itemName: 'Rice',
+          inventoryBatchId: 'batch-1',
+          quantity: 5,
+          salesPrice: 100,
+          originalSalesPrice: 100,
+          finalSalesPrice: 100,
+          preTaxAmountBeforeDiscount: 500,
+          itemDiscountAmount: 20,
+          saleDiscountAmount: 35,
+          taxableAmount: 445,
+          taxAmount: 45,
+          totalAmount: 490,
+          savingsAmount: 55,
+          taxRatePercent: 10,
+          isPriceIncludingTax: false,
+          hasPriceMismatch: false,
+          returnedQuantity: 0,
+          returnableQuantity: 5,
+          returnStatus: 'NotReturned',
+        },
+      ],
+      returns: [],
+      warnings: [],
+    };
+
+    service.getSaleById('sale-2').subscribe((result) => {
+      expect(result.totalBeforeDiscount).toBe(550);
+      expect(result.totalDiscountAmount).toBe(55);
+      expect(result.items[0].originalSalesPrice).toBe(100);
+      expect(result.items[0].finalSalesPrice).toBe(100);
+      expect(result.items[0].itemDiscountAmount).toBe(20);
+      expect(result.items[0].saleDiscountAmount).toBe(35);
+      expect(result.items[0].taxAmount).toBe(45);
+      expect(result.items[0].totalAmount).toBe(490);
+      expect(result.items[0].savingsAmount).toBe(55);
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.detail('sale-2'));
     expect(req.request.method).toBe('GET');
     req.flush(sale);
     http.verify();

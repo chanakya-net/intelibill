@@ -176,7 +176,7 @@ public static class DashboardKpiCalculator
         DateOnly endDate,
         IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
     {
-        static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.ToLocalTime().DateTime);
+        static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
 
         var activeReturns = GetActiveReturns(saleReturns);
         var byDay = sales

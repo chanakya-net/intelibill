@@ -43,6 +43,15 @@ export interface SaleItemDto {
   readonly inventoryBatchId: string;
   readonly quantity: number;
   readonly salesPrice: number;
+  readonly originalSalesPrice: number;
+  readonly finalSalesPrice: number;
+  readonly preTaxAmountBeforeDiscount: number;
+  readonly itemDiscountAmount: number;
+  readonly saleDiscountAmount: number;
+  readonly taxableAmount: number;
+  readonly taxAmount: number;
+  readonly totalAmount: number;
+  readonly savingsAmount: number;
   readonly taxRatePercent: number;
   readonly isPriceIncludingTax: boolean;
   readonly hasPriceMismatch: boolean;
@@ -81,6 +90,8 @@ export interface SaleDto {
   readonly soldAt: string;
   readonly paidAmount: number;
   readonly dueAmount: number;
+  readonly totalBeforeDiscount: number;
+  readonly totalDiscountAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly items: readonly SaleItemDto[];
@@ -173,6 +184,8 @@ export interface SaleListItemDto {
   readonly soldAt: string;
   readonly paidAmount: number;
   readonly dueAmount: number;
+  readonly totalBeforeDiscount: number;
+  readonly totalDiscountAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly customerName: string | null;

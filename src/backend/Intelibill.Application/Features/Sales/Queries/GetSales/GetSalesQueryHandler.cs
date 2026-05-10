@@ -47,6 +47,8 @@ public sealed class GetSalesQueryHandler(
                 s.SoldAt,
                 s.PaidAmount,
                 s.DueAmount,
+                s.TotalBeforeDiscount,
+                s.TotalDiscountAmount,
                 s.TotalAmount,
                 s.TotalTaxAmount,
                 s.CustomerName,

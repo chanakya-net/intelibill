@@ -207,6 +207,8 @@ public sealed class RecordSaleCommandHandler(
             sale.SoldAt,
             sale.PaidAmount,
             sale.DueAmount,
+            sale.TotalBeforeDiscount,
+            sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items.Select(si => new SaleItemDto(
@@ -218,7 +220,18 @@ public sealed class RecordSaleCommandHandler(
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
-                si.HasPriceMismatch)).ToList(),
+                si.HasPriceMismatch)
+            {
+                OriginalSalesPrice = si.OriginalSalesPrice,
+                FinalSalesPrice = si.FinalSalesPrice,
+                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
+                ItemDiscountAmount = si.ItemDiscountAmount,
+                SaleDiscountAmount = si.SaleDiscountAmount,
+                TaxableAmount = si.TaxableAmount,
+                TaxAmount = si.TaxAmount,
+                TotalAmount = si.TotalAmount,
+                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+            }).ToList(),
             sale.Warnings);
     }
 
@@ -239,6 +252,8 @@ public sealed class RecordSaleCommandHandler(
             sale.SoldAt,
             sale.PaidAmount,
             sale.DueAmount,
+            sale.TotalBeforeDiscount,
+            sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items.Select(si => new SaleItemDto(
@@ -250,7 +265,18 @@ public sealed class RecordSaleCommandHandler(
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
-                si.HasPriceMismatch)).ToList(),
+                si.HasPriceMismatch)
+            {
+                OriginalSalesPrice = si.OriginalSalesPrice,
+                FinalSalesPrice = si.FinalSalesPrice,
+                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
+                ItemDiscountAmount = si.ItemDiscountAmount,
+                SaleDiscountAmount = si.SaleDiscountAmount,
+                TaxableAmount = si.TaxableAmount,
+                TaxAmount = si.TaxAmount,
+                TotalAmount = si.TotalAmount,
+                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+            }).ToList(),
             warnings);
     }
 }

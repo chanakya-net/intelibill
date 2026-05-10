@@ -64,6 +64,8 @@ public class SalesControllerTests
             500m,
             0m,
             500m,
+            0m,
+            500m,
             45m,
             [],
             []);
@@ -221,7 +223,7 @@ public class SalesControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 90m, [], []);
+        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 0m, 500m, 90m, [], []);
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
 
@@ -241,7 +243,7 @@ public class SalesControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 90m, [], []);
+        var sale = new SaleDto(saleId, "INV-001", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 500m, 0m, 500m, 0m, 500m, 90m, [], []);
         _bus.InvokeAsync<ErrorOr<Guid>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Guid>>(saleId));
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
@@ -421,6 +423,8 @@ public class SalesControllerTests
             null,
             PaymentMethod.Cash,
             DateTimeOffset.UtcNow,
+            500m,
+            0m,
             500m,
             0m,
             500m,

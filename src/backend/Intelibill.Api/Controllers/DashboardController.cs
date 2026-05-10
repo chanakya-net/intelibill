@@ -26,7 +26,7 @@ public sealed class DashboardController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var resolvedEndDate = endDate ?? today;
         var resolvedStartDate = startDate ?? resolvedEndDate.AddDays(-29);
 

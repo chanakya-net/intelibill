@@ -225,6 +225,99 @@ public class GetSaleDetailQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenSaleHasNoDiscounts_ExposesZeroDiscountBreakdown()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = MakeSaleItem(shop.Id, item.Id);
+        var sale = MakeSale(shop.Id, saleItem);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(550m, result.Value.TotalBeforeDiscount);
+        Assert.Equal(0m, result.Value.TotalDiscountAmount);
+        Assert.Equal(50m, result.Value.TotalTaxAmount);
+        Assert.Equal(550m, result.Value.TotalAmount);
+
+        var line = Assert.Single(result.Value.Items);
+        Assert.Equal(100m, line.OriginalSalesPrice);
+        Assert.Equal(100m, line.FinalSalesPrice);
+        Assert.Equal(500m, line.PreTaxAmountBeforeDiscount);
+        Assert.Equal(0m, line.ItemDiscountAmount);
+        Assert.Equal(0m, line.SaleDiscountAmount);
+        Assert.Equal(500m, line.TaxableAmount);
+        Assert.Equal(50m, line.TaxAmount);
+        Assert.Equal(550m, line.TotalAmount);
+        Assert.Equal(0m, line.SavingsAmount);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSaleHasDiscounts_ExposesLineDiscountBreakdown()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = SaleItem.Create(
+            shop.Id,
+            item.Id,
+            Guid.NewGuid(),
+            quantity: 5m,
+            costPrice: 80m,
+            salesPrice: 100m,
+            mrp: 120m,
+            taxRatePercent: 10m,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false,
+            itemDiscountAmount: 20m,
+            saleDiscountAmount: 30m);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 495m,
+            dueAmount: 0m,
+            totalAmount: 495m,
+            totalTaxAmount: 45m,
+            [saleItem],
+            subtotalBeforeDiscount: 500m,
+            totalBeforeDiscount: 550m,
+            totalDiscountAmount: 50m);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(550m, result.Value.TotalBeforeDiscount);
+        Assert.Equal(50m, result.Value.TotalDiscountAmount);
+        Assert.Equal(45m, result.Value.TotalTaxAmount);
+        Assert.Equal(495m, result.Value.TotalAmount);
+
+        var line = Assert.Single(result.Value.Items);
+        Assert.Equal(100m, line.OriginalSalesPrice);
+        Assert.Equal(100m, line.FinalSalesPrice);
+        Assert.Equal(500m, line.PreTaxAmountBeforeDiscount);
+        Assert.Equal(20m, line.ItemDiscountAmount);
+        Assert.Equal(30m, line.SaleDiscountAmount);
+        Assert.Equal(450m, line.TaxableAmount);
+        Assert.Equal(45m, line.TaxAmount);
+        Assert.Equal(495m, line.TotalAmount);
+        Assert.Equal(50m, line.SavingsAmount);
+    }
+
+    [Fact]
     public async Task Handle_WhenSaleHasPartialReturn_ExposesReturnHistoryAndLineQuantities()
     {
         var user = MakeUser();
