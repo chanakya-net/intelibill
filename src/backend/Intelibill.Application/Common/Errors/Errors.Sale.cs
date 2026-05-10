@@ -12,6 +12,9 @@ public static partial class Errors
         public static Error ItemNotFound(string barcode) =>
             Error.NotFound("Sale.ItemNotFound", $"Item with barcode '{barcode}' was not found.");
 
+        public static Error ItemInactive(string barcode) =>
+            Error.Validation("Sale.ItemInactive", $"Item with barcode '{barcode}' is inactive.");
+
         public static Error BatchNotFound(string barcode, string batchNumber) =>
             Error.NotFound("Sale.BatchNotFound", $"Batch '{batchNumber}' for item with barcode '{barcode}' was not found.");
 

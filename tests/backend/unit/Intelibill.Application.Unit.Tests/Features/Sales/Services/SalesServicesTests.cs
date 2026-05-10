@@ -61,6 +61,61 @@ public class SalesServicesTests
         await batchRepository.Received(1).GetByIdWithItemAsync(commandLine.InventoryBatchId, shopId, Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task SaleLineValidator_WhenDuplicateBatchLinesExceedCumulativeStock_ReturnsInsufficientStock()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001", "Rice");
+        var batch = MakeBatch(shopId, item.Id, "B-01", quantity: 100m);
+        var inventory = MakeInventory(shopId, item.Id);
+        var firstLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 60m, 80m, 100m, 120m, 18m, false, batch.Id);
+        var secondLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 60m, 80m, 100m, 120m, 18m, false, batch.Id);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [firstLine, secondLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.InsufficientStock", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenItemInactive_ReturnsItemInactive()
+    {
+        var shopId = Guid.NewGuid();
+        var item = Item.Create(shopId, "Rice", "desc", "kg", "BC-001", false, Guid.NewGuid());
+        var batch = MakeBatch(shopId, item.Id, "B-01", quantity: 100m);
+        var inventory = MakeInventory(shopId, item.Id);
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.ItemInactive", result.FirstError.Code);
+    }
+
     private static Item MakeItem(Guid shopId, string barcode, string name) =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
 

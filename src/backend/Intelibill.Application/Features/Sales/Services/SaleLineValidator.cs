@@ -47,15 +47,21 @@ internal sealed class SaleLineValidator(
 
         var inventories = await inventoryRepository.GetByItemIdsAsync(shopId, itemIds, cancellationToken);
         var inventoryByItemId = inventories.ToDictionary(i => i.ItemId);
+        var requestedQuantityByBatchId = items
+            .GroupBy(i => i.InventoryBatchId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
         var validated = new List<ValidatedSaleLine>();
 
         foreach (var (cmdItem, item, batch) in resolvedContexts)
         {
+            if (!item.IsActive)
+                return Errors.Sale.ItemInactive(cmdItem.Barcode);
+
             if (batch.IsVoided)
                 return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
 
-            if (cmdItem.Quantity > batch.Quantity)
+            if (requestedQuantityByBatchId[batch.Id] > batch.Quantity)
                 return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
 
             if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))

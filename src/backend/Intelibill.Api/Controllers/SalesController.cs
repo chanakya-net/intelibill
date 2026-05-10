@@ -8,8 +8,10 @@ using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
+using Intelibill.Application.Features.Sales.Queries.PreviewSale;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -116,6 +118,36 @@ public sealed class SalesController : AuthenticatedControllerBase
             cancellationToken);
 
         return saleResult.ToActionResult(Ok);
+    }
+
+    [HttpPost("preview")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> PreviewSale([FromBody] PreviewSaleRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<SalePreviewDto>>(
+            new PreviewSaleQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value),
+                request.Items.Select(i => new PreviewSaleLineQuery(
+                    i.InventoryBatchId,
+                    i.Barcode,
+                    i.BatchNumber,
+                    i.ItemName,
+                    i.Quantity,
+                    i.CostPrice,
+                    i.SalesPrice,
+                    i.Mrp,
+                    i.TaxRatePercent,
+                    i.IsPriceIncludingTax,
+                    new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
+                    i.ClientLineKey)).ToList()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
     }
 
     [HttpPost("{saleId:guid}/returns/preview")]
@@ -225,6 +257,28 @@ public sealed record RecordSaleItemRequest(
     bool IsPriceIncludingTax,
     Guid InventoryBatchId,
     string? ClientLineKey = null);
+
+public sealed record PreviewSaleRequest(
+    InstantDiscountRequest SaleDiscount,
+    IReadOnlyList<PreviewSaleItemRequest> Items);
+
+public sealed record PreviewSaleItemRequest(
+    Guid InventoryBatchId,
+    string Barcode,
+    string BatchNumber,
+    string ItemName,
+    decimal Quantity,
+    decimal CostPrice,
+    decimal SalesPrice,
+    decimal Mrp,
+    decimal TaxRatePercent,
+    bool IsPriceIncludingTax,
+    InstantDiscountRequest ItemDiscount,
+    string? ClientLineKey = null);
+
+public sealed record InstantDiscountRequest(
+    InstantDiscountType Type,
+    decimal Value);
 
 public sealed record PreviewSaleReturnRequest(
     decimal? DueReductionOverrideAmount,

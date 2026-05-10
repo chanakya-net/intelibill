@@ -10,8 +10,10 @@ using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
+using Intelibill.Application.Features.Sales.Queries.PreviewSale;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -326,6 +328,64 @@ public class SalesControllerTests
                 && q.DueReductionOverrideAmount == 25m
                 && q.Items.Count == 1
                 && q.Items[0].SaleItemId == saleItemId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PreviewSale_WhenSuccessful_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = new SalePreviewDto(
+            TotalAmount: 100m,
+            TotalTaxableAmount: 90m,
+            TotalTaxAmount: 10m,
+            TotalDiscountAmount: 0m,
+            SaleLevelEligibleSubtotal: 90m,
+            ConfiguredSaleRule: null,
+            Lines: [],
+            Infos: [],
+            Warnings: []);
+
+        _bus.InvokeAsync<ErrorOr<SalePreviewDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SalePreviewDto>>(dto));
+
+        var request = new PreviewSaleRequest(
+            new InstantDiscountRequest(InstantDiscountType.None, 0m),
+            [
+                new PreviewSaleItemRequest(
+                    batchId,
+                    "BC-001",
+                    "B-01",
+                    "Rice",
+                    1m,
+                    80m,
+                    100m,
+                    120m,
+                    18m,
+                    false,
+                    new InstantDiscountRequest(InstantDiscountType.None, 0m),
+                    "line-1"),
+            ]);
+
+        var result = await _controller.PreviewSale(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<SalePreviewDto>>(
+            Arg.Is<PreviewSaleQuery>(q =>
+                q.ActorUserId == userId
+                && q.ShopId == shopId
+                && q.SaleDiscount.Type == InstantDiscountType.None
+                && q.Items.Count == 1
+                && q.Items[0].InventoryBatchId == batchId
+                && q.Items[0].ClientLineKey == "line-1"),
             Arg.Any<CancellationToken>());
     }
 
