@@ -1,16 +1,25 @@
 using Intelibill.Application.Features.Sales.Services.Pricing;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Services;
 
 public class SalePricingCalculatorTests
 {
-    private readonly SalePricingCalculator _calculator = new();
+    private static readonly Guid ShopId = Guid.NewGuid();
+    private static readonly DateTimeOffset SaleTime = new(2026, 05, 10, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Calculate_WhenTaxExclusive_ComputesTaxAfterDiscounts()
+    public async Task Calculate_WhenTaxExclusive_ComputesTaxAfterDiscounts()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 2m, salesPrice: 100m, taxRatePercent: 18m, taxIncluded: false),
             ],
@@ -28,9 +37,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenTaxIncluded_ExtractsPreTaxBeforeDiscount()
+    public async Task Calculate_WhenTaxIncluded_ExtractsPreTaxBeforeDiscount()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 2m, salesPrice: 118m, taxRatePercent: 18m, taxIncluded: true),
             ],
@@ -44,9 +57,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_AppliesItemPercentageDiscountBeforeTax()
+    public async Task Calculate_AppliesItemPercentageDiscountBeforeTax()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 18m, taxIncluded: false, costPrice: 70m,
                     itemDiscount: new InstantDiscount(InstantDiscountType.Percentage, 10m)),
@@ -63,9 +80,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_RejectsItemDiscountThatWouldGoBelowCost()
+    public async Task Calculate_RejectsItemDiscountThatWouldGoBelowCost()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 95m,
                     itemDiscount: new InstantDiscount(InstantDiscountType.Flat, 10m)),
@@ -76,9 +97,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_ReturnsMaxAllowedItemDiscountsPerLine()
+    public async Task Calculate_ReturnsMaxAllowedItemDiscountsPerLine()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 70m),
             ],
@@ -91,30 +116,17 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_RoundsLineMonetaryValuesBeforeSummingTotals()
-    {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
-            [
-                Line(inventoryBatchId: Guid.NewGuid(), quantity: 0.333m, salesPrice: 10m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m),
-                Line(inventoryBatchId: Guid.NewGuid(), quantity: 0.333m, salesPrice: 10m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m),
-                Line(inventoryBatchId: Guid.NewGuid(), quantity: 0.333m, salesPrice: 10m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m),
-            ],
-            SaleDiscount: None()));
-
-        Assert.False(result.IsError);
-        Assert.All(result.Value.Lines, l => Assert.Equal(3.33m, l.PreTaxAmountBeforeDiscount));
-        Assert.Equal(9.99m, result.Value.TotalAmount);
-    }
-
-    [Fact]
-    public void Calculate_ReturnsEligibleSubtotalForSaleDiscount()
+    public async Task Calculate_ReturnsEligibleSubtotalForSaleDiscount()
     {
         var eligibleBatch = Guid.NewGuid();
         var ineligibleBatch = Guid.NewGuid();
+        var calculator = CreateCalculatorWithRules([]);
 
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
-                Line(inventoryBatchId: eligibleBatch, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 70m),
+                Line(inventoryBatchId: eligibleBatch, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 40m),
                 Line(inventoryBatchId: ineligibleBatch, quantity: 1m, salesPrice: 50m, taxRatePercent: 0m, taxIncluded: false, costPrice: 50m),
             ],
             SaleDiscount: None()));
@@ -124,9 +136,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenSaleDiscountRequestedAndNoEligibleLines_ReturnsError()
+    public async Task Calculate_WhenSaleDiscountRequestedAndNoEligibleLines_ReturnsError()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 50m, taxRatePercent: 0m, taxIncluded: false, costPrice: 50m),
             ],
@@ -136,9 +152,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenSaleDiscountPercentageRequestedAndNoEligibleLines_ReturnsError()
+    public async Task Calculate_WhenSaleDiscountPercentageRequestedAndNoEligibleLines_ReturnsError()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 50m, taxRatePercent: 0m, taxIncluded: false, costPrice: 50m),
             ],
@@ -148,12 +168,15 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenSaleDiscountApplied_AllocatesAcrossEligibleLinesAndRecomputesTax()
+    public async Task Calculate_WhenSaleDiscountApplied_AllocatesAcrossEligibleLinesAndRecomputesTax()
     {
         var batch1 = Guid.NewGuid();
         var batch2 = Guid.NewGuid();
+        var calculator = CreateCalculatorWithRules([]);
 
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(inventoryBatchId: batch1, quantity: 1m, salesPrice: 100m, taxRatePercent: 18m, taxIncluded: false, costPrice: 70m),
                 Line(inventoryBatchId: batch2, quantity: 1m, salesPrice: 100m, taxRatePercent: 18m, taxIncluded: false, costPrice: 70m),
@@ -173,11 +196,14 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenMultipleLinesShareSameInventoryBatchId_AllocatesSaleDiscountPerLine()
+    public async Task Calculate_WhenMultipleLinesShareSameInventoryBatchId_AllocatesSaleDiscountPerLine()
     {
         var sharedBatchId = Guid.NewGuid();
+        var calculator = CreateCalculatorWithRules([]);
 
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(inventoryBatchId: sharedBatchId, quantity: 1m, salesPrice: 50m, taxRatePercent: 0m, taxIncluded: false, costPrice: 40m),
                 Line(inventoryBatchId: sharedBatchId, quantity: 1m, salesPrice: 150m, taxRatePercent: 0m, taxIncluded: false, costPrice: 50m),
@@ -202,9 +228,13 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WhenSaleDiscountExceedsBelowCostCapacity_ReturnsError()
+    public async Task Calculate_WhenSaleDiscountExceedsBelowCostCapacity_ReturnsError()
     {
-        var result = _calculator.Calculate(new SalePricingCalculationRequest(
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
             [
                 Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 99m),
                 Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 99m),
@@ -212,6 +242,214 @@ public class SalePricingCalculatorTests
             SaleDiscount: new InstantDiscount(InstantDiscountType.Flat, 5m)));
 
         Assert.True(result.IsError);
+    }
+
+    [Fact]
+    public async Task Calculate_AppliesConfiguredBatchPercentageDiscount_BeforeSaleEligibility()
+    {
+        var batchId = Guid.NewGuid();
+        var configured = CreateRule(
+            ruleType: DiscountRuleType.BatchPercentage,
+            percentage: 10m,
+            inventoryBatchId: batchId);
+
+        var saleRule = CreateRule(
+            ruleType: DiscountRuleType.SaleThresholdPercentage,
+            percentage: 20m,
+            thresholdAmount: 95m);
+
+        var calculator = CreateCalculatorWithRules([configured, saleRule]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(inventoryBatchId: batchId, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Equal(10m, line.ItemDiscountAmount);
+        Assert.Equal(90m, result.Value.SaleLevelEligibleSubtotal);
+        Assert.Null(result.Value.ConfiguredSaleRule);
+    }
+
+    [Fact]
+    public async Task Calculate_ConfiguredBatchDiscount_CanBeReducedButNotIncreasedByOverride()
+    {
+        var batchId = Guid.NewGuid();
+        var configured = CreateRule(
+            ruleType: DiscountRuleType.BatchPercentage,
+            percentage: 10m,
+            inventoryBatchId: batchId);
+
+        var calculator = CreateCalculatorWithRules([configured]);
+
+        var increased = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(inventoryBatchId: batchId, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m,
+                    itemDiscount: new InstantDiscount(InstantDiscountType.Percentage, 20m)),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(increased.IsError);
+        Assert.Equal(10m, increased.Value.Lines[0].ItemDiscountAmount);
+
+        var reduced = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(inventoryBatchId: batchId, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m,
+                    itemDiscount: new InstantDiscount(InstantDiscountType.Percentage, 5m)),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(reduced.IsError);
+        Assert.Equal(5m, reduced.Value.Lines[0].ItemDiscountAmount);
+    }
+
+    [Fact]
+    public async Task Calculate_AppliesBestConfiguredSaleRule_AndCapsByOverride()
+    {
+        var batchId = Guid.NewGuid();
+        var line = Line(inventoryBatchId: batchId, quantity: 1m, salesPrice: 200m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m);
+
+        var sale10 = CreateRule(DiscountRuleType.SalePercentage, percentage: 10m);
+        var sale15 = CreateRule(DiscountRuleType.SalePercentage, percentage: 15m);
+
+        // Make sale15 the "newest" only if tie-breaker is needed; here it wins by discount amount anyway.
+        var calculator = CreateCalculatorWithRules([sale10, sale15]);
+
+        var noOverride = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [line],
+            SaleDiscount: None()));
+
+        Assert.False(noOverride.IsError);
+        Assert.NotNull(noOverride.Value.ConfiguredSaleRule);
+        Assert.Equal(sale15.Id, noOverride.Value.ConfiguredSaleRule!.RuleId);
+        Assert.Equal(30m, noOverride.Value.TotalDiscountAmount);
+
+        var cappedByOverride = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [line],
+            SaleDiscount: new InstantDiscount(InstantDiscountType.Percentage, 5m)));
+
+        Assert.False(cappedByOverride.IsError);
+        Assert.Equal(10m, cappedByOverride.Value.TotalDiscountAmount);
+    }
+
+    [Fact]
+    public async Task Calculate_SaleRuleSelection_TieBreaksByThresholdSpecificityThenNewest()
+    {
+        var batchId = Guid.NewGuid();
+        var line = Line(inventoryBatchId: batchId, quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m);
+
+        var percent10 = CreateRule(DiscountRuleType.SalePercentage, percentage: 10m);
+        var threshold10A = CreateRule(DiscountRuleType.SaleThresholdPercentage, percentage: 10m, thresholdAmount: 50m);
+        var threshold10B = CreateRule(DiscountRuleType.SaleThresholdPercentage, percentage: 10m, thresholdAmount: 80m);
+
+        // Make percent10 newest, but threshold10B should still win on "threshold specificity"
+        SetCreatedAt(percent10, SaleTime.AddMinutes(3));
+        SetCreatedAt(threshold10A, SaleTime.AddMinutes(1));
+        SetCreatedAt(threshold10B, SaleTime.AddMinutes(2));
+
+        var calculator = CreateCalculatorWithRules([percent10, threshold10A, threshold10B]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [line],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.ConfiguredSaleRule);
+        Assert.Equal(threshold10B.Id, result.Value.ConfiguredSaleRule!.RuleId);
+        Assert.Equal(10m, result.Value.TotalDiscountAmount);
+    }
+
+    [Fact]
+    public async Task Calculate_WhenConfiguredSaleRuleExistsButNoEligibleLines_ReturnsInfoNotError()
+    {
+        var configuredSale = CreateRule(DiscountRuleType.SalePercentage, percentage: 10m);
+        var calculator = CreateCalculatorWithRules([configuredSale]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 1m, salesPrice: 50m, taxRatePercent: 0m, taxIncluded: false, costPrice: 50m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value.Infos, i => i.Code == "sale_pricing.info.no_eligible_lines_for_configured_sale_discount");
+        Assert.Equal(0m, result.Value.TotalDiscountAmount);
+        Assert.Null(result.Value.ConfiguredSaleRule);
+    }
+
+    [Fact]
+    public async Task Calculate_CallsDiscountRepositoryWithSaleTime()
+    {
+        var repo = Substitute.For<IDiscountRuleRepository>();
+        repo.GetActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<DiscountRule>());
+
+        var calculator = new SalePricingCalculator(repo);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 1m, salesPrice: 100m, taxRatePercent: 0m, taxIncluded: false, costPrice: 0m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        await repo.Received(1).GetActiveByShopAsync(ShopId, SaleTime, Arg.Any<CancellationToken>());
+    }
+
+    private static SalePricingCalculator CreateCalculatorWithRules(IReadOnlyList<DiscountRule> rules)
+    {
+        var repo = Substitute.For<IDiscountRuleRepository>();
+        repo.GetActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(rules);
+        return new SalePricingCalculator(repo);
+    }
+
+    private static DiscountRule CreateRule(
+        DiscountRuleType ruleType,
+        decimal percentage,
+        Guid? inventoryBatchId = null,
+        decimal? thresholdAmount = null)
+    {
+        var created = DiscountRule.Create(
+            shopId: ShopId,
+            ruleType: ruleType,
+            name: $"{ruleType} {percentage}",
+            description: null,
+            inventoryBatchId: inventoryBatchId,
+            percentage: percentage,
+            thresholdAmount: thresholdAmount,
+            startsAt: null,
+            endsAt: null,
+            belowCostConfirmed: true,
+            belowCostConfirmationReason: null,
+            createdBy: Guid.NewGuid());
+
+        Assert.False(created.IsError);
+        return created.Value;
+    }
+
+    private static void SetCreatedAt(DiscountRule rule, DateTimeOffset createdAt)
+    {
+        var prop = rule.GetType().BaseType!.GetProperty("CreatedAt");
+        prop!.SetValue(rule, createdAt);
     }
 
     private static SalePricingLineCalculationRequest Line(

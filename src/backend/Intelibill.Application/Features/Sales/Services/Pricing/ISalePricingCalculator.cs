@@ -1,9 +1,12 @@
 using ErrorOr;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Services.Pricing;
 
 public sealed record SalePricingCalculationRequest(
+    Guid ShopId,
+    DateTimeOffset SaleTime,
     IReadOnlyList<SalePricingLineCalculationRequest> Lines,
     InstantDiscount SaleDiscount);
 
@@ -23,7 +26,19 @@ public sealed record SalePricingCalculationResult(
     decimal TotalTaxableAmount,
     decimal TotalTaxAmount,
     decimal TotalDiscountAmount,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    SalePricingConfiguredSaleRule? ConfiguredSaleRule,
+    IReadOnlyList<SalePricingInfoMessage> Infos);
+
+public sealed record SalePricingConfiguredSaleRule(
+    Guid RuleId,
+    DiscountRuleType RuleType,
+    decimal Percentage,
+    decimal? ThresholdAmount);
+
+public sealed record SalePricingInfoMessage(
+    string Code,
+    string Message);
 
 public sealed record SalePricingLineCalculation(
     Guid InventoryBatchId,
@@ -39,10 +54,13 @@ public sealed record SalePricingLineCalculation(
     decimal TaxAmount,
     decimal TotalAmount,
     decimal MaxAllowedItemDiscountFlat,
-    decimal MaxAllowedItemDiscountPercent);
+    decimal MaxAllowedItemDiscountPercent,
+    Guid? ConfiguredBatchRuleId,
+    decimal? ConfiguredBatchRulePercentage);
 
 public interface ISalePricingCalculator
 {
-    ErrorOr<SalePricingCalculationResult> Calculate(SalePricingCalculationRequest request);
+    Task<ErrorOr<SalePricingCalculationResult>> CalculateAsync(
+        SalePricingCalculationRequest request,
+        CancellationToken cancellationToken = default);
 }
-

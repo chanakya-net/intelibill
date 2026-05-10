@@ -1,22 +1,48 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Services.Pricing;
 
-internal sealed class SalePricingCalculator : ISalePricingCalculator
+internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRuleRepository) : ISalePricingCalculator
 {
-    public ErrorOr<SalePricingCalculationResult> Calculate(SalePricingCalculationRequest request)
+    public async Task<ErrorOr<SalePricingCalculationResult>> CalculateAsync(
+        SalePricingCalculationRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (request.Lines is null || request.Lines.Count == 0)
         {
             return Errors.Sale.ItemsRequired;
         }
 
+        var activeRules = await discountRuleRepository.GetActiveByShopAsync(
+            request.ShopId,
+            request.SaleTime,
+            cancellationToken);
+
+        var batchRulesByBatchId = activeRules
+            .Where(r => r.RuleType == DiscountRuleType.BatchPercentage && r.InventoryBatchId.HasValue)
+            .GroupBy(r => r.InventoryBatchId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .OrderByDescending(r => r.Percentage)
+                    .ThenByDescending(r => r.CreatedAt)
+                    .First());
+
+        var saleLevelRules = activeRules
+            .Where(r => r.InventoryBatchId is null
+                && (r.RuleType == DiscountRuleType.SalePercentage || r.RuleType == DiscountRuleType.SaleThresholdPercentage))
+            .ToList();
+
         var lineDrafts = new List<LineDraft>(request.Lines.Count);
         for (var lineIndex = 0; lineIndex < request.Lines.Count; lineIndex++)
         {
-            var draftOrError = DraftLine(request.Lines[lineIndex], lineIndex);
+            batchRulesByBatchId.TryGetValue(request.Lines[lineIndex].InventoryBatchId, out var batchRule);
+            var draftOrError = DraftLine(request.Lines[lineIndex], lineIndex, batchRule);
             if (draftOrError.IsError)
                 return draftOrError.Errors;
             lineDrafts.Add(draftOrError.Value);
@@ -39,7 +65,21 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
             return Errors.Sale.NoEligibleLinesForSaleDiscount;
         }
 
-        var saleDiscountAmount = CalculateSaleDiscountAmount(request.SaleDiscount, saleLevelEligibleSubtotal);
+        var infos = new List<SalePricingInfoMessage>();
+
+        DiscountRule? bestConfiguredSaleRule = SelectBestSaleLevelRule(saleLevelRules, saleLevelEligibleSubtotal);
+        if (bestConfiguredSaleRule is not null && saleLevelEligibleSubtotal <= 0m && !isSaleDiscountRequested)
+        {
+            infos.Add(new SalePricingInfoMessage(
+                "sale_pricing.info.no_eligible_lines_for_configured_sale_discount",
+                "Configured sale-level discount was available, but no eligible lines remained for sale-level discounts."));
+            bestConfiguredSaleRule = null;
+        }
+
+        var saleDiscountAmount = CalculateEffectiveSaleDiscountAmount(
+            request.SaleDiscount,
+            saleLevelEligibleSubtotal,
+            bestConfiguredSaleRule);
 
         var totalCapacity = RoundMoney(eligibleDrafts.Sum(d => d.SaleDiscountCapacity));
         if (saleDiscountAmount > totalCapacity)
@@ -86,7 +126,9 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
                 taxAmount,
                 totalAmount,
                 draft.MaxAllowedItemDiscountFlat,
-                draft.MaxAllowedItemDiscountPercent));
+                draft.MaxAllowedItemDiscountPercent,
+                draft.ConfiguredBatchRuleId,
+                draft.ConfiguredBatchRulePercentage));
         }
 
         var totalTaxableAmount = RoundMoney(finalLines.Sum(l => l.TaxableAmount));
@@ -100,10 +142,21 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
             totalTaxableAmount,
             totalTaxAmount,
             totalDiscountAmount,
-            totalAmountSum);
+            totalAmountSum,
+            bestConfiguredSaleRule is null
+                ? null
+                : new SalePricingConfiguredSaleRule(
+                    bestConfiguredSaleRule.Id,
+                    bestConfiguredSaleRule.RuleType,
+                    bestConfiguredSaleRule.Percentage,
+                    bestConfiguredSaleRule.ThresholdAmount),
+            infos);
     }
 
-    private static ErrorOr<LineDraft> DraftLine(SalePricingLineCalculationRequest line, int lineIndex)
+    private static ErrorOr<LineDraft> DraftLine(
+        SalePricingLineCalculationRequest line,
+        int lineIndex,
+        DiscountRule? configuredBatchRule)
     {
         if (line.Quantity <= 0m)
         {
@@ -126,7 +179,10 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
         var maxAllowedItemDiscountFlat = RoundMoney(Math.Max(0m, preTaxBeforeDiscount - costTotal));
         var maxAllowedItemDiscountPercent = ComputeSafeMaxPercent(preTaxBeforeDiscount, costTotal);
 
-        var itemDiscountAmount = CalculateLineDiscountAmount(line.ItemDiscount, preTaxBeforeDiscount);
+        var itemDiscountAmount = CalculateEffectiveItemDiscountAmount(
+            line.ItemDiscount,
+            preTaxBeforeDiscount,
+            configuredBatchRule);
 
         if (itemDiscountAmount > maxAllowedItemDiscountFlat)
         {
@@ -155,7 +211,9 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
             taxableAfterItemDiscount,
             saleDiscountCapacity,
             maxAllowedItemDiscountFlat,
-            maxAllowedItemDiscountPercent);
+            maxAllowedItemDiscountPercent,
+            configuredBatchRule?.Id,
+            configuredBatchRule?.Percentage);
     }
 
     private static decimal ExtractPreTaxAmount(decimal quantity, decimal salesPrice, decimal taxRatePercent, bool isPriceIncludingTax)
@@ -199,6 +257,72 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
             InstantDiscountType.Flat => RoundMoney(discount.Value),
             _ => 0m,
         };
+    }
+
+    private static decimal CalculateEffectiveItemDiscountAmount(
+        InstantDiscount discount,
+        decimal preTaxAmount,
+        DiscountRule? configuredBatchRule)
+    {
+        if (configuredBatchRule is null)
+        {
+            return CalculateLineDiscountAmount(discount, preTaxAmount);
+        }
+
+        var configuredAmount = CalculatePercentDiscount(configuredBatchRule.Percentage, preTaxAmount);
+
+        if (discount.Type == InstantDiscountType.None)
+        {
+            return configuredAmount;
+        }
+
+        var overrideAmount = CalculateLineDiscountAmount(discount, preTaxAmount);
+        return RoundMoney(Math.Min(configuredAmount, overrideAmount));
+    }
+
+    private static decimal CalculateEffectiveSaleDiscountAmount(
+        InstantDiscount saleDiscount,
+        decimal eligibleSubtotal,
+        DiscountRule? configuredSaleRule)
+    {
+        var configuredAmount = configuredSaleRule is null
+            ? 0m
+            : CalculatePercentDiscount(configuredSaleRule.Percentage, eligibleSubtotal);
+
+        if (saleDiscount.Type == InstantDiscountType.None)
+        {
+            return configuredAmount;
+        }
+
+        var overrideAmount = CalculateSaleDiscountAmount(saleDiscount, eligibleSubtotal);
+        return configuredSaleRule is null
+            ? overrideAmount
+            : RoundMoney(Math.Min(configuredAmount, overrideAmount));
+    }
+
+    private static DiscountRule? SelectBestSaleLevelRule(
+        List<DiscountRule> saleRules,
+        decimal eligibleSubtotal)
+    {
+        if (saleRules.Count == 0)
+            return null;
+
+        var eligibleRules = saleRules
+            .Where(r => r.RuleType == DiscountRuleType.SalePercentage
+                || (r.RuleType == DiscountRuleType.SaleThresholdPercentage
+                    && r.ThresholdAmount.HasValue
+                    && eligibleSubtotal >= r.ThresholdAmount.Value))
+            .ToList();
+
+        if (eligibleRules.Count == 0)
+            return null;
+
+        return eligibleRules
+            .OrderByDescending(r => CalculatePercentDiscount(r.Percentage, eligibleSubtotal))
+            .ThenByDescending(r => r.RuleType == DiscountRuleType.SaleThresholdPercentage)
+            .ThenByDescending(r => r.ThresholdAmount ?? 0m)
+            .ThenByDescending(r => r.CreatedAt)
+            .First();
     }
 
     private static decimal CalculatePercentDiscount(decimal percent, decimal baseAmount)
@@ -328,7 +452,9 @@ internal sealed class SalePricingCalculator : ISalePricingCalculator
         decimal TaxableAfterItemDiscount,
         decimal SaleDiscountCapacity,
         decimal MaxAllowedItemDiscountFlat,
-        decimal MaxAllowedItemDiscountPercent)
+        decimal MaxAllowedItemDiscountPercent,
+        Guid? ConfiguredBatchRuleId,
+        decimal? ConfiguredBatchRulePercentage)
     {
         public bool IsSaleDiscountEligible => SaleDiscountCapacity > 0m && TaxableAfterItemDiscount > 0m;
     }
