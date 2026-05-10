@@ -48,6 +48,7 @@ public class SalesControllerTests
             null,
             "Ravi Kumar",
             "+919876543210",
+            $"sale-{Guid.NewGuid():N}",
             PaymentMethod.Cash,
             500m,
             0m,
@@ -113,6 +114,7 @@ public class SalesControllerTests
             Arg.Is<RecordSaleCommand>(c =>
                 c.ActorUserId == userId
                 && c.ShopId == shopId
+                && !string.IsNullOrWhiteSpace(c.IdempotencyKey)
                 && c.PaymentMethod == PaymentMethod.Cash
                 && c.PaidAmount == 500m
                 && c.DueAmount == 0m

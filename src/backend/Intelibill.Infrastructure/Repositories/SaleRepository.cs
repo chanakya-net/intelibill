@@ -19,6 +19,15 @@ internal sealed class SaleRepository(ApplicationDbContext context)
             .Include(s => s.Items)
             .FirstOrDefaultAsync(s => s.Id == saleId && s.ShopId == shopId, cancellationToken);
 
+    public async Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s =>
+                s.ShopId == shopId
+                && s.ActorUserId == actorUserId
+                && s.IdempotencyKey == idempotencyKey, cancellationToken);
+
     public async Task<IReadOnlyList<Sale>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)

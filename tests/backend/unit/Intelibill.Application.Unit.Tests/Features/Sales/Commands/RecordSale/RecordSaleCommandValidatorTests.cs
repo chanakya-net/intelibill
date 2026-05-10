@@ -13,6 +13,7 @@ public class RecordSaleCommandValidatorTests
         new(
             Guid.NewGuid(),
             Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
             null,
             "Ravi Kumar",
             "+919876543210",
@@ -32,6 +33,16 @@ public class RecordSaleCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         result.ShouldHaveValidationErrorFor(x => x.Items);
+    }
+
+    [Fact]
+    public void Validate_WhenIdempotencyKeyMissing_ReturnsError()
+    {
+        var command = ValidCommand() with { IdempotencyKey = "   " };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.IdempotencyKey);
     }
 
     [Fact]

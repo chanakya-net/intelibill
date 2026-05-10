@@ -151,6 +151,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "PL Customer",
             customerPhone = "+919876543210",

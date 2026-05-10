@@ -9,6 +9,17 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
 {
     public RecordSaleCommandValidator()
     {
+        RuleFor(x => x.IdempotencyKey)
+            .NotEmpty()
+            .Must(key => !string.IsNullOrWhiteSpace(key))
+            .WithErrorCode(Errors.Sale.IdempotencyKeyRequired.Code)
+            .WithMessage(Errors.Sale.IdempotencyKeyRequired.Description);
+
+        RuleFor(x => x.IdempotencyKey)
+            .MaximumLength(128)
+            .WithErrorCode(Errors.Sale.IdempotencyKeyTooLong.Code)
+            .WithMessage(Errors.Sale.IdempotencyKeyTooLong.Description);
+
         RuleFor(x => x.Items)
             .NotEmpty()
             .WithErrorCode(Errors.Sale.ItemsRequired.Code)

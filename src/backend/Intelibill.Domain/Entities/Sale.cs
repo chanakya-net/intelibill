@@ -10,6 +10,10 @@ public sealed class Sale : BaseEntity
     private readonly List<SaleItem> _items = [];
 
     public Guid ShopId { get; private set; }
+    public Guid ActorUserId { get; private set; }
+    public string IdempotencyKey { get; private set; } = string.Empty;
+    public string RequestHash { get; private set; } = string.Empty;
+    public string[] Warnings { get; private set; } = [];
     public string InvoiceNumber { get; private set; } = string.Empty;
     public Guid? CustomerId { get; private set; }
     public string? CustomerName { get; private set; }
@@ -36,6 +40,9 @@ public sealed class Sale : BaseEntity
 
     public static ErrorOr<Sale> Record(
         Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
         string invoiceNumber,
         IReadOnlyList<SaleLineInput> lines,
         Guid? customerId,
@@ -50,7 +57,8 @@ public sealed class Sale : BaseEntity
         decimal? configuredSaleRulePercentage = null,
         decimal? configuredSaleRuleThresholdAmount = null,
         InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
-        decimal saleDiscountOverrideValue = 0m)
+        decimal saleDiscountOverrideValue = 0m,
+        IReadOnlyList<string>? warnings = null)
     {
         if (lines is null || lines.Count == 0)
         {
@@ -104,6 +112,10 @@ public sealed class Sale : BaseEntity
         return new Sale
         {
             ShopId = shopId,
+            ActorUserId = actorUserId,
+            IdempotencyKey = idempotencyKey,
+            RequestHash = requestHash,
+            Warnings = warnings?.ToArray() ?? [],
             InvoiceNumber = invoiceNumber,
             CustomerId = customerId,
             CustomerName = NormalizeOptional(customerName),
@@ -128,6 +140,9 @@ public sealed class Sale : BaseEntity
 
     internal static Sale Create(
         Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
         string invoiceNumber,
         Guid? customerId,
         string? customerName,
@@ -157,6 +172,9 @@ public sealed class Sale : BaseEntity
         var sale = new Sale
         {
             ShopId = shopId,
+            ActorUserId = actorUserId,
+            IdempotencyKey = idempotencyKey,
+            RequestHash = requestHash,
             InvoiceNumber = invoiceNumber,
             CustomerId = customerId,
             CustomerName = NormalizeOptional(customerName),
@@ -179,6 +197,58 @@ public sealed class Sale : BaseEntity
         };
         sale._items.AddRange(items);
         return sale;
+    }
+
+    internal static Sale Create(
+        Guid shopId,
+        string invoiceNumber,
+        Guid? customerId,
+        string? customerName,
+        string? customerPhone,
+        PaymentMethod paymentMethod,
+        DateTimeOffset soldAt,
+        decimal paidAmount,
+        decimal dueAmount,
+        decimal totalAmount,
+        decimal totalTaxAmount,
+        IReadOnlyList<SaleItem> items,
+        decimal? subtotalBeforeDiscount = null,
+        decimal? totalBeforeDiscount = null,
+        decimal totalDiscountAmount = 0m,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m)
+    {
+        var idempotencyKey = $"legacy-{Guid.NewGuid():N}";
+        var requestHash = $"legacy-{Guid.NewGuid():N}";
+        return Create(
+            shopId,
+            Guid.Empty,
+            idempotencyKey,
+            requestHash,
+            invoiceNumber,
+            customerId,
+            customerName,
+            customerPhone,
+            paymentMethod,
+            soldAt,
+            paidAmount,
+            dueAmount,
+            totalAmount,
+            totalTaxAmount,
+            items,
+            subtotalBeforeDiscount,
+            totalBeforeDiscount,
+            totalDiscountAmount,
+            configuredSaleRuleId,
+            configuredSaleRuleType,
+            configuredSaleRulePercentage,
+            configuredSaleRuleThresholdAmount,
+            saleDiscountOverrideType,
+            saleDiscountOverrideValue);
     }
 
     private static string? NormalizeOptional(string? value) =>

@@ -23,6 +23,9 @@ public class SaleTests
 
         var result = Sale.Record(
             shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
             invoiceNumber,
             lines,
             customerId,
@@ -76,6 +79,9 @@ public class SaleTests
 
         var result = Sale.Record(
             shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
             "INV-20260416-ABCD1234",
             [line],
             null,
@@ -98,6 +104,9 @@ public class SaleTests
 
         var result = Sale.Record(
             shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
             "INV-20260416-ABCD1234",
             [line],
             null,
@@ -117,6 +126,9 @@ public class SaleTests
     {
         var result = Sale.Record(
             Guid.NewGuid(),
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
             "INV-20260416-ABCD1234",
             [],
             null,

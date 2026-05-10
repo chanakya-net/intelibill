@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
@@ -7,6 +8,7 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
@@ -15,6 +17,7 @@ public sealed class RecordSaleCommandHandler(
     ISalePricingCalculator salePricingCalculator,
     ICustomerResolver customerResolver,
     ISaleRepository saleRepository,
+    IItemRepository itemRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
     IUnitOfWork unitOfWork)
@@ -22,6 +25,22 @@ public sealed class RecordSaleCommandHandler(
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
+        var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
+        var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
+
+        var existingSale = await saleRepository.GetByIdempotencyKeyAsync(
+            command.ShopId,
+            command.ActorUserId,
+            normalizedIdempotencyKey,
+            cancellationToken);
+
+        if (existingSale is not null)
+        {
+            if (!string.Equals(existingSale.RequestHash, requestHash, StringComparison.Ordinal))
+                return Errors.Sale.IdempotencyConflict;
+
+            return await BuildSaleDtoAsync(existingSale, existingSale.Warnings, cancellationToken);
+        }
 
         var validationResultOrError = await saleLineValidator.ValidateLinesAsync(
             command.ShopId, command.Items, warnings, cancellationToken);
@@ -97,6 +116,9 @@ public sealed class RecordSaleCommandHandler(
 
         var saleOrError = Sale.Record(
             command.ShopId,
+            command.ActorUserId,
+            normalizedIdempotencyKey,
+            requestHash,
             invoiceNumber,
             saleLineInputs,
             resolvedCustomer?.Id ?? command.CustomerId,
@@ -111,7 +133,8 @@ public sealed class RecordSaleCommandHandler(
             pricing.ConfiguredSaleRule?.Percentage,
             pricing.ConfiguredSaleRule?.ThresholdAmount,
             effectiveSaleDiscount.Type,
-            effectiveSaleDiscount.Value);
+            effectiveSaleDiscount.Value,
+            warnings);
 
         if (saleOrError.IsError)
             return saleOrError.Errors;
@@ -155,7 +178,58 @@ public sealed class RecordSaleCommandHandler(
             await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedIdempotencyKey,
+                cancellationToken);
+
+            if (concurrentSale is null)
+                throw;
+
+            if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
+                return Errors.Sale.IdempotencyConflict;
+
+            return await BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
+        }
+
+        return new SaleDto(
+            sale.Id,
+            sale.InvoiceNumber,
+            sale.CustomerId,
+            sale.PaymentMethod,
+            sale.SoldAt,
+            sale.PaidAmount,
+            sale.DueAmount,
+            sale.TotalAmount,
+            sale.TotalTaxAmount,
+            sale.Items.Select(si => new SaleItemDto(
+                si.Id,
+                si.ItemId,
+                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
+                si.InventoryBatchId,
+                si.Quantity,
+                si.SalesPrice,
+                si.TaxRatePercent,
+                si.IsPriceIncludingTax,
+                si.HasPriceMismatch)).ToList(),
+            sale.Warnings);
+    }
+
+    private async Task<SaleDto> BuildSaleDtoAsync(
+        Sale sale,
+        IReadOnlyList<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var itemIds = sale.Items.Select(i => i.ItemId).Distinct().ToList();
+        var items = await itemRepository.GetByIdsAsync(sale.ShopId, itemIds, cancellationToken);
+        var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
         return new SaleDto(
             sale.Id,

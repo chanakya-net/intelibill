@@ -39,6 +39,15 @@ public static partial class Errors
         public static Error CustomerIdentityRequiredForDue =>
             Error.Validation("Sale.CustomerIdentityRequiredForDue", "Customer id or customer phone is required when due amount is greater than zero.");
 
+        public static Error IdempotencyKeyRequired =>
+            Error.Validation("Sale.IdempotencyKeyRequired", "Idempotency key is required.");
+
+        public static Error IdempotencyKeyTooLong =>
+            Error.Validation("Sale.IdempotencyKeyTooLong", "Idempotency key must be 128 characters or less.");
+
+        public static Error IdempotencyConflict =>
+            Error.Conflict("Sale.IdempotencyConflict", "Idempotency key has already been used with different request content.");
+
         public static Error PaidAndDueAmountMismatch =>
             Error.Validation("Sale.PaidAndDueAmountMismatch", "Paid amount and due amount must match sale total.");
 

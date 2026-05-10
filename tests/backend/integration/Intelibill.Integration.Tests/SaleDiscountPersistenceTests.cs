@@ -47,6 +47,7 @@ public sealed class SaleDiscountPersistenceTests(PostgreSqlTestFixture fixture) 
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Snapshot Customer",
             customerPhone = "+919876543210",

@@ -141,6 +141,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Walk-in Customer",
             customerPhone = "+919876543210",
@@ -200,6 +201,279 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task RecordSale_ReplayWithSameIdempotencyKey_ReturnsSameSaleWithoutDuplicateStockMutation()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+
+        var itemId = inboundBody.GetProperty("itemId").GetGuid();
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 590m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 5m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        replayRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        replayRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 590m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 5m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var replayResponse = await client.SendAsync(replayRequest);
+        Assert.Equal(HttpStatusCode.Created, replayResponse.StatusCode);
+        var replayBody = await replayResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(saleId, replayBody.GetProperty("saleId").GetGuid());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var saleCount = await db.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey);
+        Assert.Equal(1, saleCount);
+
+        var outTxCount = await db.StockTransactions
+            .CountAsync(t => t.InventoryBatchId == batchId && t.TransactionType == StockTransactionType.Out);
+        Assert.Equal(1, outTxCount);
+
+        var batch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.Id == batchId);
+        Assert.NotNull(batch);
+        Assert.Equal(45m, batch!.Quantity);
+
+        var inventory = await db.Inventory.FirstOrDefaultAsync(i => i.ItemId == itemId);
+        Assert.NotNull(inventory);
+        Assert.Equal(45m, inventory!.Quantity);
+    }
+
+    [Fact]
+    public async Task RecordSale_ReplayPreservesWarnings()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = (string?)null,
+            customerPhone = (string?)null,
+            paymentMethod = (int)PaymentMethod.UPI,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 105m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var warnings = saleBody.GetProperty("warnings")
+            .EnumerateArray()
+            .Select(w => w.GetString()!)
+            .ToList();
+        Assert.NotEmpty(warnings);
+
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        replayRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        replayRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = (string?)null,
+            customerPhone = (string?)null,
+            paymentMethod = (int)PaymentMethod.UPI,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 105m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var replayResponse = await client.SendAsync(replayRequest);
+        Assert.Equal(HttpStatusCode.Created, replayResponse.StatusCode);
+        var replayBody = await replayResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var replayWarnings = replayBody.GetProperty("warnings")
+            .EnumerateArray()
+            .Select(w => w.GetString()!)
+            .ToList();
+
+        Assert.Equal(warnings, replayWarnings);
+    }
+
+    [Fact]
+    public async Task RecordSale_WhenIdempotencyKeyConflicts_ReturnsConflict()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+
+        using var conflictRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        conflictRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        conflictRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey,
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+
+        var conflictResponse = await client.SendAsync(conflictRequest);
+        Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var saleCount = await db.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey);
+        Assert.Equal(1, saleCount);
+    }
+
+    [Fact]
     public async Task RecordSale_WithPriceMismatch_ReturnsCreatedWithWarning()
     {
         using var client = CreateClient();
@@ -214,6 +488,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = (string?)null,
             customerPhone = (string?)null,
@@ -263,6 +538,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "List Customer",
             customerPhone = "+919876543210",
@@ -338,6 +614,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Detail Customer",
             customerPhone = "+919876543210",
@@ -406,6 +683,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenA);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Cross Shop",
             customerPhone = "+919876543210",
@@ -479,6 +757,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId,
             customerName = "Due Customer",
             customerPhone = "+919876543210",
@@ -548,6 +827,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Staff Sale",
             customerPhone = "+919876543210",
@@ -590,6 +870,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Mismatch",
             customerPhone = "+919876543200",
@@ -635,6 +916,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Return Customer",
             customerPhone = "+919876543210",
@@ -713,6 +995,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Return Customer",
             customerPhone = "+919876543210",
@@ -800,6 +1083,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Wastage Customer",
             customerPhone = "+919876543210",
@@ -880,6 +1164,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Void Return Customer",
             customerPhone = "+919876543210",
@@ -969,6 +1254,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Lookup Customer",
             customerPhone = "+919876543210",

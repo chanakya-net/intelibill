@@ -38,6 +38,7 @@ public sealed class SalesController : AuthenticatedControllerBase
             new RecordSaleCommand(
                 UserId!.Value,
                 ActiveShopId!.Value,
+                request.IdempotencyKey,
                 request.CustomerId,
                 request.CustomerName,
                 request.CustomerPhone,
@@ -244,6 +245,7 @@ public sealed record RecordSaleRequest(
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
+    string IdempotencyKey,
     PaymentMethod PaymentMethod,
     decimal PaidAmount,
     decimal DueAmount,

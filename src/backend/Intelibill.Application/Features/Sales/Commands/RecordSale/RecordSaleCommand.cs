@@ -6,6 +6,7 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 public sealed record RecordSaleCommand(
     Guid ActorUserId,
     Guid ShopId,
+    string IdempotencyKey,
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,

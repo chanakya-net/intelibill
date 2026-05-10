@@ -15,6 +15,21 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.ShopId)
             .IsRequired();
 
+        builder.Property(s => s.ActorUserId)
+            .IsRequired();
+
+        builder.Property(s => s.IdempotencyKey)
+            .HasMaxLength(128)
+            .IsRequired();
+
+        builder.Property(s => s.RequestHash)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        builder.Property(s => s.Warnings)
+            .HasColumnType("text[]")
+            .IsRequired();
+
         builder.Property(s => s.InvoiceNumber)
             .IsRequired()
             .HasMaxLength(40);
@@ -79,6 +94,9 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .IsRequired();
 
         builder.HasIndex(s => new { s.ShopId, s.InvoiceNumber })
+            .IsUnique();
+
+        builder.HasIndex(s => new { s.ShopId, s.ActorUserId, s.IdempotencyKey })
             .IsUnique();
 
         builder.HasIndex(s => s.ShopId);

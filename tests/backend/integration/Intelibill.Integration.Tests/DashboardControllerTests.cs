@@ -147,6 +147,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "Dash Customer",
             customerPhone = "+919876543210",
