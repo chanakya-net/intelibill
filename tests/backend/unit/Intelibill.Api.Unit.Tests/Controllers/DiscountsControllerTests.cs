@@ -35,6 +35,23 @@ public class DiscountsControllerTests
         Assert.NotNull(attr);
     }
 
+    [Theory]
+    [InlineData(nameof(DiscountsController.GetDiscountRules))]
+    [InlineData(nameof(DiscountsController.GetDiscountRule))]
+    [InlineData(nameof(DiscountsController.CreateDiscountRule))]
+    [InlineData(nameof(DiscountsController.ReplaceDiscountRule))]
+    [InlineData(nameof(DiscountsController.DisableDiscountRule))]
+    public void ManagementEndpoints_HaveOwnerOrManagerPolicy(string methodName)
+    {
+        var method = typeof(DiscountsController).GetMethod(methodName);
+        Assert.NotNull(method);
+
+        var attr = method!
+            .GetCustomAttributes<AuthorizeAttribute>()
+            .FirstOrDefault(a => a.Policy == "OwnerOrManager");
+        Assert.NotNull(attr);
+    }
+
     [Fact]
     public async Task PreviewDiscountRule_WhenNoUserClaim_ReturnsUnauthorized()
     {

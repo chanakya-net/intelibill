@@ -80,12 +80,12 @@ public sealed class DiscountRule : BaseEntity
         return Result.Success;
     }
 
-    public void ReplaceWith(Guid newRuleId, DateTimeOffset disabledAt, Guid updatedBy)
+    public void ReplaceWith(Guid newRuleId, DateTimeOffset disabledAt, Guid updatedBy, string? disabledReason = null)
     {
         ReplacedByRuleId = newRuleId;
         IsActive = false;
         DisabledAt = disabledAt;
-        DisabledReason = "Replaced by new version.";
+        DisabledReason = Normalize(disabledReason) ?? "Replaced by new version.";
         UpdatedBy = updatedBy;
     }
 

@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.Sales.Services;
@@ -26,6 +27,8 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
+
+        services.AddScoped<DiscountRuleValidationService>();
 
         return services;
     }

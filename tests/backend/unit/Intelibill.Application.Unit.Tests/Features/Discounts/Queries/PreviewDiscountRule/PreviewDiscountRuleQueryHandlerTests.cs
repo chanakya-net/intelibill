@@ -1,5 +1,6 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Discounts.Queries.PreviewDiscountRule;
+using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -15,7 +16,7 @@ public class PreviewDiscountRuleQueryHandlerTests
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
 
     private PreviewDiscountRuleQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _batchRepository, _discountRuleRepository);
+        new(_userRepository, _shopRepository, new DiscountRuleValidationService(_batchRepository, _discountRuleRepository));
 
     private static User MakeUser() =>
         User.CreateWithEmail("discount@test.com", "hash", "Test", "User");
