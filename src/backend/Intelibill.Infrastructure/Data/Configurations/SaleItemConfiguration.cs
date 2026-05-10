@@ -51,8 +51,53 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(si => si.OriginalSalesPrice)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.FinalSalesPrice)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.PreTaxAmountBeforeDiscount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.ItemDiscountAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.SaleDiscountAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.TaxableAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.TaxAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.TotalAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(si => si.ConfiguredBatchRuleId);
+
+        builder.Property(si => si.ConfiguredBatchRulePercentage)
+            .HasPrecision(5, 2);
+
+        builder.Property(si => si.ItemDiscountOverrideType)
+            .IsRequired();
+
+        builder.Property(si => si.ItemDiscountOverrideValue)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
         builder.HasIndex(si => si.ShopId);
         builder.HasIndex(si => new { si.ShopId, si.ItemId });
+        builder.HasIndex(si => new { si.ShopId, si.ConfiguredBatchRuleId });
 
         builder.HasOne<Shop>()
             .WithMany()

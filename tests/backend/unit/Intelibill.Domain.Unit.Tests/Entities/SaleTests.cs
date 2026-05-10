@@ -43,11 +43,27 @@ public class SaleTests
         Assert.Equal("+919876543210", sale.CustomerPhone);
         Assert.Equal(PaymentMethod.Cash, sale.PaymentMethod);
         Assert.Equal(soldAt, sale.SoldAt);
+        Assert.Equal(300m, sale.SubtotalBeforeDiscount);
+        Assert.Equal(354m, sale.TotalBeforeDiscount);
+        Assert.Equal(0m, sale.TotalDiscountAmount);
         Assert.Equal(354m, sale.TotalAmount);
         Assert.Equal(54m, sale.TotalTaxAmount);
+        Assert.Equal(InstantDiscountType.None, sale.SaleDiscountOverrideType);
+        Assert.Equal(0m, sale.SaleDiscountOverrideValue);
         Assert.Equal(2, sale.Items.Count);
         Assert.Equal(200m, sale.Items[0].SalesPrice * sale.Items[0].Quantity);
+        Assert.Equal(100m, sale.Items[0].OriginalSalesPrice);
+        Assert.Equal(100m, sale.Items[0].FinalSalesPrice);
+        Assert.Equal(200m, sale.Items[0].PreTaxAmountBeforeDiscount);
+        Assert.Equal(0m, sale.Items[0].ItemDiscountAmount);
+        Assert.Equal(0m, sale.Items[0].SaleDiscountAmount);
+        Assert.Equal(200m, sale.Items[0].TaxableAmount);
+        Assert.Equal(36m, sale.Items[0].TaxAmount);
+        Assert.Equal(236m, sale.Items[0].TotalAmount);
         Assert.False(sale.Items[0].IsPriceIncludingTax);
+        Assert.Equal(100m, sale.Items[1].PreTaxAmountBeforeDiscount);
+        Assert.Equal(18m, sale.Items[1].TaxAmount);
+        Assert.Equal(118m, sale.Items[1].TotalAmount);
         Assert.True(sale.Items[1].IsPriceIncludingTax);
         Assert.True(sale.Items[1].HasPriceMismatch);
     }

@@ -41,11 +41,40 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(s => s.SubtotalBeforeDiscount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.TotalBeforeDiscount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.TotalDiscountAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
         builder.Property(s => s.TotalAmount)
             .HasPrecision(18, 2)
             .IsRequired();
 
         builder.Property(s => s.TotalTaxAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.ConfiguredSaleRuleId);
+
+        builder.Property(s => s.ConfiguredSaleRuleType);
+
+        builder.Property(s => s.ConfiguredSaleRulePercentage)
+            .HasPrecision(5, 2);
+
+        builder.Property(s => s.ConfiguredSaleRuleThresholdAmount)
+            .HasPrecision(18, 2);
+
+        builder.Property(s => s.SaleDiscountOverrideType)
+            .IsRequired();
+
+        builder.Property(s => s.SaleDiscountOverrideValue)
             .HasPrecision(18, 2)
             .IsRequired();
 
@@ -55,6 +84,7 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.HasIndex(s => s.ShopId);
         builder.HasIndex(s => new { s.ShopId, s.SoldAt });
         builder.HasIndex(s => new { s.ShopId, s.CustomerId });
+        builder.HasIndex(s => new { s.ShopId, s.ConfiguredSaleRuleId });
 
         builder.HasOne<Shop>()
             .WithMany()

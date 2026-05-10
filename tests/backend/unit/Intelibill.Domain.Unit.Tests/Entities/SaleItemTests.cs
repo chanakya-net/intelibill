@@ -1,5 +1,6 @@
 using System.Reflection;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
@@ -26,6 +27,16 @@ public class SaleItemTests
         Assert.Equal(18m, saleItem.TaxRatePercent);
         Assert.False(saleItem.IsPriceIncludingTax);
         Assert.False(saleItem.HasPriceMismatch);
+        Assert.Equal(100m, saleItem.OriginalSalesPrice);
+        Assert.Equal(100m, saleItem.FinalSalesPrice);
+        Assert.Equal(300m, saleItem.PreTaxAmountBeforeDiscount);
+        Assert.Equal(0m, saleItem.ItemDiscountAmount);
+        Assert.Equal(0m, saleItem.SaleDiscountAmount);
+        Assert.Equal(300m, saleItem.TaxableAmount);
+        Assert.Equal(54m, saleItem.TaxAmount);
+        Assert.Equal(354m, saleItem.TotalAmount);
+        Assert.Equal(InstantDiscountType.None, saleItem.ItemDiscountOverrideType);
+        Assert.Equal(0m, saleItem.ItemDiscountOverrideValue);
     }
 
     [Fact]
@@ -36,6 +47,9 @@ public class SaleItemTests
             taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: true);
 
         Assert.True(saleItem.HasPriceMismatch);
+        Assert.Equal(100m, saleItem.PreTaxAmountBeforeDiscount);
+        Assert.Equal(5m, saleItem.TaxAmount);
+        Assert.Equal(105m, saleItem.TotalAmount);
     }
 
     [Fact]
