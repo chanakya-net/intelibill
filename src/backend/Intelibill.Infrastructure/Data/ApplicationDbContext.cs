@@ -37,6 +37,7 @@ public class ApplicationDbContext(
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
+    public DbSet<DiscountRule> DiscountRules => Set<DiscountRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
