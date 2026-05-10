@@ -95,6 +95,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             barcode = barcode,
             uom = "PCS",
             supplierId = supplierId,
+            isActive = true,
         });
         var itemResponse = await client.SendAsync(itemRequest);
         itemResponse.EnsureSuccessStatusCode();

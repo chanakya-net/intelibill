@@ -8,6 +8,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
@@ -53,6 +54,11 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+
+        builder.ConfigureLogging(logging =>
+        {
+            logging.AddFilter("Wolverine.Http.HttpGraph", LogLevel.Error);
+        });
 
         builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
