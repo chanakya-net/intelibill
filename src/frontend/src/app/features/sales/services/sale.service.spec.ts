@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
-import { SaleService, SaleDto, SaleListItemDto, ProfitLossReportItemDto } from './sale.service';
+import { SaleService, SaleDto, SaleListItemDto, ProfitLossReportItemDto, PreviewSaleRequest, SalePreviewDto } from './sale.service';
 
 describe('SaleService', () => {
   function setup(): { service: SaleService; http: HttpTestingController } {
@@ -179,6 +179,7 @@ describe('SaleService', () => {
       paymentMethod: 1,
       paidAmount: 200,
       dueAmount: 0,
+      saleDiscount: { type: 0 as const, value: 0 },
       items: [{
         barcode: 'BC-001',
         batchNumber: 'B-01',
@@ -190,7 +191,8 @@ describe('SaleService', () => {
         taxRatePercent: 18,
         isPriceIncludingTax: false,
         inventoryBatchId: 'batch-1',
-        clientLineKey: 'batch-1',
+        clientLineKey: 'clk-uuid-001',
+        itemDiscount: { type: 0 as const, value: 0 },
       }],
     };
 
@@ -311,6 +313,51 @@ describe('SaleService', () => {
     const req = http.expectOne(SALE_ENDPOINTS.profitLoss);
     expect(req.request.method).toBe('GET');
     req.flush(report);
+    http.verify();
+  });
+
+  it('sends POST request to preview endpoint', () => {
+    const { service, http } = setup();
+    const payload: PreviewSaleRequest = {
+      saleDiscount: { type: 0, value: 0 },
+      items: [
+        {
+          inventoryBatchId: 'batch-1',
+          barcode: 'BC-001',
+          batchNumber: 'B-01',
+          itemName: 'Item 1',
+          quantity: 2,
+          costPrice: 80,
+          salesPrice: 100,
+          mrp: 120,
+          taxRatePercent: 18,
+          isPriceIncludingTax: false,
+          itemDiscount: { type: 0, value: 0 },
+          clientLineKey: 'clk-uuid-001',
+        },
+      ],
+    };
+    const preview: SalePreviewDto = {
+      totalAmount: 236,
+      totalTaxableAmount: 200,
+      totalTaxAmount: 36,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 200,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    };
+
+    service.previewSale(payload).subscribe((result) => {
+      expect(result.totalAmount).toBe(236);
+      expect(result.totalTaxAmount).toBe(36);
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.preview);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(preview);
     http.verify();
   });
 });

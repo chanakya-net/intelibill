@@ -53,6 +53,7 @@ export const INVENTORY_ENDPOINTS = {
 export const SALE_ENDPOINTS = {
   list: `${API_BASE_URL}/sales`,
   record: `${API_BASE_URL}/sales`,
+  preview: `${API_BASE_URL}/sales/preview`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,
 } as const;

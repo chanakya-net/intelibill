@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { Subject, catchError, debounceTime, of, switchMap } from 'rxjs';
 
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
@@ -26,7 +27,16 @@ import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { AvailableBatchDto, InventoryService } from '../../inventory/services/inventory.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
-import { RecordSaleItemRequest, RecordSaleRequest, PAYMENT_METHOD_VALUES } from '../services/sale.service';
+import {
+  InstantDiscountRequest,
+  NO_DISCOUNT,
+  PreviewSaleRequest,
+  RecordSaleItemRequest,
+  RecordSaleRequest,
+  SalePreviewDto,
+  PAYMENT_METHOD_VALUES,
+  SaleService,
+} from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
@@ -67,7 +77,10 @@ export class NewSalePageComponent {
   private readonly cartStorage = inject(SalesCartIndexedDbService);
   private readonly customersFacade = inject(CustomersFacade);
   private readonly salesFacade = inject(SalesFacade);
+  private readonly saleService = inject(SaleService);
+  private readonly destroyRef = inject(DestroyRef);
   private cartLoadToken = 0;
+  private readonly previewTrigger$ = new Subject<void>();
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = signal<CartItem[]>([]);
@@ -87,6 +100,10 @@ export class NewSalePageComponent {
   readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
   private isSyncingPaymentControls = false;
 
+  readonly checkoutPreview = signal<SalePreviewDto | null>(null);
+  readonly isPreviewLoading = signal(false);
+  readonly previewError = signal('');
+
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
@@ -97,12 +114,20 @@ export class NewSalePageComponent {
   readonly subtotalAmount = computed(() =>
     this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0)
   );
-  readonly totalTaxAmount = computed(() =>
-    this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0)
-  );
-  readonly totalAmount = computed(() =>
-    this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0)
-  );
+  readonly totalTaxAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalTaxAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0);
+  });
+  readonly totalAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
+  });
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
@@ -169,6 +194,39 @@ export class NewSalePageComponent {
         this.syncPaymentSplitFromDue(value);
       });
 
+    // Wire debounced preview trigger
+    this.previewTrigger$
+      .pipe(
+        debounceTime(400),
+        switchMap(() => {
+          const cart = this.cart();
+          if (cart.length === 0) {
+            this.checkoutPreview.set(null);
+            this.isPreviewLoading.set(false);
+            this.previewError.set('');
+            return of(null as SalePreviewDto | null);
+          }
+          this.isPreviewLoading.set(true);
+          this.previewError.set('');
+          const request = this.buildPreviewRequest(cart);
+          return this.saleService.previewSale(request).pipe(
+            catchError((err: { error?: { detail?: string } }) => {
+              this.isPreviewLoading.set(false);
+              this.previewError.set(err.error?.detail ?? 'sales.newSale.previewError');
+              this.checkoutPreview.set(null);
+              return of(null as SalePreviewDto | null);
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((preview) => {
+        if (preview !== null) {
+          this.checkoutPreview.set(preview);
+          this.isPreviewLoading.set(false);
+        }
+      });
+
     effect(() => {
       if (this.lastMutationSucceeded()) {
         this.cart.set([]);
@@ -179,6 +237,8 @@ export class NewSalePageComponent {
         this.selectedCustomerName.set(null);
         this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
         this.paymentSplitError.set('');
+        this.checkoutPreview.set(null);
+        this.previewError.set('');
         this.salesFacade.clearMutationStatus();
         this.router.navigate(['/sales']);
       }
@@ -229,6 +289,25 @@ export class NewSalePageComponent {
 
       void this.persistCart(shopId, cart);
     });
+
+    // Schedule preview whenever cart changes (after bootstrap)
+    effect(() => {
+      const cart = this.cart();
+      if (!this.cartBootstrapped()) {
+        return;
+      }
+      if (cart.length === 0) {
+        this.checkoutPreview.set(null);
+        this.isPreviewLoading.set(false);
+        this.previewError.set('');
+        return;
+      }
+      this.schedulePreview();
+    });
+  }
+
+  schedulePreview(): void {
+    this.previewTrigger$.next();
   }
 
   onBarcodeSearch(): void {
@@ -459,6 +538,11 @@ export class NewSalePageComponent {
 
     this.paymentSplitError.set('');
 
+    if (this.checkoutPreview() === null) {
+      this.paymentSplitError.set('sales.newSale.previewRequired');
+      return;
+    }
+
     const items: RecordSaleItemRequest[] = this.cart().map((item) => ({
       barcode: item.barcode,
       batchNumber: item.batchNumber,
@@ -470,7 +554,8 @@ export class NewSalePageComponent {
       taxRatePercent: item.taxRatePercent,
       isPriceIncludingTax: item.taxIncluded,
       inventoryBatchId: item.inventoryBatchId,
-      clientLineKey: item.inventoryBatchId,
+      clientLineKey: item.clientLineKey,
+      itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue } satisfies InstantDiscountRequest,
     }));
 
     const customerName = this.customerForm.controls.customerName.value.trim() || null;
@@ -508,6 +593,7 @@ export class NewSalePageComponent {
       paidAmount,
       dueAmount,
       items,
+      saleDiscount: NO_DISCOUNT,
     };
 
     this.salesFacade.recordSale(request);
@@ -515,6 +601,26 @@ export class NewSalePageComponent {
 
   onCancel(): void {
     this.router.navigate(['/sales']);
+  }
+
+  private buildPreviewRequest(cart: readonly CartItem[]): PreviewSaleRequest {
+    return {
+      saleDiscount: NO_DISCOUNT,
+      items: cart.map((item) => ({
+        inventoryBatchId: item.inventoryBatchId,
+        barcode: item.barcode,
+        batchNumber: item.batchNumber,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        costPrice: item.costPrice,
+        salesPrice: item.salesPrice,
+        mrp: item.mrp,
+        taxRatePercent: item.taxRatePercent,
+        isPriceIncludingTax: item.taxIncluded,
+        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+        clientLineKey: item.clientLineKey,
+      })),
+    };
   }
 
   private syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
@@ -628,6 +734,7 @@ export class NewSalePageComponent {
       return [
         ...items,
         {
+          clientLineKey: crypto.randomUUID(),
           barcode,
           itemName: batch.itemName,
           batchNumber: batch.batchNumber,
@@ -639,6 +746,8 @@ export class NewSalePageComponent {
           taxRatePercent: batch.taxRatePercent,
           taxIncluded: batch.taxIncluded,
           costPrice: 0,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
         },
       ];
     });

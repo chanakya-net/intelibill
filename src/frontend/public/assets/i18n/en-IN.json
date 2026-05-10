@@ -618,7 +618,10 @@
       "paidAmount": "Paid Amount",
       "dueAmount": "Due Amount",
       "invalidPaymentSplit": "Paid amount and due amount must match total.",
-      "customerRequiredForDue": "Customer phone is required when due amount is greater than zero."
+      "customerRequiredForDue": "Customer phone is required when due amount is greater than zero.",
+      "previewRequired": "Preview the sale before recording it.",
+      "previewLoading": "Calculating sale preview…",
+      "previewError": "Failed to calculate sale preview."
     },
     "detail": {
       "title": "Sale Details",

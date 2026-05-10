@@ -68,6 +68,7 @@ describe('salesReducer', () => {
           paidAmount: 0,
           dueAmount: 0,
           items: [],
+          saleDiscount: null,
         },
       })
     );

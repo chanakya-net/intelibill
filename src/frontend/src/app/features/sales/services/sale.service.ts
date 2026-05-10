@@ -12,6 +12,93 @@ export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = 
   { value: 4, label: 'Credit' },
 ];
 
+export type InstantDiscountType = 0 | 1 | 2; // 0=None, 1=Percentage, 2=Flat
+
+export interface InstantDiscountRequest {
+  readonly type: InstantDiscountType;
+  readonly value: number;
+}
+
+export const NO_DISCOUNT: InstantDiscountRequest = { type: 0, value: 0 };
+
+export interface PreviewSaleItemRequest {
+  readonly inventoryBatchId: string;
+  readonly barcode: string;
+  readonly batchNumber: string;
+  readonly itemName: string;
+  readonly quantity: number;
+  readonly costPrice: number;
+  readonly salesPrice: number;
+  readonly mrp: number;
+  readonly taxRatePercent: number;
+  readonly isPriceIncludingTax: boolean;
+  readonly itemDiscount: InstantDiscountRequest;
+  readonly clientLineKey: string | null;
+}
+
+export interface PreviewSaleRequest {
+  readonly saleDiscount: InstantDiscountRequest;
+  readonly items: readonly PreviewSaleItemRequest[];
+}
+
+export interface SalePreviewConfiguredSaleRuleDto {
+  readonly ruleId: string;
+  readonly ruleType: string;
+  readonly percentage: number;
+  readonly thresholdAmount: number | null;
+}
+
+export interface SalePreviewLineDto {
+  readonly itemId: string;
+  readonly barcode: string;
+  readonly itemName: string;
+  readonly inventoryBatchId: string;
+  readonly batchNumber: string;
+  readonly quantity: number;
+  readonly costPrice: number;
+  readonly salesPrice: number;
+  readonly mrp: number;
+  readonly taxRatePercent: number;
+  readonly isPriceIncludingTax: boolean;
+  readonly preTaxAmountBeforeDiscount: number;
+  readonly itemDiscountAmount: number;
+  readonly saleDiscountAmount: number;
+  readonly taxableAmount: number;
+  readonly taxAmount: number;
+  readonly lineTotalAmount: number;
+  readonly maxAllowedItemDiscountFlat: number;
+  readonly maxAllowedItemDiscountPercent: number;
+  readonly configuredBatchRuleId: string | null;
+  readonly configuredBatchRulePercentage: number | null;
+  readonly hasClientPriceMismatch: boolean;
+  readonly clientLineKey: string | null;
+}
+
+export interface SalePreviewInfoDto {
+  readonly code: string;
+  readonly message: string;
+}
+
+export interface SalePreviewWarningDto {
+  readonly code: string;
+  readonly message: string;
+  readonly severity: string;
+  readonly inventoryBatchId: string;
+  readonly clientLineKey: string | null;
+}
+
+export interface SalePreviewDto {
+  readonly totalAmount: number;
+  readonly totalTaxableAmount: number;
+  readonly totalTaxAmount: number;
+  readonly totalDiscountAmount: number;
+  readonly saleLevelEligibleSubtotal: number;
+  readonly configuredSaleRule: SalePreviewConfiguredSaleRuleDto | null;
+  readonly lines: readonly SalePreviewLineDto[];
+  readonly infos: readonly SalePreviewInfoDto[];
+  readonly warnings: readonly SalePreviewWarningDto[];
+}
+
 export interface RecordSaleItemRequest {
   readonly barcode: string;
   readonly batchNumber: string;
@@ -24,6 +111,7 @@ export interface RecordSaleItemRequest {
   readonly isPriceIncludingTax: boolean;
   readonly inventoryBatchId: string;
   readonly clientLineKey: string | null;
+  readonly itemDiscount: InstantDiscountRequest | null;
 }
 
 export interface RecordSaleRequest {
@@ -34,6 +122,7 @@ export interface RecordSaleRequest {
   readonly paidAmount: number;
   readonly dueAmount: number;
   readonly items: readonly RecordSaleItemRequest[];
+  readonly saleDiscount: InstantDiscountRequest | null;
 }
 
 export interface SaleItemDto {
@@ -217,6 +306,10 @@ export class SaleService {
 
   recordSale(request: RecordSaleRequest): Observable<SaleDto> {
     return this.http.post<SaleDto>(SALE_ENDPOINTS.record, request);
+  }
+
+  previewSale(request: PreviewSaleRequest): Observable<SalePreviewDto> {
+    return this.http.post<SalePreviewDto>(SALE_ENDPOINTS.preview, request);
   }
 
   getSales(): Observable<readonly SaleListItemDto[]> {

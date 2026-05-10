@@ -144,6 +144,7 @@ describe('SalesEffects', () => {
           paidAmount: 0,
           dueAmount: 0,
           items: [],
+          saleDiscount: null,
         },
       })
     );
@@ -263,6 +264,7 @@ describe('SalesEffects', () => {
           paidAmount: 0,
           dueAmount: 0,
           items: [],
+          saleDiscount: null,
         },
       })
     );

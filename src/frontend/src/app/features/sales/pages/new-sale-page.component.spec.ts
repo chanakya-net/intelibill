@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -10,6 +10,7 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import { SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
+import { SaleService, SalePreviewDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { NewSalePageComponent } from './new-sale-page.component';
 
@@ -29,6 +30,10 @@ describe('NewSalePageComponent', () => {
     clearError: vi.fn(),
     clearMutationStatus: vi.fn(),
     recordSale: vi.fn(),
+  };
+
+  const saleService = {
+    previewSale: vi.fn(),
   };
 
   const authService = {
@@ -89,6 +94,19 @@ describe('NewSalePageComponent', () => {
       ])
     );
 
+    saleService.previewSale.mockReset();
+    saleService.previewSale.mockReturnValue(of({
+      totalAmount: 50,
+      totalTaxableAmount: 42.37,
+      totalTaxAmount: 7.63,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 42.37,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    } as SalePreviewDto));
+
     router.navigate.mockReset();
     salesFacade.clearError.mockReset();
     salesFacade.clearMutationStatus.mockReset();
@@ -113,6 +131,7 @@ describe('NewSalePageComponent', () => {
         { provide: SalesCartIndexedDbService, useValue: cartStorage },
         { provide: Router, useValue: router },
         { provide: SalesFacade, useValue: salesFacade },
+        { provide: SaleService, useValue: saleService },
       ],
     });
   });
@@ -191,6 +210,7 @@ describe('NewSalePageComponent', () => {
 
     component.cart.set([
       {
+        clientLineKey: 'clk-inc',
         barcode: 'A',
         itemName: 'Tax Included',
         batchNumber: 'B-INC',
@@ -202,8 +222,11 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 18,
         taxIncluded: true,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
       {
+        clientLineKey: 'clk-exc',
         barcode: 'B',
         itemName: 'Tax Excluded',
         batchNumber: 'B-EXC',
@@ -215,6 +238,8 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 18,
         taxIncluded: false,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
     ]);
     fixture.detectChanges();
@@ -230,6 +255,7 @@ describe('NewSalePageComponent', () => {
 
     component.cart.set([
       {
+        clientLineKey: 'clk-clear',
         barcode: 'A',
         itemName: 'Tax Included',
         batchNumber: 'B-INC',
@@ -241,6 +267,8 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 18,
         taxIncluded: true,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
     ]);
 
@@ -255,6 +283,7 @@ describe('NewSalePageComponent', () => {
 
     component.cart.set([
       {
+        clientLineKey: 'clk-a',
         barcode: 'A',
         itemName: 'Item A',
         batchNumber: 'B-A',
@@ -266,8 +295,11 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 0,
         taxIncluded: false,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
       {
+        clientLineKey: 'clk-b',
         barcode: 'B',
         itemName: 'Item B',
         batchNumber: 'B-B',
@@ -279,6 +311,8 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 0,
         taxIncluded: false,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
     ]);
     fixture.detectChanges();
@@ -356,6 +390,7 @@ describe('NewSalePageComponent', () => {
 
     component.cart.set([
       {
+        clientLineKey: 'clk-a',
         barcode: 'A',
         itemName: 'Item A',
         batchNumber: 'B-A',
@@ -367,8 +402,11 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 0,
         taxIncluded: false,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
       {
+        clientLineKey: 'clk-b',
         barcode: 'B',
         itemName: 'Item B',
         batchNumber: 'B-B',
@@ -380,6 +418,8 @@ describe('NewSalePageComponent', () => {
         taxRatePercent: 0,
         taxIncluded: false,
         costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
       },
     ]);
     fixture.detectChanges();
@@ -398,6 +438,141 @@ describe('NewSalePageComponent', () => {
     expect(component.paymentForm.controls.dueAmount.disabled).toBe(true);
     expect(component.paymentForm.controls.dueAmount.value).toBe(0);
     expect(component.paymentForm.controls.paidAmount.value).toBe(150);
+  });
+
+  it('assigns a stable clientLineKey UUID when adding a batch to cart', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.searchInput.set('oreo');
+    component.onBarcodeSearch();
+
+    expect(component.cart()).toHaveLength(1);
+    const key = component.cart()[0].clientLineKey;
+    expect(typeof key).toBe('string');
+    expect(key).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+  });
+
+  it('sends clientLineKey from cart item (not inventoryBatchId) in preview request', async () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.cart.set([
+      {
+        clientLineKey: 'stable-uuid-key',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+    component.cartBootstrapped.set(true);
+
+    // Directly trigger via schedulePreview() and advance fake clock
+    component.schedulePreview();
+    vi.runAllTimers();
+    await Promise.resolve(); // flush microtask queue
+
+    expect(saleService.previewSale).toHaveBeenCalled();
+    const callArg = saleService.previewSale.mock.calls[0][0];
+    expect(callArg.items).toHaveLength(1);
+    expect(callArg.items[0].clientLineKey).toBe('stable-uuid-key');
+    expect(callArg.items[0].clientLineKey).not.toBe('batch-1');
+
+    vi.useRealTimers();
+  });
+
+  it('uses preview total for payment sync when preview succeeds', () => {
+    const mockPreview: SalePreviewDto = {
+      totalAmount: 99,
+      totalTaxableAmount: 83.9,
+      totalTaxAmount: 15.1,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 83.9,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    };
+
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-x',
+        barcode: 'X',
+        itemName: 'Item X',
+        batchNumber: 'B-X',
+        inventoryBatchId: 'batch-x',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+
+    // Without preview, totalAmount uses local calculation
+    const localTotal = component.totalAmount();
+
+    // Set preview — totalAmount should prefer the preview total
+    component.checkoutPreview.set(mockPreview);
+    fixture.detectChanges();
+
+    expect(component.checkoutPreview()).toEqual(mockPreview);
+    expect(component.totalAmount()).toBe(99);
+    expect(component.totalAmount()).not.toBe(localTotal);
+    // Payment sync reflects preview total
+    expect(component.paymentForm.controls.paidAmount.value).toBe(99);
+  });
+
+  it('blocks submit and sets paymentSplitError when no preview is available', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-x',
+        barcode: 'X',
+        itemName: 'Item X',
+        batchNumber: 'B-X',
+        inventoryBatchId: 'batch-x',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+    component.checkoutPreview.set(null);
+    component.paymentForm.controls.paidAmount.setValue(100);
+
+    component.onSubmit();
+
+    expect(component.paymentSplitError()).toBe('sales.newSale.previewRequired');
+    expect(salesFacade.recordSale).not.toHaveBeenCalled();
   });
 
   function createQrLikeBarcode() {
