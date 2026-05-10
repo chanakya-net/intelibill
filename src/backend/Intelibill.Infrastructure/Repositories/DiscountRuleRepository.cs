@@ -54,6 +54,17 @@ internal sealed class DiscountRuleRepository(ApplicationDbContext context)
             .OrderBy(r => r.Name)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<DiscountRule>> GetAllActiveByBatchAsync(
+        Guid shopId,
+        Guid batchId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(r => r.ShopId == shopId
+                && r.InventoryBatchId == batchId
+                && r.IsActive)
+            .OrderBy(r => r.StartsAt)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<DiscountRule>> GetDisabledByShopAsync(
         Guid shopId,
         CancellationToken cancellationToken = default) =>

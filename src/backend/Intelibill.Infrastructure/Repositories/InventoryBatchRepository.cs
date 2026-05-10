@@ -41,6 +41,14 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
                 && batchNumbers.Contains(b.BatchNumber))
             .ToListAsync(cancellationToken);
 
+    public async Task<InventoryBatch?> GetByIdWithItemAsync(
+        Guid batchId,
+        Guid shopId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(b => b.Item)
+            .FirstOrDefaultAsync(b => b.Id == batchId && b.ShopId == shopId, cancellationToken);
+
     public async Task<IReadOnlyList<InventoryBatch>> GetAvailableByBarcodeAsync(
         Guid shopId,
         string barcode,
