@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Events;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
@@ -45,6 +46,20 @@ public class DiscountRuleTests
         Assert.Null(result.Value.DisabledAt);
         Assert.Null(result.Value.DisabledReason);
         Assert.Equal(CreatedBy, result.Value.CreatedBy);
+    }
+
+    [Fact]
+    public void Create_ValidInputs_AddsDiscountRuleChangedDomainEvent()
+    {
+        var result = MakeRule();
+
+        Assert.False(result.IsError);
+        var rule = result.Value;
+        Assert.Single(rule.DomainEvents);
+
+        var @event = Assert.IsType<DiscountRuleChangedDomainEvent>(rule.DomainEvents[0]);
+        Assert.Equal(ShopId, @event.ShopId);
+        Assert.Equal(rule.Id, Assert.Single(@event.DiscountRuleIds));
     }
 
     [Fact]
@@ -162,6 +177,22 @@ public class DiscountRuleTests
     }
 
     [Fact]
+    public void Disable_ActiveRule_AddsDiscountRuleChangedDomainEvent()
+    {
+        var rule = MakeRule().Value;
+        rule.ClearDomainEvents();
+
+        var result = rule.Disable("End of promo", DateTimeOffset.UtcNow, Guid.NewGuid());
+
+        Assert.False(result.IsError);
+        Assert.Single(rule.DomainEvents);
+
+        var @event = Assert.IsType<DiscountRuleChangedDomainEvent>(rule.DomainEvents[0]);
+        Assert.Equal(ShopId, @event.ShopId);
+        Assert.Equal(rule.Id, Assert.Single(@event.DiscountRuleIds));
+    }
+
+    [Fact]
     public void Disable_AlreadyDisabledRule_ReturnsAlreadyDisabledError()
     {
         var rule = MakeRule().Value;
@@ -188,6 +219,21 @@ public class DiscountRuleTests
         Assert.Equal(disabledAt, rule.DisabledAt);
         Assert.NotNull(rule.DisabledReason);
         Assert.Equal(updatedBy, rule.UpdatedBy);
+    }
+
+    [Fact]
+    public void ReplaceWith_AddsDiscountRuleChangedDomainEvent()
+    {
+        var rule = MakeRule().Value;
+        rule.ClearDomainEvents();
+        var newRuleId = Guid.NewGuid();
+
+        rule.ReplaceWith(newRuleId, DateTimeOffset.UtcNow, Guid.NewGuid());
+
+        Assert.Single(rule.DomainEvents);
+        var @event = Assert.IsType<DiscountRuleChangedDomainEvent>(rule.DomainEvents[0]);
+        Assert.Equal(ShopId, @event.ShopId);
+        Assert.Equal(new[] { rule.Id, newRuleId }, @event.DiscountRuleIds);
     }
 
     [Fact]

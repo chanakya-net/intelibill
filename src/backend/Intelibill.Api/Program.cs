@@ -57,6 +57,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
+builder.Services.AddScoped<IShopUpdatesNotifier, SignalRShopUpdatesNotifier>();
 builder.Services.AddWolverineHttp();
 
 // ── App options ───────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
 app.MapWolverineEndpoints();
 app.MapHub<ProductHub>("/hubs/products");
+app.MapHub<ShopUpdatesHub>("/hubs/shop-updates");
 
 app.Run();
 

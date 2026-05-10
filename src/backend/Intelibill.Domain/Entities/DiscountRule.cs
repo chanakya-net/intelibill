@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Events;
 
 namespace Intelibill.Domain.Entities;
 
@@ -47,7 +48,7 @@ public sealed class DiscountRule : BaseEntity
             return validation.Errors;
         }
 
-        return new DiscountRule
+        var rule = new DiscountRule
         {
             ShopId = shopId,
             RuleType = ruleType,
@@ -63,6 +64,10 @@ public sealed class DiscountRule : BaseEntity
             BelowCostConfirmationReason = Normalize(belowCostConfirmationReason),
             CreatedBy = createdBy,
         };
+
+        rule.AddDomainEvent(new DiscountRuleChangedDomainEvent(rule.ShopId, new[] { rule.Id }));
+
+        return rule;
     }
 
     public ErrorOr<Success> Disable(string? reason, DateTimeOffset disabledAt, Guid updatedBy)
@@ -77,6 +82,8 @@ public sealed class DiscountRule : BaseEntity
         DisabledReason = Normalize(reason);
         UpdatedBy = updatedBy;
 
+        AddDomainEvent(new DiscountRuleChangedDomainEvent(ShopId, new[] { Id }));
+
         return Result.Success;
     }
 
@@ -87,6 +94,8 @@ public sealed class DiscountRule : BaseEntity
         DisabledAt = disabledAt;
         DisabledReason = Normalize(disabledReason) ?? "Replaced by new version.";
         UpdatedBy = updatedBy;
+
+        AddDomainEvent(new DiscountRuleChangedDomainEvent(ShopId, new[] { Id, newRuleId }));
     }
 
     public void MarkAsReplacement(Guid oldRuleId)
