@@ -1,0 +1,382 @@
+<section class="discounts-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+      <h1>{{ 'discounts.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  @if (listError()) {
+    <p class="error">{{ listError() | transloco }}</p>
+  }
+
+  <div class="discounts-grid">
+    <p-card class="list-card">
+      <ng-template pTemplate="header">
+        <div class="card-header">
+          <h2>{{ 'discounts.list.title' | transloco }}</h2>
+          <button
+            pButton
+            type="button"
+            icon="pi pi-filter-slash"
+            severity="secondary"
+            [text]="true"
+            [attr.aria-label]="'discounts.filters.reset' | transloco"
+            (click)="onResetFilters()"
+            data-testid="discounts-reset-filters"
+          ></button>
+        </div>
+      </ng-template>
+
+      <div class="filter-row">
+        <div class="filter-field">
+          <label for="discounts-status">{{ 'discounts.filters.status.label' | transloco }}</label>
+          <p-select
+            inputId="discounts-status"
+            [options]="statusOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="statusFilter()"
+            (ngModelChange)="statusFilter.set($event); pageNumber.set(1)"
+            class="w-full"
+            appendTo="body"
+            data-testid="discounts-status-filter"
+          >
+            <ng-template #item let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+          </p-select>
+        </div>
+
+        <div class="filter-field">
+          <label for="discounts-type">{{ 'discounts.filters.type.label' | transloco }}</label>
+          <p-select
+            inputId="discounts-type"
+            [options]="ruleTypeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="ruleTypeFilter()"
+            (ngModelChange)="ruleTypeFilter.set($event); pageNumber.set(1)"
+            class="w-full"
+            appendTo="body"
+            data-testid="discounts-type-filter"
+          >
+            <ng-template #item let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+          </p-select>
+        </div>
+
+        <div class="filter-field">
+          <label for="discounts-sort">{{ 'discounts.filters.sort.label' | transloco }}</label>
+          <p-select
+            inputId="discounts-sort"
+            [options]="sortOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="sortValue()"
+            (ngModelChange)="sortValue.set($event); pageNumber.set(1)"
+            class="w-full"
+            appendTo="body"
+            data-testid="discounts-sort-filter"
+          >
+            <ng-template #item let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+          </p-select>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <label class="sr-only" for="discounts-search">{{ 'discounts.filters.search.label' | transloco }}</label>
+        <input
+          id="discounts-search"
+          pInputText
+          type="text"
+          class="w-full"
+          [placeholder]="'discounts.filters.search.placeholder' | transloco"
+          [ngModel]="searchValue()"
+          (ngModelChange)="searchValue.set($event); pageNumber.set(1)"
+          data-testid="discounts-search"
+        />
+      </div>
+
+      @if (listLoading()) {
+        <div class="loading">
+          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        </div>
+      }
+
+      @if (!listLoading()) {
+        <p-table
+          [value]="$any(listItems())"
+          [scrollable]="true"
+          class="p-datatable-sm"
+          data-testid="discounts-table"
+        >
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'discounts.fields.name' | transloco }}</th>
+              <th>{{ 'discounts.fields.ruleType' | transloco }}</th>
+              <th>{{ 'discounts.fields.isActive' | transloco }}</th>
+              <th>{{ 'discounts.fields.startsAt' | transloco }}</th>
+              <th>{{ 'discounts.fields.endsAt' | transloco }}</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-item>
+            <tr
+              class="row-click"
+              [class.row-selected]="item.id === selectedRuleId()"
+              role="button"
+              tabindex="0"
+              (click)="onSelectRule(item.id)"
+              (keydown.enter)="onSelectRule(item.id)"
+              (keydown.space)="onSelectRule(item.id)"
+              [attr.data-testid]="'discounts-row-' + item.id"
+            >
+              <td>{{ item.name }}</td>
+              <td>{{ ('discounts.ruleType.' + item.ruleType) | transloco }}</td>
+              <td>
+                <p-tag
+                  [value]="listStatusKey(item) | transloco"
+                  [severity]="listStatusSeverity(item)"
+                ></p-tag>
+              </td>
+              <td>{{ formatDate(item.startsAt) }}</td>
+              <td>{{ formatDate(item.endsAt) }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+
+        <div class="pagination">
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [text]="true"
+            icon="pi pi-angle-left"
+            [disabled]="pageNumber() <= 1 || listLoading()"
+            (click)="pageNumber.set(pageNumber() - 1)"
+            [attr.aria-label]="'discounts.pagination.prev' | transloco"
+          ></button>
+          <p class="page-info">
+            {{ 'discounts.pagination.pageInfo' | transloco: { page: pageNumber(), pageSize: pageSize(), total: totalCount() } }}
+          </p>
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [text]="true"
+            icon="pi pi-angle-right"
+            [disabled]="pageNumber() * pageSize() >= totalCount() || listLoading()"
+            (click)="pageNumber.set(pageNumber() + 1)"
+            [attr.aria-label]="'discounts.pagination.next' | transloco"
+          ></button>
+        </div>
+      }
+    </p-card>
+
+    <p-card class="detail-card">
+      <ng-template pTemplate="header">
+        <div class="card-header">
+          <h2>{{ 'discounts.detail.title' | transloco }}</h2>
+          @if (selectedRule() && selectedRule()?.isActive) {
+            <button
+              pButton
+              type="button"
+              icon="pi pi-ban"
+              severity="danger"
+              [label]="'discounts.actions.disable' | transloco"
+              (click)="onOpenDisableDialog()"
+              data-testid="discounts-disable"
+            ></button>
+          }
+        </div>
+      </ng-template>
+
+      @if (detailError()) {
+        <p class="error">{{ detailError() | transloco }}</p>
+      }
+
+      @if (detailLoading()) {
+        <div class="loading">
+          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        </div>
+      }
+
+      @if (!detailLoading() && selectedRule()) {
+        <div class="detail-header">
+          <div>
+            <h3 class="rule-name">{{ selectedRuleTitle() }}</h3>
+            <p class="rule-type">{{ ('discounts.ruleType.' + selectedRule()!.ruleType) | transloco }}</p>
+          </div>
+          <p-tag
+            [value]="selectedRuleStatusKey() | transloco"
+            [severity]="detailStatusSeverity(selectedRule())"
+          ></p-tag>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-field">
+            <p class="label">{{ 'discounts.detail.validity' | transloco }}</p>
+            <p class="value">
+              {{ formatDate(selectedRule()!.startsAt) }} → {{ formatDate(selectedRule()!.endsAt) }}
+            </p>
+          </div>
+
+          <div class="detail-field">
+            <p class="label">{{ 'discounts.detail.discountValue' | transloco }}</p>
+            <p class="value">
+              @if (selectedRule()!.ruleType === 'SaleThresholdPercentage') {
+                {{ selectedRule()!.percentage }}% (≥ {{ selectedRule()!.thresholdAmount ?? 0 }})
+              } @else {
+                {{ selectedRule()!.percentage }}%
+              }
+            </p>
+          </div>
+
+          <div class="detail-field">
+            <p class="label">{{ 'discounts.detail.belowCostConfirmed' | transloco }}</p>
+            <p class="value">
+              @if (selectedRule()!.belowCostConfirmed) {
+                {{ 'discounts.detail.belowCostYes' | transloco }}
+              } @else {
+                {{ 'discounts.detail.belowCostNo' | transloco }}
+              }
+            </p>
+            @if (selectedRule()!.belowCostConfirmationReason) {
+              <p class="hint">{{ selectedRule()!.belowCostConfirmationReason }}</p>
+            }
+          </div>
+
+          <div class="detail-field">
+            <p class="label">{{ 'discounts.detail.versionLinks' | transloco }}</p>
+            <div class="value space-y-1">
+              <div>
+                <span class="hint">{{ 'discounts.detail.replaces' | transloco }}:</span>
+                @if (selectedRule()!.replacesRuleId) {
+                  <button
+                    pButton
+                    type="button"
+                    severity="secondary"
+                    [text]="true"
+                    class="link-btn"
+                    (click)="onNavigateRule(selectedRule()!.replacesRuleId)"
+                    data-testid="discounts-link-replaces"
+                  >
+                    {{ selectedRule()!.replacesRuleId }}
+                  </button>
+                } @else {
+                  <span class="hint">-</span>
+                }
+              </div>
+              <div>
+                <span class="hint">{{ 'discounts.detail.replacedBy' | transloco }}:</span>
+                @if (selectedRule()!.replacedByRuleId) {
+                  <button
+                    pButton
+                    type="button"
+                    severity="secondary"
+                    [text]="true"
+                    class="link-btn"
+                    (click)="onNavigateRule(selectedRule()!.replacedByRuleId)"
+                    data-testid="discounts-link-replacedBy"
+                  >
+                    {{ selectedRule()!.replacedByRuleId }}
+                  </button>
+                } @else {
+                  <span class="hint">-</span>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-field">
+            <p class="label">{{ 'discounts.detail.audit' | transloco }}</p>
+            <div class="value space-y-1">
+              <div>
+                <span class="hint">{{ 'discounts.detail.createdAt' | transloco }}:</span>
+                <span>{{ formatDate(selectedRule()!.createdAt) }}</span>
+              </div>
+              <div>
+                <span class="hint">{{ 'discounts.detail.updatedAt' | transloco }}:</span>
+                <span>{{ formatDate(selectedRule()!.updatedAt) }}</span>
+              </div>
+              <div>
+                <span class="hint">{{ 'discounts.detail.disabledAt' | transloco }}:</span>
+                <span>{{ formatDate(selectedRule()!.disabledAt) }}</span>
+              </div>
+              <div>
+                <span class="hint">{{ 'discounts.detail.disabledReason' | transloco }}:</span>
+                <span>{{ selectedRule()!.disabledReason || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (!detailLoading() && !selectedRule()) {
+        <div class="empty-state">
+          <p class="empty-title">{{ 'discounts.detail.emptyTitle' | transloco }}</p>
+          <p class="empty-subtitle">{{ 'discounts.detail.emptySubtitle' | transloco }}</p>
+        </div>
+      }
+    </p-card>
+  </div>
+
+  <p-dialog
+    [visible]="showDisableDialog()"
+    [modal]="true"
+    [dismissableMask]="true"
+    [closable]="false"
+    [style]="{ width: 'min(560px, 95vw)' }"
+  >
+    <ng-template pTemplate="header">
+      <h2 class="dialog-title">{{ 'discounts.disableDialog.title' | transloco }}</h2>
+    </ng-template>
+
+    <div class="dialog-content space-y-3">
+      <p>{{ 'discounts.disableDialog.description' | transloco }}</p>
+      <div class="field-wrap space-y-1.5">
+        <label for="discounts-disable-reason">{{ 'discounts.disableDialog.reasonLabel' | transloco }}</label>
+        <textarea
+          id="discounts-disable-reason"
+          pInputTextarea
+          rows="3"
+          class="w-full"
+          [placeholder]="'discounts.disableDialog.reasonPlaceholder' | transloco"
+          [disabled]="disableSubmitting()"
+          [ngModel]="disableReason()"
+          (ngModelChange)="disableReason.set($event)"
+          data-testid="discounts-disable-reason"
+        ></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="dialog-footer">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [text]="true"
+          [label]="'common.cancel' | transloco"
+          [disabled]="disableSubmitting()"
+          (click)="onCloseDisableDialog()"
+          data-testid="discounts-disable-cancel"
+        ></button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [label]="disableSubmitting() ? ('discounts.disableDialog.disabling' | transloco) : ('discounts.disableDialog.confirm' | transloco)"
+          [disabled]="disableSubmitting()"
+          (click)="onConfirmDisable()"
+          data-testid="discounts-disable-confirm"
+        ></button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</section>
+

@@ -169,6 +169,7 @@ public sealed class DiscountsControllerManagementTests(PostgreSqlTestFixture fix
         var disabledId = await CreateSaleRuleAsync(client, ownerToken, "Beta", 7m);
         await DisableRuleAsync(client, ownerToken, disabledId, "End");
         var upcomingId = await CreateSaleRuleAsync(client, ownerToken, "Gamma", 9m, startsAt: DateTimeOffset.UtcNow.AddDays(2), endsAt: null);
+        var expiredId = await CreateSaleRuleAsync(client, ownerToken, "Delta", 11m, startsAt: DateTimeOffset.UtcNow.AddDays(-5), endsAt: DateTimeOffset.UtcNow.AddDays(-1));
 
         var disabled = await ListAsync(client, ownerToken, "/api/discounts?status=disabled&page=1&pageSize=50");
         Assert.Contains(disabled.Items, i => i.Id == disabledId);
@@ -181,6 +182,11 @@ public sealed class DiscountsControllerManagementTests(PostgreSqlTestFixture fix
 
         var upcoming = await ListAsync(client, ownerToken, "/api/discounts?status=upcoming&page=1&pageSize=50");
         Assert.Contains(upcoming.Items, i => i.Id == upcomingId);
+
+        var expired = await ListAsync(client, ownerToken, "/api/discounts?status=expired&page=1&pageSize=50");
+        Assert.Contains(expired.Items, i => i.Id == expiredId);
+        Assert.DoesNotContain(expired.Items, i => i.Id == activeId);
+        Assert.DoesNotContain(expired.Items, i => i.Id == disabledId);
 
         var search = await ListAsync(client, ownerToken, "/api/discounts?search=Alpha&sort=name_asc&page=1&pageSize=50");
         Assert.Single(search.Items);

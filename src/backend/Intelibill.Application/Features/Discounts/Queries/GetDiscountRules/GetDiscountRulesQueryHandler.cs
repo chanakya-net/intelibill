@@ -70,6 +70,7 @@ public sealed class GetDiscountRulesQueryHandler(
         {
             "active" => rules.Where(r => r.IsActive && (r.StartsAt is null || r.StartsAt <= now) && (r.EndsAt is null || r.EndsAt > now)),
             "upcoming" => rules.Where(r => r.IsActive && r.StartsAt is not null && r.StartsAt > now),
+            "expired" => rules.Where(r => r.IsActive && r.EndsAt is not null && r.EndsAt <= now),
             "disabled" => rules.Where(r => !r.IsActive),
             null or "" or "all" => rules,
             _ => rules
@@ -80,6 +81,8 @@ public sealed class GetDiscountRulesQueryHandler(
     {
         return sort?.Trim().ToLowerInvariant() switch
         {
+            "created_asc" => rules.OrderBy(r => r.CreatedAt),
+            "created_desc" => rules.OrderByDescending(r => r.CreatedAt),
             "name_asc" => rules.OrderBy(r => r.Name),
             "name_desc" => rules.OrderByDescending(r => r.Name),
             "startsat_asc" => rules.OrderBy(r => r.StartsAt ?? DateTimeOffset.MinValue),
@@ -100,4 +103,3 @@ public sealed class GetDiscountRulesQueryHandler(
     private static DiscountRuleListItemDto ToListItemDto(DiscountRule rule) =>
         new(rule.Id, rule.RuleType, rule.Name, rule.IsActive, rule.StartsAt, rule.EndsAt, rule.CreatedAt);
 }
-

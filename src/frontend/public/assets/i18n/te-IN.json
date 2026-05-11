@@ -793,6 +793,74 @@
   },
   "discounts": {
     "title": "Discount Rules",
+    "subtitle": "Review, filter, and disable existing discount rules.",
+    "actions": {
+      "disable": "Disable"
+    },
+    "list": {
+      "title": "Rules"
+    },
+    "detail": {
+      "title": "Rule details",
+      "emptyTitle": "Select a rule",
+      "emptySubtitle": "Choose a rule from the list to view details.",
+      "validity": "Validity",
+      "discountValue": "Discount value",
+      "belowCostConfirmed": "Below-cost confirmation",
+      "belowCostYes": "Confirmed",
+      "belowCostNo": "Not confirmed",
+      "versionLinks": "Version links",
+      "replaces": "Replaces",
+      "replacedBy": "Replaced by",
+      "audit": "Audit",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "disabledAt": "Disabled at",
+      "disabledReason": "Disabled reason"
+    },
+    "filters": {
+      "reset": "Reset filters",
+      "status": {
+        "label": "Status",
+        "active": "Active",
+        "disabled": "Disabled",
+        "expired": "Expired",
+        "all": "All"
+      },
+      "type": {
+        "label": "Rule type",
+        "all": "All types"
+      },
+      "sort": {
+        "label": "Sort",
+        "createdDesc": "Created (newest)",
+        "createdAsc": "Created (oldest)",
+        "nameAsc": "Name (A–Z)",
+        "nameDesc": "Name (Z–A)"
+      },
+      "search": {
+        "label": "Search",
+        "placeholder": "Search rules..."
+      }
+    },
+    "pagination": {
+      "prev": "Previous page",
+      "next": "Next page",
+      "pageInfo": "Page {{page}} • {{total}} total"
+    },
+    "errors": {
+      "listFailed": "Could not load discount rules",
+      "detailFailed": "Could not load rule details",
+      "disableFailed": "Could not disable rule"
+    },
+    "disableDialog": {
+      "title": "Disable rule",
+      "description": "Disabling a rule will stop it from applying to new sales. You can still find it later using filters.",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "Add a short reason for audit history",
+      "confirm": "Disable",
+      "disabling": "Disabling..."
+    },
     "ruleType": {
       "BatchPercentage": "Batch Discount",
       "SalePercentage": "Sale Discount",
@@ -800,7 +868,10 @@
     },
     "status": {
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "unknown": "Unknown"
     },
     "fields": {
       "name": "Rule Name",
