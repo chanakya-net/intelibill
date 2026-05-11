@@ -128,6 +128,9 @@
                 @if (sale.totalTaxAmount > 0) {
                   <div class="text-xs text-slate-400">{{ 'sales.history.taxIncluded' | transloco }}: ₹{{ sale.totalTaxAmount | number:'1.2-2' }}</div>
                 }
+                @if (sale.totalDiscountAmount > 0) {
+                  <div class="text-xs text-green-600">{{ 'sales.history.discount' | transloco }}: ₹{{ sale.totalDiscountAmount | number:'1.2-2' }}</div>
+                }
               </div>
             </div>
           </p-card>
@@ -225,7 +228,12 @@
             </td>
             <td><p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)"></p-tag></td>
             <td>{{ sale.itemCount }}</td>
-            <td class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</td>
+            <td>
+              <div class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
+              @if (sale.totalDiscountAmount > 0) {
+                <div class="text-xs text-green-600">{{ 'sales.history.discount' | transloco }}: ₹{{ sale.totalDiscountAmount | number:'1.2-2' }}</div>
+              }
+            </td>
             <td>
               <p-button
                 icon="pi pi-eye"

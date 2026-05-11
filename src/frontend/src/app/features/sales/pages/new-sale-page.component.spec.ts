@@ -456,10 +456,13 @@ describe('NewSalePageComponent', () => {
   });
 
   it('sends clientLineKey from cart item (not inventoryBatchId) in preview request', async () => {
-    vi.useFakeTimers();
     const fixture = TestBed.createComponent(NewSalePageComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    // Let bootstrap (loadCart) complete so cart effect runs normally
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
 
     component.cart.set([
       {
@@ -479,12 +482,10 @@ describe('NewSalePageComponent', () => {
         itemDiscountValue: 0,
       },
     ]);
-    component.cartBootstrapped.set(true);
+    fixture.detectChanges(); // runs the cart effect, fires previewTrigger$
 
-    // Directly trigger via schedulePreview() and advance fake clock
-    component.schedulePreview();
-    vi.runAllTimers();
-    await Promise.resolve(); // flush microtask queue
+    vi.runAllTimers(); // advance 400ms debounce
+    await Promise.resolve(); // flush observable subscription
 
     expect(saleService.previewSale).toHaveBeenCalled();
     const callArg = saleService.previewSale.mock.calls[0][0];

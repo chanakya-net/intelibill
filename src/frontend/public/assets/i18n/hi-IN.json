@@ -576,7 +576,8 @@
       "walkIn": "सामान्य ग्राहक",
       "noSales": "कोई बिक्री नहीं मिली",
       "noSalesDescription": "अपनी पहली बिक्री दर्ज करें।",
-      "taxIncluded": "कर"
+      "taxIncluded": "कर",
+      "discount": "बचाया"
     },
     "newSale": {
       "eyebrow": "बिक्री",
@@ -638,7 +639,10 @@
       "totalPrice": "कुल मूल्य",
       "unknownItem": "अज्ञात आइटम",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "छूट से पहले",
+      "discount": "छूट",
+      "totalSavings": "कुल बचत"
     },
     "detail.returned": "Returned",
     "detail.returnable": "Returnable",

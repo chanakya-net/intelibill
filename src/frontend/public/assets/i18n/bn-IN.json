@@ -576,7 +576,8 @@
       "walkIn": "ওয়াক-ইন",
       "noSales": "কোনো বিক্রয় পাওয়া যায়নি",
       "noSalesDescription": "আপনার প্রথম বিক্রয় নথিভুক্ত করুন।",
-      "taxIncluded": "কর"
+      "taxIncluded": "কর",
+      "discount": "সাশ্রয়"
     },
     "newSale": {
       "eyebrow": "বিক্রয়",
@@ -638,7 +639,10 @@
       "totalPrice": "মোট মূল্য",
       "unknownItem": "অজানা আইটেম",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "ছাড়ের আগে",
+      "discount": "ছাড়",
+      "totalSavings": "মোট সাশ্রয়"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

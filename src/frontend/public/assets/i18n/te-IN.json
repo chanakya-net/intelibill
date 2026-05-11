@@ -576,7 +576,8 @@
       "walkIn": "వాక్-ఇన్",
       "noSales": "అమ్మకాలు కనుగొనబడలేదు",
       "noSalesDescription": "మొదటి అమ్మకం నమోదు చేయండి.",
-      "taxIncluded": "పన్ను"
+      "taxIncluded": "పన్ను",
+      "discount": "ఆదా"
     },
     "newSale": {
       "eyebrow": "అమ్మకాలు",
@@ -638,7 +639,10 @@
       "totalPrice": "మొత్తం ధర",
       "unknownItem": "తెలియని ఐటెమ్",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "తగ్గింపుకు ముందు",
+      "discount": "తగ్గింపు",
+      "totalSavings": "మొత్తం ఆదా"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

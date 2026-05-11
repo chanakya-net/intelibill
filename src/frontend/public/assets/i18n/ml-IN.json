@@ -576,7 +576,8 @@
       "walkIn": "വാക്ക്-ഇൻ",
       "noSales": "വിൽപ്പന ഒന്നും കണ്ടെത്തിയില്ല",
       "noSalesDescription": "നിങ്ങളുടെ ആദ്യ വിൽപ്പന രേഖപ്പെടുത്തുക.",
-      "taxIncluded": "നികുതി"
+      "taxIncluded": "നികുതി",
+      "discount": "ലാഭം"
     },
     "newSale": {
       "eyebrow": "വിൽപ്പന",
@@ -638,7 +639,10 @@
       "totalPrice": "മൊത്തം വില",
       "unknownItem": "അറിയാത്ത ഇനം",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "ഡിസ്‌കൗണ്ടിന് മുൻപ്",
+      "discount": "ഡിസ്‌കൗണ്ട്",
+      "totalSavings": "മൊത്തം സേവിംഗ്സ്"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

@@ -109,11 +109,15 @@ export class NewSalePageComponent {
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
   readonly customers = this.customersFacade.allCustomers;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  readonly cartBootstrapped = signal(false);
+  private readonly cartBootstrapped = signal(false);
 
-  readonly subtotalAmount = computed(() =>
-    this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0)
-  );
+  readonly subtotalAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalAmount - preview.totalTaxAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0);
+  });
   readonly totalTaxAmount = computed(() => {
     const preview = this.checkoutPreview();
     if (preview !== null) {
@@ -212,7 +216,7 @@ export class NewSalePageComponent {
           return this.saleService.previewSale(request).pipe(
             catchError((err: { error?: { detail?: string } }) => {
               this.isPreviewLoading.set(false);
-              this.previewError.set(err.error?.detail ?? 'sales.newSale.previewError');
+              this.previewError.set('sales.newSale.previewError');
               this.checkoutPreview.set(null);
               return of(null as SalePreviewDto | null);
             }),
@@ -290,7 +294,8 @@ export class NewSalePageComponent {
       void this.persistCart(shopId, cart);
     });
 
-    // Schedule preview whenever cart changes (after bootstrap)
+    // Schedule preview whenever cart changes (after bootstrap). Item-level discount
+    // edits always go through cart mutations, so they reach this effect automatically.
     effect(() => {
       const cart = this.cart();
       if (!this.cartBootstrapped()) {
@@ -302,12 +307,8 @@ export class NewSalePageComponent {
         this.previewError.set('');
         return;
       }
-      this.schedulePreview();
+      this.previewTrigger$.next();
     });
-  }
-
-  schedulePreview(): void {
-    this.previewTrigger$.next();
   }
 
   onBarcodeSearch(): void {

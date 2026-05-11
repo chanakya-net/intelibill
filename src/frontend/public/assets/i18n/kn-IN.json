@@ -576,7 +576,8 @@
       "walkIn": "ವಾಕ್-ಇನ್",
       "noSales": "ಮಾರಾಟ ಕಂಡುಬಂದಿಲ್ಲ",
       "noSalesDescription": "ನಿಮ್ಮ ಮೊದಲ ಮಾರಾಟ ದಾಖಲಿಸಿ.",
-      "taxIncluded": "ತೆರಿಗೆ"
+      "taxIncluded": "ತೆರಿಗೆ",
+      "discount": "ಉಳಿಸಿದ"
     },
     "newSale": {
       "eyebrow": "ಮಾರಾಟ",
@@ -638,7 +639,10 @@
       "totalPrice": "ಒಟ್ಟು ಬೆಲೆ",
       "unknownItem": "అపరిచిత ఐటమ్",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "ರಿಯಾಯಿತಿಗೂ ಮೊದಲು",
+      "discount": "ರಿಯಾಯಿತಿ",
+      "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

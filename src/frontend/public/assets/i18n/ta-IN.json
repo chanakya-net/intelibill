@@ -576,7 +576,8 @@
       "walkIn": "நடைப்பயணி",
       "noSales": "விற்பனை இல்லை",
       "noSalesDescription": "உங்கள் முதல் விற்பனையை பதிவு செய்யுங்கள்.",
-      "taxIncluded": "வரி"
+      "taxIncluded": "வரி",
+      "discount": "சேமித்தது"
     },
     "newSale": {
       "eyebrow": "விற்பனை",
@@ -638,7 +639,10 @@
       "totalPrice": "மொத்த விலை",
       "unknownItem": "அறியாத பொருள்",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "தள்ளுபடிக்கு முன்",
+      "discount": "தள்ளுபடி",
+      "totalSavings": "மொத்த சேமிப்பு"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

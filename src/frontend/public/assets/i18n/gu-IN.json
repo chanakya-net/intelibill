@@ -576,7 +576,8 @@
       "walkIn": "વૉક-ઇન",
       "noSales": "કોઈ વેચાણ મળ્યું નહીં",
       "noSalesDescription": "અહીં જોવા માટે તમારું પ્રથમ વેચાણ નોંધો.",
-      "taxIncluded": "કર"
+      "taxIncluded": "કર",
+      "discount": "બચત"
     },
     "newSale": {
       "eyebrow": "વેચાણ",
@@ -638,7 +639,10 @@
       "totalPrice": "કુલ કિંમત",
       "unknownItem": "અજ્ઞાત વસ્તુ",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "ડિસ્કાઉન્ટ પહેલા",
+      "discount": "ડિસ્કાઉન્ટ",
+      "totalSavings": "કુલ બચત"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

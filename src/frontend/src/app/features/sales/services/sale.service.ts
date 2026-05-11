@@ -33,7 +33,7 @@ export interface PreviewSaleItemRequest {
   readonly taxRatePercent: number;
   readonly isPriceIncludingTax: boolean;
   readonly itemDiscount: InstantDiscountRequest;
-  readonly clientLineKey: string | null;
+  readonly clientLineKey: string;
 }
 
 export interface PreviewSaleRequest {

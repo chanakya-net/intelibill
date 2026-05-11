@@ -576,7 +576,8 @@
       "walkIn": "Walk-in",
       "noSales": "No sales found",
       "noSalesDescription": "Record your first sale to see it here.",
-      "taxIncluded": "Tax"
+      "taxIncluded": "Tax",
+      "discount": "Saved"
     },
     "newSale": {
       "eyebrow": "Sales",
@@ -638,7 +639,10 @@
       "totalPrice": "Total Price",
       "unknownItem": "Unknown Item",
       "returned": "Returned",
-      "returnable": "Returnable"
+      "returnable": "Returnable",
+      "beforeDiscount": "Before Discount",
+      "discount": "Discount",
+      "totalSavings": "Total Savings"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",
