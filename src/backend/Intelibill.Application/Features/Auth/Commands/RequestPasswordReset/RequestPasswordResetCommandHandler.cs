@@ -29,7 +29,7 @@ public sealed class RequestPasswordResetCommandHandler(
 
         var (rawToken, tokenHash) = GenerateToken();
 
-        var resetToken = PasswordResetToken.Create(user.Id, tokenHash, expiryHours: 2);
+        var resetToken = PasswordResetToken.Create(user.Id, tokenHash, expiryMinutes: 15);
         await passwordResetTokenRepository.AddAsync(resetToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -37,7 +37,7 @@ public sealed class RequestPasswordResetCommandHandler(
                         $"?token={Uri.EscapeDataString(rawToken)}" +
                         $"&email={Uri.EscapeDataString(command.Email)}";
 
-        await emailService.SendPasswordResetAsync(command.Email, resetLink, cancellationToken);
+        await emailService.SendPasswordResetAsync(command.Email, resetLink, resetToken.ExpiresAt, cancellationToken);
 
         return true;
     }

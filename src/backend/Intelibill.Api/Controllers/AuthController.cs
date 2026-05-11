@@ -148,6 +148,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Password reset ────────────────────────────────────────────────────────
 
     [HttpPost("password-reset/request")]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
     public async Task<IActionResult> RequestPasswordReset(
         [FromBody] RequestPasswordResetRequest request,
         CancellationToken cancellationToken)
@@ -161,6 +162,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     }
 
     [HttpPost("password-reset/confirm")]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
     public async Task<IActionResult> ResetPassword(
         [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken)

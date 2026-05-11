@@ -51,6 +51,56 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ExpiredToken_ReturnsGenericError()
+    {
+        var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
+        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns((PasswordResetToken?)null);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidPasswordResetToken.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_UsedToken_ReturnsGenericError()
+    {
+        var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
+        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns((PasswordResetToken?)null);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidPasswordResetToken.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WrongTokenHash_ReturnsGenericError()
+    {
+        var command = new ResetPasswordCommand("test@test.com", "wrongtoken", "NewPass123!");
+        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var correctRawToken = "correcttoken";
+        var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(correctRawToken)));
+        var token = PasswordResetToken.Create(user.Id, hash);
+
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(token);
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.InvalidPasswordResetToken.Code);
+    }
+
+    [Fact]
     public async Task HandleAsync_ValidToken_ResetsPasswordAndRevokesRefreshTokens()
     {
         // The handler hashes the raw token with SHA256; supply a matching hash
