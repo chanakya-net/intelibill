@@ -1,4 +1,7 @@
 .discounts-page {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   padding: 1rem;
 }
 
@@ -36,10 +39,17 @@
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 1rem;
+  min-width: 0;
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
   }
+}
+
+.list-card,
+.detail-card {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .card-header {
@@ -47,18 +57,32 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
 
   .header-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 0.5rem;
     flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: min(100%, 14rem);
+
+    button {
+      max-width: 100%;
+      min-height: 2.5rem;
+    }
   }
 
   h2 {
+    flex: 1 1 12rem;
+    min-width: 0;
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -189,4 +213,51 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .discounts-page {
+    padding: 0.75rem;
+  }
+
+  .card-header {
+    align-items: stretch;
+    gap: 0.75rem;
+
+    h2,
+    .header-actions {
+      flex-basis: 100%;
+    }
+
+    .header-actions {
+      justify-content: stretch;
+      gap: 0.375rem;
+
+      button {
+        flex: 1 1 8rem;
+      }
+
+      button[data-testid="discounts-reset-filters"] {
+        flex: 0 0 2.5rem;
+        min-width: 2.5rem;
+        width: 2.5rem;
+      }
+    }
+  }
+
+  .detail-header {
+    flex-wrap: wrap;
+  }
+}
+
+:host ::ng-deep .header-actions .p-button-label {
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
+
+@media (max-width: 420px) {
+  :host ::ng-deep .header-actions .p-button {
+    padding-inline: 0.65rem;
+  }
 }

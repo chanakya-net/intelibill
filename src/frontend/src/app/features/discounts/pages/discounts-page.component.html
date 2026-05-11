@@ -53,6 +53,11 @@
             appendTo="body"
             data-testid="discounts-status-filter"
           >
+            <ng-template #selectedItem let-option>
+              @if (option) {
+                {{ option.label | transloco }}
+              }
+            </ng-template>
             <ng-template #item let-option>
               {{ option.label | transloco }}
             </ng-template>
@@ -72,6 +77,11 @@
             appendTo="body"
             data-testid="discounts-type-filter"
           >
+            <ng-template #selectedItem let-option>
+              @if (option) {
+                {{ option.label | transloco }}
+              }
+            </ng-template>
             <ng-template #item let-option>
               {{ option.label | transloco }}
             </ng-template>
@@ -91,6 +101,11 @@
             appendTo="body"
             data-testid="discounts-sort-filter"
           >
+            <ng-template #selectedItem let-option>
+              @if (option) {
+                {{ option.label | transloco }}
+              }
+            </ng-template>
             <ng-template #item let-option>
               {{ option.label | transloco }}
             </ng-template>

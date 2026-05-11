@@ -1,6 +1,6 @@
 import { of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InventoryService } from '../../inventory/services/inventory.service';
@@ -8,6 +8,99 @@ import { DiscountRuleDto, DiscountRuleListItemDto, DiscountService } from '../se
 import { DiscountsPageComponent } from './discounts-page.component';
 
 describe('DiscountsPageComponent', () => {
+  const translations = {
+    shell: {
+      manageDiscounts: 'Manage discounts',
+    },
+    discounts: {
+      title: 'Discount Rules',
+      subtitle: 'Review, filter, and disable existing discount rules.',
+      actions: {
+        disable: 'Disable',
+      },
+      list: {
+        title: 'Rules',
+      },
+      detail: {
+        title: 'Rule details',
+      },
+      fields: {
+        name: 'Name',
+        ruleType: 'Rule type',
+        isActive: 'Status',
+        startsAt: 'Starts at',
+        endsAt: 'Ends at',
+      },
+      filters: {
+        reset: 'Reset filters',
+        status: {
+          label: 'Status',
+          active: 'Active',
+          disabled: 'Disabled',
+          expired: 'Expired',
+          all: 'All',
+        },
+        type: {
+          label: 'Rule type',
+          all: 'All types',
+        },
+        sort: {
+          label: 'Sort',
+          createdDesc: 'Created newest',
+          createdAsc: 'Created oldest',
+          nameAsc: 'Name A-Z',
+          nameDesc: 'Name Z-A',
+        },
+        search: {
+          label: 'Search',
+          placeholder: 'Search rules',
+        },
+      },
+      pagination: {
+        prev: 'Previous page',
+        next: 'Next page',
+        pageInfo: 'Page {{page}} of {{total}}',
+      },
+      ruleType: {
+        BatchPercentage: 'Batch discount',
+        SalePercentage: 'Sale discount',
+        SaleThresholdPercentage: 'Threshold discount',
+      },
+      status: {
+        active: 'Active',
+        disabled: 'Disabled',
+        expired: 'Expired',
+      },
+      editor: {
+        actions: {
+          createRule: 'Create rule',
+          editRule: 'Edit rule',
+        },
+      },
+    },
+  };
+  const alternateTranslations = {
+    ...translations,
+    discounts: {
+      ...translations.discounts,
+      filters: {
+        ...translations.discounts.filters,
+        status: {
+          ...translations.discounts.filters.status,
+          active: 'Active translated',
+        },
+        type: {
+          ...translations.discounts.filters.type,
+          all: 'All types translated',
+        },
+        sort: {
+          ...translations.discounts.filters.sort,
+          createdDesc: 'Created newest translated',
+        },
+      },
+    },
+  };
+
   const makeListItem = (overrides: Partial<DiscountRuleListItemDto> = {}): DiscountRuleListItemDto => ({
     id: 'rule-1',
     ruleType: 'BatchPercentage',
@@ -66,7 +159,14 @@ describe('DiscountsPageComponent', () => {
     discountService.getDiscountRule.mockReturnValue(of(makeRuleDto()));
 
     TestBed.configureTestingModule({
-      imports: [DiscountsPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        DiscountsPageComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { en: translations, alt: alternateTranslations },
+          translocoConfig: { availableLangs: ['en', 'alt'], defaultLang: 'en' },
+          preloadLangs: true,
+        }),
+      ],
       providers: [
         { provide: DiscountService, useValue: discountService },
         { provide: InventoryService, useValue: inventoryService },
@@ -121,6 +221,63 @@ describe('DiscountsPageComponent', () => {
         sort: 'name_asc',
       }),
     );
+  });
+
+  it('renders translated selected labels for closed filters', async () => {
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const selectedLabels = Array.from(
+      fixture.nativeElement.querySelectorAll('.filter-row .p-select-label'),
+      (element) => (element as HTMLElement).textContent?.trim() ?? '',
+    );
+
+    expect(selectedLabels).toEqual(expect.arrayContaining(['Active', 'All types', 'Created newest']));
+    expect(selectedLabels.some((label) => label.includes('discounts.filters.'))).toBe(false);
+  });
+
+  it('updates closed filter labels when language changes', async () => {
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    const transloco = TestBed.inject(TranslocoService);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    transloco.setActiveLang('alt');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const selectedLabels = Array.from(
+      fixture.nativeElement.querySelectorAll('.filter-row .p-select-label'),
+      (element) => (element as HTMLElement).textContent?.trim() ?? '',
+    );
+
+    expect(selectedLabels).toEqual(
+      expect.arrayContaining(['Active translated', 'All types translated', 'Created newest translated']),
+    );
+    expect(selectedLabels.some((label) => label.includes('discounts.filters.'))).toBe(false);
+  });
+
+  it('renders list and detail header actions', () => {
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+
+    const createButton = fixture.nativeElement.querySelector('[data-testid="discounts-create-rule"]');
+    const resetButton = fixture.nativeElement.querySelector('[data-testid="discounts-reset-filters"]');
+    const editButton = fixture.nativeElement.querySelector('[data-testid="discounts-edit-rule"]');
+    const disableButton = fixture.nativeElement.querySelector('[data-testid="discounts-disable"]');
+    const headerActions = fixture.nativeElement.querySelectorAll('.card-header .header-actions');
+
+    expect(headerActions.length).toBe(2);
+    expect(createButton).not.toBeNull();
+    expect(resetButton).not.toBeNull();
+    expect(editButton).not.toBeNull();
+    expect(disableButton).not.toBeNull();
+    expect((createButton as HTMLElement).textContent).toContain('Create rule');
+    expect((editButton as HTMLElement).textContent).toContain('Edit rule');
+    expect((disableButton as HTMLElement).textContent).toContain('Disable');
   });
 
   it('loads detail for selected rule id', () => {
