@@ -37,6 +37,29 @@ export interface DiscountRuleDto {
   readonly updatedAt: string | null;
 }
 
+export interface DiscountRulePreviewBatchDto {
+  readonly batchId: string;
+  readonly itemName: string;
+  readonly batchNumber: string;
+  readonly salesPrice: number;
+  readonly costPrice: number;
+  readonly discountedPrice: number;
+}
+
+export interface DiscountRulePreviewMessageDto {
+  readonly code: string;
+  readonly message: string;
+}
+
+export interface DiscountRulePreviewDto {
+  readonly affectedCount: number;
+  readonly affectedSample: readonly DiscountRulePreviewBatchDto[];
+  readonly belowCostSample: readonly DiscountRulePreviewBatchDto[];
+  readonly safeMaxPercentage: number | null;
+  readonly errors: readonly DiscountRulePreviewMessageDto[];
+  readonly infos: readonly DiscountRulePreviewMessageDto[];
+}
+
 export interface PaginatedDiscountRules {
   readonly items: readonly DiscountRuleListItemDto[];
   readonly totalCount: number;
@@ -80,6 +103,16 @@ export interface ReplaceDiscountRuleRequest {
   readonly disabledReason: string | null;
 }
 
+export interface PreviewDiscountRuleRequest {
+  readonly ruleType: DiscountRuleType;
+  readonly percentage: number;
+  readonly thresholdAmount: number | null;
+  readonly inventoryBatchId: string | null;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
+  readonly belowCostConfirmed: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DiscountService {
   private readonly http = inject(HttpClient);
@@ -110,5 +143,9 @@ export class DiscountService {
 
   disableDiscountRule(id: string, reason: string | null): Observable<DiscountRuleDto> {
     return this.http.post<DiscountRuleDto>(DISCOUNT_ENDPOINTS.disable(id), { reason });
+  }
+
+  previewDiscountRule(request: PreviewDiscountRuleRequest): Observable<DiscountRulePreviewDto> {
+    return this.http.post<DiscountRulePreviewDto>(DISCOUNT_ENDPOINTS.preview, request);
   }
 }

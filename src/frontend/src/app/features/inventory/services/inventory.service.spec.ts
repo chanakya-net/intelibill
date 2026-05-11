@@ -252,6 +252,35 @@ describe('InventoryService', () => {
     http.verify();
   });
 
+  it('loads available batches for a search term', () => {
+    const { service, http } = setup();
+
+    service.getAvailableBatchesBySearchTerm('rice').subscribe((batches) => {
+      expect(batches).toHaveLength(1);
+      expect(batches[0].inventoryBatchId).toBe('batch-1');
+    });
+
+    const request = http.expectOne(INVENTORY_ENDPOINTS.availableBatches('rice'));
+    expect(request.request.method).toBe('GET');
+
+    request.flush([
+      {
+        barcode: '111',
+        itemName: 'Rice',
+        batchNumber: 'BATCH-001',
+        inventoryBatchId: 'batch-1',
+        quantity: 5,
+        salesPrice: 100,
+        mrp: 120,
+        taxRatePercent: 5,
+        taxIncluded: false,
+        expiryDate: null,
+      },
+    ]);
+
+    http.verify();
+  });
+
   it('loads adjustment history with server-side filters and paging', () => {
     const { service, http } = setup();
 

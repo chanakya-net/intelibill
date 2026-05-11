@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { Subject, catchError, debounceTime, of, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, debounceTime, map, of, switchMap } from 'rxjs';
 
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
@@ -22,6 +22,7 @@ import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } 
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
 import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
@@ -42,6 +43,10 @@ import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
 interface CartItem extends SalesCartDraftItem {}
+
+type PreviewRequestResult =
+  | { readonly requestId: number; readonly preview: SalePreviewDto; readonly failed?: false }
+  | { readonly requestId: number; readonly preview: null; readonly failed: true };
 
 @Component({
   selector: 'app-new-sale-page',
@@ -79,9 +84,11 @@ export class NewSalePageComponent {
   private readonly customersFacade = inject(CustomersFacade);
   private readonly salesFacade = inject(SalesFacade);
   private readonly saleService = inject(SaleService);
+  private readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
   private readonly destroyRef = inject(DestroyRef);
   private cartLoadToken = 0;
   private readonly previewTrigger$ = new Subject<void>();
+  private readonly serverUpdateTrigger$ = new Subject<void>();
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = signal<CartItem[]>([]);
@@ -114,12 +121,18 @@ export class NewSalePageComponent {
   readonly openLineDiscountEditorByKey = signal<Record<string, boolean>>({});
   readonly cartItemDiscountErrorByKey = signal<Record<string, string>>({});
 
+  // Shop realtime updates
+  readonly highlightedRowKeys = signal<Set<string>>(new Set());
+  readonly showUpdateNotification = signal(false);
+  readonly updateNotificationText = signal('');
+  private readonly previewRequestState = { latestRequestId: 0 };
+
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
   readonly customers = this.customersFacade.allCustomers;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  private readonly cartBootstrapped = signal(false);
+  readonly cartBootstrapped = signal(false);
 
   readonly subtotalAmount = computed(() => {
     const preview = this.checkoutPreview();
@@ -214,39 +227,90 @@ export class NewSalePageComponent {
         this.syncPaymentSplitFromDue(value);
       });
 
-    // Wire debounced preview trigger
+    // Wire debounced preview trigger (300ms for local edits per issue #234)
     this.previewTrigger$
       .pipe(
-        debounceTime(400),
-        switchMap(() => {
+        debounceTime(300),
+        switchMap((): Observable<PreviewRequestResult | null> => {
           const cart = this.cart();
           if (cart.length === 0) {
-            this.checkoutPreview.set(null);
-            this.isPreviewLoading.set(false);
-            this.previewError.set('');
-            return of(null as SalePreviewDto | null);
+            this.clearPreviewState();
+            return of(null);
           }
-          this.isPreviewLoading.set(true);
-          this.previewError.set('');
+          const requestId = this.beginPreviewRequest();
           const request = this.buildPreviewRequest(cart);
           return this.saleService.previewSale(request).pipe(
-            catchError((err: { error?: { detail?: string } }) => {
-              this.isPreviewLoading.set(false);
-              this.previewError.set('sales.newSale.previewError');
-              this.checkoutPreview.set(null);
-              return of(null as SalePreviewDto | null);
-            }),
+            map((preview) => ({ requestId, preview } as PreviewRequestResult)),
+            catchError(() => of({ requestId, preview: null, failed: true } as PreviewRequestResult)),
           );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((preview) => {
-        if (preview !== null) {
-          this.checkoutPreview.set(preview);
-          this.revalidateDiscountsAgainstPreview();
-          this.isPreviewLoading.set(false);
+      .subscribe((result: PreviewRequestResult | null) => {
+        if (result === null) {
+          return;
         }
+
+        if (result.preview === null) {
+          this.finishPreviewRequest(result.requestId, null, !!result.failed);
+          return;
+        }
+
+        this.finishPreviewRequest(result.requestId, result.preview);
       });
+
+    // Subscribe to server updates and trigger immediate preview refresh (no debounce)
+    this.shopUpdatesService.updates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((update) => {
+        const cart = this.cart();
+        if (cart.length === 0) {
+          return;
+        }
+
+        // Show notification for incoming update
+        this.updateNotificationText.set(`sales.newSale.shopUpdate.${this.getEventNotificationKey(update.eventType)}`);
+        this.showUpdateNotification.set(true);
+        setTimeout(() => this.showUpdateNotification.set(false), 2000);
+
+        // Immediately trigger preview refresh for server updates
+        this.serverUpdateTrigger$.next();
+      });
+
+    // Handle server update trigger with immediate (non-debounced) refresh
+    this.serverUpdateTrigger$
+      .pipe(
+        switchMap((): Observable<PreviewRequestResult | null> => {
+          const cart = this.cart();
+          if (cart.length === 0) {
+            this.clearPreviewState();
+            return of(null);
+          }
+          const requestId = this.beginPreviewRequest();
+          const request = this.buildPreviewRequest(cart);
+          return this.saleService.previewSale(request).pipe(
+            map((preview) => ({ requestId, preview } as PreviewRequestResult)),
+            catchError(() => of({ requestId, preview: null, failed: true } as PreviewRequestResult)),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((result: PreviewRequestResult | null) => {
+        if (result === null) {
+          return;
+        }
+
+        if (result.preview === null) {
+          this.finishPreviewRequest(result.requestId, null, !!result.failed);
+          return;
+        }
+
+        const oldPreview = this.checkoutPreview();
+        this.finishPreviewRequest(result.requestId, result.preview, false, oldPreview);
+      });
+
+    // Connect to shop updates on initialization
+    void this.shopUpdatesService.startConnection();
 
     effect(() => {
       if (this.lastMutationSucceeded()) {
@@ -1154,5 +1218,103 @@ export class NewSalePageComponent {
     } catch {
       // Ignore persistence errors; cart remains in memory.
     }
+  }
+
+  private getEventNotificationKey(eventType: string): string {
+    const keyMap: Record<string, string> = {
+      'PricingChanged': 'pricingUpdated',
+      'ItemApplicabilityChanged': 'itemUpdated',
+      'DiscountRuleChanged': 'discountUpdated',
+      'InventoryBatchVoided': 'inventoryUpdated',
+    };
+    return keyMap[eventType] ?? 'updated';
+  }
+
+  private detectAndHighlightChangedRows(
+    oldPreview: SalePreviewDto | null,
+    newPreview: SalePreviewDto
+  ): void {
+    const highlightedKeys = new Set<string>();
+
+    if (!oldPreview) {
+      // If no previous preview, highlight all rows
+      newPreview.lines.forEach((line) => {
+        if (line.clientLineKey) {
+          highlightedKeys.add(line.clientLineKey);
+        }
+      });
+    } else {
+      // Compare each line with old preview and detect changes
+      const oldLinesByKey = new Map(
+        oldPreview.lines.map((line) => [line.clientLineKey, line])
+      );
+
+      newPreview.lines.forEach((newLine) => {
+        if (!newLine.clientLineKey) return;
+
+        const oldLine = oldLinesByKey.get(newLine.clientLineKey);
+        if (!oldLine) {
+          highlightedKeys.add(newLine.clientLineKey);
+          return;
+        }
+
+        // Check if pricing or discount changed
+        if (
+          newLine.lineTotalAmount !== oldLine.lineTotalAmount ||
+          newLine.itemDiscountAmount !== oldLine.itemDiscountAmount ||
+          newLine.saleDiscountAmount !== oldLine.saleDiscountAmount ||
+          newLine.salesPrice !== oldLine.salesPrice ||
+          newLine.taxAmount !== oldLine.taxAmount
+        ) {
+          highlightedKeys.add(newLine.clientLineKey);
+        }
+      });
+    }
+
+    this.highlightedRowKeys.set(highlightedKeys);
+
+    // Auto-clear highlights after 1.5 seconds (fade transition)
+    setTimeout(() => {
+      this.highlightedRowKeys.set(new Set());
+    }, 1500);
+  }
+
+  private beginPreviewRequest(): number {
+    const requestId = ++this.previewRequestState.latestRequestId;
+    this.isPreviewLoading.set(true);
+    this.previewError.set('');
+    return requestId;
+  }
+
+  private finishPreviewRequest(
+    requestId: number,
+    preview: SalePreviewDto | null,
+    failed = false,
+    oldPreview: SalePreviewDto | null = this.checkoutPreview()
+  ): void {
+    if (requestId !== this.previewRequestState.latestRequestId) {
+      return;
+    }
+
+    if (preview === null) {
+      this.isPreviewLoading.set(false);
+      this.previewError.set(failed ? 'sales.newSale.previewError' : '');
+      if (failed) {
+        this.checkoutPreview.set(null);
+      }
+      return;
+    }
+
+    this.detectAndHighlightChangedRows(oldPreview, preview);
+    this.checkoutPreview.set(preview);
+    this.revalidateDiscountsAgainstPreview();
+    this.isPreviewLoading.set(false);
+  }
+
+  private clearPreviewState(): void {
+    this.previewRequestState.latestRequestId += 1;
+    this.checkoutPreview.set(null);
+    this.isPreviewLoading.set(false);
+    this.previewError.set('');
   }
 }

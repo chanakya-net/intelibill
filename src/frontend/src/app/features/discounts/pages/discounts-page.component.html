@@ -16,16 +16,26 @@
       <ng-template pTemplate="header">
         <div class="card-header">
           <h2>{{ 'discounts.list.title' | transloco }}</h2>
-          <button
-            pButton
-            type="button"
-            icon="pi pi-filter-slash"
-            severity="secondary"
-            [text]="true"
-            [attr.aria-label]="'discounts.filters.reset' | transloco"
-            (click)="onResetFilters()"
-            data-testid="discounts-reset-filters"
-          ></button>
+          <div class="header-actions">
+            <button
+              pButton
+              type="button"
+              icon="pi pi-plus"
+              [label]="'discounts.editor.actions.createRule' | transloco"
+              (click)="onOpenCreateRule()"
+              data-testid="discounts-create-rule"
+            ></button>
+            <button
+              pButton
+              type="button"
+              icon="pi pi-filter-slash"
+              severity="secondary"
+              [text]="true"
+              [attr.aria-label]="'discounts.filters.reset' | transloco"
+              (click)="onResetFilters()"
+              data-testid="discounts-reset-filters"
+            ></button>
+          </div>
         </div>
       </ng-template>
 
@@ -181,17 +191,29 @@
       <ng-template pTemplate="header">
         <div class="card-header">
           <h2>{{ 'discounts.detail.title' | transloco }}</h2>
-          @if (selectedRule() && selectedRule()?.isActive) {
-            <button
-              pButton
-              type="button"
-              icon="pi pi-ban"
-              severity="danger"
-              [label]="'discounts.actions.disable' | transloco"
-              (click)="onOpenDisableDialog()"
-              data-testid="discounts-disable"
-            ></button>
-          }
+          <div class="header-actions">
+            @if (selectedRule() && selectedRule()?.isActive) {
+              <button
+                pButton
+                type="button"
+                icon="pi pi-pen-to-square"
+                severity="secondary"
+                [outlined]="true"
+                [label]="'discounts.editor.actions.editRule' | transloco"
+                (click)="onOpenEditRule()"
+                data-testid="discounts-edit-rule"
+              ></button>
+              <button
+                pButton
+                type="button"
+                icon="pi pi-ban"
+                severity="danger"
+                [label]="'discounts.actions.disable' | transloco"
+                (click)="onOpenDisableDialog()"
+                data-testid="discounts-disable"
+              ></button>
+            }
+          </div>
         </div>
       </ng-template>
 
@@ -378,5 +400,6 @@
       </div>
     </ng-template>
   </p-dialog>
-</section>
 
+  <app-discount-rule-editor-dialog (saved)="onRuleSaved($event)"></app-discount-rule-editor-dialog>
+</section>

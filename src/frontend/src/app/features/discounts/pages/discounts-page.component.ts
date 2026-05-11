@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -13,6 +13,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 
+import { DiscountRuleEditorDialogComponent } from '../components/discount-rule-editor-dialog.component';
 import {
   DiscountRuleDto,
   DiscountRuleListItemDto,
@@ -45,12 +46,15 @@ interface SelectOption<T> {
     TableModule,
     TagModule,
     TextareaModule,
+    DiscountRuleEditorDialogComponent,
   ],
   templateUrl: './discounts-page.component.html',
   styleUrl: './discounts-page.component.scss',
 })
 export class DiscountsPageComponent {
   private readonly discountService = inject(DiscountService);
+  @ViewChild(DiscountRuleEditorDialogComponent)
+  private editorDialog?: DiscountRuleEditorDialogComponent;
 
   readonly statusFilter = signal<DiscountStatusFilter>('active');
   readonly ruleTypeFilter = signal<DiscountRuleType | ''>('');
@@ -141,6 +145,22 @@ export class DiscountsPageComponent {
     if (!rule || !rule.isActive) return;
     this.disableReason.set('');
     this.showDisableDialog.set(true);
+  }
+
+  onOpenCreateRule(): void {
+    this.editorDialog?.open('create');
+  }
+
+  onOpenEditRule(): void {
+    const rule = this.selectedRule();
+    if (!rule || !rule.isActive) return;
+    this.editorDialog?.open('edit', rule);
+  }
+
+  onRuleSaved(rule: DiscountRuleDto): void {
+    this.selectedRuleId.set(rule.id);
+    this.selectedRule.set(rule);
+    this.refreshList();
   }
 
   onCloseDisableDialog(): void {

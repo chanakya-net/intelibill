@@ -638,6 +638,13 @@
         "exceedsMaxPercent": "Exceeds max percent.",
         "exceedsMaxFlat": "Exceeds max amount.",
         "fixErrors": "Fix discount errors before recording."
+      },
+      "shopUpdate": {
+        "pricingUpdated": "Item pricing has been updated",
+        "itemUpdated": "Item availability has changed",
+        "discountUpdated": "Discount rules have been updated",
+        "inventoryUpdated": "Inventory has been updated",
+        "updated": "Checkout preview has been updated"
       }
     },
     "detail": {
@@ -873,7 +880,11 @@
     "errors": {
       "listFailed": "Could not load discount rules",
       "detailFailed": "Could not load rule details",
-      "disableFailed": "Could not disable rule"
+      "disableFailed": "Could not disable rule",
+      "previewFailed": "Could not load discount preview",
+      "createFailed": "Could not create discount rule",
+      "replaceFailed": "Could not replace discount rule",
+      "batchSearchFailed": "Could not load batch search results"
     },
     "disableDialog": {
       "title": "Disable rule",
@@ -882,6 +893,55 @@
       "reasonPlaceholder": "Add a short reason for audit history",
       "confirm": "Disable",
       "disabling": "Disabling..."
+    },
+    "editor": {
+      "subtitle": "Create a new rule or edit the current one as a replacement version.",
+      "createTitle": "Create discount rule",
+      "editTitle": "Edit discount rule",
+      "fields": {
+        "ruleType": "Rule type",
+        "name": "Rule name",
+        "description": "Description",
+        "percentage": "Discount %",
+        "thresholdAmount": "Minimum sale amount",
+        "batchSearch": "Search inventory batch",
+        "selectedBatch": "Selected batch",
+        "noneSelected": "None selected",
+        "startsAt": "Starts at",
+        "endsAt": "Ends at",
+        "belowCostConfirmed": "I understand this rule may sell below cost",
+        "belowCostConfirmationReason": "Confirmation reason",
+        "disabledReason": "Replacement reason"
+      },
+      "ruleType": {
+        "batchPercentage": "Batch discount",
+        "salePercentage": "Sale discount",
+        "saleThresholdPercentage": "Threshold discount"
+      },
+      "actions": {
+        "createRule": "Create rule",
+        "editRule": "Edit rule",
+        "create": "Create",
+        "replace": "Save replacement",
+        "searchBatches": "Search batches",
+        "preview": "Preview",
+        "close": "Close"
+      },
+      "preview": {
+        "title": "Preview",
+        "affectedCount": "{{count}} affected batches",
+        "safeMaxPercentage": "Safe max percentage",
+        "notAvailable": "Not available",
+        "errorsTitle": "Preview issues",
+        "infosTitle": "Preview notes",
+        "affectedSampleTitle": "Affected sample",
+        "belowCostSampleTitle": "Below-cost sample"
+      },
+      "errors": {
+        "fixValidation": "Fix form errors before previewing",
+        "belowCostConfirmationRequired": "Confirm below-cost pricing before saving",
+        "belowCostReasonRequired": "Add a confirmation reason before saving"
+      }
     },
     "ruleType": {
       "BatchPercentage": "Batch Discount",

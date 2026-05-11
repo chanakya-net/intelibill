@@ -12,6 +12,14 @@
     />
   </header>
 
+  <!-- Shop Update Notification -->
+  @if (showUpdateNotification()) {
+    <div class="update-notification">
+      <i class="pi pi-info-circle"></i>
+      <span>{{ updateNotificationText() | transloco }}</span>
+    </div>
+  }
+
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
   }
@@ -164,7 +172,7 @@
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-item let-rowIndex="rowIndex">
-            <tr>
+            <tr [ngClass]="{ 'highlight-row': highlightedRowKeys().has(item.clientLineKey) }">
               <td>{{ item.itemName }}</td>
               <td>{{ item.batchNumber }}</td>
               <td>

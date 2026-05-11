@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { InventoryService } from '../../inventory/services/inventory.service';
 import { DiscountRuleDto, DiscountRuleListItemDto, DiscountService } from '../services/discount.service';
 import { DiscountsPageComponent } from './discounts-page.component';
 
@@ -44,14 +45,20 @@ describe('DiscountsPageComponent', () => {
     getDiscountRules: vi.fn(),
     getDiscountRule: vi.fn(),
     disableDiscountRule: vi.fn(),
+    previewDiscountRule: vi.fn(),
     createDiscountRule: vi.fn(),
     replaceDiscountRule: vi.fn(),
+  };
+
+  const inventoryService = {
+    getAvailableBatchesBySearchTerm: vi.fn(),
   };
 
   beforeEach(() => {
     discountService.getDiscountRules.mockReset();
     discountService.getDiscountRule.mockReset();
     discountService.disableDiscountRule.mockReset();
+    discountService.previewDiscountRule.mockReset();
 
     discountService.getDiscountRules.mockReturnValue(
       of({ items: [makeListItem()], totalCount: 1, pageNumber: 1, pageSize: 20 }),
@@ -60,7 +67,10 @@ describe('DiscountsPageComponent', () => {
 
     TestBed.configureTestingModule({
       imports: [DiscountsPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: DiscountService, useValue: discountService }],
+      providers: [
+        { provide: DiscountService, useValue: discountService },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
     });
   });
 

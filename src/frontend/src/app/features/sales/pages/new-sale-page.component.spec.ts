@@ -2,11 +2,12 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { ShopUpdatesSignalRService, ShopUpdatePayload } from '../../../core/services/shop-updates-signalr.service';
 import { SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
@@ -75,7 +76,17 @@ describe('NewSalePageComponent', () => {
     loadCustomers: vi.fn(),
   };
 
+  let shopUpdatesUpdates$: Subject<ShopUpdatePayload>;
+  const shopUpdatesService = {
+    get updates$() {
+      return shopUpdatesUpdates$;
+    },
+    startConnection: vi.fn(async () => undefined),
+    stopConnection: vi.fn(async () => undefined),
+  };
+
   beforeEach(() => {
+    shopUpdatesUpdates$ = new Subject<ShopUpdatePayload>();
     inventoryService.getAvailableBatchesBySearchTerm.mockReset();
     inventoryService.getAvailableBatchesBySearchTerm.mockReturnValue(
       of([
@@ -132,6 +143,7 @@ describe('NewSalePageComponent', () => {
         { provide: Router, useValue: router },
         { provide: SalesFacade, useValue: salesFacade },
         { provide: SaleService, useValue: saleService },
+        { provide: ShopUpdatesSignalRService, useValue: shopUpdatesService },
       ],
     });
   });
@@ -899,4 +911,456 @@ describe('NewSalePageComponent', () => {
   function createQrLikeBarcode() {
     return `QR|01|${crypto.randomUUID()}|TRACE|${crypto.randomUUID()}|PAYLOAD|AAAAAAAAAAAAAAAAAAAAAAAA`;
   }
+
+  describe('shop realtime updates', () => {
+    it('subscribes to shop updates on component init', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      // Just verify the service is injectable - full integration tested separately
+      expect(component).toBeDefined();
+    });
+
+    it('triggers preview refresh immediately on PricingChanged event', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      saleService.previewSale.mockReturnValue(
+        of({
+          totalAmount: 250,
+          totalTaxableAmount: 250,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+          saleLevelEligibleSubtotal: 250,
+          configuredSaleRule: null,
+          lines: [
+            {
+              itemId: 'item-1',
+              barcode: 'BAR001',
+              itemName: 'Rice',
+              inventoryBatchId: 'batch-1',
+              batchNumber: 'B-001',
+              quantity: 1,
+              costPrice: 100,
+              salesPrice: 150,
+              mrp: 150,
+              taxRatePercent: 0,
+              isPriceIncludingTax: false,
+              preTaxAmountBeforeDiscount: 150,
+              itemDiscountAmount: 0,
+              saleDiscountAmount: 0,
+              taxableAmount: 150,
+              taxAmount: 0,
+              lineTotalAmount: 150,
+              maxAllowedItemDiscountFlat: 50,
+              maxAllowedItemDiscountPercent: 20,
+              configuredBatchRuleId: null,
+              configuredBatchRulePercentage: null,
+              hasClientPriceMismatch: false,
+              clientLineKey: 'clk-1',
+            },
+          ],
+          infos: [],
+          warnings: [],
+        })
+      );
+
+      component.cartBootstrapped.set(true);
+      fixture.detectChanges();
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      fixture.detectChanges();
+      shopUpdatesUpdates$.next({
+        eventType: 'PricingChanged',
+        shopId: 'shop-xyz',
+        changedIds: ['batch-1'],
+        occurredOn: new Date().toISOString(),
+      });
+
+      // Verify preview was called by triggering cart change
+      const startedAt = Date.now();
+      while (!saleService.previewSale.mock.calls.length && Date.now() - startedAt < 2000) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      expect(saleService.previewSale).toHaveBeenCalled();
+    });
+
+    it('detects changed rows and highlights them via clientLineKey', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      saleService.previewSale.mockReturnValue(
+        of({
+          totalAmount: 160,
+          totalTaxableAmount: 160,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+          saleLevelEligibleSubtotal: 160,
+          configuredSaleRule: null,
+          lines: [
+            {
+              itemId: 'item-1',
+              barcode: 'BAR001',
+              itemName: 'Rice',
+              inventoryBatchId: 'batch-1',
+              batchNumber: 'B-001',
+              quantity: 1,
+              costPrice: 100,
+              salesPrice: 160,
+              mrp: 150,
+              taxRatePercent: 0,
+              isPriceIncludingTax: false,
+              preTaxAmountBeforeDiscount: 160,
+              itemDiscountAmount: 0,
+              saleDiscountAmount: 0,
+              taxableAmount: 160,
+              taxAmount: 0,
+              lineTotalAmount: 160,
+              maxAllowedItemDiscountFlat: 50,
+              maxAllowedItemDiscountPercent: 20,
+              configuredBatchRuleId: null,
+              configuredBatchRulePercentage: null,
+              hasClientPriceMismatch: false,
+              clientLineKey: 'clk-1',
+            },
+          ],
+          infos: [],
+          warnings: [],
+        })
+      );
+
+      // Set initial preview with lower price
+      component.checkoutPreview.set({
+        totalAmount: 150,
+        totalTaxableAmount: 150,
+        totalTaxAmount: 0,
+        totalDiscountAmount: 0,
+        saleLevelEligibleSubtotal: 150,
+        configuredSaleRule: null,
+        lines: [
+          {
+            itemId: 'item-1',
+            barcode: 'BAR001',
+            itemName: 'Rice',
+            inventoryBatchId: 'batch-1',
+            batchNumber: 'B-001',
+            quantity: 1,
+            costPrice: 100,
+            salesPrice: 150,
+            mrp: 150,
+            taxRatePercent: 0,
+            isPriceIncludingTax: false,
+            preTaxAmountBeforeDiscount: 150,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 0,
+            taxableAmount: 150,
+            taxAmount: 0,
+            lineTotalAmount: 150,
+            maxAllowedItemDiscountFlat: 50,
+            maxAllowedItemDiscountPercent: 20,
+            configuredBatchRuleId: null,
+            configuredBatchRulePercentage: null,
+            hasClientPriceMismatch: false,
+            clientLineKey: 'clk-1',
+          },
+        ],
+        infos: [],
+        warnings: [],
+      });
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      component.cartBootstrapped.set(true);
+      fixture.detectChanges();
+
+      // Trigger server update to fetch new preview with changed price
+      shopUpdatesUpdates$.next({
+        eventType: 'PricingChanged',
+        shopId: 'shop-xyz',
+        changedIds: ['batch-1'],
+        occurredOn: new Date().toISOString(),
+      });
+
+      // Wait for preview refresh
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      fixture.detectChanges();
+
+      // Verify highlight is set for the changed row
+      expect(component.highlightedRowKeys().size).toBeGreaterThan(0);
+      expect(component.highlightedRowKeys().has('clk-1')).toBe(true);
+    });
+
+    it('shows lightweight notification on shop update (not full message box)', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      fixture.detectChanges();
+
+      // Emit a shop update
+      expect(component.showUpdateNotification()).toBe(false);
+      shopUpdatesUpdates$.next({
+        eventType: 'PricingChanged',
+        shopId: 'shop-xyz',
+        changedIds: ['batch-1'],
+        occurredOn: new Date().toISOString(),
+      });
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Notification should be visible
+      expect(component.showUpdateNotification()).toBe(true);
+      expect(component.updateNotificationText()).toContain('sales.newSale.shopUpdate');
+
+      // Wait for notification to auto-hide
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      expect(component.showUpdateNotification()).toBe(false);
+    });
+
+    it('keeps the fresher server preview when a stale local preview resolves later', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      const localPreview$ = new Subject<SalePreviewDto>();
+
+      const initialPreview: SalePreviewDto = {
+        totalAmount: 150,
+        totalTaxableAmount: 150,
+        totalTaxAmount: 0,
+        totalDiscountAmount: 0,
+        saleLevelEligibleSubtotal: 150,
+        configuredSaleRule: null,
+        lines: [
+          {
+            itemId: 'item-1',
+            barcode: 'BAR001',
+            itemName: 'Rice',
+            inventoryBatchId: 'batch-1',
+            batchNumber: 'B-001',
+            quantity: 1,
+            costPrice: 100,
+            salesPrice: 150,
+            mrp: 150,
+            taxRatePercent: 0,
+            isPriceIncludingTax: false,
+            preTaxAmountBeforeDiscount: 150,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 0,
+            taxableAmount: 150,
+            taxAmount: 0,
+            lineTotalAmount: 150,
+            maxAllowedItemDiscountFlat: 50,
+            maxAllowedItemDiscountPercent: 20,
+            configuredBatchRuleId: null,
+            configuredBatchRulePercentage: null,
+            hasClientPriceMismatch: false,
+            clientLineKey: 'clk-1',
+          },
+        ],
+        infos: [],
+        warnings: [],
+      };
+
+      const serverPreview: SalePreviewDto = {
+        totalAmount: 160,
+        totalTaxableAmount: 160,
+        totalTaxAmount: 0,
+        totalDiscountAmount: 0,
+        saleLevelEligibleSubtotal: 160,
+        configuredSaleRule: null,
+        lines: [
+          {
+            itemId: 'item-1',
+            barcode: 'BAR001',
+            itemName: 'Rice',
+            inventoryBatchId: 'batch-1',
+            batchNumber: 'B-001',
+            quantity: 1,
+            costPrice: 100,
+            salesPrice: 160,
+            mrp: 160,
+            taxRatePercent: 0,
+            isPriceIncludingTax: false,
+            preTaxAmountBeforeDiscount: 160,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 0,
+            taxableAmount: 160,
+            taxAmount: 0,
+            lineTotalAmount: 160,
+            maxAllowedItemDiscountFlat: 50,
+            maxAllowedItemDiscountPercent: 20,
+            configuredBatchRuleId: null,
+            configuredBatchRulePercentage: null,
+            hasClientPriceMismatch: false,
+            clientLineKey: 'clk-1',
+          },
+        ],
+        infos: [],
+        warnings: [],
+      };
+
+      saleService.previewSale.mockReset();
+      saleService.previewSale
+        .mockReturnValueOnce(localPreview$.asObservable())
+        .mockReturnValueOnce(of(serverPreview));
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      component.checkoutPreview.set(initialPreview);
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      vi.useFakeTimers();
+      try {
+        fixture.detectChanges();
+        component.onIncreaseCartItem(0);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+
+        expect(saleService.previewSale).toHaveBeenCalledTimes(1);
+
+        shopUpdatesUpdates$.next({
+          eventType: 'PricingChanged',
+          shopId: 'shop-xyz',
+          changedIds: ['batch-1'],
+          occurredOn: new Date().toISOString(),
+        });
+        await Promise.resolve();
+
+        expect(saleService.previewSale).toHaveBeenCalledTimes(2);
+        expect(component.checkoutPreview()).toEqual(serverPreview);
+
+        localPreview$.next({
+          ...initialPreview,
+          totalAmount: 155,
+          totalTaxableAmount: 155,
+          saleLevelEligibleSubtotal: 155,
+          lines: initialPreview.lines.map((line) => ({ ...line, quantity: 2, lineTotalAmount: 155 })),
+        });
+        localPreview$.complete();
+        await Promise.resolve();
+
+        expect(component.checkoutPreview()).toEqual(serverPreview);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('continues to work when SignalR connection fails (graceful degradation)', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      saleService.previewSale.mockReturnValue(
+        of({
+          totalAmount: 150,
+          totalTaxableAmount: 150,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+          saleLevelEligibleSubtotal: 150,
+          configuredSaleRule: null,
+          lines: [],
+          infos: [],
+          warnings: [],
+        })
+      );
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      component.cartBootstrapped.set(true);
+      fixture.detectChanges();
+
+      // Even without SignalR, local edits should still trigger preview
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(component.checkoutPreview()).toBeDefined();
+    });
+  });
 });

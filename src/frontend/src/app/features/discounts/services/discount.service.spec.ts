@@ -8,6 +8,7 @@ import {
   DiscountService,
   DiscountRuleDto,
   DiscountRuleListItemDto,
+  DiscountRulePreviewDto,
   DiscountRuleType,
 } from './discount.service';
 
@@ -56,6 +57,25 @@ describe('DiscountService', () => {
     replacedByRuleId: null,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: null,
+  });
+
+  const makePreviewDto = (overrides: Partial<DiscountRulePreviewDto> = {}): DiscountRulePreviewDto => ({
+    affectedCount: 1,
+    affectedSample: [
+      {
+        batchId: 'batch-1',
+        itemName: 'Premium Tea',
+        batchNumber: 'BN-1',
+        salesPrice: 100,
+        costPrice: 80,
+        discountedPrice: 90,
+      },
+    ],
+    belowCostSample: [],
+    safeMaxPercentage: 20,
+    errors: [],
+    infos: [],
+    ...overrides,
   });
 
   it('sends GET to list endpoint with default pagination', () => {
@@ -194,6 +214,44 @@ describe('DiscountService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ reason: null });
     req.flush(rule);
+    http.verify();
+  });
+
+  it('sends POST to preview endpoint with correct payload', () => {
+    const { service, http } = setup();
+    const preview = makePreviewDto({
+      errors: [
+        {
+          code: 'discount.error.overlap',
+          message: 'This batch already has an overlapping discount rule.',
+        },
+      ],
+      infos: [
+        {
+          code: 'discount.info.possible_overlap_sale_rules',
+          message: 'This shop already has overlapping sale rules.',
+        },
+      ],
+    });
+    const payload = {
+      ruleType: 'BatchPercentage' as DiscountRuleType,
+      percentage: 10,
+      thresholdAmount: null,
+      inventoryBatchId: 'batch-1',
+      startsAt: '2026-06-01T00:00:00Z',
+      endsAt: '2026-06-30T00:00:00Z',
+      belowCostConfirmed: false,
+    };
+
+    service.previewDiscountRule(payload).subscribe((result) => {
+      expect(result.safeMaxPercentage).toBe(20);
+      expect(result.errors[0].code).toBe('discount.error.overlap');
+    });
+
+    const req = http.expectOne(DISCOUNT_ENDPOINTS.preview);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(preview);
     http.verify();
   });
 });
