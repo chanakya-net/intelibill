@@ -64,7 +64,7 @@ describe('ShopUpdatesSignalRService', () => {
     });
 
     service = TestBed.inject(ShopUpdatesSignalRService);
-    TestBed.flushEffects(); // ensure the constructor effect fires before we await
+    (TestBed as unknown as { flushEffects?: () => void }).flushEffects?.();
     await service.startConnection();
     await vi.waitFor(() => {
       expect(mockHandlers.has('ShopUpdated')).toBe(true);
