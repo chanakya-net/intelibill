@@ -622,7 +622,23 @@
       "customerRequiredForDue": "நிலுவைத் தொகை பூஜ்யத்தை விட அதிகமாக இருந்தால் வாடிக்கையாளர் தொலைபேசி எண் அவசியம்.",
       "previewRequired": "பதிவு செய்வதற்கு முன் விற்பனையை முன்னோட்டமிடுங்கள்.",
       "previewLoading": "விற்பனை முன்னோட்டம் கணக்கிடுகிறது…",
-      "previewError": "விற்பனை முன்னோட்டம் கணக்கிட தோல்வி."
+      "previewError": "விற்பனை முன்னோட்டம் கணக்கிட தோல்வி.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "விற்பனை விவரங்கள்",

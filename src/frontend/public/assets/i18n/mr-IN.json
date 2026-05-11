@@ -622,7 +622,23 @@
       "customerRequiredForDue": "थकबाकी रक्कम शून्यापेक्षा जास्त असल्यास ग्राहकाचा फोन नंबर आवश्यक आहे.",
       "previewRequired": "नोंदणी करण्यापूर्वी विक्री पूर्वावलोकन करा.",
       "previewLoading": "विक्री पूर्वावलोकन मोजत आहे…",
-      "previewError": "विक्री पूर्वावलोकन मोजण्यात अयशस्वी."
+      "previewError": "विक्री पूर्वावलोकन मोजण्यात अयशस्वी.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "विक्री तपशील",

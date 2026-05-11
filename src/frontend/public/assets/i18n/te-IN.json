@@ -622,7 +622,23 @@
       "customerRequiredForDue": "బకాయి మొత్తం సున్నా కంటే ఎక్కువగా ఉంటే కస్టమర్ ఫోన్ నంబర్ తప్పనిసరి.",
       "previewRequired": "రికార్డ్ చేయడానికి ముందు అమ్మకాన్ని ప్రివ్యూ చేయండి.",
       "previewLoading": "అమ్మకాల ప్రివ్యూ లెక్కిస్తోంది…",
-      "previewError": "అమ్మకాల ప్రివ్యూ లెక్కించడంలో విఫలమైంది."
+      "previewError": "అమ్మకాల ప్రివ్యూ లెక్కించడంలో విఫలమైంది.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "అమ్మకం వివరాలు",

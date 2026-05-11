@@ -622,7 +622,23 @@
       "customerRequiredForDue": "বকেয়া পরিমাণ শূন্যের বেশি হলে গ্রাহকের ফোন নম্বর আবশ্যক।",
       "previewRequired": "রেকর্ড করার আগে বিক্রয় প্রিভিউ করুন।",
       "previewLoading": "বিক্রয় প্রিভিউ গণনা করা হচ্ছে…",
-      "previewError": "বিক্রয় প্রিভিউ গণনা করতে ব্যর্থ।"
+      "previewError": "বিক্রয় প্রিভিউ গণনা করতে ব্যর্থ।",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

@@ -622,7 +622,23 @@
       "customerRequiredForDue": "Customer phone is required when due amount is greater than zero.",
       "previewRequired": "Preview the sale before recording it.",
       "previewLoading": "Calculating sale preview…",
-      "previewError": "Failed to calculate sale preview."
+      "previewError": "Failed to calculate sale preview.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "Sale Details",

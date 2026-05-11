@@ -622,7 +622,23 @@
       "customerRequiredForDue": "બાકી રકમ શૂન્યથી વધુ હોય ત્યારે ગ્રાહકનો ફોન નંબર જરૂરી છે.",
       "previewRequired": "રેકોર્ડ કરતાં પહેલાં વેચાણ પ્રીવ્યૂ કરો.",
       "previewLoading": "વેચાણ પ્રીવ્યૂ ગણતરી કરી રહ્યા છીએ…",
-      "previewError": "વેચાણ પ્રીવ્યૂ ગણવામાં નિષ્ફળ."
+      "previewError": "વેચાણ પ્રીવ્યૂ ગણવામાં નિષ્ફળ.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "વેચાણ વિગતો",

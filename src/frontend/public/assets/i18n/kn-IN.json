@@ -622,7 +622,23 @@
       "customerRequiredForDue": "ಬాಕಿ ಮೊತ್ತ శూన్యం కంటే ఎక్కువ ఉంటే కస్టమర్ ఫోన్ నంబర్ అవసరం.",
       "previewRequired": "ದಾಖಲಿಸುವ ಮೊದಲು ಮಾರಾಟ ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡಿ.",
       "previewLoading": "ಮಾರಾಟ ಪೂರ್ವವೀಕ್ಷಣೆ ಲೆಕ್ಕ ಹಾಕಲಾಗುತ್ತಿದೆ…",
-      "previewError": "ಮಾರಾಟ ಪೂರ್ವವೀಕ್ಷಣೆ ಲೆಕ್ಕ ಹಾಕಲು ವಿಫಲವಾಗಿದೆ."
+      "previewError": "ಮಾರಾಟ ಪೂರ್ವವೀಕ್ಷಣೆ ಲೆಕ್ಕ ಹಾಕಲು ವಿಫಲವಾಗಿದೆ.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",

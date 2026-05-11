@@ -622,7 +622,23 @@
       "customerRequiredForDue": "ബാക്കി തുക പൂജ്യത്തേക്കാൾ കൂടുതലായാൽ ഉപഭോക്താവിന്റെ ഫോൺ നമ്പർ ആവശ്യമാണ്.",
       "previewRequired": "രേഖപ്പെടുത്തുന്നതിന് മുൻപ് വിൽപ്പന പ്രിവ്യൂ ചെയ്യുക.",
       "previewLoading": "വിൽപ്പന പ്രിവ്യൂ കണക്കാക്കുന്നു…",
-      "previewError": "വിൽപ്പന പ്രിവ്യൂ കണക്കാക്കൽ പരാജയപ്പെട്ടു."
+      "previewError": "വിൽപ്പന പ്രിവ്യൂ കണക്കാക്കൽ പരാജയപ്പെട്ടു.",
+      "discounts": {
+        "none": "No discount",
+        "percent": "Percent",
+        "flat": "Flat",
+        "value": "Value",
+        "edit": "Edit discount",
+        "editSale": "Edit sale discount",
+        "configuredPercent": "Configured: {{percent}}%",
+        "configuredSalePercent": "Configured sale: {{percent}}%",
+        "instantPercent": "Instant: {{value}}%",
+        "instantFlat": "Instant: ₹{{value}}",
+        "saleNotEligible": "No eligible lines for sale discount.",
+        "exceedsMaxPercent": "Exceeds max percent.",
+        "exceedsMaxFlat": "Exceeds max amount.",
+        "fixErrors": "Fix discount errors before recording."
+      }
     },
     "detail": {
       "title": "വിൽപ്പന വിശദാംശങ്ങൾ",

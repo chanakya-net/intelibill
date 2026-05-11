@@ -545,6 +545,326 @@ describe('NewSalePageComponent', () => {
     expect(component.paymentForm.controls.paidAmount.value).toBe(99);
   });
 
+  it('includes sale-level instant discount in preview request', async () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        costPrice: 10,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+
+    component.onSaleDiscountTypeChange(1);
+    component.onSaleDiscountValueChange(10);
+
+    fixture.detectChanges();
+    vi.runAllTimers();
+    await Promise.resolve();
+
+    expect(saleService.previewSale).toHaveBeenCalled();
+    const callArg = saleService.previewSale.mock.calls[0]?.[0];
+    expect(callArg.saleDiscount).toEqual({ type: 1, value: 10 });
+
+    vi.useRealTimers();
+  });
+
+  it('renders discount i18n keys for labels and options', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 0,
+        taxIncluded: true,
+        costPrice: 10,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+
+    component.checkoutPreview.set({
+      totalAmount: 50,
+      totalTaxableAmount: 50,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 50,
+      configuredSaleRule: { percentage: 5 },
+      lines: [
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BC-1',
+          batchNumber: 'B-01',
+          itemName: 'Oreo',
+          quantity: 1,
+          salesPrice: 50,
+          costPrice: 10,
+          preTaxAmountBeforeDiscount: 50,
+          itemDiscountAmount: 0,
+          saleDiscountAmount: 0,
+          taxAmount: 0,
+          totalAmount: 50,
+          configuredBatchRulePercentage: 2,
+          maxAllowedItemDiscountPercent: 10,
+          maxAllowedItemDiscountFlat: 5,
+        },
+      ],
+      infos: [],
+      warnings: [],
+    } as unknown as SalePreviewDto);
+
+    component.toggleLineDiscountEditor('clk-1');
+    component.toggleSaleDiscountEditor();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('sales.newSale.discounts.edit');
+    expect(text).toContain('sales.newSale.discounts.editSale');
+    expect(text).toContain('sales.newSale.discounts.configuredPercent');
+    expect(text).toContain('sales.newSale.discounts.configuredSalePercent');
+  });
+
+  it('renders sale discount ineligible hint i18n key', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 0,
+        taxIncluded: true,
+        costPrice: 10,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+
+    component.checkoutPreview.set({
+      totalAmount: 50,
+      totalTaxableAmount: 50,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 0,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    } as SalePreviewDto);
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('sales.newSale.discounts.saleNotEligible');
+  });
+
+  it('revalidates and clamps discounts when preview limits shrink', async () => {
+    const previewLine = {
+      clientLineKey: 'clk-1',
+      barcode: 'BC-1',
+      batchNumber: 'B-01',
+      itemName: 'Oreo',
+      quantity: 1,
+      salesPrice: 50,
+      costPrice: 10,
+      preTaxAmountBeforeDiscount: 50,
+      itemDiscountAmount: 0,
+      saleDiscountAmount: 0,
+      taxAmount: 0,
+      totalAmount: 50,
+      configuredBatchRulePercentage: null,
+      maxAllowedItemDiscountPercent: 20,
+      maxAllowedItemDiscountFlat: 10,
+    };
+
+    saleService.previewSale.mockReset();
+    const preview1 = {
+      totalAmount: 40,
+      totalTaxableAmount: 40,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 10,
+      saleLevelEligibleSubtotal: 40,
+      configuredSaleRule: { percentage: 20 },
+      lines: [previewLine],
+      infos: [],
+      warnings: [],
+    } as unknown as SalePreviewDto;
+
+    const preview2 = {
+      totalAmount: 46,
+      totalTaxableAmount: 46,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 4,
+      saleLevelEligibleSubtotal: 46,
+      configuredSaleRule: { percentage: 5 },
+      lines: [{ ...previewLine, maxAllowedItemDiscountPercent: 5 }],
+      infos: [],
+      warnings: [],
+    } as unknown as SalePreviewDto;
+
+    saleService.previewSale
+      .mockReturnValueOnce(
+        of({
+          ...preview1,
+        })
+      )
+      .mockReturnValueOnce(of({ ...preview2 }))
+      .mockReturnValue(of({ ...preview2 }));
+
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+
+    component.onSaleDiscountTypeChange(1);
+    component.onSaleDiscountValueChange(10);
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 0,
+        taxIncluded: true,
+        costPrice: 10,
+        itemDiscountType: 1,
+        itemDiscountValue: 10,
+      },
+    ]);
+
+    fixture.detectChanges();
+    vi.runAllTimers();
+    await Promise.resolve();
+
+    // After first preview, values remain within max.
+    expect(component.saleDiscountValue()).toBeGreaterThan(0);
+    expect(component.saleDiscountValue()).toBeLessThanOrEqual(10);
+    expect(component.cart()[0].itemDiscountValue).toBe(10);
+
+    // Trigger another preview (cart mutation) with stricter limits
+    component.onIncreaseCartItem(0);
+    fixture.detectChanges();
+    vi.runAllTimers();
+    await Promise.resolve();
+
+    expect(component.saleDiscountValue()).toBe(5);
+    expect(component.saleDiscountError()).toBe('');
+    expect(component.cart()[0].itemDiscountValue).toBe(5);
+    expect(component.getCartItemDiscountError('clk-1')).toBe('');
+
+    vi.useRealTimers();
+  });
+
+  it('blocks item discount updates above preview limits', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 0,
+        taxIncluded: true,
+        costPrice: 40,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+
+    component.checkoutPreview.set({
+      totalAmount: 50,
+      totalTaxableAmount: 50,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 50,
+      configuredSaleRule: null,
+      lines: [
+        {
+          itemId: 'item-1',
+          barcode: 'BC-1',
+          itemName: 'Oreo',
+          inventoryBatchId: 'batch-1',
+          batchNumber: 'B-01',
+          quantity: 1,
+          costPrice: 40,
+          salesPrice: 50,
+          mrp: 60,
+          taxRatePercent: 0,
+          isPriceIncludingTax: true,
+          preTaxAmountBeforeDiscount: 50,
+          itemDiscountAmount: 0,
+          saleDiscountAmount: 0,
+          taxableAmount: 50,
+          taxAmount: 0,
+          lineTotalAmount: 50,
+          maxAllowedItemDiscountFlat: 10,
+          maxAllowedItemDiscountPercent: 20,
+          configuredBatchRuleId: null,
+          configuredBatchRulePercentage: null,
+          hasClientPriceMismatch: false,
+          clientLineKey: 'clk-1',
+        },
+      ],
+      infos: [],
+      warnings: [],
+    } as SalePreviewDto);
+
+    component.onCartItemDiscountTypeChange('clk-1', 2);
+    component.onCartItemDiscountValueChange('clk-1', 25);
+
+    expect(component.cart()[0].itemDiscountType).toBe(2);
+    expect(component.cart()[0].itemDiscountValue).toBe(0);
+    expect(component.getCartItemDiscountError('clk-1')).toBeTruthy();
+  });
+
   it('blocks submit and sets paymentSplitError when no preview is available', () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     const component = fixture.componentInstance;
