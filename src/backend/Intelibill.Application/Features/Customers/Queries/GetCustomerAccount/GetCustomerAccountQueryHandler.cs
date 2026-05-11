@@ -74,7 +74,7 @@ public sealed class GetCustomerAccountQueryHandler(
                 s.SoldAt,
                 s.PaidAmount,
                 s.DueAmount,
-                s.TotalAmount)).ToList(),
+                s.Items.Sum(i => i.TotalAmount))).ToList(),
             orderedLedgerDtos,
             paymentHistory);
     }

@@ -43,6 +43,8 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   soldAt: '2026-05-05T10:00:00Z',
   paidAmount: 220,
   dueAmount: 0,
+  totalBeforeDiscount: 220,
+  totalDiscountAmount: 0,
   totalAmount: 220,
   totalTaxAmount: 20,
   items: [
@@ -53,6 +55,15 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
       inventoryBatchId: 'batch-1',
       quantity: 2,
       salesPrice: 100,
+      originalSalesPrice: 100,
+      finalSalesPrice: 100,
+      preTaxAmountBeforeDiscount: 200,
+      itemDiscountAmount: 0,
+      saleDiscountAmount: 0,
+      taxableAmount: 200,
+      taxAmount: 20,
+      totalAmount: 220,
+      savingsAmount: 0,
       taxRatePercent: 10,
       isPriceIncludingTax: false,
       hasPriceMismatch: false,
@@ -148,6 +159,73 @@ describe('SaleDetailOverlayComponent', () => {
     fixture.detectChanges();
     return { fixture, component };
   }
+
+  it('shows before-discount and discount rows when totalDiscountAmount > 0', async () => {
+    const { fixture, component } = await setup({
+      totalBeforeDiscount: 240,
+      totalDiscountAmount: 20,
+      totalAmount: 220,
+    });
+    component.visible = true;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Before Discount');
+    expect(text).toContain('Discount');
+    expect(text).toContain('Total Savings');
+  });
+
+  it('hides discount rows and shows price row when totalDiscountAmount is 0', async () => {
+    const { fixture, component } = await setup({
+      totalBeforeDiscount: 220,
+      totalDiscountAmount: 0,
+      totalAmount: 220,
+    });
+    component.visible = true;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Before Discount');
+    expect(text).not.toContain('Total Savings');
+  });
+
+  it('shows line item savings when savingsAmount > 0', async () => {
+    const { fixture, component } = await setup({
+      totalBeforeDiscount: 240,
+      totalDiscountAmount: 20,
+      totalAmount: 220,
+      items: [
+        {
+          saleItemId: 'line-1',
+          itemId: 'item-1',
+          itemName: 'Soap',
+          inventoryBatchId: 'batch-1',
+          quantity: 2,
+          salesPrice: 100,
+          originalSalesPrice: 110,
+          finalSalesPrice: 100,
+          preTaxAmountBeforeDiscount: 220,
+          itemDiscountAmount: 20,
+          saleDiscountAmount: 0,
+          taxableAmount: 200,
+          taxAmount: 20,
+          totalAmount: 220,
+          savingsAmount: 20,
+          taxRatePercent: 10,
+          isPriceIncludingTax: false,
+          hasPriceMismatch: false,
+          returnedQuantity: 0,
+          returnableQuantity: 2,
+          returnStatus: 'Returnable',
+        },
+      ],
+    });
+    component.visible = true;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('20.00');
+  });
 
   it('requires notes for wastage return lines before preview', async () => {
     const { component } = await setup();

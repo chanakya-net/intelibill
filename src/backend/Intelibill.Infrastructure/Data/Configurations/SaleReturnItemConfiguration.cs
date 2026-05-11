@@ -14,7 +14,9 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
             tableBuilder.HasCheckConstraint("ck_sale_return_items_quantity_positive", "quantity > 0");
             tableBuilder.HasCheckConstraint("ck_sale_return_items_tax_rate_range", "original_tax_rate_percent >= 0 AND original_tax_rate_percent <= 100");
             tableBuilder.HasCheckConstraint("ck_sale_return_items_amounts_non_negative", "original_cost_price >= 0 AND original_sales_price >= 0 AND max_refund_amount >= 0 AND approved_refund_amount >= 0 AND taxable_amount >= 0 AND tax_amount >= 0");
-            tableBuilder.HasCheckConstraint("ck_sale_return_items_refund_cap", "approved_refund_amount <= max_refund_amount");
+            tableBuilder.HasCheckConstraint(
+                "ck_sale_return_items_refund_cap",
+                "approved_refund_amount <= max_refund_amount OR notes IS NOT NULL");
         });
 
         builder.HasKey(i => i.Id);

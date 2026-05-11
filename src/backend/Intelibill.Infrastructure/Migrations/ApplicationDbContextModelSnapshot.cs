@@ -208,6 +208,136 @@ namespace Intelibill.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.DiscountRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BelowCostConfirmationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("below_cost_confirmation_reason");
+
+                    b.Property<bool>("BelowCostConfirmed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("below_cost_confirmed");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<string>("DisabledReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("disabled_reason");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<Guid?>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<decimal>("Percentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percentage");
+
+                    b.Property<Guid?>("ReplacedByRuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaced_by_rule_id");
+
+                    b.Property<Guid?>("ReplacesRuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaces_rule_id");
+
+                    b.Property<string>("RuleType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("rule_type");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<decimal?>("ThresholdAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("threshold_amount");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discount_rules");
+
+                    b.HasIndex("InventoryBatchId")
+                        .HasDatabaseName("ix_discount_rules_inventory_batch_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId")
+                        .HasDatabaseName("ix_discount_rules_shop_id_inventory_batch_id")
+                        .HasFilter("inventory_batch_id IS NOT NULL");
+
+                    b.HasIndex("ShopId", "IsActive")
+                        .HasDatabaseName("ix_discount_rules_shop_id_is_active");
+
+                    b.HasIndex("ShopId", "RuleType")
+                        .HasDatabaseName("ix_discount_rules_shop_id_rule_type");
+
+                    b.ToTable("discount_rules", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_discount_rules_disabled_audit", "(is_active = true AND disabled_at IS NULL) OR (is_active = false AND disabled_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_discount_rules_ends_after_starts", "starts_at IS NULL OR ends_at IS NULL OR ends_at > starts_at");
+
+                            t.HasCheckConstraint("ck_discount_rules_percentage_range", "percentage > 0 AND percentage <= 100");
+
+                            t.HasCheckConstraint("ck_discount_rules_threshold_amount_positive", "threshold_amount IS NULL OR threshold_amount > 0");
+
+                            t.HasCheckConstraint("ck_discount_rules_threshold_required", "(rule_type != 'SaleThresholdPercentage') OR (threshold_amount IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>
                 {
                     b.Property<Guid>("Id")
@@ -883,6 +1013,28 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid?>("ConfiguredSaleRuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("configured_sale_rule_id");
+
+                    b.Property<decimal?>("ConfiguredSaleRulePercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("configured_sale_rule_percentage");
+
+                    b.Property<decimal?>("ConfiguredSaleRuleThresholdAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("configured_sale_rule_threshold_amount");
+
+                    b.Property<int?>("ConfiguredSaleRuleType")
+                        .HasColumnType("integer")
+                        .HasColumnName("configured_sale_rule_type");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -906,6 +1058,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("due_amount");
 
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("idempotency_key");
+
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -921,6 +1079,21 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("payment_method");
 
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_hash");
+
+                    b.Property<int>("SaleDiscountOverrideType")
+                        .HasColumnType("integer")
+                        .HasColumnName("sale_discount_override_type");
+
+                    b.Property<decimal>("SaleDiscountOverrideValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("sale_discount_override_value");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -929,10 +1102,25 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sold_at");
 
+                    b.Property<decimal>("SubtotalBeforeDiscount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("subtotal_before_discount");
+
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("total_amount");
+
+                    b.Property<decimal>("TotalBeforeDiscount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_before_discount");
+
+                    b.Property<decimal>("TotalDiscountAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_discount_amount");
 
                     b.Property<decimal>("TotalTaxAmount")
                         .HasPrecision(18, 2)
@@ -943,6 +1131,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.PrimitiveCollection<string[]>("Warnings")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("warnings");
+
                     b.HasKey("Id")
                         .HasName("pk_sales");
 
@@ -951,6 +1144,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_sales_shop_id");
+
+                    b.HasIndex("ShopId", "ConfiguredSaleRuleId")
+                        .HasDatabaseName("ix_sales_shop_id_configured_sale_rule_id");
 
                     b.HasIndex("ShopId", "CustomerId")
                         .HasDatabaseName("ix_sales_shop_id_customer_id");
@@ -962,6 +1158,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "SoldAt")
                         .HasDatabaseName("ix_sales_shop_id_sold_at");
 
+                    b.HasIndex("ShopId", "ActorUserId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sales_shop_id_actor_user_id_idempotency_key");
+
                     b.ToTable("sales", (string)null);
                 });
 
@@ -972,6 +1172,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ConfiguredBatchRuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("configured_batch_rule_id");
+
+                    b.Property<decimal?>("ConfiguredBatchRulePercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("configured_batch_rule_percentage");
+
                     b.Property<decimal>("CostPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -980,6 +1189,11 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<decimal>("FinalSalesPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("final_sales_price");
 
                     b.Property<bool>("HasPriceMismatch")
                         .ValueGeneratedOnAdd()
@@ -995,6 +1209,20 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_price_including_tax");
 
+                    b.Property<decimal>("ItemDiscountAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("item_discount_amount");
+
+                    b.Property<int>("ItemDiscountOverrideType")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_discount_override_type");
+
+                    b.Property<decimal>("ItemDiscountOverrideValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("item_discount_override_value");
+
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
@@ -1004,10 +1232,25 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("mrp");
 
+                    b.Property<decimal>("OriginalSalesPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("original_sales_price");
+
+                    b.Property<decimal>("PreTaxAmountBeforeDiscount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("pre_tax_amount_before_discount");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
+
+                    b.Property<decimal>("SaleDiscountAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("sale_discount_amount");
 
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uuid")
@@ -1022,10 +1265,25 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
 
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("tax_amount");
+
                     b.Property<decimal>("TaxRatePercent")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("tax_rate_percent");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("taxable_amount");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_amount");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1045,6 +1303,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_sale_items_shop_id");
+
+                    b.HasIndex("ShopId", "ConfiguredBatchRuleId")
+                        .HasDatabaseName("ix_sale_items_shop_id_configured_batch_rule_id");
 
                     b.HasIndex("ShopId", "ItemId")
                         .HasDatabaseName("ix_sale_items_shop_id_item_id");
@@ -1290,7 +1551,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_sale_return_items_quantity_positive", "quantity > 0");
 
-                            t.HasCheckConstraint("ck_sale_return_items_refund_cap", "approved_refund_amount <= max_refund_amount");
+                            t.HasCheckConstraint("ck_sale_return_items_refund_cap", "approved_refund_amount <= max_refund_amount OR notes IS NOT NULL");
 
                             t.HasCheckConstraint("ck_sale_return_items_tax_rate_range", "original_tax_rate_percent >= 0 AND original_tax_rate_percent <= 100");
                         });
@@ -1831,6 +2092,22 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_customer_ledger_entries_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.DiscountRule", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_discount_rules_inventory_batches_inventory_batch_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_discount_rules_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>

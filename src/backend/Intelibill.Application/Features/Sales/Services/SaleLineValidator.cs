@@ -2,7 +2,6 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Services;
@@ -19,40 +18,50 @@ internal sealed class SaleLineValidator(
         List<string> warnings,
         CancellationToken cancellationToken)
     {
-        var barcodes = items.Select(i => i.Barcode).Distinct().ToList();
-        var dbItems = await itemRepository.GetByBarcodesAsync(shopId, barcodes, cancellationToken);
-        var itemsByBarcode = dbItems.ToDictionary(i => i.Barcode, StringComparer.OrdinalIgnoreCase);
-        var itemNameById = dbItems.ToDictionary(i => i.Id, i => i.Name);
-
-        var lineContexts = new List<(RecordSaleItemCommand Cmd, Item Item)>();
+        var lineContexts = new List<(RecordSaleItemCommand Cmd, InventoryBatch Batch)>();
         foreach (var cmdItem in items)
         {
-            if (!itemsByBarcode.TryGetValue(cmdItem.Barcode, out var item))
-                return Errors.Sale.ItemNotFound(cmdItem.Barcode);
-            lineContexts.Add((cmdItem, item));
+            var batch = await inventoryBatchRepository.GetByIdWithItemAsync(
+                cmdItem.InventoryBatchId,
+                shopId,
+                cancellationToken);
+
+            if (batch is null)
+                return Errors.Sale.BatchNotFound(cmdItem.Barcode, cmdItem.BatchNumber);
+            lineContexts.Add((cmdItem, batch));
         }
 
-        var itemIds = lineContexts.Select(c => c.Item.Id).Distinct().ToList();
-        var batchNumbers = lineContexts.Select(c => c.Cmd.BatchNumber.Trim()).Distinct().ToList();
-        var batches = await inventoryBatchRepository.GetByItemIdsAndBatchNumbersAsync(
-            shopId, itemIds, batchNumbers, cancellationToken);
-        var batchMap = batches.ToDictionary(b => (b.ItemId, b.BatchNumber));
+        var itemIds = lineContexts.Select(c => c.Batch.ItemId).Distinct().ToList();
+        var dbItems = await itemRepository.GetByIdsAsync(shopId, itemIds, cancellationToken);
+        var itemNameById = dbItems.ToDictionary(i => i.Id, i => i.Name);
+        var itemsById = dbItems.ToDictionary(i => i.Id);
+
+        var resolvedContexts = new List<(RecordSaleItemCommand Cmd, Item Item, InventoryBatch Batch)>(lineContexts.Count);
+        foreach (var (cmdItem, batch) in lineContexts)
+        {
+            if (!itemsById.TryGetValue(batch.ItemId, out var item))
+                return Errors.Sale.ItemNotFound(cmdItem.Barcode);
+
+            resolvedContexts.Add((cmdItem, item, batch));
+        }
 
         var inventories = await inventoryRepository.GetByItemIdsAsync(shopId, itemIds, cancellationToken);
         var inventoryByItemId = inventories.ToDictionary(i => i.ItemId);
+        var requestedQuantityByBatchId = items
+            .GroupBy(i => i.InventoryBatchId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
         var validated = new List<ValidatedSaleLine>();
 
-        foreach (var (cmdItem, item) in lineContexts)
+        foreach (var (cmdItem, item, batch) in resolvedContexts)
         {
-            var batchKey = (item.Id, cmdItem.BatchNumber.Trim());
-            if (!batchMap.TryGetValue(batchKey, out var batch))
-                return Errors.Sale.BatchNotFound(cmdItem.Barcode, cmdItem.BatchNumber);
+            if (!item.IsActive)
+                return Errors.Sale.ItemInactive(cmdItem.Barcode);
 
             if (batch.IsVoided)
                 return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
 
-            if (cmdItem.Quantity > batch.Quantity)
+            if (requestedQuantityByBatchId[batch.Id] > batch.Quantity)
                 return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
 
             if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))

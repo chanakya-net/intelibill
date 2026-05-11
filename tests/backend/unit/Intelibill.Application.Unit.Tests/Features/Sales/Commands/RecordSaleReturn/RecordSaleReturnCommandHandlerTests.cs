@@ -83,6 +83,56 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenRefundExceedsDiscountedMaxWithoutReason_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutMethod: PaymentMethod.Cash,
+                approvedRefundAmount: 200m,
+                lineNotes: null),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.RefundOverrideReasonRequired", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenRefundExceedsDiscountedMaxWithReason_RecordsReturn()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-OVERRIDE01");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutMethod: PaymentMethod.Cash,
+                approvedRefundAmount: 200m,
+                lineNotes: "Goodwill"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError, string.Join(", ", result.Errors.Select(e => e.Code)));
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.ReturnNumber == "RET-20260505-OVERRIDE01"
+                && r.Items.Count == 1
+                && r.Items[0].SaleItemId == fixture.SaleItem.Id
+                && r.Items[0].ApprovedRefundAmount == 200m
+                && r.Items[0].Notes == "Goodwill"),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_ForStaff_ReturnsForbiddenAndDoesNotSave()
     {
         var fixture = ArrangeSale(ShopRole.Staff);
@@ -374,7 +424,12 @@ public sealed class RecordSaleReturnCommandHandlerTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private SaleReturnFixture ArrangeSale(ShopRole role, decimal dueAmount = 0m, bool hasCustomer = false)
+    private SaleReturnFixture ArrangeSale(
+        ShopRole role,
+        decimal dueAmount = 0m,
+        bool hasCustomer = false,
+        decimal itemDiscountAmount = 0m,
+        decimal saleDiscountAmount = 0m)
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
@@ -411,7 +466,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
             mrp: 120m,
             taxRatePercent: 10m,
             isPriceIncludingTax: false,
-            hasPriceMismatch: false);
+            hasPriceMismatch: false,
+            itemDiscountAmount: itemDiscountAmount,
+            saleDiscountAmount: saleDiscountAmount);
+
+        var totalAmount = saleItem.TotalAmount;
+        var totalTaxAmount = saleItem.TaxAmount;
+
         var sale = Sale.Create(
             shop.Id,
             "INV-001",
@@ -420,10 +481,10 @@ public sealed class RecordSaleReturnCommandHandlerTests
             customerPhone: null,
             paymentMethod: PaymentMethod.Cash,
             DateTimeOffset.UtcNow,
-            paidAmount: 550m - dueAmount,
+            paidAmount: totalAmount - dueAmount,
             dueAmount,
-            totalAmount: 550m,
-            totalTaxAmount: 50m,
+            totalAmount: totalAmount,
+            totalTaxAmount: totalTaxAmount,
             [saleItem]);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);

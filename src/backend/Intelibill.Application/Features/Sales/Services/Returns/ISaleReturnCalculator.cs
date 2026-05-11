@@ -16,6 +16,10 @@ public sealed record SaleReturnLineCalculationRequest(
     decimal OriginalSalesPrice,
     decimal OriginalTaxRatePercent,
     bool OriginalIsPriceIncludingTax,
+    decimal OriginalSaleItemQuantity,
+    decimal OriginalPaidTaxableAmount,
+    decimal OriginalPaidTaxAmount,
+    decimal OriginalPaidTotalAmount,
     SaleReturnCondition Condition,
     decimal? ApprovedRefundAmount = null,
     string? Notes = null);

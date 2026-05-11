@@ -343,6 +343,7 @@ export interface AvailableBatchDto {
   readonly barcode: string;
   readonly itemName: string;
   readonly batchNumber: string;
+  readonly inventoryBatchId: string;
   readonly quantity: number;
   readonly salesPrice: number;
   readonly mrp: number;

@@ -10,6 +10,8 @@ public sealed record SaleListItemDto(
     DateTimeOffset SoldAt,
     decimal PaidAmount,
     decimal DueAmount,
+    decimal TotalBeforeDiscount,
+    decimal TotalDiscountAmount,
     decimal TotalAmount,
     decimal TotalTaxAmount,
     string? CustomerName,

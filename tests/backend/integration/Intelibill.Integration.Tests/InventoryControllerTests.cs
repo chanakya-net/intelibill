@@ -530,6 +530,7 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal("QR Rice", first.GetProperty("itemName").GetString());
         Assert.Equal("B-QR-1", first.GetProperty("batchNumber").GetString());
         Assert.Equal(7m, first.GetProperty("quantity").GetDecimal());
+        Assert.NotEqual(Guid.Empty, first.GetProperty("inventoryBatchId").GetGuid());
     }
 
     private static string CreateQrLikeBarcode() =>

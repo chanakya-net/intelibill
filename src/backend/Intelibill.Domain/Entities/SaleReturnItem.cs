@@ -55,9 +55,10 @@ public sealed class SaleReturnItem : BaseEntity
             return Error.Validation("SaleReturnItem.AmountNegative", "Return line amounts cannot be negative.");
         }
 
-        if (approvedRefundAmount > maxRefundAmount)
+        var normalizedNotes = NormalizeOptional(notes);
+        if (approvedRefundAmount > maxRefundAmount && normalizedNotes is null)
         {
-            return Error.Validation("SaleReturnItem.RefundExceedsMax", "Approved refund cannot exceed max refund.");
+            return Error.Validation("SaleReturnItem.RefundExceedsMax", "Approved refund cannot exceed max refund without a note.");
         }
 
         return new SaleReturnItem
@@ -75,7 +76,7 @@ public sealed class SaleReturnItem : BaseEntity
             ApprovedRefundAmount = approvedRefundAmount,
             TaxableAmount = taxableAmount,
             TaxAmount = taxAmount,
-            Notes = NormalizeOptional(notes),
+            Notes = normalizedNotes,
         };
     }
 

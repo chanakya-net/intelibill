@@ -21,6 +21,7 @@ import { BankAccountsEffects } from '../../features/bank-accounts/state/bank-acc
 import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-accounts.reducer';
 import { DashboardEffects } from '../../features/dashboard/state/dashboard.effects';
 import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
+import { discountsGuard } from '../guards/discounts.guard';
 
 export const shellRoutes: Routes = [
 	{
@@ -145,6 +146,14 @@ export const shellRoutes: Routes = [
 				loadComponent: () =>
 					import('../../features/users/pages/users-page.component').then(
 						(m) => m.UsersPageComponent
+					),
+			},
+			{
+				path: 'discounts',
+				canActivate: [discountsGuard],
+				loadComponent: () =>
+					import('../../features/discounts/pages/discounts-page.component').then(
+						(m) => m.DiscountsPageComponent
 					),
 			},
 			{

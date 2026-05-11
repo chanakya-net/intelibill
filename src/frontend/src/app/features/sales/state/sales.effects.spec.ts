@@ -31,6 +31,8 @@ describe('SalesEffects', () => {
     soldAt: new Date().toISOString(),
     paidAmount: 500,
     dueAmount: 0,
+    totalBeforeDiscount: 500,
+    totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     customerName: null,
@@ -47,6 +49,8 @@ describe('SalesEffects', () => {
     soldAt: new Date().toISOString(),
     paidAmount: 500,
     dueAmount: 0,
+    totalBeforeDiscount: 500,
+    totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
     items: [],
@@ -140,6 +144,7 @@ describe('SalesEffects', () => {
           paidAmount: 0,
           dueAmount: 0,
           items: [],
+          saleDiscount: null,
         },
       })
     );
@@ -259,6 +264,7 @@ describe('SalesEffects', () => {
           paidAmount: 0,
           dueAmount: 0,
           items: [],
+          saleDiscount: null,
         },
       })
     );

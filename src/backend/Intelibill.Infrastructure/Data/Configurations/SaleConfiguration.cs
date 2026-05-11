@@ -15,6 +15,21 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.ShopId)
             .IsRequired();
 
+        builder.Property(s => s.ActorUserId)
+            .IsRequired();
+
+        builder.Property(s => s.IdempotencyKey)
+            .HasMaxLength(128)
+            .IsRequired();
+
+        builder.Property(s => s.RequestHash)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        builder.Property(s => s.Warnings)
+            .HasColumnType("text[]")
+            .IsRequired();
+
         builder.Property(s => s.InvoiceNumber)
             .IsRequired()
             .HasMaxLength(40);
@@ -41,6 +56,18 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(s => s.SubtotalBeforeDiscount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.TotalBeforeDiscount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(s => s.TotalDiscountAmount)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
         builder.Property(s => s.TotalAmount)
             .HasPrecision(18, 2)
             .IsRequired();
@@ -49,12 +76,33 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(s => s.ConfiguredSaleRuleId);
+
+        builder.Property(s => s.ConfiguredSaleRuleType);
+
+        builder.Property(s => s.ConfiguredSaleRulePercentage)
+            .HasPrecision(5, 2);
+
+        builder.Property(s => s.ConfiguredSaleRuleThresholdAmount)
+            .HasPrecision(18, 2);
+
+        builder.Property(s => s.SaleDiscountOverrideType)
+            .IsRequired();
+
+        builder.Property(s => s.SaleDiscountOverrideValue)
+            .HasPrecision(18, 2)
+            .IsRequired();
+
         builder.HasIndex(s => new { s.ShopId, s.InvoiceNumber })
+            .IsUnique();
+
+        builder.HasIndex(s => new { s.ShopId, s.ActorUserId, s.IdempotencyKey })
             .IsUnique();
 
         builder.HasIndex(s => s.ShopId);
         builder.HasIndex(s => new { s.ShopId, s.SoldAt });
         builder.HasIndex(s => new { s.ShopId, s.CustomerId });
+        builder.HasIndex(s => new { s.ShopId, s.ConfiguredSaleRuleId });
 
         builder.HasOne<Shop>()
             .WithMany()

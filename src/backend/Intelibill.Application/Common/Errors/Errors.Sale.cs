@@ -12,6 +12,9 @@ public static partial class Errors
         public static Error ItemNotFound(string barcode) =>
             Error.NotFound("Sale.ItemNotFound", $"Item with barcode '{barcode}' was not found.");
 
+        public static Error ItemInactive(string barcode) =>
+            Error.Validation("Sale.ItemInactive", $"Item with barcode '{barcode}' is inactive.");
+
         public static Error BatchNotFound(string barcode, string batchNumber) =>
             Error.NotFound("Sale.BatchNotFound", $"Batch '{batchNumber}' for item with barcode '{barcode}' was not found.");
 
@@ -35,6 +38,15 @@ public static partial class Errors
 
         public static Error CustomerIdentityRequiredForDue =>
             Error.Validation("Sale.CustomerIdentityRequiredForDue", "Customer id or customer phone is required when due amount is greater than zero.");
+
+        public static Error IdempotencyKeyRequired =>
+            Error.Validation("Sale.IdempotencyKeyRequired", "Idempotency key is required.");
+
+        public static Error IdempotencyKeyTooLong =>
+            Error.Validation("Sale.IdempotencyKeyTooLong", "Idempotency key must be 128 characters or less.");
+
+        public static Error IdempotencyConflict =>
+            Error.Conflict("Sale.IdempotencyConflict", "Idempotency key has already been used with different request content.");
 
         public static Error PaidAndDueAmountMismatch =>
             Error.Validation("Sale.PaidAndDueAmountMismatch", "Paid amount and due amount must match sale total.");
@@ -105,7 +117,34 @@ public static partial class Errors
         public static Error ReturnDueReductionExceedsOutstandingDue =>
             Error.Validation("SaleReturn.DueReductionExceedsOutstandingDue", "Due reduction cannot exceed current outstanding due.");
 
+        public static Error ReturnRefundOverrideReasonRequired =>
+            Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
+
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
+
+        public static Error InvalidPricingInput(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.InvalidInput", $"Invalid pricing input for batch '{inventoryBatchId}'.");
+
+        public static Error QuantityMustBePositive(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.QuantityMustBePositive", $"Quantity for batch '{inventoryBatchId}' must be greater than zero.");
+
+        public static Error InvalidDiscount(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.InvalidDiscount", $"Invalid discount input for batch '{inventoryBatchId}'.");
+
+        public static Error ItemDiscountWouldBeBelowCost(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.ItemDiscountBelowCost", $"Item discount would make batch '{inventoryBatchId}' sell below cost.");
+
+        public static Error LineWouldBeBelowCost(Guid inventoryBatchId) =>
+            Error.Validation("SalePricing.BelowCost", $"Pricing would make batch '{inventoryBatchId}' sell below cost.");
+
+        public static readonly Error SaleDiscountWouldBeBelowCost =
+            Error.Validation("SalePricing.SaleDiscountBelowCost", "Sale discount would make one or more lines sell below cost.");
+
+        public static readonly Error NoEligibleLinesForSaleDiscount =
+            Error.Validation("SalePricing.NoEligibleLines", "No eligible lines available for sale-level discount.");
+
+        public static readonly Error InvalidSaleDiscount =
+            Error.Validation("SalePricing.InvalidSaleDiscount", "Invalid sale discount input.");
     }
 }

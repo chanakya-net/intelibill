@@ -24,7 +24,7 @@ public sealed class GetDashboardQueryHandler(
         GetDashboardQuery query,
         CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
         if (query.StartDate > query.EndDate)
             return Errors.Dashboard.InvalidDateRange;
@@ -32,7 +32,8 @@ public sealed class GetDashboardQueryHandler(
         if (query.EndDate > today)
             return Errors.Dashboard.FutureDateNotAllowed;
 
-        if (query.EndDate.DayNumber - query.StartDate.DayNumber >= MaxRangeDays)
+        var dayDifference = (int)(query.EndDate.ToDateTime(TimeOnly.MinValue) - query.StartDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
+        if (dayDifference >= MaxRangeDays)
             return Errors.Dashboard.RangeExceeds90Days;
 
         var user = await userRepository.GetByIdAsync(query.UserId, cancellationToken);
@@ -57,7 +58,7 @@ public sealed class GetDashboardQueryHandler(
             query.ShopId, query.StartDate, query.EndDate, cancellationToken);
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
 
-        var spanDays = query.EndDate.DayNumber - query.StartDate.DayNumber;
+        var spanDays = (int)(query.EndDate.ToDateTime(TimeOnly.MinValue) - query.StartDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
         var prevEndDate = query.StartDate.AddDays(-1);
         var prevStartDate = prevEndDate.AddDays(-spanDays);
         var prevSales = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, prevStartDate, prevEndDate, cancellationToken);

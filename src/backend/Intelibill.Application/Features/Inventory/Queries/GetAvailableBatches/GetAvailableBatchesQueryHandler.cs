@@ -34,6 +34,7 @@ public sealed class GetAvailableBatchesQueryHandler(
                 b.Item?.Barcode ?? query.SearchTerm,
                 b.Item?.Name ?? query.SearchTerm,
                 b.BatchNumber,
+                b.Id,
                 b.Quantity,
                 b.SalesPrice,
                 b.Mrp,

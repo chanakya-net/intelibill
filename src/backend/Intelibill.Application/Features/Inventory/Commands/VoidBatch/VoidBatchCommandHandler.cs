@@ -2,10 +2,12 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 
@@ -15,7 +17,8 @@ public sealed class VoidBatchCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IInventoryRepository inventoryRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IMessageBus messageBus)
 {
     public async Task<ErrorOr<VoidBatchResultDto>> HandleAsync(VoidBatchCommand command, CancellationToken cancellationToken)
     {
@@ -93,6 +96,12 @@ public sealed class VoidBatchCommandHandler(
 
         if (subtractResult.IsError)
             return subtractResult.Errors;
+
+        await messageBus.PublishAsync(
+            new InventoryBatchVoidedDomainEvent(
+                command.ActiveShopId,
+                itemId,
+                batch.Id));
 
         return new VoidBatchResultDto(
             batch.Id,

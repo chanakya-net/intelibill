@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 
 export interface SalesCartDraftItem {
+  readonly clientLineKey: string;
   readonly barcode: string;
   readonly itemName: string;
   readonly batchNumber: string;
+  readonly inventoryBatchId: string;
   readonly quantity: number;
   readonly availableQuantity: number;
   readonly salesPrice: number;
@@ -11,12 +13,41 @@ export interface SalesCartDraftItem {
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
   readonly costPrice: number;
+  readonly itemDiscountType: number;
+  readonly itemDiscountValue: number;
 }
 
 interface SalesCartRecord {
   readonly shopId: string;
-  readonly items: readonly SalesCartDraftItem[];
+  readonly items: readonly unknown[];
   readonly updatedAt: string;
+}
+
+/** Migrates a persisted item that may be missing fields added in later schema versions. */
+export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+  const obj = item as Record<string, unknown>;
+  if (typeof obj['inventoryBatchId'] !== 'string') {
+    return null;
+  }
+  return {
+    clientLineKey: typeof obj['clientLineKey'] === 'string' ? obj['clientLineKey'] : crypto.randomUUID(),
+    barcode: typeof obj['barcode'] === 'string' ? obj['barcode'] : '',
+    itemName: typeof obj['itemName'] === 'string' ? obj['itemName'] : '',
+    batchNumber: typeof obj['batchNumber'] === 'string' ? obj['batchNumber'] : '',
+    inventoryBatchId: obj['inventoryBatchId'] as string,
+    quantity: typeof obj['quantity'] === 'number' ? obj['quantity'] : 0,
+    availableQuantity: typeof obj['availableQuantity'] === 'number' ? obj['availableQuantity'] : 0,
+    salesPrice: typeof obj['salesPrice'] === 'number' ? obj['salesPrice'] : 0,
+    mrp: typeof obj['mrp'] === 'number' ? obj['mrp'] : 0,
+    taxRatePercent: typeof obj['taxRatePercent'] === 'number' ? obj['taxRatePercent'] : 0,
+    taxIncluded: typeof obj['taxIncluded'] === 'boolean' ? obj['taxIncluded'] : false,
+    costPrice: typeof obj['costPrice'] === 'number' ? obj['costPrice'] : 0,
+    itemDiscountType: typeof obj['itemDiscountType'] === 'number' ? obj['itemDiscountType'] : 0,
+    itemDiscountValue: typeof obj['itemDiscountValue'] === 'number' ? obj['itemDiscountValue'] : 0,
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -54,7 +85,18 @@ export class SalesCartIndexedDbService {
       return [];
     }
 
-    return record.items ?? [];
+    const rawItems = record.items ?? [];
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      return [];
+    }
+
+    const migratedItems = rawItems.map(migrateLegacyCartItem);
+    if (migratedItems.some((item) => item === null)) {
+      await this.clearCart(shopId);
+      return [];
+    }
+
+    return migratedItems as SalesCartDraftItem[];
   }
 
   async saveCart(shopId: string, items: readonly SalesCartDraftItem[]): Promise<void> {

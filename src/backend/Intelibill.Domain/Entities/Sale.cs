@@ -10,6 +10,10 @@ public sealed class Sale : BaseEntity
     private readonly List<SaleItem> _items = [];
 
     public Guid ShopId { get; private set; }
+    public Guid ActorUserId { get; private set; }
+    public string IdempotencyKey { get; private set; } = string.Empty;
+    public string RequestHash { get; private set; } = string.Empty;
+    public string[] Warnings { get; private set; } = [];
     public string InvoiceNumber { get; private set; } = string.Empty;
     public Guid? CustomerId { get; private set; }
     public string? CustomerName { get; private set; }
@@ -18,8 +22,17 @@ public sealed class Sale : BaseEntity
     public DateTimeOffset SoldAt { get; private set; }
     public decimal PaidAmount { get; private set; }
     public decimal DueAmount { get; private set; }
+    public decimal SubtotalBeforeDiscount { get; private set; }
+    public decimal TotalBeforeDiscount { get; private set; }
+    public decimal TotalDiscountAmount { get; private set; }
     public decimal TotalAmount { get; private set; }
     public decimal TotalTaxAmount { get; private set; }
+    public Guid? ConfiguredSaleRuleId { get; private set; }
+    public DiscountRuleType? ConfiguredSaleRuleType { get; private set; }
+    public decimal? ConfiguredSaleRulePercentage { get; private set; }
+    public decimal? ConfiguredSaleRuleThresholdAmount { get; private set; }
+    public InstantDiscountType SaleDiscountOverrideType { get; private set; }
+    public decimal SaleDiscountOverrideValue { get; private set; }
 
     public IReadOnlyList<SaleItem> Items => _items.AsReadOnly();
 
@@ -27,6 +40,9 @@ public sealed class Sale : BaseEntity
 
     public static ErrorOr<Sale> Record(
         Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
         string invoiceNumber,
         IReadOnlyList<SaleLineInput> lines,
         Guid? customerId,
@@ -35,7 +51,14 @@ public sealed class Sale : BaseEntity
         PaymentMethod paymentMethod,
         decimal paidAmount,
         decimal dueAmount,
-        DateTimeOffset soldAt)
+        DateTimeOffset soldAt,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m,
+        IReadOnlyList<string>? warnings = null)
     {
         if (lines is null || lines.Count == 0)
         {
@@ -62,22 +85,22 @@ public sealed class Sale : BaseEntity
             return Errors.Sale.CustomerIdentityRequiredForDue;
         }
 
+        var subtotalBeforeDiscount = 0m;
+        var totalBeforeDiscount = 0m;
+        var totalDiscountAmount = 0m;
         var totalAmount = 0m;
         var totalTaxAmount = 0m;
         var saleItems = new List<SaleItem>(lines.Count);
 
         foreach (var line in lines)
         {
-            var taxAmount = CalculateTaxAmount(line);
-            var lineTotal = line.SalesPrice * line.Quantity;
-            if (!line.IsPriceIncludingTax)
-            {
-                lineTotal += taxAmount;
-            }
-
-            totalAmount += lineTotal;
-            totalTaxAmount += taxAmount;
-            saleItems.Add(CreateSaleItem(shopId, line));
+            var saleItem = CreateSaleItem(shopId, line);
+            subtotalBeforeDiscount += saleItem.PreTaxAmountBeforeDiscount;
+            totalBeforeDiscount += saleItem.TotalAmount + saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
+            totalDiscountAmount += saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
+            totalAmount += saleItem.TotalAmount;
+            totalTaxAmount += saleItem.TaxAmount;
+            saleItems.Add(saleItem);
         }
 
         if (decimal.Round(totalAmount, 2, MidpointRounding.AwayFromZero) !=
@@ -89,6 +112,10 @@ public sealed class Sale : BaseEntity
         return new Sale
         {
             ShopId = shopId,
+            ActorUserId = actorUserId,
+            IdempotencyKey = idempotencyKey,
+            RequestHash = requestHash,
+            Warnings = warnings?.ToArray() ?? [],
             InvoiceNumber = invoiceNumber,
             CustomerId = customerId,
             CustomerName = NormalizeOptional(customerName),
@@ -97,9 +124,79 @@ public sealed class Sale : BaseEntity
             SoldAt = soldAt,
             PaidAmount = paidAmount,
             DueAmount = dueAmount,
+            SubtotalBeforeDiscount = decimal.Round(subtotalBeforeDiscount, 2, MidpointRounding.AwayFromZero),
+            TotalBeforeDiscount = decimal.Round(totalBeforeDiscount, 2, MidpointRounding.AwayFromZero),
+            TotalDiscountAmount = decimal.Round(totalDiscountAmount, 2, MidpointRounding.AwayFromZero),
             TotalAmount = totalAmount,
             TotalTaxAmount = totalTaxAmount,
+            ConfiguredSaleRuleId = configuredSaleRuleId,
+            ConfiguredSaleRuleType = configuredSaleRuleType,
+            ConfiguredSaleRulePercentage = configuredSaleRulePercentage,
+            ConfiguredSaleRuleThresholdAmount = configuredSaleRuleThresholdAmount,
+            SaleDiscountOverrideType = saleDiscountOverrideType,
+            SaleDiscountOverrideValue = saleDiscountOverrideValue,
         }.WithItems(saleItems);
+    }
+
+    internal static Sale Create(
+        Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
+        string invoiceNumber,
+        Guid? customerId,
+        string? customerName,
+        string? customerPhone,
+        PaymentMethod paymentMethod,
+        DateTimeOffset soldAt,
+        decimal paidAmount,
+        decimal dueAmount,
+        decimal totalAmount,
+        decimal totalTaxAmount,
+        IReadOnlyList<SaleItem> items,
+        decimal? subtotalBeforeDiscount = null,
+        decimal? totalBeforeDiscount = null,
+        decimal totalDiscountAmount = 0m,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m)
+    {
+        var effectiveSubtotalBeforeDiscount = subtotalBeforeDiscount
+            ?? decimal.Round(items.Sum(i => i.PreTaxAmountBeforeDiscount), 2, MidpointRounding.AwayFromZero);
+        var effectiveTotalBeforeDiscount = totalBeforeDiscount
+            ?? decimal.Round(items.Sum(i => i.TotalAmount + i.ItemDiscountAmount + i.SaleDiscountAmount), 2, MidpointRounding.AwayFromZero);
+
+        var sale = new Sale
+        {
+            ShopId = shopId,
+            ActorUserId = actorUserId,
+            IdempotencyKey = idempotencyKey,
+            RequestHash = requestHash,
+            InvoiceNumber = invoiceNumber,
+            CustomerId = customerId,
+            CustomerName = NormalizeOptional(customerName),
+            CustomerPhone = NormalizeOptional(customerPhone),
+            PaymentMethod = paymentMethod,
+            SoldAt = soldAt,
+            PaidAmount = paidAmount,
+            DueAmount = dueAmount,
+            SubtotalBeforeDiscount = effectiveSubtotalBeforeDiscount,
+            TotalBeforeDiscount = effectiveTotalBeforeDiscount,
+            TotalDiscountAmount = totalDiscountAmount,
+            TotalAmount = totalAmount,
+            TotalTaxAmount = totalTaxAmount,
+            ConfiguredSaleRuleId = configuredSaleRuleId,
+            ConfiguredSaleRuleType = configuredSaleRuleType,
+            ConfiguredSaleRulePercentage = configuredSaleRulePercentage,
+            ConfiguredSaleRuleThresholdAmount = configuredSaleRuleThresholdAmount,
+            SaleDiscountOverrideType = saleDiscountOverrideType,
+            SaleDiscountOverrideValue = saleDiscountOverrideValue,
+        };
+        sale._items.AddRange(items);
+        return sale;
     }
 
     internal static Sale Create(
@@ -114,38 +211,48 @@ public sealed class Sale : BaseEntity
         decimal dueAmount,
         decimal totalAmount,
         decimal totalTaxAmount,
-        IReadOnlyList<SaleItem> items)
+        IReadOnlyList<SaleItem> items,
+        decimal? subtotalBeforeDiscount = null,
+        decimal? totalBeforeDiscount = null,
+        decimal totalDiscountAmount = 0m,
+        Guid? configuredSaleRuleId = null,
+        DiscountRuleType? configuredSaleRuleType = null,
+        decimal? configuredSaleRulePercentage = null,
+        decimal? configuredSaleRuleThresholdAmount = null,
+        InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
+        decimal saleDiscountOverrideValue = 0m)
     {
-        var sale = new Sale
-        {
-            ShopId = shopId,
-            InvoiceNumber = invoiceNumber,
-            CustomerId = customerId,
-            CustomerName = NormalizeOptional(customerName),
-            CustomerPhone = NormalizeOptional(customerPhone),
-            PaymentMethod = paymentMethod,
-            SoldAt = soldAt,
-            PaidAmount = paidAmount,
-            DueAmount = dueAmount,
-            TotalAmount = totalAmount,
-            TotalTaxAmount = totalTaxAmount,
-        };
-        sale._items.AddRange(items);
-        return sale;
+        var idempotencyKey = $"legacy-{Guid.NewGuid():N}";
+        var requestHash = $"legacy-{Guid.NewGuid():N}";
+        return Create(
+            shopId,
+            Guid.Empty,
+            idempotencyKey,
+            requestHash,
+            invoiceNumber,
+            customerId,
+            customerName,
+            customerPhone,
+            paymentMethod,
+            soldAt,
+            paidAmount,
+            dueAmount,
+            totalAmount,
+            totalTaxAmount,
+            items,
+            subtotalBeforeDiscount,
+            totalBeforeDiscount,
+            totalDiscountAmount,
+            configuredSaleRuleId,
+            configuredSaleRuleType,
+            configuredSaleRulePercentage,
+            configuredSaleRuleThresholdAmount,
+            saleDiscountOverrideType,
+            saleDiscountOverrideValue);
     }
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static decimal CalculateTaxAmount(SaleLineInput line)
-    {
-        if (line.IsPriceIncludingTax && line.TaxRatePercent > 0)
-        {
-            return line.Quantity * line.SalesPrice * line.TaxRatePercent / (100m + line.TaxRatePercent);
-        }
-
-        return line.Quantity * line.SalesPrice * line.TaxRatePercent / 100m;
-    }
 
     private static SaleItem CreateSaleItem(Guid shopId, SaleLineInput line) =>
         SaleItem.Create(
@@ -158,7 +265,17 @@ public sealed class Sale : BaseEntity
             line.Mrp,
             line.TaxRatePercent,
             line.IsPriceIncludingTax,
-            line.HasPriceMismatch);
+            line.HasPriceMismatch,
+            preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+            itemDiscountAmount: line.ItemDiscountAmount,
+            saleDiscountAmount: line.SaleDiscountAmount,
+            taxableAmount: line.TaxableAmount,
+            taxAmount: line.TaxAmount,
+            totalAmount: line.TotalAmount,
+            configuredBatchRuleId: line.ConfiguredBatchRuleId,
+            configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
+            itemDiscountOverrideType: line.ItemDiscountOverrideType,
+            itemDiscountOverrideValue: line.ItemDiscountOverrideValue);
 
     private Sale WithItems(IReadOnlyCollection<SaleItem> items)
     {

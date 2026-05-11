@@ -48,6 +48,56 @@ public class PreviewSaleReturnQueryHandlerTests
         Assert.Equal(5m, result.Value.Lines[0].ReturnableQuantity);
     }
 
+    [Theory]
+    [InlineData(ShopRole.Owner)]
+    [InlineData(ShopRole.Manager)]
+    public async Task Handle_SaleReturnPreview_DefaultRefundUsesDiscountedPaidAmountPerQuantity(ShopRole role)
+    {
+        var fixture = ArrangeSale(role, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+        var query = Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 2m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.Financial);
+
+        var line = Assert.Single(result.Value.Lines);
+        Assert.NotNull(line.Financial);
+
+        Assert.Equal(187m, result.Value.Financial!.TotalRefundAmount);
+        Assert.Equal(187m, line.Financial!.MaxRefundAmount);
+        Assert.Equal(187m, line.Financial!.ApprovedRefundAmount);
+        Assert.Equal(170m, line.Financial!.TaxableAmount);
+        Assert.Equal(17m, line.Financial!.TaxAmount);
+    }
+
+    [Theory]
+    [InlineData(ShopRole.Owner)]
+    [InlineData(ShopRole.Manager)]
+    public async Task Handle_SaleReturnPreview_WhenRefundExceedsDiscountedMax_AddsWarning(ShopRole role)
+    {
+        var fixture = ArrangeSale(role, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 2m,
+            approvedRefundAmount: 200m,
+            notes: null);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+
+        var line = Assert.Single(result.Value.Lines);
+        Assert.NotNull(line.Financial);
+
+        Assert.Equal(187m, line.Financial!.MaxRefundAmount);
+        Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
+        Assert.Contains(result.Value.Warnings, warning => warning.Code == "sale_return.note_required.refund_override");
+    }
+
     [Fact]
     public async Task Handle_SaleReturnPreview_ForStaff_ReturnsOperationalOnlyPreview()
     {
@@ -234,7 +284,11 @@ public class PreviewSaleReturnQueryHandlerTests
         Assert.Contains(result.Value.Warnings, w => w.Code == "sale_return.due_override_exceeds_outstanding");
     }
 
-    private SalePreviewFixture ArrangeSale(ShopRole role, DateOnly? expiryDate = null)
+    private SalePreviewFixture ArrangeSale(
+        ShopRole role,
+        DateOnly? expiryDate = null,
+        decimal itemDiscountAmount = 0m,
+        decimal saleDiscountAmount = 0m)
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
         var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
@@ -263,7 +317,13 @@ public class PreviewSaleReturnQueryHandlerTests
             mrp: 120m,
             taxRatePercent: 10m,
             isPriceIncludingTax: false,
-            hasPriceMismatch: false);
+            hasPriceMismatch: false,
+            itemDiscountAmount: itemDiscountAmount,
+            saleDiscountAmount: saleDiscountAmount);
+
+        var totalAmount = saleItem.TotalAmount;
+        var totalTaxAmount = saleItem.TaxAmount;
+
         var sale = Sale.Create(
             shop.Id,
             "INV-001",
@@ -272,10 +332,10 @@ public class PreviewSaleReturnQueryHandlerTests
             null,
             PaymentMethod.Credit,
             DateTimeOffset.UtcNow,
-            paidAmount: 300m,
-            dueAmount: 250m,
-            totalAmount: 550m,
-            totalTaxAmount: 50m,
+            paidAmount: 0m,
+            dueAmount: totalAmount,
+            totalAmount: totalAmount,
+            totalTaxAmount: totalTaxAmount,
             [saleItem]);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
@@ -299,14 +359,15 @@ public class PreviewSaleReturnQueryHandlerTests
         decimal quantity,
         SaleReturnCondition condition = SaleReturnCondition.Restockable,
         decimal? approvedRefundAmount = null,
-        decimal? dueReductionOverrideAmount = null) =>
+        decimal? dueReductionOverrideAmount = null,
+        string? notes = null) =>
         new(
             userId,
             shopId,
             saleId,
             dueReductionOverrideAmount,
             DueOverrideReason: null,
-            [new PreviewSaleReturnItemQuery(saleItemId, quantity, condition, approvedRefundAmount, Notes: null)]);
+            [new PreviewSaleReturnItemQuery(saleItemId, quantity, condition, approvedRefundAmount, Notes: notes)]);
 
     private static SaleReturn MakeSaleReturn(
         Guid shopId,

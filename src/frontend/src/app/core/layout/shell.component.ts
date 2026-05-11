@@ -116,13 +116,6 @@ export class ShellComponent {
         command: () => this.onNavigateToExpenses(),
       });
     }
-    if (this.isOwnerOfActiveShop()) {
-      items.push({
-        label: this.localizationService.translate('shell.manageBankAccounts'),
-        icon: 'pi pi-building-columns',
-        command: () => this.onNavigateToBankAccounts(),
-      });
-    }
     // Add more global menu items as needed
     return items;
   });
@@ -227,6 +220,14 @@ export class ShellComponent {
     const role = activeShop.role.toLowerCase();
     return role === 'owner' || role === 'manager';
   });
+  readonly canManageDiscounts = computed(() => {
+    const activeShop = this.activeShop();
+    if (!activeShop) {
+      return false;
+    }
+    const role = activeShop.role.toLowerCase();
+    return role === 'owner' || role === 'manager';
+  });
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
     if (!user) {
@@ -283,6 +284,22 @@ export class ShellComponent {
         label: this.localizationService.translate('shell.manageShop'),
         icon: 'pi pi-wrench',
         command: () => this.onOpenManageShop(),
+      });
+    }
+
+    if (this.canManageDiscounts()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageDiscounts'),
+        icon: 'pi pi-tag',
+        command: () => this.onNavigateToDiscounts(),
+      });
+    }
+
+    if (this.isOwnerOfActiveShop()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageBankAccounts'),
+        icon: 'pi pi-building-columns',
+        command: () => this.onNavigateToBankAccounts(),
       });
     }
 
@@ -663,6 +680,11 @@ export class ShellComponent {
   onNavigateToExpenses(): void {
     this.onCloseMenus();
     void this.router.navigate(['/expenses']);
+  }
+
+  onNavigateToDiscounts(): void {
+    this.onCloseMenus();
+    void this.router.navigate(['/discounts']);
   }
 
   onNavigateToBankAccounts(): void {

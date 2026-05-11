@@ -216,15 +216,34 @@ public class SaleReturnCalculatorTests
         bool taxIncluded = false,
         SaleReturnCondition condition = SaleReturnCondition.Restockable,
         decimal? approvedRefundAmount = null,
-        string? notes = null) =>
-        new(
+        string? notes = null)
+    {
+        var gross = decimal.Round(salesPrice * quantity, 2, MidpointRounding.AwayFromZero);
+        var taxAmount = taxRatePercent <= 0m
+            ? 0m
+            : taxIncluded
+                ? decimal.Round(gross * taxRatePercent / (100m + taxRatePercent), 2, MidpointRounding.AwayFromZero)
+                : decimal.Round(gross * taxRatePercent / 100m, 2, MidpointRounding.AwayFromZero);
+        var taxableAmount = taxIncluded
+            ? decimal.Round(gross - taxAmount, 2, MidpointRounding.AwayFromZero)
+            : gross;
+        var totalAmount = taxIncluded
+            ? gross
+            : decimal.Round(taxableAmount + taxAmount, 2, MidpointRounding.AwayFromZero);
+
+        return new SaleReturnLineCalculationRequest(
             Guid.NewGuid(),
             quantity,
             OriginalCostPrice: 80m,
             salesPrice,
             taxRatePercent,
             taxIncluded,
+            OriginalSaleItemQuantity: quantity,
+            OriginalPaidTaxableAmount: taxableAmount,
+            OriginalPaidTaxAmount: taxAmount,
+            OriginalPaidTotalAmount: totalAmount,
             condition,
             approvedRefundAmount,
             notes);
+    }
 }

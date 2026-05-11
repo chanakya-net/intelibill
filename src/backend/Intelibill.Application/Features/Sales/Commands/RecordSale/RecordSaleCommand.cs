@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -5,13 +6,15 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 public sealed record RecordSaleCommand(
     Guid ActorUserId,
     Guid ShopId,
+    string IdempotencyKey,
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
     PaymentMethod PaymentMethod,
     decimal PaidAmount,
     decimal DueAmount,
-    IReadOnlyList<RecordSaleItemCommand> Items);
+    IReadOnlyList<RecordSaleItemCommand> Items,
+    InstantDiscount? SaleDiscount = null);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,
@@ -22,4 +25,7 @@ public sealed record RecordSaleItemCommand(
     decimal SalesPrice,
     decimal Mrp,
     decimal TaxRatePercent,
-    bool IsPriceIncludingTax);
+    bool IsPriceIncludingTax,
+    Guid InventoryBatchId,
+    InstantDiscount? ItemDiscount = null,
+    string? ClientLineKey = null);

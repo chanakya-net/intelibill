@@ -41,16 +41,9 @@ public sealed class GetProfitLossReportQueryHandler(
 
             foreach (var item in sale.Items)
             {
-                decimal basePrice = item.IsPriceIncludingTax
-                    ? item.SalesPrice / (1 + item.TaxRatePercent / 100)
-                    : item.SalesPrice;
-
-                decimal taxPerUnit = basePrice * (item.TaxRatePercent / 100);
-                decimal finalPrice = basePrice + taxPerUnit;
-
                 totalCost += item.CostPrice * item.Quantity;
-                revenueExclTax += basePrice * item.Quantity;
-                revenueInclTax += finalPrice * item.Quantity;
+                revenueExclTax += item.TaxableAmount;
+                revenueInclTax += item.TotalAmount;
             }
 
             report.Add(new ProfitLossReportItemDto(

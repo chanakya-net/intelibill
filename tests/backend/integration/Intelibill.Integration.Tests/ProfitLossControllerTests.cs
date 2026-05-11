@@ -3,7 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -95,6 +98,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             barcode = barcode,
             uom = "PCS",
             supplierId = supplierId,
+            isActive = true,
         });
         var itemResponse = await client.SendAsync(itemRequest);
         itemResponse.EnsureSuccessStatusCode();
@@ -127,6 +131,67 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         return inventoryBody.GetProperty("inventoryBatchId").GetGuid();
     }
 
+    private static async Task<Guid> SetupInventoryTax0Async(HttpClient client, string token, string barcode)
+    {
+        using var supplierRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
+        supplierRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        supplierRequest.Content = JsonContent.Create(new
+        {
+            name = "PL Supplier",
+            contactPerson = "PL Contact",
+            contactPhone = "+919876543211",
+            address = "Supplier Street",
+            city = "City",
+            state = "State",
+            pin = "560002",
+            isPreferred = true,
+        });
+        var supplierResponse = await client.SendAsync(supplierRequest);
+        supplierResponse.EnsureSuccessStatusCode();
+        var supplierBody = await supplierResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var supplierId = supplierBody.GetProperty("supplierId").GetGuid();
+
+        using var itemRequest = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        itemRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        itemRequest.Content = JsonContent.Create(new
+        {
+            name = "PL Item",
+            barcode = barcode,
+            uom = "PCS",
+            supplierId = supplierId,
+            isActive = true,
+        });
+        var itemResponse = await client.SendAsync(itemRequest);
+        itemResponse.EnsureSuccessStatusCode();
+
+        using var inventoryRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inventoryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        inventoryRequest.Content = JsonContent.Create(new
+        {
+            itemName = "PL Item",
+            barcode = barcode,
+            itemDescription = "Test Item",
+            uom = "PCS",
+            batchNumber = "B-001",
+            quantity = 10m,
+            costPrice = 80m,
+            salesPrice = 100m,
+            mrp = 120m,
+            taxRatePercent = 0m,
+            taxIncluded = false,
+            expiryDate = (string?)null,
+            manufacturingDate = (string?)null,
+            supplierId = supplierId,
+            referenceNumber = "REF-001",
+            notes = "Test Note",
+            performedAt = DateTimeOffset.UtcNow,
+        });
+        var inventoryResponse = await client.SendAsync(inventoryRequest);
+        inventoryResponse.EnsureSuccessStatusCode();
+        var inventoryBody = await inventoryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        return inventoryBody.GetProperty("inventoryBatchId").GetGuid();
+    }
+
     // ======================= EXISTING TEST (PRESERVED) =======================
 
     [Fact]
@@ -137,7 +202,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var ownerToken = await CreateShopAsync(client, token);
 
         var barcode = UniqueBarcode();
-        await SetupInventoryAsync(client, ownerToken, barcode);
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
 
         // Item: 80 cost, 100 sales, 18% tax -> 118 total. 1 unit.
         // Revenue Before Tax: 100
@@ -150,6 +215,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         saleRequest.Content = JsonContent.Create(new
         {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId = (Guid?)null,
             customerName = "PL Customer",
             customerPhone = "+919876543210",
@@ -169,6 +235,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
                     mrp = 120m,
                     taxRatePercent = 18m,
                     isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
                 },
             },
         });
@@ -198,6 +265,130 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(118m, item.GetProperty("revenueAfterTax").GetDecimal());
         Assert.Equal(38m, item.GetProperty("profitBeforeTax").GetDecimal());
         Assert.Equal(20m, item.GetProperty("profitAfterTax").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_AfterDiscountedSaleAndReturn_UsesDiscountedAmounts()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var batchId = await SetupInventoryTax0Async(client, ownerToken, barcode);
+
+        using (var discountRequest = new HttpRequestMessage(HttpMethod.Post, "/api/discounts"))
+        {
+            discountRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            discountRequest.Content = JsonContent.Create(new
+            {
+                ruleType = "SalePercentage",
+                name = "10% sale discount",
+                description = (string?)null,
+                percentage = 10m,
+                thresholdAmount = (decimal?)null,
+                inventoryBatchId = (Guid?)null,
+                startsAt = (DateTimeOffset?)null,
+                endsAt = (DateTimeOffset?)null,
+                belowCostConfirmed = false,
+                belowCostConfirmationReason = (string?)null,
+            });
+            var discountResponse = await client.SendAsync(discountRequest);
+            discountResponse.EnsureSuccessStatusCode();
+        }
+
+        Guid saleId;
+        using (var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales"))
+        {
+            saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            saleRequest.Content = JsonContent.Create(new
+            {
+                idempotencyKey = $"sale-{Guid.NewGuid():N}",
+                customerId = (Guid?)null,
+                customerName = "Discount Customer",
+                customerPhone = "+919876543210",
+                paymentMethod = (int)PaymentMethod.Cash,
+                paidAmount = 90m,
+                dueAmount = 0m,
+                items = new[]
+                {
+                    new
+                    {
+                        barcode,
+                        batchNumber = "B-001",
+                        itemName = "PL Item",
+                        quantity = 1m,
+                        costPrice = 80m,
+                        salesPrice = 100m,
+                        mrp = 120m,
+                        taxRatePercent = 0m,
+                        isPriceIncludingTax = false,
+                        inventoryBatchId = batchId,
+                    },
+                },
+            });
+            var saleResponse = await client.SendAsync(saleRequest);
+            Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+            var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+            saleId = saleBody.GetProperty("saleId").GetGuid();
+        }
+
+        Guid saleItemId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var sale = await db.Sales.Include(s => s.Items).SingleAsync(s => s.Id == saleId);
+            saleItemId = sale.Items.Single().Id;
+        }
+
+        using (var returnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns"))
+        {
+            returnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            returnRequest.Content = JsonContent.Create(new
+            {
+                payoutMethod = (int)PaymentMethod.Cash,
+                dueReductionOverrideAmount = (decimal?)null,
+                dueOverrideReason = (string?)null,
+                notes = "Return discounted sale",
+                items = new[]
+                {
+                    new
+                    {
+                        saleItemId,
+                        quantity = 1m,
+                        condition = (int)SaleReturnCondition.Restockable,
+                        approvedRefundAmount = 90m,
+                        notes = (string?)null,
+                    },
+                },
+            });
+            var returnResponse = await client.SendAsync(returnRequest);
+            Assert.Equal(HttpStatusCode.OK, returnResponse.StatusCode);
+        }
+
+        using var reportRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
+        reportRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var reportResponse = await client.SendAsync(reportRequest);
+        Assert.Equal(HttpStatusCode.OK, reportResponse.StatusCode);
+
+        var report = await reportResponse.Content.ReadFromJsonAsync<List<JsonElement>>();
+        Assert.NotNull(report);
+        Assert.NotEmpty(report!);
+
+        var saleRow = report!.Single(r => r.GetProperty("rowType").GetString() == "Sale");
+        var returnRow = report!.Single(r => r.GetProperty("rowType").GetString() == "SaleReturn");
+
+        Assert.Equal(80m, saleRow.GetProperty("totalCost").GetDecimal());
+        Assert.Equal(90m, saleRow.GetProperty("revenueBeforeTax").GetDecimal());
+        Assert.Equal(90m, saleRow.GetProperty("revenueAfterTax").GetDecimal());
+        Assert.Equal(10m, saleRow.GetProperty("profitBeforeTax").GetDecimal());
+        Assert.Equal(10m, saleRow.GetProperty("profitAfterTax").GetDecimal());
+
+        Assert.Equal(-80m, returnRow.GetProperty("totalCost").GetDecimal());
+        Assert.Equal(-90m, returnRow.GetProperty("revenueBeforeTax").GetDecimal());
+        Assert.Equal(-90m, returnRow.GetProperty("revenueAfterTax").GetDecimal());
+        Assert.Equal(-10m, returnRow.GetProperty("profitBeforeTax").GetDecimal());
+        Assert.Equal(-10m, returnRow.GetProperty("profitAfterTax").GetDecimal());
     }
 
     // ======================= NEW: NEGATIVE CASES =======================

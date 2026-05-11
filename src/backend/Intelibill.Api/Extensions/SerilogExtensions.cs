@@ -34,6 +34,7 @@ public static class SerilogExtensions
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                 .MinimumLevel.Override("Wolverine", LogEventLevel.Warning)
+                .MinimumLevel.Override("Wolverine.Http.HttpGraph", LogEventLevel.Error)
                 .Enrich.FromLogContext()
                 .Enrich.WithMachineName()
                 .Enrich.WithEnvironmentName()

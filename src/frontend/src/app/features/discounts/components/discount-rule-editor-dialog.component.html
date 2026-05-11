@@ -1,0 +1,298 @@
+<p-dialog
+  [visible]="visible()"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="true"
+  [style]="{ width: 'min(980px, 96vw)' }"
+  (onHide)="close()"
+>
+  <ng-template pTemplate="header">
+    <div class="editor-header">
+      <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+      <h2>{{ titleKey() | transloco }}</h2>
+      <p class="subtitle">{{ 'discounts.editor.subtitle' | transloco }}</p>
+    </div>
+  </ng-template>
+
+  <div class="editor-shell">
+    @if (submitErrorMessage()) {
+      <p class="error">{{ submitErrorMessage() }}</p>
+    } @else if (submitErrorKey()) {
+      <p class="error">{{ submitErrorKey() | transloco }}</p>
+    }
+
+    <form class="editor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="editor-grid">
+        <div class="field">
+          <label for="discount-rule-type">{{ 'discounts.editor.fields.ruleType' | transloco }}</label>
+          <p-select
+            inputId="discount-rule-type"
+            [options]="ruleTypeOptions"
+            optionLabel="label"
+            optionValue="value"
+            formControlName="ruleType"
+            appendTo="body"
+            class="w-full"
+          >
+            <ng-template #item let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+          </p-select>
+        </div>
+
+        <div class="field">
+          <label for="discount-rule-name">{{ 'discounts.editor.fields.name' | transloco }}</label>
+          <input id="discount-rule-name" pInputText type="text" class="w-full" formControlName="name" />
+        </div>
+
+        <div class="field wide">
+          <label for="discount-rule-description">{{ 'discounts.editor.fields.description' | transloco }}</label>
+          <textarea
+            id="discount-rule-description"
+            pInputTextarea
+            rows="3"
+            class="w-full"
+            formControlName="description"
+          ></textarea>
+        </div>
+
+        <div class="field">
+          <label for="discount-rule-percentage">{{ 'discounts.editor.fields.percentage' | transloco }}</label>
+          <input
+            id="discount-rule-percentage"
+            pInputText
+            type="number"
+            min="0.01"
+            max="100"
+            step="0.01"
+            class="w-full"
+            formControlName="percentage"
+          />
+        </div>
+
+        @if (isThresholdRule()) {
+          <div class="field">
+            <label for="discount-rule-threshold">{{ 'discounts.editor.fields.thresholdAmount' | transloco }}</label>
+            <input
+              id="discount-rule-threshold"
+              pInputText
+              type="number"
+              min="0.01"
+              step="0.01"
+              class="w-full"
+              formControlName="thresholdAmount"
+            />
+          </div>
+        }
+
+        @if (isBatchRule()) {
+          <div class="field wide">
+            <label for="discount-rule-batch-search">{{ 'discounts.editor.fields.batchSearch' | transloco }}</label>
+            <div class="batch-search-row">
+              <input
+                id="discount-rule-batch-search"
+                pInputText
+                type="text"
+                class="w-full"
+                [value]="batchSearchTerm()"
+                (input)="batchSearchTerm.set(($any($event.target)).value)"
+              />
+              <button
+                pButton
+                type="button"
+                severity="secondary"
+                [label]="'discounts.editor.actions.searchBatches' | transloco"
+                [loading]="searchLoading()"
+                (click)="onBatchSearch()"
+              ></button>
+            </div>
+            <p class="hint">
+              {{ 'discounts.editor.fields.selectedBatch' | transloco }}:
+              {{ selectedBatchLabel() || ('discounts.editor.fields.noneSelected' | transloco) }}
+            </p>
+
+            @if (batchSearchResults().length > 0) {
+              <div class="batch-results">
+                @for (batch of batchSearchResults(); track batch.inventoryBatchId) {
+                  <button
+                    pButton
+                    type="button"
+                    severity="secondary"
+                    [outlined]="true"
+                    class="batch-result"
+                    (click)="onSelectBatch(batch)"
+                  >
+                    <span>{{ batch.itemName }} · {{ batch.batchNumber }}</span>
+                    <span class="hint">{{ batch.inventoryBatchId }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <div class="field">
+          <label for="discount-rule-starts-at">{{ 'discounts.editor.fields.startsAt' | transloco }}</label>
+          <input id="discount-rule-starts-at" pInputText type="datetime-local" class="w-full" formControlName="startsAt" />
+        </div>
+
+        <div class="field">
+          <label for="discount-rule-ends-at">{{ 'discounts.editor.fields.endsAt' | transloco }}</label>
+          <input id="discount-rule-ends-at" pInputText type="datetime-local" class="w-full" formControlName="endsAt" />
+        </div>
+
+        <div class="field checkbox-field wide">
+          <label>
+            <input type="checkbox" formControlName="belowCostConfirmed" />
+            <span>{{ 'discounts.editor.fields.belowCostConfirmed' | transloco }}</span>
+          </label>
+        </div>
+
+        @if (shouldAskBelowCostReason() || form.controls.belowCostConfirmed.value) {
+          <div class="field wide">
+            <label for="discount-rule-below-cost-reason">
+              {{ 'discounts.editor.fields.belowCostConfirmationReason' | transloco }}
+            </label>
+            <textarea
+              id="discount-rule-below-cost-reason"
+              pInputTextarea
+              rows="3"
+              class="w-full"
+              formControlName="belowCostConfirmationReason"
+            ></textarea>
+          </div>
+        }
+
+        @if (mode() === 'edit') {
+          <div class="field wide">
+            <label for="discount-rule-disabled-reason">{{ 'discounts.editor.fields.disabledReason' | transloco }}</label>
+            <textarea
+              id="discount-rule-disabled-reason"
+              pInputTextarea
+              rows="2"
+              class="w-full"
+              formControlName="disabledReason"
+            ></textarea>
+          </div>
+        }
+      </div>
+
+      <div class="editor-actions">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [label]="'discounts.editor.actions.preview' | transloco"
+          [loading]="previewLoading()"
+          (click)="onPreviewRule()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="saveLabelKey() | transloco"
+          [loading]="saveLoading()"
+        ></button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [label]="'discounts.editor.actions.close' | transloco"
+          [disabled]="saveLoading()"
+          (click)="close()"
+        ></button>
+      </div>
+    </form>
+
+    @if (preview()) {
+      <p-card class="preview-card">
+        <ng-template pTemplate="header">
+          <div class="preview-header">
+            <h3>{{ 'discounts.editor.preview.title' | transloco }}</h3>
+            <p class="hint">
+              {{ 'discounts.editor.preview.affectedCount' | transloco: { count: preview()!.affectedCount } }}
+            </p>
+          </div>
+        </ng-template>
+
+        <div class="preview-summary">
+          <div>
+            <p class="label">{{ 'discounts.editor.preview.safeMaxPercentage' | transloco }}</p>
+            <p class="value">
+              @if (preview()!.safeMaxPercentage === null) {
+                {{ 'discounts.editor.preview.notAvailable' | transloco }}
+              } @else {
+                {{ preview()!.safeMaxPercentage | number:'1.0-2' }}%
+              }
+            </p>
+          </div>
+        </div>
+
+        @if (preview()!.errors.length > 0) {
+          <div class="preview-section">
+            <p class="section-title">{{ 'discounts.editor.preview.errorsTitle' | transloco }}</p>
+            <ul>
+              @for (message of preview()!.errors; track message.code) {
+                <li>{{ message.message }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (preview()!.infos.length > 0) {
+          <div class="preview-section">
+            <p class="section-title">{{ 'discounts.editor.preview.infosTitle' | transloco }}</p>
+            <ul>
+              @for (message of preview()!.infos; track message.code) {
+                <li>{{ message.message }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (preview()!.affectedSample.length > 0) {
+          <div class="preview-section">
+            <p class="section-title">{{ 'discounts.editor.preview.affectedSampleTitle' | transloco }}</p>
+            <div class="sample-list">
+              @for (sample of preview()!.affectedSample; track sample.batchId) {
+                <div class="sample-row">
+                  <div>
+                    <p class="sample-name">{{ sample.itemName }}</p>
+                    <p class="hint">{{ sample.batchNumber }} · {{ sample.batchId }}</p>
+                  </div>
+                  <div class="sample-values">
+                    <span>{{ sample.salesPrice | number:'1.0-2' }}</span>
+                    <span>{{ sample.costPrice | number:'1.0-2' }}</span>
+                    <span>{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (preview()!.belowCostSample.length > 0) {
+          <div class="preview-section">
+            <p class="section-title">{{ 'discounts.editor.preview.belowCostSampleTitle' | transloco }}</p>
+            <div class="sample-list">
+              @for (sample of preview()!.belowCostSample; track sample.batchId) {
+                <div class="sample-row">
+                  <div>
+                    <p class="sample-name">{{ sample.itemName }}</p>
+                    <p class="hint">{{ sample.batchNumber }} · {{ sample.batchId }}</p>
+                  </div>
+                  <div class="sample-values">
+                    <span>{{ sample.salesPrice | number:'1.0-2' }}</span>
+                    <span>{{ sample.costPrice | number:'1.0-2' }}</span>
+                    <span>{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </p-card>
+    }
+  </div>
+</p-dialog>
