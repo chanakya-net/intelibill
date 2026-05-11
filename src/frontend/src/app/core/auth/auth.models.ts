@@ -15,6 +15,12 @@ export interface RequestPasswordResetRequest {
   readonly email: string;
 }
 
+export interface ResetPasswordRequest {
+  readonly email: string;
+  readonly token: string;
+  readonly newPassword: string;
+}
+
 export interface RefreshTokenRequest {
   readonly refreshToken: string;
 }

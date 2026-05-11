@@ -42,6 +42,7 @@ export class LoginPageComponent implements OnInit {
   private readonly localizationService = inject(LocalizationService);
 
   readonly serverError = signal<string | null>(null);
+  readonly successMessage = signal<string | null>(null);
   readonly isHttpLoading = this.store.selectSignal((state) => state.httpUi.pendingRequests > 0);
   readonly supportedLanguages = this.localizationService.supportedLanguages;
   readonly currentLanguage = this.localizationService.currentLanguage;
@@ -93,6 +94,12 @@ export class LoginPageComponent implements OnInit {
       return;
     }
 
+    const passwordResetSuccess = this.route.snapshot.queryParamMap.get('passwordReset') === 'success'
+      || !!this.router.getCurrentNavigation()?.extras.state?.['passwordResetSuccess'];
+    if (passwordResetSuccess) {
+      this.successMessage.set('auth.resetPassword.successMessage');
+    }
+
     let externalAuthError = this.route.snapshot.queryParamMap.get('externalAuthError');
 
     if (!externalAuthError) {
@@ -134,6 +141,7 @@ export class LoginPageComponent implements OnInit {
     }
 
     this.serverError.set(null);
+    this.successMessage.set(null);
 
     const { identifier, password, rememberMe } = this.form.getRawValue();
 
@@ -174,6 +182,7 @@ export class LoginPageComponent implements OnInit {
 
   private startExternalLogin(provider: ExternalAuthProvider): void {
     this.serverError.set(null);
+    this.successMessage.set(null);
 
     try {
       sessionStorage.setItem(LoginPageComponent.ExternalPendingStorageKey, provider.toString());

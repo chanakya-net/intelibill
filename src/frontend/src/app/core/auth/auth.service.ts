@@ -17,6 +17,7 @@ import {
   RefreshTokenRequest,
   RegisterWithEmailRequest,
   RequestPasswordResetRequest,
+  ResetPasswordRequest,
 } from './auth.models';
 import { AuthStorage } from './auth.storage';
 import { LocalizationService } from '../i18n/localization.service';
@@ -247,6 +248,16 @@ export class AuthService {
     const payload: RequestPasswordResetRequest = { email: trimmedEmail };
 
     return this.http.post<void>(AUTH_ENDPOINTS.requestPasswordReset, payload);
+  }
+
+  resetPassword(email: string, token: string, newPassword: string): Observable<void> {
+    const payload: ResetPasswordRequest = {
+      email,
+      token,
+      newPassword,
+    };
+
+    return this.http.post<void>(AUTH_ENDPOINTS.confirmPasswordReset, payload);
   }
 
   getAccessToken(): string {

@@ -50,6 +50,14 @@
       "rememberPassword": "Remember your password?",
       "backToLogin": "Back to login"
     },
+    "resetPassword": {
+      "title": "Set a New Password",
+      "invalidLinkMessage": "This password reset link is invalid or has expired.",
+      "rateLimitMessage": "Too many attempts. Please try again later.",
+      "submitButton": "Reset Password",
+      "requestNewLink": "Request a new reset link",
+      "successMessage": "Your password has been reset. Please sign in with your new password."
+    },
     "validation": {
       "emailInvalid": "Enter a valid email address.",
       "emailRequired": "Email is required.",

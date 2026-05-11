@@ -23,6 +23,13 @@ export const routes: Routes = [
 			import('./features/auth/register.routes').then((m) => m.registerRoutes),
 	},
 	{
+		path: 'reset-password',
+		loadComponent: () =>
+			import('./features/auth/pages/reset-password-page.component').then(
+				(m) => m.ResetPasswordPageComponent
+			),
+	},
+	{
 		path: 'auth/callback',
 		loadComponent: () =>
 			import('./features/auth/pages/auth-callback.component').then(
