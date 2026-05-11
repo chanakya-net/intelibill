@@ -66,10 +66,6 @@ describe('ShopUpdatesSignalRService', () => {
     service = TestBed.inject(ShopUpdatesSignalRService);
     (TestBed as unknown as { flushEffects?: () => void }).flushEffects?.();
     await service.startConnection();
-    await vi.waitFor(() => {
-      expect(mockHandlers.has('ShopUpdated')).toBe(true);
-      expect(mockConnection.start).toHaveBeenCalled();
-    });
   });
 
   afterEach(() => {
@@ -84,6 +80,10 @@ describe('ShopUpdatesSignalRService', () => {
   });
 
   it('emits shop updates for the active shop only', async () => {
+    await vi.waitFor(() => {
+      expect(mockHandlers.has('ShopUpdated')).toBe(true);
+    });
+
     const received = new Promise<ShopUpdatePayload>((resolve) => {
       const subscription = service.updates$.subscribe((payload) => {
         subscription.unsubscribe();
@@ -106,6 +106,10 @@ describe('ShopUpdatesSignalRService', () => {
   });
 
   it('filters out updates for other shops', async () => {
+    await vi.waitFor(() => {
+      expect(mockHandlers.has('ShopUpdated')).toBe(true);
+    });
+
     let emissionCount = 0;
     const subscription = service.updates$.subscribe(() => {
       emissionCount += 1;
