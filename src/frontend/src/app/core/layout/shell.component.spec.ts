@@ -295,26 +295,51 @@ describe('ShellComponent', () => {
     expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(false);
   });
 
-  it('shows discounts menu for owner and manager, but hides for staff', () => {
+  it('moves discounts action from main menu to profile actions for owner and manager', () => {
     const component = setup();
 
     shopsSignal.set([
       { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
     ]);
     expect(component.canManageDiscounts()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
 
     shopsSignal.set([
       { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
     ]);
     expect(component.canManageDiscounts()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
 
     shopsSignal.set([
       { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
     ]);
     expect(component.canManageDiscounts()).toBe(false);
     expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
+  });
+
+  it('moves bank accounts action from main menu to owner profile actions', () => {
+    const component = setup();
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(true);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
+
+    shopsSignal.set([
+      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
+    ]);
+    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
+    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
   });
 
   it('exposes discounts route in shell routes with role guard configured', () => {

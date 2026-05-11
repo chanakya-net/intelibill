@@ -116,20 +116,6 @@ export class ShellComponent {
         command: () => this.onNavigateToExpenses(),
       });
     }
-    if (this.canManageDiscounts()) {
-      items.push({
-        label: this.localizationService.translate('shell.manageDiscounts'),
-        icon: 'pi pi-tag',
-        command: () => this.onNavigateToDiscounts(),
-      });
-    }
-    if (this.isOwnerOfActiveShop()) {
-      items.push({
-        label: this.localizationService.translate('shell.manageBankAccounts'),
-        icon: 'pi pi-building-columns',
-        command: () => this.onNavigateToBankAccounts(),
-      });
-    }
     // Add more global menu items as needed
     return items;
   });
@@ -298,6 +284,22 @@ export class ShellComponent {
         label: this.localizationService.translate('shell.manageShop'),
         icon: 'pi pi-wrench',
         command: () => this.onOpenManageShop(),
+      });
+    }
+
+    if (this.canManageDiscounts()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageDiscounts'),
+        icon: 'pi pi-tag',
+        command: () => this.onNavigateToDiscounts(),
+      });
+    }
+
+    if (this.isOwnerOfActiveShop()) {
+      items.push({
+        label: this.localizationService.translate('shell.manageBankAccounts'),
+        icon: 'pi pi-building-columns',
+        command: () => this.onNavigateToBankAccounts(),
       });
     }
 
