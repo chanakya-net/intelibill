@@ -43,7 +43,18 @@
     "validation": {
       "emailInvalid": "చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.",
       "passwordRequired": "పాస్‌వర్డ్ అవసరం.",
-      "loginIdentifierRequired": "మీ ఇమెయిల్ లేదా మొబైల్ నంబర్‌ను నమోదు చేయండి."
+      "loginIdentifierRequired": "మీ ఇమెయిల్ లేదా మొబైల్ నంబర్‌ను నమోదు చేయండి.",
+      "emailRequired": "Email is required."
+    },
+    "forgotPassword": {
+      "link": "Forgot password",
+      "title": "Reset Your Password",
+      "successMessage": "We will send you a password reset link if your email is found in our records.",
+      "errorMessage": "Unable to process your request. Please try again.",
+      "rateLimitMessage": "Too many attempts. Please try again later.",
+      "submitButton": "Send Reset Link",
+      "rememberPassword": "Remember your password?",
+      "backToLogin": "Back to login"
     }
   },
   "register": {

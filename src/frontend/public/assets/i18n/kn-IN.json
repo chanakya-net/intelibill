@@ -43,7 +43,18 @@
     "validation": {
       "emailInvalid": "ಮಾನ್ಯ ಇಮೇಲ್ ವಿಳಾಸ ನಮೂದಿಸಿ.",
       "passwordRequired": "ಪಾಸ್‌ವರ್ಡ್ ಅಗತ್ಯವಿದೆ.",
-      "loginIdentifierRequired": "ನಿಮ್ಮ ಇಮೇಲ್ ಅಥವಾ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ."
+      "loginIdentifierRequired": "ನಿಮ್ಮ ಇಮೇಲ್ ಅಥವಾ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.",
+      "emailRequired": "Email is required."
+    },
+    "forgotPassword": {
+      "link": "Forgot password",
+      "title": "Reset Your Password",
+      "successMessage": "We will send you a password reset link if your email is found in our records.",
+      "errorMessage": "Unable to process your request. Please try again.",
+      "rateLimitMessage": "Too many attempts. Please try again later.",
+      "submitButton": "Send Reset Link",
+      "rememberPassword": "Remember your password?",
+      "backToLogin": "Back to login"
     }
   },
   "register": {

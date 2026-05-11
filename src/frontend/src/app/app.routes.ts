@@ -11,6 +11,13 @@ export const routes: Routes = [
 			),
 	},
 	{
+		path: 'forgot-password',
+		loadComponent: () =>
+			import('./features/auth/pages/forgot-password-page.component').then(
+				(m) => m.ForgotPasswordPageComponent
+			),
+	},
+	{
 		path: 'register',
 		loadChildren: () =>
 			import('./features/auth/register.routes').then((m) => m.registerRoutes),

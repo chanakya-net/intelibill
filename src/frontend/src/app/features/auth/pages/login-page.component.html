@@ -55,6 +55,11 @@
           @if (form.controls.password.invalid && form.controls.password.touched) {
             <p class="field-error">{{ 'auth.validation.passwordRequired' | transloco }}</p>
           }
+          <div class="text-right mt-1">
+            <a routerLink="/forgot-password" class="text-sm text-orange-700 hover:text-orange-900">
+              {{ 'auth.forgotPassword.link' | transloco }}?
+            </a>
+          </div>
         </div>
 
         @if (serverError()) {

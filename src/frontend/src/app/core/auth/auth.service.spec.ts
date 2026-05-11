@@ -427,4 +427,34 @@ describe('AuthService', () => {
 
     http.verify();
   });
+
+  it('requestPasswordReset posts trimmed email to endpoint', () => {
+    const { service, http } = setup();
+
+    service.requestPasswordReset('  user@example.com  ').subscribe();
+
+    const request = http.expectOne(AUTH_ENDPOINTS.requestPasswordReset);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'user@example.com' });
+
+    request.flush({});
+    http.verify();
+  });
+
+  it('requestPasswordReset returns void observable on success', () => {
+    const { service, http } = setup();
+    let completed = false;
+
+    service.requestPasswordReset('user@example.com').subscribe({
+      complete: () => {
+        completed = true;
+      },
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.requestPasswordReset);
+    request.flush({});
+
+    expect(completed).toBe(true);
+    http.verify();
+  });
 });

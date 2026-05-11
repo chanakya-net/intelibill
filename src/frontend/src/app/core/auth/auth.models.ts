@@ -11,6 +11,10 @@ export interface RegisterWithEmailRequest {
   readonly phoneNumber: string;
 }
 
+export interface RequestPasswordResetRequest {
+  readonly email: string;
+}
+
 export interface RefreshTokenRequest {
   readonly refreshToken: string;
 }
