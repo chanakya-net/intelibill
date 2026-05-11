@@ -254,6 +254,7 @@
                         [ngModel]="item.itemDiscountType"
                         [ngModelOptions]="{ standalone: true }"
                         (ngModelChange)="onCartItemDiscountTypeChange(item.clientLineKey, $event)"
+                        appendTo="body"
                       >
                         <ng-template pTemplate="selectedItem" let-opt>
                           {{ opt?.labelKey | transloco }}

@@ -1362,5 +1362,88 @@ describe('NewSalePageComponent', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       expect(component.checkoutPreview()).toBeDefined();
     });
+
+    it('configures line-item discount p-select to append overlay to body', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      component.cartBootstrapped.set(true);
+      component.toggleLineDiscountEditor('clk-1');
+      fixture.detectChanges();
+
+      // Query for the line-item discount p-select inside the discount-editor
+      const discountSelectElements = fixture.nativeElement.querySelectorAll('.discount-editor p-select');
+      expect(discountSelectElements.length).toBeGreaterThan(0);
+
+      // Find the line-item discount select (should be inside a discount-row div that's inside a price-breakdown)
+      // In the cart table context
+      const lineItemDiscountSelect = Array.from(discountSelectElements).find((el: unknown) => {
+        // This select should be inside a discount-editor that is within a cart table row
+        const parent = (el as Element).closest('.discount-editor');
+        return parent?.closest('tr') !== null;
+      });
+
+      expect(lineItemDiscountSelect).toBeDefined();
+      expect(((lineItemDiscountSelect as any) as Element)?.getAttribute('appendTo')).toBe('body');
+    });
+
+    it('does not set appendTo for sale-level discount p-select', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.cart.set([
+        {
+          clientLineKey: 'clk-1',
+          barcode: 'BAR001',
+          itemName: 'Rice',
+          batchNumber: 'B-001',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 100,
+          salesPrice: 150,
+          mrp: 150,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          costPrice: 100,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+        },
+      ]);
+
+      component.cartBootstrapped.set(true);
+      component.toggleSaleDiscountEditor();
+      fixture.detectChanges();
+
+      // Query for all p-select elements
+      const selectElements = fixture.nativeElement.querySelectorAll('p-select');
+
+      // Find the sale-level discount select (should be inside .sale-discount-row)
+      const saleDiscountSelect = Array.from(selectElements).find((el: unknown) => {
+        const parent = (el as Element).closest('.discount-editor');
+        return parent?.closest('.sale-discount-row') !== null;
+      });
+
+      expect(saleDiscountSelect).toBeDefined();
+      expect(((saleDiscountSelect as any) as Element)?.getAttribute('appendTo')).not.toBe('body');
+    });
   });
 });
