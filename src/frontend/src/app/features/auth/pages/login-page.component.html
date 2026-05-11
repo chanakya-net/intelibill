@@ -55,7 +55,18 @@
           @if (form.controls.password.invalid && form.controls.password.touched) {
             <p class="field-error">{{ 'auth.validation.passwordRequired' | transloco }}</p>
           }
+          <div class="text-right mt-1">
+            <a routerLink="/forgot-password" class="text-sm text-orange-700 hover:text-orange-900">
+              {{ 'auth.forgotPassword.link' | transloco }}?
+            </a>
+          </div>
         </div>
+
+        @if (successMessage()) {
+          <p class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {{ successMessage() | transloco }}
+          </p>
+        }
 
         @if (serverError()) {
           <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

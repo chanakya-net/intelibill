@@ -52,6 +52,11 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ExternalAuthOptions>, ExternalAuthOptionsValidator>();
 
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<EmailOptions>, EmailOptionsValidator>();
+
         services.AddOptions<ProductLookupOptions>()
             .Bind(configuration.GetSection(ProductLookupOptions.SectionName));
 
@@ -79,7 +84,17 @@ public static class DependencyInjection
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
-        services.AddSingleton<IEmailService, NoOpEmailService>();
+        services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
+        services.AddSingleton<IEmailService>(sp =>
+        {
+            var emailOptions = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+            return emailOptions.Enabled
+                ? new SmtpEmailService(
+                    sp.GetRequiredService<IOptions<EmailOptions>>(),
+                    sp.GetRequiredService<ISmtpClientFactory>(),
+                    sp.GetRequiredService<ILogger<SmtpEmailService>>())
+                : new NoOpEmailService(sp.GetRequiredService<ILogger<NoOpEmailService>>());
+        });
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.

@@ -427,4 +427,68 @@ describe('AuthService', () => {
 
     http.verify();
   });
+
+  it('requestPasswordReset posts trimmed email to endpoint', () => {
+    const { service, http } = setup();
+
+    service.requestPasswordReset('  user@example.com  ').subscribe();
+
+    const request = http.expectOne(AUTH_ENDPOINTS.requestPasswordReset);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'user@example.com' });
+
+    request.flush({});
+    http.verify();
+  });
+
+  it('requestPasswordReset returns void observable on success', () => {
+    const { service, http } = setup();
+    let completed = false;
+
+    service.requestPasswordReset('user@example.com').subscribe({
+      complete: () => {
+        completed = true;
+      },
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.requestPasswordReset);
+    request.flush({});
+
+    expect(completed).toBe(true);
+    http.verify();
+  });
+
+  it('resetPassword posts confirmation payload to endpoint', () => {
+    const { service, http } = setup();
+
+    service.resetPassword('user@example.com', 'token-123', 'Password123!').subscribe();
+
+    const request = http.expectOne(AUTH_ENDPOINTS.confirmPasswordReset);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      email: 'user@example.com',
+      token: 'token-123',
+      newPassword: 'Password123!',
+    });
+
+    request.flush({});
+    http.verify();
+  });
+
+  it('resetPassword returns void observable on success', () => {
+    const { service, http } = setup();
+    let completed = false;
+
+    service.resetPassword('user@example.com', 'token-123', 'Password123!').subscribe({
+      complete: () => {
+        completed = true;
+      },
+    });
+
+    const request = http.expectOne(AUTH_ENDPOINTS.confirmPasswordReset);
+    request.flush({});
+
+    expect(completed).toBe(true);
+    http.verify();
+  });
 });

@@ -1,9 +1,10 @@
-import { HttpEvent, HttpRequest, HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEvent, HttpRequest, HttpResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
+import { AUTH_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { authInterceptor } from './auth.interceptor';
 
@@ -67,5 +68,37 @@ describe('authInterceptor', () => {
     runInterceptor(req, next).subscribe();
 
     expect(capturedReq?.headers.has('Authorization')).toBe(false);
+  });
+
+  it('does not trigger refresh or redirect for reset-password confirmation 401 responses', () => {
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+
+    const req = new HttpRequest('POST', AUTH_ENDPOINTS.confirmPasswordReset, {
+      email: 'user@example.com',
+      token: 'token-123',
+      newPassword: 'Password123!',
+    });
+
+    let capturedError: HttpErrorResponse | undefined;
+    const next = () =>
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 401,
+            url: AUTH_ENDPOINTS.confirmPasswordReset,
+          }),
+      );
+
+    runInterceptor(req, next).subscribe({
+      error: (error) => {
+        capturedError = error;
+      },
+    });
+
+    expect(capturedError?.status).toBe(401);
+    expect(mockAuthService.refreshAccessToken).not.toHaveBeenCalled();
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
   });
 });

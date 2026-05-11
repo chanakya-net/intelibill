@@ -146,6 +146,42 @@ public sealed class RateLimitPolicyResolverTests
         Assert.Equal(4, policy.BackoffMinutes);
     }
 
+    [Fact]
+    public void Resolve_WhenPasswordResetRequestEndpoint_ReturnsCorrectRateLimit()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.AuthController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.RequestPasswordReset))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.False(policy.IsDisabled);
+        Assert.Equal(5, policy.Limit);
+        Assert.Equal(15, policy.PeriodInMinutes);
+        Assert.Equal(15, policy.BackoffMinutes);
+    }
+
+    [Fact]
+    public void Resolve_WhenPasswordResetConfirmEndpoint_ReturnsCorrectRateLimit()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.AuthController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.ResetPassword))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.False(policy.IsDisabled);
+        Assert.Equal(5, policy.Limit);
+        Assert.Equal(15, policy.PeriodInMinutes);
+        Assert.Equal(15, policy.BackoffMinutes);
+    }
+
     private static RateLimitPolicyResolver CreateResolver()
     {
         var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions

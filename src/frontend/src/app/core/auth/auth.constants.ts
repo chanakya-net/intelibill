@@ -11,6 +11,8 @@ export const AUTH_ENDPOINTS = {
   loginExternalCallback: `${API_BASE_URL}/auth/login/external/callback`,
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,
   revokeToken: `${API_BASE_URL}/auth/token/revoke`,
+  requestPasswordReset: `${API_BASE_URL}/auth/password-reset/request`,
+  confirmPasswordReset: `${API_BASE_URL}/auth/password-reset/confirm`,
 } as const;
 
 export const SHOP_ENDPOINTS = {

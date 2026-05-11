@@ -43,7 +43,26 @@
     "validation": {
       "emailInvalid": "সঠিক ইমেল ঠিকানা লিখুন।",
       "passwordRequired": "পাসওয়ার্ড আবশ্যক।",
-      "loginIdentifierRequired": "আপনার ইমেল বা মোবাইল নম্বর লিখুন."
+      "loginIdentifierRequired": "আপনার ইমেল বা মোবাইল নম্বর লিখুন.",
+      "emailRequired": "Email is required."
+    },
+    "forgotPassword": {
+      "link": "Forgot password",
+      "title": "Reset Your Password",
+      "successMessage": "We will send you a password reset link if your email is found in our records.",
+      "errorMessage": "Unable to process your request. Please try again.",
+      "rateLimitMessage": "Too many attempts. Please try again later.",
+      "submitButton": "Send Reset Link",
+      "rememberPassword": "Remember your password?",
+      "backToLogin": "Back to login"
+    },
+    "resetPassword": {
+      "title": "Set a New Password",
+      "invalidLinkMessage": "This password reset link is invalid or has expired.",
+      "rateLimitMessage": "Too many attempts. Please try again later.",
+      "submitButton": "Reset Password",
+      "requestNewLink": "Request a new reset link",
+      "successMessage": "Your password has been reset. Please sign in with your new password."
     }
   },
   "register": {

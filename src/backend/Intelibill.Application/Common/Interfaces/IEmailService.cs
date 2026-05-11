@@ -2,5 +2,5 @@ namespace Intelibill.Application.Common.Interfaces;
 
 public interface IEmailService
 {
-    Task SendPasswordResetAsync(string toEmail, string resetLink, CancellationToken cancellationToken = default);
+    Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default);
 }

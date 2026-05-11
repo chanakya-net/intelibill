@@ -17,13 +17,17 @@ describe('LoginPageComponent', () => {
     getLastRememberedIdentifier: vi.fn<AuthService['getLastRememberedIdentifier']>(),
     login: vi.fn<AuthService['login']>(),
     initializeExternalLogin: vi.fn<AuthService['initializeExternalLogin']>(),
+    completeExternalLogin: vi.fn<AuthService['completeExternalLogin']>(),
   };
 
   const store = {
     selectSignal: vi.fn(() => signal(false)),
   };
 
-  function setup(queryParams: Record<string, string> = {}): { component: LoginPageComponent; navigateByUrl: ReturnType<typeof vi.spyOn> } {
+  function setup(
+    queryParams: Record<string, string> = {},
+    navigationState: Record<string, unknown> | null = null,
+  ): { component: LoginPageComponent; navigateByUrl: ReturnType<typeof vi.spyOn> } {
     TestBed.configureTestingModule({
       imports: [LoginPageComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
@@ -42,6 +46,9 @@ describe('LoginPageComponent', () => {
 
     const router = TestBed.inject(Router);
     const navigateByUrl = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    if (navigationState) {
+      vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({ extras: { state: navigationState } } as never);
+    }
     const fixture = TestBed.createComponent(LoginPageComponent);
     fixture.detectChanges();
 
@@ -56,6 +63,7 @@ describe('LoginPageComponent', () => {
     authService.getLastRememberedIdentifier.mockReturnValue('');
     authService.login.mockReturnValue(of({} as AuthSession));
     authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
+    authService.completeExternalLogin.mockReturnValue(of({} as AuthSession));
     store.selectSignal.mockImplementation(() => signal(false));
     sessionStorage.clear();
   });
@@ -186,5 +194,19 @@ describe('LoginPageComponent', () => {
 
     expect(component.serverError()).toBe('errors.auth.externalSignInIncomplete');
     expect(sessionStorage.getItem('inventory.auth.external.pending')).toBeNull();
+  });
+
+  it('shows the password reset success message from the query string', () => {
+    const { component } = setup({ passwordReset: 'success' });
+
+    expect(component.successMessage()).toBe('auth.resetPassword.successMessage');
+    expect(component.serverError()).toBeNull();
+  });
+
+  it('shows the password reset success message from navigation state', () => {
+    const { component } = setup({}, { passwordResetSuccess: true });
+
+    expect(component.successMessage()).toBe('auth.resetPassword.successMessage');
+    expect(component.serverError()).toBeNull();
   });
 });

@@ -9,18 +9,29 @@ public class PasswordResetTokenTests
     {
         var before = DateTimeOffset.UtcNow;
 
-        var token = PasswordResetToken.Create(Guid.NewGuid(), "hash-value", expiryHours: 3);
+        var token = PasswordResetToken.Create(Guid.NewGuid(), "hash-value", expiryMinutes: 15);
 
         Assert.Equal("hash-value", token.TokenHash);
         Assert.False(token.IsUsed);
-        Assert.True(token.ExpiresAt >= before.AddHours(3).AddSeconds(-2));
+        Assert.True(token.ExpiresAt >= before.AddMinutes(15).AddSeconds(-2));
+        Assert.True(token.IsValid);
+    }
+
+    [Fact]
+    public void Create_DefaultExpiryIs15Minutes()
+    {
+        var before = DateTimeOffset.UtcNow;
+
+        var token = PasswordResetToken.Create(Guid.NewGuid(), "hash-value");
+
+        Assert.True(token.ExpiresAt >= before.AddMinutes(15).AddSeconds(-2));
         Assert.True(token.IsValid);
     }
 
     [Fact]
     public void IsExpired_WhenPastExpiry_ReturnsTrue()
     {
-        var token = PasswordResetToken.Create(Guid.NewGuid(), "hash", expiryHours: -1);
+        var token = PasswordResetToken.Create(Guid.NewGuid(), "hash", expiryMinutes: -1);
 
         Assert.True(token.IsExpired);
         Assert.False(token.IsValid);

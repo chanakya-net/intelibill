@@ -16,13 +16,13 @@ public sealed class PasswordResetToken : BaseEntity
 
     private PasswordResetToken() { }
 
-    public static PasswordResetToken Create(Guid userId, string tokenHash, int expiryHours = 2)
+    public static PasswordResetToken Create(Guid userId, string tokenHash, int expiryMinutes = 15)
     {
         return new PasswordResetToken
         {
             UserId = userId,
             TokenHash = tokenHash,
-            ExpiresAt = DateTimeOffset.UtcNow.AddHours(expiryHours),
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes),
         };
     }
 
