@@ -275,7 +275,7 @@
     "active": "सक्रिय",
     "inactive": "निष्क्रिय",
     "isActive": "सक्रिय है",
-    "supplierIdOptional": "प्राथमिक आपूर्तिकर्ता आईडी (वैकल्पिक)",
+    "supplierIdOptional": "आपूर्तिकर्ता ID (वैकल्पिक)",
     "addNewProduct": "नया उत्पाद जोड़ें",
     "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
     "editProduct": "उत्पाद संपादित करें",

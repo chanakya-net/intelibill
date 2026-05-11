@@ -275,7 +275,7 @@
     "active": "সক্রিয়",
     "inactive": "নিষ্ক্রিয়",
     "isActive": "সক্রিয়",
-    "supplierIdOptional": "পছন্দের সরবরাহকারী আইডি (ঐচ্ছিক)",
+    "supplierIdOptional": "সরবরাহকারী ID (ঐচ্ছিক)",
     "addNewProduct": "নতুন পণ্য যোগ করুন",
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
     "editProduct": "পণ্য সম্পাদনা করুন",
