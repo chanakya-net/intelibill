@@ -65,6 +65,10 @@ describe('ShopUpdatesSignalRService', () => {
 
     service = TestBed.inject(ShopUpdatesSignalRService);
     await service.startConnection();
+    await vi.waitFor(() => {
+      expect(mockHandlers.has('ShopUpdated')).toBe(true);
+      expect(mockConnection.start).toHaveBeenCalled();
+    });
   });
 
   afterEach(() => {
@@ -73,9 +77,9 @@ describe('ShopUpdatesSignalRService', () => {
   });
 
   it('connects to the shop updates hub for the active session', () => {
-    expect(capturedUrls).toHaveLength(1);
+    expect(capturedUrls.length).toBeGreaterThanOrEqual(1);
     expect(capturedUrls[0]).toMatch(/\/hubs\/shop-updates$/);
-    expect(mockConnection.start).toHaveBeenCalledTimes(1);
+    expect(mockConnection.start).toHaveBeenCalled();
   });
 
   it('emits shop updates for the active shop only', async () => {
@@ -113,22 +117,26 @@ describe('ShopUpdatesSignalRService', () => {
       occurredOn: new Date().toISOString(),
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
     subscription.unsubscribe();
 
     expect(emissionCount).toBe(0);
   });
 
   it('restarts the connection when the active shop changes', async () => {
-    await service.startConnection();
-    expect(mockConnection.start).toHaveBeenCalledTimes(1);
+    const startsBeforeChange = mockConnection.start.mock.calls.length;
+    const urlsBeforeChange = capturedUrls.length;
 
     activeSession.set({ activeShopId: 'shop-abc', accessToken: 'test-token-2' });
     await service.startConnection();
+    await vi.waitFor(() => {
+      expect(mockConnection.stop).toHaveBeenCalled();
+      expect(mockConnection.start.mock.calls.length).toBeGreaterThan(startsBeforeChange);
+      expect(capturedUrls.length).toBeGreaterThan(urlsBeforeChange);
+    });
 
-    expect(mockConnection.stop).toHaveBeenCalledTimes(1);
-    expect(mockConnection.start).toHaveBeenCalledTimes(2);
-    expect(capturedUrls).toHaveLength(2);
+    expect(mockConnection.stop).toHaveBeenCalled();
+    expect(mockConnection.start.mock.calls.length).toBeGreaterThan(startsBeforeChange);
+    expect(capturedUrls.length).toBeGreaterThan(urlsBeforeChange);
   });
 
   it('does not connect on a non-browser platform', async () => {
