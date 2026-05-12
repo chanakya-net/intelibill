@@ -956,7 +956,10 @@
         "errorsTitle": "Preview issues",
         "infosTitle": "Preview notes",
         "affectedSampleTitle": "Affected sample",
-        "belowCostSampleTitle": "Below-cost sample"
+        "belowCostSampleTitle": "Below-cost sample",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "Fix form errors before previewing",

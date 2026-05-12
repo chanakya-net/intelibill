@@ -6,7 +6,6 @@
     "cancel": "રદ કરો",
     "close": "બંધ કરો",
     "clear": "સાફ કરો",
-    "actions": "ક્રિયાઓ",
     "edit": "સંપાદિત કરો",
     "save": "સાચવો",
     "currencySymbol": "₹",
@@ -956,7 +955,10 @@
         "errorsTitle": "પ્રીવ્યુ સમસ્યાઓ",
         "infosTitle": "પ્રીવ્યુ નોંધો",
         "affectedSampleTitle": "અસરગ્રસ્ત નમૂનો",
-        "belowCostSampleTitle": "ખર્ચથી નીચે નમૂનો"
+        "belowCostSampleTitle": "ખર્ચથી નીચે નમૂનો",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "પ્રીવ્યુ પહેલાં ફોર્મ ભૂલો સુધારો",

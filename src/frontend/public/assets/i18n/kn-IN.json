@@ -956,7 +956,10 @@
         "errorsTitle": "ಸಮಸ್ಯೆಗಳ ಪೂರ್ವವೀಕ್ಷಣೆ",
         "infosTitle": "ಟಿಪ್ಪಣಿಗಳನ್ನು ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡಿ",
         "affectedSampleTitle": "ಪೀಡಿತ ಮಾದರಿ",
-        "belowCostSampleTitle": "ಕಡಿಮೆ ವೆಚ್ಚದ ಮಾದರಿ"
+        "belowCostSampleTitle": "ಕಡಿಮೆ ವೆಚ್ಚದ ಮಾದರಿ",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡುವ ಮೊದಲು ಫಾರ್ಮ್ ದೋಷಗಳನ್ನು ಸರಿಪಡಿಸಿ",

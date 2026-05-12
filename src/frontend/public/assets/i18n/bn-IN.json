@@ -956,7 +956,10 @@
         "errorsTitle": "প্রিভিউ সমস্যা",
         "infosTitle": "প্রিভিউ নোট",
         "affectedSampleTitle": "প্রভাবিত নমুনা",
-        "belowCostSampleTitle": "খরচের নিচে নমুনা"
+        "belowCostSampleTitle": "খরচের নিচে নমুনা",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "প্রিভিউর আগে ফর্ম ত্রুটি ঠিক করুন",

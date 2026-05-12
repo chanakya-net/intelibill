@@ -956,7 +956,10 @@
         "errorsTitle": "പ്രിവ്യൂ പ്രശ്നങ്ങൾ",
         "infosTitle": "കുറിപ്പുകൾ പ്രിവ്യൂ ചെയ്യുക",
         "affectedSampleTitle": "ബാധിച്ച സാമ്പിൾ",
-        "belowCostSampleTitle": "കുറഞ്ഞ വിലയുള്ള സാമ്പിൾ"
+        "belowCostSampleTitle": "കുറഞ്ഞ വിലയുള്ള സാമ്പിൾ",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "പ്രിവ്യൂ ചെയ്യുന്നതിന് മുമ്പ് ഫോം പിശകുകൾ പരിഹരിക്കുക",

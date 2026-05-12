@@ -956,7 +956,10 @@
         "errorsTitle": "சிக்கல்களை முன்னோட்டமிடுங்கள்",
         "infosTitle": "குறிப்புகளை முன்னோட்டமிடவும்",
         "affectedSampleTitle": "பாதிக்கப்பட்ட மாதிரி",
-        "belowCostSampleTitle": "குறைந்த விலை மாதிரி"
+        "belowCostSampleTitle": "குறைந்த விலை மாதிரி",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "மாதிரிக்காட்சிக்கு முன் படிவப் பிழைகளைச் சரிசெய்யவும்",

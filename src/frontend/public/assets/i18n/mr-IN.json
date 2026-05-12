@@ -17,7 +17,6 @@
     "hi-IN": "हिंदी",
     "ta-IN": "तमिळ",
     "te-IN": "तेलुगू",
-    "bn-IN": "बंगाली",
     "ml-IN": "मल्याळम",
     "kn-IN": "कन्नड",
     "mr-IN": "मराठी",
@@ -956,7 +955,10 @@
         "errorsTitle": "प्रीव्यू समस्या",
         "infosTitle": "प्रीव्यू नोट्स",
         "affectedSampleTitle": "प्रभावित नमुना",
-        "belowCostSampleTitle": "खर्चाखाली नमुना"
+        "belowCostSampleTitle": "खर्चाखाली नमुना",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "प्रीव्यूपूर्वी फॉर्म त्रुटी दुरुस्त करा",

@@ -956,7 +956,10 @@
         "errorsTitle": "प्रीव्यू समस्याएं",
         "infosTitle": "प्रीव्यू नोट्स",
         "affectedSampleTitle": "प्रभावित नमूना",
-        "belowCostSampleTitle": "लागत से कम नमूना"
+        "belowCostSampleTitle": "लागत से कम नमूना",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "प्रीव्यू से पहले फॉर्म त्रुटियां ठीक करें",

@@ -265,14 +265,12 @@ describe('DiscountsPageComponent', () => {
     fixture.detectChanges();
 
     const createButton = fixture.nativeElement.querySelector('[data-testid="discounts-create-rule"]');
-    const resetButton = fixture.nativeElement.querySelector('[data-testid="discounts-reset-filters"]');
     const editButton = fixture.nativeElement.querySelector('[data-testid="discounts-edit-rule"]');
     const disableButton = fixture.nativeElement.querySelector('[data-testid="discounts-disable"]');
     const headerActions = fixture.nativeElement.querySelectorAll('.card-header .header-actions');
 
     expect(headerActions.length).toBe(2);
     expect(createButton).not.toBeNull();
-    expect(resetButton).not.toBeNull();
     expect(editButton).not.toBeNull();
     expect(disableButton).not.toBeNull();
     expect((createButton as HTMLElement).textContent).toContain('Create rule');

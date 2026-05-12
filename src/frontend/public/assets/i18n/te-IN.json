@@ -48,7 +48,6 @@
     },
     "forgotPassword": {
       "link": "Forgot password",
-      "title": "Reset Your Password",
       "successMessage": "We will send you a password reset link if your email is found in our records.",
       "errorMessage": "Unable to process your request. Please try again.",
       "rateLimitMessage": "Too many attempts. Please try again later.",
@@ -956,7 +955,10 @@
         "errorsTitle": "ప్రివ్యూ సమస్యలు",
         "infosTitle": "ప్రివ్యూ గమనికలు",
         "affectedSampleTitle": "ప్రభావిత నమూనా",
-        "belowCostSampleTitle": "తక్కువ ధర నమూనా"
+        "belowCostSampleTitle": "తక్కువ ధర నమూనా",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "ప్రివ్యూ చేయడానికి ముందు ఫారమ్ లోపాలను పరిష్కరించండి",

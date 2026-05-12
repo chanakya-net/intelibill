@@ -275,9 +275,18 @@
                     <p class="hint">{{ sample.batchNumber }} · {{ sample.batchId }}</p>
                   </div>
                   <div class="sample-values">
-                    <span>{{ sample.salesPrice | number:'1.0-2' }}</span>
-                    <span>{{ sample.costPrice | number:'1.0-2' }}</span>
-                    <span>{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleSalesPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.salesPrice | number:'1.0-2' }}</span>
+                    </div>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleCostPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.costPrice | number:'1.0-2' }}</span>
+                    </div>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleDiscountedPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                    </div>
                   </div>
                 </div>
               }
@@ -296,9 +305,18 @@
                     <p class="hint">{{ sample.batchNumber }} · {{ sample.batchId }}</p>
                   </div>
                   <div class="sample-values">
-                    <span>{{ sample.salesPrice | number:'1.0-2' }}</span>
-                    <span>{{ sample.costPrice | number:'1.0-2' }}</span>
-                    <span>{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleSalesPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.salesPrice | number:'1.0-2' }}</span>
+                    </div>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleCostPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.costPrice | number:'1.0-2' }}</span>
+                    </div>
+                    <div class="sample-metric">
+                      <span class="metric-label">{{ 'discounts.editor.preview.sampleDiscountedPrice' | transloco }}</span>
+                      <span class="metric-value">{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                    </div>
                   </div>
                 </div>
               }
