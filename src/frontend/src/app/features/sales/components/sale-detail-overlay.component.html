@@ -160,15 +160,29 @@
   <ng-template pTemplate="footer">
     @if (canPreviewReturns()) {
       <p-button
-        label="Return items"
+        [label]="'sales.invoice.returnItems' | transloco"
         icon="pi pi-undo"
         severity="warn"
         [outlined]="true"
         (click)="openReturnPreview()"
       />
     }
+    @if (sale()) {
+      <p-button
+        [label]="'sales.invoice.printA4' | transloco"
+        icon="pi pi-print"
+        [outlined]="true"
+        (click)="printA4()"
+      />
+      <p-button
+        [label]="'sales.invoice.printThermal' | transloco"
+        icon="pi pi-print"
+        [outlined]="true"
+        (click)="printThermal()"
+      />
+    }
     <p-button
-      [label]="'common.close' | transloco"
+      [label]="'sales.invoice.close' | transloco"
       severity="secondary"
       (click)="onClose()"
     />

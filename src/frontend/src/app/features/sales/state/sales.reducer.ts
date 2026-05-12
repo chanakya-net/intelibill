@@ -25,6 +25,7 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly returnPreviewErrorMessage: string;
   readonly profitLossReport: readonly ProfitLossReportItemDto[];
   readonly loadingProfitLossReport: boolean;
+  readonly lastRecordedSale: SaleDto | null;
 }
 
 const initialState: SalesState = salesAdapter.getInitialState({
@@ -40,6 +41,7 @@ const initialState: SalesState = salesAdapter.getInitialState({
   returnPreviewErrorMessage: '',
   profitLossReport: [],
   loadingProfitLossReport: false,
+  lastRecordedSale: null,
 });
 
 export const salesReducer = createReducer(
@@ -172,12 +174,13 @@ export const salesReducer = createReducer(
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: false,
   })),
-  on(SalesActions.recordSaleSucceeded, (state) => ({
+  on(SalesActions.recordSaleSucceeded, (state, { sale }) => ({
     ...state,
     submitting: false,
     errorMessage: '',
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: true,
+    lastRecordedSale: sale,
   })),
   on(SalesActions.recordSaleFailed, (state, { errorMessage }) => ({
     ...state,
@@ -207,6 +210,10 @@ export const salesReducer = createReducer(
     returnPreview: null,
     returnPreviewErrorMessage: '',
     loadingReturnPreview: false,
+  })),
+  on(SalesActions.clearLastRecordedSale, (state) => ({
+    ...state,
+    lastRecordedSale: null,
   }))
 );
 

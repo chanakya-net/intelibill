@@ -28,8 +28,11 @@ describe('NewSalePageComponent', () => {
     submitting: signal(false),
     errorMessage: signal(''),
     lastMutationSucceeded: signal(false),
+    lastMutationType: signal<'record-sale' | 'record-return' | 'void-return' | null>(null),
+    lastRecordedSale: signal(null),
     clearError: vi.fn(),
     clearMutationStatus: vi.fn(),
+    clearLastRecordedSale: vi.fn(),
     recordSale: vi.fn(),
   };
 
@@ -125,6 +128,9 @@ describe('NewSalePageComponent', () => {
     salesFacade.submitting.set(false);
     salesFacade.errorMessage.set('');
     salesFacade.lastMutationSucceeded.set(false);
+    salesFacade.lastMutationType.set(null);
+    salesFacade.lastRecordedSale.set(null);
+    salesFacade.clearLastRecordedSale.mockReset();
     cartStorage.loadCart.mockClear();
     cartStorage.saveCart.mockClear();
     cartStorage.clearCart.mockClear();
@@ -908,6 +914,51 @@ describe('NewSalePageComponent', () => {
     expect(salesFacade.recordSale).not.toHaveBeenCalled();
   });
 
+  it('includes an idempotency key when submitting a sale', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-x',
+        barcode: 'X',
+        itemName: 'Item X',
+        batchNumber: 'B-X',
+        inventoryBatchId: 'batch-x',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+    component.checkoutPreview.set({
+      totalAmount: 100,
+      totalTaxableAmount: 100,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 100,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    } as SalePreviewDto);
+    component.paymentForm.controls.paidAmount.setValue(100);
+    component.paymentForm.controls.dueAmount.setValue(0);
+
+    component.onSubmit();
+
+    expect(salesFacade.recordSale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^sale-/),
+      })
+    );
+  });
+
   function createQrLikeBarcode() {
     return `QR|01|${crypto.randomUUID()}|TRACE|${crypto.randomUUID()}|PAYLOAD|AAAAAAAAAAAAAAAAAAAAAAAA`;
   }
@@ -1444,6 +1495,74 @@ describe('NewSalePageComponent', () => {
 
       expect(saleDiscountSelect).toBeDefined();
       expect(((saleDiscountSelect as any) as Element)?.getAttribute('appendTo')).not.toBe('body');
+    });
+  });
+
+  describe('Post-sale confirmation', () => {
+    it('navigates to sales list for non-record sale mutations', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      salesFacade.lastMutationType.set('record-return');
+      salesFacade.lastMutationSucceeded.set(true);
+      fixture.detectChanges();
+
+      expect(component.showConfirmation()).toBe(false);
+      expect(salesFacade.clearMutationStatus).toHaveBeenCalled();
+      expect(router.navigate).toHaveBeenCalledWith(['/sales']);
+    });
+
+    it('shows confirmation dialog and resets transient state when recordSale succeeds', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      const sale = { saleId: 's1', invoiceNumber: 'INV-001', totalAmount: 100 } as any;
+
+      // Set some state
+      component.cart.set([{ itemName: 'Item 1' } as any]);
+      component.customerForm.patchValue({ customerName: 'Alice' });
+
+      salesFacade.lastMutationType.set('record-sale');
+      salesFacade.lastRecordedSale.set(sale);
+      salesFacade.lastMutationSucceeded.set(true);
+      fixture.detectChanges();
+
+      expect(component.showConfirmation()).toBe(true);
+      expect(component.cart()).toHaveLength(0);
+      expect(component.customerForm.controls.customerName.value).toBe('');
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('onDone closes dialog, clears state, and navigates to sales list', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      component.showConfirmation.set(true);
+
+      component.onDone();
+
+      expect(component.showConfirmation()).toBe(false);
+      expect(salesFacade.clearLastRecordedSale).toHaveBeenCalled();
+      expect(salesFacade.clearMutationStatus).toHaveBeenCalled();
+      expect(router.navigate).toHaveBeenCalledWith(['/sales']);
+    });
+
+    it('printA4 opens print route in new tab', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      component.printA4('s1');
+
+      expect(windowOpenSpy).toHaveBeenCalledWith('/sales/s1/print?template=a4', '_blank');
+    });
+
+    it('printThermal opens thermal print route in new tab', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      component.printThermal('s1');
+
+      expect(windowOpenSpy).toHaveBeenCalledWith('/sales/s1/print?template=thermal', '_blank');
     });
   });
 });

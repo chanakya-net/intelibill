@@ -9,8 +9,10 @@
     "actions": "చర్యలు",
     "edit": "సవరించు",
     "save": "సేవ్ చేయి",
+    "done": "పూర్తయింది",
     "currencySymbol": "₹",
-    "search": "వెతుకు..."
+    "search": "వెతుకు...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "ఇంగ్లీష్",
@@ -689,6 +691,35 @@
       "beforeDiscount": "తగ్గింపుకు ముందు",
       "discount": "తగ్గింపు",
       "totalSavings": "మొత్తం ఆదా"
+    },
+    "invoice": {
+      "returnItems": "ఐటమ్‌లను తిరిగి ఇవ్వండి",
+      "printA4": "A4 ప్రింట్ చేయండి",
+      "printThermal": "థర్మల్ ప్రింట్ చేయండి",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "సేల్స్ రిపోర్ట్",

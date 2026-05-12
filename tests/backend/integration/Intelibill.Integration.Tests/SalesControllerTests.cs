@@ -346,6 +346,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var saleResponse = await client.SendAsync(saleRequest);
         Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
         var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(string.IsNullOrEmpty(saleBody.GetProperty("customerName").GetString()));
+        Assert.True(string.IsNullOrEmpty(saleBody.GetProperty("customerPhone").GetString()));
         var warnings = saleBody.GetProperty("warnings")
             .EnumerateArray()
             .Select(w => w.GetString()!)
@@ -652,7 +654,63 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(saleBody.GetProperty("invoiceNumber").GetString(), detail.GetProperty("invoiceNumber").GetString());
         Assert.Equal(236m, detail.GetProperty("totalAmount").GetDecimal());
+        Assert.Equal("Detail Customer", detail.GetProperty("customerName").GetString());
+        Assert.Equal("+919876543210", detail.GetProperty("customerPhone").GetString());
         Assert.Single(detail.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task GetSaleDetail_ReturnsNullCustomerIdentityForWalkInSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = (string?)null,
+            customerPhone = (string?)null,
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/sales/{saleId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailResponse = await client.SendAsync(detailRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(string.IsNullOrEmpty(detail.GetProperty("customerName").GetString()));
+        Assert.True(string.IsNullOrEmpty(detail.GetProperty("customerPhone").GetString()));
     }
 
     [Fact]
@@ -786,6 +844,17 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
         var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(118m, saleBody.GetProperty("dueAmount").GetDecimal());
+        Assert.Equal("Due Customer", saleBody.GetProperty("customerName").GetString());
+        Assert.Equal("+919876543210", saleBody.GetProperty("customerPhone").GetString());
+
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/sales/{saleBody.GetProperty("saleId").GetGuid()}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailResponse = await client.SendAsync(detailRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Due Customer", detail.GetProperty("customerName").GetString());
+        Assert.Equal("+919876543210", detail.GetProperty("customerPhone").GetString());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

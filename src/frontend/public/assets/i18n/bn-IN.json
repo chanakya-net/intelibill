@@ -9,8 +9,10 @@
     "actions": "কার্যক্রম",
     "edit": "সম্পাদনা",
     "save": "সংরক্ষণ করুন",
+    "done": "সম্পন্ন",
     "currencySymbol": "₹",
-    "search": "অনুসন্ধান করুন..."
+    "search": "অনুসন্ধান করুন...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -689,6 +691,35 @@
       "beforeDiscount": "ছাড়ের আগে",
       "discount": "ছাড়",
       "totalSavings": "মোট সাশ্রয়"
+    },
+    "invoice": {
+      "returnItems": "আইটেম ফেরত দিন",
+      "printA4": "A4 প্রিন্ট করুন",
+      "printThermal": "থার্মাল প্রিন্ট করুন",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "বিক্রয় রিপোর্ট",

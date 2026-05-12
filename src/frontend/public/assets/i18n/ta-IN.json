@@ -9,8 +9,10 @@
     "actions": "செயல்கள்",
     "edit": "திருத்து",
     "save": "சேமி",
+    "done": "முடிந்தது",
     "currencySymbol": "₹",
-    "search": "தேடு..."
+    "search": "தேடு...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "ஆங்கிலம்",
@@ -689,6 +691,35 @@
       "beforeDiscount": "தள்ளுபடிக்கு முன்",
       "discount": "தள்ளுபடி",
       "totalSavings": "மொத்த சேமிப்பு"
+    },
+    "invoice": {
+      "returnItems": "பொருட்களை திரும்ப கொடு",
+      "printA4": "A4 அச்சிடு",
+      "printThermal": "தெர்மல் அச்சிடு",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "விற்பனை அறிக்கை",

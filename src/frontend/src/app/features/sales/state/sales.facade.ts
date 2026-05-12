@@ -22,6 +22,7 @@ export class SalesFacade {
   readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectReturnPreviewErrorMessage);
   readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossReport);
   readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
+  readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedSale);
 
   loadSales(): void {
     this.store.dispatch(SalesActions.loadSalesRequested());
@@ -65,5 +66,9 @@ export class SalesFacade {
 
   clearSaleReturnPreview(): void {
     this.store.dispatch(SalesActions.clearSaleReturnPreview());
+  }
+
+  clearLastRecordedSale(): void {
+    this.store.dispatch(SalesActions.clearLastRecordedSale());
   }
 }

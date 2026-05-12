@@ -1,0 +1,94 @@
+<article class="thermal-invoice">
+  <header class="thermal-invoice__section thermal-invoice__header">
+    <p class="thermal-invoice__shop-name">{{ shop.name }}</p>
+    <p *ngIf="shopAddress" class="thermal-invoice__line">{{ shopAddress }}</p>
+    <p *ngIf="shop.mobileNumber" class="thermal-invoice__line">Phone: {{ shop.mobileNumber }}</p>
+    <p *ngIf="shop.gstNumber" class="thermal-invoice__line">GSTIN: {{ shop.gstNumber }}</p>
+  </header>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__meta">
+      <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>
+      <span>{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+    </div>
+    <div class="thermal-invoice__customer">
+      <p class="thermal-invoice__line">{{ getCustomerDisplay() }}</p>
+      <p *ngIf="getCustomerPhone()" class="thermal-invoice__line">{{ getCustomerPhone() }}</p>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div *ngFor="let item of sale.items" class="thermal-invoice__item">
+      <div class="thermal-invoice__item-row">
+        <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
+        <span class="thermal-invoice__value">{{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+      </div>
+      <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+        <span>{{ item.quantity }} x {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}</span>
+        <span>{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%: {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+      </div>
+      <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
+        {{ 'sales.invoice.discount' | transloco }}: -{{ getLineDiscountAmount(item) | currency: 'INR': 'symbol': '1.2-2' }}
+      </p>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__summary-row">
+      <span>{{ 'sales.invoice.totalBeforeDiscount' | transloco }}</span>
+      <span>{{ sale.totalBeforeDiscount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row">
+      <span>{{ 'sales.invoice.discount' | transloco }}</span>
+      <span>-{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row">
+      <span>{{ 'sales.invoice.tax' | transloco }}</span>
+      <span>{{ sale.totalTaxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row thermal-invoice__summary-row--total">
+      <span>{{ 'sales.invoice.grandTotal' | transloco }}</span>
+      <span>{{ sale.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__payment-row">
+      <span>{{ 'sales.invoice.paymentMode' | transloco }}</span>
+      <span>{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>{{ 'sales.invoice.paidAmount' | transloco }}</span>
+      <span>{{ sale.paidAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>{{ 'sales.invoice.dueAmount' | transloco }}</span>
+      <span>{{ sale.dueAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>{{ 'sales.invoice.paymentStatus' | transloco }}</span>
+      <span
+        class="thermal-invoice__status"
+        [class.thermal-invoice__status--paid]="sale.dueAmount === 0"
+        [class.thermal-invoice__status--partial]="sale.dueAmount > 0 && sale.paidAmount > 0"
+      >
+        {{ getPaymentStatus() }}
+      </span>
+    </div>
+  </section>
+
+  <section *ngIf="sale.returns.length > 0" class="thermal-invoice__section thermal-invoice__returns">
+    <p class="thermal-invoice__returns-title">{{ 'sales.invoice.returns' | transloco }}</p>
+    <article *ngFor="let saleReturn of sale.returns" class="thermal-invoice__return">
+      <div class="thermal-invoice__item-row">
+        <span>{{ 'sales.invoice.returnNumber' | transloco }} {{ saleReturn.returnNumber }}</span>
+        <span>{{ saleReturn.returnedAt | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <p class="thermal-invoice__line">{{ 'sales.invoice.refundAmount' | transloco }}: {{ saleReturn.totalRefundAmount | currency: 'INR': 'symbol': '1.2-2' }}</p>
+      <p *ngIf="saleReturn.isVoided" class="thermal-invoice__void">{{ 'sales.invoice.voided' | transloco }}</p>
+      <p *ngIf="saleReturn.isVoided && saleReturn.voidReason" class="thermal-invoice__line">
+        {{ 'sales.invoice.voidReason' | transloco }}: {{ saleReturn.voidReason }}
+      </p>
+    </article>
+  </section>
+</article>

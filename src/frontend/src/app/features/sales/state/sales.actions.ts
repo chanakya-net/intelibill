@@ -48,5 +48,6 @@ export const SalesActions = createActionGroup({
     'Clear Mutation Status': emptyProps(),
     'Clear Sale Detail': emptyProps(),
     'Clear Sale Return Preview': emptyProps(),
+    'Clear Last Recorded Sale': emptyProps(),
   },
 });

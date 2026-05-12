@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -61,6 +62,7 @@ interface ReturnLineDraft {
 export class SaleDetailOverlayComponent {
   private readonly salesFacade = inject(SalesFacade);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -398,6 +400,20 @@ export class SaleDetailOverlayComponent {
 
     const payload: VoidSaleReturnRequest = { reason };
     this.salesFacade.voidSaleReturn(detail.saleId, saleReturn.saleReturnId, payload);
+  }
+
+  printA4(): void {
+    const saleId = this.sale()?.saleId;
+    if (saleId) {
+      window.open(`/sales/${saleId}/print?template=a4`, '_blank');
+    }
+  }
+
+  printThermal(): void {
+    const saleId = this.sale()?.saleId;
+    if (saleId) {
+      window.open(`/sales/${saleId}/print?template=thermal`, '_blank');
+    }
   }
 
   onClose(): void {

@@ -61,6 +61,7 @@ describe('salesReducer', () => {
       initialState,
       SalesActions.recordSaleRequested({
         payload: {
+          idempotencyKey: 'sale-test-key',
           customerId: null,
           customerName: null,
           customerPhone: null,
@@ -82,6 +83,8 @@ describe('salesReducer', () => {
       saleId: 's1',
       invoiceNumber: 'INV-s1',
       customerId: null,
+      customerName: null,
+      customerPhone: null,
       paymentMethod: 1,
       soldAt: '',
       paidAmount: 0,
@@ -101,6 +104,17 @@ describe('salesReducer', () => {
 
     expect(next.submitting).toBe(false);
     expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.lastRecordedSale).toEqual(sale);
+  });
+
+  it('clears last recorded sale on clearLastRecordedSale', () => {
+    const sale = { saleId: 's1' } as any;
+    const next = salesReducer(
+      { ...initialState, lastRecordedSale: sale },
+      SalesActions.clearLastRecordedSale()
+    );
+
+    expect(next.lastRecordedSale).toBeNull();
   });
 
   it('sets error on record sale failed', () => {
@@ -119,6 +133,8 @@ describe('salesReducer', () => {
       saleId: 's1',
       invoiceNumber: 'INV',
       customerId: null,
+      customerName: null,
+      customerPhone: null,
       paymentMethod: 1,
       soldAt: '',
       paidAmount: 0,
@@ -185,6 +201,8 @@ describe('salesReducer', () => {
       saleId: 's1',
       invoiceNumber: 'INV-s1',
       customerId: null,
+      customerName: null,
+      customerPhone: null,
       paymentMethod: 1,
       soldAt: '',
       paidAmount: 0,
@@ -244,6 +262,8 @@ describe('salesReducer', () => {
       saleId: 's1',
       invoiceNumber: 'INV-s1',
       customerId: null,
+      customerName: null,
+      customerPhone: null,
       paymentMethod: 1,
       soldAt: '',
       paidAmount: 0,
@@ -273,6 +293,8 @@ describe('salesReducer', () => {
       saleId: 's1',
       invoiceNumber: 'INV-s1',
       customerId: null,
+      customerName: null,
+      customerPhone: null,
       paymentMethod: 1,
       soldAt: '',
       paidAmount: 0,

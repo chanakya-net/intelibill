@@ -25,6 +25,8 @@ describe('SaleService', () => {
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
     customerId: null,
+    customerName: null,
+    customerPhone: null,
     paymentMethod: 1,
     soldAt: new Date().toISOString(),
     paidAmount: 500,
@@ -110,10 +112,12 @@ describe('SaleService', () => {
 
   it('maps discounted sale detail fields from the API payload', () => {
     const { service, http } = setup();
-    const sale: SaleDto = {
+  const sale: SaleDto = {
       saleId: 'sale-2',
       invoiceNumber: 'INV-002',
       customerId: 'cust-1',
+      customerName: 'Jane',
+      customerPhone: '9999999999',
       paymentMethod: 1,
       soldAt: '2026-05-11T01:00:00.000Z',
       paidAmount: 495,
@@ -173,6 +177,7 @@ describe('SaleService', () => {
     const { service, http } = setup();
     const sale = makeSaleDto();
     const payload = {
+      idempotencyKey: 'sale-test-key',
       customerId: null,
       customerName: 'Walk-in',
       customerPhone: null,
