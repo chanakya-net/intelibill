@@ -39,6 +39,8 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   saleId: 'sale-1',
   invoiceNumber: 'INV-1',
   customerId: 'customer-1',
+  customerName: 'Alice',
+  customerPhone: '+919999111222',
   paymentMethod: 1,
   soldAt: '2026-05-05T10:00:00Z',
   paidAmount: 220,

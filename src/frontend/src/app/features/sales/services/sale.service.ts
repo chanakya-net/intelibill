@@ -175,6 +175,8 @@ export interface SaleDto {
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly customerId: string | null;
+  readonly customerName: string | null;
+  readonly customerPhone: string | null;
   readonly paymentMethod: number;
   readonly soldAt: string;
   readonly paidAmount: number;

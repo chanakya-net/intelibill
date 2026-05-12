@@ -6,6 +6,8 @@ public sealed record SaleDto(
     Guid SaleId,
     string InvoiceNumber,
     Guid? CustomerId,
+    string? CustomerName,
+    string? CustomerPhone,
     PaymentMethod PaymentMethod,
     DateTimeOffset SoldAt,
     decimal PaidAmount,

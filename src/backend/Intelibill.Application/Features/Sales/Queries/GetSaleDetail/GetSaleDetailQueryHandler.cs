@@ -54,6 +54,8 @@ public sealed class GetSaleDetailQueryHandler(
             sale.Id,
             sale.InvoiceNumber,
             sale.CustomerId,
+            sale.CustomerName,
+            sale.CustomerPhone,
             sale.PaymentMethod,
             sale.SoldAt,
             sale.PaidAmount,

@@ -45,6 +45,8 @@ describe('SalesEffects', () => {
     saleId: id,
     invoiceNumber: `INV-${id}`,
     customerId: null,
+    customerName: null,
+    customerPhone: null,
     paymentMethod: 1,
     soldAt: new Date().toISOString(),
     paidAmount: 500,
