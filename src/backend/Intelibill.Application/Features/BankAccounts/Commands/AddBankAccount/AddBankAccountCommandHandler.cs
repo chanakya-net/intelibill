@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -12,14 +10,10 @@ namespace Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 
 public sealed class AddBankAccountCommandHandler(
     IBankAccountRepository bankAccountRepository,
-    IUnitOfWork unitOfWork,
-    IValidator<AddBankAccountCommand>? validator = null)
+    IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<BankAccountDto>> HandleAsync(AddBankAccountCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is not null) return validationResult.Value.Errors;
-
         if (string.IsNullOrWhiteSpace(command.BankName) || string.IsNullOrWhiteSpace(command.AccountNumber))
         {
             return Error.Validation("BankAccount.Required", "Bank name and account number are required.");

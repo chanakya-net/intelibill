@@ -21,7 +21,7 @@ public class ValidationMiddleware
         _serviceProvider = serviceProvider;
     }
 
-    public async Task<(HandlerContinuation, ErrorOr<TResponse>?)?> BeforeAsync<TMessage, TResponse>(
+    public async Task<(HandlerContinuation, ErrorOr<TResponse>?)> BeforeAsync<TMessage, TResponse>(
         TMessage message,
         CancellationToken cancellationToken)
     {
@@ -30,7 +30,7 @@ public class ValidationMiddleware
         var validator = _serviceProvider.GetService(typeof(IValidator<TMessage>)) as IValidator<TMessage>;
         
         if (validator is null)
-            return null; // No validator, continue to handler
+            return (HandlerContinuation.Continue, default); // No validator, continue to handler
 
         var result = await validator.ValidateAsync(message, cancellationToken);
         if (!result.IsValid)
@@ -44,7 +44,7 @@ public class ValidationMiddleware
             return (HandlerContinuation.Stop, errorOr);
         }
 
-        return null; // Continue to handler
+        return (HandlerContinuation.Continue, default); // Continue to handler
     }
 }
 

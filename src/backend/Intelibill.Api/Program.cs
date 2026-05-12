@@ -17,7 +17,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Wolverine;
-using Wolverine.FluentValidation;
 using Wolverine.Http;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -117,7 +116,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);
-    opts.UseFluentValidation();
+    opts.Policies.AddMiddleware<ValidationMiddleware>();
     // ErrorOrResultMiddleware: IErrorOr-typed After() params are not resolvable in
     // WolverineFx 5.24.0 without a custom variable source — omitted until redesigned.
     opts.Policies.AddMiddleware<W3CInboundEnvelopeMiddleware>();

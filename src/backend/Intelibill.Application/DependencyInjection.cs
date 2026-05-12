@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Inventory.Services;
@@ -15,6 +16,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
+        services.AddScoped<ValidationMiddleware>();
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
 
         services.AddScoped<IItemResolver, ItemResolver>();

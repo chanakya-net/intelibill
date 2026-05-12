@@ -123,35 +123,6 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
-    public async Task CreateShop_WhenNameBlank_ReturnsNameRequiredError()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var shopRepository = new InMemoryShopRepository();
-        var supplierRepository = new InMemorySupplierRepository();
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new CreateShopCommandHandler(
-            userRepository,
-            shopRepository,
-            supplierRepository,
-            refreshTokenRepository,
-            tokenService,
-            unitOfWork,
-            new CreateShopCommandValidator());
-
-        var result = await handler.HandleAsync(
-            new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null, null),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.NameRequired.Code);
-        Assert.Empty(shopRepository.AddedShops);
-    }
-
-    [Fact]
     public async Task CreateShop_WhenUserMissing_ReturnsUserNotFoundError()
     {
         var tokenService = BuildTokenService();
@@ -167,8 +138,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             supplierRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork,
-            null);
+            unitOfWork);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null, null),
@@ -196,8 +166,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             supplierRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork,
-            new CreateShopCommandValidator());
+            unitOfWork);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(
