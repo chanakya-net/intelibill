@@ -15,6 +15,7 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Email == normalized, cancellationToken);
     }
 
@@ -23,6 +24,7 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 
     public async Task<User?> GetByExternalLoginAsync(
@@ -33,6 +35,7 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(
                 u => u.ExternalLogins.Any(el => el.Provider == provider && el.ProviderKey == providerKey),
                 cancellationToken);
@@ -42,6 +45,7 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
