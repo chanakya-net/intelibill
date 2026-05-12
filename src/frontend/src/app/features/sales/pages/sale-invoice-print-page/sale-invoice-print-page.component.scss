@@ -62,8 +62,9 @@
 
 .invoice--thermal {
   max-width: 80mm;
+  width: 80mm;
   min-height: auto;
-  padding: 8mm;
+  padding: 0;
   box-shadow: none;
 }
 

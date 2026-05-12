@@ -1,0 +1,94 @@
+<article class="thermal-invoice">
+  <header class="thermal-invoice__section thermal-invoice__header">
+    <p class="thermal-invoice__shop-name">{{ shop.name }}</p>
+    <p *ngIf="shopAddress" class="thermal-invoice__line">{{ shopAddress }}</p>
+    <p *ngIf="shop.mobileNumber" class="thermal-invoice__line">Phone: {{ shop.mobileNumber }}</p>
+    <p *ngIf="shop.gstNumber" class="thermal-invoice__line">GSTIN: {{ shop.gstNumber }}</p>
+  </header>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__meta">
+      <span>Invoice #{{ sale.invoiceNumber }}</span>
+      <span>{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+    </div>
+    <div class="thermal-invoice__customer">
+      <p class="thermal-invoice__line">{{ getCustomerDisplay() }}</p>
+      <p *ngIf="getCustomerPhone()" class="thermal-invoice__line">{{ getCustomerPhone() }}</p>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div *ngFor="let item of sale.items" class="thermal-invoice__item">
+      <div class="thermal-invoice__item-row">
+        <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
+        <span class="thermal-invoice__value">{{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+      </div>
+      <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+        <span>{{ item.quantity }} x {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}</span>
+        <span>Tax {{ item.taxRatePercent }}%: {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+      </div>
+      <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
+        Discount: -{{ getLineDiscountAmount(item) | currency: 'INR': 'symbol': '1.2-2' }}
+      </p>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__summary-row">
+      <span>Subtotal</span>
+      <span>{{ sale.totalBeforeDiscount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row">
+      <span>Discount</span>
+      <span>-{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row">
+      <span>Tax</span>
+      <span>{{ sale.totalTaxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row thermal-invoice__summary-row--total">
+      <span>Grand total</span>
+      <span>{{ sale.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+  </section>
+
+  <section class="thermal-invoice__section">
+    <div class="thermal-invoice__payment-row">
+      <span>Mode</span>
+      <span>{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>Paid</span>
+      <span>{{ sale.paidAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>Due</span>
+      <span>{{ sale.dueAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__payment-row">
+      <span>Status</span>
+      <span
+        class="thermal-invoice__status"
+        [class.thermal-invoice__status--paid]="sale.dueAmount === 0"
+        [class.thermal-invoice__status--partial]="sale.dueAmount > 0 && sale.paidAmount > 0"
+      >
+        {{ getPaymentStatus() }}
+      </span>
+    </div>
+  </section>
+
+  <section *ngIf="sale.returns.length > 0" class="thermal-invoice__section thermal-invoice__returns">
+    <p class="thermal-invoice__returns-title">Returns</p>
+    <article *ngFor="let saleReturn of sale.returns" class="thermal-invoice__return">
+      <div class="thermal-invoice__item-row">
+        <span>Return #{{ saleReturn.returnNumber }}</span>
+        <span>{{ saleReturn.returnedAt | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <p class="thermal-invoice__line">Refund: {{ saleReturn.totalRefundAmount | currency: 'INR': 'symbol': '1.2-2' }}</p>
+      <p *ngIf="saleReturn.isVoided" class="thermal-invoice__void">VOIDED</p>
+      <p *ngIf="saleReturn.isVoided && saleReturn.voidReason" class="thermal-invoice__line">
+        Reason: {{ saleReturn.voidReason }}
+      </p>
+    </article>
+  </section>
+</article>

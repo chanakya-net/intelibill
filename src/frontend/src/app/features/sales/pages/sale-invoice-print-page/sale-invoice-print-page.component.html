@@ -15,11 +15,7 @@
   <ng-container *ngIf="!isLoading() && !errorMessage() && sale() as loadedSale">
     <article *ngIf="shop() as loadedShop" class="invoice" [class.invoice--thermal]="template() === 'thermal'">
       <app-sale-invoice-a4 *ngIf="template() === 'a4'" [sale]="loadedSale" [shop]="loadedShop"></app-sale-invoice-a4>
-
-      <section class="invoice__placeholder invoice__placeholder--thermal" *ngIf="template() === 'thermal'">
-        <h2>Thermal receipt preview</h2>
-        <p>Printable thermal invoice template placeholder.</p>
-      </section>
+      <app-sale-invoice-thermal *ngIf="template() === 'thermal'" [sale]="loadedSale" [shop]="loadedShop"></app-sale-invoice-thermal>
     </article>
   </ng-container>
 </main>

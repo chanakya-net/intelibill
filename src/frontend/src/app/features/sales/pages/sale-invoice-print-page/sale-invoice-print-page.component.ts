@@ -7,13 +7,14 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { ShopDetails, ShopService } from '../../../shops/services/shop.service';
 import { SaleDto, SaleService } from '../../services/sale.service';
 import { SaleInvoiceA4Component } from '../../components/sale-invoice-a4.component';
+import { SaleInvoiceThermalComponent } from '../../components/sale-invoice-thermal.component';
 
 type InvoiceTemplate = 'a4' | 'thermal';
 
 @Component({
   selector: 'app-sale-invoice-print-page',
   standalone: true,
-  imports: [CommonModule, SaleInvoiceA4Component],
+  imports: [CommonModule, SaleInvoiceA4Component, SaleInvoiceThermalComponent],
   templateUrl: './sale-invoice-print-page.component.html',
   styleUrl: './sale-invoice-print-page.component.scss',
 })
@@ -81,4 +82,3 @@ export class SaleInvoicePrintPageComponent {
     return template === 'thermal' ? 'thermal' : 'a4';
   }
 }
-

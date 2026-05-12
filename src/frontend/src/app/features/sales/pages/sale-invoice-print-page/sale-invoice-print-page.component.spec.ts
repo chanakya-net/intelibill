@@ -137,6 +137,19 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(fixture.componentInstance.template()).toBe('thermal');
   });
 
+  it('renders thermal invoice component for thermal template', () => {
+    const fixture = createComponent('thermal');
+
+    fixture.detectChanges();
+    vi.runOnlyPendingTimers();
+
+    const thermalInvoice = fixture.nativeElement.querySelector('app-sale-invoice-thermal');
+    const placeholder = fixture.nativeElement.textContent ?? '';
+
+    expect(thermalInvoice).not.toBeNull();
+    expect(placeholder).not.toContain('Thermal receipt preview');
+  });
+
   it('sets an error and does not print when data loading fails', () => {
     saleService.getSaleById.mockReturnValue(throwError(() => ({ error: { detail: 'Sale missing' } })));
 
