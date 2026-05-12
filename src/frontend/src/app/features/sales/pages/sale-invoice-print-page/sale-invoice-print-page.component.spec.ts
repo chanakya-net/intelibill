@@ -2,12 +2,17 @@ import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
 import { ShopService } from '../../../shops/services/shop.service';
 import { SaleDto, SaleService } from '../../services/sale.service';
 import { SaleInvoicePrintPageComponent } from './sale-invoice-print-page.component';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
 
 describe('SaleInvoicePrintPageComponent', () => {
   const sale: SaleDto = {
@@ -67,7 +72,15 @@ describe('SaleInvoicePrintPageComponent', () => {
 
   const createComponent = (template?: string): ComponentFixture<SaleInvoicePrintPageComponent> => {
     TestBed.configureTestingModule({
-      imports: [CommonModule, SaleInvoicePrintPageComponent],
+      imports: [
+        CommonModule,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
+        SaleInvoicePrintPageComponent,
+      ],
       providers: [
         { provide: ActivatedRoute, useValue: createActivatedRoute(template) },
         { provide: SaleService, useValue: saleService },

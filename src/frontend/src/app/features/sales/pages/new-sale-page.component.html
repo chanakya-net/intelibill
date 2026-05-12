@@ -507,24 +507,24 @@
     @if (lastRecordedSale(); as sale) {
       <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
         <div class="flex justify-between mb-2">
-          <span class="text-slate-500">{{ 'sales.newSale.confirmation.invoiceNumber' | transloco }}</span>
+          <span class="text-slate-500">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
           <span class="font-mono font-bold">{{ sale.invoiceNumber }}</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-slate-500">{{ 'sales.newSale.confirmation.totalAmount' | transloco }}</span>
+          <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
           <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</span>
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3 w-full mb-4">
         <p-button
-          [label]="'sales.newSale.confirmation.printA4' | transloco"
+          [label]="'sales.invoice.printA4' | transloco"
           icon="pi pi-file"
           [outlined]="true"
           (click)="printA4(sale.saleId)"
         />
         <p-button
-          [label]="'sales.newSale.confirmation.printThermal' | transloco"
+          [label]="'sales.invoice.printThermal' | transloco"
           icon="pi pi-print"
           [outlined]="true"
           (click)="printThermal(sale.saleId)"
@@ -533,7 +533,7 @@
     }
 
     <p-button
-      [label]="'common.done' | transloco"
+      [label]="'sales.invoice.done' | transloco"
       icon="pi pi-check"
       (click)="onDone()"
       styleClass="w-full"

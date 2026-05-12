@@ -407,8 +407,7 @@ describe('SaleDetailOverlayComponent', () => {
   });
 
   it('does not call window.open if sale is not available', async () => {
-    selectedSale.set(null);
-    const { component } = await setup({});
+    const { component } = await setup(null);
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     component.printA4();

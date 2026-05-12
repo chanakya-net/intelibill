@@ -1,10 +1,15 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CommonModule } from '@angular/common';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { SaleInvoiceA4Component } from './sale-invoice-a4.component';
 import { SaleDto, SaleItemDto } from '../services/sale.service';
 import { ShopDetails } from '../../shops/services/shop.service';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
 
 describe('SaleInvoiceA4Component', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
@@ -75,7 +80,15 @@ describe('SaleInvoiceA4Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [CommonModule, SaleInvoiceA4Component],
+      imports: [
+        CommonModule,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
+        SaleInvoiceA4Component,
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SaleInvoiceA4Component);
@@ -606,7 +619,7 @@ describe('SaleInvoiceA4Component', () => {
       fixture.detectChanges();
 
       const returnsElement = fixture.nativeElement.querySelector('.invoice__returns');
-      expect(returnsElement?.textContent).toContain('VOIDED');
+      expect(returnsElement?.textContent).toContain('Voided');
     });
 
     it('renders void reason when present', () => {

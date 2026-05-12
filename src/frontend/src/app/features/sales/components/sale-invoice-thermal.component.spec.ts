@@ -1,9 +1,14 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CommonModule } from '@angular/common';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { SaleInvoiceThermalComponent } from './sale-invoice-thermal.component';
 import { SaleDto, SaleItemDto, SaleReturnDto } from '../services/sale.service';
 import { ShopDetails } from '../../shops/services/shop.service';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
 
 describe('SaleInvoiceThermalComponent', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
@@ -88,7 +93,15 @@ describe('SaleInvoiceThermalComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [CommonModule, SaleInvoiceThermalComponent],
+      imports: [
+        CommonModule,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
+        SaleInvoiceThermalComponent,
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SaleInvoiceThermalComponent);
@@ -221,8 +234,8 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(returnSection.textContent).toContain('RET-900');
     expect(returnSection.textContent).toContain('11/05/2026');
     expect(returnSection.textContent).toContain('₹30.00');
-    expect(returnSection.textContent).toContain('VOIDED');
-    expect(returnSection.textContent).toContain('Reason: Damaged item');
+    expect(returnSection?.textContent).toContain('Voided');
+    expect(returnSection?.textContent).toContain('Void Reason: Damaged item');
   });
 
   it('omits returns section when empty', () => {
