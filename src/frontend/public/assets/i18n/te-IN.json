@@ -908,6 +908,11 @@
       "disabling": "నిలిపివేస్తోంది..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "కొత్త నియమాన్ని సృష్టించండి లేదా ప్రస్తుతాన్ని భర్తీ సంస్కరణగా సవరించండి.",
       "createTitle": "తగ్గింపు నియమాన్ని సృష్టించండి",
       "editTitle": "తగ్గింపు నియమాన్ని సవరించండి",

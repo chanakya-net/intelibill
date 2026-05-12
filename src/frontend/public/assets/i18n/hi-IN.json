@@ -908,6 +908,11 @@
       "disabling": "निष्क्रिय हो रहा है..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "नया नियम बनाएं या मौजूदा नियम को रिप्लेसमेंट वर्जन के रूप में संपादित करें.",
       "createTitle": "छूट नियम बनाएं",
       "editTitle": "छूट नियम संपादित करें",

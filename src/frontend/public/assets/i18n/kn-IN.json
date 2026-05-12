@@ -908,6 +908,11 @@
       "disabling": "ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗುತ್ತಿದೆ..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "ಹೊಸ ನಿಯಮವನ್ನು ರಚಿಸಿ ಅಥವಾ ಪ್ರಸ್ತುತವನ್ನು ಬದಲಿ ಆವೃತ್ತಿಯಾಗಿ ಸಂಪಾದಿಸಿ.",
       "createTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ರಚಿಸಿ",
       "editTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ಸಂಪಾದಿಸಿ",

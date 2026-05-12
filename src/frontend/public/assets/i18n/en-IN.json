@@ -908,6 +908,11 @@
       "disabling": "Disabling..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "Create a new rule or edit the current one as a replacement version.",
       "createTitle": "Create discount rule",
       "editTitle": "Edit discount rule",

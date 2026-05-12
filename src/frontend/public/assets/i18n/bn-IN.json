@@ -908,6 +908,11 @@
       "disabling": "নিষ্ক্রিয় হচ্ছে..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "নতুন নিয়ম তৈরি করুন বা বর্তমানটি প্রতিস্থাপন ভার্সন হিসেবে সম্পাদনা করুন.",
       "createTitle": "ছাড়ের নিয়ম তৈরি করুন",
       "editTitle": "ছাড়ের নিয়ম সম্পাদনা করুন",

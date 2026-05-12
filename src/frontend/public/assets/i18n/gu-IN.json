@@ -908,6 +908,11 @@
       "disabling": "નિષ્ક્રિય કરી રહ્યા છીએ..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "નવો નિયમ બનાવો અથવા હાલનો નિયમ રિપ્લેસમેન્ટ વર્ઝન તરીકે સંપાદિત કરો.",
       "createTitle": "છૂટ નિયમ બનાવો",
       "editTitle": "છૂટ નિયમ સંપાદિત કરો",

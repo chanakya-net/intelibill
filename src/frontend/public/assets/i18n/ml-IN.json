@@ -908,6 +908,11 @@
       "disabling": "പ്രവർത്തനരഹിതമാക്കുന്നു..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "ഒരു പുതിയ റൂൾ സൃഷ്‌ടിക്കുക അല്ലെങ്കിൽ നിലവിലുള്ളത് ഒരു പകരം പതിപ്പായി എഡിറ്റ് ചെയ്യുക.",
       "createTitle": "കിഴിവ് നിയമം സൃഷ്ടിക്കുക",
       "editTitle": "കിഴിവ് നിയമം എഡിറ്റ് ചെയ്യുക",

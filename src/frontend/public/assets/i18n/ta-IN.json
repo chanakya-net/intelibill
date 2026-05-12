@@ -908,6 +908,11 @@
       "disabling": "முடக்குகிறது..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found"
+      },
       "subtitle": "புதிய விதியை உருவாக்கவும் அல்லது தற்போதைய ஒன்றை மாற்று பதிப்பாக மாற்றவும்.",
       "createTitle": "தள்ளுபடி விதியை உருவாக்கவும்",
       "editTitle": "தள்ளுபடி விதியைத் திருத்தவும்",

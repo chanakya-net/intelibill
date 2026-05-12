@@ -93,28 +93,26 @@
         @if (isBatchRule()) {
           <div class="field wide">
             <label for="discount-rule-batch-search">{{ 'discounts.editor.fields.batchSearch' | transloco }}</label>
-            <div class="batch-search-row">
-              <input
-                id="discount-rule-batch-search"
-                pInputText
-                type="text"
-                class="w-full"
-                [value]="batchSearchTerm()"
-                (input)="batchSearchTerm.set(($any($event.target)).value)"
-              />
-              <button
-                pButton
-                type="button"
-                severity="secondary"
-                [label]="'discounts.editor.actions.searchBatches' | transloco"
-                [loading]="searchLoading()"
-                (click)="onBatchSearch()"
-              ></button>
-            </div>
+            <input
+              id="discount-rule-batch-search"
+              pInputText
+              type="text"
+              class="w-full"
+              [value]="batchSearchTerm()"
+              (input)="onBatchSearchTermChange(($any($event.target)).value)"
+            />
             <p class="hint">
               {{ 'discounts.editor.fields.selectedBatch' | transloco }}:
               {{ selectedBatchLabel() || ('discounts.editor.fields.noneSelected' | transloco) }}
             </p>
+
+            @if (searchLoading()) {
+              <p class="hint">{{ 'discounts.editor.batchSearch.loading' | transloco }}</p>
+            } @else if (batchSearchMinCharsRequired()) {
+              <p class="hint">{{ 'discounts.editor.batchSearch.minChars' | transloco }}</p>
+            } @else if (batchSearchNoResults()) {
+              <p class="hint">{{ 'discounts.editor.batchSearch.noResults' | transloco }}</p>
+            }
 
             @if (batchSearchResults().length > 0) {
               <div class="batch-results">
@@ -127,8 +125,12 @@
                     class="batch-result"
                     (click)="onSelectBatch(batch)"
                   >
-                    <span>{{ batch.itemName }} · {{ batch.batchNumber }}</span>
-                    <span class="hint">{{ batch.inventoryBatchId }}</span>
+                    <span class="batch-result-primary">{{ batch.itemName }} · {{ batch.batchNumber }}</span>
+                    <span class="batch-result-metric">{{ batch.quantity }} available</span>
+                    <span class="batch-result-metric">Price: {{ batch.salesPrice }}</span>
+                    @if (batch.expiryDate) {
+                      <span class="batch-result-metric">Exp: {{ batch.expiryDate | date: 'mediumDate' }}</span>
+                    }
                   </button>
                 }
               </div>
