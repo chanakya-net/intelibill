@@ -914,6 +914,51 @@ describe('NewSalePageComponent', () => {
     expect(salesFacade.recordSale).not.toHaveBeenCalled();
   });
 
+  it('includes an idempotency key when submitting a sale', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-x',
+        barcode: 'X',
+        itemName: 'Item X',
+        batchNumber: 'B-X',
+        inventoryBatchId: 'batch-x',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+      },
+    ]);
+    component.checkoutPreview.set({
+      totalAmount: 100,
+      totalTaxableAmount: 100,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 100,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    } as SalePreviewDto);
+    component.paymentForm.controls.paidAmount.setValue(100);
+    component.paymentForm.controls.dueAmount.setValue(0);
+
+    component.onSubmit();
+
+    expect(salesFacade.recordSale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^sale-/),
+      })
+    );
+  });
+
   function createQrLikeBarcode() {
     return `QR|01|${crypto.randomUUID()}|TRACE|${crypto.randomUUID()}|PAYLOAD|AAAAAAAAAAAAAAAAAAAAAAAA`;
   }

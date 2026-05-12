@@ -9,8 +9,10 @@
     "actions": "क्रियाएं",
     "edit": "संपादित करें",
     "save": "सहेजें",
+    "done": "पूर्ण",
     "currencySymbol": "₹",
-    "search": "खोजें..."
+    "search": "खोजें...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "अंग्रेज़ी",
@@ -689,6 +691,35 @@
       "beforeDiscount": "छूट से पहले",
       "discount": "छूट",
       "totalSavings": "कुल बचत"
+    },
+    "invoice": {
+      "returnItems": "आइटम वापस करें",
+      "printA4": "A4 प्रिंट करें",
+      "printThermal": "थर्मल प्रिंट करें",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "बिक्री रिपोर्ट",

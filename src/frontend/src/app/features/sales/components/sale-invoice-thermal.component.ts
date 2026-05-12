@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { SaleDto, SaleItemDto } from '../services/sale.service';
 import { ShopDetails } from '../../shops/services/shop.service';
@@ -7,7 +8,7 @@ import { ShopDetails } from '../../shops/services/shop.service';
 @Component({
   selector: 'app-sale-invoice-thermal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslocoPipe],
   templateUrl: './sale-invoice-thermal.component.html',
   styleUrl: './sale-invoice-thermal.component.scss',
 })

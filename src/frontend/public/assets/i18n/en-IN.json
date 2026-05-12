@@ -9,8 +9,10 @@
     "actions": "Actions",
     "edit": "Edit",
     "save": "Save",
+    "done": "Done",
     "currencySymbol": "₹",
-    "search": "Search..."
+    "search": "Search...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "English",
@@ -697,6 +699,35 @@
       "beforeDiscount": "Before Discount",
       "discount": "Discount",
       "totalSavings": "Total Savings"
+    },
+    "invoice": {
+      "returnItems": "Return items",
+      "printA4": "Print A4",
+      "printThermal": "Print Thermal",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

@@ -9,8 +9,10 @@
     "actions": "ಕ್ರಿಯೆಗಳು",
     "edit": "ಸಂಪಾದಿಸಿ",
     "save": "ಉಳಿಸಿ",
+    "done": "ಮುಗಿದಿದೆ",
     "currencySymbol": "₹",
-    "search": "ಹುಡುಕಿ..."
+    "search": "ಹುಡುಕಿ...",
+    "loading": "Loading..."
   },
   "languages": {
     "en-IN": "ಇಂಗ್ಲಿಷ್",
@@ -689,6 +691,35 @@
       "beforeDiscount": "ರಿಯಾಯಿತಿಗೂ ಮೊದಲು",
       "discount": "ರಿಯಾಯಿತಿ",
       "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ"
+    },
+    "invoice": {
+      "returnItems": "ಐಟಂಗಳನ್ನು ಮರಳಿಸಿ",
+      "printA4": "A4 ಮುದ್ರಿಸಿ",
+      "printThermal": "ಥರ್ಮಲ್ ಮುದ್ರಿಸಿ",
+      "title": "Invoice",
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "walkInCustomer": "Walk-in Customer",
+      "paymentMode": "Payment Mode",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "partiallyPaid": "Partially Paid",
+      "paidAmount": "Paid Amount",
+      "dueAmount": "Due Amount",
+      "totalAmount": "Total Amount",
+      "totalBeforeDiscount": "Subtotal (Before Discount)",
+      "discount": "Discount",
+      "tax": "Tax",
+      "grandTotal": "Grand Total",
+      "printAgain": "Print Again",
+      "done": "Done",
+      "close": "Close",
+      "returns": "Returns",
+      "returnNumber": "Return #",
+      "refundAmount": "Refund Amount",
+      "voided": "Voided",
+      "voidReason": "Void Reason"
     },
     "profitLoss": {
       "eyebrow": "ಮಾರಾಟ ವರದಿ",

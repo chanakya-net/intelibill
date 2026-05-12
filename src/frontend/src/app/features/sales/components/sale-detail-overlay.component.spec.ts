@@ -130,8 +130,8 @@ describe('SaleDetailOverlayComponent', () => {
     }),
   };
 
-  async function setup(saleOverrides: Partial<SaleDto> = {}) {
-    selectedSale.set(makeSale(saleOverrides));
+  async function setup(saleOverrides: Partial<SaleDto> | null = {}) {
+    selectedSale.set(saleOverrides === null ? null : makeSale(saleOverrides));
     returnPreview.set(null);
     mutationType.set(null);
     mutationSucceeded.set(false);
@@ -368,5 +368,53 @@ describe('SaleDetailOverlayComponent', () => {
 
     expect(component.showVoidReturn()).toBe(false);
     expect(salesFacade.clearMutationStatus).toHaveBeenCalled();
+  });
+
+  it('renders Print A4 button for selected sale', async () => {
+    const { fixture, component } = await setup();
+    component.visible = true;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Print A4');
+  });
+
+  it('renders Print thermal button for selected sale', async () => {
+    const { fixture, component } = await setup();
+    component.visible = true;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Print Thermal');
+  });
+
+  it('opens A4 print page when printA4 is called', async () => {
+    const { component } = await setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    component.printA4();
+
+    expect(openSpy).toHaveBeenCalledWith('/sales/sale-1/print?template=a4', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('opens thermal print page when printThermal is called', async () => {
+    const { component } = await setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    component.printThermal();
+
+    expect(openSpy).toHaveBeenCalledWith('/sales/sale-1/print?template=thermal', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('does not call window.open if sale is not available', async () => {
+    selectedSale.set(null);
+    const { component } = await setup({});
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    component.printA4();
+    component.printThermal();
+
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 });

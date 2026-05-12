@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { forkJoin } from 'rxjs';
 
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -14,7 +15,7 @@ type InvoiceTemplate = 'a4' | 'thermal';
 @Component({
   selector: 'app-sale-invoice-print-page',
   standalone: true,
-  imports: [CommonModule, SaleInvoiceA4Component, SaleInvoiceThermalComponent],
+  imports: [CommonModule, TranslocoPipe, SaleInvoiceA4Component, SaleInvoiceThermalComponent],
   templateUrl: './sale-invoice-print-page.component.html',
   styleUrl: './sale-invoice-print-page.component.scss',
 })
