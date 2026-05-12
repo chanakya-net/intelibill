@@ -22,6 +22,7 @@
     <PackageReference Include="Serilog.Sinks.Async" />
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" />
     <PackageReference Include="WolverineFx.Http" />
+    <PackageReference Include="WolverineFx.FluentValidation" />
   </ItemGroup>
 
 </Project>

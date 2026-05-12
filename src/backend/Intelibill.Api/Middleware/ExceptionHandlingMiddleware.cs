@@ -25,9 +25,8 @@ public partial class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<E
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        // Safety net: ValidationMiddleware in the Wolverine pipeline should intercept all
-        // validation failures before they escape as exceptions. If this branch fires in
-        // production it indicates a registration gap — investigate ValidationMiddleware wiring.
+        // Wolverine's FluentValidation middleware throws for invalid messages; normalize
+        // those exceptions to the API's validation problem response shape.
         if (exception is FluentValidation.ValidationException ve)
         {
             var errors = ve.Errors.Select(e => new { code = e.PropertyName, description = e.ErrorMessage }).ToArray();
