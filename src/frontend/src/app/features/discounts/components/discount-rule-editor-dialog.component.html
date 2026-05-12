@@ -34,7 +34,12 @@
             appendTo="body"
             class="w-full"
           >
-            <ng-template #item let-option>
+            <ng-template pTemplate="selectedItem" let-option>
+              @if (option) {
+                {{ option.label | transloco }}
+              }
+            </ng-template>
+            <ng-template pTemplate="item" let-option>
               {{ option.label | transloco }}
             </ng-template>
           </p-select>
