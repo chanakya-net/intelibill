@@ -26,3 +26,4 @@ export const selectLoadingReturnPreview = salesFeature.selectLoadingReturnPrevie
 export const selectReturnPreviewErrorMessage = salesFeature.selectReturnPreviewErrorMessage;
 export const selectProfitLossReport = salesFeature.selectProfitLossReport;
 export const selectLoadingProfitLossReport = salesFeature.selectLoadingProfitLossReport;
+export const selectLastRecordedSale = salesFeature.selectLastRecordedSale;

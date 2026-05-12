@@ -489,3 +489,54 @@
     </p-card>
   </div>
 </section>
+
+<!-- Sale Recorded Confirmation Dialog -->
+<p-dialog
+  [header]="'sales.newSale.confirmation.title' | transloco"
+  [visible]="showConfirmation()"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '450px' }"
+>
+  <div class="flex flex-col items-center py-4 text-center">
+    <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
+    <h2 class="text-xl font-bold mb-2">{{ 'sales.newSale.confirmation.success' | transloco }}</h2>
+
+    @if (lastRecordedSale(); as sale) {
+      <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
+        <div class="flex justify-between mb-2">
+          <span class="text-slate-500">{{ 'sales.newSale.confirmation.invoiceNumber' | transloco }}</span>
+          <span class="font-mono font-bold">{{ sale.invoiceNumber }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">{{ 'sales.newSale.confirmation.totalAmount' | transloco }}</span>
+          <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 w-full mb-4">
+        <p-button
+          [label]="'sales.newSale.confirmation.printA4' | transloco"
+          icon="pi pi-file"
+          [outlined]="true"
+          (click)="printA4(sale.saleId)"
+        />
+        <p-button
+          [label]="'sales.newSale.confirmation.printThermal' | transloco"
+          icon="pi pi-print"
+          [outlined]="true"
+          (click)="printThermal(sale.saleId)"
+        />
+      </div>
+    }
+
+    <p-button
+      [label]="'common.done' | transloco"
+      icon="pi pi-check"
+      (click)="onDone()"
+      styleClass="w-full"
+    />
+  </div>
+</p-dialog>

@@ -668,6 +668,14 @@
         "discountUpdated": "Discount rules have been updated",
         "inventoryUpdated": "Inventory has been updated",
         "updated": "Checkout preview has been updated"
+      },
+      "confirmation": {
+        "title": "Sale Recorded",
+        "success": "The sale has been successfully recorded.",
+        "invoiceNumber": "Invoice Number",
+        "totalAmount": "Total Amount",
+        "printA4": "Print A4",
+        "printThermal": "Print Thermal"
       }
     },
     "detail": {

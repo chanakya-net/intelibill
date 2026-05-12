@@ -10,6 +10,7 @@ import {
   selectReturnPreviewErrorMessage,
   selectSelectedSale,
   selectSubmitting,
+  selectLastRecordedSale,
 } from './sales.selectors';
 
 const makeSale = (id: string): SaleListItemDto => ({
@@ -84,5 +85,11 @@ describe('sales selectors', () => {
   it('selectReturnPreviewErrorMessage reflects state', () => {
     const state = buildState([], { returnPreviewErrorMessage: 'preview failed' });
     expect(selectReturnPreviewErrorMessage.projector(state)).toBe('preview failed');
+  });
+
+  it('selectLastRecordedSale reflects state', () => {
+    const sale = { saleId: 's1' } as any;
+    const state = buildState([], { lastRecordedSale: sale });
+    expect(selectLastRecordedSale.projector(state)).toEqual(sale);
   });
 });

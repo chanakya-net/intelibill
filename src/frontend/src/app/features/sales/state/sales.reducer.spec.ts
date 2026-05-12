@@ -103,6 +103,17 @@ describe('salesReducer', () => {
 
     expect(next.submitting).toBe(false);
     expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.lastRecordedSale).toEqual(sale);
+  });
+
+  it('clears last recorded sale on clearLastRecordedSale', () => {
+    const sale = { saleId: 's1' } as any;
+    const next = salesReducer(
+      { ...initialState, lastRecordedSale: sale },
+      SalesActions.clearLastRecordedSale()
+    );
+
+    expect(next.lastRecordedSale).toBeNull();
   });
 
   it('sets error on record sale failed', () => {

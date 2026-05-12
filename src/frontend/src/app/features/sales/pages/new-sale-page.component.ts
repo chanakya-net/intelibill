@@ -9,6 +9,7 @@ import { Observable, Subject, catchError, debounceTime, map, of, switchMap } fro
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { DialogModule } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputGroupModule } from 'primeng/inputgroup';
@@ -59,6 +60,7 @@ type PreviewRequestResult =
     AutoCompleteModule,
     ButtonModule,
     CardModule,
+    DialogModule,
     DividerModule,
     InputGroupAddonModule,
     InputGroupModule,
@@ -125,11 +127,14 @@ export class NewSalePageComponent {
   readonly highlightedRowKeys = signal<Set<string>>(new Set());
   readonly showUpdateNotification = signal(false);
   readonly updateNotificationText = signal('');
+  readonly showConfirmation = signal(false);
   private readonly previewRequestState = { latestRequestId: 0 };
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
+  readonly lastMutationType = this.salesFacade.lastMutationType;
+  readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
   readonly customers = this.customersFacade.allCustomers;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly cartBootstrapped = signal(false);
@@ -314,18 +319,15 @@ export class NewSalePageComponent {
 
     effect(() => {
       if (this.lastMutationSucceeded()) {
-        this.cart.set([]);
-        this.searchInput.set('');
-        this.customerNameSuggestions.set([]);
-        this.customerForm.reset();
-        this.selectedCustomerId.set(null);
-        this.selectedCustomerName.set(null);
-        this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
-        this.paymentSplitError.set('');
-        this.checkoutPreview.set(null);
-        this.previewError.set('');
-        this.salesFacade.clearMutationStatus();
-        this.router.navigate(['/sales']);
+        const type = this.lastMutationType();
+        if (type === 'record-sale') {
+          this.showConfirmation.set(true);
+          this.resetTransientState();
+          return;
+        } else {
+          this.salesFacade.clearMutationStatus();
+          this.router.navigate(['/sales']);
+        }
       }
     });
 
@@ -1316,5 +1318,33 @@ export class NewSalePageComponent {
     this.checkoutPreview.set(null);
     this.isPreviewLoading.set(false);
     this.previewError.set('');
+  }
+
+  private resetTransientState(): void {
+    this.cart.set([]);
+    this.searchInput.set('');
+    this.customerNameSuggestions.set([]);
+    this.customerForm.reset();
+    this.selectedCustomerId.set(null);
+    this.selectedCustomerName.set(null);
+    this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
+    this.paymentSplitError.set('');
+    this.checkoutPreview.set(null);
+    this.previewError.set('');
+  }
+
+  onDone(): void {
+    this.showConfirmation.set(false);
+    this.salesFacade.clearLastRecordedSale();
+    this.salesFacade.clearMutationStatus();
+    this.router.navigate(['/sales']);
+  }
+
+  printA4(saleId: string): void {
+    window.open(`/sales/${saleId}/print?template=a4`, '_blank');
+  }
+
+  printThermal(saleId: string): void {
+    window.open(`/sales/${saleId}/print?template=thermal`, '_blank');
   }
 }

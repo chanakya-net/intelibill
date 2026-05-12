@@ -105,4 +105,9 @@ describe('SalesFacade', () => {
     facade.clearSaleReturnPreview();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearSaleReturnPreview());
   });
+
+  it('clearLastRecordedSale dispatches clearLastRecordedSale', () => {
+    facade.clearLastRecordedSale();
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.clearLastRecordedSale());
+  });
 });
