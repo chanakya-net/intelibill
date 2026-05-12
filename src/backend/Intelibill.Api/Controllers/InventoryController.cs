@@ -288,7 +288,7 @@ public sealed class InventoryController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var isBarcodeLookup = !string.IsNullOrWhiteSpace(barcode);
+        var isBarcodeLookup = string.IsNullOrWhiteSpace(searchTerm) && !string.IsNullOrWhiteSpace(barcode);
         var effectiveSearchTerm = isBarcodeLookup ? barcode : searchTerm;
 
         if (string.IsNullOrWhiteSpace(effectiveSearchTerm))

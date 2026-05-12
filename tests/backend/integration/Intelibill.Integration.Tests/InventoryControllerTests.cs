@@ -593,6 +593,35 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal("BATCH-ALP-202", first.GetProperty("batchNumber").GetString());
     }
 
+    [Fact]
+    public async Task GetAvailableBatches_WithSearchTermAndBarcode_UsesSearchPath()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcodeForScannerRoute = $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('X', 24)}";
+        await SeedAvailableBatchAsync(client, ownerToken, "Blue Apple", barcodeForScannerRoute, "B-APPLE");
+        await SeedAvailableBatchAsync(client, ownerToken, "Mango", "M-001", "B-MANGO");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/inventory/batches/available?searchTerm={Uri.EscapeDataString("blUe")}&barcode={Uri.EscapeDataString(barcodeForScannerRoute)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, body.ValueKind);
+        Assert.Single(body.EnumerateArray());
+
+        var first = body.EnumerateArray().First();
+        Assert.Equal("Blue Apple", first.GetProperty("itemName").GetString());
+        Assert.Equal(barcodeForScannerRoute, first.GetProperty("barcode").GetString());
+        Assert.Equal("B-APPLE", first.GetProperty("batchNumber").GetString());
+    }
+
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('F', 24)}";
 
