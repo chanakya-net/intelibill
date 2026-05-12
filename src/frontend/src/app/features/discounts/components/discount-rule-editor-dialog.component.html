@@ -108,7 +108,7 @@
 
             @if (searchLoading()) {
               <p class="hint">{{ 'discounts.editor.batchSearch.loading' | transloco }}</p>
-            } @else if (batchSearchMinCharsRequired()) {
+            } @else if (batchSearchTerm().trim().length > 0 && batchSearchMinCharsRequired()) {
               <p class="hint">{{ 'discounts.editor.batchSearch.minChars' | transloco }}</p>
             } @else if (batchSearchNoResults()) {
               <p class="hint">{{ 'discounts.editor.batchSearch.noResults' | transloco }}</p>

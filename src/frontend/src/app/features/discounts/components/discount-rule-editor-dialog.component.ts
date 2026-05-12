@@ -2,8 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnDestroy, Output, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { EMPTY, finalize, debounceTime, switchMap, takeUntil } from 'rxjs';
-import { Subject } from 'rxjs';
+import { EMPTY, Subject, debounceTime, finalize, switchMap, takeUntil } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -164,7 +163,7 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
           }
 
           this.batchSearchResults.set(batches);
-          this.batchSearchNoResults.set(batches.length === 0);
+          this.batchSearchNoResults.set(false);
           this.clearSubmitError();
         },
         error: () => {
