@@ -1,0 +1,142 @@
+<article class="invoice">
+  <!-- Header -->
+  <header class="invoice__header">
+    <div class="invoice__shop-info">
+      <h1 class="invoice__shop-name">{{ shop.name }}</h1>
+      <p class="invoice__shop-address">
+        {{ shop.address }}, {{ shop.city }}, {{ shop.state }} {{ shop.pincode }}
+      </p>
+      <p *ngIf="shop.mobileNumber" class="invoice__shop-phone">Phone: {{ shop.mobileNumber }}</p>
+      <p *ngIf="shop.gstNumber" class="invoice__shop-gst">GSTIN: {{ shop.gstNumber }}</p>
+    </div>
+
+    <div class="invoice__meta">
+      <div class="invoice__meta-item">
+        <span class="invoice__meta-label">Invoice #</span>
+        <span class="invoice__meta-value">{{ sale.invoiceNumber }}</span>
+      </div>
+      <div class="invoice__meta-item">
+        <span class="invoice__meta-label">Date</span>
+        <span class="invoice__meta-value">{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Customer Info -->
+  <section class="invoice__customer">
+    <div class="invoice__customer-label">Sold to:</div>
+    <div class="invoice__customer-info">
+      <span>{{ getCustomerDisplay() }}</span>
+      <span *ngIf="getCustomerPhone()" class="invoice__customer-phone">{{ getCustomerPhone() }}</span>
+    </div>
+  </section>
+
+  <!-- Items Table -->
+  <table class="invoice__items">
+    <thead class="invoice__items-header">
+      <tr>
+        <th class="invoice__col-item">Item</th>
+        <th class="invoice__col-qty">Qty</th>
+        <th class="invoice__col-price">Unit Price</th>
+        <th class="invoice__col-discount">Discount</th>
+        <th class="invoice__col-taxable">Taxable Amt</th>
+        <th class="invoice__col-tax">Tax %</th>
+        <th class="invoice__col-tax-amt">Tax Amt</th>
+        <th class="invoice__col-total">Line Total</th>
+      </tr>
+    </thead>
+    <tbody class="invoice__items-body">
+      <tr *ngFor="let item of sale.items" class="invoice__item-row">
+        <td class="invoice__col-item">{{ item.itemName }}</td>
+        <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+        <td class="invoice__col-price invoice__cell-right">
+          {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+        </td>
+        <td class="invoice__col-discount invoice__cell-right">
+          {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+        </td>
+        <td class="invoice__col-taxable invoice__cell-right">
+          {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </td>
+        <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+        <td class="invoice__col-tax-amt invoice__cell-right">
+          {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </td>
+        <td class="invoice__col-total invoice__cell-right">
+          {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Returns Section -->
+  <section *ngIf="sale.returns.length > 0" class="invoice__returns">
+    <h3 class="invoice__returns-title">Returns</h3>
+    <div *ngFor="let saleReturn of sale.returns" class="invoice__return-block">
+      <div class="invoice__return-header">
+        <span class="invoice__return-label">Return #{{ saleReturn.returnNumber }}</span>
+        <span class="invoice__return-date">{{ saleReturn.returnedAt | date: 'dd/MM/yyyy' }}</span>
+        <span *ngIf="saleReturn.isVoided" class="invoice__return-voided">VOIDED</span>
+      </div>
+      <div class="invoice__return-details">
+        <span class="invoice__return-amount">Refund: {{ saleReturn.totalRefundAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+        <span *ngIf="saleReturn.voidReason" class="invoice__return-reason">Void Reason: {{ saleReturn.voidReason }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Payment Summary -->
+  <section class="invoice__totals">
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">Subtotal (Before Discount)</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalBeforeDiscount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">Discount</span>
+      <span class="invoice__totals-value">
+        -{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">Tax</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalTaxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row invoice__totals-row--total">
+      <span class="invoice__totals-label">Grand Total</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+
+    <div class="invoice__divider"></div>
+
+    <div class="invoice__payment-info">
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">Payment Mode:</span>
+        <span class="invoice__payment-value">{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">Paid Amount:</span>
+        <span class="invoice__payment-value">
+          {{ sale.paidAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">Due Amount:</span>
+        <span class="invoice__payment-value">
+          {{ sale.dueAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">Payment Status:</span>
+        <span class="invoice__payment-value" [class.invoice__status-paid]="sale.dueAmount === 0" [class.invoice__status-due]="sale.dueAmount > 0">
+          {{ sale.dueAmount === 0 ? 'Paid' : 'Partial' }}
+        </span>
+      </div>
+    </div>
+  </section>
+</article>
