@@ -115,6 +115,7 @@ export interface RecordSaleItemRequest {
 }
 
 export interface RecordSaleRequest {
+  readonly idempotencyKey: string;
   readonly customerId: string | null;
   readonly customerName: string | null;
   readonly customerPhone: string | null;

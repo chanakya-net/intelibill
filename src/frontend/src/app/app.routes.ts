@@ -37,6 +37,14 @@ export const routes: Routes = [
 			),
 	},
 	{
+		path: 'sales/:saleId/print',
+		canActivate: [authGuard],
+		loadComponent: () =>
+			import(
+				'./features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component'
+			).then((m) => m.SaleInvoicePrintPageComponent),
+	},
+	{
 		path: '',
 		canActivate: [authGuard],
 		loadChildren: () =>

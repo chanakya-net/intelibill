@@ -139,6 +139,7 @@ describe('SalesEffects', () => {
     actions$.next(
       SalesActions.recordSaleRequested({
         payload: {
+          idempotencyKey: 'sale-test-key',
           customerId: null,
           customerName: null,
           customerPhone: null,
@@ -259,6 +260,7 @@ describe('SalesEffects', () => {
     actions$.next(
       SalesActions.recordSaleRequested({
         payload: {
+          idempotencyKey: 'sale-test-key',
           customerId: null,
           customerName: null,
           customerPhone: null,

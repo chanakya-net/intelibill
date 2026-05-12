@@ -61,6 +61,7 @@ describe('salesReducer', () => {
       initialState,
       SalesActions.recordSaleRequested({
         payload: {
+          idempotencyKey: 'sale-test-key',
           customerId: null,
           customerName: null,
           customerPhone: null,

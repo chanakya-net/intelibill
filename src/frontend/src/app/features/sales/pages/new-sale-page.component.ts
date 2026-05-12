@@ -675,6 +675,7 @@ export class NewSalePageComponent {
     }
 
     const request: RecordSaleRequest = {
+      idempotencyKey: this.createSaleIdempotencyKey(),
       customerId: this.selectedCustomerId(),
       customerName,
       customerPhone,
@@ -686,6 +687,14 @@ export class NewSalePageComponent {
     };
 
     this.salesFacade.recordSale(request);
+  }
+
+  private createSaleIdempotencyKey(): string {
+    if (globalThis.crypto?.randomUUID) {
+      return `sale-${globalThis.crypto.randomUUID()}`;
+    }
+
+    return `sale-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   onCancel(): void {

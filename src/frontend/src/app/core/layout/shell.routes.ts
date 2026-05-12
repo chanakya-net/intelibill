@@ -72,13 +72,6 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
-				path: 'sales/:saleId/print',
-				loadComponent: () =>
-					import(
-						'../../features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component'
-					).then((m) => m.SaleInvoicePrintPageComponent),
-			},
-			{
 				path: 'sales',
 				loadComponent: () =>
 					import('../../features/sales/pages/sales-page.component').then(

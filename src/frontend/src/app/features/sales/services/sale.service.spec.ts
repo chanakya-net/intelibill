@@ -177,6 +177,7 @@ describe('SaleService', () => {
     const { service, http } = setup();
     const sale = makeSaleDto();
     const payload = {
+      idempotencyKey: 'sale-test-key',
       customerId: null,
       customerName: 'Walk-in',
       customerPhone: null,
