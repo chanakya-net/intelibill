@@ -288,7 +288,8 @@ public sealed class InventoryController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var effectiveSearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? barcode : searchTerm;
+        var isBarcodeLookup = !string.IsNullOrWhiteSpace(barcode);
+        var effectiveSearchTerm = isBarcodeLookup ? barcode : searchTerm;
 
         if (string.IsNullOrWhiteSpace(effectiveSearchTerm))
             return new List<Error>
@@ -297,7 +298,7 @@ public sealed class InventoryController : AuthenticatedControllerBase
             }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
-            new GetAvailableBatchesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm),
+            new GetAvailableBatchesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup),
             cancellationToken);
 
         return result.ToActionResult(Ok);

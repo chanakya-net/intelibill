@@ -65,4 +65,23 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
             .ThenBy(b => b.BatchNumber)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<InventoryBatch>> SearchAvailableByProductNameOrBatchNumberAsync(
+        Guid shopId,
+        string searchTerm,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedSearchTerm = searchTerm.Trim();
+        return await DbSet
+            .Include(b => b.Item)
+            .Where(b => b.ShopId == shopId
+                && (EF.Functions.ILike(b.Item.Name, $"%{normalizedSearchTerm}%")
+                    || EF.Functions.ILike(b.BatchNumber, $"%{normalizedSearchTerm}%"))
+                && !b.IsVoided
+                && b.Quantity > 0)
+            .OrderBy(b => b.Item.Name)
+            .ThenBy(b => b.ExpiryDate)
+            .ThenBy(b => b.BatchNumber)
+            .ToListAsync(cancellationToken);
+    }
 }

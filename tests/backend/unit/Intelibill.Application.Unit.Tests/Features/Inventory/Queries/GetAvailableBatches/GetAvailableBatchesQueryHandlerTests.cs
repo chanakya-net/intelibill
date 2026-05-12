@@ -33,6 +33,17 @@ public class GetAvailableBatchesQueryHandlerTests
         return result.Value;
     }
 
+    private static Item MakeItem(Guid shopId, string barcode, string name) =>
+        Item.Create(shopId, name, null, "kg", barcode, true, Guid.NewGuid());
+
+    private static InventoryBatch MakeBatchWithItem(Guid shopId, Item item)
+    {
+        var batch = MakeBatch(shopId, item.Id);
+        typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.Item), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)!
+            .SetValue(batch, item);
+        return batch;
+    }
+
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
 
@@ -88,14 +99,48 @@ public class GetAvailableBatchesQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenBatchesExist_ReturnsMappedDtos()
+    public async Task Handle_WhenSearchTermUsed_CallsSearchRepositoryAndMapsItemFields()
     {
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-        var itemId = Guid.NewGuid();
+        var searchTerm = "apple";
+        var item = MakeItem(shop.Id, "BAR-1", "Green Apple");
+        var batch = MakeBatchWithItem(shop.Id, item);
+        var expectedBatchId = batch.Id;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _batchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>())
+            .Returns(new[] { batch });
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value);
+        Assert.Equal(item.Barcode, result.Value[0].Barcode);
+        Assert.Equal(item.Name, result.Value[0].ItemName);
+        Assert.Equal(batch.BatchNumber, result.Value[0].BatchNumber);
+        Assert.Equal(expectedBatchId, result.Value[0].InventoryBatchId);
+        Assert.Equal(batch.Quantity, result.Value[0].Quantity);
+        Assert.Equal(batch.SalesPrice, result.Value[0].SalesPrice);
+
+        await _batchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _batchRepository.DidNotReceive().GetAvailableByBarcodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenBarcodeUsed_CallsBarcodeRepositoryAndMapsItemFields()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
         var searchTerm = CreateQrLikeBarcode();
-        var batch = MakeBatch(shop.Id, itemId);
+        var item = MakeItem(shop.Id, "BAR-QR", "QR Rice");
+        var batch = MakeBatchWithItem(shop.Id, item);
+        var expectedBatchId = batch.Id;
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
@@ -104,15 +149,18 @@ public class GetAvailableBatchesQueryHandlerTests
             .Returns(new[] { batch });
 
         var handler = CreateHandler();
-        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
+        var result = await handler.Handle(new GetAvailableBatchesQuery(user.Id, shop.Id, searchTerm, true), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Single(result.Value);
-        Assert.Equal(searchTerm, result.Value[0].Barcode);
-        Assert.Equal(searchTerm, result.Value[0].ItemName);
+        Assert.Equal(item.Barcode, result.Value[0].Barcode);
+        Assert.Equal(item.Name, result.Value[0].ItemName);
         Assert.Equal(batch.BatchNumber, result.Value[0].BatchNumber);
-        Assert.Equal(batch.Id, result.Value[0].InventoryBatchId);
+        Assert.Equal(expectedBatchId, result.Value[0].InventoryBatchId);
         Assert.Equal(batch.Quantity, result.Value[0].Quantity);
         Assert.Equal(batch.SalesPrice, result.Value[0].SalesPrice);
+
+        await _batchRepository.Received(1).GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _batchRepository.DidNotReceive().SearchAvailableByProductNameOrBatchNumberAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

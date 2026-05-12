@@ -110,7 +110,35 @@ public class InventoryControllerTests
             Arg.Is<GetAvailableBatchesQuery>(q =>
                 q.UserId == userId
                 && q.ShopId == shopId
-                && q.SearchTerm == barcode),
+                && q.SearchTerm == barcode
+                && q.IsBarcodeLookup),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAvailableBatches_WhenSearchTermProvided_UsesSearchMode()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var searchTerm = "apple";
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(Array.Empty<AvailableBatchDto>().ToList()));
+
+        var result = await _controller.GetAvailableBatches(searchTerm: searchTerm, barcode: null, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
+            Arg.Is<GetAvailableBatchesQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SearchTerm == searchTerm
+                && !q.IsBarcodeLookup),
             Arg.Any<CancellationToken>());
     }
 

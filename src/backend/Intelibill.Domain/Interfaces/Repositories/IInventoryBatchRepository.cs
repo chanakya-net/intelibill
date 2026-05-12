@@ -10,4 +10,5 @@ public interface IInventoryBatchRepository : IRepository<InventoryBatch>
     Task<IReadOnlyList<InventoryBatch>> GetByItemIdsAndBatchNumbersAsync(Guid shopId, IReadOnlyList<Guid> itemIds, IReadOnlyList<string> batchNumbers, CancellationToken cancellationToken = default);
     Task<InventoryBatch?> GetByIdWithItemAsync(Guid batchId, Guid shopId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryBatch>> GetAvailableByBarcodeAsync(Guid shopId, string barcode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InventoryBatch>> SearchAvailableByProductNameOrBatchNumberAsync(Guid shopId, string searchTerm, CancellationToken cancellationToken = default);
 }
