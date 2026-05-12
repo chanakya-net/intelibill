@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "ইনভেন্টরি ব্যাচ খুঁজছে...",
+        "minChars": "অনুসন্ধানের জন্য কমপক্ষে 3টি অক্ষর টাইপ করুন",
+        "noResults": "কোনো মিলিত ব্যাচ পাওয়া যায়নি",
+        "quantityAvailable": "{{quantity}}টি উপলব্ধ",
+        "price": "দাম: {{price}}",
+        "expiry": "মেয়াদ শেষ: {{date}}"
       },
       "subtitle": "নতুন নিয়ম তৈরি করুন বা বর্তমানটি প্রতিস্থাপন ভার্সন হিসেবে সম্পাদনা করুন.",
       "createTitle": "ছাড়ের নিয়ম তৈরি করুন",

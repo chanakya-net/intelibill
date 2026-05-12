@@ -126,10 +126,16 @@
                     (click)="onSelectBatch(batch)"
                   >
                     <span class="batch-result-primary">{{ batch.itemName }} · {{ batch.batchNumber }}</span>
-                    <span class="batch-result-metric">{{ batch.quantity }} available</span>
-                    <span class="batch-result-metric">Price: {{ batch.salesPrice }}</span>
+                    <span class="batch-result-metric">
+                      {{ 'discounts.editor.batchSearch.quantityAvailable' | transloco: { quantity: batch.quantity } }}
+                    </span>
+                    <span class="batch-result-metric">
+                      {{ 'discounts.editor.batchSearch.price' | transloco: { price: batch.salesPrice } }}
+                    </span>
                     @if (batch.expiryDate) {
-                      <span class="batch-result-metric">Exp: {{ batch.expiryDate | date: 'mediumDate' }}</span>
+                      <span class="batch-result-metric">
+                        {{ 'discounts.editor.batchSearch.expiry' | transloco: { date: (batch.expiryDate | date: 'mediumDate') } }}
+                      </span>
                     }
                   </button>
                 }

@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "ഇൻവെൻ്ററി ബാച്ചുകൾ തിരയുന്നു...",
+        "minChars": "തിരയാൻ കുറഞ്ഞത് 3 അക്ഷരങ്ങൾ ടൈപ്പ് ചെയ്യുക",
+        "noResults": "പോരുത്തമുള്ള ബാച്ചുകൾ കണ്ടെത്താനായില്ല",
+        "quantityAvailable": "{{quantity}} ലഭ്യമാണ്",
+        "price": "വില: {{price}}",
+        "expiry": "കാലാവധി: {{date}}"
       },
       "subtitle": "ഒരു പുതിയ റൂൾ സൃഷ്‌ടിക്കുക അല്ലെങ്കിൽ നിലവിലുള്ളത് ഒരു പകരം പതിപ്പായി എഡിറ്റ് ചെയ്യുക.",
       "createTitle": "കിഴിവ് നിയമം സൃഷ്ടിക്കുക",

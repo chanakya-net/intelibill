@@ -911,7 +911,10 @@
       "batchSearch": {
         "loading": "Searching inventory batches...",
         "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "noResults": "No matching batches found",
+        "quantityAvailable": "{{quantity}} available",
+        "price": "Price: {{price}}",
+        "expiry": "Exp: {{date}}"
       },
       "subtitle": "Create a new rule or edit the current one as a replacement version.",
       "createTitle": "Create discount rule",

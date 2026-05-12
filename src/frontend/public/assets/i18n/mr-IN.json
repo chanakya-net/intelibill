@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "इन्व्हेंटरी बॅच शोधत आहे...",
+        "minChars": "शोधण्यासाठी किमान 3 अक्षरे टाइप करा",
+        "noResults": "कोणतेही जुळणारे बॅच सापडले नाहीत",
+        "quantityAvailable": "{{quantity}} उपलब्ध",
+        "price": "किंमत: {{price}}",
+        "expiry": "समाप्ती: {{date}}"
       },
       "subtitle": "नवीन नियम तयार करा किंवा सध्याचा नियम बदल आवृत्ती म्हणून संपादित करा.",
       "createTitle": "सवलत नियम तयार करा",

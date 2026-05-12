@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "ઇન્વેન્ટરી બેચ શોધી રહ્યા છીએ...",
+        "minChars": "શોધવા માટે ઓછામાં ઓછા 3 અક્ષરો લખો",
+        "noResults": "કોઈ મેળ ખાતી બેચ મળી નથી",
+        "quantityAvailable": "{{quantity}} ઉપલબ્ધ",
+        "price": "કિંમત: {{price}}",
+        "expiry": "સમાપ્તિ: {{date}}"
       },
       "subtitle": "નવો નિયમ બનાવો અથવા હાલનો નિયમ રિપ્લેસમેન્ટ વર્ઝન તરીકે સંપાદિત કરો.",
       "createTitle": "છૂટ નિયમ બનાવો",

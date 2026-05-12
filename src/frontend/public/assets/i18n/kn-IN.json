@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "ಸಂಗ್ರಹ ಬ್ಯಾಚ್‌ಗಳನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ...",
+        "minChars": "ಹುಡುಕಲು ಕನಿಷ್ಠ 3 ಅಕ್ಷರಗಳನ್ನು ಬರೆಯಿರಿ",
+        "noResults": "ಹೊಂದಾಣಿಕೆಯ ಬ್ಯಾಚ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+        "quantityAvailable": "{{quantity}} ಲಭ್ಯವಿದೆ",
+        "price": "ಬೆಲೆ: {{price}}",
+        "expiry": "ಅಂತ್ಯ: {{date}}"
       },
       "subtitle": "ಹೊಸ ನಿಯಮವನ್ನು ರಚಿಸಿ ಅಥವಾ ಪ್ರಸ್ತುತವನ್ನು ಬದಲಿ ಆವೃತ್ತಿಯಾಗಿ ಸಂಪಾದಿಸಿ.",
       "createTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ರಚಿಸಿ",

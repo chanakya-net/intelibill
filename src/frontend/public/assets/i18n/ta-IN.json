@@ -909,9 +909,12 @@
     },
     "editor": {
       "batchSearch": {
-        "loading": "Searching inventory batches...",
-        "minChars": "Type at least 3 characters to search",
-        "noResults": "No matching batches found"
+        "loading": "இன்வெண்டரி பேட்ச் தேடப்படுகிறது...",
+        "minChars": "தேட குறைந்தது 3 எழுத்துகளை உள்ளிடுங்கள்",
+        "noResults": "பொருந்தும் தொகுப்புகள் எதுவும் இல்லை",
+        "quantityAvailable": "{{quantity}} கிடைக்கிறது",
+        "price": "விலை: {{price}}",
+        "expiry": "காலாவதி: {{date}}"
       },
       "subtitle": "புதிய விதியை உருவாக்கவும் அல்லது தற்போதைய ஒன்றை மாற்று பதிப்பாக மாற்றவும்.",
       "createTitle": "தள்ளுபடி விதியை உருவாக்கவும்",

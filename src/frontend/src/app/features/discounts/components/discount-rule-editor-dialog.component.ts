@@ -51,7 +51,7 @@ interface SelectOption<T> {
   templateUrl: './discount-rule-editor-dialog.component.html',
   styleUrl: './discount-rule-editor-dialog.component.scss',
 })
-export class DiscountRuleEditorDialogComponent {
+export class DiscountRuleEditorDialogComponent implements OnDestroy {
   private readonly discountService = inject(DiscountService);
   private readonly inventoryService = inject(InventoryService);
   private readonly formBuilder = inject(FormBuilder);
@@ -230,12 +230,6 @@ export class DiscountRuleEditorDialogComponent {
     const selectedLabel = this.selectedBatchLabel();
 
     this.batchSearchTerm.set(searchTerm);
-
-    if (trimmed.length < 3) {
-      this.batchSearchResults.set([]);
-      this.batchSearchNoResults.set(false);
-      return;
-    }
 
     if (selectedLabel && trimmed !== selectedLabel.trim()) {
       this.form.controls.inventoryBatchId.setValue('');
