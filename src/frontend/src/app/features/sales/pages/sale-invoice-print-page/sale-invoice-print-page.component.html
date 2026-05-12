@@ -1,0 +1,47 @@
+<main class="invoice-print-page" [class.invoice-print-page--thermal]="template() === 'thermal'">
+  <div class="screen-controls" aria-label="Invoice print controls">
+    <button type="button" class="screen-controls__button" (click)="onPrintAgain()">Print again</button>
+    <button type="button" class="screen-controls__button screen-controls__button--secondary" (click)="onClose()">
+      Close
+    </button>
+  </div>
+
+  <section *ngIf="isLoading()" class="print-state" aria-live="polite">Loading invoice...</section>
+
+  <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
+    {{ errorMessage() }}
+  </section>
+
+  <ng-container *ngIf="!isLoading() && !errorMessage() && sale() as loadedSale">
+    <article *ngIf="shop() as loadedShop" class="invoice" [class.invoice--thermal]="template() === 'thermal'">
+      <header class="invoice__header">
+        <div>
+          <h1>{{ loadedShop.name }}</h1>
+          <p>{{ loadedShop.address }}, {{ loadedShop.city }}, {{ loadedShop.state }} {{ loadedShop.pincode }}</p>
+          <p *ngIf="loadedShop.mobileNumber">Phone: {{ loadedShop.mobileNumber }}</p>
+          <p *ngIf="loadedShop.gstNumber">GSTIN: {{ loadedShop.gstNumber }}</p>
+        </div>
+        <div class="invoice__meta">
+          <strong>Invoice</strong>
+          <span>{{ loadedSale.invoiceNumber }}</span>
+          <span>{{ loadedSale.soldAt | date: 'medium' }}</span>
+        </div>
+      </header>
+
+      <section class="invoice__placeholder" *ngIf="template() === 'a4'">
+        <h2>A4 invoice preview</h2>
+        <p>Printable A4 invoice template placeholder.</p>
+      </section>
+
+      <section class="invoice__placeholder invoice__placeholder--thermal" *ngIf="template() === 'thermal'">
+        <h2>Thermal receipt preview</h2>
+        <p>Printable thermal invoice template placeholder.</p>
+      </section>
+
+      <footer class="invoice__totals">
+        <span>Total</span>
+        <strong>{{ loadedSale.totalAmount | currency: 'INR' }}</strong>
+      </footer>
+    </article>
+  </ng-container>
+</main>
