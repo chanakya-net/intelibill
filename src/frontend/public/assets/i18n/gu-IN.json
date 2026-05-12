@@ -44,25 +44,25 @@
       "emailInvalid": "માન્ય ઇમેઇલ સરનામું દાખલ કરો.",
       "passwordRequired": "પાસવર્ડ જરૂરી છે.",
       "loginIdentifierRequired": "તમારો ઇમેઇલ અથવા મોબાઇલ નંબર દાખલ કરો.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ઇમેઇલ જરૂરી છે."
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "પાસવર્ડ ભૂલી ગયા?",
+      "title": "તમારો પાસવર્ડ રીસેટ કરો",
+      "successMessage": "જો તમારો ઇમેઇલ અમારા રેકોર્ડમાં હશે તો અમે તમને પાસવર્ડ રીસેટ લિંક મોકલીશું.",
+      "errorMessage": "તમારી વિનંતી પ્રક્રિયા થઈ શકી નથી. કૃપા કરીને ફરી પ્રયાસ કરો.",
+      "rateLimitMessage": "ઘણા પ્રયાસો થયા છે. કૃપા કરીને પછી ફરી પ્રયાસ કરો.",
+      "submitButton": "રીસેટ લિંક મોકલો",
+      "rememberPassword": "પાસવર્ડ યાદ છે?",
+      "backToLogin": "લૉગિન પર પાછા જાઓ"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "નવો પાસવર્ડ સેટ કરો",
+      "invalidLinkMessage": "આ પાસવર્ડ રીસેટ લિંક અમાન્ય છે અથવા તેની સમયમર્યાદા પૂર્ણ થઈ ગઈ છે.",
+      "rateLimitMessage": "ઘણા પ્રયાસો થયા છે. કૃપા કરીને પછી ફરી પ્રયાસ કરો.",
+      "submitButton": "પાસવર્ડ રીસેટ કરો",
+      "requestNewLink": "નવી રીસેટ લિંક માગો",
+      "successMessage": "તમારો પાસવર્ડ રીસેટ થયો છે. કૃપા કરીને નવા પાસવર્ડથી સાઇન ઇન કરો."
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "ઇન્વેન્ટરી",
     "subtitle": "સક્રિય દુકાન માટે ઉત્પાદનો ઉમેરો અને સ્ટૉક ઑપરેશન માટે તમારો કૅટેલૉગ તૈયાર રાખો.",
     "searchPlaceholder": "ઉત્પાદનો શોધો",
+    "selectBatch": "બૅચ પસંદ કરો",
+    "searchBatchPlaceholder": "બૅચ નંબર શોધો...",
     "name": "ઉત્પાદનનું નામ",
     "barcode": "બારકોડ",
     "description": "વર્ણન",
@@ -410,7 +412,9 @@
     "scannerOpenError": "કૅમેરા સ્કૅનર શરૂ કરવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો.",
     "productForm": "ઉત્પાદન ફૉર્મ ઉમેરો",
     "noItemsFound": "હજી કોઈ ઉત્પાદન ઉમેરાયું નથી",
-    "noItemsDescription": "આ દુકાનમાં તમારું પ્રથમ ઉત્પાદન બનાવવા નવું ઉત્પાદન ઉમેરો વાપરો."
+    "noItemsDescription": "આ દુકાનમાં તમારું પ્રથમ ઉત્પાદન બનાવવા નવું ઉત્પાદન ઉમેરો વાપરો.",
+    "noAdjustments": "કોઈ સમાયોજન મળ્યા નથી",
+    "noAdjustmentsDescription": "તમારા વર્તમાન ફિલ્ટર્સ સાથે મેળ ખાતા સમાયોજનો અહીં દેખાશે."
   },
   "profile": {
     "account": "એકાઉન્ટ",
@@ -908,6 +912,14 @@
       "disabling": "નિષ્ક્રિય કરી રહ્યા છીએ..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "ઇન્વેન્ટરી બેચ શોધી રહ્યા છીએ...",
+        "minChars": "શોધવા માટે ઓછામાં ઓછા 3 અક્ષરો લખો",
+        "noResults": "કોઈ મેળ ખાતી બેચ મળી નથી",
+        "quantityAvailable": "{{quantity}} ઉપલબ્ધ",
+        "price": "કિંમત: {{price}}",
+        "expiry": "સમાપ્તિ: {{date}}"
+      },
       "subtitle": "નવો નિયમ બનાવો અથવા હાલનો નિયમ રિપ્લેસમેન્ટ વર્ઝન તરીકે સંપાદિત કરો.",
       "createTitle": "છૂટ નિયમ બનાવો",
       "editTitle": "છૂટ નિયમ સંપાદિત કરો",
@@ -948,7 +960,10 @@
         "errorsTitle": "પ્રીવ્યુ સમસ્યાઓ",
         "infosTitle": "પ્રીવ્યુ નોંધો",
         "affectedSampleTitle": "અસરગ્રસ્ત નમૂનો",
-        "belowCostSampleTitle": "ખર્ચથી નીચે નમૂનો"
+        "belowCostSampleTitle": "ખર્ચથી નીચે નમૂનો",
+        "sampleSalesPrice": "વેચાણ કિંમત",
+        "sampleCostPrice": "લાગત કિંમત",
+        "sampleDiscountedPrice": "ડિસ્કાઉન્ટ પછી"
       },
       "errors": {
         "fixValidation": "પ્રીવ્યુ પહેલાં ફોર્મ ભૂલો સુધારો",

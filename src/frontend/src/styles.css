@@ -44,7 +44,12 @@ p {
 }
 
 /* ── Shell: PrimeNG menubar overrides ─────────────────────────────────────── */
-.app-shell .p-menubar .p-menubar-root-list,
+.app-shell .p-menubar .p-menubar-root-list {
+  display: flex;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
 .app-shell .p-menubar .p-menubar-submenu {
   gap: 0.2rem;
 }

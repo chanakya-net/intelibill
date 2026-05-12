@@ -44,25 +44,25 @@
       "emailInvalid": "সঠিক ইমেল ঠিকানা লিখুন।",
       "passwordRequired": "পাসওয়ার্ড আবশ্যক।",
       "loginIdentifierRequired": "আপনার ইমেল বা মোবাইল নম্বর লিখুন.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ইমেইল প্রয়োজন।"
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "পাসওয়ার্ড ভুলে গেছেন?",
+      "title": "আপনার পাসওয়ার্ড রিসেট করুন",
+      "successMessage": "আপনার ইমেইল আমাদের রেকর্ডে থাকলে আমরা আপনাকে পাসওয়ার্ড রিসেট লিঙ্ক পাঠাব।",
+      "errorMessage": "আপনার অনুরোধ প্রক্রিয়া করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "rateLimitMessage": "অতিরিক্ত চেষ্টা করা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।",
+      "submitButton": "রিসেট লিঙ্ক পাঠান",
+      "rememberPassword": "পাসওয়ার্ড মনে আছে?",
+      "backToLogin": "লগইনে ফিরে যান"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "নতুন পাসওয়ার্ড সেট করুন",
+      "invalidLinkMessage": "এই পাসওয়ার্ড রিসেট লিঙ্কটি অবৈধ বা মেয়াদোত্তীর্ণ।",
+      "rateLimitMessage": "অতিরিক্ত চেষ্টা করা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।",
+      "submitButton": "পাসওয়ার্ড রিসেট করুন",
+      "requestNewLink": "নতুন রিসেট লিঙ্ক অনুরোধ করুন",
+      "successMessage": "আপনার পাসওয়ার্ড রিসেট হয়েছে। অনুগ্রহ করে নতুন পাসওয়ার্ড দিয়ে সাইন ইন করুন।"
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "ইনভেন্টরি",
     "subtitle": "সক্রিয় শপের জন্য পণ্য যোগ করুন এবং স্টক কাজের জন্য ক্যাটালగ প্রস্তুত রাখুন।",
     "searchPlaceholder": "পণ্য খুঁজুন",
+    "selectBatch": "ব্যাচ নির্বাচন করুন",
+    "searchBatchPlaceholder": "ব্যাচ নম্বর খুঁজুন...",
     "name": "পণ্যের নাম",
     "barcode": "বারকোড",
     "description": "বিবরণ",
@@ -410,7 +412,9 @@
     "scannerOpenError": "ক্যামেরা স্ক্যানার শুরু করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
     "productForm": "পণ্য ফর্ম যোগ করুন",
     "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
-    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।"
+    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
+    "noAdjustments": "কোনো সমন্বয় পাওয়া যায়নি",
+    "noAdjustmentsDescription": "আপনার বর্তমান ফিল্টারের সাথে মেলে এমন সমন্বয় এখানে দেখাবে।"
   },
   "profile": {
     "account": "অ্যাকাউন্ট",
@@ -908,6 +912,14 @@
       "disabling": "নিষ্ক্রিয় হচ্ছে..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "ইনভেন্টরি ব্যাচ খুঁজছে...",
+        "minChars": "অনুসন্ধানের জন্য কমপক্ষে 3টি অক্ষর টাইপ করুন",
+        "noResults": "কোনো মিলিত ব্যাচ পাওয়া যায়নি",
+        "quantityAvailable": "{{quantity}}টি উপলব্ধ",
+        "price": "দাম: {{price}}",
+        "expiry": "মেয়াদ শেষ: {{date}}"
+      },
       "subtitle": "নতুন নিয়ম তৈরি করুন বা বর্তমানটি প্রতিস্থাপন ভার্সন হিসেবে সম্পাদনা করুন.",
       "createTitle": "ছাড়ের নিয়ম তৈরি করুন",
       "editTitle": "ছাড়ের নিয়ম সম্পাদনা করুন",
@@ -948,7 +960,10 @@
         "errorsTitle": "প্রিভিউ সমস্যা",
         "infosTitle": "প্রিভিউ নোট",
         "affectedSampleTitle": "প্রভাবিত নমুনা",
-        "belowCostSampleTitle": "খরচের নিচে নমুনা"
+        "belowCostSampleTitle": "খরচের নিচে নমুনা",
+        "sampleSalesPrice": "বিক্রয় মূল্য",
+        "sampleCostPrice": "ক্রয়মূল্য",
+        "sampleDiscountedPrice": "ছাড়ের পর"
       },
       "errors": {
         "fixValidation": "প্রিভিউর আগে ফর্ম ত্রুটি ঠিক করুন",

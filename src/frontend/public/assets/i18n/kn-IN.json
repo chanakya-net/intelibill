@@ -44,25 +44,25 @@
       "emailInvalid": "ಮಾನ್ಯ ಇಮೇಲ್ ವಿಳಾಸ ನಮೂದಿಸಿ.",
       "passwordRequired": "ಪಾಸ್‌ವರ್ಡ್ ಅಗತ್ಯವಿದೆ.",
       "loginIdentifierRequired": "ನಿಮ್ಮ ಇಮೇಲ್ ಅಥವಾ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ಇಮೇಲ್ ಅಗತ್ಯವಿದೆ."
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "ಪಾಸ್ವರ್ಡ್ ಮರೆತಿರಾ?",
+      "title": "ನಿಮ್ಮ ಪಾಸ್ವರ್ಡ್ ಮರುಹೊಂದಿಸಿ",
+      "successMessage": "ನಿಮ್ಮ ಇಮೇಲ್ ನಮ್ಮ ದಾಖಲೆಗಳಲ್ಲಿ ಇದ್ದರೆ ನಾವು ಪಾಸ್ವರ್ಡ್ ಮರುಹೊಂದಿಸುವ ಲಿಂಕ್ ಕಳುಹಿಸುತ್ತೇವೆ.",
+      "errorMessage": "ನಿಮ್ಮ ವಿನಂತಿಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "rateLimitMessage": "ಅತಿ ಹೆಚ್ಚು ಪ್ರಯತ್ನಗಳು. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "submitButton": "ರಿಸೆಟ್ ಲಿಂಕ್ ಕಳುಹಿಸಿ",
+      "rememberPassword": "ಪಾಸ್ವರ್ಡ್ ನೆನಪಿದೆಯೇ?",
+      "backToLogin": "ಲಾಗಿನ್‌ಗೆ ಹಿಂತಿರುಗಿ"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "ಹೊಸ ಪಾಸ್ವರ್ಡ್ ಹೊಂದಿಸಿ",
+      "invalidLinkMessage": "ಈ ಪಾಸ್ವರ್ಡ್ ರಿಸೆಟ್ ಲಿಂಕ್ ಅಮಾನ್ಯವಾಗಿದೆ ಅಥವಾ ಅವಧಿ ಮುಗಿದಿದೆ.",
+      "rateLimitMessage": "ಅತಿ ಹೆಚ್ಚು ಪ್ರಯತ್ನಗಳು. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "submitButton": "ಪಾಸ್ವರ್ಡ್ ರಿಸೆಟ್ ಮಾಡಿ",
+      "requestNewLink": "ಹೊಸ ರಿಸೆಟ್ ಲಿಂಕ್ ವಿನಂತಿಸಿ",
+      "successMessage": "ನಿಮ್ಮ ಪಾಸ್ವರ್ಡ್ ಮರುಹೊಂದಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಹೊಸ ಪಾಸ್ವರ್ಡ್ ಬಳಸಿ ಸೈನ್ ಇನ್ ಮಾಡಿ."
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "ಇನ್‌ವೆಂಟರಿ",
     "subtitle": "ಸಕ್ರಿಯ ಅಂಗಡಿಗಾಗಿ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಿ ಮತ್ತು ಸ್ಟಾಕ್ ಕಾರ್ಯಗಳಿಗೆ ನಿಮ್ಮ ಕ್ಯಾಟಲಾಗ್ ಸಿದ್ಧವಾಗಿರಲಿ.",
     "searchPlaceholder": "ಉತ್ಪನ್ನಗಳನ್ನು ಹುಡುಕಿ",
+    "selectBatch": "ಬ್ಯಾಚ್ ಆಯ್ಕೆ ಮಾಡಿ",
+    "searchBatchPlaceholder": "ಬ್ಯಾಚ್ ಸಂಖ್ಯೆಯನ್ನು ಹುಡುಕಿ...",
     "name": "ಉತ್ಪನ್ನ ಹೆಸರು",
     "barcode": "ಬಾರ್ಕೋಡ್",
     "description": "ವಿವರಣೆ",
@@ -410,7 +412,9 @@
     "scannerOpenError": "ಕ್ಯಾಮೆರಾ ಸ್ಕ್ಯಾನರ್ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
     "productForm": "ಉತ್ಪನ್ನ ಫಾರ್ಮ್ ಸೇರಿಸಿ",
     "noItemsFound": "ಇನ್ನೂ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ",
-    "noItemsDescription": "ಈ ಅಂಗಡಿಯಲ್ಲಿ ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಲು ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ ಬಳಸಿ."
+    "noItemsDescription": "ಈ ಅಂಗಡಿಯಲ್ಲಿ ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಲು ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ ಬಳಸಿ.",
+    "noAdjustments": "ಯಾವುದೇ ಸರಿಹೊಂದింపುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noAdjustmentsDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಫಿಲ್ಟರ್‌ಗಳಿಗೆ ಹೊಂದುವ ಸರಿಹೊಂದింపುಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ."
   },
   "profile": {
     "account": "ಖಾತೆ",
@@ -908,6 +912,14 @@
       "disabling": "ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗುತ್ತಿದೆ..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "ಸಂಗ್ರಹ ಬ್ಯಾಚ್‌ಗಳನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ...",
+        "minChars": "ಹುಡುಕಲು ಕನಿಷ್ಠ 3 ಅಕ್ಷರಗಳನ್ನು ಬರೆಯಿರಿ",
+        "noResults": "ಹೊಂದಾಣಿಕೆಯ ಬ್ಯಾಚ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+        "quantityAvailable": "{{quantity}} ಲಭ್ಯವಿದೆ",
+        "price": "ಬೆಲೆ: {{price}}",
+        "expiry": "ಅಂತ್ಯ: {{date}}"
+      },
       "subtitle": "ಹೊಸ ನಿಯಮವನ್ನು ರಚಿಸಿ ಅಥವಾ ಪ್ರಸ್ತುತವನ್ನು ಬದಲಿ ಆವೃತ್ತಿಯಾಗಿ ಸಂಪಾದಿಸಿ.",
       "createTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ರಚಿಸಿ",
       "editTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ಸಂಪಾದಿಸಿ",
@@ -948,7 +960,10 @@
         "errorsTitle": "ಸಮಸ್ಯೆಗಳ ಪೂರ್ವವೀಕ್ಷಣೆ",
         "infosTitle": "ಟಿಪ್ಪಣಿಗಳನ್ನು ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡಿ",
         "affectedSampleTitle": "ಪೀಡಿತ ಮಾದರಿ",
-        "belowCostSampleTitle": "ಕಡಿಮೆ ವೆಚ್ಚದ ಮಾದರಿ"
+        "belowCostSampleTitle": "ಕಡಿಮೆ ವೆಚ್ಚದ ಮಾದರಿ",
+        "sampleSalesPrice": "ಮಾರಾಟ ಬೆಲೆ",
+        "sampleCostPrice": "ವೆಚ್ಚ ಬೆಲೆ",
+        "sampleDiscountedPrice": "ರಿಯಾಯಿತಿ ಬಳಿಕ"
       },
       "errors": {
         "fixValidation": "ಪೂರ್ವವೀಕ್ಷಣೆ ಮಾಡುವ ಮೊದಲು ಫಾರ್ಮ್ ದೋಷಗಳನ್ನು ಸರಿಪಡಿಸಿ",

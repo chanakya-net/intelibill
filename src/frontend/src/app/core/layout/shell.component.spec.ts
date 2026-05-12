@@ -539,4 +539,40 @@ describe('ShellComponent', () => {
     expect(component.isShopMenuOpen()).toBe(false);
     expect(component.isProfileMenuOpen()).toBe(false);
   });
+
+  it('renders shell-middle-zone container for main menu', () => {
+    const fixture = createFixture();
+    const middleZone = fixture.nativeElement.querySelector('.shell-middle-zone') as HTMLElement;
+
+    expect(middleZone).toBeDefined();
+    expect(middleZone).not.toBeNull();
+  });
+
+  it('renders p-menubar inside shell-middle-zone when main menu items exist', () => {
+    const fixture = createFixture();
+    const middleZone = fixture.nativeElement.querySelector('.shell-middle-zone') as HTMLElement;
+    const menubar = middleZone?.querySelector('p-menubar');
+
+    expect(menubar).toBeDefined();
+    expect(menubar).not.toBeNull();
+  });
+
+  it('preserves profile trigger and tiered menu structure', () => {
+    const fixture = createFixture();
+    const profileTrigger = fixture.nativeElement.querySelector('.profile-trigger') as HTMLElement;
+    const profileMenu = fixture.nativeElement.querySelector('p-tieredMenu');
+
+    expect(profileTrigger).toBeDefined();
+    expect(profileTrigger).not.toBeNull();
+    expect(profileMenu).toBeDefined();
+    expect(profileMenu).not.toBeNull();
+  });
+
+  it('renders mobile menu trigger for responsive navigation', () => {
+    const fixture = createFixture();
+    const mobileMenuTrigger = fixture.nativeElement.querySelector('.mobile-menu-trigger') as HTMLElement;
+
+    expect(mobileMenuTrigger).toBeDefined();
+    expect(mobileMenuTrigger).not.toBeNull();
+  });
 });

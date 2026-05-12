@@ -1,3 +1,3 @@
 namespace Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
 
-public sealed record GetAvailableBatchesQuery(Guid UserId, Guid ShopId, string SearchTerm);
+public sealed record GetAvailableBatchesQuery(Guid UserId, Guid ShopId, string SearchTerm, bool IsBarcodeLookup = false);

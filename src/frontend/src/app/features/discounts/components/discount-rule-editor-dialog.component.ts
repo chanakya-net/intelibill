@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, Output, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { finalize } from 'rxjs';
+import { EMPTY, Subject, debounceTime, finalize, switchMap, takeUntil } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -50,10 +50,12 @@ interface SelectOption<T> {
   templateUrl: './discount-rule-editor-dialog.component.html',
   styleUrl: './discount-rule-editor-dialog.component.scss',
 })
-export class DiscountRuleEditorDialogComponent {
+export class DiscountRuleEditorDialogComponent implements OnDestroy {
   private readonly discountService = inject(DiscountService);
   private readonly inventoryService = inject(InventoryService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly destroy$ = new Subject<void>();
+  private readonly batchSearch$ = new Subject<string>();
 
   @Output() readonly saved = new EventEmitter<DiscountRuleDto>();
   @Output() readonly closed = new EventEmitter<void>();
@@ -63,6 +65,7 @@ export class DiscountRuleEditorDialogComponent {
   readonly editingRule = signal<DiscountRuleDto | null>(null);
   readonly batchSearchTerm = signal('');
   readonly batchSearchResults = signal<readonly AvailableBatchDto[]>([]);
+  readonly batchSearchNoResults = signal(false);
   readonly selectedBatchLabel = signal('');
   readonly searchLoading = signal(false);
   readonly previewLoading = signal(false);
@@ -70,6 +73,8 @@ export class DiscountRuleEditorDialogComponent {
   readonly submitErrorKey = signal('');
   readonly submitErrorMessage = signal('');
   readonly preview = signal<DiscountRulePreviewDto | null>(null);
+
+  readonly batchSearchMinCharsRequired = computed(() => this.batchSearchTerm().trim().length < 3);
 
   readonly form = this.formBuilder.group({
     ruleType: this.formBuilder.nonNullable.control<DiscountRuleType>('BatchPercentage', [
@@ -113,6 +118,67 @@ export class DiscountRuleEditorDialogComponent {
     this.form.controls.ruleType.valueChanges.subscribe(() => this.syncDynamicValidators());
     this.form.controls.belowCostConfirmed.valueChanges.subscribe(() => this.syncDynamicValidators());
     this.syncDynamicValidators();
+
+    // Setup debounced batch search
+    this.batchSearch$
+      .pipe(
+        debounceTime(300),
+        switchMap((searchTerm) => {
+          const trimmed = searchTerm.trim();
+          if (trimmed.length < 3) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(false);
+            this.searchLoading.set(false);
+            return EMPTY;
+          }
+
+          this.searchLoading.set(true);
+          this.batchSearchNoResults.set(false);
+
+          this.form.controls.inventoryBatchId.setValue('');
+          this.selectedBatchLabel.set('');
+
+          return this.inventoryService.getAvailableBatchesBySearchTerm(trimmed).pipe(
+            finalize(() => this.searchLoading.set(false)),
+            takeUntil(this.destroy$),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (batches) => {
+          if (batches.length === 1) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(false);
+            this.onSelectBatch(batches[0]);
+            return;
+          }
+
+          if (batches.length === 0) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(true);
+            this.form.controls.inventoryBatchId.setValue('');
+            this.selectedBatchLabel.set('');
+            return;
+          }
+
+          this.batchSearchResults.set(batches);
+          this.batchSearchNoResults.set(false);
+          this.clearSubmitError();
+        },
+        error: () => {
+          this.batchSearchResults.set([]);
+          this.batchSearchNoResults.set(false);
+          this.setSubmitErrorKey('discounts.errors.batchSearchFailed');
+        },
+      });
+
+    // Debounced stream handles search term updates via onBatchSearchTermChange.
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   open(mode: DiscountEditorMode, rule: DiscountRuleDto | null = null): void {
@@ -124,6 +190,7 @@ export class DiscountRuleEditorDialogComponent {
     this.batchSearchResults.set([]);
     this.batchSearchTerm.set('');
     this.selectedBatchLabel.set('');
+    this.batchSearchNoResults.set(false);
 
     this.form.reset({
       ruleType: rule?.ruleType ?? 'BatchPercentage',
@@ -156,27 +223,23 @@ export class DiscountRuleEditorDialogComponent {
     this.closed.emit();
   }
 
-  onBatchSearch(): void {
-    const searchTerm = this.batchSearchTerm().trim();
-    if (!searchTerm) {
-      this.batchSearchResults.set([]);
-      return;
+  onBatchSearchTermChange(rawValue: string): void {
+    const searchTerm = rawValue;
+    const trimmed = searchTerm.trim();
+    const selectedLabel = this.selectedBatchLabel();
+
+    this.batchSearchTerm.set(searchTerm);
+
+    if (selectedLabel && trimmed !== selectedLabel.trim()) {
+      this.form.controls.inventoryBatchId.setValue('');
+      this.selectedBatchLabel.set('');
     }
 
-    this.searchLoading.set(true);
-    this.inventoryService
-      .getAvailableBatchesBySearchTerm(searchTerm)
-      .pipe(finalize(() => this.searchLoading.set(false)))
-      .subscribe({
-        next: (batches) => {
-          this.batchSearchResults.set([...batches]);
-          this.clearSubmitError();
-        },
-        error: () => {
-          this.batchSearchResults.set([]);
-          this.setSubmitErrorKey('discounts.errors.batchSearchFailed');
-        },
-      });
+    if (!selectedLabel) {
+      this.form.controls.inventoryBatchId.setValue('');
+    }
+
+    this.batchSearch$.next(searchTerm);
   }
 
   onSelectBatch(batch: AvailableBatchDto): void {
@@ -184,6 +247,7 @@ export class DiscountRuleEditorDialogComponent {
     this.batchSearchTerm.set(`${batch.itemName} · ${batch.batchNumber}`);
     this.selectedBatchLabel.set(`${batch.itemName} · ${batch.batchNumber}`);
     this.batchSearchResults.set([]);
+    this.batchSearchNoResults.set(false);
   }
 
   onPreviewRule(): void {

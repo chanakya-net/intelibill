@@ -1,7 +1,8 @@
 @use './button-mixins' as buttons;
 @use './form-control-mixins' as controls;
 
-.login-shell {
+.login-shell,
+.forgot-password-shell {
   position: relative;
   overflow: hidden;
   display: flex;
@@ -26,12 +27,14 @@
   position: relative;
   z-index: 2;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(255, 255, 255, 0.5);
   background: linear-gradient(180deg, #ffd2a8 0%, #ffc18a 100%);
   box-shadow: 0 14px 36px rgba(124, 45, 18, 0.24);
   max-width: 26rem;
   width: 100%;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0;
   margin-left: clamp(1rem, 2vw, 2.4rem);
 }
 
@@ -44,7 +47,7 @@
   h2 {
     margin: 0;
     font-size: 2.45rem;
-    line-height: 1;
+    line-height: 1.05;
     font-weight: 800;
     letter-spacing: -0.02em;
     color: #f8fafc;
@@ -56,6 +59,33 @@
     text-transform: uppercase;
     letter-spacing: 0.11em;
     color: rgba(255, 237, 213, 0.95);
+  }
+}
+
+.auth-footer {
+  margin-top: auto;
+  padding: 0.9rem 1.5rem 1.15rem;
+  border-top: 1px solid rgba(124, 45, 18, 0.14);
+  background: rgba(255, 247, 237, 0.55);
+
+  p {
+    margin: 0;
+    color: #431407;
+    font-size: 1rem;
+    line-height: 1.35;
+    text-align: center;
+  }
+}
+
+.auth-link {
+  margin-left: 0.35rem;
+  color: #9a3412;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover {
+    color: #7c2d12;
+    text-decoration: underline;
   }
 }
 
@@ -287,13 +317,34 @@
 }
 
 @media (max-width: 640px) {
-  .login-shell {
+  .login-shell,
+  .forgot-password-shell {
     background: linear-gradient(155deg, #ffe9d5 0%, #ffd7b1 100%);
   }
 
+  .auth-stage {
+    padding: 1rem 0.85rem;
+  }
+
+  .auth-card {
+    margin: 0 auto;
+    border-radius: 1.35rem;
+  }
+
   .auth-header {
+    padding: 1.5rem 1.2rem 0.8rem;
+
     h2 {
-      font-size: 1.95rem;
+      font-size: 2rem;
+      line-height: 1.08;
+    }
+  }
+
+  .auth-footer {
+    padding: 0.85rem 1rem 1rem;
+
+    p {
+      font-size: 0.95rem;
     }
   }
 }

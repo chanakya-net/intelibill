@@ -44,25 +44,25 @@
       "emailInvalid": "చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.",
       "passwordRequired": "పాస్‌వర్డ్ అవసరం.",
       "loginIdentifierRequired": "మీ ఇమెయిల్ లేదా మొబైల్ నంబర్‌ను నమోదు చేయండి.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ఇమెయిల్ అవసరం."
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "పాస్‌వర్డ్ మర్చిపోయారా?",
+      "title": "మీ పాస్‌వర్డ్‌ను రీసెట్ చేయండి",
+      "successMessage": "మీ ఇమెయిల్ మా రికార్డుల్లో ఉంటే మీకు పాస్‌వర్డ్ రీసెట్ లింక్ పంపిస్తాము.",
+      "errorMessage": "మీ అభ్యర్థనను ప్రాసెస్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
+      "rateLimitMessage": "చాలా ఎక్కువ ప్రయత్నాలు జరిగాయి. దయచేసి తర్వాత మళ్లీ ప్రయత్నించండి.",
+      "submitButton": "రీసెట్ లింక్ పంపండి",
+      "rememberPassword": "పాస్‌వర్డ్ గుర్తుందా?",
+      "backToLogin": "లాగిన్‌కి తిరిగి వెళ్లండి"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "కొత్త పాస్‌వర్డ్ సెట్ చేయండి",
+      "invalidLinkMessage": "ఈ పాస్‌వర్డ్ రీసెట్ లింక్ చెల్లదు లేదా గడువు ముగిసింది.",
+      "rateLimitMessage": "చాలా ఎక్కువ ప్రయత్నాలు జరిగాయి. దయచేసి తర్వాత మళ్లీ ప్రయత్నించండి.",
+      "submitButton": "పాస్‌వర్డ్ రీసెట్ చేయండి",
+      "requestNewLink": "కొత్త రీసెట్ లింక్ కోరండి",
+      "successMessage": "మీ పాస్‌వర్డ్ రీసెట్ అయింది. దయచేసి కొత్త పాస్‌వర్డ్‌తో సైన్ ఇన్ చేయండి."
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "ఇన్వెంటరీ",
     "subtitle": "ప్రస్తుతం యాక్టివ్ షాప్ కోసం ఉత్పత్తులను జోడించి, స్టాక్ కార్యకలాపాలకు క్యాటలాగ్ సిద్ధంగా ఉంచండి.",
     "searchPlaceholder": "ఉత్పత్తులను వెతకండి",
+    "selectBatch": "బ్యాచ్ ఎంచుకోండి",
+    "searchBatchPlaceholder": "బ్యాచ్ నంబర్ వెతకండి...",
     "name": "ఉత్పత్తి పేరు",
     "barcode": "బార్కోడ్",
     "description": "వివరణ",
@@ -410,7 +412,9 @@
     "scannerOpenError": "కెమెరా స్కానర్‌ను ప్రారంభించలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
     "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి",
     "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
-    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి."
+    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి.",
+    "noAdjustments": "ఏ సర్దుబాట్లు కనుగొనబడలేదు",
+    "noAdjustmentsDescription": "మీ ప్రస్తుత ఫిల్టర్లకు సరిపోయే సర్దుబాట్లు ఇక్కడ కనిపిస్తాయి."
   },
   "profile": {
     "account": "ఖాతా",
@@ -908,6 +912,14 @@
       "disabling": "నిలిపివేస్తోంది..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "ఇన్వెంటరీ బ్యాచ్‌లను వెతుకుతోంది...",
+        "minChars": "శోధించడానికి కనీసం 3 అక్షరాలు టైప్ చేయండి",
+        "noResults": "ఏ సరిపోలిక కూడా లేదు",
+        "quantityAvailable": "{{quantity}} అందుబాటులో ఉంది",
+        "price": "ధర: {{price}}",
+        "expiry": "సమాప్తి: {{date}}"
+      },
       "subtitle": "కొత్త నియమాన్ని సృష్టించండి లేదా ప్రస్తుతాన్ని భర్తీ సంస్కరణగా సవరించండి.",
       "createTitle": "తగ్గింపు నియమాన్ని సృష్టించండి",
       "editTitle": "తగ్గింపు నియమాన్ని సవరించండి",
@@ -948,7 +960,10 @@
         "errorsTitle": "ప్రివ్యూ సమస్యలు",
         "infosTitle": "ప్రివ్యూ గమనికలు",
         "affectedSampleTitle": "ప్రభావిత నమూనా",
-        "belowCostSampleTitle": "తక్కువ ధర నమూనా"
+        "belowCostSampleTitle": "తక్కువ ధర నమూనా",
+        "sampleSalesPrice": "అమ్మకపు ధర",
+        "sampleCostPrice": "వ్యయ ధర",
+        "sampleDiscountedPrice": "తగ్గింపు తర్వాత"
       },
       "errors": {
         "fixValidation": "ప్రివ్యూ చేయడానికి ముందు ఫారమ్ లోపాలను పరిష్కరించండి",

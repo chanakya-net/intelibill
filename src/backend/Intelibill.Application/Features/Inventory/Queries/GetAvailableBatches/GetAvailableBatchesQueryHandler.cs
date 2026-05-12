@@ -26,13 +26,16 @@ public sealed class GetAvailableBatchesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var batches = await inventoryBatchRepository.GetAvailableByBarcodeAsync(
-            query.ShopId, query.SearchTerm, cancellationToken);
+        var batches = query.IsBarcodeLookup
+            ? await inventoryBatchRepository.GetAvailableByBarcodeAsync(
+                query.ShopId, query.SearchTerm, cancellationToken)
+            : await inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(
+                query.ShopId, query.SearchTerm, cancellationToken);
 
         return batches
             .Select(b => new AvailableBatchDto(
-                b.Item?.Barcode ?? query.SearchTerm,
-                b.Item?.Name ?? query.SearchTerm,
+                b.Item?.Barcode ?? "",
+                b.Item?.Name ?? "",
                 b.BatchNumber,
                 b.Id,
                 b.Quantity,

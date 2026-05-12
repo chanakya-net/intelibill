@@ -533,6 +533,124 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.NotEqual(Guid.Empty, first.GetProperty("inventoryBatchId").GetGuid());
     }
 
+    [Fact]
+    public async Task GetAvailableBatches_WithSearchTerm_PartialProductMatch_DoesNotUseBarcodeMatching()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var itemNameMatch = "Golden Apple";
+        var itemBarcodeTrap = $"GOLDEN-{Guid.NewGuid():N}";
+
+        await SeedAvailableBatchAsync(client, ownerToken, "Golden Apple", "AP-001", "B-100");
+        await SeedAvailableBatchAsync(client, ownerToken, "Kiwi", "B-002", "BATCH-ALP-01");
+        await SeedAvailableBatchAsync(client, ownerToken, "Tomato", itemBarcodeTrap, "B-300");
+
+        using var searchRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/inventory/batches/available?searchTerm={Uri.EscapeDataString("gOld")}");
+        searchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var searchResponse = await client.SendAsync(searchRequest);
+        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+        var body = await searchResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, body.ValueKind);
+        Assert.Single(body.EnumerateArray());
+
+        var first = body.EnumerateArray().First();
+        Assert.Equal(itemNameMatch, first.GetProperty("itemName").GetString());
+        Assert.Equal("AP-001", first.GetProperty("barcode").GetString());
+        Assert.Equal("B-100", first.GetProperty("batchNumber").GetString());
+    }
+
+    [Fact]
+    public async Task GetAvailableBatches_WithSearchTerm_PartialBatchMatch()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        await SeedAvailableBatchAsync(client, ownerToken, "Apple Cider", "B-200", "BATCH-ALP-202");
+        await SeedAvailableBatchAsync(client, ownerToken, "Berry", "B-201", "LOT-900");
+        await SeedAvailableBatchAsync(client, ownerToken, "Banana", "B-202", "BATCH-01");
+
+        using var batchRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/inventory/batches/available?searchTerm={Uri.EscapeDataString("alp")}");
+        batchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var batchResponse = await client.SendAsync(batchRequest);
+        Assert.Equal(HttpStatusCode.OK, batchResponse.StatusCode);
+
+        var body = await batchResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, body.ValueKind);
+        Assert.Single(body.EnumerateArray());
+
+        var first = body.EnumerateArray().First();
+        Assert.Equal("Apple Cider", first.GetProperty("itemName").GetString());
+        Assert.Equal("BATCH-ALP-202", first.GetProperty("batchNumber").GetString());
+    }
+
+    [Fact]
+    public async Task GetAvailableBatches_WithSearchTermAndBarcode_UsesSearchPath()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcodeForScannerRoute = $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('X', 24)}";
+        await SeedAvailableBatchAsync(client, ownerToken, "Blue Apple", barcodeForScannerRoute, "B-APPLE");
+        await SeedAvailableBatchAsync(client, ownerToken, "Mango", "M-001", "B-MANGO");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/inventory/batches/available?searchTerm={Uri.EscapeDataString("blUe")}&barcode={Uri.EscapeDataString(barcodeForScannerRoute)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, body.ValueKind);
+        Assert.Single(body.EnumerateArray());
+
+        var first = body.EnumerateArray().First();
+        Assert.Equal("Blue Apple", first.GetProperty("itemName").GetString());
+        Assert.Equal(barcodeForScannerRoute, first.GetProperty("barcode").GetString());
+        Assert.Equal("B-APPLE", first.GetProperty("batchNumber").GetString());
+    }
+
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('F', 24)}";
+
+    private static async Task SeedAvailableBatchAsync(HttpClient client, string token, string itemName, string barcode, string batchNumber)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            itemName,
+            barcode,
+            itemDescription = "Seeded for search test",
+            uom = "kg",
+            batchNumber,
+            quantity = 5m,
+            costPrice = 50m,
+            mrp = 80m,
+            salesPrice = 60m,
+            taxRatePercent = 5m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = $"REF-{Guid.NewGuid():N}",
+            notes = "seeded",
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
 }

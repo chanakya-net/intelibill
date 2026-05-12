@@ -122,14 +122,6 @@ export class DiscountsPageComponent {
     });
   }
 
-  onResetFilters(): void {
-    this.statusFilter.set('active');
-    this.ruleTypeFilter.set('');
-    this.searchValue.set('');
-    this.sortValue.set('created_desc');
-    this.pageNumber.set(1);
-  }
-
   onSelectRule(id: string): void {
     if (this.selectedRuleId() === id) return;
     this.selectedRuleId.set(id);

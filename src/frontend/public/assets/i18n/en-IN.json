@@ -284,6 +284,8 @@
     "title": "Inventory",
     "subtitle": "Add products for the active shop and keep your catalog ready for stock operations.",
     "searchPlaceholder": "Search products",
+    "selectBatch": "Select batch",
+    "searchBatchPlaceholder": "Search batch number...",
     "name": "Product Name",
     "barcode": "Barcode",
     "description": "Description",
@@ -410,7 +412,9 @@
     "scannerOpenError": "Unable to start the camera scanner. Please retry.",
     "productForm": "Add product form",
     "noItemsFound": "No products added yet",
-    "noItemsDescription": "Use Add New Product to create your first product in this shop."
+    "noItemsDescription": "Use Add New Product to create your first product in this shop.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "Account",
@@ -908,6 +912,14 @@
       "disabling": "Disabling..."
     },
     "editor": {
+      "batchSearch": {
+        "loading": "Searching inventory batches...",
+        "minChars": "Type at least 3 characters to search",
+        "noResults": "No matching batches found",
+        "quantityAvailable": "{{quantity}} available",
+        "price": "Price: {{price}}",
+        "expiry": "Exp: {{date}}"
+      },
       "subtitle": "Create a new rule or edit the current one as a replacement version.",
       "createTitle": "Create discount rule",
       "editTitle": "Edit discount rule",
@@ -948,7 +960,10 @@
         "errorsTitle": "Preview issues",
         "infosTitle": "Preview notes",
         "affectedSampleTitle": "Affected sample",
-        "belowCostSampleTitle": "Below-cost sample"
+        "belowCostSampleTitle": "Below-cost sample",
+        "sampleSalesPrice": "Sales price",
+        "sampleCostPrice": "Cost price",
+        "sampleDiscountedPrice": "After discount"
       },
       "errors": {
         "fixValidation": "Fix form errors before previewing",
