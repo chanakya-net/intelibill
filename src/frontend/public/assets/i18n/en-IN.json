@@ -284,6 +284,8 @@
     "title": "Inventory",
     "subtitle": "Add products for the active shop and keep your catalog ready for stock operations.",
     "searchPlaceholder": "Search products",
+    "selectBatch": "Select batch",
+    "searchBatchPlaceholder": "Search batch number...",
     "name": "Product Name",
     "barcode": "Barcode",
     "description": "Description",

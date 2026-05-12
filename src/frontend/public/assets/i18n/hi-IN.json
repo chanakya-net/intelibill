@@ -44,25 +44,25 @@
       "emailInvalid": "मान्य ईमेल पता दर्ज करें।",
       "passwordRequired": "पासवर्ड आवश्यक है।",
       "loginIdentifierRequired": "अपना ईमेल या मोबाइल नंबर दर्ज करें.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ईमेल आवश्यक है।"
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "पासवर्ड भूल गए?",
+      "title": "अपना पासवर्ड रीसेट करें",
+      "successMessage": "यदि आपका ईमेल हमारे रिकॉर्ड में मिलता है, तो हम आपको पासवर्ड रीसेट लिंक भेजेंगे।",
+      "errorMessage": "आपका अनुरोध संसाधित नहीं हो सका। कृपया पुनः प्रयास करें।",
+      "rateLimitMessage": "बहुत अधिक प्रयास। कृपया बाद में पुनः प्रयास करें।",
+      "submitButton": "रीसेट लिंक भेजें",
+      "rememberPassword": "पासवर्ड याद है?",
+      "backToLogin": "लॉगिन पर वापस जाएं"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "नया पासवर्ड सेट करें",
+      "invalidLinkMessage": "यह पासवर्ड रीसेट लिंक अमान्य है या इसकी अवधि समाप्त हो गई है।",
+      "rateLimitMessage": "बहुत अधिक प्रयास। कृपया बाद में पुनः प्रयास करें।",
+      "submitButton": "पासवर्ड रीसेट करें",
+      "requestNewLink": "नया रीसेट लिंक मांगें",
+      "successMessage": "आपका पासवर्ड रीसेट हो गया है। कृपया नए पासवर्ड से साइन इन करें।"
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "इन्वेंटरी",
     "subtitle": "सक्रिय दुकान के लिए उत्पाद जोड़ें और स्टॉक संचालन के लिए कैटलॉग तैयार रखें।",
     "searchPlaceholder": "उत्पाद खोजें",
+    "selectBatch": "बैच चुनें",
+    "searchBatchPlaceholder": "बैच नंबर खोजें...",
     "name": "उत्पाद नाम",
     "barcode": "बारकोड",
     "description": "विवरण",
@@ -411,8 +413,8 @@
     "productForm": "उत्पाद फॉर्म जोड़ें",
     "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
     "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।",
-    "noAdjustments": "No adjustments found",
-    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
+    "noAdjustments": "कोई समायोजन नहीं मिला",
+    "noAdjustmentsDescription": "आपके वर्तमान फ़िल्टर से मेल खाने वाले समायोजन यहां दिखाई देंगे।"
   },
   "profile": {
     "account": "खाता",
@@ -959,9 +961,9 @@
         "infosTitle": "प्रीव्यू नोट्स",
         "affectedSampleTitle": "प्रभावित नमूना",
         "belowCostSampleTitle": "लागत से कम नमूना",
-        "sampleSalesPrice": "Sales price",
-        "sampleCostPrice": "Cost price",
-        "sampleDiscountedPrice": "After discount"
+        "sampleSalesPrice": "विक्रय मूल्य",
+        "sampleCostPrice": "लागत मूल्य",
+        "sampleDiscountedPrice": "छूट के बाद"
       },
       "errors": {
         "fixValidation": "प्रीव्यू से पहले फॉर्म त्रुटियां ठीक करें",

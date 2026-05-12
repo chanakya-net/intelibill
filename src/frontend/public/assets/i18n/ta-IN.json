@@ -44,25 +44,25 @@
       "emailInvalid": "சரியான மின்னஞ்சலை உள்ளிடவும்.",
       "passwordRequired": "கடவுச்சொல் அவசியம்.",
       "loginIdentifierRequired": "உங்கள் மின்னஞ்சல் அல்லது மொபைல் எண்ணை உள்ளிடவும்.",
-      "emailRequired": "Email is required."
+      "emailRequired": "மின்னஞ்சல் தேவை."
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "கடவுச்சொல்லை மறந்துவிட்டீர்களா?",
+      "title": "உங்கள் கடவுச்சொல்லை மீட்டமைக்கவும்",
+      "successMessage": "உங்கள் மின்னஞ்சல் எங்கள் பதிவுகளில் இருந்தால், கடவுச்சொல் மீட்டமைப்பு இணைப்பை அனுப்புவோம்.",
+      "errorMessage": "உங்கள் கோரிக்கையை செயலாக்க முடியவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
+      "rateLimitMessage": "மிக அதிக முயற்சிகள். தயவுசெய்து பிறகு மீண்டும் முயற்சிக்கவும்.",
+      "submitButton": "மீட்டமைப்பு இணைப்பை அனுப்பவும்",
+      "rememberPassword": "கடவுச்சொல் நினைவிலா?",
+      "backToLogin": "உள்நுழைவுக்கு திரும்பவும்"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "புதிய கடவுச்சொல்லை அமைக்கவும்",
+      "invalidLinkMessage": "இந்த கடவுச்சொல் மீட்டமைப்பு இணைப்பு தவறானது அல்லது காலாவதியானது.",
+      "rateLimitMessage": "மிக அதிக முயற்சிகள். தயவுசெய்து பிறகு மீண்டும் முயற்சிக்கவும்.",
+      "submitButton": "கடவுச்சொல்லை மீட்டமைக்கவும்",
+      "requestNewLink": "புதிய மீட்டமைப்பு இணைப்பை கோரவும்",
+      "successMessage": "உங்கள் கடவுச்சொல் மீட்டமைக்கப்பட்டது. புதிய கடவுச்சொல்லுடன் உள்நுழையவும்."
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "சரக்கு",
     "subtitle": "செயலில் உள்ள கடைக்கான பொருட்களை சேர்த்து, கையிருப்பு செயல்பாடுகளுக்கு பட்டியலை தயார் நிலையில் வைத்திருங்கள்.",
     "searchPlaceholder": "பொருட்களை தேடு",
+    "selectBatch": "தொகுதியைத் தேர்ந்தெடுக்கவும்",
+    "searchBatchPlaceholder": "தொகுதி எண்ணைத் தேடுங்கள்...",
     "name": "பொருள் பெயர்",
     "barcode": "பார்கோடு",
     "description": "விளக்கம்",
@@ -411,8 +413,8 @@
     "productForm": "பொருள் படிவத்தைச் சேர்க்கவும்",
     "noItemsFound": "இன்னும் பொருட்கள் சேர்க்கப்படவில்லை",
     "noItemsDescription": "இந்த கடையில் உங்கள் முதல் பொருளை உருவாக்க புதிய பொருள் சேர்க்க பயன்பாட்டை பயன்படுத்தவும்.",
-    "noAdjustments": "No adjustments found",
-    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
+    "noAdjustments": "எந்த சரிசெய்தல்களும் கிடைக்கவில்லை",
+    "noAdjustmentsDescription": "உங்கள் தற்போதைய வடிகட்டல்களுக்கு பொருந்தும் சரிசெய்தல்கள் இங்கே தோன்றும்."
   },
   "profile": {
     "account": "கணக்கு",
@@ -959,9 +961,9 @@
         "infosTitle": "குறிப்புகளை முன்னோட்டமிடவும்",
         "affectedSampleTitle": "பாதிக்கப்பட்ட மாதிரி",
         "belowCostSampleTitle": "குறைந்த விலை மாதிரி",
-        "sampleSalesPrice": "Sales price",
-        "sampleCostPrice": "Cost price",
-        "sampleDiscountedPrice": "After discount"
+        "sampleSalesPrice": "விற்பனை விலை",
+        "sampleCostPrice": "செலவு விலை",
+        "sampleDiscountedPrice": "தள்ளுபடியுக்குப் பின்"
       },
       "errors": {
         "fixValidation": "மாதிரிக்காட்சிக்கு முன் படிவப் பிழைகளைச் சரிசெய்யவும்",

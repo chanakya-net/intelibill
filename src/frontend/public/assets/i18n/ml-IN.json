@@ -44,25 +44,25 @@
       "emailInvalid": "സാധുവായ ഇമെയിൽ നൽകുക.",
       "passwordRequired": "പാസ്‌വേഡ് ആവശ്യമാണ്.",
       "loginIdentifierRequired": "നിങ്ങളുടെ ഇമെയിൽ അല്ലെങ്കിൽ മൊബൈൽ നമ്പർ നൽകുക.",
-      "emailRequired": "Email is required."
+      "emailRequired": "ഇമെയിൽ ആവശ്യമാണ്."
     },
     "forgotPassword": {
-      "link": "Forgot password",
-      "title": "Reset Your Password",
-      "successMessage": "We will send you a password reset link if your email is found in our records.",
-      "errorMessage": "Unable to process your request. Please try again.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Send Reset Link",
-      "rememberPassword": "Remember your password?",
-      "backToLogin": "Back to login"
+      "link": "പാസ്‌വേഡ് മറന്നോ?",
+      "title": "നിങ്ങളുടെ പാസ്‌വേഡ് റീസെറ്റ് ചെയ്യുക",
+      "successMessage": "നിങ്ങളുടെ ഇമെയിൽ ഞങ്ങളുടെ രേഖകളിൽ ഉണ്ടെങ്കിൽ ഞങ്ങൾ പാസ്‌വേഡ് റീസെറ്റ് ലിങ്ക് അയക്കും.",
+      "errorMessage": "നിങ്ങളുടെ അഭ്യർത്ഥന പ്രോസസ് ചെയ്യാനായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
+      "rateLimitMessage": "വളരെ അധികം ശ്രമങ്ങൾ. ദയവായി പിന്നീട് വീണ്ടും ശ്രമിക്കുക.",
+      "submitButton": "റീസെറ്റ് ലിങ്ക് അയയ്ക്കുക",
+      "rememberPassword": "പാസ്‌വേഡ് ഓർമ്മയുണ്ടോ?",
+      "backToLogin": "ലോഗിനിലേക്ക് മടങ്ങുക"
     },
     "resetPassword": {
-      "title": "Set a New Password",
-      "invalidLinkMessage": "This password reset link is invalid or has expired.",
-      "rateLimitMessage": "Too many attempts. Please try again later.",
-      "submitButton": "Reset Password",
-      "requestNewLink": "Request a new reset link",
-      "successMessage": "Your password has been reset. Please sign in with your new password."
+      "title": "പുതിയ പാസ്‌വേഡ് സജ്ജമാക്കുക",
+      "invalidLinkMessage": "ഈ പാസ്‌വേഡ് റീസെറ്റ് ലിങ്ക് അസാധുവാണ് അല്ലെങ്കിൽ കാലാവധി കഴിഞ്ഞിരിക്കുന്നു.",
+      "rateLimitMessage": "വളരെ അധികം ശ്രമങ്ങൾ. ദയവായി പിന്നീട് വീണ്ടും ശ്രമിക്കുക.",
+      "submitButton": "പാസ്‌വേഡ് റീസെറ്റ് ചെയ്യുക",
+      "requestNewLink": "പുതിയ റീസെറ്റ് ലിങ്ക് അഭ്യർത്ഥിക്കുക",
+      "successMessage": "നിങ്ങളുടെ പാസ്‌വേഡ് റീസെറ്റ് ചെയ്തു. ദയവായി പുതിയ പാസ്‌വേഡ് ഉപയോഗിച്ച് സൈൻ ഇൻ ചെയ്യുക."
     }
   },
   "register": {
@@ -284,6 +284,8 @@
     "title": "ഇൻവെന്ററി",
     "subtitle": "സജീവമായ ഷോപ്പിനായി ഉൽപ്പന്നങ്ങൾ ചേർത്ത് സ്റ്റോക്ക് പ്രവർത്തനങ്ങൾക്ക് കാറ്റലോഗ് തയ്യാറാക്കി വെയ്ക്കുക.",
     "searchPlaceholder": "ഉൽപ്പന്നങ്ങൾ തിരയുക",
+    "selectBatch": "ബാച്ച് തിരഞ്ഞെടുക്കുക",
+    "searchBatchPlaceholder": "ബാച്ച് നമ്പർ തിരയുക...",
     "name": "ഉൽപ്പന്ന നാമം",
     "barcode": "ബാർകോഡ്",
     "description": "വിവരണം",
@@ -411,8 +413,8 @@
     "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക",
     "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
     "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക.",
-    "noAdjustments": "No adjustments found",
-    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
+    "noAdjustments": "ക്രമീകരണങ്ങൾ ഒന്നും കണ്ടെത്തിയില്ല",
+    "noAdjustmentsDescription": "നിങ്ങളുടെ നിലവിലെ ഫിൽറ്ററുകളോട് പൊരുത്തപ്പെടുന്ന ക്രമീകരണങ്ങൾ ഇവിടെ കാണിക്കും."
   },
   "profile": {
     "account": "അക്കൗണ്ട്",
@@ -959,9 +961,9 @@
         "infosTitle": "കുറിപ്പുകൾ പ്രിവ്യൂ ചെയ്യുക",
         "affectedSampleTitle": "ബാധിച്ച സാമ്പിൾ",
         "belowCostSampleTitle": "കുറഞ്ഞ വിലയുള്ള സാമ്പിൾ",
-        "sampleSalesPrice": "Sales price",
-        "sampleCostPrice": "Cost price",
-        "sampleDiscountedPrice": "After discount"
+        "sampleSalesPrice": "വിൽപ്പന വില",
+        "sampleCostPrice": "ചെലവ് വില",
+        "sampleDiscountedPrice": "ഇളവിന് ശേഷം"
       },
       "errors": {
         "fixValidation": "പ്രിവ്യൂ ചെയ്യുന്നതിന് മുമ്പ് ഫോം പിശകുകൾ പരിഹരിക്കുക",
