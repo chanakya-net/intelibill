@@ -21,7 +21,6 @@
     <PackageReference Include="Serilog.Enrichers.Environment" />
     <PackageReference Include="Serilog.Sinks.Async" />
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" />
-    <PackageReference Include="WolverineFx.FluentValidation" />
     <PackageReference Include="WolverineFx.Http" />
   </ItemGroup>
 

@@ -44,7 +44,6 @@
     <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="4.0.0" />
-    <PackageVersion Include="WolverineFx.FluentValidation" Version="5.24.0" />
     <PackageVersion Include="WolverineFx.Http" Version="5.24.0" />
   </ItemGroup>
   <!-- ── Test projects ──────────────────────────────────────────────── -->
