@@ -409,7 +409,9 @@
     "scannerOpenError": "కెమెరా స్కానర్‌ను ప్రారంభించలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.",
     "productForm": "ఉత్పత్తి ఫారమ్‌ను జోడించండి",
     "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
-    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి."
+    "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "ఖాతా",

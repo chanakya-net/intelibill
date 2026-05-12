@@ -409,7 +409,9 @@
     "scannerOpenError": "કૅમેરા સ્કૅનર શરૂ કરવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો.",
     "productForm": "ઉત્પાદન ફૉર્મ ઉમેરો",
     "noItemsFound": "હજી કોઈ ઉત્પાદન ઉમેરાયું નથી",
-    "noItemsDescription": "આ દુકાનમાં તમારું પ્રથમ ઉત્પાદન બનાવવા નવું ઉત્પાદન ઉમેરો વાપરો."
+    "noItemsDescription": "આ દુકાનમાં તમારું પ્રથમ ઉત્પાદન બનાવવા નવું ઉત્પાદન ઉમેરો વાપરો.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "એકાઉન્ટ",

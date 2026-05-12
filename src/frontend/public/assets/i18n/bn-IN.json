@@ -410,7 +410,9 @@
     "scannerOpenError": "ক্যামেরা স্ক্যানার শুরু করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
     "productForm": "পণ্য ফর্ম যোগ করুন",
     "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
-    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।"
+    "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "অ্যাকাউন্ট",

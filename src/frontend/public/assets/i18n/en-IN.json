@@ -410,7 +410,9 @@
     "scannerOpenError": "Unable to start the camera scanner. Please retry.",
     "productForm": "Add product form",
     "noItemsFound": "No products added yet",
-    "noItemsDescription": "Use Add New Product to create your first product in this shop."
+    "noItemsDescription": "Use Add New Product to create your first product in this shop.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "Account",

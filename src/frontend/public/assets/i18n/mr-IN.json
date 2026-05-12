@@ -409,7 +409,9 @@
     "scannerOpenError": "कॅमेरा स्कॅनर सुरू करणे अशक्य. कृपया पुन्हा प्रयत्न करा.",
     "productForm": "उत्पादन फॉर्म जोडा",
     "noItemsFound": "अजून कोणतीही उत्पादने जोडलेली नाहीत",
-    "noItemsDescription": "या दुकानात तुमचे पहिले उत्पादन तयार करण्यासाठी नवीन उत्पादन जोडा वापरा."
+    "noItemsDescription": "या दुकानात तुमचे पहिले उत्पादन तयार करण्यासाठी नवीन उत्पादन जोडा वापरा.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "खाते",

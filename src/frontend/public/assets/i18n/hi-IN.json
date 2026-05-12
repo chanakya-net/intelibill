@@ -410,7 +410,9 @@
     "scannerOpenError": "कैमरा स्कैनर शुरू नहीं हो सका। कृपया फिर प्रयास करें।",
     "productForm": "उत्पाद फॉर्म जोड़ें",
     "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
-    "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।"
+    "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "खाता",

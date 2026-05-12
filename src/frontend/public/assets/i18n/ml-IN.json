@@ -410,7 +410,9 @@
     "scannerOpenError": "ക്യാമറ സ്കാനർ ആരംഭിക്കാനായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
     "productForm": "ഉത്പന്ന ഫോം ചേർക്കുക",
     "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
-    "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക."
+    "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക.",
+    "noAdjustments": "No adjustments found",
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
   "profile": {
     "account": "അക്കൗണ്ട്",
