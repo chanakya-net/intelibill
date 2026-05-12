@@ -139,8 +139,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             supplierRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork,
-            new CreateShopCommandValidator());
+            unitOfWork);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(user.Id, "   ", "Address", "City", "State", "560001", null, null, null),
@@ -167,8 +166,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             supplierRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork,
-            null);
+            unitOfWork);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null, null),
@@ -196,8 +194,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             supplierRepository,
             refreshTokenRepository,
             tokenService,
-            unitOfWork,
-            new CreateShopCommandValidator());
+            unitOfWork);
 
         var result = await handler.HandleAsync(
             new CreateShopCommand(

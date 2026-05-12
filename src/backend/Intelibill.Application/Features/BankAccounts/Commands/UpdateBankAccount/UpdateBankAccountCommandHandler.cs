@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -12,14 +10,10 @@ namespace Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccoun
 
 public sealed class UpdateBankAccountCommandHandler(
     IBankAccountRepository bankAccountRepository,
-    IUnitOfWork unitOfWork,
-    IValidator<UpdateBankAccountCommand>? validator = null)
+    IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<BankAccountDto>> HandleAsync(UpdateBankAccountCommand command, CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is not null) return validationResult.Value.Errors;
-
         var bankAccount = await bankAccountRepository.GetByIdAsync(command.Id, cancellationToken);
         if (bankAccount is null || bankAccount.ShopId != command.ShopId)
         {

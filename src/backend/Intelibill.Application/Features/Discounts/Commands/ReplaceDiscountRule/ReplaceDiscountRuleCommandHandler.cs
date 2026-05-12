@@ -1,7 +1,5 @@
 using ErrorOr;
-using FluentValidation;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Extensions;
 using Intelibill.Application.Features.Discounts.DTOs;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Domain.Entities;
@@ -15,16 +13,12 @@ public sealed class ReplaceDiscountRuleCommandHandler(
     IShopRepository shopRepository,
     IDiscountRuleRepository discountRuleRepository,
     DiscountRuleValidationService validationService,
-    IUnitOfWork unitOfWork,
-    IValidator<ReplaceDiscountRuleCommand>? validator = null)
+    IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<DiscountRuleDto>> HandleAsync(
         ReplaceDiscountRuleCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validator.ValidateCommandAsync(command, cancellationToken);
-        if (validationResult is not null) return validationResult.Value.Errors;
-
         var user = await userRepository.GetByIdAsync(command.UserId, cancellationToken);
         if (user is null)
             return Error.NotFound("User.NotFound", "User not found.");
