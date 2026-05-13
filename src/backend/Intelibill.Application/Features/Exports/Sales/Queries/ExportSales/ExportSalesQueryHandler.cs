@@ -10,6 +10,8 @@ namespace Intelibill.Application.Features.Exports.Sales.Queries.ExportSales;
 [WolverineHandler]
 public sealed class ExportSalesQueryHandler
 {
+    private const int PdfMaxRows = 2000;
+
     private readonly IUserRepository _userRepository;
     private readonly IShopRepository _shopRepository;
     private readonly ISalesExportDatasetBuilder _datasetBuilder;
@@ -66,13 +68,29 @@ public sealed class ExportSalesQueryHandler
             return Errors.Export.UserIsNotOwnerOrManager;
         }
 
+        var datasetLevel = string.Equals(query.Format, SalesExportFormat.TallyXml, StringComparison.OrdinalIgnoreCase)
+            ? SalesExportLevel.LineItems
+            : query.Level;
+
         var dataset = await _datasetBuilder.BuildAsync(
             shop,
             user,
             query.StartDate,
             query.EndDate,
-            query.Level,
+            datasetLevel,
             cancellationToken);
+
+        if (string.Equals(query.Format, SalesExportFormat.Pdf, StringComparison.OrdinalIgnoreCase))
+        {
+            var rowCount = string.Equals(datasetLevel, SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase)
+                ? dataset.LineItemRows.Count
+                : dataset.SummaryRows.Count;
+
+            if (rowCount > PdfMaxRows)
+            {
+                return Errors.Export.PdfRowLimitExceeded(PdfMaxRows);
+            }
+        }
 
         var rendererResult = query.Format switch
         {

@@ -210,7 +210,7 @@ public class ExportSalesQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenFormatHasMixedCase_TallyXml_UsesTallyRenderer()
+    public async Task Handle_WhenFormatHasMixedCase_TallyXml_UsesTallyRendererWithLineItemDataset()
     {
         var user = MakeUser();
         var shop = MakeShop();
@@ -218,6 +218,7 @@ public class ExportSalesQueryHandlerTests
         var dataset = new SalesExportDatasetDto(
             new SalesExportMetadataDto(
                 "Test Shop",
+                null,
                 null,
                 "Export User",
                 DateTimeOffset.UtcNow,
@@ -240,7 +241,7 @@ public class ExportSalesQueryHandlerTests
             user,
             Arg.Any<DateOnly>(),
             Arg.Any<DateOnly>(),
-            "summary",
+            SalesExportLevel.LineItems,
             Arg.Any<CancellationToken>())
             .Returns(dataset);
         _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
@@ -263,7 +264,224 @@ public class ExportSalesQueryHandlerTests
 
         Assert.False(result.IsError);
         await _tallyRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
+        await _datasetBuilder.Received(1).BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.LineItems,
+            Arg.Any<CancellationToken>());
         await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
         await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenFormatIsPdf_Summary_UsesPdfRenderer()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                shop.Name,
+                null,
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                SalesExportLevel.Summary),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            Array.Empty<SalesExportLineItemRowDto>(),
+            Array.Empty<SalesExportTaxBreakupDto>());
+        var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.Summary,
+            Arg.Any<CancellationToken>()).Returns(dataset);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-summary.pdf");
+        _fileNameBuilder.GetContentType(Arg.Any<string>()).Returns("application/pdf");
+        _pdfRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>()).Returns(expectedResult);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "pdf",
+            "summary",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _pdfRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
+        await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _tallyRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenFormatIsPdf_LineItems_UsesPdfRenderer()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                shop.Name,
+                null,
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                SalesExportLevel.LineItems),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            [new SalesExportLineItemRowDto("INV-001", "Alice", "Apple", 1m, 10m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
+            Array.Empty<SalesExportTaxBreakupDto>());
+        var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.LineItems,
+            Arg.Any<CancellationToken>()).Returns(dataset);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-lineitems.pdf");
+        _fileNameBuilder.GetContentType(Arg.Any<string>()).Returns("application/pdf");
+        _pdfRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>()).Returns(expectedResult);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "pdf",
+            "lineItems",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _pdfRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
+        await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _tallyRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenPdfDatasetExceedsRowLimit_ReturnsValidationError_AndDoesNotRender()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+
+        var rows = Enumerable.Range(1, 2001)
+            .Select(i => new SalesExportSummaryRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, null, "Cash", 0m, 0m, 0m, 0m, 0m, 0m, 0m, null, 0m, 0m, 0m, 0m, false, 0))
+            .ToArray();
+
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                shop.Name,
+                null,
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                SalesExportLevel.Summary),
+            rows,
+            Array.Empty<SalesExportLineItemRowDto>(),
+            Array.Empty<SalesExportTaxBreakupDto>());
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.Summary,
+            Arg.Any<CancellationToken>()).Returns(dataset);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "pdf",
+            "summary",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Export.PdfRowLimitExceeded", result.FirstError.Code);
+        await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenPdfLineItemDatasetExceedsRowLimit_ReturnsValidationError_AndDoesNotRender()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+
+        var rows = Enumerable.Range(1, 2001)
+            .Select(i => new SalesExportLineItemRowDto($"INV-{i:D4}", null, "Item", 1m, 1m, 0m, 0m, 1m, 0m, 1m, false, 0m, null, null))
+            .ToArray();
+
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                shop.Name,
+                null,
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                SalesExportLevel.LineItems),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            rows,
+            Array.Empty<SalesExportTaxBreakupDto>());
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.LineItems,
+            Arg.Any<CancellationToken>()).Returns(dataset);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "pdf",
+            "lineItems",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Export.PdfRowLimitExceeded", result.FirstError.Code);
+        await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
     }
 }

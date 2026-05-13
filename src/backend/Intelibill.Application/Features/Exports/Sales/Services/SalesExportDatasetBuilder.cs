@@ -131,6 +131,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         var metadata = new SalesExportMetadataDto(
             shop.Name,
             $"{shop.Address}, {shop.City}, {shop.State} - {shop.Pincode}",
+            shop.GstNumber,
             $"{generatedBy.FirstName} {generatedBy.LastName}".Trim(),
             DateTimeOffset.UtcNow,
             startDate,

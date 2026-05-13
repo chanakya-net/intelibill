@@ -1,7 +1,6 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Exports.Sales;
-using Intelibill.Application.Features.Exports.Sales.Renderers;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
@@ -34,9 +33,6 @@ public static class DependencyInjection
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
         
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
-        services.AddScoped<ISalesExcelExportRenderer, SalesExcelExportRenderer>();
-        services.AddScoped<ISalesPdfExportRenderer, SalesPdfExportRenderer>();
-        services.AddScoped<ISalesTallyXmlExportRenderer, SalesTallyXmlExportRenderer>();
 
         services.AddScoped<DiscountRuleValidationService>();
 
