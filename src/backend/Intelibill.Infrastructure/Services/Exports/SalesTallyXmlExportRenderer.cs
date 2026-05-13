@@ -64,6 +64,16 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
             }
         }
 
+        // Build credit note vouchers for returns
+        if (dataset.ReturnRows.Count > 0)
+        {
+            foreach (var returnRow in dataset.ReturnRows.Where(r => !r.IsVoided))
+            {
+                var voucher = BuildCreditNoteVoucher(returnRow);
+                requestData.Add(BuildTallyMessage(voucher));
+            }
+        }
+
         importData.Add(requestData);
         body.Add(importData);
         envelope.Add(body);
@@ -159,11 +169,11 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
         var lineNumber = 1;
 
         // Sales account line
-        var netTaxableAmount = summary.TaxableAmount - summary.ReturnTaxableAmount;
+        var taxableAmount = summary.TaxableAmount;
         var salesLine = new XElement("VOUCHERLINE",
             new XAttribute("LINENUMBER", lineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         salesLine.Add(new XElement("LEDGER", "Sales"));
-        salesLine.Add(new XElement("AMOUNT", Math.Abs(netTaxableAmount).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)));
+        salesLine.Add(new XElement("AMOUNT", Math.Abs(taxableAmount).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)));
         salesLine.Add(new XElement("ISDEBIT", "No"));
         voucher.Add(salesLine);
         lineNumber++;
@@ -230,11 +240,11 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
             return lineItems
                 .GroupBy(l => l.TaxRatePercent)
                 .OrderBy(g => g.Key)
-                .Select(g => (Rate: g.Key, Amount: g.Sum(GetNetTaxAmountForLineItem)));
+                .Select(g => (Rate: g.Key, Amount: g.Sum(i => i.TaxAmount)));
         }
 
         var rates = taxBreakup
-            .Where(t => t.NetTaxAmount != 0m)
+            .Where(t => t.SaleTaxAmount != 0m)
             .OrderBy(t => t.TaxRatePercent)
             .ToList();
 
@@ -245,38 +255,26 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
 
         if (hasSingleInvoiceInDataset)
         {
-            return rates.Select(t => (Rate: t.TaxRatePercent, Amount: t.NetTaxAmount));
+            return rates.Select(t => (Rate: t.TaxRatePercent, Amount: t.SaleTaxAmount));
         }
 
-        var netTaxAmount = summary.TaxAmount - summary.ReturnTaxAmount;
-        if (netTaxAmount == 0m)
+        var taxAmount = summary.TaxAmount;
+        if (taxAmount == 0m)
         {
             return [];
         }
 
         if (rates.Count == 1)
         {
-            return [(rates[0].TaxRatePercent, netTaxAmount)];
+            return [(rates[0].TaxRatePercent, taxAmount)];
         }
 
         return [];
     }
 
-    private static decimal GetNetTaxAmountForLineItem(SalesExportLineItemRowDto item)
+    private static decimal GetTaxAmountForLineItem(SalesExportLineItemRowDto item)
     {
-        if (item.SalesQuantity <= 0)
-        {
-            return item.TaxAmount;
-        }
-
-        var effectiveReturnedQuantity = Math.Clamp(item.ReturnedQuantity, 0m, item.SalesQuantity);
-        if (effectiveReturnedQuantity == 0m)
-        {
-            return item.TaxAmount;
-        }
-
-        var returnRatio = effectiveReturnedQuantity / item.SalesQuantity;
-        return item.TaxAmount * (1m - returnRatio);
+        return item.TaxAmount;
     }
 
     private static string GetPaymentLedgerName(string paymentMethod)
@@ -296,5 +294,60 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
             ? ((int)taxRate).ToString(System.Globalization.CultureInfo.InvariantCulture)
             : taxRate.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         return $"Output GST {rate}%";
+    }
+
+    private static XElement BuildCreditNoteVoucher(
+        SalesExportReturnRowDto returnRow)
+    {
+        var voucher = new XElement("VOUCHER",
+            new XAttribute("ACTION", "Create"));
+
+        voucher.Add(new XElement("VOUCHERNUMBER", returnRow.ReturnNumber));
+        voucher.Add(new XElement("VOUCHERTYPE", "Credit Note"));
+        voucher.Add(new XElement("DATE", returnRow.ProcessedAt.UtcDateTime.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture)));
+
+        var referenceNumber = new XElement("REFERENCE");
+        referenceNumber.Add(new XElement("REFERENCENUMBER", returnRow.InvoiceNumber));
+        referenceNumber.Add(new XElement("REFERENCEDATE", returnRow.ProcessedAt.UtcDateTime.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture)));
+        voucher.Add(referenceNumber);
+
+        var lineNumber = 1;
+
+        // Customer ledger line (credit due to refund)
+        var customerName = !string.IsNullOrWhiteSpace(returnRow.CustomerName) ? returnRow.CustomerName : "Walk-in Customer";
+        var customerLine = new XElement("VOUCHERLINE",
+            new XAttribute("LINENUMBER", lineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        customerLine.Add(new XElement("LEDGER", customerName));
+        customerLine.Add(new XElement("AMOUNT", returnRow.TotalRefundAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)));
+        customerLine.Add(new XElement("ISDEBIT", "No"));
+        voucher.Add(customerLine);
+        lineNumber++;
+
+        // Sales ledger line (reversal of sales)
+        var salesLine = new XElement("VOUCHERLINE",
+            new XAttribute("LINENUMBER", lineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        salesLine.Add(new XElement("LEDGER", "Sales"));
+        salesLine.Add(new XElement("AMOUNT", Math.Abs(returnRow.TotalTaxableAmount).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)));
+        salesLine.Add(new XElement("ISDEBIT", "Yes"));
+        voucher.Add(salesLine);
+        lineNumber++;
+
+        // GST lines (reversal of tax) grouped by rate
+        foreach (var taxEntry in returnRow.TaxBreakup.OrderBy(t => t.TaxRatePercent))
+        {
+            if (taxEntry.TaxAmount > 0)
+            {
+                var gstLedgerName = FormatGstLedgerName(taxEntry.TaxRatePercent);
+                var gstLine = new XElement("VOUCHERLINE",
+                    new XAttribute("LINENUMBER", lineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                gstLine.Add(new XElement("LEDGER", gstLedgerName));
+                gstLine.Add(new XElement("AMOUNT", Math.Abs(taxEntry.TaxAmount).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)));
+                gstLine.Add(new XElement("ISDEBIT", "Yes"));
+                voucher.Add(gstLine);
+                lineNumber++;
+            }
+        }
+
+        return voucher;
     }
 }

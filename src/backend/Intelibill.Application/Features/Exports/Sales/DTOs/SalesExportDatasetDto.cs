@@ -4,4 +4,5 @@ public sealed record SalesExportDatasetDto(
     SalesExportMetadataDto Metadata,
     IReadOnlyList<SalesExportSummaryRowDto> SummaryRows,
     IReadOnlyList<SalesExportLineItemRowDto> LineItemRows,
-    IReadOnlyList<SalesExportTaxBreakupDto> TaxBreakup);
+    IReadOnlyList<SalesExportTaxBreakupDto> TaxBreakup,
+    IReadOnlyList<SalesExportReturnRowDto> ReturnRows);

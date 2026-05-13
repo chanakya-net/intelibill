@@ -227,7 +227,8 @@ public class ExportSalesQueryHandlerTests
                 "summary"),
             Array.Empty<SalesExportSummaryRowDto>(),
             Array.Empty<SalesExportLineItemRowDto>(),
-            Array.Empty<SalesExportTaxBreakupDto>());
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
         var expectedResult = new SalesExportResult(Array.Empty<byte>(), "application/xml", "sales.xml");
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -293,7 +294,8 @@ public class ExportSalesQueryHandlerTests
                 SalesExportLevel.Summary),
             Array.Empty<SalesExportSummaryRowDto>(),
             Array.Empty<SalesExportLineItemRowDto>(),
-            Array.Empty<SalesExportTaxBreakupDto>());
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
         var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
@@ -346,7 +348,8 @@ public class ExportSalesQueryHandlerTests
                 SalesExportLevel.LineItems),
             Array.Empty<SalesExportSummaryRowDto>(),
             [new SalesExportLineItemRowDto("INV-001", "Alice", "Apple", 1m, 10m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
-            Array.Empty<SalesExportTaxBreakupDto>());
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
         var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
@@ -404,7 +407,8 @@ public class ExportSalesQueryHandlerTests
                 SalesExportLevel.Summary),
             rows,
             Array.Empty<SalesExportLineItemRowDto>(),
-            Array.Empty<SalesExportTaxBreakupDto>());
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
@@ -456,7 +460,8 @@ public class ExportSalesQueryHandlerTests
                 SalesExportLevel.LineItems),
             Array.Empty<SalesExportSummaryRowDto>(),
             rows,
-            Array.Empty<SalesExportTaxBreakupDto>());
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);

@@ -300,7 +300,53 @@ public class SalesExportDatasetBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_ShouldExcludeVoidedReturns()
+    public async Task BuildAsync_ShouldPopulateReturnRowsCorrectly()
+    {
+        // Arrange
+        var shop = MakeShop();
+        var user = MakeUser();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var sale = Sale.Create(
+            shop.Id, "INV-001", null, "Alice", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 300, 0, 300, 45.76m, new List<SaleItem>());
+
+        var returnLine = new SaleReturnLineInput(
+            shop.Id, Guid.NewGuid(), 1, SaleReturnCondition.Restockable, 100, 150, 18, true, 150, 150, 127.12m, 22.88m, null);
+
+        var saleReturn = SaleReturn.Record(
+            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 150, 0, 150, PaymentMethod.Cash, 127.12m, 22.88m, null, null, new List<SaleReturnLineInput> { returnLine }).Value;
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { sale });
+
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn> { saleReturn });
+
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.ReturnRows);
+        var row = result.ReturnRows[0];
+        Assert.Equal("RET-001", row.ReturnNumber);
+        Assert.Equal("INV-001", row.InvoiceNumber);
+        Assert.Equal("Alice", row.CustomerName);
+        Assert.Equal(150, row.TotalRefundAmount);
+        Assert.Equal(127.12m, row.TotalTaxableAmount);
+        Assert.Equal(22.88m, row.TotalTaxAmount);
+        
+        Assert.Single(row.TaxBreakup);
+        var tax = row.TaxBreakup[0];
+        Assert.Equal(18, tax.TaxRatePercent);
+        Assert.Equal(127.12m, tax.TaxableAmount);
+        Assert.Equal(22.88m, tax.TaxAmount);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ShouldIncludeVoidedReturnRowsMarkedAsVoided()
     {
         // Arrange
         var shop = MakeShop();
@@ -326,9 +372,9 @@ public class SalesExportDatasetBuilderTests
         // Act
         var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
 
-        // Assert
-        var row = result.SummaryRows[0];
-        Assert.False(row.HasReturns);
-        Assert.Equal(0, row.ReturnAmount);
+        // Assert - voided return should be included but marked as voided
+        Assert.Single(result.ReturnRows);
+        Assert.True(result.ReturnRows[0].IsVoided);
+        Assert.Equal("RET-001", result.ReturnRows[0].ReturnNumber);
     }
 }

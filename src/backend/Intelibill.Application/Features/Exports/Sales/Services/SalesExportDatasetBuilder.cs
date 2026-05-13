@@ -36,11 +36,13 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
 
         var summaryRows = new List<SalesExportSummaryRowDto>();
         var lineItemRows = new List<SalesExportLineItemRowDto>();
+        var returnRows = new List<SalesExportReturnRowDto>();
         var taxBreakupMap = new Dictionary<decimal, TaxBreakupAccumulator>();
 
         foreach (var sale in sales)
         {
-            var returns = (await _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, cancellationToken))
+            var allReturns = await _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, cancellationToken);
+            var returns = allReturns
                 .Where(r => !r.IsVoided)
                 .ToList();
 
@@ -68,6 +70,29 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                 sale.TotalAmount - totalReturnAmount,
                 returns.Count > 0,
                 sale.Items.Count));
+
+            // Collect return rows for credit notes (including voided for renderer-level filtering)
+            foreach (var returnRecord in allReturns)
+            {
+                var returnTaxBreakup = returnRecord.Items
+                    .GroupBy(ri => ri.OriginalTaxRatePercent)
+                    .Select(g => new SalesExportReturnTaxBreakupDto(
+                        g.Key,
+                        g.Sum(ri => ri.TaxableAmount),
+                        g.Sum(ri => ri.TaxAmount)))
+                    .ToList();
+
+                returnRows.Add(new SalesExportReturnRowDto(
+                    returnRecord.ReturnNumber,
+                    returnRecord.ProcessedAt,
+                    sale.InvoiceNumber,
+                    sale.CustomerName,
+                    returnRecord.TotalRefundAmount,
+                    returnRecord.TotalTaxableAmount,
+                    returnRecord.TotalTaxAmount,
+                    returnTaxBreakup,
+                    returnRecord.IsVoided));
+            }
 
             foreach (var saleItem in sale.Items)
             {
@@ -142,7 +167,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             metadata,
             summaryRows,
             lineItemRows,
-            taxBreakup);
+            taxBreakup,
+            returnRows);
     }
 
     private static string GetReturnStatus(decimal returnedQuantity, decimal soldQuantity)

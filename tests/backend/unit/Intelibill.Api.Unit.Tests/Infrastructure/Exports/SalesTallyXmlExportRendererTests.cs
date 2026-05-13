@@ -34,7 +34,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -78,7 +78,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -133,7 +133,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -184,7 +184,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(5m, 400m, 20m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -234,7 +234,8 @@ public sealed class SalesTallyXmlExportRendererTests
             metadata,
             new List<SalesExportSummaryRowDto>(),
             new List<SalesExportLineItemRowDto>(),
-            new List<SalesExportTaxBreakupDto>());
+            new List<SalesExportTaxBreakupDto>(),
+            []);
 
         var renderer = new SalesTallyXmlExportRenderer();
 
@@ -285,7 +286,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -334,7 +335,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -385,7 +386,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 1800m, 324m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -437,7 +438,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 1800m, 324m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -455,7 +456,7 @@ public sealed class SalesTallyXmlExportRendererTests
     }
 
     [Fact]
-    public async Task RenderAsync_WithReturns_CalculatesNetTaxCorrectly()
+    public async Task RenderAsync_WithReturns_CalculatesGrossTaxInSalesVoucherCorrectly()
     {
         var metadata = new SalesExportMetadataDto(
             "Green Mart",
@@ -469,7 +470,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 295m, 0m, 500m, 0m, 500m, 90m, 590m, "R-001", 295m, 250m, 45m, 295m, true, 1)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 590m, 0m, 500m, 0m, 500m, 90m, 590m, "R-001", 295m, 250m, 45m, 295m, true, 1)
         };
 
         var lineItems = new List<SalesExportLineItemRowDto>
@@ -482,7 +483,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 500m, 90m, 250m, 45m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -493,18 +494,18 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var vouchers = root.Descendants("VOUCHER").ToList();
         Assert.NotNull(vouchers);
-        Assert.Single(vouchers);
+        var salesVoucher = vouchers.Single(v => v.Element("VOUCHERTYPE")?.Value == "Sales");
 
-        var voucherLines = vouchers[0].Elements("VOUCHERLINE").ToList();
+        var voucherLines = salesVoucher.Elements("VOUCHERLINE").ToList();
         var gstLine = voucherLines.FirstOrDefault(line => 
             (line.Element("LEDGER")?.Value ?? "").StartsWith("Output GST", StringComparison.Ordinal));
 
         Assert.NotNull(gstLine);
-        var netTax = taxBreakup[0].NetTaxAmount;
+        var grossTax = taxBreakup[0].SaleTaxAmount;
         var gstAmount = decimal.Parse(
             gstLine.Element("AMOUNT")?.Value ?? "0",
             System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Equal(netTax, gstAmount);
+        Assert.Equal(grossTax, gstAmount);
     }
 
     [Fact]
@@ -538,7 +539,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 100m, 18m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -597,7 +598,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 900m, 162m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -641,7 +642,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 300m, 54m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -686,7 +687,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 100m, 18m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -728,7 +729,7 @@ public sealed class SalesTallyXmlExportRendererTests
             new(18m, 100m, 18m, 0m, 0m)
         };
 
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
         var renderer = new SalesTallyXmlExportRenderer();
 
         var result = await renderer.RenderAsync(dataset, CancellationToken.None);
@@ -743,4 +744,351 @@ public sealed class SalesTallyXmlExportRendererTests
         Assert.Equal("118.00", paymentLine.Element("AMOUNT")?.Value);
         Assert.Equal("Yes", paymentLine.Element("ISDEBIT")?.Value);
     }
+
+    [Fact]
+    public async Task RenderAsync_WithReturns_CreatesCreditNoteVouchers()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, "R-001", 118m, 100m, 18m, 0m, true, 1)
+        };
+
+        var returnTaxBreakup = new List<SalesExportReturnTaxBreakupDto>
+        {
+            new(18m, 100m, 18m)
+        };
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("R-001", new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, returnTaxBreakup)
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 100m, 18m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        
+        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
+        var creditNote = vouchers.Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+
+        Assert.Equal("R-001", creditNote.Element("VOUCHERNUMBER")?.Value);
+        
+        var voucherLines = creditNote.Elements("VOUCHERLINE").ToList();
+        
+        var customerLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Alice");
+        Assert.Equal("118.00", customerLine.Element("AMOUNT")?.Value);
+        Assert.Equal("No", customerLine.Element("ISDEBIT")?.Value);
+
+        var salesLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Sales");
+        Assert.Equal("100.00", salesLine.Element("AMOUNT")?.Value);
+        Assert.Equal("Yes", salesLine.Element("ISDEBIT")?.Value);
+
+        var gstLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Output GST 18%");
+        Assert.Equal("18.00", gstLine.Element("AMOUNT")?.Value);
+        Assert.Equal("Yes", gstLine.Element("ISDEBIT")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithReturnRows_GeneratesCreditNoteVouchers()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 1000m, 0m, 1000m, 0m, 1000m, 180m, 1180m, "RET-001", 200m, 100m, 18m, 980m, true, 1)
+        };
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 1000m, 180m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
+
+        var creditNoteVoucher = vouchers.SingleOrDefault(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+        Assert.NotNull(creditNoteVoucher);
+        Assert.Equal("RET-001", creditNoteVoucher.Element("VOUCHERNUMBER")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_CreditNoteVoucher_ContainsCustomerLedgerLine()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
+
+        var customerLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Customer A");
+        Assert.Equal("200.00", customerLine.Element("AMOUNT")?.Value);
+        Assert.Equal("No", customerLine.Element("ISDEBIT")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_CreditNoteVoucher_ContainsSalesReversalLine()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
+
+        var salesLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Sales");
+        Assert.Equal("100.00", salesLine.Element("AMOUNT")?.Value);
+        Assert.Equal("Yes", salesLine.Element("ISDEBIT")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_CreditNoteVoucher_ContainsGstReversalLines()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
+
+        var gstLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Output GST 18%");
+        Assert.Equal("18.00", gstLine.Element("AMOUNT")?.Value);
+        Assert.Equal("Yes", gstLine.Element("ISDEBIT")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithMultipleReturns_GeneratesMultipleCreditNotes()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 100m, 50m, 9m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 50m, 9m) }),
+            new("RET-002", new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero), "INV-002", "Customer B", 150m, 75m, 13.50m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 75m, 13.50m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 125m, 22.5m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVouchers = doc.Root!.Descendants("VOUCHER").Where(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note").ToList();
+
+        Assert.Equal(2, creditNoteVouchers.Count);
+        Assert.Contains(creditNoteVouchers, v => v.Element("VOUCHERNUMBER")?.Value == "RET-001");
+        Assert.Contains(creditNoteVouchers, v => v.Element("VOUCHERNUMBER")?.Value == "RET-002");
+    }
+
+    [Fact]
+    public async Task RenderAsync_CreditNoteReferencesToSaleInvoice()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+
+        var reference = creditNoteVoucher.Element("REFERENCE");
+        Assert.NotNull(reference);
+        Assert.Equal("INV-001", reference.Element("REFERENCENUMBER")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithSalesAndReturns_GeneratesBothVoucherTypes()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 1000m, 0m, 1000m, 0m, 1000m, 180m, 1180m, "RET-001", 200m, 100m, 18m, 980m, true, 1)
+        };
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 1000m, 180m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
+
+        var salesVouchers = vouchers.Where(v => v.Element("VOUCHERTYPE")?.Value == "Sales").ToList();
+        var creditNoteVouchers = vouchers.Where(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note").ToList();
+
+        Assert.Single(salesVouchers);
+        Assert.Single(creditNoteVouchers);
+
+        // Reconciliation: verify numeric values
+        var salesVoucher = salesVouchers[0];
+        var creditNoteVoucher = creditNoteVouchers[0];
+
+        // Extract ledger amounts from vouchers
+        var salesVoucherLines = salesVoucher.Descendants("VOUCHERLINE").ToList();
+        var creditNoteLines = creditNoteVoucher.Descendants("VOUCHERLINE").ToList();
+
+        // Sales voucher should have: Sales line (1000), Customer line (1000), Payment line (1000), GST line (180)
+        var salesLines = salesVoucherLines.Where(l => l.Element("LEDGER")?.Value == "Sales").ToList();
+        var gstSalesLines = salesVoucherLines.Where(l => l.Element("LEDGER")?.Value?.StartsWith("Output GST", StringComparison.Ordinal) == true).ToList();
+
+        // Credit note should have: Customer line (200), Sales line (100), GST line (18)
+        var creditNoteSalesLines = creditNoteLines.Where(l => l.Element("LEDGER")?.Value == "Sales").ToList();
+        var gstCreditNoteLines = creditNoteLines.Where(l => l.Element("LEDGER")?.Value?.StartsWith("Output GST", StringComparison.Ordinal) == true).ToList();
+
+        Assert.Single(salesLines);
+        Assert.NotEmpty(gstSalesLines);
+        Assert.Single(creditNoteSalesLines);
+        Assert.NotEmpty(gstCreditNoteLines);
+
+        // Verify the sales line in credit note is debit (reversal)
+        var creditNoteSalesLine = creditNoteSalesLines[0];
+        Assert.Equal("Yes", creditNoteSalesLine.Element("ISDEBIT")?.Value);
+        Assert.Equal("100.00", creditNoteSalesLine.Element("AMOUNT")?.Value);
+    }
+
 }

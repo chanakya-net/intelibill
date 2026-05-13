@@ -35,7 +35,8 @@ public sealed class SalesExcelExportRendererTests
             metadata,
             summaryRows,
             [],
-            taxBreakup);
+            taxBreakup,
+            []);
 
         var renderer = new SalesExcelExportRenderer();
 
