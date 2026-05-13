@@ -16,7 +16,7 @@
   <!-- ── Infrastructure layer ───────────────────────────────────────── -->
   <ItemGroup Label="Infrastructure">
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
-    <PackageVersion Include="ClosedXML" Version="0.102.2" />
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageVersion Include="MailKit" Version="4.16.0" />

@@ -99,6 +99,12 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
             ledgers.Add(customerName);
         }
 
+        foreach (var row in dataset.ReturnRows.Where(r => !r.IsVoided))
+        {
+            var customerName = !string.IsNullOrWhiteSpace(row.CustomerName) ? row.CustomerName : "Walk-in Customer";
+            ledgers.Add(customerName);
+        }
+
         // Add GST output ledgers for each unique tax rate
         foreach (var taxRate in dataset.TaxBreakup.Select(t => t.TaxRatePercent).Distinct().OrderBy(r => r))
         {
@@ -270,11 +276,6 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
         }
 
         return [];
-    }
-
-    private static decimal GetTaxAmountForLineItem(SalesExportLineItemRowDto item)
-    {
-        return item.TaxAmount;
     }
 
     private static string GetPaymentLedgerName(string paymentMethod)

@@ -989,6 +989,85 @@ public sealed class SalesTallyXmlExportRendererTests
     }
 
     [Fact]
+    public async Task RenderAsync_WithReturnRows_GeneratesCustomerLedgerMaster()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var ledgerMasters = doc.Root!.Descendants("MASTER")
+            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
+            .ToList();
+        var ledgerNames = ledgerMasters
+            .Select(m => m.Element("NAME")?.Value)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .ToList();
+
+        Assert.Contains("Customer A", ledgerNames);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithVoidedReturnRows_DoesNotCreateCreditNoteVouchers()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1)
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 100m, 18m, 100m, 18m)
+        };
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 118m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, true)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
+
+        Assert.Single(vouchers);
+        Assert.DoesNotContain(vouchers, v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+    }
+
+    [Fact]
     public async Task RenderAsync_CreditNoteReferencesToSaleInvoice()
     {
         var metadata = new SalesExportMetadataDto(
