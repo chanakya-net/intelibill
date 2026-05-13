@@ -199,4 +199,59 @@ public class ExportSalesQueryHandlerTests
         // Should not return authorization error
         Assert.False(result.IsError);
     }
+
+    [Fact]
+    public async Task Handle_WhenFormatHasMixedCase_TallyXml_UsesTallyRenderer()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                "Test Shop",
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                "summary"),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            Array.Empty<SalesExportLineItemRowDto>(),
+            Array.Empty<SalesExportTaxBreakupDto>());
+        var expectedResult = new SalesExportResult(Array.Empty<byte>(), "application/xml", "sales.xml");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>())
+            .Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            "summary",
+            Arg.Any<CancellationToken>())
+            .Returns(dataset);
+        _tallyRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
+            .Returns(expectedResult);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "TaLlYxMl",
+            "summary",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(expectedResult, result.Value);
+        await _tallyRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
+        await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
 }

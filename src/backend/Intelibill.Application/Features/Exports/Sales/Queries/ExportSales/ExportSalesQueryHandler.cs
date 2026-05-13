@@ -71,11 +71,14 @@ public sealed class ExportSalesQueryHandler
             query.Level,
             cancellationToken);
 
-        return query.Format.ToLowerInvariant() switch
+        return query.Format switch
         {
-            SalesExportFormat.Xlsx => await _excelRenderer.RenderAsync(dataset, cancellationToken),
-            SalesExportFormat.Pdf => await _pdfRenderer.RenderAsync(dataset, cancellationToken),
-            SalesExportFormat.TallyXml => await _tallyRenderer.RenderAsync(dataset, cancellationToken),
+            _ when string.Equals(query.Format, SalesExportFormat.Xlsx, StringComparison.OrdinalIgnoreCase) =>
+                await _excelRenderer.RenderAsync(dataset, cancellationToken),
+            _ when string.Equals(query.Format, SalesExportFormat.Pdf, StringComparison.OrdinalIgnoreCase) =>
+                await _pdfRenderer.RenderAsync(dataset, cancellationToken),
+            _ when string.Equals(query.Format, SalesExportFormat.TallyXml, StringComparison.OrdinalIgnoreCase) =>
+                await _tallyRenderer.RenderAsync(dataset, cancellationToken),
             _ => Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.")
         };
     }
