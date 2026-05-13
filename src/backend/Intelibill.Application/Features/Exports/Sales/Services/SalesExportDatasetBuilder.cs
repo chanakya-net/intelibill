@@ -112,11 +112,13 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
 
                     lineItemRows.Add(new SalesExportLineItemRowDto(
                         sale.InvoiceNumber,
+                        sale.SoldAt,
                         sale.CustomerName,
                         itemNameById.GetValueOrDefault(saleItem.ItemId, "Unknown Item"),
                         saleItem.Quantity,
                         saleItem.SalesPrice,
-                        saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount,
+                        saleItem.ItemDiscountAmount,
+                        saleItem.SaleDiscountAmount,
                         saleItem.TaxRatePercent,
                         saleItem.TaxableAmount,
                         saleItem.TaxAmount,

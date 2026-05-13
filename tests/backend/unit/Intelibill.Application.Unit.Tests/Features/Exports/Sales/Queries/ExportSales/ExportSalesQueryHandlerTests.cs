@@ -347,7 +347,7 @@ public class ExportSalesQueryHandlerTests
                 DateOnly.FromDateTime(DateTime.UtcNow),
                 SalesExportLevel.LineItems),
             Array.Empty<SalesExportSummaryRowDto>(),
-            [new SalesExportLineItemRowDto("INV-001", "Alice", "Apple", 1m, 10m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
+            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
             Array.Empty<SalesExportTaxBreakupDto>(),
             []);
         var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
@@ -438,6 +438,60 @@ public class ExportSalesQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenFormatIsXlsx_LineItems_UsesExcelRendererWithLineItemDataset()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto(
+                shop.Name,
+                null,
+                null,
+                "Export User",
+                DateTimeOffset.UtcNow,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                SalesExportLevel.LineItems),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
+        var expectedResult = new SalesExportResult([1, 2, 3], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sales.xlsx");
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            Arg.Any<DateOnly>(),
+            Arg.Any<DateOnly>(),
+            SalesExportLevel.LineItems,
+            Arg.Any<CancellationToken>()).Returns(dataset);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-lineitems.xlsx");
+        _fileNameBuilder.GetContentType(Arg.Any<string>()).Returns("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        _excelRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>()).Returns(expectedResult);
+
+        var handler = CreateHandler();
+        var query = new ExportSalesQuery(
+            user.Id,
+            shop.Id,
+            "xlsx",
+            "lineItems",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _excelRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
+        await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _tallyRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenPdfLineItemDatasetExceedsRowLimit_ReturnsValidationError_AndDoesNotRender()
     {
         var user = MakeUser();
@@ -445,7 +499,7 @@ public class ExportSalesQueryHandlerTests
         var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
 
         var rows = Enumerable.Range(1, 2001)
-            .Select(i => new SalesExportLineItemRowDto($"INV-{i:D4}", null, "Item", 1m, 1m, 0m, 0m, 1m, 0m, 1m, false, 0m, null, null))
+            .Select(i => new SalesExportLineItemRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, null, "Item", 1m, 1m, 0m, 0m, 0m, 1m, 0m, 1m, false, 0m, null, null))
             .ToArray();
 
         var dataset = new SalesExportDatasetDto(

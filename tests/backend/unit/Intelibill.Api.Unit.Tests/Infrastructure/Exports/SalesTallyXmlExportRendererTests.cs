@@ -26,7 +26,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Apple", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Apple", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -70,7 +70,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Customer A", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -125,7 +125,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -174,8 +174,8 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Customer A", "Product 1", 10m, 40m, 0m, 18m, 400m, 72m, 472m, false, 0m, null, null),
-            new("INV-001", "Customer A", "Product 2", 5m, 80m, 0m, 5m, 400m, 20m, 420m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product 1", 10m, 40m, 0m, 0m, 18m, 400m, 72m, 472m, false, 0m, null, null),
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product 2", 5m, 80m, 0m, 0m, 5m, 400m, 20m, 420m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -278,7 +278,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "John Doe", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "John Doe", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -327,7 +327,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", null, "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), null, "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -377,8 +377,8 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Customer A", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
-            new("INV-002", "Customer B", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
+            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Customer B", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -429,8 +429,8 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
-            new("INV-002", "Bob", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
+            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -475,7 +475,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 5m, "Returned", "R-001")
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 5m, "Returned", "R-001")
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -529,8 +529,8 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product A", 1m, 100m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null),
-            new("INV-002", "Bob", "Product B", 2m, 100m, 0m, 5m, 200m, 10m, 210m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product A", 1m, 100m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null),
+            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Product B", 2m, 100m, 0m, 0m, 5m, 200m, 10m, 210m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -590,7 +590,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product", 10m, 50m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -721,7 +721,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var lineItems = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Product", 1m, 100m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 1m, 100m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>

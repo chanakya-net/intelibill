@@ -2,11 +2,13 @@ namespace Intelibill.Application.Features.Exports.Sales.DTOs;
 
 public sealed record SalesExportLineItemRowDto(
     string InvoiceNumber,
+    DateTimeOffset SaleDate,
     string? CustomerName,
     string ItemName,
     decimal SalesQuantity,
     decimal SalesPrice,
-    decimal DiscountSplitAmount,
+    decimal ItemDiscountAmount,
+    decimal SaleDiscountAmount,
     decimal TaxRatePercent,
     decimal TaxableAmount,
     decimal TaxAmount,

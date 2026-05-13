@@ -54,7 +54,7 @@ public sealed class SalesPdfExportRendererTests
 
         var lineItemRows = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", "Alice", "Apple", 2m, 50m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Apple", 2m, 50m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
         };
 
         var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItemRows, [], []);
@@ -67,4 +67,3 @@ public sealed class SalesPdfExportRendererTests
         Assert.True(result.Content.AsSpan(0, Math.Min(result.Content.Length, 5)).SequenceEqual("%PDF-"u8));
     }
 }
-

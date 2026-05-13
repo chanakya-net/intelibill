@@ -188,7 +188,8 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal("Test Item", row.ItemName);
         Assert.Equal(2, row.SalesQuantity);
         Assert.Equal(150, row.SalesPrice);
-        Assert.Equal(200, row.DiscountSplitAmount);
+        Assert.Equal(150m, row.ItemDiscountAmount);
+        Assert.Equal(50m, row.SaleDiscountAmount);
         Assert.Equal(18, row.TaxRatePercent);
         Assert.Equal(254.24m, row.TaxableAmount);
         Assert.Equal(45.76m, row.TaxAmount);
