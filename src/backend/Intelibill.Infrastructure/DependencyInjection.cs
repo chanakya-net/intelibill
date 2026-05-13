@@ -9,6 +9,7 @@ using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
 using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
 using Intelibill.Infrastructure.Services.Exports;
+using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -100,6 +101,9 @@ public static class DependencyInjection
 
         // ── Export services ────────────────────────────────────────────────────
         services.AddScoped<IExportFileNameBuilder, ExportFileNameBuilder>();
+        services.AddScoped<ISalesExcelExportRenderer, Services.Exports.SalesExcelExportRenderer>();
+        services.AddScoped<ISalesPdfExportRenderer, Services.Exports.SalesPdfExportRenderer>();
+        services.AddScoped<ISalesTallyXmlExportRenderer, Services.Exports.SalesTallyXmlExportRenderer>();
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.
