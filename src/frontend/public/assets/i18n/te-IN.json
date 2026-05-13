@@ -670,6 +670,14 @@
         "discountUpdated": "తగ్గింపు నియమాలు నవీకరించబడ్డాయి",
         "inventoryUpdated": "ఇన్వెంటరీ నవీకరించబడింది",
         "updated": "చెక్అవుట్ ప్రివ్యూ నవీకరించబడింది"
+      },
+      "confirmation": {
+        "title": "Sale Recorded",
+        "success": "The sale has been successfully recorded.",
+        "invoiceNumber": "Invoice Number",
+        "totalAmount": "Total Amount",
+        "printA4": "Print A4",
+        "printThermal": "Print Thermal"
       }
     },
     "detail": {
@@ -785,7 +793,31 @@
         "recordBtn": "రికార్డ్ రిటర్న్"
       }
     },
-    "searchPlaceholder": "విక్రయాలను శోధించండి..."
+    "searchPlaceholder": "విక్రయాలను శోధించండి...",
+    "export": {
+      "title": "Sales Export",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "loading": "Preparing export...",
+      "level": {
+        "label": "Export level",
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "format": {
+        "excel": "Excel",
+        "pdf": "PDF",
+        "tally": "Tally"
+      },
+      "validation": {
+        "dateRequired": "Please select both start and end dates.",
+        "invalidDateRange": "Start date must be before end date."
+      },
+      "error": {
+        "unexpected": "Unable to export sales report."
+      }
+    }
   },
   "expenses": {
     "title": "ఖర్చులు",

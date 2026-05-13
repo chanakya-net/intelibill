@@ -16,6 +16,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { SaleListItemDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
+import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';
 import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({
@@ -34,6 +35,7 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     DialogModule,
     SkeletonModule,
     SaleDetailOverlayComponent,
+    SalesExportToolbarComponent,
     TableFilterBarComponent,
     TranslocoPipe,
   ],

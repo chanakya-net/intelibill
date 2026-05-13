@@ -670,6 +670,14 @@
         "discountUpdated": "தள்ளுபடி விதிகள் புதுப்பிக்கப்பட்டுள்ளன",
         "inventoryUpdated": "இருப்பு புதுப்பிக்கப்பட்டது",
         "updated": "கட்டணம் செலுத்தும் முன்னோட்டம் புதுப்பிக்கப்பட்டது"
+      },
+      "confirmation": {
+        "title": "Sale Recorded",
+        "success": "The sale has been successfully recorded.",
+        "invoiceNumber": "Invoice Number",
+        "totalAmount": "Total Amount",
+        "printA4": "Print A4",
+        "printThermal": "Print Thermal"
       }
     },
     "detail": {
@@ -785,7 +793,31 @@
         "recordBtn": "பதிவு திரும்ப"
       }
     },
-    "searchPlaceholder": "விற்பனையைத் தேடு..."
+    "searchPlaceholder": "விற்பனையைத் தேடு...",
+    "export": {
+      "title": "Sales Export",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "loading": "Preparing export...",
+      "level": {
+        "label": "Export level",
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "format": {
+        "excel": "Excel",
+        "pdf": "PDF",
+        "tally": "Tally"
+      },
+      "validation": {
+        "dateRequired": "Please select both start and end dates.",
+        "invalidDateRange": "Start date must be before end date."
+      },
+      "error": {
+        "unexpected": "Unable to export sales report."
+      }
+    }
   },
   "expenses": {
     "title": "செலவுகள்",
