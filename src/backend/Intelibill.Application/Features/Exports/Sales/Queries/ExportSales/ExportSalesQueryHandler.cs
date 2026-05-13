@@ -16,6 +16,7 @@ public sealed class ExportSalesQueryHandler
     private readonly ISalesExcelExportRenderer _excelRenderer;
     private readonly ISalesPdfExportRenderer _pdfRenderer;
     private readonly ISalesTallyXmlExportRenderer _tallyRenderer;
+    private readonly IExportFileNameBuilder _fileNameBuilder;
 
     public ExportSalesQueryHandler(
         IUserRepository userRepository,
@@ -23,7 +24,8 @@ public sealed class ExportSalesQueryHandler
         ISalesExportDatasetBuilder datasetBuilder,
         ISalesExcelExportRenderer excelRenderer,
         ISalesPdfExportRenderer pdfRenderer,
-        ISalesTallyXmlExportRenderer tallyRenderer)
+        ISalesTallyXmlExportRenderer tallyRenderer,
+        IExportFileNameBuilder fileNameBuilder)
     {
         _userRepository = userRepository;
         _shopRepository = shopRepository;
@@ -31,6 +33,7 @@ public sealed class ExportSalesQueryHandler
         _excelRenderer = excelRenderer;
         _pdfRenderer = pdfRenderer;
         _tallyRenderer = tallyRenderer;
+        _fileNameBuilder = fileNameBuilder;
     }
 
     public async Task<ErrorOr<SalesExportResult>> Handle(
@@ -71,7 +74,7 @@ public sealed class ExportSalesQueryHandler
             query.Level,
             cancellationToken);
 
-        return query.Format switch
+        var rendererResult = query.Format switch
         {
             _ when string.Equals(query.Format, SalesExportFormat.Xlsx, StringComparison.OrdinalIgnoreCase) =>
                 await _excelRenderer.RenderAsync(dataset, cancellationToken),
@@ -79,7 +82,24 @@ public sealed class ExportSalesQueryHandler
                 await _pdfRenderer.RenderAsync(dataset, cancellationToken),
             _ when string.Equals(query.Format, SalesExportFormat.TallyXml, StringComparison.OrdinalIgnoreCase) =>
                 await _tallyRenderer.RenderAsync(dataset, cancellationToken),
-            _ => Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.")
+            _ => (ErrorOr<SalesExportResult>)Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.")
         };
+
+        if (rendererResult.IsError)
+        {
+            return rendererResult;
+        }
+
+        var fileName = _fileNameBuilder.BuildFileName(
+            shop.Name,
+            query.Format,
+            query.Level,
+            query.StartDate,
+            query.EndDate);
+
+        var contentType = _fileNameBuilder.GetContentType(query.Format);
+
+        var renderedContent = rendererResult.Value;
+        return new SalesExportResult(renderedContent.Content, contentType, fileName);
     }
 }

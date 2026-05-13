@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -7,6 +8,7 @@ using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
 using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
+using Intelibill.Infrastructure.Services.Exports;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -95,6 +97,9 @@ public static class DependencyInjection
                     sp.GetRequiredService<ILogger<SmtpEmailService>>())
                 : new NoOpEmailService(sp.GetRequiredService<ILogger<NoOpEmailService>>());
         });
+
+        // ── Export services ────────────────────────────────────────────────────
+        services.AddScoped<IExportFileNameBuilder, ExportFileNameBuilder>();
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.

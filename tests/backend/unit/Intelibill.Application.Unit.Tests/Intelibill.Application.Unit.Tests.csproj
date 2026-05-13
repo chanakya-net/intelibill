@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="../../../../src/backend/Intelibill.Application/Intelibill.Application.csproj" />
     <ProjectReference Include="../../../../src/backend/Intelibill.Domain/Intelibill.Domain.csproj" />
+    <ProjectReference Include="../../../../src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

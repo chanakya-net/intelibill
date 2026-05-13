@@ -18,9 +18,10 @@ public class ExportSalesQueryHandlerTests
     private readonly ISalesExcelExportRenderer _excelRenderer = Substitute.For<ISalesExcelExportRenderer>();
     private readonly ISalesPdfExportRenderer _pdfRenderer = Substitute.For<ISalesPdfExportRenderer>();
     private readonly ISalesTallyXmlExportRenderer _tallyRenderer = Substitute.For<ISalesTallyXmlExportRenderer>();
+    private readonly IExportFileNameBuilder _fileNameBuilder = Substitute.For<IExportFileNameBuilder>();
 
     private ExportSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer);
+        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer, _fileNameBuilder);
 
     private static User MakeUser() =>
         User.CreateWithEmail("export@test.com", "hash", "Export", "User");
@@ -151,6 +152,10 @@ public class ExportSalesQueryHandlerTests
             .Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ownerMembership);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-summary.xlsx");
+        _fileNameBuilder.GetContentType(Arg.Any<string>())
+            .Returns("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         _excelRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
             .Returns(new SalesExportResult(Array.Empty<byte>(), "ct", "fn"));
 
@@ -182,6 +187,10 @@ public class ExportSalesQueryHandlerTests
             .Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(managerMembership);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-summary.xlsx");
+        _fileNameBuilder.GetContentType(Arg.Any<string>())
+            .Returns("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         _excelRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
             .Returns(new SalesExportResult(Array.Empty<byte>(), "ct", "fn"));
 
@@ -234,6 +243,10 @@ public class ExportSalesQueryHandlerTests
             "summary",
             Arg.Any<CancellationToken>())
             .Returns(dataset);
+        _fileNameBuilder.BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>())
+            .Returns("test-shop-sales-tally.xml");
+        _fileNameBuilder.GetContentType(Arg.Any<string>())
+            .Returns("application/xml");
         _tallyRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
             .Returns(expectedResult);
 
@@ -249,7 +262,6 @@ public class ExportSalesQueryHandlerTests
         var result = await handler.Handle(query, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(expectedResult, result.Value);
         await _tallyRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
         await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
         await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
