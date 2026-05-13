@@ -85,6 +85,118 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal(0, row.ReturnAmount);
         Assert.Equal(300, row.NetSalesAmount);
         Assert.False(row.HasReturns);
+
+        // Metadata assertions
+        Assert.Equal(shop.Name, result.Metadata.ShopName);
+        Assert.Contains(shop.Address, result.Metadata.ShopAddress);
+        Assert.Equal($"{user.FirstName} {user.LastName}", result.Metadata.GeneratedBy);
+        Assert.Equal(startDate, result.Metadata.StartDate);
+        Assert.Equal(endDate, result.Metadata.EndDate);
+        Assert.Equal(SalesExportLevel.Summary, result.Metadata.ExportLevel);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ShouldMapLineItemsCorrectly()
+    {
+        // Arrange
+        var shop = MakeShop();
+        var user = MakeUser();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var item = MakeItem(shop.Id);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Item> { item });
+
+        var saleItem = SaleItem.Create(
+            shop.Id,
+            item.Id,
+            Guid.NewGuid(),
+            2,
+            100,
+            150,
+            200,
+            18,
+            true,
+            false,
+            itemDiscountAmount: 150m,
+            saleDiscountAmount: 50m,
+            taxableAmount: 254.24m,
+            taxAmount: 45.76m,
+            totalAmount: 300m);
+
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            null, "Customer", null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            300,
+            0,
+            300,
+            45.76m,
+            new List<SaleItem> { saleItem });
+
+        var returnLine = new SaleReturnLineInput(
+            shop.Id,
+            saleItem.Id,
+            1,
+            SaleReturnCondition.Restockable,
+            100,
+            150,
+            18,
+            true,
+            150,
+            150,
+            127.12m,
+            22.88m,
+            null);
+
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-001",
+            DateTimeOffset.UtcNow,
+            user.Id,
+            null,
+            150,
+            0,
+            150,
+            PaymentMethod.Cash,
+            127.12m,
+            22.88m,
+            null,
+            null,
+            new List<SaleReturnLineInput> { returnLine }).Value;
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { sale });
+
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn> { saleReturn });
+
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.LineItems, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.LineItemRows);
+        var row = result.LineItemRows[0];
+        Assert.Equal("INV-001", row.InvoiceNumber);
+        Assert.Equal("Customer", row.CustomerName);
+        Assert.Equal("Test Item", row.ItemName);
+        Assert.Equal(2, row.SalesQuantity);
+        Assert.Equal(150, row.SalesPrice);
+        Assert.Equal(200, row.DiscountSplitAmount);
+        Assert.Equal(18, row.TaxRatePercent);
+        Assert.Equal(254.24m, row.TaxableAmount);
+        Assert.Equal(45.76m, row.TaxAmount);
+        Assert.Equal(300, row.LineTotal);
+        Assert.True(row.IsPriceIncludingTax);
+        Assert.Equal(1, row.ReturnedQuantity);
+        Assert.Equal("PartiallyReturned", row.ReturnStatus);
+        Assert.Equal("RET-001", row.ReturnNumbers);
     }
 
     [Fact]
