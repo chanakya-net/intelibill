@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Wolverine.Attributes;
@@ -11,13 +12,25 @@ public sealed class ExportSalesQueryHandler
 {
     private readonly IUserRepository _userRepository;
     private readonly IShopRepository _shopRepository;
+    private readonly ISalesExportDatasetBuilder _datasetBuilder;
+    private readonly ISalesExcelExportRenderer _excelRenderer;
+    private readonly ISalesPdfExportRenderer _pdfRenderer;
+    private readonly ISalesTallyXmlExportRenderer _tallyRenderer;
 
     public ExportSalesQueryHandler(
         IUserRepository userRepository,
-        IShopRepository shopRepository)
+        IShopRepository shopRepository,
+        ISalesExportDatasetBuilder datasetBuilder,
+        ISalesExcelExportRenderer excelRenderer,
+        ISalesPdfExportRenderer pdfRenderer,
+        ISalesTallyXmlExportRenderer tallyRenderer)
     {
         _userRepository = userRepository;
         _shopRepository = shopRepository;
+        _datasetBuilder = datasetBuilder;
+        _excelRenderer = excelRenderer;
+        _pdfRenderer = pdfRenderer;
+        _tallyRenderer = tallyRenderer;
     }
 
     public async Task<ErrorOr<SalesExportResult>> Handle(
@@ -50,10 +63,20 @@ public sealed class ExportSalesQueryHandler
             return Errors.Export.UserIsNotOwnerOrManager;
         }
 
-        // Placeholder: will dispatch to renderers in future slices
-        return new SalesExportResult(
-            Array.Empty<byte>(),
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"sales_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx");
+        var dataset = await _datasetBuilder.BuildAsync(
+            shop,
+            user,
+            query.StartDate,
+            query.EndDate,
+            query.Level,
+            cancellationToken);
+
+        return query.Format.ToLowerInvariant() switch
+        {
+            SalesExportFormat.Xlsx => await _excelRenderer.RenderAsync(dataset, cancellationToken),
+            SalesExportFormat.Pdf => await _pdfRenderer.RenderAsync(dataset, cancellationToken),
+            SalesExportFormat.TallyXml => await _tallyRenderer.RenderAsync(dataset, cancellationToken),
+            _ => Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.")
+        };
     }
 }

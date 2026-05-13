@@ -1,5 +1,8 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Exports.Sales;
+using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Application.Features.Exports.Sales.Queries.ExportSales;
+using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -11,9 +14,13 @@ public class ExportSalesQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly ISalesExportDatasetBuilder _datasetBuilder = Substitute.For<ISalesExportDatasetBuilder>();
+    private readonly ISalesExcelExportRenderer _excelRenderer = Substitute.For<ISalesExcelExportRenderer>();
+    private readonly ISalesPdfExportRenderer _pdfRenderer = Substitute.For<ISalesPdfExportRenderer>();
+    private readonly ISalesTallyXmlExportRenderer _tallyRenderer = Substitute.For<ISalesTallyXmlExportRenderer>();
 
     private ExportSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository);
+        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer);
 
     private static User MakeUser() =>
         User.CreateWithEmail("export@test.com", "hash", "Export", "User");
@@ -144,6 +151,8 @@ public class ExportSalesQueryHandlerTests
             .Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ownerMembership);
+        _excelRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesExportResult(Array.Empty<byte>(), "ct", "fn"));
 
         var handler = CreateHandler();
         var query = new ExportSalesQuery(
@@ -173,6 +182,8 @@ public class ExportSalesQueryHandlerTests
             .Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(managerMembership);
+        _excelRenderer.RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesExportResult(Array.Empty<byte>(), "ct", "fn"));
 
         var handler = CreateHandler();
         var query = new ExportSalesQuery(
