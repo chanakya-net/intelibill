@@ -793,7 +793,31 @@
         "recordBtn": "Record return"
       }
     },
-    "searchPlaceholder": "Search sales..."
+    "searchPlaceholder": "Search sales...",
+    "export": {
+      "title": "Sales Export",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "loading": "Preparing export...",
+      "level": {
+        "label": "Export level",
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "format": {
+        "excel": "Excel",
+        "pdf": "PDF",
+        "tally": "Tally"
+      },
+      "validation": {
+        "dateRequired": "Please select both start and end dates.",
+        "invalidDateRange": "Start date must be before end date."
+      },
+      "error": {
+        "unexpected": "Unable to export sales report."
+      }
+    }
   },
   "expenses": {
     "title": "Expenses",

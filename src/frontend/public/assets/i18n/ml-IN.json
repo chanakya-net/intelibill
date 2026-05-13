@@ -670,6 +670,14 @@
         "discountUpdated": "കിഴിവ് നിയമങ്ങൾ അപ്ഡേറ്റ് ചെയ്തിട്ടുണ്ട്",
         "inventoryUpdated": "ഇൻവെൻ്ററി അപ്ഡേറ്റ് ചെയ്തു",
         "updated": "ചെക്ക്ഔട്ട് പ്രിവ്യൂ അപ്ഡേറ്റ് ചെയ്തു"
+      },
+      "confirmation": {
+        "title": "Sale Recorded",
+        "success": "The sale has been successfully recorded.",
+        "invoiceNumber": "Invoice Number",
+        "totalAmount": "Total Amount",
+        "printA4": "Print A4",
+        "printThermal": "Print Thermal"
       }
     },
     "detail": {
@@ -785,7 +793,31 @@
         "recordBtn": "റെക്കോർഡ് റിട്ടേൺ"
       }
     },
-    "searchPlaceholder": "വിൽപ്പന തിരയുക..."
+    "searchPlaceholder": "വിൽപ്പന തിരയുക...",
+    "export": {
+      "title": "Sales Export",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "loading": "Preparing export...",
+      "level": {
+        "label": "Export level",
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "format": {
+        "excel": "Excel",
+        "pdf": "PDF",
+        "tally": "Tally"
+      },
+      "validation": {
+        "dateRequired": "Please select both start and end dates.",
+        "invalidDateRange": "Start date must be before end date."
+      },
+      "error": {
+        "unexpected": "Unable to export sales report."
+      }
+    }
   },
   "expenses": {
     "title": "ചെലവുകൾ",

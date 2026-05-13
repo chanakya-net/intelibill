@@ -86,3 +86,7 @@ export const DISCOUNT_ENDPOINTS = {
   disable: (id: string) => `${API_BASE_URL}/discounts/${id}/disable`,
   preview: `${API_BASE_URL}/discounts/preview`,
 } as const;
+
+export const EXPORT_ENDPOINTS = {
+  sales: `${API_BASE_URL}/exports/sales`,
+} as const;

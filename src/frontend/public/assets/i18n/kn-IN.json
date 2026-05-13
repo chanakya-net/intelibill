@@ -670,6 +670,14 @@
         "discountUpdated": "ರಿಯಾಯಿತಿ ನಿಯಮಗಳನ್ನು ನವೀಕರಿಸಲಾಗಿದೆ",
         "inventoryUpdated": "ದಾಸ್ತಾನು ನವೀಕರಿಸಲಾಗಿದೆ",
         "updated": "ಚೆಕ್ಔಟ್ ಪೂರ್ವವೀಕ್ಷಣೆಯನ್ನು ನವೀಕರಿಸಲಾಗಿದೆ"
+      },
+      "confirmation": {
+        "title": "Sale Recorded",
+        "success": "The sale has been successfully recorded.",
+        "invoiceNumber": "Invoice Number",
+        "totalAmount": "Total Amount",
+        "printA4": "Print A4",
+        "printThermal": "Print Thermal"
       }
     },
     "detail": {
@@ -785,7 +793,31 @@
         "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್"
       }
     },
-    "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ..."
+    "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",
+    "export": {
+      "title": "Sales Export",
+      "dateRange": "Date range",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "loading": "Preparing export...",
+      "level": {
+        "label": "Export level",
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "format": {
+        "excel": "Excel",
+        "pdf": "PDF",
+        "tally": "Tally"
+      },
+      "validation": {
+        "dateRequired": "Please select both start and end dates.",
+        "invalidDateRange": "Start date must be before end date."
+      },
+      "error": {
+        "unexpected": "Unable to export sales report."
+      }
+    }
   },
   "expenses": {
     "title": "ಖರ್ಚುಗಳು",
