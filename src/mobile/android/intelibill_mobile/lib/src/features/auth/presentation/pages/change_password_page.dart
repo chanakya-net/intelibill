@@ -49,10 +49,12 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     }
 
     _wasSubmitting = true;
-    await ref.read(authControllerProvider.notifier).changePassword(
-      currentPassword: _currentPasswordController.text,
-      newPassword: _newPasswordController.text,
-    );
+    await ref
+        .read(authControllerProvider.notifier)
+        .changePassword(
+          currentPassword: _currentPasswordController.text,
+          newPassword: _newPasswordController.text,
+        );
   }
 
   String? _validateConfirmPassword(String? value, AppLocalizations l10n) {

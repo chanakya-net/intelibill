@@ -193,8 +193,9 @@ void main() {
           accessToken: 'updated_access_token',
         );
 
-        when(() => repository.getRememberedIdentifier())
-            .thenAnswer((_) async => null);
+        when(
+          () => repository.getRememberedIdentifier(),
+        ).thenAnswer((_) async => null);
         when(
           () => repository.updateProfile(
             email: any(named: 'email'),
@@ -249,8 +250,9 @@ void main() {
           refreshToken: 'switched_refresh_token',
         );
 
-        when(() => repository.getRememberedIdentifier())
-            .thenAnswer((_) async => null);
+        when(
+          () => repository.getRememberedIdentifier(),
+        ).thenAnswer((_) async => null);
         when(
           () => repository.switchShop(shopId: any(named: 'shopId')),
         ).thenAnswer((_) async => switchedSession);

@@ -196,18 +196,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.language,
             builder: (context, state) => const LanguagePage(),
           ),
-           GoRoute(
-             path: AppRoutes.profile,
-             builder: (context, state) => const ProfileSettingsPage(),
-           ),
-           GoRoute(
-             path: AppRoutes.profileEdit,
-             builder: (context, state) => const UpdateProfilePage(),
-           ),
-           GoRoute(
-             path: AppRoutes.profileChangePassword,
-             builder: (context, state) => const ChangePasswordPage(),
-           ),
+          GoRoute(
+            path: AppRoutes.profile,
+            builder: (context, state) => const ProfileSettingsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.profileEdit,
+            builder: (context, state) => const UpdateProfilePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.profileChangePassword,
+            builder: (context, state) => const ChangePasswordPage(),
+          ),
           GoRoute(
             path: AppRoutes.placeholders,
             builder: (context, state) {

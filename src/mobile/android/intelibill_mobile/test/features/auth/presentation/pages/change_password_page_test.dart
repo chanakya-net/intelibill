@@ -156,7 +156,9 @@ void main() {
       expect(find.text('Please confirm your password'), findsOneWidget);
     });
 
-    testWidgets('validates confirm password matches new password', (tester) async {
+    testWidgets('validates confirm password matches new password', (
+      tester,
+    ) async {
       final session = _sessionFixture();
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
@@ -172,14 +174,19 @@ void main() {
 
       await tester.enterText(find.byKey(_currentPasswordFieldKey), 'oldpass');
       await tester.enterText(find.byKey(_newPasswordFieldKey), 'newpass123');
-      await tester.enterText(find.byKey(_confirmPasswordFieldKey), 'newpass456');
+      await tester.enterText(
+        find.byKey(_confirmPasswordFieldKey),
+        'newpass456',
+      );
       await tester.tap(find.byKey(_submitButtonKey));
       await tester.pump();
 
       expect(find.text('Passwords do not match'), findsOneWidget);
     });
 
-    testWidgets('calls changePassword on submit with valid data', (tester) async {
+    testWidgets('calls changePassword on submit with valid data', (
+      tester,
+    ) async {
       var changePasswordCalled = false;
       final session = _sessionFixture();
       final state = AuthControllerState(session: session);
@@ -201,42 +208,53 @@ void main() {
 
       await tester.enterText(find.byKey(_currentPasswordFieldKey), 'oldpass');
       await tester.enterText(find.byKey(_newPasswordFieldKey), 'newpass123');
-      await tester.enterText(find.byKey(_confirmPasswordFieldKey), 'newpass123');
+      await tester.enterText(
+        find.byKey(_confirmPasswordFieldKey),
+        'newpass123',
+      );
       await tester.tap(find.byKey(_submitButtonKey));
       await tester.pumpAndSettle();
 
       expect(changePasswordCalled, true);
     });
 
-    testWidgets('shows success snackbar and pops on successful password change', (
+    testWidgets(
+      'shows success snackbar and pops on successful password change',
+      (
+        tester,
+      ) async {
+        final session = _sessionFixture();
+        final state = AuthControllerState(session: session);
+
+        final mockController = _SuccessAuthController(state);
+
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              () => mockController,
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_buildPage(container));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byKey(_currentPasswordFieldKey), 'oldpass');
+        await tester.enterText(find.byKey(_newPasswordFieldKey), 'newpass123');
+        await tester.enterText(
+          find.byKey(_confirmPasswordFieldKey),
+          'newpass123',
+        );
+        await tester.tap(find.byKey(_submitButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Password changed successfully'), findsOneWidget);
+      },
+    );
+
+    testWidgets('shows error message on password change failure', (
       tester,
     ) async {
-      final session = _sessionFixture();
-      final state = AuthControllerState(session: session);
-
-      final mockController = _SuccessAuthController(state);
-
-      final container = ProviderContainer(
-        overrides: [
-          authControllerProvider.overrideWith(
-            () => mockController,
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(_buildPage(container));
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byKey(_currentPasswordFieldKey), 'oldpass');
-      await tester.enterText(find.byKey(_newPasswordFieldKey), 'newpass123');
-      await tester.enterText(find.byKey(_confirmPasswordFieldKey), 'newpass123');
-      await tester.tap(find.byKey(_submitButtonKey));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Password changed successfully'), findsOneWidget);
-    });
-
-    testWidgets('shows error message on password change failure', (tester) async {
       final session = _sessionFixture();
       final state = AuthControllerState(
         session: session,

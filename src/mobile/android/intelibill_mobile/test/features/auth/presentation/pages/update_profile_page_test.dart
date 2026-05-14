@@ -216,7 +216,10 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byKey(_firstNameFieldKey), 'Jane');
-      await tester.enterText(find.byKey(_emailFieldKey), 'newemail@example.com');
+      await tester.enterText(
+        find.byKey(_emailFieldKey),
+        'newemail@example.com',
+      );
       await tester.tap(find.byKey(_submitButtonKey));
       await tester.pumpAndSettle();
 

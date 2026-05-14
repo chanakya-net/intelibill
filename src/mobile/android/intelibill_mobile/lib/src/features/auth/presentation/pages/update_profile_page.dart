@@ -64,13 +64,17 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
     }
 
     _wasSubmitting = true;
-    await ref.read(authControllerProvider.notifier).updateProfile(
-      email: _emailController.text.trim(),
-      phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      language: user.language,
-    );
+    await ref
+        .read(authControllerProvider.notifier)
+        .updateProfile(
+          email: _emailController.text.trim(),
+          phoneNumber: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          language: user.language,
+        );
   }
 
   String? _validateEmail(String? value, AppLocalizations l10n) {
