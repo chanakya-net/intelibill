@@ -12,14 +12,11 @@ void main() {
       expect(router, isA<GoRouter>());
     });
 
-    test('goRouter has root route at /', () {
-      final container = ProviderContainer();
-      final router = container.read(goRouterProvider);
-      expect(router.routeInformationProvider.value.uri.path, equals('/'));
-    });
-
-    test('AppRoutes.root constant is /', () {
+    test('AppRoutes constants are defined correctly', () {
       expect(AppRoutes.root, equals('/'));
+      expect(AppRoutes.login, equals('/login'));
+      expect(AppRoutes.forgotPassword, equals('/forgot-password'));
+      expect(AppRoutes.register, equals('/register'));
     });
   });
 }

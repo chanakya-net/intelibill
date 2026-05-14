@@ -60,6 +60,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final theme = Theme.of(context);
     final authState = ref.watch(authControllerProvider);
 
+    // Listen for successful authentication and navigate
+    ref.listen(authControllerProvider, (previous, next) {
+      next.whenData((state) {
+        if (state.isAuthenticated) {
+          // User is authenticated, navigate to home
+          if (context.mounted) {
+            context.go(AppRoutes.root);
+          }
+        }
+      });
+    });
+
     return Scaffold(
       body: authState.when(
         data: (state) {
