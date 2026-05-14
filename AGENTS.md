@@ -26,6 +26,14 @@ dotnet ef database update \
 - Build: `bun run build`
 - Test: `bun run test`
 
+**Mobile** (`src/mobile/android/intelibill_mobile`, Flutter Android only):
+- Setup: `flutter pub get`
+- Generate: `dart run build_runner build --delete-conflicting-outputs`
+- Analyze: `flutter analyze`
+- Format: `dart format --set-exit-if-changed .`
+- Test: `flutter test --coverage`
+- Build: `flutter build apk --debug`
+
 ## Architecture
 
 **Layer order**: Domain ← Application ← Infrastructure ← Api
@@ -49,6 +57,7 @@ Dependency registration: each layer's `DependencyInjection.cs`
 - Central Package Management (CPM): versions in `Directory.Packages.props` only, csproj entries versionless
 - Angular: standalone components, NgRx root/feature stores, PrimeNG styling
 - i18n: `src/frontend/public/assets/i18n` locale files
+- Mobile: Feature-first clean architecture (domain-independent), Riverpod generated providers, GoRouter, Dio, Freezed/Json Serializable, flutter_secure_storage + shared_preferences, Very Good Analysis
 
 ## Multi-Shop Tenancy & Auth
 
@@ -79,7 +88,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 | Errors | ErrorOr 2.0 |
 | Tests | xUnit 2.9 + coverlet |
 | Frontend | Angular 21 (`src/frontend/`) |
-| Mobile | .NET MAUI (scaffolding only) |
+| Mobile | Flutter Android (`src/mobile/android/intelibill_mobile/`) |
 
 ## Current State (May 2026)
 
@@ -152,6 +161,7 @@ Graph at `graphify-out/`
 - docs/architectural_patterns.md
 - docs/backend-architecture.md
 - docs/frontend-architecture.md
+- docs/mobile-architecture.md
 - Directory.Build.props
 - Directory.Packages.props
 - global.json

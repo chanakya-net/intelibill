@@ -19,7 +19,7 @@ AI-powered inventory management system.
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 |
 | Frontend | Angular 21, SSR, PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun |
-| Mobile | .NET MAUI *(not yet started)* |
+| Mobile | Flutter Android (Riverpod, GoRouter, Dio, Freezed) |
 
 ## Repository Structure
 
@@ -33,7 +33,9 @@ intelibill/
 │   │   ├── Intelibill.Infrastructure/
 │   │   └── Intelibill.Api/
 │   ├── frontend/               # Angular (Bun, SSR, PWA, NgRx, offline IndexedDB)
-│   └── mobile/                 # .NET MAUI (scaffolding only)
+│   └── mobile/
+│       └── android/
+│           └── intelibill_mobile/  # Flutter Android
 ├── tests/
 │   ├── backend/unit/
 │   ├── backend/integration/    # Requires Docker (Testcontainers)
@@ -76,6 +78,28 @@ cd src/frontend
 bun install
 bun run start
 ```
+
+### Mobile
+
+Flutter Android (Android-only):
+
+```bash
+cd src/mobile/android/intelibill_mobile
+
+# Setup
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+
+# Development
+flutter analyze
+dart format --set-exit-if-changed .
+flutter test --coverage
+
+# Build debug APK
+flutter build apk --debug
+```
+
+See [docs/mobile-architecture.md](docs/mobile-architecture.md) for architecture and testing details.
 
 ### Docker
 
