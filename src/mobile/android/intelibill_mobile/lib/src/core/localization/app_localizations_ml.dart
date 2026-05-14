@@ -78,6 +78,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellLanguage => 'ഭാഷ';
 
   @override
+  String get shellMore => 'More';
+
+  @override
   String get shellDashboard => 'ഡാഷ്ബോർഡ്';
 
   @override
@@ -99,16 +102,40 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageExpenses => 'ചെലവുകൾ';
 
   @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
 
   @override
   String get shellManageUsers => 'ഉപയോക്താക്കളെ കൈകാര്യം ചെയ്യുക';
 
   @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellAddShop => 'കട ചേർക്കുക';
 
   @override
   String get shellManageShop => 'കട നിയന്ത്രിക്കുക';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit / Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
 
   @override
   String get authLoginNow => 'ഇപ്പോൾ ലോഗിൻ ചെയ്യുക';
@@ -127,6 +154,9 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get authForgotPassword => 'പാസ്‌വേഡ് മറന്നോ?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'സാധുവായ ഇമെയിൽ നൽകുക.';
@@ -226,6 +256,9 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get notFoundGoBack => 'തിരികെ പോകുക';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).

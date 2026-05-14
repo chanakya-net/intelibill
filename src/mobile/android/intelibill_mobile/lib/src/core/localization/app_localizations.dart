@@ -259,6 +259,12 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get shellLanguage;
 
+  /// No description provided for @shellMore.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'More'**
+  String get shellMore;
+
   /// No description provided for @shellDashboard.
   ///
   /// In en_IN, this message translates to:
@@ -301,6 +307,12 @@ abstract class AppLocalizations {
   /// **'Expenses'**
   String get shellManageExpenses;
 
+  /// No description provided for @shellManageDiscounts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discounts'**
+  String get shellManageDiscounts;
+
   /// No description provided for @shellManageBankAccounts.
   ///
   /// In en_IN, this message translates to:
@@ -313,6 +325,12 @@ abstract class AppLocalizations {
   /// **'Manage Users'**
   String get shellManageUsers;
 
+  /// No description provided for @shellChangePassword.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Change Password'**
+  String get shellChangePassword;
+
   /// No description provided for @shellAddShop.
   ///
   /// In en_IN, this message translates to:
@@ -324,6 +342,42 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Manage Shop'**
   String get shellManageShop;
+
+  /// No description provided for @shellSalesHistory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales History'**
+  String get shellSalesHistory;
+
+  /// No description provided for @shellProfitLossReport.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Profit / Loss'**
+  String get shellProfitLossReport;
+
+  /// No description provided for @shellInventoryAdjustments.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory Adjustments'**
+  String get shellInventoryAdjustments;
+
+  /// No description provided for @shellInventoryBatchesOverview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory Batches'**
+  String get shellInventoryBatchesOverview;
+
+  /// No description provided for @shellBatchInventoryInbound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch Inbound'**
+  String get shellBatchInventoryInbound;
+
+  /// No description provided for @shellAddNewProduct.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add New Product'**
+  String get shellAddNewProduct;
 
   /// No description provided for @authLoginNow.
   ///
@@ -360,6 +414,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Forgot password'**
   String get authForgotPassword;
+
+  /// No description provided for @authRegister.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Register'**
+  String get authRegister;
 
   /// No description provided for @authValidationEmailInvalid.
   ///
@@ -540,6 +600,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Go Back'**
   String get notFoundGoBack;
+
+  /// No description provided for @placeholderBody.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This feature is coming soon.'**
+  String get placeholderBody;
 }
 
 class _AppLocalizationsDelegate

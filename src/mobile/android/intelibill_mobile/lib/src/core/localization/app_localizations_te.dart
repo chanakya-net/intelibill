@@ -78,6 +78,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellLanguage => 'భాష';
 
   @override
+  String get shellMore => 'More';
+
+  @override
   String get shellDashboard => 'డాష్‌బోర్డ్';
 
   @override
@@ -99,16 +102,40 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageExpenses => 'ఖర్చులు';
 
   @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
   String get shellManageBankAccounts => 'బ్యాంకు ఖాతాలు';
 
   @override
   String get shellManageUsers => 'వినియోగదారులను నిర్వహించండి';
 
   @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellAddShop => 'దుకాణం జోడించండి';
 
   @override
   String get shellManageShop => 'దుకాణం నిర్వహించండి';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit / Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
 
   @override
   String get authLoginNow => 'ఇప్పుడే లాగిన్ అవ్వండి';
@@ -127,6 +154,9 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get authForgotPassword => 'పాస్‌వర్డ్ మర్చిపోయారా?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.';
@@ -226,6 +256,9 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get notFoundGoBack => 'వెనక్కి వెళ్ళండి';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

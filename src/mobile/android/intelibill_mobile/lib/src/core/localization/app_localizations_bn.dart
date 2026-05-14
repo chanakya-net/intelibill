@@ -78,6 +78,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellLanguage => 'ভাষা';
 
   @override
+  String get shellMore => 'More';
+
+  @override
   String get shellDashboard => 'ড্যাশবোর্ড';
 
   @override
@@ -99,16 +102,40 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageExpenses => 'খরচ';
 
   @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
 
   @override
   String get shellManageUsers => 'ব্যবহারকারী ব্যবস্থাপনা';
 
   @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellAddShop => 'দোকান যোগ করুন';
 
   @override
   String get shellManageShop => 'দোকান ব্যবস্থাপনা';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit / Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
 
   @override
   String get authLoginNow => 'এখনই লগইন করুন';
@@ -127,6 +154,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get authForgotPassword => 'পাসওয়ার্ড ভুলে গেছেন?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'সঠিক ইমেল ঠিকানা লিখুন।';
@@ -226,6 +256,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get notFoundGoBack => 'ফিরে যান';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).

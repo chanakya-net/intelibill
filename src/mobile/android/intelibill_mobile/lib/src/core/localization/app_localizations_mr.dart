@@ -78,6 +78,9 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellLanguage => 'भाषा';
 
   @override
+  String get shellMore => 'More';
+
+  @override
   String get shellDashboard => 'डॅशबोर्ड';
 
   @override
@@ -99,16 +102,40 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellManageExpenses => 'खर्च';
 
   @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
   String get shellManageBankAccounts => 'बँक खाती';
 
   @override
   String get shellManageUsers => 'वापरकर्ते व्यवस्थापित करा';
 
   @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellAddShop => 'दुकान जोडा';
 
   @override
   String get shellManageShop => 'दुकान व्यवस्थापित करा';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit / Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
 
   @override
   String get authLoginNow => 'आता लॉगिन करा';
@@ -127,6 +154,9 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get authForgotPassword => 'पासवर्ड विसरलात?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'वैध ईमेल पत्ता प्रविष्ट करा.';
@@ -226,6 +256,9 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get notFoundGoBack => 'मागे जा';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
