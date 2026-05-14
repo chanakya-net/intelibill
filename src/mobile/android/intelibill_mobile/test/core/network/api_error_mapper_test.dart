@@ -59,6 +59,48 @@ void main() {
       expect(failure.errors?['email'], contains('Invalid email'));
     });
 
+    test(
+      'should map backend error array ProblemDetails to Failure.validation',
+      () {
+        final dioException = DioException(
+          requestOptions: RequestOptions(),
+          type: DioExceptionType.badResponse,
+          response: Response<dynamic>(
+            requestOptions: RequestOptions(),
+            statusCode: 400,
+            data: {
+              'title': 'Validation failed',
+              'status': 400,
+              'errors': [
+                {
+                  'code': 'Suppliers.Name.Required',
+                  'description': 'Supplier name is required.',
+                },
+                {
+                  'code': 'Suppliers.Pin.Required',
+                  'description': 'PIN is required.',
+                },
+              ],
+            },
+          ),
+        );
+
+        final result = ApiErrorMapper.map(dioException);
+
+        expect(result, isA<ValidationFailure>());
+        final failure = result as ValidationFailure;
+        expect(failure.message, 'Validation failed');
+        expect(
+          failure.errors?['Suppliers.Name.Required'],
+          contains('Supplier name is required.'),
+        );
+        expect(
+          failure.errors?['Suppliers.Pin.Required'],
+          contains('PIN is required.'),
+        );
+      },
+    );
+
     test('should map SocketException to Failure.network', () {
       final dioException = DioException(
         requestOptions: RequestOptions(),

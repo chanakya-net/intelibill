@@ -41,5 +41,32 @@ void main() {
       expect(problem.status, 500);
       expect(problem.errors, isEmpty);
     });
+
+    test('should normalize backend error arrays by code', () {
+      final json = <String, dynamic>{
+        'title': 'Validation failed',
+        'status': 400,
+        'errors': [
+          {
+            'code': 'Suppliers.Name.Required',
+            'description': 'Supplier name is required.',
+          },
+          {
+            'code': 'Suppliers.Name.Required',
+            'description': 'Supplier name must not exceed 180 characters.',
+          },
+        ],
+      };
+
+      final problem = ProblemDetails.fromJson(json);
+
+      expect(
+        problem.errors['Suppliers.Name.Required'],
+        containsAll([
+          'Supplier name is required.',
+          'Supplier name must not exceed 180 characters.',
+        ]),
+      );
+    });
   });
 }

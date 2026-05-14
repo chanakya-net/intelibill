@@ -158,6 +158,14 @@ class SuppliersController extends _$SuppliersController {
       if (!ref.mounted) return false;
       await refresh();
       if (!ref.mounted) return false;
+      final refreshFailure = this.state.failure;
+      if (refreshFailure != null) {
+        this.state = this.state.copyWith(
+          isSubmitting: false,
+          submitFailure: refreshFailure,
+        );
+        return false;
+      }
       this.state = this.state.copyWith(
         isSubmitting: false,
         clearSubmitError: true,

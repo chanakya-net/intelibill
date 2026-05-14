@@ -13,7 +13,9 @@ _ProblemDetails _$ProblemDetailsFromJson(Map<String, dynamic> json) =>
       status: (json['status'] as num?)?.toInt(),
       detail: json['detail'] as String?,
       instance: json['instance'] as String?,
-      errors: json['errors'] as Map<String, dynamic>? ?? const {},
+      errors: json['errors'] == null
+          ? const {}
+          : _errorsFromJson(json['errors']),
     );
 
 Map<String, dynamic> _$ProblemDetailsToJson(_ProblemDetails instance) =>
