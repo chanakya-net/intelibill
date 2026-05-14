@@ -46,7 +46,7 @@ class ApiErrorMapper {
       try {
         final problem = ProblemDetails.fromJson(data);
         return _mapProblemDetails(problem, response.statusCode);
-      } catch (_) {
+      } on Exception catch (_) {
         // Fallback if not a ProblemDetails
       }
     }

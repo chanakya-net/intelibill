@@ -13,7 +13,7 @@ abstract interface class SecureStorage {
 
 class SecureStorageImpl implements SecureStorage {
   SecureStorageImpl({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 

@@ -9,7 +9,7 @@ void main() {
   group('ApiErrorMapper', () {
     test('should map connection timeout to Failure.timeout', () {
       final dioException = DioException(
-        requestOptions: RequestOptions(path: ''),
+        requestOptions: RequestOptions(),
         type: DioExceptionType.connectionTimeout,
         message: 'Connection timeout',
       );
@@ -22,10 +22,10 @@ void main() {
 
     test('should map 401 response to Failure.unauthorized', () {
       final dioException = DioException(
-        requestOptions: RequestOptions(path: ''),
+        requestOptions: RequestOptions(),
         type: DioExceptionType.badResponse,
         response: Response<dynamic>(
-          requestOptions: RequestOptions(path: ''),
+          requestOptions: RequestOptions(),
           statusCode: 401,
         ),
       );
@@ -37,16 +37,16 @@ void main() {
 
     test('should map 400 with ProblemDetails to Failure.validation', () {
       final dioException = DioException(
-        requestOptions: RequestOptions(path: ''),
+        requestOptions: RequestOptions(),
         type: DioExceptionType.badResponse,
         response: Response<dynamic>(
-          requestOptions: RequestOptions(path: ''),
+          requestOptions: RequestOptions(),
           statusCode: 400,
           data: {
             'title': 'Validation Error',
             'errors': {
-              'email': ['Invalid email']
-            }
+              'email': ['Invalid email'],
+            },
           },
         ),
       );
@@ -61,8 +61,7 @@ void main() {
 
     test('should map SocketException to Failure.network', () {
       final dioException = DioException(
-        requestOptions: RequestOptions(path: ''),
-        type: DioExceptionType.unknown,
+        requestOptions: RequestOptions(),
         error: const SocketException('No internet'),
       );
 

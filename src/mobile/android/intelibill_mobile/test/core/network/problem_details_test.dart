@@ -11,8 +11,8 @@ void main() {
         'detail': 'Invalid request',
         'instance': '/api/items',
         'errors': {
-          'Name': ['The Name field is required.']
-        }
+          'Name': ['The Name field is required.'],
+        },
       };
 
       final problem = ProblemDetails.fromJson(json);

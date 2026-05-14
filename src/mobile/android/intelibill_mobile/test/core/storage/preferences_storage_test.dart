@@ -16,8 +16,9 @@ void main() {
 
   group('PreferencesStorage', () {
     test('setString should call SharedPreferences.setString', () async {
-      when(() => mockPrefs.setString(any(), any()))
-          .thenAnswer((_) async => true);
+      when(
+        () => mockPrefs.setString(any(), any()),
+      ).thenAnswer((_) async => true);
 
       await preferencesStorage.setString('key', 'value');
 

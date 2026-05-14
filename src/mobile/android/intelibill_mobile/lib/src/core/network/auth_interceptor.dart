@@ -1,8 +1,6 @@
 import 'package:dio/dio.dart';
 
-abstract interface class TokenProvider {
-  Future<String?> getAccessToken();
-}
+typedef TokenProvider = Future<String?> Function();
 
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({required this.tokenProvider});
@@ -14,7 +12,7 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await tokenProvider.getAccessToken();
+    final token = await tokenProvider();
 
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
