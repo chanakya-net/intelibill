@@ -234,3 +234,39 @@ String _localizeCreateFailure(AppLocalizations l10n, Failure failure) {
     unknown: (String? _) => l10n.customersCreateErrorGeneric,
   );
 }
+
+extension CreateCustomerLocalizationFallback on AppLocalizations {
+  String get customersCreateNameLabel => 'Name';
+
+  String get customersCreateNameRequired => 'Name is required.';
+
+  String get customersCreateNameMax => 'Name must be 180 characters or fewer.';
+
+  String get customersCreatePhoneLabel => 'Phone Number';
+
+  String get customersCreatePhoneRequired => 'Phone number is required.';
+
+  String get customersCreatePhoneMax =>
+      'Phone number must be 32 characters or fewer.';
+
+  String get customersCreatePhoneInvalid => 'Enter a valid phone number.';
+
+  String get customersCreateAddressLabel => 'Address';
+
+  String get customersCreateAddressMax =>
+      'Address must be 320 characters or fewer.';
+
+  String get customersCreateActiveLabel => 'Active';
+
+  String get customersCreateSuccess => 'Customer created successfully.';
+
+  String get customersCreateErrorGeneric => customersErrorGeneric;
+
+  String get customersCreateErrorUnauthorized => customersErrorUnauthorized;
+
+  String get customersCreateErrorForbidden => customersErrorForbidden;
+
+  String get customersCreateErrorNetwork => customersErrorNetwork;
+
+  String get customersCreateErrorTimeout => customersErrorTimeout;
+}
