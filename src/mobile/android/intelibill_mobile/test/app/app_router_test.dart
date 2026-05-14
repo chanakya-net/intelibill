@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/app.dart';
 
 void main() {
-  group('AppRouter', () {
-    testWidgets('root route renders successfully', (WidgetTester tester) async {
+  group('AppRouter Integration', () {
+    testWidgets('app renders successfully', (WidgetTester tester) async {
       await tester.pumpWidget(
         const ProviderScope(
           child: IntelibillApp(),

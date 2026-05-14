@@ -1,9 +1,12 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
+import 'package:intelibill_mobile/src/core/storage/secure_storage.dart';
 import 'package:intelibill_mobile/src/features/app_status/data/data_sources/app_status_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/app_status/data/repositories/app_status_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/app_status/domain/entities/app_status.dart';
 import 'package:intelibill_mobile/src/features/app_status/domain/repositories/app_status_repository.dart';
 import 'package:intelibill_mobile/src/features/app_status/domain/use_cases/get_app_status.dart';
+import 'package:intelibill_mobile/src/features/auth/data/data_sources/auth_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/auth_result_dto.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'app_status_controller.g.dart';
@@ -44,5 +47,36 @@ class AppStatusController extends _$AppStatusController {
 
 @riverpod
 ApiClient apiClient(Ref ref) {
-  return ApiClient();
+  final secureStorage = SecureStorageImpl();
+  final refreshClient = ApiClient();
+  final authRemoteDataSource = AuthRemoteDataSourceImpl(refreshClient);
+  AuthResultDto? refreshedAuthResult;
+
+  return ApiClient.withAuthCallbacks(
+    getAccessToken: secureStorage.getAccessToken,
+    getRefreshToken: secureStorage.getRefreshToken,
+    refreshTokens: () async {
+      final refreshToken = await secureStorage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        throw StateError('No refresh token available.');
+      }
+
+      refreshedAuthResult = await authRemoteDataSource.refreshToken(
+        refreshToken: refreshToken,
+      );
+    },
+    saveRefreshedTokens: () async {
+      final authResult = refreshedAuthResult;
+      if (authResult == null) {
+        return;
+      }
+
+      await secureStorage.saveTokens(
+        accessToken: authResult.accessToken,
+        refreshToken: authResult.refreshToken,
+      );
+      refreshedAuthResult = null;
+    },
+    clearAuthState: secureStorage.clearTokens,
+  );
 }

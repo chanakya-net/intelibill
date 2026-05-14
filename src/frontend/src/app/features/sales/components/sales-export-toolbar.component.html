@@ -5,6 +5,7 @@
     <div class="date-range-group">
       <label class="label">{{ 'sales.export.dateRange' | transloco }}</label>
       <p-datepicker
+        ngSkipHydration
         [ngModel]="startDate()"
         (ngModelChange)="startDate.set($event)"
         [showIcon]="true"
@@ -14,6 +15,7 @@
       />
       <span class="text-slate-400">—</span>
       <p-datepicker
+        ngSkipHydration
         [ngModel]="endDate()"
         (ngModelChange)="endDate.set($event)"
         [showIcon]="true"
