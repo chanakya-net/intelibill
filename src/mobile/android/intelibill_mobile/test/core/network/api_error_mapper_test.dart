@@ -71,6 +71,24 @@ void main() {
       expect((result as NetworkFailure).message, 'No internet connection');
     });
 
+    test('should map malformed ProblemDetails to Failure.serialization', () {
+      final dioException = DioException(
+        requestOptions: RequestOptions(),
+        type: DioExceptionType.badResponse,
+        response: Response<dynamic>(
+          requestOptions: RequestOptions(),
+          statusCode: 400,
+          data: {
+            'status': 'bad-status',
+          },
+        ),
+      );
+
+      final result = ApiErrorMapper.map(dioException);
+
+      expect(result, isA<SerializationFailure>());
+    });
+
     test('should map other exceptions to Failure.unknown', () {
       const error = 'Some random error';
 

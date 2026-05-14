@@ -46,8 +46,10 @@ class ApiErrorMapper {
       try {
         final problem = ProblemDetails.fromJson(data);
         return _mapProblemDetails(problem, response.statusCode);
-      } on Exception catch (_) {
-        // Fallback if not a ProblemDetails
+      } on Object catch (error) {
+        return Failure.serialization(
+          message: 'Failed to parse ProblemDetails: $error',
+        );
       }
     }
 
