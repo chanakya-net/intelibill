@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 
@@ -122,6 +123,13 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.profileEditTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
       ),
       body: authState.when(
         data: (state) {

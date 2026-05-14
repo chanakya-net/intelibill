@@ -2,10 +2,10 @@ import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/auth_result_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/change_my_password_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/login_request_dto.dart';
-import 'package:intelibill_mobile/src/features/auth/data/dto/set_default_shop_request_dto.dart';
-import 'package:intelibill_mobile/src/features/auth/data/dto/update_my_profile_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/refresh_token_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/revoke_token_request_dto.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/set_default_shop_request_dto.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/update_my_profile_request_dto.dart';
 
 abstract interface class AuthRemoteDataSource {
   Future<AuthResultDto> login({

@@ -245,7 +245,6 @@ void main() {
       'switchShop success updates session with new active shop',
       () async {
         final switchedSession = userFixtureSession(
-          rememberMe: false,
           accessToken: 'switched_access_token',
           refreshToken: 'switched_refresh_token',
         );

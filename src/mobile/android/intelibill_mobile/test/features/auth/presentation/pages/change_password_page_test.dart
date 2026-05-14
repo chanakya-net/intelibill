@@ -78,7 +78,7 @@ void main() {
     testWidgets('shows error message when user not authenticated', (
       tester,
     ) async {
-      final state = const AuthControllerState();
+      const state = AuthControllerState();
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith(
@@ -301,7 +301,6 @@ class _SuccessAuthController extends AuthController {
   _SuccessAuthController(this._initialState);
 
   final AuthControllerState _initialState;
-  late AsyncValue<AuthControllerState> _state;
 
   @override
   Future<AuthControllerState> build() async {
@@ -317,8 +316,6 @@ class _SuccessAuthController extends AuthController {
     state = AsyncData(
       AuthControllerState(
         session: _initialState.session,
-        errorMessage: null,
-        isLoading: false,
       ),
     );
   }

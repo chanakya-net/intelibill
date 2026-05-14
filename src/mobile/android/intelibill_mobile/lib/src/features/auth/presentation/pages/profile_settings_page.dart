@@ -7,6 +7,10 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 
+const _shopDropdownKey = Key('profile-settings-shop');
+const _editProfileTileKey = Key('profile-settings-edit-profile');
+const _changePasswordTileKey = Key('profile-settings-change-password');
+
 class ProfileSettingsPage extends ConsumerWidget {
   const ProfileSettingsPage({super.key});
 
@@ -16,7 +20,16 @@ class ProfileSettingsPage extends ConsumerWidget {
     final authAsync = ref.watch(authControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profileSettingsTitle)),
+      appBar: AppBar(
+        title: Text(l10n.profileSettingsTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
+      ),
       body: authAsync.when(
         data: (state) {
           final session = state.session;
@@ -44,6 +57,7 @@ class ProfileSettingsPage extends ConsumerWidget {
                     vertical: 8,
                   ),
                   child: DropdownButtonFormField<String>(
+                    key: _shopDropdownKey,
                     decoration: InputDecoration(
                       labelText: l10n.profileSettingsActiveShop,
                       border: const OutlineInputBorder(),
@@ -71,12 +85,14 @@ class ProfileSettingsPage extends ConsumerWidget {
                 const Divider(),
               ],
               ListTile(
+                key: _editProfileTileKey,
                 leading: const Icon(Icons.edit),
                 title: Text(l10n.profileSettingsEditProfile),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoutes.profileEdit),
               ),
               ListTile(
+                key: _changePasswordTileKey,
                 leading: const Icon(Icons.lock),
                 title: Text(l10n.profileSettingsChangePassword),
                 trailing: const Icon(Icons.chevron_right),

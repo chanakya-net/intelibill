@@ -20,6 +20,13 @@ class LanguagePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.shellLanguage),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
       ),
       body: ListView.separated(
         itemCount: intelibillSupportedLocales.length,

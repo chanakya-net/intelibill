@@ -1,16 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
-import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
-import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
-import 'package:mocktail/mocktail.dart';
 
 class _StubAuthController extends AuthController {
   _StubAuthController(this._state);
@@ -89,7 +84,7 @@ void main() {
     testWidgets('shows error message when user not authenticated', (
       tester,
     ) async {
-      final state = const AuthControllerState();
+      const state = AuthControllerState();
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith(
@@ -191,17 +186,13 @@ void main() {
     testWidgets('calls updateProfile on submit with valid data', (
       tester,
     ) async {
-      var updateProfileCalled = false;
-      var capturedEmail = '';
-      var capturedFirstName = '';
+      var updateProfileCallCount = 0;
 
       final session = _sessionFixture();
       final state = AuthControllerState(session: session);
 
       final mockController = _CallTrackingAuthController(state, () {
-        updateProfileCalled = true;
-        capturedEmail = 'newemail@example.com';
-        capturedFirstName = 'Jane';
+        updateProfileCallCount++;
       });
 
       final container = ProviderContainer(
@@ -225,6 +216,7 @@ void main() {
 
       // Just verify page is still there (success would pop)
       expect(find.byKey(_submitButtonKey), findsOneWidget);
+      expect(updateProfileCallCount, 1);
     });
 
     testWidgets('shows success snackbar and pops on successful update', (
@@ -303,7 +295,6 @@ class _SuccessAuthController extends AuthController {
   _SuccessAuthController(this._initialState);
 
   final AuthControllerState _initialState;
-  late AsyncValue<AuthControllerState> _state;
 
   @override
   Future<AuthControllerState> build() async {
@@ -342,8 +333,6 @@ class _SuccessAuthController extends AuthController {
     state = AsyncData(
       AuthControllerState(
         session: updatedSession,
-        errorMessage: null,
-        isLoading: false,
       ),
     );
   }
