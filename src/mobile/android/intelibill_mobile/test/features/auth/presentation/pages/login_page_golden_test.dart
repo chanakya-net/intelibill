@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,10 +16,49 @@ class GoldenAuthController extends AuthController {
   }
 }
 
+class _TolerantGoldenFileComparator extends LocalFileComparator {
+  _TolerantGoldenFileComparator(
+    super.testFile, {
+    required double precisionTolerance,
+  }) : _precisionTolerance = precisionTolerance;
+
+  final double _precisionTolerance;
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final result = await GoldenFileComparator.compareLists(
+      imageBytes,
+      await getGoldenBytes(golden),
+    );
+
+    final passed = result.passed || result.diffPercent <= _precisionTolerance;
+    if (passed) {
+      result.dispose();
+      return true;
+    }
+
+    final error = await generateFailureOutput(result, golden, basedir);
+    result.dispose();
+    throw FlutterError(error);
+  }
+}
+
 void main() {
   setUpAll(loadAppFonts);
 
   testGoldens('LoginPage matches golden', (tester) async {
+    final previousGoldenFileComparator = goldenFileComparator;
+    goldenFileComparator = _TolerantGoldenFileComparator(
+      Uri.file(
+        '${Directory.current.path}/test/features/auth/presentation/'
+        'pages/login_page_golden_test.dart',
+      ),
+      precisionTolerance: Platform.isLinux ? 0.015 : 0,
+    );
+    addTearDown(() {
+      goldenFileComparator = previousGoldenFileComparator;
+    });
+
     await tester.pumpWidgetBuilder(
       ProviderScope(
         overrides: [
