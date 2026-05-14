@@ -347,11 +347,11 @@ class _CreateSupplierSheetState extends ConsumerState<CreateSupplierSheet> {
 String _localizeCreateFailure(AppLocalizations l10n, Failure failure) {
   return failure.when(
     validation: (String? message, Map<String, List<String>>? errors) {
-      if (message != null && message.isNotEmpty) {
-        return message;
-      }
       if (errors != null && errors.isNotEmpty) {
         return errors.values.first.first;
+      }
+      if (message != null && message.isNotEmpty) {
+        return message;
       }
       return l10n.suppliersCreateErrorGeneric;
     },
