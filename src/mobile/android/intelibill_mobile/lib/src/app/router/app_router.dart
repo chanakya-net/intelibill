@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:intelibill_mobile/src/app/pages/placeholder_page.dart';
+import 'package:intelibill_mobile/src/features/app_status/presentation/pages/app_status_page.dart';
 
 class AppRoutes {
   static const String root = '/';
@@ -17,7 +17,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.root,
-        builder: (context, state) => const PlaceholderPage(),
+        builder: (context, state) => const AppStatusPage(),
       ),
     ],
   );
