@@ -236,6 +236,37 @@ class AppLocalizationsMr extends AppLocalizations {
   String get customersNoCustomersFound => 'कोणतेही ग्राहक आढळले नाहीत';
 
   @override
+  String get customersUnableToLoad => 'Unable to load customers';
+
+  @override
+  String get customersRetry => 'Retry';
+
+  @override
+  String get customersInactive => 'Inactive';
+
+  @override
+  String get customersOutstandingLabel => 'Outstanding:';
+
+  @override
+  String get customersErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get customersErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get customersErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get customersErrorForbidden =>
+      'You do not have permission to view customers.';
+
+  @override
+  String get customersErrorGeneric =>
+      'Unable to load customers. Please try again.';
+
+  @override
   String get suppliersTitle => 'पुरवठादार';
 
   @override
@@ -491,6 +522,37 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
 
   @override
   String get customersNoCustomersFound => 'कोणतेही ग्राहक आढळले नाहीत';
+
+  @override
+  String get customersUnableToLoad => 'Unable to load customers';
+
+  @override
+  String get customersRetry => 'Retry';
+
+  @override
+  String get customersInactive => 'Inactive';
+
+  @override
+  String get customersOutstandingLabel => 'Outstanding:';
+
+  @override
+  String get customersErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get customersErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get customersErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get customersErrorForbidden =>
+      'You do not have permission to view customers.';
+
+  @override
+  String get customersErrorGeneric =>
+      'Unable to load customers. Please try again.';
 
   @override
   String get suppliersTitle => 'पुरवठादार';

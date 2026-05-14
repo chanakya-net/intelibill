@@ -559,6 +559,60 @@ abstract class AppLocalizations {
   /// **'No customers found'**
   String get customersNoCustomersFound;
 
+  /// No description provided for @customersUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load customers'**
+  String get customersUnableToLoad;
+
+  /// No description provided for @customersRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get customersRetry;
+
+  /// No description provided for @customersInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get customersInactive;
+
+  /// No description provided for @customersOutstandingLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Outstanding:'**
+  String get customersOutstandingLabel;
+
+  /// No description provided for @customersErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get customersErrorNetwork;
+
+  /// No description provided for @customersErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get customersErrorTimeout;
+
+  /// No description provided for @customersErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get customersErrorUnauthorized;
+
+  /// No description provided for @customersErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view customers.'**
+  String get customersErrorForbidden;
+
+  /// No description provided for @customersErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load customers. Please try again.'**
+  String get customersErrorGeneric;
+
   /// No description provided for @suppliersTitle.
   ///
   /// In en_IN, this message translates to:

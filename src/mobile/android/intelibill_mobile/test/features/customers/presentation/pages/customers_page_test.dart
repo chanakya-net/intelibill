@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create_customer.dart';
@@ -101,12 +102,17 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _buildApp(const CustomersState(errorMessage: 'Connection failed')),
+        _buildApp(
+          const CustomersState(failure: NetworkFailure()),
+        ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Unable to load customers'), findsOneWidget);
-      expect(find.text('Connection failed'), findsOneWidget);
+      expect(
+        find.text('Unable to connect. Please check your network.'),
+        findsOneWidget,
+      );
       expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
     });
 
@@ -166,6 +172,40 @@ void main() {
       final controller = _CountingRefreshController(_loadedState, () {
         refreshCount++;
       });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            customersControllerProvider.overrideWith(() => controller),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: CustomersPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(ListView),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(refreshCount, greaterThanOrEqualTo(1));
+    });
+
+    testWidgets('pull-to-refresh works in empty state', (tester) async {
+      var refreshCount = 0;
+
+      final controller = _CountingRefreshController(
+        const CustomersState(),
+        () {
+          refreshCount++;
+        },
+      );
 
       await tester.pumpWidget(
         ProviderScope(

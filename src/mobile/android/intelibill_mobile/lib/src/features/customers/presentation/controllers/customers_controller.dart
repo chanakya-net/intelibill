@@ -32,19 +32,29 @@ GetCustomers getCustomersUseCase(Ref ref) {
   return GetCustomers(repository);
 }
 
+@riverpod
+CreateCustomer createCustomerUseCase(Ref ref) {
+  final repository = ref.watch(customerRepositoryProvider);
+  return CreateCustomer(repository);
+}
+
 @immutable
 class CustomersState {
   const CustomersState({
     this.customers = const [],
     this.searchQuery = '',
     this.isLoading = false,
-    this.errorMessage,
+    this.isSubmitting = false,
+    this.failure,
+    this.submitFailure,
   });
 
   final List<Customer> customers;
   final String searchQuery;
   final bool isLoading;
-  final String? errorMessage;
+  final bool isSubmitting;
+  final Failure? failure;
+  final Failure? submitFailure;
 
   List<Customer> get filteredCustomers {
     if (searchQuery.isEmpty) return customers;
@@ -60,14 +70,21 @@ class CustomersState {
     List<Customer>? customers,
     String? searchQuery,
     bool? isLoading,
-    String? errorMessage,
+    Failure? failure,
+    bool? isSubmitting,
+    Failure? submitFailure,
     bool clearError = false,
+    bool clearSubmitError = false,
   }) {
     return CustomersState(
       customers: customers ?? this.customers,
       searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      failure: clearError ? null : (failure ?? this.failure),
+      submitFailure: clearSubmitError
+          ? null
+          : (submitFailure ?? this.submitFailure),
     );
   }
 }
@@ -88,15 +105,12 @@ class CustomersController extends _$CustomersController {
       state = state.copyWith(customers: customers, isLoading: false);
     } on AppException catch (error) {
       if (!ref.mounted) return;
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapFailureToMessage(error),
-      );
-    } on Object catch (error) {
+      state = state.copyWith(isLoading: false, failure: error.failure);
+    } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: error.toString(),
+        failure: const Failure.unknown(),
       );
     }
   }
@@ -149,23 +163,4 @@ class CustomersController extends _$CustomersController {
   void updateSearch(String query) {
     state = state.copyWith(searchQuery: query);
   }
-}
-
-const _networkErrorMessage = 'Unable to connect. Please check your network.';
-const _timeoutErrorMessage = 'Request timed out. Please try again.';
-const _genericErrorMessage = 'Unable to load customers. Please try again.';
-
-String _mapFailureToMessage(AppException error) {
-  return error.failure.when(
-    validation: (String? message, Map<String, List<String>>? _) =>
-        message ?? _genericErrorMessage,
-    unauthorized: (String? _) => 'Session expired. Please log in again.',
-    forbidden: (String? _) => 'You do not have permission to view customers.',
-    notFound: (String? _) => _genericErrorMessage,
-    server: (String? message, int? _) => message ?? _genericErrorMessage,
-    network: (String? _) => _networkErrorMessage,
-    timeout: (String? _) => _timeoutErrorMessage,
-    serialization: (String? _) => _genericErrorMessage,
-    unknown: (String? _) => _genericErrorMessage,
-  );
 }

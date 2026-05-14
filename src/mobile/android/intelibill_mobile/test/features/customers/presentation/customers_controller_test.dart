@@ -85,7 +85,7 @@ void main() {
       final state = container.read(customersControllerProvider);
       expect(state.isLoading, false);
       expect(state.customers, _testCustomers);
-      expect(state.errorMessage, isNull);
+      expect(state.failure, isNull);
     });
 
     test('transitions to error state when use case throws', () async {
@@ -102,7 +102,7 @@ void main() {
       final state = container.read(customersControllerProvider);
       expect(state.isLoading, false);
       expect(state.customers, isEmpty);
-      expect(state.errorMessage, isNotNull);
+      expect(state.failure, isNotNull);
     });
 
     test('refresh clears error and reloads', () async {

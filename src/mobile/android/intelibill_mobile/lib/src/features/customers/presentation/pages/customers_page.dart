@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
@@ -97,20 +98,23 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (customersState.errorMessage != null) {
+    if (customersState.failure != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Unable to load customers',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              Text(
+                l10n.customersUnableToLoad,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                customersState.errorMessage!,
+                _localizeFailure(l10n, customersState.failure!),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -120,7 +124,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                     ref.read(customersControllerProvider.notifier).refresh(),
                   );
                 },
-                child: const Text('Retry'),
+                child: Text(l10n.customersRetry),
               ),
             ],
           ),
@@ -134,6 +138,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       onRefresh: () => ref.read(customersControllerProvider.notifier).refresh(),
       child: customers.isEmpty
           ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 Padding(
                   padding: const EdgeInsets.all(32),
@@ -147,6 +152,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               ],
             )
           : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               itemCount: customers.length,
               itemBuilder: (context, index) {
                 return _CustomerCard(customer: customers[index]);
@@ -164,6 +170,7 @@ class _CustomerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -191,7 +198,7 @@ class _CustomerCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Inactive',
+                      l10n.customersInactive,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onErrorContainer,
                       ),
@@ -214,7 +221,8 @@ class _CustomerCard extends StatelessWidget {
             if (customer.outstandingDue > 0) ...[
               const SizedBox(height: 8),
               Text(
-                'Outstanding: ₹${customer.outstandingDue.toStringAsFixed(2)}',
+                '${l10n.customersOutstandingLabel} '
+                '₹${customer.outstandingDue.toStringAsFixed(2)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                   fontWeight: FontWeight.w500,
@@ -226,4 +234,19 @@ class _CustomerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizeFailure(AppLocalizations l10n, Failure failure) {
+  return failure.when(
+    validation: (String? message, Map<String, List<String>>? _) =>
+        message ?? l10n.customersErrorGeneric,
+    unauthorized: (String? _) => l10n.customersErrorUnauthorized,
+    forbidden: (String? _) => l10n.customersErrorForbidden,
+    notFound: (String? _) => l10n.customersErrorGeneric,
+    server: (String? message, int? _) => message ?? l10n.customersErrorGeneric,
+    network: (String? _) => l10n.customersErrorNetwork,
+    timeout: (String? _) => l10n.customersErrorTimeout,
+    serialization: (String? _) => l10n.customersErrorGeneric,
+    unknown: (String? _) => l10n.customersErrorGeneric,
+  );
 }
