@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/widgets/create_supplier_sheet.dart';
 
 class SuppliersPage extends ConsumerStatefulWidget {
   const SuppliersPage({super.key});
+
+  static const addSupplierFabKey = Key('suppliers-add-fab');
 
   @override
   ConsumerState<SuppliersPage> createState() => _SuppliersPageState();
@@ -32,12 +37,23 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
   @override
   Widget build(BuildContext context) {
     final suppliersState = ref.watch(suppliersControllerProvider);
+    final authState = ref.watch(authControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    final session = authState.value?.session;
+    final canCreateSupplier = canManageSuppliers(session);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.suppliersTitle),
       ),
+      floatingActionButton: canCreateSupplier
+          ? FloatingActionButton(
+              key: SuppliersPage.addSupplierFabKey,
+              onPressed: _openCreateSupplierSheet,
+              tooltip: l10n.suppliersAddSupplier,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -62,6 +78,21 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openCreateSupplierSheet() async {
+    final l10n = AppLocalizations.of(context)!;
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const CreateSupplierSheet(),
+    );
+
+    if (!mounted || created != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.suppliersCreateSuccess)),
     );
   }
 

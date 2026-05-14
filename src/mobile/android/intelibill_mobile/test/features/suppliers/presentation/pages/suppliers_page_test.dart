@@ -3,9 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
+import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/create_supplier.dart';
+import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/get_suppliers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/widgets/create_supplier_sheet.dart';
+import 'package:mocktail/mocktail.dart';
 
 class _StubSuppliersController extends SuppliersController {
   _StubSuppliersController(this._state);
@@ -15,6 +21,19 @@ class _StubSuppliersController extends SuppliersController {
   @override
   SuppliersState build() => _state;
 }
+
+class _StubAuthController extends AuthController {
+  _StubAuthController(this._state);
+
+  final AuthControllerState _state;
+
+  @override
+  Future<AuthControllerState> build() async => _state;
+}
+
+class MockGetSuppliers extends Mock implements GetSuppliers {}
+
+class MockCreateSupplier extends Mock implements CreateSupplier {}
 
 const _loadedState = SuppliersState(
   suppliers: [
@@ -59,6 +78,10 @@ Widget _buildApp(SuppliersState state) {
       suppliersControllerProvider.overrideWith(
         () => _StubSuppliersController(state),
       ),
+      authControllerProvider.overrideWith(
+        () =>
+            _StubAuthController(AuthControllerState(session: _ownerSession())),
+      ),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -72,6 +95,31 @@ Widget _buildAppWithOverrides({required SuppliersController controller}) {
   return ProviderScope(
     overrides: [
       suppliersControllerProvider.overrideWith(() => controller),
+      authControllerProvider.overrideWith(
+        () =>
+            _StubAuthController(AuthControllerState(session: _ownerSession())),
+      ),
+    ],
+    child: const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: SuppliersPage(),
+    ),
+  );
+}
+
+Widget _buildCreateFlowApp({
+  required AuthSession session,
+  required MockGetSuppliers getSuppliers,
+  required MockCreateSupplier createSupplier,
+}) {
+  return ProviderScope(
+    overrides: [
+      getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
+      createSupplierUseCaseProvider.overrideWithValue(createSupplier),
+      authControllerProvider.overrideWith(
+        () => _StubAuthController(AuthControllerState(session: session)),
+      ),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -195,6 +243,101 @@ void main() {
       expect(find.text('Beta Traders'), findsOneWidget);
       expect(find.text('Alpha Supplies'), findsNothing);
     });
+
+    testWidgets('shows add action only for owners', (tester) async {
+      final getSuppliers = MockGetSuppliers();
+      when(getSuppliers.call).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(
+        _buildCreateFlowApp(
+          session: _ownerSession(role: 'Manager'),
+          getSuppliers: getSuppliers,
+          createSupplier: MockCreateSupplier(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(SuppliersPage.addSupplierFabKey), findsNothing);
+    });
+
+    testWidgets('creates supplier and shows success snackbar', (tester) async {
+      final getSuppliers = MockGetSuppliers();
+      final createSupplier = MockCreateSupplier();
+
+      when(getSuppliers.call).thenAnswer((_) async => _loadedState.suppliers);
+      when(
+        () => createSupplier(
+          name: any(named: 'name'),
+          contactPersonName: any(named: 'contactPersonName'),
+          contactPersonPhone: any(named: 'contactPersonPhone'),
+          address: any(named: 'address'),
+          city: any(named: 'city'),
+          state: any(named: 'state'),
+          pin: any(named: 'pin'),
+          isActive: any(named: 'isActive'),
+          isPreferred: any(named: 'isPreferred'),
+        ),
+      ).thenAnswer(
+        (_) async => const Supplier(
+          supplierId: 'sup-4',
+          name: 'New Supplier',
+          address: '12 Main Street',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pin: '400001',
+          isSystem: false,
+          isActive: true,
+          isPreferred: false,
+          balanceDue: 0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildCreateFlowApp(
+          session: _ownerSession(),
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(SuppliersPage.addSupplierFabKey));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.nameFieldKey),
+        'New Supplier',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.addressFieldKey),
+        '12 Main Street',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.cityFieldKey),
+        'Mumbai',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.stateFieldKey),
+        'Maharashtra',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.pinFieldKey),
+        '400001',
+      );
+
+      await tester.ensureVisible(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+      );
+      await tester.tap(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Supplier created successfully.'), findsOneWidget);
+      expect(find.byKey(CreateSupplierSheet.nameFieldKey), findsNothing);
+      verify(getSuppliers.call).called(greaterThanOrEqualTo(2));
+    });
   });
 }
 
@@ -211,4 +354,32 @@ class _CountingRefreshController extends SuppliersController {
   Future<void> refresh() async {
     _onRefresh();
   }
+}
+
+AuthSession _ownerSession({String role = 'Owner'}) {
+  return AuthSession(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'owner@example.com',
+      phoneNumber: null,
+      firstName: 'Alex',
+      lastName: 'Smith',
+      language: 'en-IN',
+    ),
+    activeShopId: 'shop-1',
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Primary Shop',
+        role: role,
+        isDefault: true,
+        lastUsedAt: DateTime.utc(2026, 5, 12, 10),
+      ),
+    ],
+    rememberMe: false,
+  );
 }

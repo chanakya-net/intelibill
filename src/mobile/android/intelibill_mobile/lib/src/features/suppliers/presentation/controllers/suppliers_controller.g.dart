@@ -147,6 +147,48 @@ final class GetSuppliersUseCaseProvider
 String _$getSuppliersUseCaseHash() =>
     r'8601379a6b9c107830a631b01618d5a886fe638f';
 
+@ProviderFor(createSupplierUseCase)
+final createSupplierUseCaseProvider = CreateSupplierUseCaseProvider._();
+
+final class CreateSupplierUseCaseProvider
+    extends $FunctionalProvider<CreateSupplier, CreateSupplier, CreateSupplier>
+    with $Provider<CreateSupplier> {
+  CreateSupplierUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'createSupplierUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$createSupplierUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<CreateSupplier> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  CreateSupplier create(Ref ref) {
+    return createSupplierUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CreateSupplier value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CreateSupplier>(value),
+    );
+  }
+}
+
+String _$createSupplierUseCaseHash() =>
+    r'9f05b23433b0a46f6abde5d4169c67d3f103a127';
+
 @ProviderFor(SuppliersController)
 final suppliersControllerProvider = SuppliersControllerProvider._();
 
@@ -180,7 +222,7 @@ final class SuppliersControllerProvider
 }
 
 String _$suppliersControllerHash() =>
-    r'630c86f539118a4592365c60175c5563722e8a53';
+    r'12eba7b046d861d0de2467972beefb8864e5fb95';
 
 abstract class _$SuppliersController extends $Notifier<SuppliersState> {
   SuppliersState build();

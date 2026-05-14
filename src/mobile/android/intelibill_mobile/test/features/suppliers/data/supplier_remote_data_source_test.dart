@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/suppliers/data/data_sources/supplier_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/suppliers/data/dto/create_supplier_request_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../mocks/mock_api_client.dart';
@@ -171,6 +172,58 @@ void main() {
       final dtos = await remoteDataSource.getSuppliers();
 
       expect(dtos[0].isSystem, true);
+    });
+
+    test('posts create supplier payload to /suppliers', () async {
+      const request = CreateSupplierRequestDto(
+        name: 'ABC Traders',
+        contactPersonName: 'John Doe',
+        contactPersonPhone: '+919876543210',
+        address: '12 Main Street',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        pin: '400001',
+        isActive: true,
+        isPreferred: true,
+      );
+      final responseData = {
+        'supplierId': 'sup-1',
+        'name': 'ABC Traders',
+        'contactPersonName': 'John Doe',
+        'contactPersonPhone': '+919876543210',
+        'address': '12 Main Street',
+        'city': 'Mumbai',
+        'state': 'Maharashtra',
+        'pin': '400001',
+        'isSystem': false,
+        'isActive': true,
+        'isPreferred': true,
+        'balanceDue': 0.0,
+      };
+
+      when(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          any<String>(),
+          data: any<Map<String, dynamic>>(named: 'data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: responseData,
+          statusCode: 201,
+          requestOptions: RequestOptions(path: '/suppliers'),
+        ),
+      );
+
+      final dto = await remoteDataSource.createSupplier(request);
+
+      expect(dto.supplierId, 'sup-1');
+      expect(dto.name, 'ABC Traders');
+      verify(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/suppliers',
+          data: request.toJson(),
+        ),
+      ).called(1);
     });
   });
 }

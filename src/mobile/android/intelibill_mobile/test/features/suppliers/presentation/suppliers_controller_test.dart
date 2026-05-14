@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
+import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/create_supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/get_suppliers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetSuppliers extends Mock implements GetSuppliers {}
+
+class MockCreateSupplier extends Mock implements CreateSupplier {}
 
 final _testSuppliers = [
   const Supplier(
@@ -55,14 +59,22 @@ final _testSuppliers = [
 
 void main() {
   late MockGetSuppliers getSuppliers;
+  late MockCreateSupplier createSupplier;
 
   setUp(() {
     getSuppliers = MockGetSuppliers();
+    createSupplier = MockCreateSupplier();
   });
 
-  ProviderContainer makeContainer({required MockGetSuppliers getSuppliers}) {
+  ProviderContainer makeContainer({
+    required MockGetSuppliers getSuppliers,
+    required MockCreateSupplier createSupplier,
+  }) {
     return ProviderContainer(
-      overrides: [getSuppliersUseCaseProvider.overrideWithValue(getSuppliers)],
+      overrides: [
+        getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
+        createSupplierUseCaseProvider.overrideWithValue(createSupplier),
+      ],
     );
   }
 
@@ -70,7 +82,10 @@ void main() {
     test('starts in loading state', () {
       when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-      final container = makeContainer(getSuppliers: getSuppliers);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
       addTearDown(container.dispose);
 
       expect(container.read(suppliersControllerProvider).isLoading, true);
@@ -80,7 +95,10 @@ void main() {
     test('loads suppliers and transitions to loaded state', () async {
       when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-      final container = makeContainer(getSuppliers: getSuppliers);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
       addTearDown(container.dispose);
 
       await container.read(suppliersControllerProvider.notifier).refresh();
@@ -94,7 +112,10 @@ void main() {
     test('transitions to error state when use case throws', () async {
       when(() => getSuppliers()).thenThrow(Exception('connection failed'));
 
-      final container = makeContainer(getSuppliers: getSuppliers);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
       addTearDown(container.dispose);
 
       await container.read(suppliersControllerProvider.notifier).refresh();
@@ -108,7 +129,10 @@ void main() {
     test('filters out system suppliers', () async {
       when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-      final container = makeContainer(getSuppliers: getSuppliers);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
       addTearDown(container.dispose);
 
       await container.read(suppliersControllerProvider.notifier).refresh();
@@ -128,7 +152,10 @@ void main() {
       test('filters suppliers by name', () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-        final container = makeContainer(getSuppliers: getSuppliers);
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
         addTearDown(container.dispose);
 
         await container.read(suppliersControllerProvider.notifier).refresh();
@@ -146,7 +173,10 @@ void main() {
       test('filters suppliers by city', () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-        final container = makeContainer(getSuppliers: getSuppliers);
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
         addTearDown(container.dispose);
 
         await container.read(suppliersControllerProvider.notifier).refresh();
@@ -164,7 +194,10 @@ void main() {
       test('filters suppliers by state', () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-        final container = makeContainer(getSuppliers: getSuppliers);
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
         addTearDown(container.dispose);
 
         await container.read(suppliersControllerProvider.notifier).refresh();
@@ -182,7 +215,10 @@ void main() {
       test('filters suppliers by contact person name', () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-        final container = makeContainer(getSuppliers: getSuppliers);
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
         addTearDown(container.dispose);
 
         await container.read(suppliersControllerProvider.notifier).refresh();
@@ -200,7 +236,10 @@ void main() {
       test('returns all suppliers when search is cleared', () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
 
-        final container = makeContainer(getSuppliers: getSuppliers);
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
         addTearDown(container.dispose);
 
         await container.read(suppliersControllerProvider.notifier).refresh();
@@ -219,7 +258,10 @@ void main() {
     test('refresh clears error and reloads', () async {
       when(() => getSuppliers()).thenThrow(Exception('temporary error'));
 
-      final container = makeContainer(getSuppliers: getSuppliers);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
       addTearDown(container.dispose);
 
       await Future<void>.delayed(Duration.zero);
@@ -237,5 +279,99 @@ void main() {
       expect(state.failure, isNull);
       expect(state.suppliers, _testSuppliers);
     });
+
+    test('creates supplier, clears submit state, and refreshes list', () async {
+      when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
+      when(
+        () => createSupplier(
+          name: any(named: 'name'),
+          contactPersonName: any(named: 'contactPersonName'),
+          contactPersonPhone: any(named: 'contactPersonPhone'),
+          address: any(named: 'address'),
+          city: any(named: 'city'),
+          state: any(named: 'state'),
+          pin: any(named: 'pin'),
+          isActive: any(named: 'isActive'),
+          isPreferred: any(named: 'isPreferred'),
+        ),
+      ).thenAnswer((_) async => _testSuppliers.first);
+
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
+      addTearDown(container.dispose);
+
+      await container.read(suppliersControllerProvider.notifier).refresh();
+      final success = await container
+          .read(suppliersControllerProvider.notifier)
+          .createSupplier(
+            name: 'ABC Traders',
+            address: '12 Main Street',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            pin: '400001',
+            isActive: true,
+            isPreferred: true,
+          );
+
+      expect(success, isTrue);
+      final state = container.read(suppliersControllerProvider);
+      expect(state.isSubmitting, isFalse);
+      expect(state.submitFailure, isNull);
+      verify(() => getSuppliers()).called(greaterThanOrEqualTo(2));
+    });
+
+    test(
+      'stores submit failure and keeps list state on create failure',
+      () async {
+        when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
+        when(
+          () => createSupplier(
+            name: any(named: 'name'),
+            contactPersonName: any(named: 'contactPersonName'),
+            contactPersonPhone: any(named: 'contactPersonPhone'),
+            address: any(named: 'address'),
+            city: any(named: 'city'),
+            state: any(named: 'state'),
+            pin: any(named: 'pin'),
+            isActive: any(named: 'isActive'),
+            isPreferred: any(named: 'isPreferred'),
+          ),
+        ).thenThrow(
+          AppException(
+            failure: const Failure.validation(message: 'Server rejected input'),
+          ),
+        );
+
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+        );
+        addTearDown(container.dispose);
+
+        await container.read(suppliersControllerProvider.notifier).refresh();
+        final success = await container
+            .read(suppliersControllerProvider.notifier)
+            .createSupplier(
+              name: 'ABC Traders',
+              address: '12 Main Street',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              pin: '400001',
+              isActive: true,
+              isPreferred: false,
+            );
+
+        expect(success, isFalse);
+        final state = container.read(suppliersControllerProvider);
+        expect(state.isSubmitting, isFalse);
+        expect(
+          state.submitFailure,
+          const Failure.validation(message: 'Server rejected input'),
+        );
+        expect(state.suppliers, _testSuppliers);
+      },
+    );
   });
 }
