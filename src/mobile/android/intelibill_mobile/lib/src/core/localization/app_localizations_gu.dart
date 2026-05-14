@@ -78,9 +78,6 @@ class AppLocalizationsGu extends AppLocalizations {
   String get shellLanguage => 'ભાષા';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'ડેશબોર્ડ';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsGu extends AppLocalizations {
   String get shellManageExpenses => 'ખર્ચા';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'બેંક ખાતા';
 
   @override
   String get shellManageUsers => 'વપરાશકર્તાઓ સંભાળો';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'દુકાન ઉમેરો';
@@ -120,10 +111,19 @@ class AppLocalizationsGu extends AppLocalizations {
   String get shellManageShop => 'દુકાન સંભાળો';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsGu extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsGu extends AppLocalizations {
       'તમારી વર્તમાન સક્રિય દુકાન સાથે જોડાયેલો ઉત્પાદન બનાવો.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'પૃષ્ઠ મળ્યું નથી';
 
   @override
   String get notFoundGoBack => 'પાછા ફરો';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
   String get shellManageShop => 'દુકાન સંભાળો';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'હવે લૉગિન કરો';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
 
   @override
   String get authForgotPassword => 'પાસવર્ડ ભૂલી ગયા?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'માન્ય ઈમેલ સરનામું દાખલ કરો.';
@@ -477,6 +507,9 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
   @override
   String get inventoryAddNewProductDescription =>
       'તમારી વર્તમાન સક્રિય દુકાન સાથે જોડાયેલો ઉત્પાદન બનાવો.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'પૃષ્ઠ મળ્યું નથી';

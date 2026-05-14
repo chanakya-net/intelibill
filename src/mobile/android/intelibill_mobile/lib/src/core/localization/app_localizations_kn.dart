@@ -78,9 +78,6 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellLanguage => 'ಭಾಷೆ';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageExpenses => 'ವೆಚ್ಚಗಳು';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'ಬ್ಯಾಂಕ್ ಖಾತೆಗಳು';
 
   @override
   String get shellManageUsers => 'ಬಳಕೆದಾರರನ್ನು ನಿರ್ವಹಿಸಿ';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'ಅಂಗಡಿ ಸೇರಿಸಿ';
@@ -120,10 +111,19 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageShop => 'ಅಂಗಡಿ ನಿರ್ವಹಿಸಿ';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsKn extends AppLocalizations {
       'ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಿ.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ';
 
   @override
   String get notFoundGoBack => 'ಹಿಂತಿರುಗಿ';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
   String get shellManageShop => 'ಅಂಗಡಿ ನಿರ್ವಹಿಸಿ';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'ಈಗ ಲಾಗಿನ್ ಮಾಡಿ';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
 
   @override
   String get authForgotPassword => 'ಪಾಸ್ವರ್ಡ್ ಮರೆತಿರಾ?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'ಮಾನ್ಯ ಇಮೇಲ್ ವಿಳಾಸ ನಮೂದಿಸಿ.';
@@ -477,6 +507,9 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
   @override
   String get inventoryAddNewProductDescription =>
       'ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಿ.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ';

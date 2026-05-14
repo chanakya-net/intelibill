@@ -78,9 +78,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellLanguage => 'Language';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'Dashboard';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellManageExpenses => 'Expenses';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'Bank Accounts';
 
   @override
   String get shellManageUsers => 'Manage Users';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'Add Shop';
@@ -120,10 +111,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellManageShop => 'Manage Shop';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Create a product linked to your current active shop.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'Page Not Found';
 
   @override
   String get notFoundGoBack => 'Go Back';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   String get shellManageShop => 'Manage Shop';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'Login Now';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get authForgotPassword => 'Forgot password';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'Enter a valid email address.';
@@ -479,11 +509,11 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
       'Create a product linked to your current active shop.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'Page Not Found';
 
   @override
   String get notFoundGoBack => 'Go Back';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }

@@ -78,9 +78,6 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellLanguage => 'ഭാഷ';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'ഡാഷ്ബോർഡ്';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageExpenses => 'ചെലവുകൾ';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
 
   @override
   String get shellManageUsers => 'ഉപയോക്താക്കളെ കൈകാര്യം ചെയ്യുക';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'കട ചേർക്കുക';
@@ -120,10 +111,19 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageShop => 'കട നിയന്ത്രിക്കുക';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsMl extends AppLocalizations {
       'നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പുമായി ബന്ധിപ്പിച്ച ഒരു ഉൽപ്പന്നം സൃഷ്ടിക്കുക.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'പേജ് കണ്ടെത്തിയില്ല';
 
   @override
   String get notFoundGoBack => 'തിരികെ പോകുക';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
   String get shellManageShop => 'കട നിയന്ത്രിക്കുക';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'ഇപ്പോൾ ലോഗിൻ ചെയ്യുക';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get authForgotPassword => 'പാസ്‌വേഡ് മറന്നോ?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'സാധുവായ ഇമെയിൽ നൽകുക.';
@@ -477,6 +507,9 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
   @override
   String get inventoryAddNewProductDescription =>
       'നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പുമായി ബന്ധിപ്പിച്ച ഒരു ഉൽപ്പന്നം സൃഷ്ടിക്കുക.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'പേജ് കണ്ടെത്തിയില്ല';

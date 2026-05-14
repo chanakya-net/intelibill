@@ -78,9 +78,6 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellLanguage => 'భాష';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'డాష్‌బోర్డ్';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageExpenses => 'ఖర్చులు';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'బ్యాంకు ఖాతాలు';
 
   @override
   String get shellManageUsers => 'వినియోగదారులను నిర్వహించండి';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'దుకాణం జోడించండి';
@@ -120,10 +111,19 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageShop => 'దుకాణం నిర్వహించండి';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsTe extends AppLocalizations {
       'ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'పేజీ కనబడలేదు';
 
   @override
   String get notFoundGoBack => 'వెనక్కి వెళ్ళండి';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   String get shellManageShop => 'దుకాణం నిర్వహించండి';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'ఇప్పుడే లాగిన్ అవ్వండి';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get authForgotPassword => 'పాస్‌వర్డ్ మర్చిపోయారా?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'చెల్లుబాటు అయ్యే ఇమెయిల్ ఇవ్వండి.';
@@ -477,6 +507,9 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get inventoryAddNewProductDescription =>
       'ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'పేజీ కనబడలేదు';

@@ -78,9 +78,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get shellLanguage => 'भाषा';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'डैशबोर्ड';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get shellManageExpenses => 'खर्च';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'बैंक खाते';
 
   @override
   String get shellManageUsers => 'उपयोगकर्ता प्रबंधित करें';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'दुकान जोड़ें';
@@ -120,10 +111,19 @@ class AppLocalizationsHi extends AppLocalizations {
   String get shellManageShop => 'दुकान प्रबंधित करें';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsHi extends AppLocalizations {
       'वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'पेज नहीं मिला';
 
   @override
   String get notFoundGoBack => 'वापस जाएं';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   String get shellManageShop => 'दुकान प्रबंधित करें';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'अभी लॉगिन करें';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get authForgotPassword => 'पासवर्ड भूल गए?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'मान्य ईमेल पता दर्ज करें।';
@@ -477,6 +507,9 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   @override
   String get inventoryAddNewProductDescription =>
       'वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'पेज नहीं मिला';

@@ -78,9 +78,6 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellLanguage => 'மொழி';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'டாஷ்போர்டு';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellManageExpenses => 'செலவுகள்';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'வங்கி கணக்குகள்';
 
   @override
   String get shellManageUsers => 'பயனர்களை நிர்வகி';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'கடை சேர்க்க';
@@ -120,10 +111,19 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellManageShop => 'கடை நிர்வகி';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -253,13 +253,13 @@ class AppLocalizationsTa extends AppLocalizations {
       'தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'பக்கம் கிடைக்கவில்லை';
 
   @override
   String get notFoundGoBack => 'பின்செல்';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).
@@ -369,6 +369,33 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
   String get shellManageShop => 'கடை நிர்வகி';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'இப்போது உள்நுழைக';
 
   @override
@@ -385,6 +412,9 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
 
   @override
   String get authForgotPassword => 'கடவுச்சொல்லை மறந்துவிட்டீர்களா?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'சரியான மின்னஞ்சலை உள்ளிடவும்.';
@@ -479,6 +509,9 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
   @override
   String get inventoryAddNewProductDescription =>
       'தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'பக்கம் கிடைக்கவில்லை';

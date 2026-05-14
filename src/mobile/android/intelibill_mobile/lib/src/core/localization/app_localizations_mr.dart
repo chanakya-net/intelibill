@@ -78,9 +78,6 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellLanguage => 'भाषा';
 
   @override
-  String get shellMore => 'More';
-
-  @override
   String get shellDashboard => 'डॅशबोर्ड';
 
   @override
@@ -102,16 +99,10 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellManageExpenses => 'खर्च';
 
   @override
-  String get shellManageDiscounts => 'Discounts';
-
-  @override
   String get shellManageBankAccounts => 'बँक खाती';
 
   @override
   String get shellManageUsers => 'वापरकर्ते व्यवस्थापित करा';
-
-  @override
-  String get shellChangePassword => 'Change Password';
 
   @override
   String get shellAddShop => 'दुकान जोडा';
@@ -120,10 +111,19 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellManageShop => 'दुकान व्यवस्थापित करा';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
   String get shellSalesHistory => 'Sales History';
 
   @override
-  String get shellProfitLossReport => 'Profit / Loss';
+  String get shellProfitLossReport => 'Profit & Loss';
 
   @override
   String get shellInventoryAdjustments => 'Inventory Adjustments';
@@ -132,7 +132,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellInventoryBatchesOverview => 'Inventory Batches';
 
   @override
-  String get shellBatchInventoryInbound => 'Batch Inbound';
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
 
   @override
   String get shellAddNewProduct => 'Add New Product';
@@ -252,13 +252,13 @@ class AppLocalizationsMr extends AppLocalizations {
       'तुमच्या सध्याच्या सक्रिय दुकानाशी जोडलेले उत्पादन तयार करा.';
 
   @override
+  String get placeholderBody => 'This feature is coming soon.';
+
+  @override
   String get notFoundTitle => 'पृष्ठ आढळले नाही';
 
   @override
   String get notFoundGoBack => 'मागे जा';
-
-  @override
-  String get placeholderBody => 'This feature is coming soon.';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
@@ -368,6 +368,33 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
   String get shellManageShop => 'दुकान व्यवस्थापित करा';
 
   @override
+  String get shellMore => 'More';
+
+  @override
+  String get shellManageDiscounts => 'Discounts';
+
+  @override
+  String get shellChangePassword => 'Change Password';
+
+  @override
+  String get shellSalesHistory => 'Sales History';
+
+  @override
+  String get shellProfitLossReport => 'Profit & Loss';
+
+  @override
+  String get shellInventoryAdjustments => 'Inventory Adjustments';
+
+  @override
+  String get shellInventoryBatchesOverview => 'Inventory Batches';
+
+  @override
+  String get shellBatchInventoryInbound => 'Batch Inventory Inbound';
+
+  @override
+  String get shellAddNewProduct => 'Add New Product';
+
+  @override
   String get authLoginNow => 'आता लॉगिन करा';
 
   @override
@@ -384,6 +411,9 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
 
   @override
   String get authForgotPassword => 'पासवर्ड विसरलात?';
+
+  @override
+  String get authRegister => 'Register';
 
   @override
   String get authValidationEmailInvalid => 'वैध ईमेल पत्ता प्रविष्ट करा.';
@@ -477,6 +507,9 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
   @override
   String get inventoryAddNewProductDescription =>
       'तुमच्या सध्याच्या सक्रिय दुकानाशी जोडलेले उत्पादन तयार करा.';
+
+  @override
+  String get placeholderBody => 'This feature is coming soon.';
 
   @override
   String get notFoundTitle => 'पृष्ठ आढळले नाही';
