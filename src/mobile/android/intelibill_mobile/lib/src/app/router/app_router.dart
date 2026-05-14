@@ -7,7 +7,10 @@ import 'package:intelibill_mobile/src/app/pages/placeholder_page.dart';
 import 'package:intelibill_mobile/src/app/shell/mobile_app_shell.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/pages/change_password_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_page.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
 
@@ -16,6 +19,9 @@ class AppRoutes {
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
   static const String register = '/register';
+  static const String profile = '/profile';
+  static const String profileEdit = '/profile/edit';
+  static const String profileChangePassword = '/profile/change-password';
   static const String dashboard = '/dashboard';
   static const String inventory = '/inventory';
   static const String inventoryBatch = '/inventory/batch';
@@ -190,6 +196,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.language,
             builder: (context, state) => const LanguagePage(),
           ),
+           GoRoute(
+             path: AppRoutes.profile,
+             builder: (context, state) => const ProfileSettingsPage(),
+           ),
+           GoRoute(
+             path: AppRoutes.profileEdit,
+             builder: (context, state) => const UpdateProfilePage(),
+           ),
+           GoRoute(
+             path: AppRoutes.profileChangePassword,
+             builder: (context, state) => const ChangePasswordPage(),
+           ),
           GoRoute(
             path: AppRoutes.placeholders,
             builder: (context, state) {
