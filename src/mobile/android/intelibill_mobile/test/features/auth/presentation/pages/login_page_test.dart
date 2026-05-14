@@ -46,6 +46,16 @@ Widget _buildPage(ProviderContainer container) {
   );
 }
 
+void _stubInitialAuthState(
+  MockAuthRepository repository, {
+  String? rememberedIdentifier,
+}) {
+  when(
+    () => repository.getRememberedIdentifier(),
+  ).thenAnswer((_) async => rememberedIdentifier);
+  when(() => repository.getRefreshToken()).thenAnswer((_) async => null);
+}
+
 void main() {
   late MockAuthRepository repository;
 
@@ -55,9 +65,7 @@ void main() {
 
   group('LoginPage', () {
     testWidgets('renders login screen sections', (tester) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
 
       final container = ProviderContainer(
         overrides: [
@@ -79,9 +87,7 @@ void main() {
     });
 
     testWidgets('shows inline validation messages', (tester) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
 
       final container = ProviderContainer(
         overrides: [
@@ -101,9 +107,7 @@ void main() {
     });
 
     testWidgets('toggles password visibility', (tester) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
       when(
         () => repository.login(
           identifier: any(named: 'identifier'),
@@ -132,9 +136,7 @@ void main() {
 
     testWidgets('disables submit button while login loading', (tester) async {
       final loginCompleter = Completer<AuthSession>();
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
       when(
         () => repository.login(
           identifier: any(named: 'identifier'),
@@ -183,9 +185,7 @@ void main() {
     });
 
     testWidgets('shows server error banner on login failure', (tester) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
       when(
         () => repository.login(
           identifier: any(named: 'identifier'),
@@ -224,10 +224,9 @@ void main() {
     testWidgets('loads remembered identifier and toggles remember me', (
       tester,
     ) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer(
-        (_) async => 'remembered@example.com',
+      _stubInitialAuthState(
+        repository,
+        rememberedIdentifier: 'remembered@example.com',
       );
 
       final container = ProviderContainer(
@@ -264,9 +263,7 @@ void main() {
     testWidgets('triggers login callback with entered credentials', (
       tester,
     ) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
       when(
         () => repository.login(
           identifier: any(named: 'identifier'),
@@ -305,9 +302,7 @@ void main() {
     testWidgets('triggers login callback with remember me selected', (
       tester,
     ) async {
-      when(
-        () => repository.getRememberedIdentifier(),
-      ).thenAnswer((_) async => null);
+      _stubInitialAuthState(repository);
       when(
         () => repository.login(
           identifier: any(named: 'identifier'),
