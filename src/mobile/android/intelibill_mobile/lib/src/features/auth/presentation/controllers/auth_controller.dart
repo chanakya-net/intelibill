@@ -114,11 +114,28 @@ class AuthController extends _$AuthController {
 
     try {
       final rememberedIdentifier = await repository.getRememberedIdentifier();
-      return state.copyWith(
+      final initialState = state.copyWith(
         isRememberedIdentifierLoading: false,
         rememberedIdentifier: rememberedIdentifier ?? '',
         rememberMe: (rememberedIdentifier ?? '').isNotEmpty,
       );
+
+      final refreshToken = await repository.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return initialState;
+      }
+
+      try {
+        final session = await repository.refreshToken(
+          refreshToken: refreshToken,
+        );
+        return initialState.copyWith(session: session);
+      } on AppException catch (error) {
+        if (_shouldClearStoredTokens(error.failure)) {
+          await repository.clearTokens();
+        }
+        return initialState;
+      }
     } on AppException catch (error) {
       return state.copyWith(
         isRememberedIdentifierLoading: false,
@@ -256,6 +273,20 @@ class AuthController extends _$AuthController {
       ),
     );
   }
+}
+
+bool _shouldClearStoredTokens(Failure failure) {
+  return failure.when(
+    validation: (_, _) => false,
+    unauthorized: (_) => true,
+    forbidden: (_) => true,
+    notFound: (_) => false,
+    server: (_, _) => false,
+    network: (_) => false,
+    timeout: (_) => false,
+    serialization: (_) => false,
+    unknown: (_) => false,
+  );
 }
 
 String _mapAuthFailureToMessage(Failure failure) {

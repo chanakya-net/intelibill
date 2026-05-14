@@ -16,6 +16,10 @@ void main() {
 
   setUp(() {
     repository = MockAuthRepository();
+    when(() => repository.getRefreshToken()).thenAnswer((_) async => null);
+    when(
+      () => repository.clearTokens(),
+    ).thenAnswer((_) async => Future<void>.value());
   });
 
   AuthSession userFixtureSession({bool rememberMe = false}) => AuthSession(
@@ -41,6 +45,9 @@ void main() {
       when(
         () => repository.getRememberedIdentifier(),
       ).thenAnswer((_) async => 'remembered@example.com');
+      when(
+        () => repository.getRefreshToken(),
+      ).thenAnswer((_) async => null);
 
       final container = ProviderContainer(
         overrides: [
@@ -55,6 +62,76 @@ void main() {
 
       expect(state.rememberedIdentifier, equals('remembered@example.com'));
       expect(state.rememberMe, isTrue);
+    });
+
+    test(
+      'restores authenticated session by refreshing stored token on startup',
+      () async {
+        when(
+          () => repository.getRememberedIdentifier(),
+        ).thenAnswer((_) async => 'remembered@example.com');
+        when(
+          () => repository.getRefreshToken(),
+        ).thenAnswer((_) async => 'stored_refresh_token');
+        when(
+          () => repository.refreshToken(refreshToken: 'stored_refresh_token'),
+        ).thenAnswer((_) async => userFixtureSession(rememberMe: true));
+
+        final container = ProviderContainer(
+          overrides: [
+            authRepositoryProvider.overrideWith(
+              (ref) => Future.value(repository),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final state = await container.read(authControllerProvider.future);
+
+        expect(state.session, equals(userFixtureSession(rememberMe: true)));
+        expect(state.isAuthenticated, isTrue);
+        expect(state.rememberedIdentifier, equals('remembered@example.com'));
+        expect(state.rememberMe, isTrue);
+        verify(
+          () => repository.refreshToken(
+            refreshToken: 'stored_refresh_token',
+          ),
+        ).called(1);
+      },
+    );
+
+    test('clears stale stored tokens when startup refresh fails', () async {
+      when(
+        () => repository.getRememberedIdentifier(),
+      ).thenAnswer((_) async => null);
+      when(
+        () => repository.getRefreshToken(),
+      ).thenAnswer((_) async => 'expired_refresh_token');
+      when(
+        () => repository.refreshToken(refreshToken: 'expired_refresh_token'),
+      ).thenThrow(
+        AppException(
+          failure: const Failure.unauthorized(message: 'Auth.InvalidToken'),
+        ),
+      );
+      when(
+        () => repository.clearTokens(),
+      ).thenAnswer((_) async => Future<void>.value());
+
+      final container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWith(
+            (ref) => Future.value(repository),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = await container.read(authControllerProvider.future);
+
+      expect(state.session, isNull);
+      expect(state.isAuthenticated, isFalse);
+      verify(() => repository.clearTokens()).called(1);
     });
 
     test(
