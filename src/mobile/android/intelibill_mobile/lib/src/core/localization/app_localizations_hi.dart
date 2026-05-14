@@ -255,6 +255,101 @@ class AppLocalizationsHi extends AppLocalizations {
       'Unable to load suppliers. Please try again.';
 
   @override
+  String get suppliersCreateNameLabel => 'नाम';
+
+  @override
+  String get suppliersCreateNameRequired => 'नाम आवश्यक है।';
+
+  @override
+  String get suppliersCreateNameMax =>
+      'नाम 180 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPersonLabel => 'संपर्क व्यक्ति';
+
+  @override
+  String get suppliersCreateContactPersonMax =>
+      'संपर्क व्यक्ति का नाम 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPhoneLabel => 'संपर्क फोन';
+
+  @override
+  String get suppliersCreateContactPhoneMax =>
+      'संपर्क फोन 32 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPhoneInvalid => 'मान्य फोन नंबर दर्ज करें।';
+
+  @override
+  String get suppliersCreateAddressLabel => 'पता';
+
+  @override
+  String get suppliersCreateAddressRequired => 'पता आवश्यक है।';
+
+  @override
+  String get suppliersCreateAddressMax =>
+      'पता 320 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateCityLabel => 'शहर';
+
+  @override
+  String get suppliersCreateCityRequired => 'शहर आवश्यक है।';
+
+  @override
+  String get suppliersCreateCityMax =>
+      'शहर 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateStateLabel => 'राज्य';
+
+  @override
+  String get suppliersCreateStateRequired => 'राज्य आवश्यक है।';
+
+  @override
+  String get suppliersCreateStateMax =>
+      'राज्य 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreatePinLabel => 'पिन';
+
+  @override
+  String get suppliersCreatePinRequired => 'पिन आवश्यक है।';
+
+  @override
+  String get suppliersCreatePinMax => 'पिन 16 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateActiveLabel => 'सक्रिय';
+
+  @override
+  String get suppliersCreatePreferredLabel => 'पसंदीदा';
+
+  @override
+  String get suppliersCreateSuccess => 'आपूर्तिकर्ता सफलतापूर्वक बनाया गया।';
+
+  @override
+  String get suppliersCreateErrorGeneric =>
+      'आपूर्तिकर्ता बनाया नहीं जा सका। कृपया फिर से प्रयास करें।';
+
+  @override
+  String get suppliersCreateErrorUnauthorized =>
+      'सत्र समाप्त हो गया। कृपया फिर से लॉग इन करें।';
+
+  @override
+  String get suppliersCreateErrorForbidden =>
+      'आपको आपूर्तिकर्ता बनाने की अनुमति नहीं है।';
+
+  @override
+  String get suppliersCreateErrorNetwork =>
+      'कनेक्ट नहीं हो सका। कृपया अपना नेटवर्क जांचें।';
+
+  @override
+  String get suppliersCreateErrorTimeout =>
+      'अनुरोध का समय समाप्त हो गया। कृपया फिर से प्रयास करें।';
+
+  @override
   String get inventoryTitle => 'इन्वेंटरी';
 
   @override
@@ -486,6 +581,101 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get suppliersNoSuppliersFound => 'कोई आपूर्तिकर्ता नहीं मिला';
+
+  @override
+  String get suppliersCreateNameLabel => 'नाम';
+
+  @override
+  String get suppliersCreateNameRequired => 'नाम आवश्यक है।';
+
+  @override
+  String get suppliersCreateNameMax =>
+      'नाम 180 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPersonLabel => 'संपर्क व्यक्ति';
+
+  @override
+  String get suppliersCreateContactPersonMax =>
+      'संपर्क व्यक्ति का नाम 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPhoneLabel => 'संपर्क फोन';
+
+  @override
+  String get suppliersCreateContactPhoneMax =>
+      'संपर्क फोन 32 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateContactPhoneInvalid => 'मान्य फोन नंबर दर्ज करें।';
+
+  @override
+  String get suppliersCreateAddressLabel => 'पता';
+
+  @override
+  String get suppliersCreateAddressRequired => 'पता आवश्यक है।';
+
+  @override
+  String get suppliersCreateAddressMax =>
+      'पता 320 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateCityLabel => 'शहर';
+
+  @override
+  String get suppliersCreateCityRequired => 'शहर आवश्यक है।';
+
+  @override
+  String get suppliersCreateCityMax =>
+      'शहर 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateStateLabel => 'राज्य';
+
+  @override
+  String get suppliersCreateStateRequired => 'राज्य आवश्यक है।';
+
+  @override
+  String get suppliersCreateStateMax =>
+      'राज्य 120 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreatePinLabel => 'पिन';
+
+  @override
+  String get suppliersCreatePinRequired => 'पिन आवश्यक है।';
+
+  @override
+  String get suppliersCreatePinMax => 'पिन 16 वर्णों या उससे कम का होना चाहिए।';
+
+  @override
+  String get suppliersCreateActiveLabel => 'सक्रिय';
+
+  @override
+  String get suppliersCreatePreferredLabel => 'पसंदीदा';
+
+  @override
+  String get suppliersCreateSuccess => 'आपूर्तिकर्ता सफलतापूर्वक बनाया गया।';
+
+  @override
+  String get suppliersCreateErrorGeneric =>
+      'आपूर्तिकर्ता बनाया नहीं जा सका। कृपया फिर से प्रयास करें।';
+
+  @override
+  String get suppliersCreateErrorUnauthorized =>
+      'सत्र समाप्त हो गया। कृपया फिर से लॉग इन करें।';
+
+  @override
+  String get suppliersCreateErrorForbidden =>
+      'आपको आपूर्तिकर्ता बनाने की अनुमति नहीं है।';
+
+  @override
+  String get suppliersCreateErrorNetwork =>
+      'कनेक्ट नहीं हो सका। कृपया अपना नेटवर्क जांचें।';
+
+  @override
+  String get suppliersCreateErrorTimeout =>
+      'अनुरोध का समय समाप्त हो गया। कृपया फिर से प्रयास करें।';
 
   @override
   String get inventoryTitle => 'इन्वेंटरी';

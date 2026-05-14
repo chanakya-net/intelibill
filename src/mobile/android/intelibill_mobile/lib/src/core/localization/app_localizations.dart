@@ -595,6 +595,174 @@ abstract class AppLocalizations {
   /// **'Unable to load suppliers. Please try again.'**
   String get suppliersErrorGeneric;
 
+  /// No description provided for @suppliersCreateNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name'**
+  String get suppliersCreateNameLabel;
+
+  /// No description provided for @suppliersCreateNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name is required.'**
+  String get suppliersCreateNameRequired;
+
+  /// No description provided for @suppliersCreateNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name must be 180 characters or fewer.'**
+  String get suppliersCreateNameMax;
+
+  /// No description provided for @suppliersCreateContactPersonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Contact Person'**
+  String get suppliersCreateContactPersonLabel;
+
+  /// No description provided for @suppliersCreateContactPersonMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Contact person must be 120 characters or fewer.'**
+  String get suppliersCreateContactPersonMax;
+
+  /// No description provided for @suppliersCreateContactPhoneLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Contact Phone'**
+  String get suppliersCreateContactPhoneLabel;
+
+  /// No description provided for @suppliersCreateContactPhoneMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Contact phone must be 32 characters or fewer.'**
+  String get suppliersCreateContactPhoneMax;
+
+  /// No description provided for @suppliersCreateContactPhoneInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid phone number.'**
+  String get suppliersCreateContactPhoneInvalid;
+
+  /// No description provided for @suppliersCreateAddressLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Address'**
+  String get suppliersCreateAddressLabel;
+
+  /// No description provided for @suppliersCreateAddressRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Address is required.'**
+  String get suppliersCreateAddressRequired;
+
+  /// No description provided for @suppliersCreateAddressMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Address must be 320 characters or fewer.'**
+  String get suppliersCreateAddressMax;
+
+  /// No description provided for @suppliersCreateCityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'City'**
+  String get suppliersCreateCityLabel;
+
+  /// No description provided for @suppliersCreateCityRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'City is required.'**
+  String get suppliersCreateCityRequired;
+
+  /// No description provided for @suppliersCreateCityMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'City must be 120 characters or fewer.'**
+  String get suppliersCreateCityMax;
+
+  /// No description provided for @suppliersCreateStateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'State'**
+  String get suppliersCreateStateLabel;
+
+  /// No description provided for @suppliersCreateStateRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'State is required.'**
+  String get suppliersCreateStateRequired;
+
+  /// No description provided for @suppliersCreateStateMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'State must be 120 characters or fewer.'**
+  String get suppliersCreateStateMax;
+
+  /// No description provided for @suppliersCreatePinLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'PIN'**
+  String get suppliersCreatePinLabel;
+
+  /// No description provided for @suppliersCreatePinRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'PIN is required.'**
+  String get suppliersCreatePinRequired;
+
+  /// No description provided for @suppliersCreatePinMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'PIN must be 16 characters or fewer.'**
+  String get suppliersCreatePinMax;
+
+  /// No description provided for @suppliersCreateActiveLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get suppliersCreateActiveLabel;
+
+  /// No description provided for @suppliersCreatePreferredLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preferred'**
+  String get suppliersCreatePreferredLabel;
+
+  /// No description provided for @suppliersCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier created successfully.'**
+  String get suppliersCreateSuccess;
+
+  /// No description provided for @suppliersCreateErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to create supplier. Please try again.'**
+  String get suppliersCreateErrorGeneric;
+
+  /// No description provided for @suppliersCreateErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get suppliersCreateErrorUnauthorized;
+
+  /// No description provided for @suppliersCreateErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to create suppliers.'**
+  String get suppliersCreateErrorForbidden;
+
+  /// No description provided for @suppliersCreateErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get suppliersCreateErrorNetwork;
+
+  /// No description provided for @suppliersCreateErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get suppliersCreateErrorTimeout;
+
   /// No description provided for @inventoryTitle.
   ///
   /// In en_IN, this message translates to:

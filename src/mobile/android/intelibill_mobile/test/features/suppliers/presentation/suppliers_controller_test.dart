@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -69,11 +71,14 @@ void main() {
   ProviderContainer makeContainer({
     required MockGetSuppliers getSuppliers,
     required MockCreateSupplier createSupplier,
+    SuppliersController Function()? controllerFactory,
   }) {
     return ProviderContainer(
       overrides: [
         getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
         createSupplierUseCaseProvider.overrideWithValue(createSupplier),
+        if (controllerFactory != null)
+          suppliersControllerProvider.overrideWith(controllerFactory),
       ],
     );
   }
@@ -323,6 +328,51 @@ void main() {
     });
 
     test(
+      'rejects create attempts when submission is already in progress',
+      () async {
+        final container = makeContainer(
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+          controllerFactory: () => _DelayedRefreshSuppliersController(
+            SuppliersState(
+              suppliers: _testSuppliers,
+              isSubmitting: true,
+            ),
+            Completer<void>(),
+          ),
+        );
+        addTearDown(container.dispose);
+
+        final success = await container
+            .read(suppliersControllerProvider.notifier)
+            .createSupplier(
+              name: 'ABC Traders',
+              address: '12 Main Street',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              pin: '400001',
+              isActive: true,
+              isPreferred: true,
+            );
+
+        expect(success, isFalse);
+        verifyNever(
+          () => createSupplier(
+            name: any(named: 'name'),
+            contactPersonName: any(named: 'contactPersonName'),
+            contactPersonPhone: any(named: 'contactPersonPhone'),
+            address: any(named: 'address'),
+            city: any(named: 'city'),
+            state: any(named: 'state'),
+            pin: any(named: 'pin'),
+            isActive: any(named: 'isActive'),
+            isPreferred: any(named: 'isPreferred'),
+          ),
+        );
+      },
+    );
+
+    test(
       'stores submit failure and keeps list state on create failure',
       () async {
         when(() => getSuppliers()).thenAnswer((_) async => _testSuppliers);
@@ -374,4 +424,21 @@ void main() {
       },
     );
   });
+}
+
+class _DelayedRefreshSuppliersController extends SuppliersController {
+  _DelayedRefreshSuppliersController(this._state, this._refreshCompleter);
+
+  final SuppliersState _state;
+  final Completer<void> _refreshCompleter;
+
+  @override
+  SuppliersState build() => _state;
+
+  @override
+  Future<void> refresh() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await _refreshCompleter.future;
+    state = state.copyWith(isLoading: false);
+  }
 }

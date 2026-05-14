@@ -40,6 +40,23 @@ void main() {
     );
   }
 
+  Widget buildSheetWithLocale(Locale locale) {
+    return ProviderScope(
+      overrides: [
+        getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
+        createSupplierUseCaseProvider.overrideWithValue(createSupplier),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(
+          body: CreateSupplierSheet(),
+        ),
+      ),
+    );
+  }
+
   testWidgets('validates required fields and phone pattern', (tester) async {
     when(() => getSuppliers()).thenAnswer((_) async => []);
 
@@ -289,5 +306,73 @@ void main() {
         isPreferred: false,
       ),
     ).called(1);
+  });
+
+  testWidgets('uses localized supplier create strings for non-English locale', (
+    tester,
+  ) async {
+    when(() => getSuppliers()).thenAnswer((_) async => []);
+    when(
+      () => createSupplier(
+        name: any(named: 'name'),
+        contactPersonName: any(named: 'contactPersonName'),
+        contactPersonPhone: any(named: 'contactPersonPhone'),
+        address: any(named: 'address'),
+        city: any(named: 'city'),
+        state: any(named: 'state'),
+        pin: any(named: 'pin'),
+        isActive: any(named: 'isActive'),
+        isPreferred: any(named: 'isPreferred'),
+      ),
+    ).thenAnswer(
+      (_) async => const Supplier(
+        supplierId: 'sup-1',
+        name: 'ABC Traders',
+        address: '12 Main Street',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        pin: '400001',
+        isSystem: false,
+        isActive: true,
+        isPreferred: false,
+        balanceDue: 0,
+      ),
+    );
+
+    await tester.pumpWidget(buildSheetWithLocale(const Locale('hi')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('नाम'), findsOneWidget);
+    expect(find.text('सक्रिय'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(CreateSupplierSheet.nameFieldKey),
+      'नया आपूर्तिकर्ता',
+    );
+    await tester.enterText(
+      find.byKey(CreateSupplierSheet.addressFieldKey),
+      '12 मुख्य सड़क',
+    );
+    await tester.enterText(
+      find.byKey(CreateSupplierSheet.cityFieldKey),
+      'मुंबई',
+    );
+    await tester.enterText(
+      find.byKey(CreateSupplierSheet.stateFieldKey),
+      'महाराष्ट्र',
+    );
+    await tester.enterText(
+      find.byKey(CreateSupplierSheet.pinFieldKey),
+      '400001',
+    );
+
+    await tester.ensureVisible(find.byKey(CreateSupplierSheet.submitButtonKey));
+    await tester.tap(
+      find.byKey(CreateSupplierSheet.submitButtonKey),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(CreateSupplierSheet.nameFieldKey), findsNothing);
   });
 }

@@ -256,6 +256,100 @@ class AppLocalizationsTa extends AppLocalizations {
       'Unable to load suppliers. Please try again.';
 
   @override
+  String get suppliersCreateNameLabel => 'Name';
+
+  @override
+  String get suppliersCreateNameRequired => 'Name is required.';
+
+  @override
+  String get suppliersCreateNameMax => 'Name must be 180 characters or fewer.';
+
+  @override
+  String get suppliersCreateContactPersonLabel => 'Contact Person';
+
+  @override
+  String get suppliersCreateContactPersonMax =>
+      'Contact person must be 120 characters or fewer.';
+
+  @override
+  String get suppliersCreateContactPhoneLabel => 'Contact Phone';
+
+  @override
+  String get suppliersCreateContactPhoneMax =>
+      'Contact phone must be 32 characters or fewer.';
+
+  @override
+  String get suppliersCreateContactPhoneInvalid =>
+      'Enter a valid phone number.';
+
+  @override
+  String get suppliersCreateAddressLabel => 'Address';
+
+  @override
+  String get suppliersCreateAddressRequired => 'Address is required.';
+
+  @override
+  String get suppliersCreateAddressMax =>
+      'Address must be 320 characters or fewer.';
+
+  @override
+  String get suppliersCreateCityLabel => 'City';
+
+  @override
+  String get suppliersCreateCityRequired => 'City is required.';
+
+  @override
+  String get suppliersCreateCityMax => 'City must be 120 characters or fewer.';
+
+  @override
+  String get suppliersCreateStateLabel => 'State';
+
+  @override
+  String get suppliersCreateStateRequired => 'State is required.';
+
+  @override
+  String get suppliersCreateStateMax =>
+      'State must be 120 characters or fewer.';
+
+  @override
+  String get suppliersCreatePinLabel => 'PIN';
+
+  @override
+  String get suppliersCreatePinRequired => 'PIN is required.';
+
+  @override
+  String get suppliersCreatePinMax => 'PIN must be 16 characters or fewer.';
+
+  @override
+  String get suppliersCreateActiveLabel => 'Active';
+
+  @override
+  String get suppliersCreatePreferredLabel => 'Preferred';
+
+  @override
+  String get suppliersCreateSuccess => 'Supplier created successfully.';
+
+  @override
+  String get suppliersCreateErrorGeneric =>
+      'Unable to create supplier. Please try again.';
+
+  @override
+  String get suppliersCreateErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get suppliersCreateErrorForbidden =>
+      'You do not have permission to create suppliers.';
+
+  @override
+  String get suppliersCreateErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get suppliersCreateErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
   String get inventoryTitle => 'சரக்கு';
 
   @override

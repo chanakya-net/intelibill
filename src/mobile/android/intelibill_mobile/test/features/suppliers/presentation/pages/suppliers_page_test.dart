@@ -112,6 +112,7 @@ Widget _buildCreateFlowApp({
   required AuthSession session,
   required MockGetSuppliers getSuppliers,
   required MockCreateSupplier createSupplier,
+  Locale? locale,
 }) {
   return ProviderScope(
     overrides: [
@@ -121,10 +122,11 @@ Widget _buildCreateFlowApp({
         () => _StubAuthController(AuthControllerState(session: session)),
       ),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: SuppliersPage(),
+      home: const SuppliersPage(),
     ),
   );
 }
@@ -337,6 +339,84 @@ void main() {
       expect(find.text('Supplier created successfully.'), findsOneWidget);
       expect(find.byKey(CreateSupplierSheet.nameFieldKey), findsNothing);
       verify(getSuppliers.call).called(greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('localizes create success snackbar', (tester) async {
+      final getSuppliers = MockGetSuppliers();
+      final createSupplier = MockCreateSupplier();
+
+      when(getSuppliers.call).thenAnswer((_) async => _loadedState.suppliers);
+      when(
+        () => createSupplier(
+          name: any(named: 'name'),
+          contactPersonName: any(named: 'contactPersonName'),
+          contactPersonPhone: any(named: 'contactPersonPhone'),
+          address: any(named: 'address'),
+          city: any(named: 'city'),
+          state: any(named: 'state'),
+          pin: any(named: 'pin'),
+          isActive: any(named: 'isActive'),
+          isPreferred: any(named: 'isPreferred'),
+        ),
+      ).thenAnswer(
+        (_) async => const Supplier(
+          supplierId: 'sup-4',
+          name: 'New Supplier',
+          address: '12 Main Street',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pin: '400001',
+          isSystem: false,
+          isActive: true,
+          isPreferred: false,
+          balanceDue: 0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildCreateFlowApp(
+          session: _ownerSession(),
+          getSuppliers: getSuppliers,
+          createSupplier: createSupplier,
+          locale: const Locale('hi'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(SuppliersPage.addSupplierFabKey));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.nameFieldKey),
+        'नया आपूर्तिकर्ता',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.addressFieldKey),
+        '12 मुख्य सड़क',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.cityFieldKey),
+        'मुंबई',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.stateFieldKey),
+        'महाराष्ट्र',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.pinFieldKey),
+        '400001',
+      );
+
+      await tester.ensureVisible(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+      );
+      await tester.tap(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('आपूर्तिकर्ता सफलतापूर्वक बनाया गया।'), findsOneWidget);
     });
   });
 }

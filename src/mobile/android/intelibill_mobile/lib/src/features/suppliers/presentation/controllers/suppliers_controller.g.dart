@@ -222,7 +222,7 @@ final class SuppliersControllerProvider
 }
 
 String _$suppliersControllerHash() =>
-    r'12eba7b046d861d0de2467972beefb8864e5fb95';
+    r'513d8fd425baea373b29d7293e5e4c658a658fdb';
 
 abstract class _$SuppliersController extends $Notifier<SuppliersState> {
   SuppliersState build();

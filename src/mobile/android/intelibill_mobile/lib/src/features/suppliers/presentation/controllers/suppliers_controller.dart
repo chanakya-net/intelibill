@@ -156,11 +156,12 @@ class SuppliersController extends _$SuppliersController {
         isPreferred: isPreferred,
       );
       if (!ref.mounted) return false;
+      await refresh();
+      if (!ref.mounted) return false;
       this.state = this.state.copyWith(
         isSubmitting: false,
         clearSubmitError: true,
       );
-      await refresh();
       return true;
     } on AppException catch (error) {
       if (!ref.mounted) return false;
