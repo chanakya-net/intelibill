@@ -66,7 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (state.isAuthenticated) {
           // User is authenticated, navigate to home
           if (context.mounted) {
-            context.go(AppRoutes.root);
+            context.go(AppRoutes.dashboard);
           }
         }
       });

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ProblemDetails {
 
- String? get type; String? get title; int? get status; String? get detail; String? get instance; Map<String, dynamic> get errors;
+ String? get type; String? get title; int? get status; String? get detail; String? get instance;@JsonKey(fromJson: _errorsFromJson) Map<String, dynamic> get errors;
 /// Create a copy of ProblemDetails
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $ProblemDetailsCopyWith<$Res>  {
   factory $ProblemDetailsCopyWith(ProblemDetails value, $Res Function(ProblemDetails) _then) = _$ProblemDetailsCopyWithImpl;
 @useResult
 $Res call({
- String? type, String? title, int? status, String? detail, String? instance, Map<String, dynamic> errors
+ String? type, String? title, int? status, String? detail, String? instance,@JsonKey(fromJson: _errorsFromJson) Map<String, dynamic> errors
 });
 
 
@@ -158,7 +158,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? type,  String? title,  int? status,  String? detail,  String? instance,  Map<String, dynamic> errors)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? type,  String? title,  int? status,  String? detail,  String? instance, @JsonKey(fromJson: _errorsFromJson)  Map<String, dynamic> errors)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ProblemDetails() when $default != null:
 return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,_that.errors);case _:
@@ -179,7 +179,7 @@ return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? type,  String? title,  int? status,  String? detail,  String? instance,  Map<String, dynamic> errors)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? type,  String? title,  int? status,  String? detail,  String? instance, @JsonKey(fromJson: _errorsFromJson)  Map<String, dynamic> errors)  $default,) {final _that = this;
 switch (_that) {
 case _ProblemDetails():
 return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,_that.errors);case _:
@@ -199,7 +199,7 @@ return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? type,  String? title,  int? status,  String? detail,  String? instance,  Map<String, dynamic> errors)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? type,  String? title,  int? status,  String? detail,  String? instance, @JsonKey(fromJson: _errorsFromJson)  Map<String, dynamic> errors)?  $default,) {final _that = this;
 switch (_that) {
 case _ProblemDetails() when $default != null:
 return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,_that.errors);case _:
@@ -214,7 +214,7 @@ return $default(_that.type,_that.title,_that.status,_that.detail,_that.instance,
 @JsonSerializable()
 
 class _ProblemDetails implements ProblemDetails {
-  const _ProblemDetails({this.type, this.title, this.status, this.detail, this.instance, final  Map<String, dynamic> errors = const {}}): _errors = errors;
+  const _ProblemDetails({this.type, this.title, this.status, this.detail, this.instance, @JsonKey(fromJson: _errorsFromJson) final  Map<String, dynamic> errors = const {}}): _errors = errors;
   factory _ProblemDetails.fromJson(Map<String, dynamic> json) => _$ProblemDetailsFromJson(json);
 
 @override final  String? type;
@@ -223,7 +223,7 @@ class _ProblemDetails implements ProblemDetails {
 @override final  String? detail;
 @override final  String? instance;
  final  Map<String, dynamic> _errors;
-@override@JsonKey() Map<String, dynamic> get errors {
+@override@JsonKey(fromJson: _errorsFromJson) Map<String, dynamic> get errors {
   if (_errors is EqualUnmodifiableMapView) return _errors;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableMapView(_errors);
@@ -263,7 +263,7 @@ abstract mixin class _$ProblemDetailsCopyWith<$Res> implements $ProblemDetailsCo
   factory _$ProblemDetailsCopyWith(_ProblemDetails value, $Res Function(_ProblemDetails) _then) = __$ProblemDetailsCopyWithImpl;
 @override @useResult
 $Res call({
- String? type, String? title, int? status, String? detail, String? instance, Map<String, dynamic> errors
+ String? type, String? title, int? status, String? detail, String? instance,@JsonKey(fromJson: _errorsFromJson) Map<String, dynamic> errors
 });
 
 
