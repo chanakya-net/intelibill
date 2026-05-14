@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
@@ -83,10 +84,11 @@ Widget _buildApp(SuppliersState state) {
             _StubAuthController(AuthControllerState(session: _ownerSession())),
       ),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: SuppliersPage(),
+      home: const SuppliersPage(),
     ),
   );
 }
@@ -100,10 +102,11 @@ Widget _buildAppWithOverrides({required SuppliersController controller}) {
             _StubAuthController(AuthControllerState(session: _ownerSession())),
       ),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: SuppliersPage(),
+      home: const SuppliersPage(),
     ),
   );
 }
@@ -124,6 +127,7 @@ Widget _buildCreateFlowApp({
     ],
     child: MaterialApp(
       locale: locale,
+      theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const SuppliersPage(),

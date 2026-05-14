@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
@@ -50,10 +51,11 @@ Widget _buildApp(CustomersState state) {
         () => _StubCustomersController(state),
       ),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: CustomersPage(),
+      home: const CustomersPage(),
     ),
   );
 }
@@ -67,10 +69,11 @@ Widget _buildAppWithOverrides({
       getCustomersUseCaseProvider.overrideWithValue(getCustomers),
       createCustomerUseCaseProvider.overrideWithValue(createCustomer),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: CustomersPage(),
+      home: const CustomersPage(),
     ),
   );
 }

@@ -225,6 +225,75 @@ void main() {
     expect(find.byKey(CreateSupplierSheet.nameFieldKey), findsOneWidget);
   });
 
+  testWidgets(
+    'shows field error when backend returns generic title with errors map',
+    (tester) async {
+      when(() => getSuppliers()).thenAnswer((_) async => []);
+      when(
+        () => createSupplier(
+          name: any(named: 'name'),
+          contactPersonName: any(named: 'contactPersonName'),
+          contactPersonPhone: any(named: 'contactPersonPhone'),
+          address: any(named: 'address'),
+          city: any(named: 'city'),
+          state: any(named: 'state'),
+          pin: any(named: 'pin'),
+          isActive: any(named: 'isActive'),
+          isPreferred: any(named: 'isPreferred'),
+        ),
+      ).thenThrow(
+        AppException(
+          failure: const Failure.validation(
+            message: 'One or more validation errors occurred.',
+            errors: {
+              'Name': ['Name must be unique.'],
+            },
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(buildSheet());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.nameFieldKey),
+        'ABC Traders',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.addressFieldKey),
+        '12 Main Street',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.cityFieldKey),
+        'Mumbai',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.stateFieldKey),
+        'Maharashtra',
+      );
+      await tester.enterText(
+        find.byKey(CreateSupplierSheet.pinFieldKey),
+        '400001',
+      );
+
+      await tester.ensureVisible(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+      );
+      await tester.tap(
+        find.byKey(CreateSupplierSheet.submitButtonKey),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Name must be unique.'), findsOneWidget);
+      expect(
+        find.text('One or more validation errors occurred.'),
+        findsNothing,
+      );
+      expect(find.byKey(CreateSupplierSheet.nameFieldKey), findsOneWidget);
+    },
+  );
+
   testWidgets('submits trimmed values and null optional contact fields', (
     tester,
   ) async {
