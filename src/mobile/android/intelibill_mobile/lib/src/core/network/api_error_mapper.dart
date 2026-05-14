@@ -93,9 +93,15 @@ class ApiErrorMapper {
       );
     }
 
-    if (statusCode == 401) return const Failure.unauthorized();
-    if (statusCode == 403) return const Failure.forbidden();
-    if (statusCode == 404) return const Failure.notFound();
+    if (statusCode == 401) {
+      return Failure.unauthorized(message: problem.title);
+    }
+    if (statusCode == 403) {
+      return Failure.forbidden(message: problem.title);
+    }
+    if (statusCode == 404) {
+      return Failure.notFound(message: problem.title);
+    }
 
     return Failure.server(
       message: problem.detail ?? problem.title ?? 'Server error',
