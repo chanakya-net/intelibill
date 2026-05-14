@@ -82,7 +82,7 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                l10n.customersUnableToLoad,
+                l10n.suppliersUnableToLoad,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -100,7 +100,7 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
                     ref.read(suppliersControllerProvider.notifier).refresh(),
                   );
                 },
-                child: Text(l10n.customersRetry),
+                child: Text(l10n.suppliersRetry),
               ),
             ],
           ),
@@ -162,18 +162,38 @@ class _SupplierCard extends StatelessWidget {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                if (!supplier.isActive)
+                if (supplier.isPreferred)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.suppliersPreferred,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                if (!supplier.isActive)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    margin: EdgeInsets.only(
+                      left: supplier.isPreferred ? 4 : 0,
+                    ),
+                    decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Inactive',
+                      AppLocalizations.of(context)!.suppliersInactive,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onErrorContainer,
                       ),
@@ -196,7 +216,7 @@ class _SupplierCard extends StatelessWidget {
             if (supplier.balanceDue != 0) ...[
               const SizedBox(height: 8),
               Text(
-                'Balance Due: '
+                '${AppLocalizations.of(context)!.suppliersBalanceDueLabel} '
                 '${supplier.balanceDue.toStringAsFixed(2)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: supplier.balanceDue > 0
@@ -216,14 +236,14 @@ class _SupplierCard extends StatelessWidget {
 String _localizeFailure(AppLocalizations l10n, Failure failure) {
   return failure.when(
     validation: (String? message, Map<String, List<String>>? _) =>
-        message ?? l10n.customersErrorGeneric,
-    unauthorized: (String? _) => l10n.customersErrorUnauthorized,
-    forbidden: (String? _) => l10n.customersErrorForbidden,
-    notFound: (String? _) => l10n.customersErrorGeneric,
-    server: (String? message, int? _) => message ?? l10n.customersErrorGeneric,
-    network: (String? _) => l10n.customersErrorNetwork,
-    timeout: (String? _) => l10n.customersErrorTimeout,
-    serialization: (String? _) => l10n.customersErrorGeneric,
-    unknown: (String? _) => l10n.customersErrorGeneric,
+        message ?? l10n.suppliersErrorGeneric,
+    unauthorized: (String? _) => l10n.suppliersErrorUnauthorized,
+    forbidden: (String? _) => l10n.suppliersErrorForbidden,
+    notFound: (String? _) => l10n.suppliersErrorGeneric,
+    server: (String? message, int? _) => message ?? l10n.suppliersErrorGeneric,
+    network: (String? _) => l10n.suppliersErrorNetwork,
+    timeout: (String? _) => l10n.suppliersErrorTimeout,
+    serialization: (String? _) => l10n.suppliersErrorGeneric,
+    unknown: (String? _) => l10n.suppliersErrorGeneric,
   );
 }

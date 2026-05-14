@@ -178,61 +178,6 @@ class AppLocalizationsTa extends AppLocalizations {
   String get customersAddCustomer => 'வாடிக்கையாளரைச் சேர்க்க';
 
   @override
-  String get customersCreateSuccess => 'Customer created successfully.';
-
-  @override
-  String get customersCreateNameLabel => 'Customer name';
-
-  @override
-  String get customersCreatePhoneLabel => 'Phone number';
-
-  @override
-  String get customersCreateAddressLabel => 'Address (optional)';
-
-  @override
-  String get customersCreateActiveLabel => 'Active customer';
-
-  @override
-  String get customersCreateNameRequired => 'Name is required.';
-
-  @override
-  String get customersCreateNameMax => 'Name must be 180 characters or fewer.';
-
-  @override
-  String get customersCreatePhoneRequired => 'Phone number is required.';
-
-  @override
-  String get customersCreatePhoneMax =>
-      'Phone number must be 32 characters or fewer.';
-
-  @override
-  String get customersCreatePhoneInvalid => 'Enter a valid phone number.';
-
-  @override
-  String get customersCreateAddressMax =>
-      'Address must be 320 characters or fewer.';
-
-  @override
-  String get customersCreateErrorNetwork =>
-      'Unable to connect. Please check your network.';
-
-  @override
-  String get customersCreateErrorTimeout =>
-      'Request timed out. Please try again.';
-
-  @override
-  String get customersCreateErrorUnauthorized =>
-      'Session expired. Please log in again.';
-
-  @override
-  String get customersCreateErrorForbidden =>
-      'You do not have permission to create customers.';
-
-  @override
-  String get customersCreateErrorGeneric =>
-      'Unable to create customer. Please try again.';
-
-  @override
   String get customersNoCustomersFound =>
       'வாடிக்கையாளர்கள் யாரும் கிடைக்கவில்லை';
 
@@ -275,6 +220,40 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get suppliersNoSuppliersFound => 'விநியோகஸ்தர்கள் இல்லை';
+
+  @override
+  String get suppliersUnableToLoad => 'Unable to load suppliers';
+
+  @override
+  String get suppliersRetry => 'Retry';
+
+  @override
+  String get suppliersInactive => 'Inactive';
+
+  @override
+  String get suppliersPreferred => 'Preferred';
+
+  @override
+  String get suppliersBalanceDueLabel => 'Balance Due:';
+
+  @override
+  String get suppliersErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get suppliersErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get suppliersErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get suppliersErrorForbidden =>
+      'You do not have permission to view suppliers.';
+
+  @override
+  String get suppliersErrorGeneric =>
+      'Unable to load suppliers. Please try again.';
 
   @override
   String get inventoryTitle => 'சரக்கு';
@@ -465,61 +444,6 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
 
   @override
   String get customersAddCustomer => 'வாடிக்கையாளரைச் சேர்க்க';
-
-  @override
-  String get customersCreateSuccess => 'Customer created successfully.';
-
-  @override
-  String get customersCreateNameLabel => 'Customer name';
-
-  @override
-  String get customersCreatePhoneLabel => 'Phone number';
-
-  @override
-  String get customersCreateAddressLabel => 'Address (optional)';
-
-  @override
-  String get customersCreateActiveLabel => 'Active customer';
-
-  @override
-  String get customersCreateNameRequired => 'Name is required.';
-
-  @override
-  String get customersCreateNameMax => 'Name must be 180 characters or fewer.';
-
-  @override
-  String get customersCreatePhoneRequired => 'Phone number is required.';
-
-  @override
-  String get customersCreatePhoneMax =>
-      'Phone number must be 32 characters or fewer.';
-
-  @override
-  String get customersCreatePhoneInvalid => 'Enter a valid phone number.';
-
-  @override
-  String get customersCreateAddressMax =>
-      'Address must be 320 characters or fewer.';
-
-  @override
-  String get customersCreateErrorNetwork =>
-      'Unable to connect. Please check your network.';
-
-  @override
-  String get customersCreateErrorTimeout =>
-      'Request timed out. Please try again.';
-
-  @override
-  String get customersCreateErrorUnauthorized =>
-      'Session expired. Please log in again.';
-
-  @override
-  String get customersCreateErrorForbidden =>
-      'You do not have permission to create customers.';
-
-  @override
-  String get customersCreateErrorGeneric =>
-      'Unable to create customer. Please try again.';
 
   @override
   String get customersNoCustomersFound =>

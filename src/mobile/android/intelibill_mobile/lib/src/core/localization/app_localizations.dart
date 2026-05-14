@@ -457,102 +457,6 @@ abstract class AppLocalizations {
   /// **'Add Customer'**
   String get customersAddCustomer;
 
-  /// No description provided for @customersCreateSuccess.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Customer created successfully.'**
-  String get customersCreateSuccess;
-
-  /// No description provided for @customersCreateNameLabel.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Customer name'**
-  String get customersCreateNameLabel;
-
-  /// No description provided for @customersCreatePhoneLabel.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Phone number'**
-  String get customersCreatePhoneLabel;
-
-  /// No description provided for @customersCreateAddressLabel.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Address (optional)'**
-  String get customersCreateAddressLabel;
-
-  /// No description provided for @customersCreateActiveLabel.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Active customer'**
-  String get customersCreateActiveLabel;
-
-  /// No description provided for @customersCreateNameRequired.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Name is required.'**
-  String get customersCreateNameRequired;
-
-  /// No description provided for @customersCreateNameMax.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Name must be 180 characters or fewer.'**
-  String get customersCreateNameMax;
-
-  /// No description provided for @customersCreatePhoneRequired.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Phone number is required.'**
-  String get customersCreatePhoneRequired;
-
-  /// No description provided for @customersCreatePhoneMax.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Phone number must be 32 characters or fewer.'**
-  String get customersCreatePhoneMax;
-
-  /// No description provided for @customersCreatePhoneInvalid.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Enter a valid phone number.'**
-  String get customersCreatePhoneInvalid;
-
-  /// No description provided for @customersCreateAddressMax.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Address must be 320 characters or fewer.'**
-  String get customersCreateAddressMax;
-
-  /// No description provided for @customersCreateErrorNetwork.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Unable to connect. Please check your network.'**
-  String get customersCreateErrorNetwork;
-
-  /// No description provided for @customersCreateErrorTimeout.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Request timed out. Please try again.'**
-  String get customersCreateErrorTimeout;
-
-  /// No description provided for @customersCreateErrorUnauthorized.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Session expired. Please log in again.'**
-  String get customersCreateErrorUnauthorized;
-
-  /// No description provided for @customersCreateErrorForbidden.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'You do not have permission to create customers.'**
-  String get customersCreateErrorForbidden;
-
-  /// No description provided for @customersCreateErrorGeneric.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Unable to create customer. Please try again.'**
-  String get customersCreateErrorGeneric;
-
   /// No description provided for @customersNoCustomersFound.
   ///
   /// In en_IN, this message translates to:
@@ -630,6 +534,66 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'No suppliers found'**
   String get suppliersNoSuppliersFound;
+
+  /// No description provided for @suppliersUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load suppliers'**
+  String get suppliersUnableToLoad;
+
+  /// No description provided for @suppliersRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get suppliersRetry;
+
+  /// No description provided for @suppliersInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get suppliersInactive;
+
+  /// No description provided for @suppliersPreferred.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preferred'**
+  String get suppliersPreferred;
+
+  /// No description provided for @suppliersBalanceDueLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Balance Due:'**
+  String get suppliersBalanceDueLabel;
+
+  /// No description provided for @suppliersErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get suppliersErrorNetwork;
+
+  /// No description provided for @suppliersErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get suppliersErrorTimeout;
+
+  /// No description provided for @suppliersErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get suppliersErrorUnauthorized;
+
+  /// No description provided for @suppliersErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view suppliers.'**
+  String get suppliersErrorForbidden;
+
+  /// No description provided for @suppliersErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load suppliers. Please try again.'**
+  String get suppliersErrorGeneric;
 
   /// No description provided for @inventoryTitle.
   ///
