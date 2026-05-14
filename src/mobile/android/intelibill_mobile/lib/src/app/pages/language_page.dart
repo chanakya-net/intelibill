@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/core/localization/locale_controller.dart';
 
@@ -35,7 +36,11 @@ class LanguagePage extends ConsumerWidget {
                   .read(localeControllerProvider.notifier)
                   .setLocale(locale);
               if (context.mounted) {
-                context.pop();
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go(AppRoutes.dashboard);
+                }
               }
             },
           );

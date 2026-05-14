@@ -33,10 +33,22 @@ class AppRoutes {
 }
 
 final goRouterProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = ValueNotifier<int>(0);
+  ref
+    ..onDispose(refreshNotifier.dispose)
+    ..listen(authControllerProvider, (previous, next) {
+      refreshNotifier.value += 1;
+    });
+
   return GoRouter(
     initialLocation: AppRoutes.dashboard,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) async {
-      final authState = await ref.watch(authControllerProvider.future);
+      final authAsync = ref.read(authControllerProvider);
+      final authState =
+          authAsync.asData?.value ??
+          await ref.read(authControllerProvider.future) ??
+          const AuthControllerState();
       final isAuthenticated = authState.isAuthenticated;
       final isAuthRoute = _authRoutes.contains(state.matchedLocation);
 

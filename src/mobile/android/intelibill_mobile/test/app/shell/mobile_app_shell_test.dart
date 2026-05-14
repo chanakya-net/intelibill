@@ -143,7 +143,7 @@ void main() {
 
     testWidgets('more menu triggers logout action', (tester) async {
       final controller = _TestAuthController(
-        const AuthControllerState(session: null),
+        const AuthControllerState(),
       );
       final router = _routerForShell();
 
@@ -181,7 +181,7 @@ void main() {
 
     testWidgets('more menu navigates to language route', (tester) async {
       final controller = _TestAuthController(
-        const AuthControllerState(session: null),
+        const AuthControllerState(),
       );
       final router = _routerForShell();
 
