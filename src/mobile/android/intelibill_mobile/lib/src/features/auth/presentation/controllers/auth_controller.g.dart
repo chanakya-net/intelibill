@@ -178,3 +178,48 @@ final class AuthRepositoryProvider
 }
 
 String _$authRepositoryHash() => r'c697bc5a4d95a4ee13a51e7a3283363955f06e81';
+
+@ProviderFor(AuthController)
+final authControllerProvider = AuthControllerProvider._();
+
+final class AuthControllerProvider
+    extends $AsyncNotifierProvider<AuthController, AuthControllerState> {
+  AuthControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authControllerProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$authControllerHash();
+
+  @$internal
+  @override
+  AuthController create() => AuthController();
+}
+
+String _$authControllerHash() => r'4464b0990b06465b00eb077c32faa3d50e9281d9';
+
+abstract class _$AuthController extends $AsyncNotifier<AuthControllerState> {
+  FutureOr<AuthControllerState> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<AuthControllerState>, AuthControllerState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<AuthControllerState>, AuthControllerState>,
+              AsyncValue<AuthControllerState>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
