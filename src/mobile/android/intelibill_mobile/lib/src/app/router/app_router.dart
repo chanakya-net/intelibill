@@ -9,6 +9,7 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
 
 class AppRoutes {
   static const String root = '/';
@@ -155,10 +156,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.suppliers,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageSuppliers,
-            ),
+            builder: (context, state) => const SuppliersPage(),
           ),
           GoRoute(
             path: AppRoutes.expenses,
