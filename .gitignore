@@ -175,6 +175,12 @@ google-services.json
 GoogleService-Info.plist
 *.mobileprovision
 
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
 # ------------------------------------------------------------
 # Test output
 # ------------------------------------------------------------

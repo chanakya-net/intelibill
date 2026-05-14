@@ -1,0 +1,73 @@
+name: Mobile Main CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/mobile-pr-ci.yml
+      - .github/workflows/mobile-main-ci.yml
+      - src/mobile/android/intelibill_mobile/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-main-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-mobile:
+    name: Build and Test Mobile
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/mobile/android/intelibill_mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Print Flutter version
+        run: flutter --version
+
+      - name: Restore Flutter packages
+        run: flutter pub get
+
+      - name: Build generated code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Check for uncommitted generated changes
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code; then
+            echo "Generated code is not up to date. Run 'dart run build_runner build --delete-conflicting-outputs' and commit the changes."
+            exit 1
+          fi
+
+      - name: Check code formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Run static analysis
+        run: flutter analyze
+
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: src/mobile/android/intelibill_mobile/coverage/
+          retention-days: 5
+
+      - name: Build debug APK
+        run: flutter build apk --debug
