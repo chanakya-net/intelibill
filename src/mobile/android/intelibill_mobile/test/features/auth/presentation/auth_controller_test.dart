@@ -22,9 +22,13 @@ void main() {
     ).thenAnswer((_) async => Future<void>.value());
   });
 
-  AuthSession userFixtureSession({bool rememberMe = false}) => AuthSession(
-    accessToken: 'access_token',
-    refreshToken: 'refresh_token',
+  AuthSession userFixtureSession({
+    bool rememberMe = false,
+    String accessToken = 'access_token',
+    String refreshToken = 'refresh_token',
+  }) => AuthSession(
+    accessToken: accessToken,
+    refreshToken: refreshToken,
     accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
     refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
     user: const AuthUser(
@@ -178,6 +182,97 @@ void main() {
             rememberMe: true,
           ),
         ).called(1);
+      },
+    );
+
+    test(
+      'updateProfile success updates session with new auth session',
+      () async {
+        final updatedSession = userFixtureSession(
+          rememberMe: true,
+          accessToken: 'updated_access_token',
+        );
+
+        when(() => repository.getRememberedIdentifier())
+            .thenAnswer((_) async => null);
+        when(
+          () => repository.updateProfile(
+            email: any(named: 'email'),
+            phoneNumber: any(named: 'phoneNumber'),
+            firstName: any(named: 'firstName'),
+            lastName: any(named: 'lastName'),
+            language: any(named: 'language'),
+          ),
+        ).thenAnswer((_) async => updatedSession);
+
+        final container = ProviderContainer(
+          overrides: [
+            authRepositoryProvider.overrideWith(
+              (ref) => Future.value(repository),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(authControllerProvider.future);
+        final notifier = container.read(authControllerProvider.notifier);
+
+        await notifier.updateProfile(
+          email: 'updated@example.com',
+          phoneNumber: '+1555000000',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          language: 'en-US',
+        );
+
+        final state = container.read(authControllerProvider).value!;
+        expect(state.session, equals(updatedSession));
+        expect(state.isLoading, isFalse);
+        verify(
+          () => repository.updateProfile(
+            email: 'updated@example.com',
+            phoneNumber: '+1555000000',
+            firstName: 'Jane',
+            lastName: 'Smith',
+            language: 'en-US',
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      'switchShop success updates session with new active shop',
+      () async {
+        final switchedSession = userFixtureSession(
+          rememberMe: false,
+          accessToken: 'switched_access_token',
+          refreshToken: 'switched_refresh_token',
+        );
+
+        when(() => repository.getRememberedIdentifier())
+            .thenAnswer((_) async => null);
+        when(
+          () => repository.switchShop(shopId: any(named: 'shopId')),
+        ).thenAnswer((_) async => switchedSession);
+
+        final container = ProviderContainer(
+          overrides: [
+            authRepositoryProvider.overrideWith(
+              (ref) => Future.value(repository),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(authControllerProvider.future);
+        final notifier = container.read(authControllerProvider.notifier);
+
+        await notifier.switchShop(shopId: 'shop-id');
+
+        final state = container.read(authControllerProvider).value!;
+        expect(state.session, equals(switchedSession));
+        expect(state.isLoading, isFalse);
+        verify(() => repository.switchShop(shopId: 'shop-id')).called(1);
       },
     );
 
