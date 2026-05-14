@@ -36,6 +36,36 @@ void main() {
       ).called(1);
     });
 
+    test(
+      'saveTokens should clear refresh token when refreshToken is null',
+      () async {
+        when(
+          () => mockStorage.write(
+            key: any(named: 'key'),
+            value: any(named: 'value'),
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockStorage.delete(key: any(named: 'key')),
+        ).thenAnswer((_) async {});
+
+        await secureStorage.saveTokens(
+          accessToken: 'access',
+        );
+
+        verify(
+          () => mockStorage.write(key: 'access_token', value: 'access'),
+        ).called(1);
+        verify(() => mockStorage.delete(key: 'refresh_token')).called(1);
+        verifyNever(
+          () => mockStorage.write(
+            key: 'refresh_token',
+            value: any(named: 'value'),
+          ),
+        );
+      },
+    );
+
     test('getAccessToken should read from storage', () async {
       when(
         () => mockStorage.read(key: 'access_token'),

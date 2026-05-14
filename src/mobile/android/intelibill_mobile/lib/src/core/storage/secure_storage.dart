@@ -5,10 +5,6 @@ abstract interface class SecureStorage {
   Future<String?> getAccessToken();
   Future<String?> getRefreshToken();
   Future<void> clearTokens();
-  Future<void> write({required String key, required String value});
-  Future<String?> read({required String key});
-  Future<void> delete({required String key});
-  Future<void> deleteAll();
 }
 
 class SecureStorageImpl implements SecureStorage {
@@ -21,49 +17,31 @@ class SecureStorageImpl implements SecureStorage {
   static const _refreshTokenKey = 'refresh_token';
 
   @override
-  Future<void> write({required String key, required String value}) async {
-    await _storage.write(key: key, value: value);
-  }
-
-  @override
-  Future<String?> read({required String key}) {
-    return _storage.read(key: key);
-  }
-
-  @override
-  Future<void> delete({required String key}) async {
-    await _storage.delete(key: key);
-  }
-
-  @override
-  Future<void> deleteAll() async {
-    await _storage.deleteAll();
-  }
-
-  @override
   Future<void> saveTokens({
     required String accessToken,
     String? refreshToken,
   }) async {
-    await write(key: _accessTokenKey, value: accessToken);
+    await _storage.write(key: _accessTokenKey, value: accessToken);
     if (refreshToken != null) {
-      await write(key: _refreshTokenKey, value: refreshToken);
+      await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    } else {
+      await _storage.delete(key: _refreshTokenKey);
     }
   }
 
   @override
   Future<String?> getAccessToken() {
-    return read(key: _accessTokenKey);
+    return _storage.read(key: _accessTokenKey);
   }
 
   @override
   Future<String?> getRefreshToken() {
-    return read(key: _refreshTokenKey);
+    return _storage.read(key: _refreshTokenKey);
   }
 
   @override
   Future<void> clearTokens() async {
-    await delete(key: _accessTokenKey);
-    await delete(key: _refreshTokenKey);
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _refreshTokenKey);
   }
 }
