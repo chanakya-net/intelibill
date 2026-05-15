@@ -67,7 +67,7 @@ class _StatusContent extends StatelessWidget {
     final theme = Theme.of(context);
     final formattedTimestamp = DateFormat(
       AppStatusPage._dateFormatPattern,
-    ).format(status.timestamp.toLocal());
+    ).format(status.timestamp.toUtc());
 
     return ListView(
       padding: const EdgeInsets.all(24),
