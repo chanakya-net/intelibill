@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 
 class EditItemSheet extends ConsumerStatefulWidget {
   const EditItemSheet({super.key, required this.item});
@@ -14,6 +15,7 @@ class EditItemSheet extends ConsumerStatefulWidget {
 
   static const nameFieldKey = Key('edit-item-name');
   static const barcodeFieldKey = Key('edit-item-barcode');
+  static const scanBarcodeButtonKey = Key('edit-item-scan-barcode');
   static const uomFieldKey = Key('edit-item-uom');
   static const descriptionFieldKey = Key('edit-item-description');
   static const activeSwitchKey = Key('edit-item-active');
@@ -142,6 +144,11 @@ class _EditItemSheetState extends ConsumerState<EditItemSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.inventoryCreateBarcodeLabel,
                     border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      key: EditItemSheet.scanBarcodeButtonKey,
+                      icon: const Icon(Icons.qr_code),
+                      onPressed: isSubmitting ? null : _scanBarcode,
+                    ),
                   ),
                   validator: (value) {
                     final trimmed = (value ?? '').trim();
@@ -233,6 +240,15 @@ class _EditItemSheetState extends ConsumerState<EditItemSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _scanBarcode() async {
+    final result = await showBarcodeScanner(context);
+    if (result == null || result.value.isEmpty) return;
+
+    if (!mounted) return;
+
+    _barcodeController.text = result.value;
   }
 
   void _submit() {

@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 
 class CreateItemSheet extends ConsumerStatefulWidget {
   const CreateItemSheet({super.key});
 
   static const nameFieldKey = Key('create-item-name');
   static const barcodeFieldKey = Key('create-item-barcode');
+  static const scanBarcodeButtonKey = Key('create-item-scan-barcode');
   static const uomFieldKey = Key('create-item-uom');
   static const descriptionFieldKey = Key('create-item-description');
   static const submitButtonKey = Key('create-item-submit');
@@ -125,6 +127,11 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.inventoryCreateBarcodeLabel,
                     border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      key: CreateItemSheet.scanBarcodeButtonKey,
+                      icon: const Icon(Icons.qr_code),
+                      onPressed: isSubmitting ? null : _scanBarcode,
+                    ),
                   ),
                   validator: (value) {
                     final trimmed = (value ?? '').trim();
@@ -206,6 +213,15 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _scanBarcode() async {
+    final result = await showBarcodeScanner(context);
+    if (result == null || result.value.isEmpty) return;
+
+    if (!mounted) return;
+
+    _barcodeController.text = result.value;
   }
 
   void _submit() {
