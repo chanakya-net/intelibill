@@ -1650,6 +1650,60 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Other Gain'**
   String get inventoryAdjustReasonOtherGain;
+
+  /// No description provided for @inventoryAdjustmentsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjustment History'**
+  String get inventoryAdjustmentsTitle;
+
+  /// No description provided for @inventoryAdjustmentsNoAdjustmentsFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No adjustments found'**
+  String get inventoryAdjustmentsNoAdjustmentsFound;
+
+  /// No description provided for @inventoryAdjustmentsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load adjustments'**
+  String get inventoryAdjustmentsUnableToLoad;
+
+  /// No description provided for @inventoryAdjustmentsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryAdjustmentsRetry;
+
+  /// No description provided for @inventoryAdjustmentsVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get inventoryAdjustmentsVoided;
+
+  /// No description provided for @inventoryAdjustmentsIncrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Increase'**
+  String get inventoryAdjustmentsIncrease;
+
+  /// No description provided for @inventoryAdjustmentsDecrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Decrease'**
+  String get inventoryAdjustmentsDecrease;
+
+  /// No description provided for @inventoryAdjustmentsPerformedByLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Performed by'**
+  String get inventoryAdjustmentsPerformedByLabel;
+
+  /// No description provided for @inventoryAdjustmentsCostImpactLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cost impact'**
+  String get inventoryAdjustmentsCostImpactLabel;
 }
 
 class _AppLocalizationsDelegate

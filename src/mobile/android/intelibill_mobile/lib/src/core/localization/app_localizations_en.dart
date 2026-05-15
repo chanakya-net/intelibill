@@ -825,6 +825,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inventoryAdjustReasonOtherGain => 'Other Gain';
+
+  @override
+  String get inventoryAdjustmentsTitle => 'Adjustment History';
+
+  @override
+  String get inventoryAdjustmentsNoAdjustmentsFound => 'No adjustments found';
+
+  @override
+  String get inventoryAdjustmentsUnableToLoad => 'Unable to load adjustments';
+
+  @override
+  String get inventoryAdjustmentsRetry => 'Retry';
+
+  @override
+  String get inventoryAdjustmentsVoided => 'Voided';
+
+  @override
+  String get inventoryAdjustmentsIncrease => 'Increase';
+
+  @override
+  String get inventoryAdjustmentsDecrease => 'Decrease';
+
+  @override
+  String get inventoryAdjustmentsPerformedByLabel => 'Performed by';
+
+  @override
+  String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -1648,4 +1675,31 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get inventoryAdjustReasonOtherGain => 'Other Gain';
+
+  @override
+  String get inventoryAdjustmentsTitle => 'Adjustment History';
+
+  @override
+  String get inventoryAdjustmentsNoAdjustmentsFound => 'No adjustments found';
+
+  @override
+  String get inventoryAdjustmentsUnableToLoad => 'Unable to load adjustments';
+
+  @override
+  String get inventoryAdjustmentsRetry => 'Retry';
+
+  @override
+  String get inventoryAdjustmentsVoided => 'Voided';
+
+  @override
+  String get inventoryAdjustmentsIncrease => 'Increase';
+
+  @override
+  String get inventoryAdjustmentsDecrease => 'Decrease';
+
+  @override
+  String get inventoryAdjustmentsPerformedByLabel => 'Performed by';
+
+  @override
+  String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
 }

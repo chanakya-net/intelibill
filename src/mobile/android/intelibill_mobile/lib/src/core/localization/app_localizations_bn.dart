@@ -825,6 +825,33 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get inventoryAdjustReasonOtherGain => 'Other Gain';
+
+  @override
+  String get inventoryAdjustmentsTitle => 'Adjustment History';
+
+  @override
+  String get inventoryAdjustmentsNoAdjustmentsFound => 'No adjustments found';
+
+  @override
+  String get inventoryAdjustmentsUnableToLoad => 'Unable to load adjustments';
+
+  @override
+  String get inventoryAdjustmentsRetry => 'Retry';
+
+  @override
+  String get inventoryAdjustmentsVoided => 'Voided';
+
+  @override
+  String get inventoryAdjustmentsIncrease => 'Increase';
+
+  @override
+  String get inventoryAdjustmentsDecrease => 'Decrease';
+
+  @override
+  String get inventoryAdjustmentsPerformedByLabel => 'Performed by';
+
+  @override
+  String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).
@@ -1408,4 +1435,31 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
 
   @override
   String get inventoryAdjustReasonOtherGain => 'Other Gain';
+
+  @override
+  String get inventoryAdjustmentsTitle => 'Adjustment History';
+
+  @override
+  String get inventoryAdjustmentsNoAdjustmentsFound => 'No adjustments found';
+
+  @override
+  String get inventoryAdjustmentsUnableToLoad => 'Unable to load adjustments';
+
+  @override
+  String get inventoryAdjustmentsRetry => 'Retry';
+
+  @override
+  String get inventoryAdjustmentsVoided => 'Voided';
+
+  @override
+  String get inventoryAdjustmentsIncrease => 'Increase';
+
+  @override
+  String get inventoryAdjustmentsDecrease => 'Decrease';
+
+  @override
+  String get inventoryAdjustmentsPerformedByLabel => 'Performed by';
+
+  @override
+  String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
 }

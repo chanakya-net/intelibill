@@ -254,5 +254,14 @@
   "inventoryAdjustReasonOtherLoss": "Other Loss",
   "inventoryAdjustReasonFoundStock": "Found Stock",
   "inventoryAdjustReasonReturnRestockCorrection": "Return / Restock Correction",
-  "inventoryAdjustReasonOtherGain": "Other Gain"
+  "inventoryAdjustReasonOtherGain": "Other Gain",
+  "inventoryAdjustmentsTitle": "Adjustment History",
+  "inventoryAdjustmentsNoAdjustmentsFound": "No adjustments found",
+  "inventoryAdjustmentsUnableToLoad": "Unable to load adjustments",
+  "inventoryAdjustmentsRetry": "Retry",
+  "inventoryAdjustmentsVoided": "Voided",
+  "inventoryAdjustmentsIncrease": "Increase",
+  "inventoryAdjustmentsDecrease": "Decrease",
+  "inventoryAdjustmentsPerformedByLabel": "Performed by",
+  "inventoryAdjustmentsCostImpactLabel": "Cost impact"
 }
