@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: ShopStepIndicator(currentStep: 2, totalSteps: 3),
+          body: ShopStepIndicator(currentStep: 2),
         ),
       ),
     );
@@ -26,7 +26,11 @@ void main() {
     final active = tester.widget<Container>(
       find.byKey(const Key('shop-step-indicator-step-2')),
     );
-    final decoration = active.decoration as BoxDecoration;
-    expect(decoration.color, equals(theme.colorScheme.primary));
+    final decoration = active.decoration;
+    expect(active.decoration, isA<BoxDecoration>());
+    expect(
+      decoration is BoxDecoration ? decoration.color : null,
+      equals(theme.colorScheme.primary),
+    );
   });
 }

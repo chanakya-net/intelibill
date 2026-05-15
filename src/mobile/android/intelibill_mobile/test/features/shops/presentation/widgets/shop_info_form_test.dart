@@ -4,6 +4,12 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
 
 void main() {
+  late AppLocalizations l10n;
+
+  setUp(() async {
+    l10n = await AppLocalizations.delegate.load(const Locale('en'));
+  });
+
   testWidgets('renders all shop info fields', (tester) async {
     final formKey = GlobalKey<FormState>();
 
@@ -29,7 +35,9 @@ void main() {
     expect(find.byKey(ShopInfoForm.gstNumberFieldKey), findsOneWidget);
   });
 
-  testWidgets('validates required fields and mobile/ GST formats', (tester) async {
+  testWidgets('validates required fields and mobile/ GST formats', (
+    tester,
+  ) async {
     final formKey = GlobalKey<FormState>();
 
     await tester.pumpWidget(
@@ -47,11 +55,11 @@ void main() {
     formKey.currentState!.validate();
     await tester.pump();
 
-    expect(find.text('Shop Name is required.'), findsOneWidget);
-    expect(find.text('Address is required.'), findsOneWidget);
-    expect(find.text('City is required.'), findsOneWidget);
-    expect(find.text('State is required.'), findsOneWidget);
-    expect(find.text('Pincode is required.'), findsOneWidget);
+    expect(find.text(l10n.shopsCreateShopNameRequired), findsOneWidget);
+    expect(find.text(l10n.shopsCreateAddressRequired), findsOneWidget);
+    expect(find.text(l10n.shopsCreateCityRequired), findsOneWidget);
+    expect(find.text(l10n.shopsCreateStateRequired), findsOneWidget);
+    expect(find.text(l10n.shopsCreatePincodeRequired), findsOneWidget);
 
     await tester.enterText(
       find.byKey(ShopInfoForm.shopNameFieldKey),
@@ -70,7 +78,10 @@ void main() {
       'City',
     );
     await tester.enterText(find.byKey(ShopInfoForm.pincodeFieldKey), '123456');
-    await tester.enterText(find.byKey(ShopInfoForm.mobileNumberFieldKey), '123');
+    await tester.enterText(
+      find.byKey(ShopInfoForm.mobileNumberFieldKey),
+      '123',
+    );
     await tester.enterText(
       find.byKey(ShopInfoForm.gstNumberFieldKey),
       '12ABCDE1234F1Z1',
@@ -79,7 +90,7 @@ void main() {
     formKey.currentState!.validate();
     await tester.pump();
 
-    expect(find.text('Mobile number must be 10 digits.'), findsOneWidget);
-    expect(find.text('Enter a valid GST number.'), findsNothing);
+    expect(find.text(l10n.shopsCreateMobileNumberInvalid), findsOneWidget);
+    expect(find.text(l10n.shopsCreateGstNumberInvalid), findsNothing);
   });
 }

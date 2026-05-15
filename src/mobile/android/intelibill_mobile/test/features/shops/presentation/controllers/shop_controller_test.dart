@@ -191,7 +191,6 @@ void main() {
   });
 
   test('addBankAccount success completes with AsyncData', () async {
-    const shopId = 'shop-1';
     const request = AddBankAccountRequest(
       bankName: 'Bank',
       accountNumber: '123',
@@ -215,13 +214,12 @@ void main() {
     await container.read(shopControllerProvider.future);
     await container
         .read(shopControllerProvider.notifier)
-        .addBankAccount(shopId, request);
+        .addBankAccount(request);
 
     expect(container.read(shopControllerProvider).hasError, isFalse);
   });
 
   test('addBankAccount failure transitions to AsyncError', () async {
-    const shopId = 'shop-1';
     const request = AddBankAccountRequest(
       bankName: 'Bank',
       accountNumber: '123',
@@ -245,7 +243,7 @@ void main() {
     await container.read(shopControllerProvider.future);
     await container
         .read(shopControllerProvider.notifier)
-        .addBankAccount(shopId, request);
+        .addBankAccount(request);
 
     expect(container.read(shopControllerProvider), isA<AsyncError<void>>());
   });

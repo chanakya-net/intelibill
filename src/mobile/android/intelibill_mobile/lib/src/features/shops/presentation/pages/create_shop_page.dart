@@ -8,7 +8,6 @@ import 'package:intelibill_mobile/src/features/shops/domain/entities/create_shop
 import 'package:intelibill_mobile/src/features/shops/presentation/controllers/shop_controller.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/bank_details_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
-import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_localizations.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_step_indicator.dart';
 
 class CreateShopPage extends ConsumerStatefulWidget {
@@ -74,7 +73,6 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
     await ref
         .read(shopControllerProvider.notifier)
         .addBankAccount(
-          '',
           AddBankAccountRequest(
             bankName: _bankInfo.bankName.trim(),
             accountNumber: _bankInfo.accountNumber.trim(),
@@ -192,7 +190,9 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                l10n.shopsCreateSuccessMessage(_shopName ?? 'New Shop'),
+                l10n.shopsCreateSuccessMessage(
+                  _shopName ?? l10n.shopsCreateSuccessDefaultShopName,
+                ),
               ),
             ],
           ),

@@ -5,8 +5,8 @@ class ShopStepIndicator extends StatelessWidget {
     required this.currentStep,
     this.totalSteps = 3,
     super.key,
-  }) : assert(currentStep >= 1),
-       assert(totalSteps >= 1);
+  }) : assert(currentStep >= 1, 'currentStep must be greater than 0'),
+       assert(totalSteps >= 1, 'totalSteps must be greater than 0');
 
   final int currentStep;
   final int totalSteps;

@@ -870,6 +870,173 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get barcodeScannerUnavailable => 'Scanner unavailable';
+
+  @override
+  String get shopsCreateTitle => 'Create Shop';
+
+  @override
+  String get shopsCreateShopInfoStepTitle => 'Shop Information';
+
+  @override
+  String get shopsCreateBankDetailsStepTitle => 'Bank Details';
+
+  @override
+  String get shopsCreateSuccessTitle => 'Shop Created';
+
+  @override
+  String get shopsCreateSuccessDefaultShopName => 'New Shop';
+
+  @override
+  String shopsCreateSuccessMessage(String shopName) {
+    return 'Your shop \"$shopName\" is ready.';
+  }
+
+  @override
+  String get shopsCreateNextButton => 'Next';
+
+  @override
+  String get shopsCreateSkipButton => 'Skip';
+
+  @override
+  String get shopsCreateShopNameLabel => 'Shop Name';
+
+  @override
+  String get shopsCreateShopNameHint => 'Enter shop name';
+
+  @override
+  String get shopsCreateShopNameRequired => 'Shop Name is required.';
+
+  @override
+  String get shopsCreateAddressLabel => 'Address';
+
+  @override
+  String get shopsCreateAddressHint => 'Enter shop address';
+
+  @override
+  String get shopsCreateAddressRequired => 'Address is required.';
+
+  @override
+  String get shopsCreateCityLabel => 'City';
+
+  @override
+  String get shopsCreateCityHint => 'Enter city';
+
+  @override
+  String get shopsCreateCityRequired => 'City is required.';
+
+  @override
+  String get shopsCreateStateLabel => 'State';
+
+  @override
+  String get shopsCreateStateHint => 'Enter state';
+
+  @override
+  String get shopsCreateStateRequired => 'State is required.';
+
+  @override
+  String get shopsCreatePincodeLabel => 'Pincode';
+
+  @override
+  String get shopsCreatePincodeHint => 'Enter 6-digit pincode';
+
+  @override
+  String get shopsCreatePincodeRequired => 'Pincode is required.';
+
+  @override
+  String get shopsCreatePincodeInvalid => 'Pincode must be exactly 6 digits.';
+
+  @override
+  String get shopsCreateContactPersonLabel => 'Contact Person';
+
+  @override
+  String get shopsCreateContactPersonHint => 'Enter contact person';
+
+  @override
+  String get shopsCreateMobileNumberLabel => 'Mobile Number';
+
+  @override
+  String get shopsCreateMobileNumberHint => 'Enter 10-digit mobile number';
+
+  @override
+  String get shopsCreateMobileNumberInvalid =>
+      'Mobile number must be 10 digits.';
+
+  @override
+  String get shopsCreateGstNumberLabel => 'GST Number';
+
+  @override
+  String get shopsCreateGstNumberHint => 'Enter GST number';
+
+  @override
+  String get shopsCreateGstNumberInvalid => 'Enter a valid GST number.';
+
+  @override
+  String get shopsCreateBankNameLabel => 'Bank Name';
+
+  @override
+  String get shopsCreateBankNameHint => 'Enter bank name';
+
+  @override
+  String get shopsCreateBankNameRequired => 'Bank Name is required.';
+
+  @override
+  String get shopsCreateAccountNumberLabel => 'Account Number';
+
+  @override
+  String get shopsCreateAccountNumberHint => 'Enter account number';
+
+  @override
+  String get shopsCreateAccountNumberRequired => 'Account Number is required.';
+
+  @override
+  String get shopsCreateAccountTypeLabel => 'Account Type';
+
+  @override
+  String get shopsCreateAccountTypeRequired => 'Account type is required.';
+
+  @override
+  String get shopsCreateAccountTypeSavings => 'Savings';
+
+  @override
+  String get shopsCreateAccountTypeCurrent => 'Current';
+
+  @override
+  String get shopsCreateAccountTypeOverdraft => 'Overdraft';
+
+  @override
+  String get shopsCreateIfscCodeLabel => 'IFSC Code';
+
+  @override
+  String get shopsCreateIfscCodeHint => 'Enter IFSC code';
+
+  @override
+  String get shopsCreateIfscCodeInvalid => 'Enter a valid IFSC code.';
+
+  @override
+  String get shopsCreateAccountHolderNameLabel => 'Account Holder Name';
+
+  @override
+  String get shopsCreateAccountHolderNameHint => 'Enter account holder name';
+
+  @override
+  String get shopsCreateAccountHolderNameRequired =>
+      'Account Holder Name is required.';
+
+  @override
+  String get shopsCreateErrorGeneric =>
+      'Something went wrong. Please try again.';
+
+  @override
+  String get shopsCreateErrorUnauthorized => 'You are not authorized.';
+
+  @override
+  String get shopsCreateErrorForbidden => 'You do not have permission.';
+
+  @override
+  String get shopsCreateErrorNetwork => 'Network error. Please try again.';
+
+  @override
+  String get shopsCreateErrorTimeout => 'Request timed out. Please try again.';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).

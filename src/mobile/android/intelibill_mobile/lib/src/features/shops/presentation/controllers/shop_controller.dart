@@ -48,15 +48,11 @@ class ShopController extends _$ShopController {
     }
   }
 
-  Future<void> addBankAccount(
-    String shopId,
-    AddBankAccountRequest request,
-  ) async {
+  Future<void> addBankAccount(AddBankAccountRequest request) async {
     state = const AsyncLoading();
     final useCase = ref.read(addBankAccountUseCaseProvider);
 
     try {
-      shopId.trim();
       await useCase(request);
       if (!ref.mounted) return;
       state = const AsyncData(null);

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
-import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_localizations.dart';
 
 class ShopInfoFormData {
   const ShopInfoFormData({
@@ -45,7 +44,9 @@ class ShopInfoFormData {
       contactPerson: clearContactPerson
           ? null
           : (contactPerson ?? this.contactPerson),
-      mobileNumber: clearMobileNumber ? null : (mobileNumber ?? this.mobileNumber),
+      mobileNumber: clearMobileNumber
+          ? null
+          : (mobileNumber ?? this.mobileNumber),
       gstNumber: clearGstNumber ? null : (gstNumber ?? this.gstNumber),
     );
   }
@@ -191,8 +192,11 @@ class _ShopInfoFormState extends State<ShopInfoForm> {
               hintText: l10n.shopsCreateShopNameHint,
             ),
             onChanged: (_) => _notifyChanged(),
-            validator: (value) =>
-                _validateRequired(value, l10n, requiredMessage: l10n.shopsCreateShopNameRequired),
+            validator: (value) => _validateRequired(
+              value,
+              l10n,
+              requiredMessage: l10n.shopsCreateShopNameRequired,
+            ),
           ),
           const SizedBox(height: 12),
           TextFormField(

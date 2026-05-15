@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
-import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_localizations.dart';
 
 class BankDetailsFormData {
   const BankDetailsFormData({
@@ -70,12 +69,6 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
   final _accountHolderController = TextEditingController();
   String? _selectedAccountType;
 
-  final _accountTypeOptions = const [
-    BankDetailsForm.accountTypeSavings,
-    BankDetailsForm.accountTypeCurrent,
-    BankDetailsForm.accountTypeOverdraft,
-  ];
-
   @override
   void dispose() {
     _bankNameController.dispose();
@@ -119,6 +112,23 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
       return l10n.shopsCreateIfscCodeInvalid;
     }
     return null;
+  }
+
+  List<MapEntry<String, String>> _accountTypeOptions(AppLocalizations l10n) {
+    return [
+      MapEntry(
+        BankDetailsForm.accountTypeSavings,
+        l10n.shopsCreateAccountTypeSavings,
+      ),
+      MapEntry(
+        BankDetailsForm.accountTypeCurrent,
+        l10n.shopsCreateAccountTypeCurrent,
+      ),
+      MapEntry(
+        BankDetailsForm.accountTypeOverdraft,
+        l10n.shopsCreateAccountTypeOverdraft,
+      ),
+    ];
   }
 
   @override
@@ -167,7 +177,7 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             key: BankDetailsForm.accountTypeFieldKey,
-            value: _selectedAccountType,
+            initialValue: _selectedAccountType,
             onChanged: widget.isSubmitting
                 ? null
                 : (value) {
@@ -179,11 +189,11 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
             decoration: InputDecoration(
               labelText: l10n.shopsCreateAccountTypeLabel,
             ),
-            items: _accountTypeOptions
+            items: _accountTypeOptions(l10n)
                 .map(
-                  (type) => DropdownMenuItem<String>(
-                    value: type,
-                    child: Text(type),
+                  (entry) => DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: Text(entry.value),
                   ),
                 )
                 .toList(),
