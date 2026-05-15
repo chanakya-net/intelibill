@@ -1446,6 +1446,210 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Change Password'**
   String get profileSettingsChangePassword;
+
+  /// No description provided for @inventoryBatchesNoBatchesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No batches found'**
+  String get inventoryBatchesNoBatchesFound;
+
+  /// No description provided for @inventoryBatchesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load batches'**
+  String get inventoryBatchesUnableToLoad;
+
+  /// No description provided for @inventoryBatchesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryBatchesRetry;
+
+  /// No description provided for @inventoryBatchesVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get inventoryBatchesVoided;
+
+  /// No description provided for @inventoryBatchesAdjustAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjust'**
+  String get inventoryBatchesAdjustAction;
+
+  /// No description provided for @inventoryBatchesAdjustTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjust Stock'**
+  String get inventoryBatchesAdjustTitle;
+
+  /// No description provided for @inventoryBatchesAdjustPreviewLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New Quantity'**
+  String get inventoryBatchesAdjustPreviewLabel;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Direction'**
+  String get inventoryBatchesAdjustDirectionLabel;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionIncrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Increase'**
+  String get inventoryBatchesAdjustDirectionIncrease;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionDecrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Decrease'**
+  String get inventoryBatchesAdjustDirectionDecrease;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get inventoryBatchesAdjustQuantityLabel;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity is required.'**
+  String get inventoryBatchesAdjustQuantityRequired;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityMin.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity must be greater than 0.'**
+  String get inventoryBatchesAdjustQuantityMin;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity cannot exceed current batch quantity.'**
+  String get inventoryBatchesAdjustQuantityMax;
+
+  /// No description provided for @inventoryBatchesAdjustReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get inventoryBatchesAdjustReasonLabel;
+
+  /// No description provided for @inventoryBatchesAdjustNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get inventoryBatchesAdjustNotesLabel;
+
+  /// No description provided for @inventoryBatchesAdjustNotesMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes must be 500 characters or fewer.'**
+  String get inventoryBatchesAdjustNotesMax;
+
+  /// No description provided for @inventoryBatchesAdjustNotesRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes are required for this reason.'**
+  String get inventoryBatchesAdjustNotesRequired;
+
+  /// No description provided for @inventoryBatchesAdjustPerformedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Performed At'**
+  String get inventoryBatchesAdjustPerformedAtLabel;
+
+  /// No description provided for @inventoryBatchesAdjustSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock adjusted successfully.'**
+  String get inventoryBatchesAdjustSuccess;
+
+  /// No description provided for @inventoryBatchesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load batches. Please try again.'**
+  String get inventoryBatchesErrorGeneric;
+
+  /// No description provided for @inventoryBatchesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryBatchesErrorNetwork;
+
+  /// No description provided for @inventoryBatchesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryBatchesErrorTimeout;
+
+  /// No description provided for @inventoryBatchesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryBatchesErrorUnauthorized;
+
+  /// No description provided for @inventoryBatchesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view batches.'**
+  String get inventoryBatchesErrorForbidden;
+
+  /// No description provided for @inventoryAdjustReasonDamaged.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Damaged'**
+  String get inventoryAdjustReasonDamaged;
+
+  /// No description provided for @inventoryAdjustReasonExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get inventoryAdjustReasonExpired;
+
+  /// No description provided for @inventoryAdjustReasonStolen.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stolen'**
+  String get inventoryAdjustReasonStolen;
+
+  /// No description provided for @inventoryAdjustReasonMissingLost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Missing / Lost'**
+  String get inventoryAdjustReasonMissingLost;
+
+  /// No description provided for @inventoryAdjustReasonStockCountCorrection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock Count Correction'**
+  String get inventoryAdjustReasonStockCountCorrection;
+
+  /// No description provided for @inventoryAdjustReasonOtherLoss.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Other Loss'**
+  String get inventoryAdjustReasonOtherLoss;
+
+  /// No description provided for @inventoryAdjustReasonFoundStock.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Found Stock'**
+  String get inventoryAdjustReasonFoundStock;
+
+  /// No description provided for @inventoryAdjustReasonReturnRestockCorrection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return / Restock Correction'**
+  String get inventoryAdjustReasonReturnRestockCorrection;
+
+  /// No description provided for @inventoryAdjustReasonOtherGain.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Other Gain'**
+  String get inventoryAdjustReasonOtherGain;
 }
 
 class _AppLocalizationsDelegate

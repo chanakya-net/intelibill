@@ -713,6 +713,119 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get profileSettingsChangePassword => 'Change Password';
+
+  @override
+  String get inventoryBatchesNoBatchesFound => 'No batches found';
+
+  @override
+  String get inventoryBatchesUnableToLoad => 'Unable to load batches';
+
+  @override
+  String get inventoryBatchesRetry => 'Retry';
+
+  @override
+  String get inventoryBatchesVoided => 'Voided';
+
+  @override
+  String get inventoryBatchesAdjustAction => 'Adjust';
+
+  @override
+  String get inventoryBatchesAdjustTitle => 'Adjust Stock';
+
+  @override
+  String get inventoryBatchesAdjustPreviewLabel => 'New Quantity';
+
+  @override
+  String get inventoryBatchesAdjustDirectionLabel => 'Direction';
+
+  @override
+  String get inventoryBatchesAdjustDirectionIncrease => 'Increase';
+
+  @override
+  String get inventoryBatchesAdjustDirectionDecrease => 'Decrease';
+
+  @override
+  String get inventoryBatchesAdjustQuantityLabel => 'Quantity';
+
+  @override
+  String get inventoryBatchesAdjustQuantityRequired => 'Quantity is required.';
+
+  @override
+  String get inventoryBatchesAdjustQuantityMin =>
+      'Quantity must be greater than 0.';
+
+  @override
+  String get inventoryBatchesAdjustQuantityMax =>
+      'Quantity cannot exceed current batch quantity.';
+
+  @override
+  String get inventoryBatchesAdjustReasonLabel => 'Reason';
+
+  @override
+  String get inventoryBatchesAdjustNotesLabel => 'Notes';
+
+  @override
+  String get inventoryBatchesAdjustNotesMax =>
+      'Notes must be 500 characters or fewer.';
+
+  @override
+  String get inventoryBatchesAdjustNotesRequired =>
+      'Notes are required for this reason.';
+
+  @override
+  String get inventoryBatchesAdjustPerformedAtLabel => 'Performed At';
+
+  @override
+  String get inventoryBatchesAdjustSuccess => 'Stock adjusted successfully.';
+
+  @override
+  String get inventoryBatchesErrorGeneric =>
+      'Unable to load batches. Please try again.';
+
+  @override
+  String get inventoryBatchesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryBatchesErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryBatchesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryBatchesErrorForbidden =>
+      'You do not have permission to view batches.';
+
+  @override
+  String get inventoryAdjustReasonDamaged => 'Damaged';
+
+  @override
+  String get inventoryAdjustReasonExpired => 'Expired';
+
+  @override
+  String get inventoryAdjustReasonStolen => 'Stolen';
+
+  @override
+  String get inventoryAdjustReasonMissingLost => 'Missing / Lost';
+
+  @override
+  String get inventoryAdjustReasonStockCountCorrection =>
+      'Stock Count Correction';
+
+  @override
+  String get inventoryAdjustReasonOtherLoss => 'Other Loss';
+
+  @override
+  String get inventoryAdjustReasonFoundStock => 'Found Stock';
+
+  @override
+  String get inventoryAdjustReasonReturnRestockCorrection =>
+      'Return / Restock Correction';
+
+  @override
+  String get inventoryAdjustReasonOtherGain => 'Other Gain';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -1278,4 +1391,117 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get notFoundGoBack => 'वापस जाएं';
+
+  @override
+  String get inventoryBatchesNoBatchesFound => 'No batches found';
+
+  @override
+  String get inventoryBatchesUnableToLoad => 'Unable to load batches';
+
+  @override
+  String get inventoryBatchesRetry => 'Retry';
+
+  @override
+  String get inventoryBatchesVoided => 'Voided';
+
+  @override
+  String get inventoryBatchesAdjustAction => 'Adjust';
+
+  @override
+  String get inventoryBatchesAdjustTitle => 'Adjust Stock';
+
+  @override
+  String get inventoryBatchesAdjustPreviewLabel => 'New Quantity';
+
+  @override
+  String get inventoryBatchesAdjustDirectionLabel => 'Direction';
+
+  @override
+  String get inventoryBatchesAdjustDirectionIncrease => 'Increase';
+
+  @override
+  String get inventoryBatchesAdjustDirectionDecrease => 'Decrease';
+
+  @override
+  String get inventoryBatchesAdjustQuantityLabel => 'Quantity';
+
+  @override
+  String get inventoryBatchesAdjustQuantityRequired => 'Quantity is required.';
+
+  @override
+  String get inventoryBatchesAdjustQuantityMin =>
+      'Quantity must be greater than 0.';
+
+  @override
+  String get inventoryBatchesAdjustQuantityMax =>
+      'Quantity cannot exceed current batch quantity.';
+
+  @override
+  String get inventoryBatchesAdjustReasonLabel => 'Reason';
+
+  @override
+  String get inventoryBatchesAdjustNotesLabel => 'Notes';
+
+  @override
+  String get inventoryBatchesAdjustNotesMax =>
+      'Notes must be 500 characters or fewer.';
+
+  @override
+  String get inventoryBatchesAdjustNotesRequired =>
+      'Notes are required for this reason.';
+
+  @override
+  String get inventoryBatchesAdjustPerformedAtLabel => 'Performed At';
+
+  @override
+  String get inventoryBatchesAdjustSuccess => 'Stock adjusted successfully.';
+
+  @override
+  String get inventoryBatchesErrorGeneric =>
+      'Unable to load batches. Please try again.';
+
+  @override
+  String get inventoryBatchesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryBatchesErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryBatchesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryBatchesErrorForbidden =>
+      'You do not have permission to view batches.';
+
+  @override
+  String get inventoryAdjustReasonDamaged => 'Damaged';
+
+  @override
+  String get inventoryAdjustReasonExpired => 'Expired';
+
+  @override
+  String get inventoryAdjustReasonStolen => 'Stolen';
+
+  @override
+  String get inventoryAdjustReasonMissingLost => 'Missing / Lost';
+
+  @override
+  String get inventoryAdjustReasonStockCountCorrection =>
+      'Stock Count Correction';
+
+  @override
+  String get inventoryAdjustReasonOtherLoss => 'Other Loss';
+
+  @override
+  String get inventoryAdjustReasonFoundStock => 'Found Stock';
+
+  @override
+  String get inventoryAdjustReasonReturnRestockCorrection =>
+      'Return / Restock Correction';
+
+  @override
+  String get inventoryAdjustReasonOtherGain => 'Other Gain';
 }
