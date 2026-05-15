@@ -19,6 +19,7 @@ import {
 } from '../../services/dashboard.service';
 import { DashboardPreset } from '../../state/dashboard.actions';
 import { DashboardFacade } from '../../state/dashboard.facade';
+import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
 
 const PRESETS: { label: string; value: DashboardPreset }[] = [
   { label: 'dashboard.presetToday', value: 'today' },
@@ -87,23 +88,16 @@ function loadRange(): PersistedRange | null {
 }
 
 function todayIso(): string {
-  return toLocalIsoDate(new Date());
+  return formatLocalIsoDate(new Date());
 }
 
 function daysBetween(start: string, end: string): number {
   return (new Date(end).getTime() - new Date(start).getTime()) / 86_400_000;
 }
 
-function toLocalIsoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function computePresetDates(preset: DashboardPreset): { start: string; end: string } {
   const today = new Date();
-  const end = toLocalIsoDate(today);
+  const end = formatLocalIsoDate(today);
 
   switch (preset) {
     case 'today':
@@ -111,21 +105,21 @@ function computePresetDates(preset: DashboardPreset): { start: string; end: stri
     case 'last7': {
       const s = new Date(today);
       s.setDate(s.getDate() - 6);
-      return { start: toLocalIsoDate(s), end };
+      return { start: formatLocalIsoDate(s), end };
     }
     case 'last30': {
       const s = new Date(today);
       s.setDate(s.getDate() - 29);
-      return { start: toLocalIsoDate(s), end };
+      return { start: formatLocalIsoDate(s), end };
     }
     case 'thisMonth': {
       const s = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start: toLocalIsoDate(s), end };
+      return { start: formatLocalIsoDate(s), end };
     }
     case 'lastMonth': {
       const last = new Date(today.getFullYear(), today.getMonth(), 0);
       const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      return { start: toLocalIsoDate(first), end: toLocalIsoDate(last) };
+      return { start: formatLocalIsoDate(first), end: formatLocalIsoDate(last) };
     }
     default:
       return { start: '', end: '' };

@@ -23,6 +23,8 @@ import {
   PreviewDiscountRuleRequest,
   ReplaceDiscountRuleRequest,
 } from '../services/discount.service';
+import { formatUtcIsoInstant } from '../../../shared/utils/date-time.util';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 type DiscountEditorMode = 'create' | 'edit';
 
@@ -46,6 +48,7 @@ interface SelectOption<T> {
     SelectModule,
     TagModule,
     TextareaModule,
+    DateOnlyPipe,
   ],
   templateUrl: './discount-rule-editor-dialog.component.html',
   styleUrl: './discount-rule-editor-dialog.component.scss',
@@ -443,7 +446,7 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
     if (!trimmed) return null;
     const date = new Date(trimmed);
     if (Number.isNaN(date.getTime())) return trimmed;
-    return date.toISOString();
+    return formatUtcIsoInstant(date);
   }
 
   private clearSubmitError(): void {

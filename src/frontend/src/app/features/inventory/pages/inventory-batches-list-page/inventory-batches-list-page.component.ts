@@ -47,6 +47,7 @@ import {
   CURRENCY_SELECT_PT,
 } from '../../../../shared/primeng-pt.config';
 import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
+import { formatLocalIsoDate, formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
 
 interface SelectOption<T extends string | boolean> {
   label: string;
@@ -259,7 +260,7 @@ export class InventoryBatchesListPageComponent {
       manufacturingDate: batch.manufacturingDate ?? '',
       supplierName: batch.supplierName ?? this.getSupplierDisplayName(batch.supplierId),
       notes: '',
-      entryDate: new Date().toISOString().split('T')[0],
+      entryDate: formatLocalIsoDate(new Date()),
     });
     this.isEditDialogOpen.set(true);
   }
@@ -396,7 +397,7 @@ export class InventoryBatchesListPageComponent {
     if (!normalized) return null;
 
     const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? normalized : date.toISOString();
+    return Number.isNaN(date.getTime()) ? normalized : formatUtcIsoInstant(date);
   }
 
   private updateAdjustmentQuantityValidators(): void {

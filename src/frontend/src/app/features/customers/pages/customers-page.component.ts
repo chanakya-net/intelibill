@@ -24,6 +24,8 @@ import { Customer, CustomerAccount, CustomerService } from '../services/customer
 import { CustomersFacade } from '../state/customers.facade';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 @Component({
   selector: 'app-customers-page',
@@ -49,6 +51,7 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
     TableFilterBarComponent,
+    DateOnlyPipe,
     TranslocoPipe,
   ],
   templateUrl: './customers-page.component.html',
@@ -94,7 +97,7 @@ export class CustomersPageComponent {
 
   readonly paymentForm = this.fb.nonNullable.group({
     amount: [0, [Validators.required, Validators.min(0.01)]],
-    paymentDate: [new Date().toISOString().slice(0, 10), Validators.required],
+    paymentDate: [formatLocalIsoDate(new Date()), Validators.required],
     notes: ['', Validators.maxLength(255)],
   });
 

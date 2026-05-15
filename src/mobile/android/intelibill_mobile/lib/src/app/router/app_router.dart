@@ -12,6 +12,10 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_pag
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
 
 class AppRoutes {
@@ -107,33 +111,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.inventory,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageInventory,
-            ),
+            builder: (context, state) => const ItemsPage(),
           ),
           GoRoute(
             path: AppRoutes.inventoryBatch,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellBatchInventoryInbound,
-            ),
+            builder: (context, state) => const AddInventoryPage(),
           ),
           GoRoute(
             path: AppRoutes.inventoryBatches,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(
-                context,
-              )!.shellInventoryBatchesOverview,
-            ),
+            builder: (context, state) => const InventoryBatchesPage(),
           ),
           GoRoute(
             path: AppRoutes.inventoryAdjustments,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellInventoryAdjustments,
-            ),
+            builder: (context, state) => const AdjustmentHistoryPage(),
           ),
           GoRoute(
             path: AppRoutes.salesNew,

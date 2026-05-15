@@ -57,7 +57,7 @@ public sealed class CreateAdjustmentCommandHandler(
         if (command.Direction == InventoryAdjustmentDirection.Decrease && command.Quantity > batch.Quantity)
             return Errors.Inventory.AdjustmentQuantityExceedsBatchQuantity;
 
-        var performedAt = command.PerformedAt ?? DateTimeOffset.UtcNow;
+        var performedAt = (command.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var batchQuantityBefore = batch.Quantity;
         var inventoryQuantityBefore = inventory.Quantity;
 

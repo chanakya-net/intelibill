@@ -92,6 +92,54 @@ public sealed class CreateAdjustmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithNonUtcPerformedAt_NormalizesPersistedTimestampsToUtc()
+    {
+        var actor = User.CreateWithEmail("owner-offset@test.com", "hash", "Owner", "Offset");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-OFFSET", 20m, 30m, 60m, 50m, 5m, false, null, null, null, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 20m, 2m, 50m, actor.Id).Value;
+        var localPerformedAt = new DateTimeOffset(2026, 5, 15, 0, 0, 0, TimeSpan.FromHours(5.5));
+        var expectedUtc = localPerformedAt.ToUniversalTime();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(
+            new CreateAdjustmentCommand(
+                batch.Id,
+                actor.Id,
+                shop.Id,
+                InventoryAdjustmentDirection.Increase,
+                InventoryAdjustmentReason.StockCountCorrection,
+                4m,
+                localPerformedAt,
+                "Updated quantity"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(expectedUtc, result.Value.PerformedAt);
+        Assert.Equal(TimeSpan.Zero, result.Value.PerformedAt.Offset);
+
+        _numberGenerator.Received(1).Generate(expectedUtc);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(t =>
+                t.PerformedAt == expectedUtc
+                && t.PerformedAt.Offset == TimeSpan.Zero),
+            Arg.Any<CancellationToken>());
+        await _adjustmentRepository.Received(1).AddAsync(
+            Arg.Is<InventoryAdjustment>(a =>
+                a.PerformedAt == expectedUtc
+                && a.PerformedAt.Offset == TimeSpan.Zero),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_DecreaseMoreThanBatchQuantity_ReturnsInsufficientBatchStock()
     {
         var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");

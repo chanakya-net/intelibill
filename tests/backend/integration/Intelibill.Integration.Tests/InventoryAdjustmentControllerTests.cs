@@ -126,6 +126,41 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
     }
 
     [Fact]
+    public async Task CreateAdjustment_WithNonUtcPerformedAt_PersistsAsUtc()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token);
+        var inbound = await CreateInboundAsync(client, ownerToken, 20m, 30m);
+        var performedAt = new DateTimeOffset(2026, 5, 15, 0, 0, 0, TimeSpan.FromHours(5.5));
+        var expectedUtc = performedAt.ToUniversalTime();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/batches/{inbound.BatchId}/adjust");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            direction = InventoryAdjustmentDirection.Increase,
+            reason = InventoryAdjustmentReason.StockCountCorrection,
+            quantity = 4m,
+            performedAt,
+            notes = "Updated quantity",
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var adjustmentId = body.GetProperty("adjustmentId").GetGuid();
+        Assert.Equal(expectedUtc, body.GetProperty("performedAt").GetDateTimeOffset());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var adjustment = await db.InventoryAdjustments.SingleAsync(a => a.Id == adjustmentId);
+        Assert.Equal(expectedUtc, adjustment.PerformedAt);
+        Assert.Equal(TimeSpan.Zero, adjustment.PerformedAt.Offset);
+    }
+
+    [Fact]
     public async Task CreateAdjustment_AsStaff_ReturnsForbidden()
     {
         using var client = CreateClient();

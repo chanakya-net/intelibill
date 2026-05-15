@@ -42,6 +42,7 @@ import {
 } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 interface CartItem extends SalesCartDraftItem {}
 
@@ -71,6 +72,7 @@ type PreviewRequestResult =
     TableModule,
     TagModule,
     TranslocoPipe,
+    DateOnlyPipe,
   ],
   templateUrl: './new-sale-page.component.html',
   styleUrl: './new-sale-page.component.scss',

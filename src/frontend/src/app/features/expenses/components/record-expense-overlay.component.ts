@@ -17,6 +17,7 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-record-expense-overlay',
@@ -130,9 +131,6 @@ export class RecordExpenseOverlayComponent implements OnInit {
       return value;
     }
 
-    const yyyy = value.getFullYear();
-    const mm = `${value.getMonth() + 1}`.padStart(2, '0');
-    const dd = `${value.getDate()}`.padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return formatLocalIsoDate(value);
   }
 }

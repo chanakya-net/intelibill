@@ -134,7 +134,7 @@
                     </span>
                     @if (batch.expiryDate) {
                       <span class="batch-result-metric">
-                        {{ 'discounts.editor.batchSearch.expiry' | transloco: { date: (batch.expiryDate | date: 'mediumDate') } }}
+                        {{ 'discounts.editor.batchSearch.expiry' | transloco: { date: (batch.expiryDate | dateOnly: 'mediumDate') } }}
                       </span>
                     }
                   </button>

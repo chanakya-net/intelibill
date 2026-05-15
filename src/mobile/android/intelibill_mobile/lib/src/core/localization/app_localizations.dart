@@ -775,6 +775,438 @@ abstract class AppLocalizations {
   /// **'Create a product linked to your current active shop.'**
   String get inventoryAddNewProductDescription;
 
+  /// No description provided for @inventoryProductsNoProductsFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No products found'**
+  String get inventoryProductsNoProductsFound;
+
+  /// No description provided for @inventoryProductsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load products'**
+  String get inventoryProductsUnableToLoad;
+
+  /// No description provided for @inventoryProductsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryProductsRetry;
+
+  /// No description provided for @inventoryProductsInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get inventoryProductsInactive;
+
+  /// No description provided for @inventoryProductsAddProduct.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Product'**
+  String get inventoryProductsAddProduct;
+
+  /// No description provided for @inventoryProductsCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product created successfully.'**
+  String get inventoryProductsCreateSuccess;
+
+  /// No description provided for @inventoryProductsUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product updated successfully.'**
+  String get inventoryProductsUpdateSuccess;
+
+  /// No description provided for @inventoryCreateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Product'**
+  String get inventoryCreateTitle;
+
+  /// No description provided for @inventoryCreateNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name'**
+  String get inventoryCreateNameLabel;
+
+  /// No description provided for @inventoryCreateNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name is required.'**
+  String get inventoryCreateNameRequired;
+
+  /// No description provided for @inventoryCreateNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name must be 180 characters or fewer.'**
+  String get inventoryCreateNameMax;
+
+  /// No description provided for @inventoryCreateBarcodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode'**
+  String get inventoryCreateBarcodeLabel;
+
+  /// No description provided for @inventoryCreateBarcodeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode is required.'**
+  String get inventoryCreateBarcodeRequired;
+
+  /// No description provided for @inventoryCreateBarcodeMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode must be 120 characters or fewer.'**
+  String get inventoryCreateBarcodeMax;
+
+  /// No description provided for @inventoryCreateUomLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of Measure'**
+  String get inventoryCreateUomLabel;
+
+  /// No description provided for @inventoryCreateUomRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of measure is required.'**
+  String get inventoryCreateUomRequired;
+
+  /// No description provided for @inventoryCreateUomMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'UOM must be 40 characters or fewer.'**
+  String get inventoryCreateUomMax;
+
+  /// No description provided for @inventoryCreateDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get inventoryCreateDescriptionLabel;
+
+  /// No description provided for @inventoryCreateDescriptionMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 320 characters or fewer.'**
+  String get inventoryCreateDescriptionMax;
+
+  /// No description provided for @inventoryCreateProductActiveLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get inventoryCreateProductActiveLabel;
+
+  /// No description provided for @inventoryCreateErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save product. Please try again.'**
+  String get inventoryCreateErrorGeneric;
+
+  /// No description provided for @inventoryCreateErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryCreateErrorUnauthorized;
+
+  /// No description provided for @inventoryCreateErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage products.'**
+  String get inventoryCreateErrorForbidden;
+
+  /// No description provided for @inventoryCreateErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryCreateErrorNetwork;
+
+  /// No description provided for @inventoryCreateErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryCreateErrorTimeout;
+
+  /// No description provided for @inventoryUpdateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Product'**
+  String get inventoryUpdateTitle;
+
+  /// No description provided for @inventoryProductErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load products. Please try again.'**
+  String get inventoryProductErrorGeneric;
+
+  /// No description provided for @inventoryProductErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryProductErrorNetwork;
+
+  /// No description provided for @inventoryProductErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryProductErrorTimeout;
+
+  /// No description provided for @inventoryProductErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryProductErrorUnauthorized;
+
+  /// No description provided for @inventoryProductErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view products.'**
+  String get inventoryProductErrorForbidden;
+
+  /// No description provided for @inventoryMenuAddInventory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Inventory'**
+  String get inventoryMenuAddInventory;
+
+  /// No description provided for @inventoryMenuBatchOverview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch Overview'**
+  String get inventoryMenuBatchOverview;
+
+  /// No description provided for @inventoryMenuAdjustmentHistory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjustment History'**
+  String get inventoryMenuAdjustmentHistory;
+
+  /// No description provided for @inventoryInboundSectionProduct.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product Details'**
+  String get inventoryInboundSectionProduct;
+
+  /// No description provided for @inventoryInboundSectionBatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch Details'**
+  String get inventoryInboundSectionBatch;
+
+  /// No description provided for @inventoryInboundSectionAdditional.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Additional Details'**
+  String get inventoryInboundSectionAdditional;
+
+  /// No description provided for @inventoryInboundItemNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Item Name'**
+  String get inventoryInboundItemNameLabel;
+
+  /// No description provided for @inventoryInboundItemNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Item name is required.'**
+  String get inventoryInboundItemNameRequired;
+
+  /// No description provided for @inventoryInboundItemNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Item name must be 200 characters or fewer.'**
+  String get inventoryInboundItemNameMax;
+
+  /// No description provided for @inventoryInboundBarcodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode'**
+  String get inventoryInboundBarcodeLabel;
+
+  /// No description provided for @inventoryInboundBarcodeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode is required.'**
+  String get inventoryInboundBarcodeRequired;
+
+  /// No description provided for @inventoryInboundBarcodeMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode must be 120 characters or fewer.'**
+  String get inventoryInboundBarcodeMax;
+
+  /// No description provided for @inventoryInboundUomLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of Measure'**
+  String get inventoryInboundUomLabel;
+
+  /// No description provided for @inventoryInboundUomRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of measure is required.'**
+  String get inventoryInboundUomRequired;
+
+  /// No description provided for @inventoryInboundUomMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'UOM must be 40 characters or fewer.'**
+  String get inventoryInboundUomMax;
+
+  /// No description provided for @inventoryInboundBatchNumberLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch Number'**
+  String get inventoryInboundBatchNumberLabel;
+
+  /// No description provided for @inventoryInboundBatchNumberHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Optional batch identifier'**
+  String get inventoryInboundBatchNumberHint;
+
+  /// No description provided for @inventoryInboundBatchNumberMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch number must be 80 characters or fewer.'**
+  String get inventoryInboundBatchNumberMax;
+
+  /// No description provided for @inventoryInboundQuantityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get inventoryInboundQuantityLabel;
+
+  /// No description provided for @inventoryInboundQuantityRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity is required.'**
+  String get inventoryInboundQuantityRequired;
+
+  /// No description provided for @inventoryInboundQuantityMin.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity must be greater than 0.'**
+  String get inventoryInboundQuantityMin;
+
+  /// No description provided for @inventoryInboundCostPriceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cost Price'**
+  String get inventoryInboundCostPriceLabel;
+
+  /// No description provided for @inventoryInboundCostPriceRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cost price is required.'**
+  String get inventoryInboundCostPriceRequired;
+
+  /// No description provided for @inventoryInboundMrpLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'MRP'**
+  String get inventoryInboundMrpLabel;
+
+  /// No description provided for @inventoryInboundMrpRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'MRP is required.'**
+  String get inventoryInboundMrpRequired;
+
+  /// No description provided for @inventoryInboundSalesPriceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales Price'**
+  String get inventoryInboundSalesPriceLabel;
+
+  /// No description provided for @inventoryInboundSalesPriceRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales price is required.'**
+  String get inventoryInboundSalesPriceRequired;
+
+  /// No description provided for @inventoryInboundTaxRateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax Rate (%)'**
+  String get inventoryInboundTaxRateLabel;
+
+  /// No description provided for @inventoryInboundTaxRateRange.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate must be between 0 and 100.'**
+  String get inventoryInboundTaxRateRange;
+
+  /// No description provided for @inventoryInboundTaxIncludedLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax Included'**
+  String get inventoryInboundTaxIncludedLabel;
+
+  /// No description provided for @inventoryInboundExpiryDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expiry Date'**
+  String get inventoryInboundExpiryDateLabel;
+
+  /// No description provided for @inventoryInboundManufacturingDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manufacturing Date'**
+  String get inventoryInboundManufacturingDateLabel;
+
+  /// No description provided for @inventoryInboundReferenceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reference Number'**
+  String get inventoryInboundReferenceLabel;
+
+  /// No description provided for @inventoryInboundReferenceMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reference must be 80 characters or fewer.'**
+  String get inventoryInboundReferenceMax;
+
+  /// No description provided for @inventoryInboundNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get inventoryInboundNotesLabel;
+
+  /// No description provided for @inventoryInboundNotesMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes must be 500 characters or fewer.'**
+  String get inventoryInboundNotesMax;
+
+  /// No description provided for @inventoryInboundNumberInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid number.'**
+  String get inventoryInboundNumberInvalid;
+
+  /// No description provided for @inventoryInboundSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory added successfully.'**
+  String get inventoryInboundSuccess;
+
+  /// No description provided for @inventoryInboundErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to add inventory. Please try again.'**
+  String get inventoryInboundErrorGeneric;
+
+  /// No description provided for @inventoryInboundErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryInboundErrorNetwork;
+
+  /// No description provided for @inventoryInboundErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryInboundErrorTimeout;
+
   /// No description provided for @placeholderBody.
   ///
   /// In en_IN, this message translates to:
@@ -1014,6 +1446,264 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Change Password'**
   String get profileSettingsChangePassword;
+
+  /// No description provided for @inventoryBatchesNoBatchesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No batches found'**
+  String get inventoryBatchesNoBatchesFound;
+
+  /// No description provided for @inventoryBatchesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load batches'**
+  String get inventoryBatchesUnableToLoad;
+
+  /// No description provided for @inventoryBatchesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryBatchesRetry;
+
+  /// No description provided for @inventoryBatchesVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get inventoryBatchesVoided;
+
+  /// No description provided for @inventoryBatchesAdjustAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjust'**
+  String get inventoryBatchesAdjustAction;
+
+  /// No description provided for @inventoryBatchesAdjustTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjust Stock'**
+  String get inventoryBatchesAdjustTitle;
+
+  /// No description provided for @inventoryBatchesAdjustPreviewLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New Quantity'**
+  String get inventoryBatchesAdjustPreviewLabel;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Direction'**
+  String get inventoryBatchesAdjustDirectionLabel;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionIncrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Increase'**
+  String get inventoryBatchesAdjustDirectionIncrease;
+
+  /// No description provided for @inventoryBatchesAdjustDirectionDecrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Decrease'**
+  String get inventoryBatchesAdjustDirectionDecrease;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get inventoryBatchesAdjustQuantityLabel;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity is required.'**
+  String get inventoryBatchesAdjustQuantityRequired;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityMin.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity must be greater than 0.'**
+  String get inventoryBatchesAdjustQuantityMin;
+
+  /// No description provided for @inventoryBatchesAdjustQuantityMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity cannot exceed current batch quantity.'**
+  String get inventoryBatchesAdjustQuantityMax;
+
+  /// No description provided for @inventoryBatchesAdjustReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get inventoryBatchesAdjustReasonLabel;
+
+  /// No description provided for @inventoryBatchesAdjustNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get inventoryBatchesAdjustNotesLabel;
+
+  /// No description provided for @inventoryBatchesAdjustNotesMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes must be 500 characters or fewer.'**
+  String get inventoryBatchesAdjustNotesMax;
+
+  /// No description provided for @inventoryBatchesAdjustNotesRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes are required for this reason.'**
+  String get inventoryBatchesAdjustNotesRequired;
+
+  /// No description provided for @inventoryBatchesAdjustPerformedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Performed At'**
+  String get inventoryBatchesAdjustPerformedAtLabel;
+
+  /// No description provided for @inventoryBatchesAdjustSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock adjusted successfully.'**
+  String get inventoryBatchesAdjustSuccess;
+
+  /// No description provided for @inventoryBatchesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load batches. Please try again.'**
+  String get inventoryBatchesErrorGeneric;
+
+  /// No description provided for @inventoryBatchesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryBatchesErrorNetwork;
+
+  /// No description provided for @inventoryBatchesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryBatchesErrorTimeout;
+
+  /// No description provided for @inventoryBatchesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryBatchesErrorUnauthorized;
+
+  /// No description provided for @inventoryBatchesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view batches.'**
+  String get inventoryBatchesErrorForbidden;
+
+  /// No description provided for @inventoryAdjustReasonDamaged.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Damaged'**
+  String get inventoryAdjustReasonDamaged;
+
+  /// No description provided for @inventoryAdjustReasonExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get inventoryAdjustReasonExpired;
+
+  /// No description provided for @inventoryAdjustReasonStolen.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stolen'**
+  String get inventoryAdjustReasonStolen;
+
+  /// No description provided for @inventoryAdjustReasonMissingLost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Missing / Lost'**
+  String get inventoryAdjustReasonMissingLost;
+
+  /// No description provided for @inventoryAdjustReasonStockCountCorrection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock Count Correction'**
+  String get inventoryAdjustReasonStockCountCorrection;
+
+  /// No description provided for @inventoryAdjustReasonOtherLoss.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Other Loss'**
+  String get inventoryAdjustReasonOtherLoss;
+
+  /// No description provided for @inventoryAdjustReasonFoundStock.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Found Stock'**
+  String get inventoryAdjustReasonFoundStock;
+
+  /// No description provided for @inventoryAdjustReasonReturnRestockCorrection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return / Restock Correction'**
+  String get inventoryAdjustReasonReturnRestockCorrection;
+
+  /// No description provided for @inventoryAdjustReasonOtherGain.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Other Gain'**
+  String get inventoryAdjustReasonOtherGain;
+
+  /// No description provided for @inventoryAdjustmentsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjustment History'**
+  String get inventoryAdjustmentsTitle;
+
+  /// No description provided for @inventoryAdjustmentsNoAdjustmentsFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No adjustments found'**
+  String get inventoryAdjustmentsNoAdjustmentsFound;
+
+  /// No description provided for @inventoryAdjustmentsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load adjustments'**
+  String get inventoryAdjustmentsUnableToLoad;
+
+  /// No description provided for @inventoryAdjustmentsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryAdjustmentsRetry;
+
+  /// No description provided for @inventoryAdjustmentsVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get inventoryAdjustmentsVoided;
+
+  /// No description provided for @inventoryAdjustmentsIncrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Increase'**
+  String get inventoryAdjustmentsIncrease;
+
+  /// No description provided for @inventoryAdjustmentsDecrease.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Decrease'**
+  String get inventoryAdjustmentsDecrease;
+
+  /// No description provided for @inventoryAdjustmentsPerformedByLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Performed by'**
+  String get inventoryAdjustmentsPerformedByLabel;
+
+  /// No description provided for @inventoryAdjustmentsCostImpactLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cost impact'**
+  String get inventoryAdjustmentsCostImpactLabel;
 }
 
 class _AppLocalizationsDelegate

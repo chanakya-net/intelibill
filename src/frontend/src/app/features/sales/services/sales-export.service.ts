@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { EXPORT_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 export type SalesExportFormat = 'xlsx' | 'pdf' | 'tallyXml';
 export type SalesExportLevel = 'summary' | 'lineItems';
@@ -49,7 +50,7 @@ export class SalesExportService {
   }
 
   private generateDefaultFilename(): string {
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = formatLocalIsoDate(new Date());
     return `sales-export-${timestamp}.xlsx`;
   }
 

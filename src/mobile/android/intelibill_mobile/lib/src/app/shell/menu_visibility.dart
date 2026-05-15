@@ -36,6 +36,8 @@ bool isOwnerOrManager(AuthSession? session) {
   return _hasRole(session, const {'owner', 'manager'});
 }
 
+bool canManageInventory(AuthSession? session) => isOwnerOrManager(session);
+
 bool canManageCustomers(AuthSession? session) {
   return isOwnerOrManager(session);
 }

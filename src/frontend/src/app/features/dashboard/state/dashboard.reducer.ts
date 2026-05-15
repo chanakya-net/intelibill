@@ -2,24 +2,18 @@ import { createFeature, createReducer, on } from '@ngrx/store';
 
 import { DashboardDto } from '../services/dashboard.service';
 import { DashboardActions, DashboardPreset } from './dashboard.actions';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 export const dashboardFeatureKey = 'dashboard';
 
-function toLocalIsoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function todayIso(): string {
-  return toLocalIsoDate(new Date());
+  return formatLocalIsoDate(new Date());
 }
 
 function last30StartIso(): string {
   const d = new Date();
   d.setDate(d.getDate() - 29);
-  return toLocalIsoDate(d);
+  return formatLocalIsoDate(d);
 }
 
 export interface DashboardState {

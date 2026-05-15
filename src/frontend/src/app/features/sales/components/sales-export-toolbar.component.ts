@@ -9,6 +9,7 @@ import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 
 import { SalesExportFormat, SalesExportParams, SalesExportService } from '../services/sales-export.service';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-sales-export-toolbar',
@@ -136,6 +137,6 @@ export class SalesExportToolbarComponent {
   }
 
   private formatIsoDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+    return formatLocalIsoDate(date);
   }
 }

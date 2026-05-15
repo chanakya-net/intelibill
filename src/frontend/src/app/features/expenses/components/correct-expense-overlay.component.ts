@@ -18,6 +18,7 @@ import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpenseDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-correct-expense-overlay',
@@ -100,7 +101,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       amount: this.originalExpense.amount,
       paidTo: this.originalExpense.paidTo,
       description: this.originalExpense.description ?? '',
-      expenseDate: new Date(this.originalExpense.expenseDate),
+      expenseDate: parseDateOnlyAsLocalDate(this.originalExpense.expenseDate),
     });
   }
 
@@ -142,9 +143,6 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       return value;
     }
 
-    const yyyy = value.getFullYear();
-    const mm = `${value.getMonth() + 1}`.padStart(2, '0');
-    const dd = `${value.getDate()}`.padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return formatLocalIsoDate(value);
   }
 }
