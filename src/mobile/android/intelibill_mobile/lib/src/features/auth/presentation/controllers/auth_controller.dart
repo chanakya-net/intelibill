@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
 import 'package:intelibill_mobile/src/core/storage/preferences_storage.dart';
 import 'package:intelibill_mobile/src/core/storage/secure_storage.dart';
-import 'package:intelibill_mobile/src/features/app_status/presentation/controllers/app_status_controller.dart';
 import 'package:intelibill_mobile/src/features/auth/data/data_sources/auth_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
@@ -228,6 +228,138 @@ class AuthController extends _$AuthController {
           clearError: true,
         ),
       );
+    } on AppException catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _mapAuthFailureToMessage(error.failure),
+        ),
+      );
+    } on Object {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _genericSignInErrorMessage,
+        ),
+      );
+    }
+  }
+
+  Future<void> updateProfile({
+    required String email,
+    String? phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String language,
+  }) async {
+    final repository = await ref.read(authRepositoryProvider.future);
+    if (!ref.mounted) {
+      return;
+    }
+
+    final current = state.value ?? const AuthControllerState();
+    state = AsyncData(current.copyWith(isLoading: true, clearError: true));
+
+    try {
+      final session = await repository.updateProfile(
+        email: email,
+        phoneNumber: phoneNumber,
+        firstName: firstName,
+        lastName: lastName,
+        language: language,
+      );
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(current.copyWith(session: session, isLoading: false));
+    } on AppException catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _mapAuthFailureToMessage(error.failure),
+        ),
+      );
+    } on Object {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _genericSignInErrorMessage,
+        ),
+      );
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final repository = await ref.read(authRepositoryProvider.future);
+    if (!ref.mounted) {
+      return;
+    }
+
+    final current = state.value ?? const AuthControllerState();
+    state = AsyncData(current.copyWith(isLoading: true, clearError: true));
+
+    try {
+      await repository.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(current.copyWith(isLoading: false));
+    } on AppException catch (error) {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _mapAuthFailureToMessage(error.failure),
+        ),
+      );
+    } on Object {
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(
+        current.copyWith(
+          isLoading: false,
+          errorMessage: _genericSignInErrorMessage,
+        ),
+      );
+    }
+  }
+
+  Future<void> switchShop({required String shopId}) async {
+    final repository = await ref.read(authRepositoryProvider.future);
+    if (!ref.mounted) {
+      return;
+    }
+
+    final current = state.value ?? const AuthControllerState();
+    state = AsyncData(current.copyWith(isLoading: true, clearError: true));
+
+    try {
+      final session = await repository.switchShop(shopId: shopId);
+      if (!ref.mounted) {
+        return;
+      }
+      state = AsyncData(current.copyWith(session: session, isLoading: false));
     } on AppException catch (error) {
       if (!ref.mounted) {
         return;

@@ -64,6 +64,93 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> updateProfile({
+    required String email,
+    String? phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String language,
+  }) async {
+    try {
+      final dto = await _remoteDataSource.updateProfile(
+        email: email,
+        phoneNumber: phoneNumber,
+        firstName: firstName,
+        lastName: lastName,
+        language: language,
+      );
+      final session = AuthMapper.toDomain(dto);
+
+      // Persist new tokens
+      await _secureStorage.saveTokens(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
+
+      return session;
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(
+        failure: Failure.unknown(message: error.toString()),
+      );
+    }
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _remoteDataSource.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(
+        failure: Failure.unknown(message: error.toString()),
+      );
+    }
+  }
+
+  @override
+  Future<AuthSession> switchShop({required String shopId}) async {
+    try {
+      final dto = await _remoteDataSource.setDefaultShop(shopId: shopId);
+      final session = AuthMapper.toDomain(dto);
+
+      // Persist new tokens
+      await _secureStorage.saveTokens(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
+
+      return session;
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(
+        failure: Failure.unknown(message: error.toString()),
+      );
+    }
+  }
+
+  @override
   Future<AuthSession> refreshToken({required String refreshToken}) async {
     try {
       final dto = await _remoteDataSource.refreshToken(

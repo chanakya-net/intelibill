@@ -6,7 +6,20 @@ abstract interface class AuthRepository {
     required String password,
     required bool rememberMe,
   });
+  Future<AuthSession> updateProfile({
+    required String email,
+    String? phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String language,
+  });
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  Future<AuthSession> switchShop({required String shopId});
   Future<AuthSession> refreshToken({required String refreshToken});
 
   Future<void> revokeToken({required String refreshToken});

@@ -1,14 +1,29 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/auth_result_dto.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/change_my_password_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/login_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/refresh_token_request_dto.dart';
 import 'package:intelibill_mobile/src/features/auth/data/dto/revoke_token_request_dto.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/set_default_shop_request_dto.dart';
+import 'package:intelibill_mobile/src/features/auth/data/dto/update_my_profile_request_dto.dart';
 
 abstract interface class AuthRemoteDataSource {
   Future<AuthResultDto> login({
     required String identifier,
     required String password,
   });
+  Future<AuthResultDto> updateProfile({
+    required String email,
+    String? phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String language,
+  });
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+  Future<AuthResultDto> setDefaultShop({required String shopId});
   Future<AuthResultDto> refreshToken({required String refreshToken});
   Future<void> revokeToken({required String refreshToken});
 }
@@ -19,6 +34,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient _apiClient;
 
   static const String _loginEndpoint = '/auth/login';
+  static const String _updateProfileEndpoint = '/users/me';
+  static const String _changePasswordEndpoint = '/users/me/change-password';
+  static const String _setDefaultShopEndpoint = '/shops/default';
   static const String _refreshTokenEndpoint = '/auth/token/refresh';
   static const String _revokeTokenEndpoint = '/auth/token/revoke';
 
@@ -30,6 +48,53 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final request = LoginRequestDto(identifier: identifier, password: password);
     final response = await _apiClient.post<Map<String, dynamic>>(
       _loginEndpoint,
+      data: request.toJson(),
+    );
+    return AuthResultDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<AuthResultDto> updateProfile({
+    required String email,
+    String? phoneNumber,
+    required String firstName,
+    required String lastName,
+    required String language,
+  }) async {
+    final request = UpdateMyProfileRequestDto(
+      email: email,
+      phoneNumber: phoneNumber,
+      firstName: firstName,
+      lastName: lastName,
+      language: language,
+    );
+    final response = await _apiClient.put<Map<String, dynamic>>(
+      _updateProfileEndpoint,
+      data: request.toJson(),
+    );
+    return AuthResultDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final request = ChangeMyPasswordRequestDto(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    await _apiClient.post<void>(
+      _changePasswordEndpoint,
+      data: request.toJson(),
+    );
+  }
+
+  @override
+  Future<AuthResultDto> setDefaultShop({required String shopId}) async {
+    final request = SetDefaultShopRequestDto(shopId: shopId);
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      _setDefaultShopEndpoint,
       data: request.toJson(),
     );
     return AuthResultDto.fromJson(response.data!);

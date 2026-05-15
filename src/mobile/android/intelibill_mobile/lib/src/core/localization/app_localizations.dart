@@ -792,6 +792,228 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Go Back'**
   String get notFoundGoBack;
+
+  /// No description provided for @profileEditTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Profile'**
+  String get profileEditTitle;
+
+  /// No description provided for @profileFirstNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'First Name'**
+  String get profileFirstNameLabel;
+
+  /// No description provided for @profileFirstNameHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your first name'**
+  String get profileFirstNameHint;
+
+  /// No description provided for @profileFirstNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'First name is required'**
+  String get profileFirstNameRequired;
+
+  /// No description provided for @profileLastNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last Name'**
+  String get profileLastNameLabel;
+
+  /// No description provided for @profileLastNameHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your last name'**
+  String get profileLastNameHint;
+
+  /// No description provided for @profileLastNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last name is required'**
+  String get profileLastNameRequired;
+
+  /// No description provided for @profileEmailLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Email'**
+  String get profileEmailLabel;
+
+  /// No description provided for @profileEmailHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your email'**
+  String get profileEmailHint;
+
+  /// No description provided for @profileEmailRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Email is required'**
+  String get profileEmailRequired;
+
+  /// No description provided for @profileEmailInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Please enter a valid email'**
+  String get profileEmailInvalid;
+
+  /// No description provided for @profilePhoneLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Phone Number (Optional)'**
+  String get profilePhoneLabel;
+
+  /// No description provided for @profilePhoneHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your phone number'**
+  String get profilePhoneHint;
+
+  /// No description provided for @profilePhoneMin.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Phone number must be at least 10 digits'**
+  String get profilePhoneMin;
+
+  /// No description provided for @profileUpdateButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Update Profile'**
+  String get profileUpdateButton;
+
+  /// No description provided for @profileUpdatingButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Updating...'**
+  String get profileUpdatingButton;
+
+  /// No description provided for @profileUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Profile updated successfully'**
+  String get profileUpdateSuccess;
+
+  /// No description provided for @profileUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load profile'**
+  String get profileUnableToLoad;
+
+  /// No description provided for @passwordChangeTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Change Password'**
+  String get passwordChangeTitle;
+
+  /// No description provided for @passwordCurrentLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Current Password'**
+  String get passwordCurrentLabel;
+
+  /// No description provided for @passwordCurrentHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your current password'**
+  String get passwordCurrentHint;
+
+  /// No description provided for @passwordCurrentRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Current password is required'**
+  String get passwordCurrentRequired;
+
+  /// No description provided for @passwordNewLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New Password'**
+  String get passwordNewLabel;
+
+  /// No description provided for @passwordNewHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter your new password'**
+  String get passwordNewHint;
+
+  /// No description provided for @passwordNewRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New password is required'**
+  String get passwordNewRequired;
+
+  /// No description provided for @passwordConfirmLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm Password'**
+  String get passwordConfirmLabel;
+
+  /// No description provided for @passwordConfirmHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm your new password'**
+  String get passwordConfirmHint;
+
+  /// No description provided for @passwordConfirmRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Please confirm your password'**
+  String get passwordConfirmRequired;
+
+  /// No description provided for @passwordConfirmMismatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordConfirmMismatch;
+
+  /// No description provided for @passwordChangeButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Change Password'**
+  String get passwordChangeButton;
+
+  /// No description provided for @passwordChangingButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Changing password...'**
+  String get passwordChangingButton;
+
+  /// No description provided for @passwordChangeSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Password changed successfully'**
+  String get passwordChangeSuccess;
+
+  /// No description provided for @passwordUnableToInitialize.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to initialize password screen'**
+  String get passwordUnableToInitialize;
+
+  /// No description provided for @profileSettingsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Profile Settings'**
+  String get profileSettingsTitle;
+
+  /// No description provided for @profileSettingsActiveShop.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active Shop'**
+  String get profileSettingsActiveShop;
+
+  /// No description provided for @profileSettingsEditProfile.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Profile'**
+  String get profileSettingsEditProfile;
+
+  /// No description provided for @profileSettingsChangePassword.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Change Password'**
+  String get profileSettingsChangePassword;
 }
 
 class _AppLocalizationsDelegate

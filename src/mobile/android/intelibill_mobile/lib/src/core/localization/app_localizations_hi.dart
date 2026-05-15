@@ -364,6 +364,118 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get notFoundGoBack => 'वापस जाएं';
+
+  @override
+  String get profileEditTitle => 'Edit Profile';
+
+  @override
+  String get profileFirstNameLabel => 'First Name';
+
+  @override
+  String get profileFirstNameHint => 'Enter your first name';
+
+  @override
+  String get profileFirstNameRequired => 'First name is required';
+
+  @override
+  String get profileLastNameLabel => 'Last Name';
+
+  @override
+  String get profileLastNameHint => 'Enter your last name';
+
+  @override
+  String get profileLastNameRequired => 'Last name is required';
+
+  @override
+  String get profileEmailLabel => 'Email';
+
+  @override
+  String get profileEmailHint => 'Enter your email';
+
+  @override
+  String get profileEmailRequired => 'Email is required';
+
+  @override
+  String get profileEmailInvalid => 'Please enter a valid email';
+
+  @override
+  String get profilePhoneLabel => 'Phone Number (Optional)';
+
+  @override
+  String get profilePhoneHint => 'Enter your phone number';
+
+  @override
+  String get profilePhoneMin => 'Phone number must be at least 10 digits';
+
+  @override
+  String get profileUpdateButton => 'Update Profile';
+
+  @override
+  String get profileUpdatingButton => 'Updating...';
+
+  @override
+  String get profileUpdateSuccess => 'Profile updated successfully';
+
+  @override
+  String get profileUnableToLoad => 'Unable to load profile';
+
+  @override
+  String get passwordChangeTitle => 'Change Password';
+
+  @override
+  String get passwordCurrentLabel => 'Current Password';
+
+  @override
+  String get passwordCurrentHint => 'Enter your current password';
+
+  @override
+  String get passwordCurrentRequired => 'Current password is required';
+
+  @override
+  String get passwordNewLabel => 'New Password';
+
+  @override
+  String get passwordNewHint => 'Enter your new password';
+
+  @override
+  String get passwordNewRequired => 'New password is required';
+
+  @override
+  String get passwordConfirmLabel => 'Confirm Password';
+
+  @override
+  String get passwordConfirmHint => 'Confirm your new password';
+
+  @override
+  String get passwordConfirmRequired => 'Please confirm your password';
+
+  @override
+  String get passwordConfirmMismatch => 'Passwords do not match';
+
+  @override
+  String get passwordChangeButton => 'Change Password';
+
+  @override
+  String get passwordChangingButton => 'Changing password...';
+
+  @override
+  String get passwordChangeSuccess => 'Password changed successfully';
+
+  @override
+  String get passwordUnableToInitialize =>
+      'Unable to initialize password screen';
+
+  @override
+  String get profileSettingsTitle => 'Profile Settings';
+
+  @override
+  String get profileSettingsActiveShop => 'Active Shop';
+
+  @override
+  String get profileSettingsEditProfile => 'Edit Profile';
+
+  @override
+  String get profileSettingsChangePassword => 'Change Password';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
