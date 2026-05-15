@@ -98,7 +98,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
             : normalizedDescription,
         isActive: isActive,
       );
-      final dto = await _remoteDataSource.updateItem(itemId, request);
+      await _remoteDataSource.updateItem(itemId, request);
+      final dtos = await _remoteDataSource.getItems();
+      final dto = dtos.firstWhere((d) => d.id == itemId);
       return ItemMapper.toDomain(dto);
     } on AppException {
       rethrow;
@@ -154,7 +156,20 @@ class InventoryRepositoryImpl implements InventoryRepository {
         notes: notes,
       );
       final request = AddInventoryBatchRequestDto(items: [row]);
-      await _remoteDataSource.addInventoryInbound(request);
+      final response = await _remoteDataSource.addInventoryInbound(request);
+      if (response.failedCount > 0) {
+        final failed =
+            response.failed.isNotEmpty ? response.failed.first : null;
+        final errorMessage =
+            failed?.errors.map((e) => e.description).join('; ');
+        throw AppException(
+          failure: Failure.validation(
+            message: errorMessage?.isNotEmpty == true
+                ? errorMessage
+                : 'Inventory row failed to be added',
+          ),
+        );
+      }
     } on AppException {
       rethrow;
     } on FormatException catch (error) {

@@ -17,7 +17,7 @@ interface class InventoryRemoteDataSource {
     throw UnimplementedError();
   }
 
-  Future<ItemDto> updateItem(String itemId, UpdateItemRequestDto request) {
+  Future<void> updateItem(String itemId, UpdateItemRequestDto request) {
     throw UnimplementedError();
   }
 
@@ -75,15 +75,14 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<ItemDto> updateItem(
+  Future<void> updateItem(
     String itemId,
     UpdateItemRequestDto request,
   ) async {
-    final response = await _apiClient.patch<Map<String, dynamic>>(
+    await _apiClient.patch<void>(
       '$_itemsEndpoint/$itemId',
       data: request.toJson(),
     );
-    return ItemDto.fromJson(response.data!);
   }
 
   @override

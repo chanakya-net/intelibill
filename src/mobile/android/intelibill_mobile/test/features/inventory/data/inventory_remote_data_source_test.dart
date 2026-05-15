@@ -125,43 +125,30 @@ void main() {
     });
 
     group('updateItem', () {
-      test('patches /items/:id and returns updated item DTO', () async {
+      test('patches /items/:id with 204 and returns void', () async {
         const request = UpdateItemRequestDto(
           name: 'Rice Basmati Premium',
           barcode: '8901234567890',
           uom: 'KG',
           isActive: false,
         );
-        final responseData = {
-          'id': 'item-1',
-          'name': 'Rice Basmati Premium',
-          'barcode': '8901234567890',
-          'uom': 'KG',
-          'isActive': false,
-          'currentStock': 100.0,
-        };
 
         when(
-          () => mockApiClient.patch<Map<String, dynamic>>(
+          () => mockApiClient.patch<void>(
             any<String>(),
             data: any<Map<String, dynamic>>(named: 'data'),
           ),
         ).thenAnswer(
           (_) async => Response(
-            data: responseData,
-            statusCode: 200,
+            statusCode: 204,
             requestOptions: RequestOptions(path: '/items/item-1'),
           ),
         );
 
-        final dto = await remoteDataSource.updateItem('item-1', request);
-
-        expect(dto.id, 'item-1');
-        expect(dto.name, 'Rice Basmati Premium');
-        expect(dto.isActive, false);
+        await remoteDataSource.updateItem('item-1', request);
 
         verify(
-          () => mockApiClient.patch<Map<String, dynamic>>(
+          () => mockApiClient.patch<void>(
             '/items/item-1',
             data: request.toJson(),
           ),
