@@ -470,6 +470,129 @@ class AppLocalizationsTe extends AppLocalizations {
   String get inventoryMenuAdjustmentHistory => 'Adjustment History';
 
   @override
+  String get inventoryInboundSectionProduct => 'Product Details';
+
+  @override
+  String get inventoryInboundSectionBatch => 'Batch Details';
+
+  @override
+  String get inventoryInboundSectionAdditional => 'Additional Details';
+
+  @override
+  String get inventoryInboundItemNameLabel => 'Item Name';
+
+  @override
+  String get inventoryInboundItemNameRequired => 'Item name is required.';
+
+  @override
+  String get inventoryInboundItemNameMax =>
+      'Item name must be 200 characters or fewer.';
+
+  @override
+  String get inventoryInboundBarcodeLabel => 'Barcode';
+
+  @override
+  String get inventoryInboundBarcodeRequired => 'Barcode is required.';
+
+  @override
+  String get inventoryInboundBarcodeMax =>
+      'Barcode must be 120 characters or fewer.';
+
+  @override
+  String get inventoryInboundUomLabel => 'Unit of Measure';
+
+  @override
+  String get inventoryInboundUomRequired => 'Unit of measure is required.';
+
+  @override
+  String get inventoryInboundUomMax => 'UOM must be 40 characters or fewer.';
+
+  @override
+  String get inventoryInboundBatchNumberLabel => 'Batch Number';
+
+  @override
+  String get inventoryInboundBatchNumberHint => 'Optional batch identifier';
+
+  @override
+  String get inventoryInboundBatchNumberMax =>
+      'Batch number must be 80 characters or fewer.';
+
+  @override
+  String get inventoryInboundQuantityLabel => 'Quantity';
+
+  @override
+  String get inventoryInboundQuantityRequired => 'Quantity is required.';
+
+  @override
+  String get inventoryInboundQuantityMin => 'Quantity must be greater than 0.';
+
+  @override
+  String get inventoryInboundCostPriceLabel => 'Cost Price';
+
+  @override
+  String get inventoryInboundCostPriceRequired => 'Cost price is required.';
+
+  @override
+  String get inventoryInboundMrpLabel => 'MRP';
+
+  @override
+  String get inventoryInboundMrpRequired => 'MRP is required.';
+
+  @override
+  String get inventoryInboundSalesPriceLabel => 'Sales Price';
+
+  @override
+  String get inventoryInboundSalesPriceRequired => 'Sales price is required.';
+
+  @override
+  String get inventoryInboundTaxRateLabel => 'Tax Rate (%)';
+
+  @override
+  String get inventoryInboundTaxRateRange =>
+      'Tax rate must be between 0 and 100.';
+
+  @override
+  String get inventoryInboundTaxIncludedLabel => 'Tax Included';
+
+  @override
+  String get inventoryInboundExpiryDateLabel => 'Expiry Date';
+
+  @override
+  String get inventoryInboundManufacturingDateLabel => 'Manufacturing Date';
+
+  @override
+  String get inventoryInboundReferenceLabel => 'Reference Number';
+
+  @override
+  String get inventoryInboundReferenceMax =>
+      'Reference must be 80 characters or fewer.';
+
+  @override
+  String get inventoryInboundNotesLabel => 'Notes';
+
+  @override
+  String get inventoryInboundNotesMax =>
+      'Notes must be 500 characters or fewer.';
+
+  @override
+  String get inventoryInboundNumberInvalid => 'Enter a valid number.';
+
+  @override
+  String get inventoryInboundSuccess => 'Inventory added successfully.';
+
+  @override
+  String get inventoryInboundErrorGeneric =>
+      'Unable to add inventory. Please try again.';
+
+  @override
+  String get inventoryInboundErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryInboundErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
   String get placeholderBody => 'This feature is coming soon.';
 
   @override
@@ -927,6 +1050,129 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get inventoryMenuAdjustmentHistory => 'Adjustment History';
+
+  @override
+  String get inventoryInboundSectionProduct => 'Product Details';
+
+  @override
+  String get inventoryInboundSectionBatch => 'Batch Details';
+
+  @override
+  String get inventoryInboundSectionAdditional => 'Additional Details';
+
+  @override
+  String get inventoryInboundItemNameLabel => 'Item Name';
+
+  @override
+  String get inventoryInboundItemNameRequired => 'Item name is required.';
+
+  @override
+  String get inventoryInboundItemNameMax =>
+      'Item name must be 200 characters or fewer.';
+
+  @override
+  String get inventoryInboundBarcodeLabel => 'Barcode';
+
+  @override
+  String get inventoryInboundBarcodeRequired => 'Barcode is required.';
+
+  @override
+  String get inventoryInboundBarcodeMax =>
+      'Barcode must be 120 characters or fewer.';
+
+  @override
+  String get inventoryInboundUomLabel => 'Unit of Measure';
+
+  @override
+  String get inventoryInboundUomRequired => 'Unit of measure is required.';
+
+  @override
+  String get inventoryInboundUomMax => 'UOM must be 40 characters or fewer.';
+
+  @override
+  String get inventoryInboundBatchNumberLabel => 'Batch Number';
+
+  @override
+  String get inventoryInboundBatchNumberHint => 'Optional batch identifier';
+
+  @override
+  String get inventoryInboundBatchNumberMax =>
+      'Batch number must be 80 characters or fewer.';
+
+  @override
+  String get inventoryInboundQuantityLabel => 'Quantity';
+
+  @override
+  String get inventoryInboundQuantityRequired => 'Quantity is required.';
+
+  @override
+  String get inventoryInboundQuantityMin => 'Quantity must be greater than 0.';
+
+  @override
+  String get inventoryInboundCostPriceLabel => 'Cost Price';
+
+  @override
+  String get inventoryInboundCostPriceRequired => 'Cost price is required.';
+
+  @override
+  String get inventoryInboundMrpLabel => 'MRP';
+
+  @override
+  String get inventoryInboundMrpRequired => 'MRP is required.';
+
+  @override
+  String get inventoryInboundSalesPriceLabel => 'Sales Price';
+
+  @override
+  String get inventoryInboundSalesPriceRequired => 'Sales price is required.';
+
+  @override
+  String get inventoryInboundTaxRateLabel => 'Tax Rate (%)';
+
+  @override
+  String get inventoryInboundTaxRateRange =>
+      'Tax rate must be between 0 and 100.';
+
+  @override
+  String get inventoryInboundTaxIncludedLabel => 'Tax Included';
+
+  @override
+  String get inventoryInboundExpiryDateLabel => 'Expiry Date';
+
+  @override
+  String get inventoryInboundManufacturingDateLabel => 'Manufacturing Date';
+
+  @override
+  String get inventoryInboundReferenceLabel => 'Reference Number';
+
+  @override
+  String get inventoryInboundReferenceMax =>
+      'Reference must be 80 characters or fewer.';
+
+  @override
+  String get inventoryInboundNotesLabel => 'Notes';
+
+  @override
+  String get inventoryInboundNotesMax =>
+      'Notes must be 500 characters or fewer.';
+
+  @override
+  String get inventoryInboundNumberInvalid => 'Enter a valid number.';
+
+  @override
+  String get inventoryInboundSuccess => 'Inventory added successfully.';
+
+  @override
+  String get inventoryInboundErrorGeneric =>
+      'Unable to add inventory. Please try again.';
+
+  @override
+  String get inventoryInboundErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryInboundErrorTimeout =>
+      'Request timed out. Please try again.';
 
   @override
   String get placeholderBody => 'This feature is coming soon.';

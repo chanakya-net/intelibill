@@ -12,6 +12,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_pag
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
 
@@ -112,10 +113,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.inventoryBatch,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellBatchInventoryInbound,
-            ),
+            builder: (context, state) => const AddInventoryPage(),
           ),
           GoRoute(
             path: AppRoutes.inventoryBatches,
