@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "mobile tests",
-  "message": "0/0 passed",
-  "color": "lightgrey"
+  "message": "379/379 passed",
+  "color": "brightgreen"
 }
