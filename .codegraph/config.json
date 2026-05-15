@@ -1,12 +1,14 @@
 {
   "version": 1,
   "include": [
-    "**/*.cs",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.dart",
-    "**/*.html",
-    "**/*.json"
+    "src/backend/**/*.cs",
+    "src/frontend/**/*.ts",
+    "src/frontend/**/*.tsx",
+    "src/frontend/**/*.html",
+    "src/mobile/android/intelibill_mobile/**/*.dart",
+    "src/mobile/android/intelibill_mobile/**/*.html",
+    "src/mobile/android/intelibill_mobile/**/*.json",
+    "tests/**/*.cs"
   ],
   "exclude": [
     "**/.git/**",
@@ -18,7 +20,11 @@
     "**/.dart_tool/**",
     "**/coverage/**",
     "**/TestResults/**",
-    "**/*.min.js"
+    "**/*.min.js",
+    "**/*.g.dart",
+    "**/*.freezed.dart",
+    "src/mobile/android/intelibill_mobile/android/**",
+    "src/mobile/android/intelibill_mobile/build/**"
   ],
   "maxFileSize": 1048576,
   "extractDocstrings": true,

@@ -4,10 +4,10 @@ AI-powered inventory management system.
 
 ## Build Status
 
-| | Backend | Frontend |
-|---|---|---|
-| Build | [![Backend CI](.github/badges/backend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend CI](.github/badges/frontend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
-| Tests | [![Tests](.github/badges/tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend Tests](.github/badges/frontend-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) |
+| | Backend | Frontend | Mobile |
+|---|---|---|---|
+| Build | [![Backend CI](.github/badges/backend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend CI](.github/badges/frontend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) | [![Mobile CI](.github/badges/mobile-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
+| Tests | [![Tests](.github/badges/tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend Tests](.github/badges/frontend-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) | [![Mobile Tests](.github/badges/mobile-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
 
 ## Tech Stack
 

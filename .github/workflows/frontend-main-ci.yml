@@ -66,12 +66,12 @@ jobs:
             test_log='TestResults/frontend/test-output.log'
           fi
 
-          tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
-          files_line=$(grep -E 'Test Files[[:space:]]+[0-9]+[[:space:]]+passed[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+          tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+          files_line=$(grep -E 'Test Files[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
 
-          tests_passed=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+\([0-9][0-9]*\)[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
-          tests_total=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+[0-9][0-9]*[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
-          test_files_total=$(printf '%s\n' "${files_line}" | sed -n 's/.*Test Files[[:space:]]\+[0-9][0-9]*[[:space:]]\+passed[[:space:]]\+(\([0-9][0-9]*\)).*/\1/p')
+          tests_passed=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+\([0-9][0-9]*\)[[:space:]]\+passed.*/\1/p')
+          tests_total=$(printf '%s\n' "${tests_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
+          test_files_total=$(printf '%s\n' "${files_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
 
           tests_passed=${tests_passed:-0}
           tests_total=${tests_total:-0}
