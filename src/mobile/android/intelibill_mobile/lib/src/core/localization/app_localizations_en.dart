@@ -356,6 +356,120 @@ class AppLocalizationsEn extends AppLocalizations {
       'Create a product linked to your current active shop.';
 
   @override
+  String get inventoryProductsNoProductsFound => 'No products found';
+
+  @override
+  String get inventoryProductsUnableToLoad => 'Unable to load products';
+
+  @override
+  String get inventoryProductsRetry => 'Retry';
+
+  @override
+  String get inventoryProductsInactive => 'Inactive';
+
+  @override
+  String get inventoryProductsAddProduct => 'Add Product';
+
+  @override
+  String get inventoryProductsCreateSuccess => 'Product created successfully.';
+
+  @override
+  String get inventoryProductsUpdateSuccess => 'Product updated successfully.';
+
+  @override
+  String get inventoryCreateTitle => 'Add Product';
+
+  @override
+  String get inventoryCreateNameLabel => 'Name';
+
+  @override
+  String get inventoryCreateNameRequired => 'Name is required.';
+
+  @override
+  String get inventoryCreateNameMax => 'Name must be 180 characters or fewer.';
+
+  @override
+  String get inventoryCreateBarcodeLabel => 'Barcode';
+
+  @override
+  String get inventoryCreateBarcodeRequired => 'Barcode is required.';
+
+  @override
+  String get inventoryCreateBarcodeMax =>
+      'Barcode must be 120 characters or fewer.';
+
+  @override
+  String get inventoryCreateUomLabel => 'Unit of Measure';
+
+  @override
+  String get inventoryCreateUomRequired => 'Unit of measure is required.';
+
+  @override
+  String get inventoryCreateUomMax => 'UOM must be 40 characters or fewer.';
+
+  @override
+  String get inventoryCreateDescriptionLabel => 'Description';
+
+  @override
+  String get inventoryCreateDescriptionMax =>
+      'Description must be 320 characters or fewer.';
+
+  @override
+  String get inventoryCreateProductActiveLabel => 'Active';
+
+  @override
+  String get inventoryCreateErrorGeneric =>
+      'Unable to save product. Please try again.';
+
+  @override
+  String get inventoryCreateErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryCreateErrorForbidden =>
+      'You do not have permission to manage products.';
+
+  @override
+  String get inventoryCreateErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryCreateErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryUpdateTitle => 'Edit Product';
+
+  @override
+  String get inventoryProductErrorGeneric =>
+      'Unable to load products. Please try again.';
+
+  @override
+  String get inventoryProductErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryProductErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryProductErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryProductErrorForbidden =>
+      'You do not have permission to view products.';
+
+  @override
+  String get inventoryMenuAddInventory => 'Add Inventory';
+
+  @override
+  String get inventoryMenuBatchOverview => 'Batch Overview';
+
+  @override
+  String get inventoryMenuAdjustmentHistory => 'Adjustment History';
+
+  @override
   String get placeholderBody => 'This feature is coming soon.';
 
   @override
@@ -827,6 +941,120 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   @override
   String get inventoryAddNewProductDescription =>
       'Create a product linked to your current active shop.';
+
+  @override
+  String get inventoryProductsNoProductsFound => 'No products found';
+
+  @override
+  String get inventoryProductsUnableToLoad => 'Unable to load products';
+
+  @override
+  String get inventoryProductsRetry => 'Retry';
+
+  @override
+  String get inventoryProductsInactive => 'Inactive';
+
+  @override
+  String get inventoryProductsAddProduct => 'Add Product';
+
+  @override
+  String get inventoryProductsCreateSuccess => 'Product created successfully.';
+
+  @override
+  String get inventoryProductsUpdateSuccess => 'Product updated successfully.';
+
+  @override
+  String get inventoryCreateTitle => 'Add Product';
+
+  @override
+  String get inventoryCreateNameLabel => 'Name';
+
+  @override
+  String get inventoryCreateNameRequired => 'Name is required.';
+
+  @override
+  String get inventoryCreateNameMax => 'Name must be 180 characters or fewer.';
+
+  @override
+  String get inventoryCreateBarcodeLabel => 'Barcode';
+
+  @override
+  String get inventoryCreateBarcodeRequired => 'Barcode is required.';
+
+  @override
+  String get inventoryCreateBarcodeMax =>
+      'Barcode must be 120 characters or fewer.';
+
+  @override
+  String get inventoryCreateUomLabel => 'Unit of Measure';
+
+  @override
+  String get inventoryCreateUomRequired => 'Unit of measure is required.';
+
+  @override
+  String get inventoryCreateUomMax => 'UOM must be 40 characters or fewer.';
+
+  @override
+  String get inventoryCreateDescriptionLabel => 'Description';
+
+  @override
+  String get inventoryCreateDescriptionMax =>
+      'Description must be 320 characters or fewer.';
+
+  @override
+  String get inventoryCreateProductActiveLabel => 'Active';
+
+  @override
+  String get inventoryCreateErrorGeneric =>
+      'Unable to save product. Please try again.';
+
+  @override
+  String get inventoryCreateErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryCreateErrorForbidden =>
+      'You do not have permission to manage products.';
+
+  @override
+  String get inventoryCreateErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryCreateErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryUpdateTitle => 'Edit Product';
+
+  @override
+  String get inventoryProductErrorGeneric =>
+      'Unable to load products. Please try again.';
+
+  @override
+  String get inventoryProductErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get inventoryProductErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get inventoryProductErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get inventoryProductErrorForbidden =>
+      'You do not have permission to view products.';
+
+  @override
+  String get inventoryMenuAddInventory => 'Add Inventory';
+
+  @override
+  String get inventoryMenuBatchOverview => 'Batch Overview';
+
+  @override
+  String get inventoryMenuAdjustmentHistory => 'Adjustment History';
 
   @override
   String get placeholderBody => 'This feature is coming soon.';

@@ -775,6 +775,210 @@ abstract class AppLocalizations {
   /// **'Create a product linked to your current active shop.'**
   String get inventoryAddNewProductDescription;
 
+  /// No description provided for @inventoryProductsNoProductsFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No products found'**
+  String get inventoryProductsNoProductsFound;
+
+  /// No description provided for @inventoryProductsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load products'**
+  String get inventoryProductsUnableToLoad;
+
+  /// No description provided for @inventoryProductsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get inventoryProductsRetry;
+
+  /// No description provided for @inventoryProductsInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get inventoryProductsInactive;
+
+  /// No description provided for @inventoryProductsAddProduct.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Product'**
+  String get inventoryProductsAddProduct;
+
+  /// No description provided for @inventoryProductsCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product created successfully.'**
+  String get inventoryProductsCreateSuccess;
+
+  /// No description provided for @inventoryProductsUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product updated successfully.'**
+  String get inventoryProductsUpdateSuccess;
+
+  /// No description provided for @inventoryCreateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Product'**
+  String get inventoryCreateTitle;
+
+  /// No description provided for @inventoryCreateNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name'**
+  String get inventoryCreateNameLabel;
+
+  /// No description provided for @inventoryCreateNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name is required.'**
+  String get inventoryCreateNameRequired;
+
+  /// No description provided for @inventoryCreateNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name must be 180 characters or fewer.'**
+  String get inventoryCreateNameMax;
+
+  /// No description provided for @inventoryCreateBarcodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode'**
+  String get inventoryCreateBarcodeLabel;
+
+  /// No description provided for @inventoryCreateBarcodeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode is required.'**
+  String get inventoryCreateBarcodeRequired;
+
+  /// No description provided for @inventoryCreateBarcodeMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode must be 120 characters or fewer.'**
+  String get inventoryCreateBarcodeMax;
+
+  /// No description provided for @inventoryCreateUomLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of Measure'**
+  String get inventoryCreateUomLabel;
+
+  /// No description provided for @inventoryCreateUomRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit of measure is required.'**
+  String get inventoryCreateUomRequired;
+
+  /// No description provided for @inventoryCreateUomMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'UOM must be 40 characters or fewer.'**
+  String get inventoryCreateUomMax;
+
+  /// No description provided for @inventoryCreateDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get inventoryCreateDescriptionLabel;
+
+  /// No description provided for @inventoryCreateDescriptionMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 320 characters or fewer.'**
+  String get inventoryCreateDescriptionMax;
+
+  /// No description provided for @inventoryCreateProductActiveLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get inventoryCreateProductActiveLabel;
+
+  /// No description provided for @inventoryCreateErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save product. Please try again.'**
+  String get inventoryCreateErrorGeneric;
+
+  /// No description provided for @inventoryCreateErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryCreateErrorUnauthorized;
+
+  /// No description provided for @inventoryCreateErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage products.'**
+  String get inventoryCreateErrorForbidden;
+
+  /// No description provided for @inventoryCreateErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryCreateErrorNetwork;
+
+  /// No description provided for @inventoryCreateErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryCreateErrorTimeout;
+
+  /// No description provided for @inventoryUpdateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Product'**
+  String get inventoryUpdateTitle;
+
+  /// No description provided for @inventoryProductErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load products. Please try again.'**
+  String get inventoryProductErrorGeneric;
+
+  /// No description provided for @inventoryProductErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get inventoryProductErrorNetwork;
+
+  /// No description provided for @inventoryProductErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get inventoryProductErrorTimeout;
+
+  /// No description provided for @inventoryProductErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get inventoryProductErrorUnauthorized;
+
+  /// No description provided for @inventoryProductErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view products.'**
+  String get inventoryProductErrorForbidden;
+
+  /// No description provided for @inventoryMenuAddInventory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Inventory'**
+  String get inventoryMenuAddInventory;
+
+  /// No description provided for @inventoryMenuBatchOverview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch Overview'**
+  String get inventoryMenuBatchOverview;
+
+  /// No description provided for @inventoryMenuAdjustmentHistory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Adjustment History'**
+  String get inventoryMenuAdjustmentHistory;
+
   /// No description provided for @placeholderBody.
   ///
   /// In en_IN, this message translates to:
