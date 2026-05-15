@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
 import 'package:intelibill_mobile/src/core/storage/preferences_storage.dart';
 import 'package:intelibill_mobile/src/core/storage/secure_storage.dart';
-import 'package:intelibill_mobile/src/features/app_status/presentation/controllers/app_status_controller.dart';
 import 'package:intelibill_mobile/src/features/auth/data/data_sources/auth_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
