@@ -14,6 +14,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/controller
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/edit_item_sheet.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _StubItemsController extends ItemsController {
@@ -39,6 +40,8 @@ class MockGetItems extends Mock implements GetItems {}
 class MockCreateItem extends Mock implements CreateItem {}
 
 class MockUpdateItem extends Mock implements UpdateItem {}
+
+class MockNavigatorObserver extends Mock implements NavigatorObserver {}
 
 const _loadedState = ItemsState(
   items: [
@@ -88,6 +91,7 @@ Widget _buildManageFlowApp({
   required MockGetItems getItems,
   required MockCreateItem createItem,
   required MockUpdateItem updateItem,
+  NavigatorObserver? navigatorObserver,
 }) {
   return ProviderScope(
     overrides: [
@@ -102,12 +106,19 @@ Widget _buildManageFlowApp({
       theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      navigatorObservers: navigatorObserver != null ? [navigatorObserver] : [],
       home: const ItemsPage(),
     ),
   );
 }
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(
+      MaterialPageRoute<BarcodeScanResult?>(builder: (_) => const SizedBox()),
+    );
+  });
+
   group('ItemsPage', () {
     testWidgets('shows loading indicator when loading', (tester) async {
       await tester.pumpWidget(
@@ -317,6 +328,252 @@ void main() {
       expect(find.text('Product updated successfully.'), findsOneWidget);
       verify(getItems.call).called(greaterThanOrEqualTo(2));
     });
+
+    testWidgets('create product scan button fills barcode field', (
+      tester,
+    ) async {
+      final getItems = MockGetItems();
+      final createItem = MockCreateItem();
+      final updateItem = MockUpdateItem();
+
+      when(getItems.call).thenAnswer((_) async => _loadedState.items);
+      when(
+        () => createItem(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+          uom: any(named: 'uom'),
+          description: any(named: 'description'),
+        ),
+      ).thenAnswer(
+        (_) async => const Item(
+          itemId: 'item-3',
+          name: 'New Product',
+          barcode: 'SCANNED123',
+          uom: 'pcs',
+          isActive: true,
+          currentStock: 0,
+        ),
+      );
+
+      final observer = MockNavigatorObserver();
+      await tester.pumpWidget(
+        _buildManageFlowApp(
+          session: _session('Owner'),
+          getItems: getItems,
+          createItem: createItem,
+          updateItem: updateItem,
+          navigatorObserver: observer,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ItemsPage.addProductFabKey));
+      await tester.pumpAndSettle();
+
+      // Tap scan button and verify scanner was opened
+      await tester.tap(find.byKey(CreateItemSheet.scanBarcodeButtonKey));
+      await tester.pump();
+
+      final capturedRoute =
+          verify(
+                () => observer.didPush(captureAny(), any()),
+              ).captured.last
+              as Route<dynamic>;
+      expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
+
+      // Simulate scan result
+      Navigator.of(tester.element(find.byType(CreateItemSheet))).pop(
+        const BarcodeScanResult(value: 'SCANNED123'),
+      );
+      await tester.pumpAndSettle();
+
+      final barcodeField = tester.widget<TextFormField>(
+        find.byKey(CreateItemSheet.barcodeFieldKey),
+      );
+      expect(barcodeField.controller?.text, 'SCANNED123');
+    });
+
+    testWidgets('edit product scan button replaces barcode field', (
+      tester,
+    ) async {
+      final getItems = MockGetItems();
+      final createItem = MockCreateItem();
+      final updateItem = MockUpdateItem();
+
+      when(getItems.call).thenAnswer((_) async => _loadedState.items);
+      when(
+        () => createItem(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+          uom: any(named: 'uom'),
+          description: any(named: 'description'),
+        ),
+      ).thenAnswer((_) async => _loadedState.items.first);
+      when(
+        () => updateItem(
+          itemId: any(named: 'itemId'),
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+          uom: any(named: 'uom'),
+          description: any(named: 'description'),
+          isActive: any(named: 'isActive'),
+        ),
+      ).thenAnswer((_) async => _loadedState.items.first);
+
+      final observer = MockNavigatorObserver();
+      await tester.pumpWidget(
+        _buildManageFlowApp(
+          session: _session('Owner'),
+          getItems: getItems,
+          createItem: createItem,
+          updateItem: updateItem,
+          navigatorObserver: observer,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Widget Alpha'));
+      await tester.pumpAndSettle();
+
+      // Tap scan button and verify scanner was opened
+      await tester.tap(find.byKey(EditItemSheet.scanBarcodeButtonKey));
+      await tester.pump();
+
+      final capturedRoute =
+          verify(
+                () => observer.didPush(captureAny(), any()),
+              ).captured.last
+              as Route<dynamic>;
+      expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
+
+      // Simulate scan result
+      Navigator.of(tester.element(find.byType(EditItemSheet))).pop(
+        const BarcodeScanResult(value: 'SCANNED456'),
+      );
+      await tester.pumpAndSettle();
+
+      final barcodeField = tester.widget<TextFormField>(
+        find.byKey(EditItemSheet.barcodeFieldKey),
+      );
+      expect(barcodeField.controller?.text, 'SCANNED456');
+    });
+
+    testWidgets(
+      'create product with long scanned barcode shows validation error',
+      (tester) async {
+        final getItems = MockGetItems();
+        final createItem = MockCreateItem();
+        final updateItem = MockUpdateItem();
+
+        when(getItems.call).thenAnswer((_) async => _loadedState.items);
+        when(
+          () => createItem(
+            name: any(named: 'name'),
+            barcode: any(named: 'barcode'),
+            uom: any(named: 'uom'),
+            description: any(named: 'description'),
+          ),
+        ).thenAnswer((_) async => _loadedState.items.first);
+
+        final observer = MockNavigatorObserver();
+        await tester.pumpWidget(
+          _buildManageFlowApp(
+            session: _session('Owner'),
+            getItems: getItems,
+            createItem: createItem,
+            updateItem: updateItem,
+            navigatorObserver: observer,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(ItemsPage.addProductFabKey));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(CreateItemSheet.nameFieldKey),
+          'Test Product',
+        );
+        await tester.enterText(
+          find.byKey(CreateItemSheet.uomFieldKey),
+          'pcs',
+        );
+
+        // Tap scan button and simulate a long barcode result
+        await tester.tap(find.byKey(CreateItemSheet.scanBarcodeButtonKey));
+        await tester.pump();
+
+        final longBarcode = 'x' * 121;
+        Navigator.of(tester.element(find.byType(CreateItemSheet))).pop(
+          BarcodeScanResult(value: longBarcode),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Barcode must be 120 characters or fewer.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'edit product with long scanned barcode shows validation error',
+      (tester) async {
+        final getItems = MockGetItems();
+        final createItem = MockCreateItem();
+        final updateItem = MockUpdateItem();
+
+        when(getItems.call).thenAnswer((_) async => _loadedState.items);
+        when(
+          () => createItem(
+            name: any(named: 'name'),
+            barcode: any(named: 'barcode'),
+            uom: any(named: 'uom'),
+            description: any(named: 'description'),
+          ),
+        ).thenAnswer((_) async => _loadedState.items.first);
+        when(
+          () => updateItem(
+            itemId: any(named: 'itemId'),
+            name: any(named: 'name'),
+            barcode: any(named: 'barcode'),
+            uom: any(named: 'uom'),
+            description: any(named: 'description'),
+            isActive: any(named: 'isActive'),
+          ),
+        ).thenAnswer((_) async => _loadedState.items.first);
+
+        final observer = MockNavigatorObserver();
+        await tester.pumpWidget(
+          _buildManageFlowApp(
+            session: _session('Owner'),
+            getItems: getItems,
+            createItem: createItem,
+            updateItem: updateItem,
+            navigatorObserver: observer,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Widget Alpha'));
+        await tester.pumpAndSettle();
+
+        // Tap scan button and simulate a long barcode result
+        await tester.tap(find.byKey(EditItemSheet.scanBarcodeButtonKey));
+        await tester.pump();
+
+        final longBarcode = 'x' * 121;
+        Navigator.of(tester.element(find.byType(EditItemSheet))).pop(
+          BarcodeScanResult(value: longBarcode),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Barcode must be 120 characters or fewer.'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
 

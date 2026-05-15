@@ -263,5 +263,11 @@
   "profileSettingsTitle": "Profile Settings",
   "profileSettingsActiveShop": "Active Shop",
   "profileSettingsEditProfile": "Edit Profile",
-  "profileSettingsChangePassword": "Change Password"
+  "profileSettingsChangePassword": "Change Password",
+  "barcodeScannerTitle": "Scan Barcode",
+  "barcodeScannerHint": "Point the camera at a barcode",
+  "barcodeScannerSearching": "Starting camera...",
+  "barcodeScannerSuccess": "Barcode detected",
+  "barcodeScannerPermissionDenied": "Camera permission denied",
+  "barcodeScannerUnavailable": "Scanner unavailable"
 }

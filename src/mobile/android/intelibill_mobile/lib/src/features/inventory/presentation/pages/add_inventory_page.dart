@@ -11,12 +11,14 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.da
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/add_inventory_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 
 class AddInventoryPage extends ConsumerStatefulWidget {
   const AddInventoryPage({super.key});
 
   static const itemNameFieldKey = Key('add-inventory-item-name');
   static const barcodeFieldKey = Key('add-inventory-barcode');
+  static const scanBarcodeButtonKey = Key('add-inventory-scan-barcode');
   static const uomFieldKey = Key('add-inventory-uom');
   static const batchNumberFieldKey = Key('add-inventory-batch-number');
   static const quantityFieldKey = Key('add-inventory-quantity');
@@ -195,6 +197,11 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
                           decoration: InputDecoration(
                             labelText: l10n.inventoryInboundBarcodeLabel,
                             border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              key: AddInventoryPage.scanBarcodeButtonKey,
+                              icon: const Icon(Icons.qr_code_scanner),
+                              onPressed: isSubmitting ? null : _scanBarcode,
+                            ),
                           ),
                           validator: (value) => _validateRequired(
                             value,
@@ -487,6 +494,31 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
     if (_uomController.text.trim().isEmpty) {
       _uomController.text = item.uom;
     }
+    unawaited(_fetchAndFillProductDetails());
+  }
+
+  Future<void> _scanBarcode() async {
+    final result = await showBarcodeScanner(context);
+    if (result == null || result.value.isEmpty) return;
+
+    if (!mounted) return;
+
+    setState(() {
+      _barcodeController.text = result.value;
+
+      final itemCatalog = ref.read(itemsControllerProvider).items;
+      final matchedItem = itemCatalog
+          .where((item) => item.isActive && item.barcode == result.value)
+          .firstOrNull;
+
+      if (matchedItem != null) {
+        _itemNameController.text = matchedItem.name;
+        if (_uomController.text.trim().isEmpty) {
+          _uomController.text = matchedItem.uom;
+        }
+      }
+    });
+
     unawaited(_fetchAndFillProductDetails());
   }
 

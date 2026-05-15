@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_pr
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/add_inventory_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _StubAddInventoryController extends AddInventoryController {
@@ -25,6 +26,8 @@ class _StubAddInventoryController extends AddInventoryController {
 class MockAddInventoryInbound extends Mock implements AddInventoryInbound {}
 
 class MockGetProductDetails extends Mock implements GetProductDetails {}
+
+class MockNavigatorObserver extends Mock implements NavigatorObserver {}
 
 const _catalogItems = [
   Item(
@@ -107,6 +110,12 @@ Widget _buildAppWithUseCase(MockAddInventoryInbound useCase) {
 }
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(
+      MaterialPageRoute<BarcodeScanResult?>(builder: (_) => const SizedBox()),
+    );
+  });
+
   group('AddInventoryPage', () {
     testWidgets('renders all expected fields', (tester) async {
       await tester.pumpWidget(_buildAppWithState(const AddInventoryState()));
@@ -114,6 +123,7 @@ void main() {
 
       expect(find.byKey(AddInventoryPage.itemNameFieldKey), findsOneWidget);
       expect(find.byKey(AddInventoryPage.barcodeFieldKey), findsOneWidget);
+      expect(find.byKey(AddInventoryPage.scanBarcodeButtonKey), findsOneWidget);
       expect(find.byKey(AddInventoryPage.uomFieldKey), findsOneWidget);
       expect(find.byKey(AddInventoryPage.batchNumberFieldKey), findsOneWidget);
       expect(find.byKey(AddInventoryPage.quantityFieldKey), findsOneWidget);
@@ -359,6 +369,205 @@ void main() {
 
       expect(
         find.text('Unable to connect. Please check your network.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('scanning a barcode fills the field and fetches details', (
+      tester,
+    ) async {
+      final getProductDetails = MockGetProductDetails();
+      when(
+        () => getProductDetails(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer(
+        (_) async => const ProductDetails(
+          name: 'Scanned Item',
+          description: '',
+          uom: 'pcs',
+          costPrice: 10,
+          mrp: 15,
+          salesPrice: 12,
+        ),
+      );
+
+      final observer = MockNavigatorObserver();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            addInventoryControllerProvider.overrideWith(
+              () => _StubAddInventoryController(const AddInventoryState()),
+            ),
+            itemsControllerProvider.overrideWithValue(const ItemsState()),
+            getProductDetailsProvider.overrideWithValue(getProductDetails),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            navigatorObservers: [observer],
+            home: const AddInventoryPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(AddInventoryPage.scanBarcodeButtonKey));
+      await tester.pump();
+
+      // Verify scanner was opened
+      final capturedRoute =
+          verify(
+                () => observer.didPush(captureAny(), any()),
+              ).captured.last
+              as Route<dynamic>;
+      expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
+
+      // Simulate scan result
+      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
+        const BarcodeScanResult(value: 'SCANNED123'),
+      );
+      await tester.pumpAndSettle();
+
+      final barcodeField = tester.widget<TextFormField>(
+        find.byKey(AddInventoryPage.barcodeFieldKey),
+      );
+      expect(barcodeField.controller?.text, 'SCANNED123');
+
+      // Verify details were fetched
+      expect(find.text('Scanned Item'), findsOneWidget);
+      verify(() => getProductDetails(barcode: 'SCANNED123')).called(1);
+    });
+
+    testWidgets('scanning a catalog barcode autofills name and UOM', (
+      tester,
+    ) async {
+      final getProductDetails = MockGetProductDetails();
+      when(
+        () => getProductDetails(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer(
+        (_) async => const ProductDetails(
+          name: 'Milk',
+          description: '',
+          uom: 'ltr',
+          costPrice: 20,
+          mrp: 25,
+          salesPrice: 22,
+        ),
+      );
+
+      final observer = MockNavigatorObserver();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            addInventoryControllerProvider.overrideWith(
+              () => _StubAddInventoryController(const AddInventoryState()),
+            ),
+            itemsControllerProvider.overrideWithValue(
+              const ItemsState(items: _catalogItems),
+            ),
+            getProductDetailsProvider.overrideWithValue(getProductDetails),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            navigatorObservers: [observer],
+            home: const AddInventoryPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(AddInventoryPage.scanBarcodeButtonKey));
+      await tester.pump();
+
+      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
+        const BarcodeScanResult(value: 'BAR001'),
+      );
+      await tester.pumpAndSettle();
+
+      final itemNameField = tester.widget<TextFormField>(
+        find.byKey(AddInventoryPage.itemNameFieldKey),
+      );
+      final barcodeField = tester.widget<TextFormField>(
+        find.byKey(AddInventoryPage.barcodeFieldKey),
+      );
+      final uomField = tester.widget<TextFormField>(
+        find.byKey(AddInventoryPage.uomFieldKey),
+      );
+
+      expect(itemNameField.controller?.text, 'Milk');
+      expect(barcodeField.controller?.text, 'BAR001');
+      expect(uomField.controller?.text, 'ltr');
+
+      verify(
+        () => getProductDetails(name: 'Milk', barcode: 'BAR001'),
+      ).called(1);
+    });
+
+    testWidgets('long scanned barcode shows validation error', (tester) async {
+      final getProductDetails = MockGetProductDetails();
+      when(
+        () => getProductDetails(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer(
+        (_) async => const ProductDetails(
+          name: '',
+          description: '',
+          uom: '',
+          costPrice: 0,
+          mrp: 0,
+          salesPrice: 0,
+        ),
+      );
+
+      final observer = MockNavigatorObserver();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            addInventoryControllerProvider.overrideWith(
+              () => _StubAddInventoryController(const AddInventoryState()),
+            ),
+            itemsControllerProvider.overrideWithValue(const ItemsState()),
+            getProductDetailsProvider.overrideWithValue(getProductDetails),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            navigatorObservers: [observer],
+            home: const AddInventoryPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(AddInventoryPage.scanBarcodeButtonKey));
+      await tester.pump();
+
+      final longBarcode = 'B' * 121;
+      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
+        BarcodeScanResult(value: longBarcode),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(longBarcode), findsOneWidget);
+
+      // Trigger validation by tapping submit
+      await tester.ensureVisible(find.byKey(AddInventoryPage.submitButtonKey));
+      await tester.tap(find.byKey(AddInventoryPage.submitButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Barcode must be 120 characters or fewer.'),
         findsOneWidget,
       );
     });

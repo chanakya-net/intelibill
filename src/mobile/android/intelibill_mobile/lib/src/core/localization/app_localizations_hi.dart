@@ -853,6 +853,24 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
+
+  @override
+  String get barcodeScannerTitle => 'Scan Barcode';
+
+  @override
+  String get barcodeScannerHint => 'Point the camera at a barcode';
+
+  @override
+  String get barcodeScannerSearching => 'Starting camera...';
+
+  @override
+  String get barcodeScannerSuccess => 'Barcode detected';
+
+  @override
+  String get barcodeScannerPermissionDenied => 'Camera permission denied';
+
+  @override
+  String get barcodeScannerUnavailable => 'Scanner unavailable';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -1558,4 +1576,22 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
+
+  @override
+  String get barcodeScannerTitle => 'Scan Barcode';
+
+  @override
+  String get barcodeScannerHint => 'Point the camera at a barcode';
+
+  @override
+  String get barcodeScannerSearching => 'Starting camera...';
+
+  @override
+  String get barcodeScannerSuccess => 'Barcode detected';
+
+  @override
+  String get barcodeScannerPermissionDenied => 'Camera permission denied';
+
+  @override
+  String get barcodeScannerUnavailable => 'Scanner unavailable';
 }

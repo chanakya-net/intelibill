@@ -48,6 +48,7 @@ void main() {
       expect(find.text('Ready'), findsOneWidget);
       expect(find.text('https://api.example.com'), findsOneWidget);
       expect(find.text('test'), findsOneWidget);
+      expect(find.text('2026-05-14 10:00:00 UTC'), findsOneWidget);
     });
 
     testWidgets('renders retry state on failure', (tester) async {
