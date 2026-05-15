@@ -1704,6 +1704,42 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Cost impact'**
   String get inventoryAdjustmentsCostImpactLabel;
+
+  /// No description provided for @barcodeScannerTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Scan Barcode'**
+  String get barcodeScannerTitle;
+
+  /// No description provided for @barcodeScannerHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Point the camera at a barcode'**
+  String get barcodeScannerHint;
+
+  /// No description provided for @barcodeScannerSearching.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starting camera...'**
+  String get barcodeScannerSearching;
+
+  /// No description provided for @barcodeScannerSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode detected'**
+  String get barcodeScannerSuccess;
+
+  /// No description provided for @barcodeScannerPermissionDenied.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Camera permission denied'**
+  String get barcodeScannerPermissionDenied;
+
+  /// No description provided for @barcodeScannerUnavailable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Scanner unavailable'**
+  String get barcodeScannerUnavailable;
 }
 
 class _AppLocalizationsDelegate

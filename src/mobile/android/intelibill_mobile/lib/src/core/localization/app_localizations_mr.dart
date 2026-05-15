@@ -852,6 +852,24 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
+
+  @override
+  String get barcodeScannerTitle => 'Scan Barcode';
+
+  @override
+  String get barcodeScannerHint => 'Point the camera at a barcode';
+
+  @override
+  String get barcodeScannerSearching => 'Starting camera...';
+
+  @override
+  String get barcodeScannerSuccess => 'Barcode detected';
+
+  @override
+  String get barcodeScannerPermissionDenied => 'Camera permission denied';
+
+  @override
+  String get barcodeScannerUnavailable => 'Scanner unavailable';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
@@ -1462,4 +1480,22 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
 
   @override
   String get inventoryAdjustmentsCostImpactLabel => 'Cost impact';
+
+  @override
+  String get barcodeScannerTitle => 'Scan Barcode';
+
+  @override
+  String get barcodeScannerHint => 'Point the camera at a barcode';
+
+  @override
+  String get barcodeScannerSearching => 'Starting camera...';
+
+  @override
+  String get barcodeScannerSuccess => 'Barcode detected';
+
+  @override
+  String get barcodeScannerPermissionDenied => 'Camera permission denied';
+
+  @override
+  String get barcodeScannerUnavailable => 'Scanner unavailable';
 }
