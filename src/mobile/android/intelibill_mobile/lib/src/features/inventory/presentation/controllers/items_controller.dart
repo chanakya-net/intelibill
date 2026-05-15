@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.da
 import 'package:intelibill_mobile/src/features/inventory/domain/repositories/inventory_repository.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/create_item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/update_item.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -31,6 +32,12 @@ InventoryRepository inventoryRepository(Ref ref) {
 GetItems getItems(Ref ref) {
   final repository = ref.watch(inventoryRepositoryProvider);
   return GetItems(repository);
+}
+
+@riverpod
+GetProductDetails getProductDetails(Ref ref) {
+  final repository = ref.watch(inventoryRepositoryProvider);
+  return GetProductDetails(repository);
 }
 
 @riverpod
@@ -94,8 +101,9 @@ class ItemsState {
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearError ? null : (failure ?? this.failure),
-      submitFailure:
-          clearSubmitError ? null : (submitFailure ?? this.submitFailure),
+      submitFailure: clearSubmitError
+          ? null
+          : (submitFailure ?? this.submitFailure),
       lastAction: clearLastAction ? null : (lastAction ?? this.lastAction),
     );
   }

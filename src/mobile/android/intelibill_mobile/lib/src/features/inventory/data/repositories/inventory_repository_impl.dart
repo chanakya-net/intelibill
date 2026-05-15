@@ -9,9 +9,11 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_re
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_adjustment_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_batch_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/item_mapper.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/mappers/product_details_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/repositories/inventory_repository.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
@@ -53,14 +55,40 @@ class InventoryRepositoryImpl implements InventoryRepository {
         name: normalizedName,
         barcode: normalizedBarcode,
         uom: normalizedUom,
-        description: (normalizedDescription == null ||
-                normalizedDescription.isEmpty)
+        description:
+            (normalizedDescription == null || normalizedDescription.isEmpty)
             ? null
             : normalizedDescription,
         isActive: true,
       );
       final dto = await _remoteDataSource.createItem(request);
       return ItemMapper.toDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(
+        failure: Failure.unknown(message: error.toString()),
+      );
+    }
+  }
+
+  @override
+  Future<ProductDetails> getProductDetails({
+    String? name,
+    String? barcode,
+  }) async {
+    try {
+      final normalizedName = name?.trim();
+      final normalizedBarcode = barcode?.trim();
+      final dto = await _remoteDataSource.getProductDetails(
+        name: normalizedName?.isEmpty == true ? null : normalizedName,
+        barcode: normalizedBarcode?.isEmpty == true ? null : normalizedBarcode,
+      );
+      return ProductDetailsMapper.toDomain(dto);
     } on AppException {
       rethrow;
     } on FormatException catch (error) {
@@ -92,8 +120,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         name: normalizedName,
         barcode: normalizedBarcode,
         uom: normalizedUom,
-        description: (normalizedDescription == null ||
-                normalizedDescription.isEmpty)
+        description:
+            (normalizedDescription == null || normalizedDescription.isEmpty)
             ? null
             : normalizedDescription,
         isActive: isActive,
@@ -134,8 +162,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }) async {
     try {
       final clientRowId = DateTime.now().millisecondsSinceEpoch.toString();
-      final effectiveBatchNumber =
-          batchNumber?.trim().isNotEmpty == true ? batchNumber!.trim() : 'AUTO';
+      final effectiveBatchNumber = batchNumber?.trim().isNotEmpty == true
+          ? batchNumber!.trim()
+          : 'AUTO';
       final row = AddInventoryBatchRowDto(
         clientRowId: clientRowId,
         itemName: itemName.trim(),
@@ -158,10 +187,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final request = AddInventoryBatchRequestDto(items: [row]);
       final response = await _remoteDataSource.addInventoryInbound(request);
       if (response.failedCount > 0) {
-        final failed =
-            response.failed.isNotEmpty ? response.failed.first : null;
-        final errorMessage =
-            failed?.errors.map((e) => e.description).join('; ');
+        final failed = response.failed.isNotEmpty
+            ? response.failed.first
+            : null;
+        final errorMessage = failed?.errors
+            .map((e) => e.description)
+            .join('; ');
         throw AppException(
           failure: Failure.validation(
             message: errorMessage?.isNotEmpty == true
@@ -243,10 +274,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
         pageNumber: pageNumber,
         pageSize: pageSize,
       );
-      final items =
-          response.items.map(InventoryAdjustmentMapper.toDomain).toList();
-      final hasMore =
-          (pageNumber * pageSize) < response.totalCount;
+      final items = response.items
+          .map(InventoryAdjustmentMapper.toDomain)
+          .toList();
+      final hasMore = (pageNumber * pageSize) < response.totalCount;
       return (items: items, hasMore: hasMore);
     } on AppException {
       rethrow;

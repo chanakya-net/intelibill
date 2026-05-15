@@ -124,6 +124,57 @@ void main() {
       });
     });
 
+    group('getProductDetails', () {
+      test('calls /items/details with name and barcode query', () async {
+        final responseData = {
+          'name': 'Rice Basmati',
+          'description': 'Premium rice',
+          'uom': 'KG',
+          'costPrice': 42.0,
+          'mrp': 50.0,
+          'salesPrice': 48.0,
+          'supplierId': 'supplier-1',
+          'supplierName': 'Acme Foods',
+          'taxIncluded': true,
+          'taxRatePercent': 18.0,
+        };
+
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            any<String>(),
+            queryParameters: any<Map<String, dynamic>>(
+              named: 'queryParameters',
+            ),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: responseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/items/details'),
+          ),
+        );
+
+        final dto = await remoteDataSource.getProductDetails(
+          name: ' Rice Basmati ',
+          barcode: ' 8901234567890 ',
+        );
+
+        expect(dto.name, 'Rice Basmati');
+        expect(dto.costPrice, 42.0);
+        expect(dto.taxIncluded, isTrue);
+
+        verify(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            '/items/details',
+            queryParameters: {
+              'name': 'Rice Basmati',
+              'barcode': '8901234567890',
+            },
+          ),
+        ).called(1);
+      });
+    });
+
     group('updateItem', () {
       test('patches /items/:id with 204 and returns void', () async {
         const request = UpdateItemRequestDto(

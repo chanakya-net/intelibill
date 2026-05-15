@@ -146,6 +146,53 @@ final class GetItemsProvider
 
 String _$getItemsHash() => r'1ab44d247f9d1d8d06052fc7bad97bd193161f01';
 
+@ProviderFor(getProductDetails)
+final getProductDetailsProvider = GetProductDetailsProvider._();
+
+final class GetProductDetailsProvider
+    extends
+        $FunctionalProvider<
+          GetProductDetails,
+          GetProductDetails,
+          GetProductDetails
+        >
+    with $Provider<GetProductDetails> {
+  GetProductDetailsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getProductDetailsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getProductDetailsHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetProductDetails> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  GetProductDetails create(Ref ref) {
+    return getProductDetails(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetProductDetails value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetProductDetails>(value),
+    );
+  }
+}
+
+String _$getProductDetailsHash() => r'7d099891ff956ac0aa5e95216d323a5901a2123a';
+
 @ProviderFor(createItem)
 final createItemProvider = CreateItemProvider._();
 

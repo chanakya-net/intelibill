@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_re
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_adjustment_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_batch_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/item_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/dto/product_details_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
 
 interface class InventoryRemoteDataSource {
@@ -14,6 +15,13 @@ interface class InventoryRemoteDataSource {
   }
 
   Future<ItemDto> createItem(CreateItemRequestDto request) {
+    throw UnimplementedError();
+  }
+
+  Future<ProductDetailsDto> getProductDetails({
+    String? name,
+    String? barcode,
+  }) {
     throw UnimplementedError();
   }
 
@@ -52,7 +60,8 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   final ApiClient _apiClient;
 
   static const String _itemsEndpoint = '/items';
-  static const String _inventoryInboundBatchEndpoint = '/inventory/inbound/batch';
+  static const String _inventoryInboundBatchEndpoint =
+      '/inventory/inbound/batch';
   static const String _inventoryBatchesEndpoint = '/inventory/batches';
   static const String _inventoryAdjustmentsEndpoint = '/inventory/adjustments';
 
@@ -72,6 +81,21 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       data: request.toJson(),
     );
     return ItemDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<ProductDetailsDto> getProductDetails({
+    String? name,
+    String? barcode,
+  }) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '$_itemsEndpoint/details',
+      queryParameters: {
+        if (name?.trim().isNotEmpty == true) 'name': name!.trim(),
+        if (barcode?.trim().isNotEmpty == true) 'barcode': barcode!.trim(),
+      },
+    );
+    return ProductDetailsDto.fromJson(response.data!);
   }
 
   @override
@@ -98,8 +122,9 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
 
   @override
   Future<List<InventoryBatchDto>> getInventoryBatches() async {
-    final response =
-        await _apiClient.get<List<dynamic>>(_inventoryBatchesEndpoint);
+    final response = await _apiClient.get<List<dynamic>>(
+      _inventoryBatchesEndpoint,
+    );
     return response.data!
         .cast<Map<String, dynamic>>()
         .map(InventoryBatchDto.fromJson)

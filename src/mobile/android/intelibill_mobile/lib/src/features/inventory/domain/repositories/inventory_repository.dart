@@ -1,6 +1,7 @@
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 
 interface class InventoryRepository {
   Future<List<Item>> getItems() {
@@ -12,6 +13,13 @@ interface class InventoryRepository {
     required String barcode,
     required String uom,
     String? description,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<ProductDetails> getProductDetails({
+    String? name,
+    String? barcode,
   }) {
     throw UnimplementedError();
   }
