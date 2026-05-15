@@ -40,6 +40,7 @@ import {
   CURRENCY_INPUT_NUMBER_PT,
   CURRENCY_SELECT_PT,
 } from '../../../shared/primeng-pt.config';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-inventory-batch-page',
@@ -769,7 +770,7 @@ export class InventoryBatchPageComponent {
   }
 
   private generateBatchNumber(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const date = formatLocalIsoDate(new Date()).replace(/-/g, '');
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let suffix = '';
     for (let i = 0; i < 5; i++) {

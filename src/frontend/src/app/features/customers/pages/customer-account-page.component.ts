@@ -15,6 +15,8 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { CustomerAccount, CustomerService } from '../services/customer.service';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 @Component({
   selector: 'app-customer-account-page',
@@ -31,6 +33,7 @@ import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } 
     TranslocoPipe,
     InputGroupModule,
     InputGroupAddonModule,
+    DateOnlyPipe,
   ],
   templateUrl: './customer-account-page.component.html',
   styleUrl: './customer-account-page.component.scss',
@@ -50,7 +53,7 @@ export class CustomerAccountPageComponent {
 
   readonly paymentForm = this.fb.nonNullable.group({
     amount: [0, [Validators.required, Validators.min(0.01)]],
-    paymentDate: [new Date().toISOString().slice(0, 10), Validators.required],
+    paymentDate: [formatLocalIsoDate(new Date()), Validators.required],
     notes: ['', Validators.maxLength(255)],
   });
 

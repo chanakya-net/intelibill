@@ -112,6 +112,35 @@ public class AddInventoryCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenPerformedAtHasOffset_StoresUtcInstant()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var performedAt = new DateTimeOffset(2026, 5, 15, 9, 30, 0, TimeSpan.FromHours(5.5));
+        var expectedUtc = performedAt.ToUniversalTime();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, performedAt: performedAt), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(t => t.PerformedAt == expectedUtc && t.PerformedAt.Offset == TimeSpan.Zero),
+            Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<SupplierLedgerEntry>(e => e.EntryDate == DateOnly.FromDateTime(expectedUtc.UtcDateTime)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenExistingActiveBatch_ReturnsConflict()
     {
         SetupSystemSupplierLookup();
@@ -349,7 +378,7 @@ public class AddInventoryCommandHandlerTests
             .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
     }
 
-    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null) =>
+    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null, DateTimeOffset? performedAt = null) =>
         new(
             actorId,
             shopId,
@@ -369,5 +398,5 @@ public class AddInventoryCommandHandlerTests
             SupplierId: supplierId,
             ReferenceNumber: "PO-123",
             Notes: "Initial stock",
-            PerformedAt: null);
+            PerformedAt: performedAt);
 }

@@ -67,7 +67,7 @@
                   {{ expense.paidTo }}
                 </div>
                 <div class="text-slate-400 text-xs">
-                  {{ expense.expenseDate | date: 'mediumDate' }}
+                  {{ expense.expenseDate | dateOnly: 'mediumDate' }}
                 </div>
               </div>
 
@@ -181,7 +181,7 @@
             <td>{{ expense.categoryName }}</td>
             <td>{{ expense.paidTo }}</td>
             <td>{{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}</td>
-            <td>{{ expense.expenseDate | date: 'mediumDate' }}</td>
+            <td>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</td>
             <td>
               @if (expense.isVoided) {
                 <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>

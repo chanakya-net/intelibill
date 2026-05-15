@@ -151,6 +151,32 @@ public class InventoryServicesTests
     }
 
     [Fact]
+    public async Task BatchFactory_WhenPerformedAtHasOffset_CreatesUtcInstant()
+    {
+        var batchRepo = Substitute.For<IInventoryBatchRepository>();
+        var txRepo = Substitute.For<IStockTransactionRepository>();
+        var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var supplier = Supplier.Create(shopId, "Known Supplier", null, null, null, null, null, null, true, false);
+        var performedAt = new DateTimeOffset(2026, 5, 15, 9, 30, 0, TimeSpan.FromHours(5.5));
+        var expectedUtc = performedAt.ToUniversalTime();
+
+        batchRepo.GetByBatchNumberAsync(shopId, itemId, "B-1", Arg.Any<CancellationToken>()).Returns((InventoryBatch?)null);
+
+        var row = CreateBatchRow("B-1", supplier.Id, performedAt);
+        var result = await factory.CreateBatchAsync(shopId, itemId, row, supplier, actorId, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(expectedUtc, result.Value.StockTransaction.PerformedAt);
+        Assert.Equal(TimeSpan.Zero, result.Value.StockTransaction.PerformedAt.Offset);
+        Assert.Equal(DateOnly.FromDateTime(expectedUtc.UtcDateTime), result.Value.LedgerEntry.EntryDate);
+    }
+
+    [Fact]
     public async Task InventoryUpdater_WhenInventoryMissing_CreatesAndAddsInventory()
     {
         var repo = Substitute.For<IInventoryRepository>();
@@ -201,7 +227,7 @@ public class InventoryServicesTests
         await repo.DidNotReceive().AddAsync(Arg.Any<Domain.Entities.Inventory>(), Arg.Any<CancellationToken>());
     }
 
-    private static AddInventoryBatchRowCommand CreateBatchRow(string batchNumber, Guid? supplierId) =>
+    private static AddInventoryBatchRowCommand CreateBatchRow(string batchNumber, Guid? supplierId, DateTimeOffset? performedAt = null) =>
         new(
             ClientRowId: "row-1",
             ItemName: "Rice",
@@ -220,5 +246,5 @@ public class InventoryServicesTests
             SupplierId: supplierId,
             ReferenceNumber: "PO-1",
             Notes: "initial",
-            PerformedAt: null);
+            PerformedAt: performedAt);
 }

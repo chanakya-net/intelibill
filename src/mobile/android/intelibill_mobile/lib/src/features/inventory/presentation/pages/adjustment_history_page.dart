@@ -17,8 +17,7 @@ class AdjustmentHistoryPage extends ConsumerStatefulWidget {
       _AdjustmentHistoryPageState();
 }
 
-class _AdjustmentHistoryPageState
-    extends ConsumerState<AdjustmentHistoryPage> {
+class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
   bool _onScroll(ScrollNotification notification) {
     if (notification is ScrollEndNotification &&
         notification.metrics.extentAfter == 0.0) {
@@ -115,9 +114,7 @@ class _AdjustmentHistoryPageState
     }
 
     return RefreshIndicator(
-      onRefresh: ref
-          .read(adjustmentHistoryControllerProvider.notifier)
-          .refresh,
+      onRefresh: ref.read(adjustmentHistoryControllerProvider.notifier).refresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
         child: ListView.builder(
@@ -154,18 +151,15 @@ class _AdjustmentCard extends StatelessWidget {
     final directionLabel = isIncrease
         ? l10n.inventoryAdjustmentsIncrease
         : l10n.inventoryAdjustmentsDecrease;
-    final dateFormatted =
-        DateFormat('dd/MM/yyyy HH:mm').format(adjustment.performedAt);
-    final quantityDisplay = adjustment.quantity
-        .toStringAsFixed(
-          adjustment.quantity.truncateToDouble() == adjustment.quantity ? 0 : 2,
-        );
-    final costDisplay = adjustment.costImpact
-        .toStringAsFixed(
-          adjustment.costImpact.truncateToDouble() == adjustment.costImpact
-              ? 0
-              : 2,
-        );
+    final dateFormatted = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(adjustment.performedAt.toLocal());
+    final quantityDisplay = adjustment.quantity.toStringAsFixed(
+      adjustment.quantity.truncateToDouble() == adjustment.quantity ? 0 : 2,
+    );
+    final costDisplay = adjustment.costImpact.toStringAsFixed(
+      adjustment.costImpact.truncateToDouble() == adjustment.costImpact ? 0 : 2,
+    );
     final reason = _toSentenceCase(adjustment.reason);
 
     return Card(

@@ -51,7 +51,7 @@ internal sealed class BatchFactory(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
-        var performedAt = row.PerformedAt ?? DateTimeOffset.UtcNow;
+        var performedAt = (row.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
 
         var stockTransactionResult = StockTransaction.Create(
             shopId,

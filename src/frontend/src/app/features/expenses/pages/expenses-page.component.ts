@@ -19,6 +19,7 @@ import { CorrectExpenseOverlayComponent } from '../components/correct-expense-ov
 import { ExpenseDto, ExpenseListItemDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 @Component({
   selector: 'app-expenses-page',
@@ -38,6 +39,7 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     RecordExpenseOverlayComponent,
     CorrectExpenseOverlayComponent,
     TableFilterBarComponent,
+    DateOnlyPipe,
   ],
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',

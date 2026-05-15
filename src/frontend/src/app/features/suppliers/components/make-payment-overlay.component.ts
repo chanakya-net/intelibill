@@ -13,6 +13,7 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-make-payment-overlay',
@@ -83,10 +84,7 @@ export class MakePaymentOverlayComponent implements OnInit {
   }
 
   private toIsoDateString(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return formatLocalIsoDate(date);
   }
 
   private nullableTrimmed(value: string): string | null {

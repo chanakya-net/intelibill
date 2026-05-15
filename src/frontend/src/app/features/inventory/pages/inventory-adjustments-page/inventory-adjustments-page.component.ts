@@ -36,6 +36,7 @@ import {
   InventoryService,
 } from '../../services/inventory.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
 
 interface SelectOption<T extends string | boolean> {
   readonly label: string;
@@ -459,7 +460,7 @@ export class InventoryAdjustmentsPageComponent {
     const normalized = value.trim();
     if (!normalized) return null;
     const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? normalized : date.toISOString();
+    return Number.isNaN(date.getTime()) ? normalized : formatUtcIsoInstant(date);
   }
 
   private showSuccess(messageKey: string): void {

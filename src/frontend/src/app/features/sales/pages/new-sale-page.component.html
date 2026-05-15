@@ -92,7 +92,7 @@
                   <div>
                     <span class="font-medium text-slate-800">{{ batch.batchNumber }}</span>
                     @if (batch.expiryDate) {
-                      <span class="text-xs text-slate-500 ml-2">{{ 'sales.newSale.expiry' | transloco }}: {{ batch.expiryDate | date:'dd MMM yyyy' }}</span>
+                      <span class="text-xs text-slate-500 ml-2">{{ 'sales.newSale.expiry' | transloco }}: {{ batch.expiryDate | dateOnly:'dd MMM yyyy' }}</span>
                     }
                   </div>
                   <div class="text-right">

@@ -110,7 +110,7 @@ public sealed class AddInventoryCommandHandler(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
-        var performedAt = command.PerformedAt ?? DateTimeOffset.UtcNow;
+        var performedAt = (command.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
             item.Id,

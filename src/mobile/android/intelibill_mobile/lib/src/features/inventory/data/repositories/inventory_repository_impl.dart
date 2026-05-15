@@ -1,5 +1,6 @@
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/data_sources/inventory_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_row_dto.dart';
@@ -246,7 +247,9 @@ class InventoryRepositoryImpl implements InventoryRepository {
         direction: direction,
         reason: reason,
         quantity: quantity,
-        performedAt: performedAt?.toIso8601String(),
+        performedAt: performedAt == null
+            ? null
+            : formatUtcIsoInstant(performedAt),
         notes: notes,
       );
       await _remoteDataSource.adjustInventoryBatch(batchId, request);
@@ -293,9 +296,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   String _formatDate(DateTime date) {
-    final y = date.year.toString().padLeft(4, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
+    return formatLocalIsoDate(date);
   }
 }
