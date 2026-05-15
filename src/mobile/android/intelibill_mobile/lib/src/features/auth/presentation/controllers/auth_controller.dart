@@ -207,6 +207,26 @@ class AuthController extends _$AuthController {
     }
   }
 
+  Future<void> applySession(AuthSession session) async {
+    final secureStorage = ref.read(secureStorageProvider);
+    await secureStorage.saveTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
+    if (!ref.mounted) {
+      return;
+    }
+
+    final current = state.value ?? const AuthControllerState();
+    state = AsyncData(
+      current.copyWith(
+        session: session,
+        isLoading: false,
+        clearError: true,
+      ),
+    );
+  }
+
   Future<void> signOut() async {
     final repository = await ref.read(authRepositoryProvider.future);
     if (!ref.mounted) {
