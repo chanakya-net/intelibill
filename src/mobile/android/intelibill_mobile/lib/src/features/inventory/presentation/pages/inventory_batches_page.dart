@@ -258,12 +258,10 @@ class _BatchCard extends StatelessWidget {
                         label: 'Qty: ${_formatQty(batch.quantity)}',
                       ),
                       _MetaChip(
-                        label:
-                            'Cost: ₹${batch.costPrice.toStringAsFixed(2)}',
+                        label: 'Cost: ₹${batch.costPrice.toStringAsFixed(2)}',
                       ),
                       _MetaChip(
-                        label:
-                            'Sale: ₹${batch.salesPrice.toStringAsFixed(2)}',
+                        label: 'Sale: ₹${batch.salesPrice.toStringAsFixed(2)}',
                       ),
                     ],
                   ),

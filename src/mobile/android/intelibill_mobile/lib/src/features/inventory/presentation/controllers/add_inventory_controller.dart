@@ -33,8 +33,9 @@ class AddInventoryState {
   }) {
     return AddInventoryState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      submitFailure:
-          clearSubmitFailure ? null : (submitFailure ?? this.submitFailure),
+      submitFailure: clearSubmitFailure
+          ? null
+          : (submitFailure ?? this.submitFailure),
       lastInboundSucceeded: lastInboundSucceeded ?? this.lastInboundSucceeded,
     );
   }

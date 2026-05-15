@@ -208,44 +208,46 @@ void main() {
     });
 
     group('getInventoryBatches', () {
-      test('calls /inventory/batches endpoint and returns parsed DTOs',
-          () async {
-        final responseData = [
-          {
-            'id': 'batch-1',
-            'itemId': 'item-1',
-            'itemName': 'Rice Basmati',
-            'barcode': '8901234567890',
-            'batchNumber': 'BN-001',
-            'quantity': 100.0,
-            'costPrice': 45.0,
-            'mrp': 60.0,
-            'salesPrice': 55.0,
-            'isVoided': false,
-            'createdAt': '2024-01-15T10:30:00.000Z',
-          },
-        ];
+      test(
+        'calls /inventory/batches endpoint and returns parsed DTOs',
+        () async {
+          final responseData = [
+            {
+              'id': 'batch-1',
+              'itemId': 'item-1',
+              'itemName': 'Rice Basmati',
+              'barcode': '8901234567890',
+              'batchNumber': 'BN-001',
+              'quantity': 100.0,
+              'costPrice': 45.0,
+              'mrp': 60.0,
+              'salesPrice': 55.0,
+              'isVoided': false,
+              'createdAt': '2024-01-15T10:30:00.000Z',
+            },
+          ];
 
-        when(
-          () => mockApiClient.get<List<dynamic>>(any<String>()),
-        ).thenAnswer(
-          (_) async => Response(
-            data: responseData,
-            statusCode: 200,
-            requestOptions: RequestOptions(path: '/inventory/batches'),
-          ),
-        );
+          when(
+            () => mockApiClient.get<List<dynamic>>(any<String>()),
+          ).thenAnswer(
+            (_) async => Response(
+              data: responseData,
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/inventory/batches'),
+            ),
+          );
 
-        final dtos = await remoteDataSource.getInventoryBatches();
+          final dtos = await remoteDataSource.getInventoryBatches();
 
-        expect(dtos.length, 1);
-        expect(dtos[0].id, 'batch-1');
-        expect(dtos[0].batchNumber, 'BN-001');
+          expect(dtos.length, 1);
+          expect(dtos[0].id, 'batch-1');
+          expect(dtos[0].batchNumber, 'BN-001');
 
-        verify(
-          () => mockApiClient.get<List<dynamic>>('/inventory/batches'),
-        ).called(1);
-      });
+          verify(
+            () => mockApiClient.get<List<dynamic>>('/inventory/batches'),
+          ).called(1);
+        },
+      );
 
       test('returns empty list when API returns empty array', () async {
         when(
@@ -323,8 +325,9 @@ void main() {
         when(
           () => mockApiClient.get<Map<String, dynamic>>(
             any<String>(),
-            queryParameters:
-                any<Map<String, dynamic>>(named: 'queryParameters'),
+            queryParameters: any<Map<String, dynamic>>(
+              named: 'queryParameters',
+            ),
           ),
         ).thenAnswer(
           (_) async => Response(
@@ -355,58 +358,60 @@ void main() {
     });
 
     group('addInventoryInbound', () {
-      test('posts to /inventory/inbound/batch and returns response DTO',
-          () async {
-        const row = AddInventoryBatchRowDto(
-          clientRowId: '1',
-          itemName: 'Rice',
-          barcode: '123',
-          uom: 'KG',
-          batchNumber: 'BN-001',
-          quantity: 50,
-          costPrice: 45,
-          mrp: 60,
-          salesPrice: 55,
-          taxRatePercent: 0,
-          taxIncluded: false,
-        );
-        const request = AddInventoryBatchRequestDto(items: [row]);
-        final responseData = {
-          'requestedCount': 1,
-          'successCount': 1,
-          'failedCount': 0,
-          'succeeded': <Map<String, dynamic>>[],
-          'failed': <Map<String, dynamic>>[],
-        };
+      test(
+        'posts to /inventory/inbound/batch and returns response DTO',
+        () async {
+          const row = AddInventoryBatchRowDto(
+            clientRowId: '1',
+            itemName: 'Rice',
+            barcode: '123',
+            uom: 'KG',
+            batchNumber: 'BN-001',
+            quantity: 50,
+            costPrice: 45,
+            mrp: 60,
+            salesPrice: 55,
+            taxRatePercent: 0,
+            taxIncluded: false,
+          );
+          const request = AddInventoryBatchRequestDto(items: [row]);
+          final responseData = {
+            'requestedCount': 1,
+            'successCount': 1,
+            'failedCount': 0,
+            'succeeded': <Map<String, dynamic>>[],
+            'failed': <Map<String, dynamic>>[],
+          };
 
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            any<String>(),
-            data: any<Map<String, dynamic>>(named: 'data'),
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            data: responseData,
-            statusCode: 200,
-            requestOptions: RequestOptions(
-              path: '/inventory/inbound/batch',
+          when(
+            () => mockApiClient.post<Map<String, dynamic>>(
+              any<String>(),
+              data: any<Map<String, dynamic>>(named: 'data'),
             ),
-          ),
-        );
+          ).thenAnswer(
+            (_) async => Response(
+              data: responseData,
+              statusCode: 200,
+              requestOptions: RequestOptions(
+                path: '/inventory/inbound/batch',
+              ),
+            ),
+          );
 
-        final response = await remoteDataSource.addInventoryInbound(request);
+          final response = await remoteDataSource.addInventoryInbound(request);
 
-        expect(response.requestedCount, 1);
-        expect(response.successCount, 1);
-        expect(response.failedCount, 0);
+          expect(response.requestedCount, 1);
+          expect(response.successCount, 1);
+          expect(response.failedCount, 0);
 
-        verify(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/inventory/inbound/batch',
-            data: request.toJson(),
-          ),
-        ).called(1);
-      });
+          verify(
+            () => mockApiClient.post<Map<String, dynamic>>(
+              '/inventory/inbound/batch',
+              data: request.toJson(),
+            ),
+          ).called(1);
+        },
+      );
     });
   });
 }

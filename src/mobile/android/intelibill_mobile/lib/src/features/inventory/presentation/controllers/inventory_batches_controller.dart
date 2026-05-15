@@ -70,8 +70,9 @@ class InventoryBatchesState {
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearError ? null : (failure ?? this.failure),
-      submitFailure:
-          clearSubmitError ? null : (submitFailure ?? this.submitFailure),
+      submitFailure: clearSubmitError
+          ? null
+          : (submitFailure ?? this.submitFailure),
       lastAdjustedBatchId: clearLastAdjustedBatchId
           ? null
           : (lastAdjustedBatchId ?? this.lastAdjustedBatchId),

@@ -10,19 +10,19 @@ import 'package:mocktail/mocktail.dart';
 class MockGetAdjustmentHistory extends Mock implements GetAdjustmentHistory {}
 
 InventoryAdjustment _makeAdjustment(String id) => InventoryAdjustment(
-      adjustmentId: id,
-      batchId: 'batch-1',
-      itemId: 'item-1',
-      itemName: 'Rice Premium',
-      batchNumber: 'BN-001',
-      direction: 'Increase',
-      reason: 'Found Stock',
-      quantity: 10,
-      costImpact: 450,
-      performedAt: DateTime(2026),
-      performedBy: 'Admin',
-      isVoided: false,
-    );
+  adjustmentId: id,
+  batchId: 'batch-1',
+  itemId: 'item-1',
+  itemName: 'Rice Premium',
+  batchNumber: 'BN-001',
+  direction: 'Increase',
+  reason: 'Found Stock',
+  quantity: 10,
+  costImpact: 450,
+  performedAt: DateTime(2026),
+  performedBy: 'Admin',
+  isVoided: false,
+);
 
 final InventoryAdjustment _adj1 = _makeAdjustment('adj-1');
 final InventoryAdjustment _adj2 = _makeAdjustment('adj-2');
@@ -45,8 +45,7 @@ void main() {
 
   group('AdjustmentHistoryController', () {
     group('initial load', () {
-      test(
-          'success populates adjustments, '
+      test('success populates adjustments, '
           'isLoading false, hasMore reflects API', () async {
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
@@ -68,27 +67,28 @@ void main() {
         expect(state.failure, isNull);
       });
 
-      test('empty response yields empty adjustments and hasMore false',
-          () async {
-        when(
-          () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async =>
-              (items: <InventoryAdjustment>[], hasMore: false),
-        );
+      test(
+        'empty response yields empty adjustments and hasMore false',
+        () async {
+          when(
+            () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
+          ).thenAnswer(
+            (_) async => (items: <InventoryAdjustment>[], hasMore: false),
+          );
 
-        final container = makeContainer();
-        addTearDown(container.dispose);
+          final container = makeContainer();
+          addTearDown(container.dispose);
 
-        await container
-            .read(adjustmentHistoryControllerProvider.notifier)
-            .refresh();
+          await container
+              .read(adjustmentHistoryControllerProvider.notifier)
+              .refresh();
 
-        final state = container.read(adjustmentHistoryControllerProvider);
-        expect(state.adjustments, isEmpty);
-        expect(state.hasMore, false);
-        expect(state.isLoading, false);
-      });
+          final state = container.read(adjustmentHistoryControllerProvider);
+          expect(state.adjustments, isEmpty);
+          expect(state.hasMore, false);
+          expect(state.isLoading, false);
+        },
+      );
 
       test('failure sets non-null failure on state', () async {
         when(
@@ -128,8 +128,9 @@ void main() {
             .refresh();
 
         // Simulate pagination state
-        container.read(adjustmentHistoryControllerProvider.notifier).state =
-            AdjustmentHistoryState(
+        container
+            .read(adjustmentHistoryControllerProvider.notifier)
+            .state = AdjustmentHistoryState(
           adjustments: [_adj1, _adj2],
           pageNumber: 2,
         );
@@ -212,37 +213,40 @@ void main() {
         );
       });
 
-      test('does not make duplicate API call while isLoadingMore is true',
-          () async {
-        when(
-          () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj1], hasMore: true),
-        );
+      test(
+        'does not make duplicate API call while isLoadingMore is true',
+        () async {
+          when(
+            () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
+          ).thenAnswer(
+            (_) async => (items: [_adj1], hasMore: true),
+          );
 
-        final container = makeContainer();
-        addTearDown(container.dispose);
+          final container = makeContainer();
+          addTearDown(container.dispose);
 
-        await container
-            .read(adjustmentHistoryControllerProvider.notifier)
-            .refresh();
+          await container
+              .read(adjustmentHistoryControllerProvider.notifier)
+              .refresh();
 
-        container.read(adjustmentHistoryControllerProvider.notifier).state =
-            container
-                .read(adjustmentHistoryControllerProvider)
-                .copyWith(isLoadingMore: true);
+          container
+              .read(adjustmentHistoryControllerProvider.notifier)
+              .state = container
+              .read(adjustmentHistoryControllerProvider)
+              .copyWith(isLoadingMore: true);
 
-        await container
-            .read(adjustmentHistoryControllerProvider.notifier)
-            .loadMore();
+          await container
+              .read(adjustmentHistoryControllerProvider.notifier)
+              .loadMore();
 
-        verifyNever(
-          () => getAdjustmentHistory(
-            pageNumber: any(named: 'pageNumber', that: greaterThan(1)),
-            pageSize: any(named: 'pageSize'),
-          ),
-        );
-      });
+          verifyNever(
+            () => getAdjustmentHistory(
+              pageNumber: any(named: 'pageNumber', that: greaterThan(1)),
+              pageSize: any(named: 'pageSize'),
+            ),
+          );
+        },
+      );
     });
   });
 }

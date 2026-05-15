@@ -22,21 +22,20 @@ InventoryAdjustment _makeAdjustment({
   String id = 'adj-1',
   String direction = 'Increase',
   bool isVoided = false,
-}) =>
-    InventoryAdjustment(
-      adjustmentId: id,
-      batchId: 'batch-1',
-      itemId: 'item-1',
-      itemName: 'Rice Premium',
-      batchNumber: 'BN-001',
-      direction: direction,
-      reason: 'Found Stock',
-      quantity: 10,
-      costImpact: 450,
-      performedAt: DateTime(2026, 1, 15, 10, 30),
-      performedBy: 'Admin',
-      isVoided: isVoided,
-    );
+}) => InventoryAdjustment(
+  adjustmentId: id,
+  batchId: 'batch-1',
+  itemId: 'item-1',
+  itemName: 'Rice Premium',
+  batchNumber: 'BN-001',
+  direction: direction,
+  reason: 'Found Stock',
+  quantity: 10,
+  costImpact: 450,
+  performedAt: DateTime(2026, 1, 15, 10, 30),
+  performedBy: 'Admin',
+  isVoided: isVoided,
+);
 
 Widget _buildApp({required AdjustmentHistoryState state}) {
   return ProviderScope(
@@ -56,8 +55,9 @@ Widget _buildApp({required AdjustmentHistoryState state}) {
 
 void main() {
   group('AdjustmentHistoryPage', () {
-    testWidgets('renders adjustment cards with item name and direction chip',
-        (tester) async {
+    testWidgets('renders adjustment cards with item name and direction chip', (
+      tester,
+    ) async {
       final adj = _makeAdjustment();
       await tester.pumpWidget(
         _buildApp(
@@ -91,9 +91,9 @@ void main() {
       expect(find.text('No adjustments found'), findsOneWidget);
     });
 
-    testWidgets(
-        'shows error state and retry button on failure',
-        (tester) async {
+    testWidgets('shows error state and retry button on failure', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildApp(
           state: AdjustmentHistoryState(
@@ -109,8 +109,9 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
     });
 
-    testWidgets('shows bottom CircularProgressIndicator when isLoadingMore',
-        (tester) async {
+    testWidgets('shows bottom CircularProgressIndicator when isLoadingMore', (
+      tester,
+    ) async {
       final adj = _makeAdjustment();
       await tester.pumpWidget(
         _buildApp(

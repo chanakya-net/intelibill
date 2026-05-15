@@ -210,77 +210,83 @@ void main() {
     });
 
     group('adjustBatch', () {
-      test('success sets lastAdjustedBatchId and clears submitFailure',
-          () async {
-        when(getInventoryBatches.call).thenAnswer((_) async => _testBatches);
-        when(
-          () => adjustInventoryBatch(
-            batchId: any(named: 'batchId'),
-            direction: any(named: 'direction'),
-            reason: any(named: 'reason'),
-            quantity: any(named: 'quantity'),
-            performedAt: any(named: 'performedAt'),
-            notes: any(named: 'notes'),
-          ),
-        ).thenAnswer((_) async {});
+      test(
+        'success sets lastAdjustedBatchId and clears submitFailure',
+        () async {
+          when(getInventoryBatches.call).thenAnswer((_) async => _testBatches);
+          when(
+            () => adjustInventoryBatch(
+              batchId: any(named: 'batchId'),
+              direction: any(named: 'direction'),
+              reason: any(named: 'reason'),
+              quantity: any(named: 'quantity'),
+              performedAt: any(named: 'performedAt'),
+              notes: any(named: 'notes'),
+            ),
+          ).thenAnswer((_) async {});
 
-        final container = makeContainer();
-        addTearDown(container.dispose);
+          final container = makeContainer();
+          addTearDown(container.dispose);
 
-        await container
-            .read(inventoryBatchesControllerProvider.notifier)
-            .refresh();
-        await container
-            .read(inventoryBatchesControllerProvider.notifier)
-            .adjustBatch(
-              batchId: 'batch-1',
-              direction: 'Decrease',
-              reason: 'Damaged',
-              quantity: 10,
-            );
+          await container
+              .read(inventoryBatchesControllerProvider.notifier)
+              .refresh();
+          await container
+              .read(inventoryBatchesControllerProvider.notifier)
+              .adjustBatch(
+                batchId: 'batch-1',
+                direction: 'Decrease',
+                reason: 'Damaged',
+                quantity: 10,
+              );
 
-        final state = container.read(inventoryBatchesControllerProvider);
-        expect(state.lastAdjustedBatchId, 'batch-1');
-        expect(state.submitFailure, isNull);
-        expect(state.isSubmitting, false);
-      });
+          final state = container.read(inventoryBatchesControllerProvider);
+          expect(state.lastAdjustedBatchId, 'batch-1');
+          expect(state.submitFailure, isNull);
+          expect(state.isSubmitting, false);
+        },
+      );
 
-      test('failure sets submitFailure and leaves lastAdjustedBatchId null',
-          () async {
-        when(getInventoryBatches.call).thenAnswer((_) async => _testBatches);
-        when(
-          () => adjustInventoryBatch(
-            batchId: any(named: 'batchId'),
-            direction: any(named: 'direction'),
-            reason: any(named: 'reason'),
-            quantity: any(named: 'quantity'),
-            performedAt: any(named: 'performedAt'),
-            notes: any(named: 'notes'),
-          ),
-        ).thenThrow(
-          AppException(failure: const Failure.server(message: 'server error')),
-        );
+      test(
+        'failure sets submitFailure and leaves lastAdjustedBatchId null',
+        () async {
+          when(getInventoryBatches.call).thenAnswer((_) async => _testBatches);
+          when(
+            () => adjustInventoryBatch(
+              batchId: any(named: 'batchId'),
+              direction: any(named: 'direction'),
+              reason: any(named: 'reason'),
+              quantity: any(named: 'quantity'),
+              performedAt: any(named: 'performedAt'),
+              notes: any(named: 'notes'),
+            ),
+          ).thenThrow(
+            AppException(
+              failure: const Failure.server(message: 'server error'),
+            ),
+          );
 
-        final container = makeContainer();
-        addTearDown(container.dispose);
+          final container = makeContainer();
+          addTearDown(container.dispose);
 
-        await container
-            .read(inventoryBatchesControllerProvider.notifier)
-            .refresh();
-        await container
-            .read(inventoryBatchesControllerProvider.notifier)
-            .adjustBatch(
-              batchId: 'batch-1',
-              direction: 'Decrease',
-              reason: 'Damaged',
-              quantity: 10,
-            );
+          await container
+              .read(inventoryBatchesControllerProvider.notifier)
+              .refresh();
+          await container
+              .read(inventoryBatchesControllerProvider.notifier)
+              .adjustBatch(
+                batchId: 'batch-1',
+                direction: 'Decrease',
+                reason: 'Damaged',
+                quantity: 10,
+              );
 
-        final state = container.read(inventoryBatchesControllerProvider);
-        expect(state.submitFailure, isA<ServerFailure>());
-        expect(state.lastAdjustedBatchId, isNull);
-        expect(state.isSubmitting, false);
-      });
+          final state = container.read(inventoryBatchesControllerProvider);
+          expect(state.submitFailure, isA<ServerFailure>());
+          expect(state.lastAdjustedBatchId, isNull);
+          expect(state.isSubmitting, false);
+        },
+      );
 
       test('ignores duplicate submissions when already submitting', () async {
         when(getInventoryBatches.call).thenAnswer((_) async => _testBatches);

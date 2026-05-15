@@ -57,8 +57,7 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
   List<String> get _currentReasons =>
       _direction == 'Decrease' ? _decreaseReasons : _increaseReasons;
 
-  bool get _notesRequired =>
-      _reason == 'OtherLoss' || _reason == 'OtherGain';
+  bool get _notesRequired => _reason == 'OtherLoss' || _reason == 'OtherGain';
 
   double get _previewQty {
     final q = _parsedQty ?? 0;
@@ -83,8 +82,7 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
       'Expired' => l10n.inventoryAdjustReasonExpired,
       'Stolen' => l10n.inventoryAdjustReasonStolen,
       'MissingLost' => l10n.inventoryAdjustReasonMissingLost,
-      'StockCountCorrection' =>
-        l10n.inventoryAdjustReasonStockCountCorrection,
+      'StockCountCorrection' => l10n.inventoryAdjustReasonStockCountCorrection,
       'OtherLoss' => l10n.inventoryAdjustReasonOtherLoss,
       'FoundStock' => l10n.inventoryAdjustReasonFoundStock,
       'ReturnRestockCorrection' =>
@@ -114,16 +112,18 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
     if (qty == null) return;
 
     unawaited(
-      ref.read(inventoryBatchesControllerProvider.notifier).adjustBatch(
-        batchId: widget.batch.batchId,
-        direction: _direction,
-        reason: _reason!,
-        quantity: qty,
-        performedAt: _performedAt,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-      ),
+      ref
+          .read(inventoryBatchesControllerProvider.notifier)
+          .adjustBatch(
+            batchId: widget.batch.batchId,
+            direction: _direction,
+            reason: _reason!,
+            quantity: qty,
+            performedAt: _performedAt,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+          ),
     );
   }
 
@@ -289,8 +289,8 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
                   child: Text(
                     _performedAt != null
                         ? '${_performedAt!.day.toString().padLeft(2, '0')}/'
-                            '${_performedAt!.month.toString().padLeft(2, '0')}/'
-                            '${_performedAt!.year}'
+                              '${_performedAt!.month.toString().padLeft(2, '0')}/'
+                              '${_performedAt!.year}'
                         : '',
                   ),
                 ),
@@ -321,8 +321,9 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
                   const SizedBox(width: 8),
                   FilledButton(
                     key: AdjustBatchSheet.saveButtonKey,
-                    onPressed:
-                        (isSubmitting || !widget.canManage) ? null : _save,
+                    onPressed: (isSubmitting || !widget.canManage)
+                        ? null
+                        : _save,
                     child: isSubmitting
                         ? const SizedBox(
                             height: 16,
