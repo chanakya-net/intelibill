@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -100,7 +102,7 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
   }
 
   void _handleDone() {
-    Navigator.of(context).pop();
+    context.go(AppRoutes.dashboard);
   }
 
   @override
