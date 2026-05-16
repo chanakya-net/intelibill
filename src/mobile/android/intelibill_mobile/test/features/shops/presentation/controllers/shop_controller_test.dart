@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/shops/domain/entities/shop_detail
 import 'package:intelibill_mobile/src/features/shops/domain/entities/update_shop_request.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/add_bank_account_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/create_shop_use_case.dart';
+import 'package:intelibill_mobile/src/features/shops/domain/use_cases/get_shop_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/update_shop_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/controllers/shop_controller.dart';
 import 'package:intelibill_mobile/src/features/shops/shops_providers.dart';
@@ -20,6 +21,8 @@ class MockCreateShopUseCase extends Mock implements CreateShopUseCase {}
 class MockUpdateShopUseCase extends Mock implements UpdateShopUseCase {}
 
 class MockAddBankAccountUseCase extends Mock implements AddBankAccountUseCase {}
+
+class MockGetShopUseCase extends Mock implements GetShopUseCase {}
 
 class _StubAuthController extends AuthController {
   _StubAuthController(this._initialState);
@@ -43,6 +46,7 @@ void main() {
   late MockCreateShopUseCase createShopUseCase;
   late MockUpdateShopUseCase updateShopUseCase;
   late MockAddBankAccountUseCase addBankAccountUseCase;
+  late MockGetShopUseCase getShopUseCase;
 
   AuthSession fixtureSession() => AuthSession(
         accessToken: 'access_token',
@@ -76,6 +80,7 @@ void main() {
     createShopUseCase = MockCreateShopUseCase();
     updateShopUseCase = MockUpdateShopUseCase();
     addBankAccountUseCase = MockAddBankAccountUseCase();
+    getShopUseCase = MockGetShopUseCase();
   });
 
   test('createShop success applies returned session', () async {
@@ -246,5 +251,46 @@ void main() {
         .addBankAccount(request);
 
     expect(container.read(shopControllerProvider), isA<AsyncError<void>>());
+  });
+
+  test('loadShop success returns shop details', () async {
+    const shopId = 'shop-1';
+    final details = fixtureShopDetails();
+    when(() => getShopUseCase(shopId)).thenAnswer((_) async => details);
+
+    final container = ProviderContainer(
+      overrides: [
+        getShopUseCaseProvider.overrideWith((ref) => getShopUseCase),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(shopControllerProvider.future);
+    final result =
+        await container.read(shopControllerProvider.notifier).loadShop(shopId);
+
+    expect(container.read(shopControllerProvider).hasError, isFalse);
+    expect(result, equals(details));
+  });
+
+  test('loadShop failure transitions to AsyncError and returns null', () async {
+    const shopId = 'shop-1';
+    when(() => getShopUseCase(shopId)).thenThrow(
+      AppException(failure: const Failure.server(message: 'boom')),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        getShopUseCaseProvider.overrideWith((ref) => getShopUseCase),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(shopControllerProvider.future);
+    final result =
+        await container.read(shopControllerProvider.notifier).loadShop(shopId);
+
+    expect(container.read(shopControllerProvider), isA<AsyncError<void>>());
+    expect(result, isNull);
   });
 }

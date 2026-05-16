@@ -324,7 +324,27 @@
   "shopsCreateErrorForbidden": "You do not have permission.",
   "shopsCreateErrorNetwork": "Network error. Please try again.",
   "shopsCreateErrorTimeout": "Request timed out. Please try again.",
+  "shopsManageSelectShopTitle": "Manage Shop",
+  "shopsManageSelectShopLabel": "Select Shop",
+  "shopsManageSelectShopRequired": "Please select a shop.",
+  "shopsManageSelectShopHint": "Choose a shop to update its details.",
+  "shopsManageEditDetailsTitle": "Edit Shop Details",
+  "shopsManageSuccessTitle": "Shop Updated",
+  "shopsManageSuccessDefaultShopName": "Shop",
+  "shopsManageSuccessMessage": "Your shop \"{shopName}\" has been updated.",
+  "shopsManageErrorGeneric": "Something went wrong. Please try again.",
+  "shopsManageErrorUnauthorized": "You are not authorized.",
+  "shopsManageErrorForbidden": "You do not have permission.",
+  "shopsManageErrorNetwork": "Network error. Please try again.",
+  "shopsManageErrorTimeout": "Request timed out. Please try again.",
   "@shopsCreateSuccessMessage": {
+    "placeholders": {
+      "shopName": {
+        "type": "String"
+      }
+    }
+  },
+  "@shopsManageSuccessMessage": {
     "placeholders": {
       "shopName": {
         "type": "String"

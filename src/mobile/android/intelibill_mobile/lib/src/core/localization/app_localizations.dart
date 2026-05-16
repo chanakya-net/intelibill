@@ -2064,6 +2064,84 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Request timed out. Please try again.'**
   String get shopsCreateErrorTimeout;
+
+  /// No description provided for @shopsManageSelectShopTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manage Shop'**
+  String get shopsManageSelectShopTitle;
+
+  /// No description provided for @shopsManageSelectShopLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select Shop'**
+  String get shopsManageSelectShopLabel;
+
+  /// No description provided for @shopsManageSelectShopRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Please select a shop.'**
+  String get shopsManageSelectShopRequired;
+
+  /// No description provided for @shopsManageSelectShopHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Choose a shop to update its details.'**
+  String get shopsManageSelectShopHint;
+
+  /// No description provided for @shopsManageEditDetailsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Shop Details'**
+  String get shopsManageEditDetailsTitle;
+
+  /// No description provided for @shopsManageSuccessTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Updated'**
+  String get shopsManageSuccessTitle;
+
+  /// No description provided for @shopsManageSuccessDefaultShopName.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop'**
+  String get shopsManageSuccessDefaultShopName;
+
+  /// No description provided for @shopsManageSuccessMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Your shop \"{shopName}\" has been updated.'**
+  String shopsManageSuccessMessage(String shopName);
+
+  /// No description provided for @shopsManageErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get shopsManageErrorGeneric;
+
+  /// No description provided for @shopsManageErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You are not authorized.'**
+  String get shopsManageErrorUnauthorized;
+
+  /// No description provided for @shopsManageErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission.'**
+  String get shopsManageErrorForbidden;
+
+  /// No description provided for @shopsManageErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Network error. Please try again.'**
+  String get shopsManageErrorNetwork;
+
+  /// No description provided for @shopsManageErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get shopsManageErrorTimeout;
 }
 
 class _AppLocalizationsDelegate

@@ -38,6 +38,8 @@ class BankDetailsForm extends StatefulWidget {
   const BankDetailsForm({
     required this.formKey,
     this.isSubmitting = false,
+    this.isOptional = false,
+    this.initialValue,
     this.onChanged,
     super.key,
   });
@@ -54,6 +56,8 @@ class BankDetailsForm extends StatefulWidget {
 
   final GlobalKey<FormState> formKey;
   final bool isSubmitting;
+  final bool isOptional;
+  final BankDetailsFormData? initialValue;
   final ValueChanged<BankDetailsFormData>? onChanged;
 
   @override
@@ -69,6 +73,23 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
   final _accountHolderController = TextEditingController();
   String? _selectedAccountType;
 
+  bool _didApplyInitial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialValue(widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant BankDetailsForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      _didApplyInitial = false;
+      _applyInitialValue(widget.initialValue);
+    }
+  }
+
   @override
   void dispose() {
     _bankNameController.dispose();
@@ -76,6 +97,31 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
     _ifscCodeController.dispose();
     _accountHolderController.dispose();
     super.dispose();
+  }
+
+  void _applyInitialValue(BankDetailsFormData? initialValue) {
+    if (_didApplyInitial || initialValue == null) return;
+    _didApplyInitial = true;
+
+    _bankNameController.text = initialValue.bankName;
+    _accountNumberController.text = initialValue.accountNumber;
+    _ifscCodeController.text = initialValue.ifscCode;
+    _accountHolderController.text = initialValue.accountHolderName;
+    _selectedAccountType = initialValue.accountType;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {});
+      _notifyChanged();
+    });
+  }
+
+  bool _isAllBlank() {
+    return _bankNameController.text.trim().isEmpty &&
+        _accountNumberController.text.trim().isEmpty &&
+        (_selectedAccountType ?? '').trim().isEmpty &&
+        _ifscCodeController.text.trim().isEmpty &&
+        _accountHolderController.text.trim().isEmpty;
   }
 
   BankDetailsFormData _buildData() {
@@ -97,6 +143,9 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
     AppLocalizations l10n, {
     required String requiredMessage,
   }) {
+    if (widget.isOptional && _isAllBlank()) {
+      return null;
+    }
     if ((value ?? '').trim().isEmpty) {
       return requiredMessage;
     }
@@ -104,6 +153,9 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
   }
 
   String? _validateIfsc(String? value, AppLocalizations l10n) {
+    if (widget.isOptional && _isAllBlank()) {
+      return null;
+    }
     final trimmed = (value ?? '').trim();
     if (trimmed.isEmpty) {
       return l10n.shopsCreateIfscCodeInvalid;
@@ -197,8 +249,12 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
                   ),
                 )
                 .toList(),
-            validator: (value) =>
-                value == null ? l10n.shopsCreateAccountTypeRequired : null,
+            validator: (value) {
+              if (widget.isOptional && _isAllBlank()) {
+                return null;
+              }
+              return value == null ? l10n.shopsCreateAccountTypeRequired : null;
+            },
           ),
           const SizedBox(height: 12),
           TextFormField(

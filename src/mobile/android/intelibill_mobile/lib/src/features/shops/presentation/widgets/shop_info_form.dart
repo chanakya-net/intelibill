@@ -56,6 +56,7 @@ class ShopInfoForm extends StatefulWidget {
   const ShopInfoForm({
     required this.formKey,
     this.isSubmitting = false,
+    this.initialValue,
     this.onChanged,
     super.key,
   });
@@ -71,6 +72,7 @@ class ShopInfoForm extends StatefulWidget {
 
   final GlobalKey<FormState> formKey;
   final bool isSubmitting;
+  final ShopInfoFormData? initialValue;
   final ValueChanged<ShopInfoFormData>? onChanged;
 
   @override
@@ -93,6 +95,23 @@ class _ShopInfoFormState extends State<ShopInfoForm> {
   final _mobileController = TextEditingController();
   final _gstController = TextEditingController();
 
+  bool _didApplyInitial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialValue(widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant ShopInfoForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      _didApplyInitial = false;
+      _applyInitialValue(widget.initialValue);
+    }
+  }
+
   @override
   void dispose() {
     _shopNameController.dispose();
@@ -104,6 +123,25 @@ class _ShopInfoFormState extends State<ShopInfoForm> {
     _mobileController.dispose();
     _gstController.dispose();
     super.dispose();
+  }
+
+  void _applyInitialValue(ShopInfoFormData? initialValue) {
+    if (_didApplyInitial || initialValue == null) return;
+    _didApplyInitial = true;
+
+    _shopNameController.text = initialValue.shopName;
+    _addressController.text = initialValue.address;
+    _cityController.text = initialValue.city;
+    _stateController.text = initialValue.state;
+    _pincodeController.text = initialValue.pincode;
+    _contactPersonController.text = initialValue.contactPerson ?? '';
+    _mobileController.text = initialValue.mobileNumber ?? '';
+    _gstController.text = initialValue.gstNumber ?? '';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _notifyChanged();
+    });
   }
 
   ShopInfoFormData _buildData() {

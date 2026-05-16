@@ -1037,6 +1037,49 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get shopsCreateErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get shopsManageSelectShopTitle => 'Manage Shop';
+
+  @override
+  String get shopsManageSelectShopLabel => 'Select Shop';
+
+  @override
+  String get shopsManageSelectShopRequired => 'Please select a shop.';
+
+  @override
+  String get shopsManageSelectShopHint =>
+      'Choose a shop to update its details.';
+
+  @override
+  String get shopsManageEditDetailsTitle => 'Edit Shop Details';
+
+  @override
+  String get shopsManageSuccessTitle => 'Shop Updated';
+
+  @override
+  String get shopsManageSuccessDefaultShopName => 'Shop';
+
+  @override
+  String shopsManageSuccessMessage(String shopName) {
+    return 'Your shop \"$shopName\" has been updated.';
+  }
+
+  @override
+  String get shopsManageErrorGeneric =>
+      'Something went wrong. Please try again.';
+
+  @override
+  String get shopsManageErrorUnauthorized => 'You are not authorized.';
+
+  @override
+  String get shopsManageErrorForbidden => 'You do not have permission.';
+
+  @override
+  String get shopsManageErrorNetwork => 'Network error. Please try again.';
+
+  @override
+  String get shopsManageErrorTimeout => 'Request timed out. Please try again.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

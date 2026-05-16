@@ -257,28 +257,20 @@ final List<MobileMenuItem> _moreMenuItems = [
     section: MobileMenuSection.profile,
     isVisible: _hasSession,
   ),
-  MobileMenuItem(
+  const MobileMenuItem(
     labelKey: MobileMenuLabelKey.addShop,
     icon: Icons.add_business_outlined,
     destination: MobileMenuRoute(
-      AppRoutes.placeholders,
-      extraBuilder: (l10n) => PlaceholderPageDetails(
-        title: l10n.shellAddShop,
-        body: l10n.placeholderBody,
-      ),
+      AppRoutes.createShop,
     ),
     section: MobileMenuSection.shop,
     isVisible: isOwner,
   ),
-  MobileMenuItem(
+  const MobileMenuItem(
     labelKey: MobileMenuLabelKey.manageShop,
     icon: Icons.storefront_outlined,
     destination: MobileMenuRoute(
-      AppRoutes.placeholders,
-      extraBuilder: (l10n) => PlaceholderPageDetails(
-        title: l10n.shellManageShop,
-        body: l10n.placeholderBody,
-      ),
+      AppRoutes.manageShop,
     ),
     section: MobileMenuSection.shop,
     isVisible: _canManageShop,
