@@ -33,7 +33,7 @@ final class ShopControllerProvider
   ShopController create() => ShopController();
 }
 
-String _$shopControllerHash() => r'927922b4a1c5c32c5b4505add24d8952fd71f917';
+String _$shopControllerHash() => r'0b5389580321ffc96c505315ac24d7433fcc4324';
 
 abstract class _$ShopController extends $AsyncNotifier<void> {
   FutureOr<void> build();
