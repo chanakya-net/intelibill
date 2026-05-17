@@ -11,17 +11,85 @@
 
   <div class="form-card">
     <form class="row-form" [formGroup]="form" (ngSubmit)="onAddRow()">
-      <label>
-        <span>{{ 'inventory.name' | transloco }}</span>
+      <label class="item-name-field">
+        <div class="item-name-label-row">
+          <span>{{ 'inventory.name' | transloco }}</span>
+          @if (isLoadingHsn()) {
+            <div class="hsn-loading">
+              <p-progressSpinner [style]="{ width: '1.25rem', height: '1.25rem' }" strokeWidth="6"></p-progressSpinner>
+              <span>{{ 'hsn.loading' | transloco }}</span>
+            </div>
+          }
+          @if (selectedHsnCode()) {
+            <div class="hsn-chip">
+              <span>
+                {{
+                  'hsn.chip'
+                    | transloco: {
+                        hsnCode: selectedHsnCode(),
+                        taxPercentage: form.controls.taxRatePercent.value
+                      }
+                }}
+              </span>
+              <button
+                pButton
+                type="button"
+                [text]="true"
+                size="small"
+                class="hsn-chip-change"
+                (click)="clearHsnSelection()"
+              >
+                {{ 'hsn.change' | transloco }}
+              </button>
+            </div>
+          }
+        </div>
         <p-autocomplete
           formControlName="itemName"
           [suggestions]="nameSuggestions()"
           (completeMethod)="onFilterName($event)"
           (onSelect)="onNameSelected($event.value)"
+          (focusout)="onItemNameBlur()"
           appendTo="body"
           [fluid]="true"
         ></p-autocomplete>
       </label>
+
+      @if (pickerOpen()) {
+        @if (hsnResult(); as result) {
+          <section class="hsn-picker-card">
+            <p class="eyebrow hsn-picker-label">{{ 'hsn.suggestion' | transloco }}</p>
+            <p-select
+              [options]="pickerHsnOptions()"
+              [(ngModel)]="pickerHsnCode"
+              [ngModelOptions]="{ standalone: true }"
+              appendTo="body"
+            ></p-select>
+            <p-select
+              [options]="pickerTaxOptions()"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="pickerTaxRate"
+              [ngModelOptions]="{ standalone: true }"
+              appendTo="body"
+            ></p-select>
+            <button
+              pButton
+              type="button"
+              [label]="'hsn.apply' | transloco"
+              [disabled]="!pickerHsnCode || !pickerTaxRate"
+              (click)="applyHsnSelection(pickerHsnCode!, pickerTaxRate!)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              [text]="true"
+              [label]="'hsn.enterManually' | transloco"
+              (click)="dismissPicker()"
+            ></button>
+          </section>
+        }
+      }
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
@@ -52,7 +120,7 @@
           </p-inputgroup>
           @if (loadingProduct()) {
             <div class="barcode-loading-overlay">
-              <p-progressSpinner styleClass="h-6 w-6" strokeWidth="6"></p-progressSpinner>
+              <p-progressSpinner [style]="{ width: '1.5rem', height: '1.5rem' }" strokeWidth="6"></p-progressSpinner>
             </div>
           }
         </div>
@@ -206,7 +274,7 @@
 
     @if (loadingDraft() || isSaving()) {
       <div class="loading">
-        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        <p-progressSpinner [style]="{ width: '2rem', height: '2rem' }" strokeWidth="6"></p-progressSpinner>
       </div>
     }
 

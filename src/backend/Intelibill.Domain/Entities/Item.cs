@@ -13,6 +13,8 @@ public sealed class Item : BaseEntity
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
+    public string? HsnCode { get; private set; }
+
     public Inventory? Inventory { get; private set; }
     public ICollection<InventoryBatch> Batches { get; private set; } = [];
     public ICollection<StockTransaction> StockTransactions { get; private set; } = [];
@@ -63,6 +65,11 @@ public sealed class Item : BaseEntity
     public void MarkUpdatedBy(Guid updatedBy)
     {
         UpdatedBy = updatedBy;
+    }
+
+    public void UpdateHsnCode(string? hsnCode)
+    {
+        HsnCode = string.IsNullOrWhiteSpace(hsnCode) ? null : hsnCode.Trim();
     }
 
     private static string? NormalizeOptional(string? value)

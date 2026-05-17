@@ -418,6 +418,16 @@
     "noAdjustments": "No adjustments found",
     "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "Account",
     "updateProfile": "Update Profile",

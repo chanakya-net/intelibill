@@ -418,6 +418,16 @@
     "noAdjustments": "કોઈ સમાયોજન મળ્યા નથી",
     "noAdjustmentsDescription": "તમારા વર્તમાન ફિલ્ટર્સ સાથે મેળ ખાતા સમાયોજનો અહીં દેખાશે."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "એકાઉન્ટ",
     "updateProfile": "પ્રોફાઇલ અપડેટ કરો",

@@ -14,6 +14,7 @@ using Intelibill.Infrastructure.Services.ProductLookup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Postgres;
@@ -63,6 +64,9 @@ public static class DependencyInjection
         services.AddOptions<ProductLookupOptions>()
             .Bind(configuration.GetSection(ProductLookupOptions.SectionName));
 
+        services.AddOptions<HsnServiceOptions>()
+            .Bind(configuration.GetSection(HsnServiceOptions.SectionName));
+
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
@@ -83,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<IExpenseRepository, ExpenseRepository>();
         services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
         services.AddScoped<IDiscountRuleRepository, DiscountRuleRepository>();
+        services.AddScoped<IHsnCacheRepository, HsnCacheRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
@@ -150,6 +155,22 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(lookupOptions.BaseUrl);
         });
         services.AddScoped<IExternalProductLookupService, ExternalProductLookupService>();
+
+        services.AddHttpClient("HsnService", (sp, client) =>
+        {
+            var hsnOptions = sp.GetRequiredService<IOptions<HsnServiceOptions>>().Value;
+            client.BaseAddress = new Uri(hsnOptions.BaseUrl);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", hsnOptions.ApiKey);
+        })
+        .ConfigurePrimaryHttpMessageHandler(sp =>
+        {
+            var env = sp.GetRequiredService<IHostEnvironment>();
+            var handler = new HttpClientHandler();
+            if (env.IsDevelopment())
+                handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            return handler;
+        });
+        services.AddScoped<IExternalHsnLookupService, Services.Hsn.ExternalHsnLookupService>();
 
         return services;
     }

@@ -39,6 +39,7 @@ export interface AddInventoryBatchRowRequest {
   readonly itemName: string;
   readonly barcode: string;
   readonly itemDescription: string | null;
+  readonly hsnCode: string | null;
   readonly uom: string;
   readonly batchNumber: string;
   readonly quantity: number;
@@ -239,8 +240,19 @@ export interface ProductDetailsDto {
   readonly salesPrice: number;
   readonly supplierId: string | null;
   readonly supplierName: string | null;
+  readonly hsnCode: string | null;
   readonly taxIncluded: boolean | null;
   readonly taxRatePercent: number | null;
+}
+
+export interface HsnTaxScenario {
+  readonly condition: string;
+  readonly taxPercentage: string;
+}
+
+export interface HsnLookupResult {
+  readonly hsnCodes: readonly string[];
+  readonly taxScenarios: readonly HsnTaxScenario[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -271,6 +283,10 @@ export class InventoryService {
       params.append('barcode', barcode);
     }
     return this.http.get<ProductDetailsDto>(`${ITEM_ENDPOINTS.list}/details?${params.toString()}`);
+  }
+
+  lookupHsn(productName: string): Observable<HsnLookupResult> {
+    return this.http.post<HsnLookupResult>(`${API_BASE_URL}/hsn/lookup`, { productName });
   }
 
   addInventoryBatch(payload: AddInventoryBatchRequest): Observable<AddInventoryBatchResponse> {

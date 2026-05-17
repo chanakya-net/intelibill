@@ -289,6 +289,65 @@ h1 {
   }
 }
 
+.item-name-field {
+  grid-column: span 2;
+}
+
+.item-name-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.hsn-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #78716c;
+}
+
+.hsn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.6rem;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: #92400e;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.hsn-chip-change.p-button {
+  padding: 0 0.15rem;
+  font-size: 0.75rem;
+  color: #d97706;
+  height: auto;
+  min-width: unset;
+}
+
+.hsn-picker-card {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #fcd34d;
+  border-radius: 0.75rem;
+  background: #fffbeb;
+}
+
+.hsn-picker-label {
+  flex-shrink: 0;
+  margin: 0;
+}
+
 .barcode-field-wrapper {
   position: relative;
 }

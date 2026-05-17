@@ -418,6 +418,16 @@
     "noAdjustments": "कोणतेही समायोजन आढळले नाही",
     "noAdjustmentsDescription": "तुमच्या सध्याच्या फिल्टरशी जुळणारी समायोजने येथे दिसतील."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "खाते",
     "updateProfile": "प्रोफाइल अपडेट करा",

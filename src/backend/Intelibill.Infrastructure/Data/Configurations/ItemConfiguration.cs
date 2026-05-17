@@ -38,6 +38,9 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
 
         builder.Property(i => i.UpdatedBy);
 
+        builder.Property(i => i.HsnCode)
+            .HasMaxLength(20);
+
         builder.HasIndex(i => new { i.ShopId, i.Barcode })
             .IsUnique();
 

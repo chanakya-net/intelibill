@@ -418,6 +418,16 @@
     "noAdjustments": "ఏ సర్దుబాట్లు కనుగొనబడలేదు",
     "noAdjustmentsDescription": "మీ ప్రస్తుత ఫిల్టర్లకు సరిపోయే సర్దుబాట్లు ఇక్కడ కనిపిస్తాయి."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "ఖాతా",
     "updateProfile": "ప్రొఫైల్ నవీకరించండి",

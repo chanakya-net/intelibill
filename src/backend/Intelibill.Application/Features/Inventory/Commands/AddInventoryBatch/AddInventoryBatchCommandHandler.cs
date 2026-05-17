@@ -14,6 +14,7 @@ namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 public sealed class AddInventoryBatchCommandHandler(
     IUserRepository userRepository,
     IItemResolver itemResolver,
+    IItemRepository itemRepository,
     ISupplierResolver supplierResolver,
     IBatchFactory batchFactory,
     IInventoryUpdater inventoryUpdater,
@@ -107,6 +108,16 @@ public sealed class AddInventoryBatchCommandHandler(
             return itemOrError.Errors;
 
         var item = itemOrError.Value;
+
+        if (!string.IsNullOrWhiteSpace(row.HsnCode))
+        {
+            item.UpdateHsnCode(row.HsnCode);
+
+            // Avoid switching a newly-added item (Added) to Modified; that would prevent INSERT and break FK integrity.
+            var existingItem = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, row.Barcode.Trim(), cancellationToken);
+            if (existingItem is not null)
+                itemRepository.Update(item);
+        }
 
         var supplierOrError = await supplierResolver.ResolveAsync(
             command.ActiveShopId,

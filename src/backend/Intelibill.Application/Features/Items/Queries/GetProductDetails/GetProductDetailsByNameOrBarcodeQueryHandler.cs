@@ -97,6 +97,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
                 null,
                 null,
                 null,
+                null,
                 null);
         }
 
@@ -129,6 +130,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
             supplierId,
             supplierName,
             taxIncluded,
-            taxRatePercent);
+            taxRatePercent,
+            item.HsnCode);
     }
 }

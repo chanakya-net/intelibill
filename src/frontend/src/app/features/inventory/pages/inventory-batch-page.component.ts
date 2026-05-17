@@ -1,5 +1,6 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
@@ -22,6 +23,7 @@ import {
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
   AddInventoryBatchSucceededRow,
+  HsnLookupResult,
   InventoryService,
 } from '../services/inventory.service';
 import {
@@ -47,6 +49,7 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     TranslocoPipe,
     BarcodeScannerDialogComponent,
     AutoCompleteModule,
@@ -75,9 +78,20 @@ export class InventoryBatchPageComponent {
   private readonly translocoService = inject(TranslocoService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly suppliersFacade = inject(SuppliersFacade);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly isSaving = signal(false);
   readonly isScannerOpen = signal(false);
+  readonly hsnResult = signal<HsnLookupResult | null>(null);
+  readonly isLoadingHsn = signal(false);
+  readonly selectedHsnCode = signal<string | null>(null);
+  pickerHsnCode: string | null = null;
+  pickerTaxRate: string | null = null;
+  readonly pickerOpen = signal(false);
+  readonly pickerHsnOptions = computed(() => [...(this.hsnResult()?.hsnCodes ?? [])]);
+  readonly pickerTaxOptions = computed(() =>
+    (this.hsnResult()?.taxScenarios ?? []).map((s) => ({ label: s.taxPercentage, value: s.taxPercentage })),
+  );
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
@@ -176,8 +190,17 @@ export class InventoryBatchPageComponent {
   });
 
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+  private clearHsnSelectionOnNextItemNameChange = false;
 
   constructor() {
+    this.form.controls.itemName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        if (this.clearHsnSelectionOnNextItemNameChange && value.trim().length > 0) {
+          this.clearHsnSelection();
+        }
+      });
+
     effect(() => {
       const shopId = this.activeShopId();
       if (!shopId) {
@@ -219,6 +242,54 @@ export class InventoryBatchPageComponent {
 
   onBarcodeFocusOut(): void {
     void this.fetchProductDetails();
+  }
+
+  async onItemNameBlur(): Promise<void> {
+    const itemName = this.form.controls.itemName.value.trim();
+    if (itemName.length < 3) {
+      return;
+    }
+
+    this.isLoadingHsn.set(true);
+    try {
+      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
+      this.hsnResult.set(result);
+
+      if (result.hsnCodes.length === 1 && result.taxScenarios.length === 1) {
+        this.applyHsnSelection(result.hsnCodes[0], result.taxScenarios[0].taxPercentage);
+        return;
+      }
+
+      if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
+        this.pickerHsnCode = result.hsnCodes[0] ?? null;
+        this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
+        this.pickerOpen.set(true);
+      }
+    } catch {
+      // Silent lookup failure. Leave the form editable without surfacing an error.
+    } finally {
+      this.isLoadingHsn.set(false);
+    }
+  }
+
+  applyHsnSelection(hsnCode: string, taxPercentage: string): void {
+    const taxRatePercent = Number.parseFloat(taxPercentage.replace('%', '').trim());
+    this.selectedHsnCode.set(hsnCode);
+    this.form.controls.taxRatePercent.setValue(taxRatePercent);
+    this.pickerOpen.set(false);
+    this.clearHsnSelectionOnNextItemNameChange = true;
+  }
+
+  dismissPicker(): void {
+    this.pickerOpen.set(false);
+  }
+
+  clearHsnSelection(): void {
+    this.hsnResult.set(null);
+    this.isLoadingHsn.set(false);
+    this.selectedHsnCode.set(null);
+    this.pickerOpen.set(false);
+    this.clearHsnSelectionOnNextItemNameChange = false;
   }
 
   openScanner(): void {
@@ -297,6 +368,13 @@ export class InventoryBatchPageComponent {
           if (showInfoToast) {
             this.showInfo('inventory.productDetailsLoaded');
           }
+        }
+
+        if (details.hsnCode) {
+          this.hsnResult.set(null);
+          this.selectedHsnCode.set(details.hsnCode);
+          this.pickerOpen.set(false);
+          this.clearHsnSelectionOnNextItemNameChange = true;
         }
       }
     } catch (error) {
@@ -519,6 +597,7 @@ export class InventoryBatchPageComponent {
       itemName: row.itemName,
       barcode: row.barcode,
       itemDescription: row.itemDescription,
+      hsnCode: this.selectedHsnCode(),
       uom: row.uom,
       batchNumber: row.batchNumber,
       quantity: row.quantity,
@@ -573,6 +652,7 @@ export class InventoryBatchPageComponent {
     mrp: number;
     salesPrice: number;
     supplierName: string | null;
+    hsnCode: string | null;
     taxIncluded: boolean | null;
     taxRatePercent: number | null;
   }): Partial<{
@@ -583,6 +663,7 @@ export class InventoryBatchPageComponent {
     mrp: number;
     salesPrice: number;
     supplierName: string;
+    hsnCode: string;
     taxIncluded: boolean;
     taxRatePercent: number;
   }> {
@@ -594,6 +675,7 @@ export class InventoryBatchPageComponent {
       mrp: number;
       salesPrice: number;
       supplierName: string;
+      hsnCode: string;
       taxIncluded: boolean;
       taxRatePercent: number;
     }> = {};
@@ -712,7 +794,7 @@ export class InventoryBatchPageComponent {
 
     const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
 
-    return {
+      return {
       clientRowId: this.createRowId(),
       itemName: this.form.controls.itemName.value.trim(),
       barcode: this.form.controls.barcode.value.trim(),
@@ -755,6 +837,7 @@ export class InventoryBatchPageComponent {
     });
 
     this.form.controls.batchNumber.setValue(this.generateBatchNumber());
+    this.clearHsnSelection();
   }
 
   private flashRow(clientRowId: string): void {

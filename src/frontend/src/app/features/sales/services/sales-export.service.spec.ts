@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { EXPORT_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { SalesExportService, SalesExportParams } from './sales-export.service';
 
 describe('SalesExportService', () => {
@@ -188,7 +189,7 @@ describe('SalesExportService', () => {
       const response = new HttpResponse<Blob>();
 
       const filename = service.extractFilename(response);
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalIsoDate(new Date());
       expect(filename).toBe(`sales-export-${today}.xlsx`);
     });
   });
