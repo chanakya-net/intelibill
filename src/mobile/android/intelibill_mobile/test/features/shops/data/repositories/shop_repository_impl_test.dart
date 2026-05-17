@@ -59,9 +59,7 @@ void main() {
 
   group('ShopRepositoryImpl', () {
     test('maps getShop dto into domain entity', () async {
-      when(
-        () => remoteDataSource.getShop('shop-1'),
-      ).thenAnswer(
+      when(() => remoteDataSource.getShop('shop-1')).thenAnswer(
         (_) async => const ShopDetailsDto(
           shopId: 'shop-1',
           name: 'My Shop',
@@ -140,9 +138,7 @@ void main() {
         pincode: '000000',
       );
 
-      when(
-        () => remoteDataSource.updateShop(any(), any()),
-      ).thenAnswer(
+      when(() => remoteDataSource.updateShop(any(), any())).thenAnswer(
         (_) async => const ShopDetailsDto(
           shopId: 'shop-1',
           name: 'My Shop',
@@ -180,9 +176,7 @@ void main() {
         accountHolderName: 'John Doe',
       );
 
-      when(
-        () => remoteDataSource.addBankAccount(any()),
-      ).thenAnswer(
+      when(() => remoteDataSource.addBankAccount(any())).thenAnswer(
         (_) async => const BankAccountDto(
           id: 'ba-1',
           bankName: 'HDFC',

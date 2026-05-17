@@ -6,9 +6,7 @@ void main() {
   testWidgets('renders 3 steps and marks active step', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: ShopStepIndicator(currentStep: 2),
-        ),
+        home: Scaffold(body: ShopStepIndicator(currentStep: 2)),
       ),
     );
 

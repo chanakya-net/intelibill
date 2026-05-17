@@ -113,9 +113,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> revokeToken({required String refreshToken}) async {
     final request = RevokeTokenRequestDto(refreshToken: refreshToken);
-    await _apiClient.post<void>(
-      _revokeTokenEndpoint,
-      data: request.toJson(),
-    );
+    await _apiClient.post<void>(_revokeTokenEndpoint, data: request.toJson());
   }
 }

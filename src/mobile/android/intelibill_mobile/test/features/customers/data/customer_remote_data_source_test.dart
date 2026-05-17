@@ -35,9 +35,7 @@ void main() {
         },
       ];
 
-      when(
-        () => mockApiClient.get<List<dynamic>>(any<String>()),
-      ).thenAnswer(
+      when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
         (_) async => Response(
           data: responseData,
           statusCode: 200,
@@ -53,15 +51,11 @@ void main() {
       expect(dtos[1].customerId, 'cust-2');
       expect(dtos[1].address, isNull);
 
-      verify(
-        () => mockApiClient.get<List<dynamic>>('/customers'),
-      ).called(1);
+      verify(() => mockApiClient.get<List<dynamic>>('/customers')).called(1);
     });
 
     test('returns empty list when API returns empty array', () async {
-      when(
-        () => mockApiClient.get<List<dynamic>>(any<String>()),
-      ).thenAnswer(
+      when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
         (_) async => Response(
           data: <dynamic>[],
           statusCode: 200,

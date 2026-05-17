@@ -95,10 +95,7 @@ void main() {
           find.byKey(ShopInfoForm.addressFieldKey),
           '12 Industrial Area',
         );
-        await tester.enterText(
-          find.byKey(ShopInfoForm.cityFieldKey),
-          'Mumbai',
-        );
+        await tester.enterText(find.byKey(ShopInfoForm.cityFieldKey), 'Mumbai');
         await tester.enterText(
           find.byKey(ShopInfoForm.stateFieldKey),
           'Maharashtra',

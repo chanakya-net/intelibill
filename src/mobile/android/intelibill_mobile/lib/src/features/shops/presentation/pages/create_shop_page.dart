@@ -114,21 +114,19 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
       final hadErrorBefore = previous?.hasError ?? false;
       if (hasErrorNow && !hadErrorBefore) {
         final message = _localizeFailure(next.error, l10n);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          switch (_currentStep) {
-            1 => l10n.shopsCreateShopInfoStepTitle,
-            2 => l10n.shopsCreateBankDetailsStepTitle,
-            _ => l10n.shopsCreateSuccessTitle,
-          },
-        ),
+        title: Text(switch (_currentStep) {
+          1 => l10n.shopsCreateShopInfoStepTitle,
+          2 => l10n.shopsCreateBankDetailsStepTitle,
+          _ => l10n.shopsCreateSuccessTitle,
+        }),
       ),
       body: SafeArea(
         child: Padding(
@@ -141,9 +139,7 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
                 currentStep: _currentStep,
               ),
               const SizedBox(height: 16),
-              Expanded(
-                child: _buildStepBody(l10n),
-              ),
+              Expanded(child: _buildStepBody(l10n)),
               const SizedBox(height: 16),
               _buildActions(l10n),
             ],

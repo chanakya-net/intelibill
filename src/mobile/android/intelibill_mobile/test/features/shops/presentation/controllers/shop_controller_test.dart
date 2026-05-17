@@ -49,32 +49,32 @@ void main() {
   late MockGetShopUseCase getShopUseCase;
 
   AuthSession fixtureSession() => AuthSession(
-        accessToken: 'access_token',
-        refreshToken: 'refresh_token',
-        accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
-        refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
-        user: const AuthUser(
-          id: 'user-1',
-          email: 'test@example.com',
-          phoneNumber: null,
-          firstName: 'John',
-          lastName: 'Doe',
-          language: 'en-IN',
-        ),
-        activeShopId: null,
-        shops: null,
-        rememberMe: false,
-      );
+    accessToken: 'access_token',
+    refreshToken: 'refresh_token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'test@example.com',
+      phoneNumber: null,
+      firstName: 'John',
+      lastName: 'Doe',
+      language: 'en-IN',
+    ),
+    activeShopId: null,
+    shops: null,
+    rememberMe: false,
+  );
 
   ShopDetails fixtureShopDetails() => const ShopDetails(
-        id: 'shop-1',
-        name: 'Shop',
-        address: 'Addr',
-        city: 'City',
-        state: 'State',
-        pincode: '123456',
-        bankAccounts: [],
-      );
+    id: 'shop-1',
+    name: 'Shop',
+    address: 'Addr',
+    city: 'City',
+    state: 'State',
+    pincode: '123456',
+    bankAccounts: [],
+  );
 
   setUp(() {
     createShopUseCase = MockCreateShopUseCase();
@@ -119,9 +119,9 @@ void main() {
       state: 'State',
       pincode: '123456',
     );
-    when(() => createShopUseCase(request)).thenThrow(
-      AppException(failure: const Failure.server(message: 'boom')),
-    );
+    when(
+      () => createShopUseCase(request),
+    ).thenThrow(AppException(failure: const Failure.server(message: 'boom')));
 
     final authController = _StubAuthController(const AuthControllerState());
     final container = ProviderContainer(
@@ -176,9 +176,9 @@ void main() {
       state: 'State',
       pincode: '123456',
     );
-    when(() => updateShopUseCase(shopId, request)).thenThrow(
-      AppException(failure: const Failure.unknown(message: 'boom')),
-    );
+    when(
+      () => updateShopUseCase(shopId, request),
+    ).thenThrow(AppException(failure: const Failure.unknown(message: 'boom')));
 
     final container = ProviderContainer(
       overrides: [
@@ -203,9 +203,9 @@ void main() {
       ifscCode: 'IFSC0001',
       accountHolderName: 'John',
     );
-    when(() => addBankAccountUseCase(request)).thenAnswer(
-      (_) async => Future<void>.value(),
-    );
+    when(
+      () => addBankAccountUseCase(request),
+    ).thenAnswer((_) async => Future<void>.value());
 
     final container = ProviderContainer(
       overrides: [
@@ -232,7 +232,7 @@ void main() {
       ifscCode: 'IFSC0001',
       accountHolderName: 'John',
     );
-  when(() => addBankAccountUseCase(request)).thenThrow(
+    when(() => addBankAccountUseCase(request)).thenThrow(
       AppException(failure: const Failure.forbidden(message: 'nope')),
     );
 
@@ -259,15 +259,14 @@ void main() {
     when(() => getShopUseCase(shopId)).thenAnswer((_) async => details);
 
     final container = ProviderContainer(
-      overrides: [
-        getShopUseCaseProvider.overrideWith((ref) => getShopUseCase),
-      ],
+      overrides: [getShopUseCaseProvider.overrideWith((ref) => getShopUseCase)],
     );
     addTearDown(container.dispose);
 
     await container.read(shopControllerProvider.future);
-    final result =
-        await container.read(shopControllerProvider.notifier).loadShop(shopId);
+    final result = await container
+        .read(shopControllerProvider.notifier)
+        .loadShop(shopId);
 
     expect(container.read(shopControllerProvider).hasError, isFalse);
     expect(result, equals(details));
@@ -275,20 +274,19 @@ void main() {
 
   test('loadShop failure transitions to AsyncError and returns null', () async {
     const shopId = 'shop-1';
-    when(() => getShopUseCase(shopId)).thenThrow(
-      AppException(failure: const Failure.server(message: 'boom')),
-    );
+    when(
+      () => getShopUseCase(shopId),
+    ).thenThrow(AppException(failure: const Failure.server(message: 'boom')));
 
     final container = ProviderContainer(
-      overrides: [
-        getShopUseCaseProvider.overrideWith((ref) => getShopUseCase),
-      ],
+      overrides: [getShopUseCaseProvider.overrideWith((ref) => getShopUseCase)],
     );
     addTearDown(container.dispose);
 
     await container.read(shopControllerProvider.future);
-    final result =
-        await container.read(shopControllerProvider.notifier).loadShop(shopId);
+    final result = await container
+        .read(shopControllerProvider.notifier)
+        .loadShop(shopId);
 
     expect(container.read(shopControllerProvider), isA<AsyncError<void>>());
     expect(result, isNull);

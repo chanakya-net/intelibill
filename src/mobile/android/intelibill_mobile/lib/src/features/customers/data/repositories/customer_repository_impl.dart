@@ -23,9 +23,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -57,9 +55,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 }

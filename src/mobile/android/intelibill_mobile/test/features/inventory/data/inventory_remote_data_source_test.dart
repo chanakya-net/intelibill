@@ -42,9 +42,7 @@ void main() {
           },
         ];
 
-        when(
-          () => mockApiClient.get<List<dynamic>>(any<String>()),
-        ).thenAnswer(
+        when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
           (_) async => Response(
             data: responseData,
             statusCode: 200,
@@ -64,9 +62,7 @@ void main() {
       });
 
       test('returns empty list when API returns empty array', () async {
-        when(
-          () => mockApiClient.get<List<dynamic>>(any<String>()),
-        ).thenAnswer(
+        when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
           (_) async => Response(
             data: <dynamic>[],
             statusCode: 200,
@@ -250,9 +246,7 @@ void main() {
       );
 
       test('returns empty list when API returns empty array', () async {
-        when(
-          () => mockApiClient.get<List<dynamic>>(any<String>()),
-        ).thenAnswer(
+        when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
           (_) async => Response(
             data: <dynamic>[],
             statusCode: 200,
@@ -392,9 +386,7 @@ void main() {
             (_) async => Response(
               data: responseData,
               statusCode: 200,
-              requestOptions: RequestOptions(
-                path: '/inventory/inbound/batch',
-              ),
+              requestOptions: RequestOptions(path: '/inventory/inbound/batch'),
             ),
           );
 

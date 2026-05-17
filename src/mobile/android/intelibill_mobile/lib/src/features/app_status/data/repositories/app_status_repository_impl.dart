@@ -22,9 +22,7 @@ class AppStatusRepositoryImpl implements AppStatusRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 }

@@ -61,10 +61,7 @@ void main() {
       ).thenAnswer((_) async => Future.value());
 
       when(
-        () => preferencesStorage.setString(
-          any(),
-          any(),
-        ),
+        () => preferencesStorage.setString(any(), any()),
       ).thenAnswer((_) async => Future.value());
 
       final result = await repository.login(
@@ -82,10 +79,7 @@ void main() {
         ),
       ).called(1);
       verify(
-        () => preferencesStorage.setString(
-          any(),
-          'test@example.com',
-        ),
+        () => preferencesStorage.setString(any(), 'test@example.com'),
       ).called(1);
     });
 

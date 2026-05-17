@@ -239,8 +239,5 @@ PlaceholderPage _buildPlaceholder(
   required String title,
 }) {
   final l10n = AppLocalizations.of(context)!;
-  return PlaceholderPage(
-    title: title,
-    body: l10n.placeholderBody,
-  );
+  return PlaceholderPage(title: title, body: l10n.placeholderBody);
 }

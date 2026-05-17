@@ -22,9 +22,7 @@ interface class ShopRemoteDataSource {
     throw UnimplementedError();
   }
 
-  Future<BankAccountDto> addBankAccount(
-    AddBankAccountRequestDto request,
-  ) {
+  Future<BankAccountDto> addBankAccount(AddBankAccountRequestDto request) {
     throw UnimplementedError();
   }
 }

@@ -30,10 +30,7 @@ void main() {
     });
 
     test('should handle empty errors', () {
-      final json = <String, dynamic>{
-        'title': 'Error',
-        'status': 500,
-      };
+      final json = <String, dynamic>{'title': 'Error', 'status': 500};
 
       final problem = ProblemDetails.fromJson(json);
 

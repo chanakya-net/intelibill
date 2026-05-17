@@ -60,9 +60,7 @@ void main() {
     ) async {
       final adj = _makeAdjustment();
       await tester.pumpWidget(
-        _buildApp(
-          state: AdjustmentHistoryState(adjustments: [adj]),
-        ),
+        _buildApp(state: AdjustmentHistoryState(adjustments: [adj])),
       );
       await tester.pump();
 
@@ -73,9 +71,7 @@ void main() {
     testWidgets('renders decrease chip for decrease direction', (tester) async {
       final adj = _makeAdjustment(direction: 'Decrease');
       await tester.pumpWidget(
-        _buildApp(
-          state: AdjustmentHistoryState(adjustments: [adj]),
-        ),
+        _buildApp(state: AdjustmentHistoryState(adjustments: [adj])),
       );
       await tester.pump();
 
@@ -83,9 +79,7 @@ void main() {
     });
 
     testWidgets('shows empty state text when no adjustments', (tester) async {
-      await tester.pumpWidget(
-        _buildApp(state: const AdjustmentHistoryState()),
-      );
+      await tester.pumpWidget(_buildApp(state: const AdjustmentHistoryState()));
       await tester.pump();
 
       expect(find.text('No adjustments found'), findsOneWidget);
@@ -129,9 +123,7 @@ void main() {
     testWidgets('shows voided badge for voided adjustment', (tester) async {
       final adj = _makeAdjustment(isVoided: true);
       await tester.pumpWidget(
-        _buildApp(
-          state: AdjustmentHistoryState(adjustments: [adj]),
-        ),
+        _buildApp(state: AdjustmentHistoryState(adjustments: [adj])),
       );
       await tester.pump();
 
@@ -140,9 +132,7 @@ void main() {
 
     testWidgets('shows loading indicator when isLoading true', (tester) async {
       await tester.pumpWidget(
-        _buildApp(
-          state: const AdjustmentHistoryState(isLoading: true),
-        ),
+        _buildApp(state: const AdjustmentHistoryState(isLoading: true)),
       );
       await tester.pump();
 

@@ -47,22 +47,24 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
   void initState() {
     super.initState();
 
-    unawaited(Future<void>.microtask(() async {
-      final authState = await ref.read(authControllerProvider.future);
-      if (!mounted) return;
+    unawaited(
+      Future<void>.microtask(() async {
+        final authState = await ref.read(authControllerProvider.future);
+        if (!mounted) return;
 
-      final shops = authState.session?.shops ?? const [];
-      setState(() {
-        _shops = shops;
-        if (_selectedShopId == null && shops.length == 1) {
-          _selectedShopId = shops.single.shopId;
+        final shops = authState.session?.shops ?? const [];
+        setState(() {
+          _shops = shops;
+          if (_selectedShopId == null && shops.length == 1) {
+            _selectedShopId = shops.single.shopId;
+          }
+        });
+
+        if (_selectedShopId != null && shops.length == 1) {
+          await _handleLoadSelectedShop(skipValidation: true);
         }
-      });
-
-      if (_selectedShopId != null && shops.length == 1) {
-        await _handleLoadSelectedShop(skipValidation: true);
-      }
-    }));
+      }),
+    );
   }
 
   @override
@@ -75,21 +77,19 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
       final hadErrorBefore = previous?.hasError ?? false;
       if (hasErrorNow && !hadErrorBefore) {
         final message = _localizeFailure(next.error, l10n);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          switch (_currentStep) {
-            1 => l10n.shopsManageSelectShopTitle,
-            2 => l10n.shopsManageEditDetailsTitle,
-            _ => l10n.shopsManageSuccessTitle,
-          },
-        ),
+        title: Text(switch (_currentStep) {
+          1 => l10n.shopsManageSelectShopTitle,
+          2 => l10n.shopsManageEditDetailsTitle,
+          _ => l10n.shopsManageSuccessTitle,
+        }),
       ),
       body: SafeArea(
         child: Padding(
@@ -141,9 +141,8 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
                 decoration: InputDecoration(
                   labelText: l10n.shopsManageSelectShopLabel,
                 ),
-                validator: (value) => value == null
-                    ? l10n.shopsManageSelectShopRequired
-                    : null,
+                validator: (value) =>
+                    value == null ? l10n.shopsManageSelectShopRequired : null,
               ),
               const SizedBox(height: 12),
               Text(
@@ -253,8 +252,9 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
     final shopId = _selectedShopId;
     if (shopId == null) return;
 
-    final details =
-        await ref.read(shopControllerProvider.notifier).loadShop(shopId);
+    final details = await ref
+        .read(shopControllerProvider.notifier)
+        .loadShop(shopId);
 
     if (!mounted) return;
     final state = ref.read(shopControllerProvider);
@@ -300,7 +300,9 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
     final shopId = _loadedShop?.id;
     if (shopId == null) return;
 
-    await ref.read(shopControllerProvider.notifier).updateShop(
+    await ref
+        .read(shopControllerProvider.notifier)
+        .updateShop(
           shopId,
           UpdateShopRequest(
             name: _shopInfo.shopName.trim(),
@@ -326,7 +328,9 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
         return;
       }
 
-      await ref.read(shopControllerProvider.notifier).addBankAccount(
+      await ref
+          .read(shopControllerProvider.notifier)
+          .addBankAccount(
             AddBankAccountRequest(
               bankName: _bankInfo.bankName.trim(),
               accountNumber: _bankInfo.accountNumber.trim(),

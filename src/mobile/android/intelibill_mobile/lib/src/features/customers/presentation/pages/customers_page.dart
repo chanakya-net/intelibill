@@ -75,9 +75,7 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
               },
             ),
           ),
-          Expanded(
-            child: _buildBody(context, customersState, l10n),
-          ),
+          Expanded(child: _buildBody(context, customersState, l10n)),
         ],
       ),
     );
@@ -93,9 +91,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     );
 
     if (!mounted || created != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.customersCreateSuccess)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.customersCreateSuccess)));
   }
 
   Widget _buildBody(
@@ -216,16 +214,10 @@ class _CustomerCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              customer.phoneNumber,
-              style: theme.textTheme.bodyMedium,
-            ),
+            Text(customer.phoneNumber, style: theme.textTheme.bodyMedium),
             if (customer.address != null) ...[
               const SizedBox(height: 2),
-              Text(
-                customer.address!,
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(customer.address!, style: theme.textTheme.bodySmall),
             ],
             if (customer.outstandingDue > 0) ...[
               const SizedBox(height: 8),

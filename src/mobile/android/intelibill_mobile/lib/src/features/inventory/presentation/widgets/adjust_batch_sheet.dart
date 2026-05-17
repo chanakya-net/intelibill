@@ -174,15 +174,11 @@ class _AdjustBatchSheetState extends ConsumerState<AdjustBatchSheet> {
                 items: [
                   DropdownMenuItem(
                     value: 'Increase',
-                    child: Text(
-                      l10n.inventoryBatchesAdjustDirectionIncrease,
-                    ),
+                    child: Text(l10n.inventoryBatchesAdjustDirectionIncrease),
                   ),
                   DropdownMenuItem(
                     value: 'Decrease',
-                    child: Text(
-                      l10n.inventoryBatchesAdjustDirectionDecrease,
-                    ),
+                    child: Text(l10n.inventoryBatchesAdjustDirectionDecrease),
                   ),
                 ],
                 onChanged: (value) {

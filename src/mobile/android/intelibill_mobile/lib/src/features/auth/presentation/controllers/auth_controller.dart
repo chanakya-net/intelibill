@@ -219,11 +219,7 @@ class AuthController extends _$AuthController {
 
     final current = state.value ?? const AuthControllerState();
     state = AsyncData(
-      current.copyWith(
-        session: session,
-        isLoading: false,
-        clearError: true,
-      ),
+      current.copyWith(session: session, isLoading: false, clearError: true),
     );
   }
 

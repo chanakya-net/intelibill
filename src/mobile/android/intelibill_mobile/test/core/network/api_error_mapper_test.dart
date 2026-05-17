@@ -120,9 +120,7 @@ void main() {
         response: Response<dynamic>(
           requestOptions: RequestOptions(),
           statusCode: 400,
-          data: {
-            'status': 'bad-status',
-          },
+          data: {'status': 'bad-status'},
         ),
       );
 

@@ -18,9 +18,7 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: ShopInfoForm(formKey: formKey),
-          ),
+          body: SingleChildScrollView(child: ShopInfoForm(formKey: formKey)),
         ),
       ),
     );
@@ -45,9 +43,7 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: ShopInfoForm(formKey: formKey),
-          ),
+          body: SingleChildScrollView(child: ShopInfoForm(formKey: formKey)),
         ),
       ),
     );
@@ -61,22 +57,13 @@ void main() {
     expect(find.text(l10n.shopsCreateStateRequired), findsOneWidget);
     expect(find.text(l10n.shopsCreatePincodeRequired), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(ShopInfoForm.shopNameFieldKey),
-      'Acme',
-    );
+    await tester.enterText(find.byKey(ShopInfoForm.shopNameFieldKey), 'Acme');
     await tester.enterText(
       find.byKey(ShopInfoForm.addressFieldKey),
       'Baker Street',
     );
-    await tester.enterText(
-      find.byKey(ShopInfoForm.cityFieldKey),
-      'London',
-    );
-    await tester.enterText(
-      find.byKey(ShopInfoForm.stateFieldKey),
-      'City',
-    );
+    await tester.enterText(find.byKey(ShopInfoForm.cityFieldKey), 'London');
+    await tester.enterText(find.byKey(ShopInfoForm.stateFieldKey), 'City');
     await tester.enterText(find.byKey(ShopInfoForm.pincodeFieldKey), '123456');
     await tester.enterText(
       find.byKey(ShopInfoForm.mobileNumberFieldKey),

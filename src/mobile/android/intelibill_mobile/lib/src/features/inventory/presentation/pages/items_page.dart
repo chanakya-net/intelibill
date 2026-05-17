@@ -107,9 +107,7 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
               },
             ),
           ),
-          Expanded(
-            child: _buildBody(context, itemsState, l10n, canManage),
-          ),
+          Expanded(child: _buildBody(context, itemsState, l10n, canManage)),
         ],
       ),
     );
@@ -226,11 +224,7 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
 enum _InventoryMenuAction { addInventory, batchOverview, adjustmentHistory }
 
 class _ItemCard extends StatelessWidget {
-  const _ItemCard({
-    required this.item,
-    required this.canManage,
-    this.onTap,
-  });
+  const _ItemCard({required this.item, required this.canManage, this.onTap});
 
   final Item item;
   final bool canManage;
@@ -259,12 +253,7 @@ class _ItemCard extends StatelessWidget {
         ),
         title: Row(
           children: [
-            Expanded(
-              child: Text(
-                item.name,
-                style: theme.textTheme.titleSmall,
-              ),
-            ),
+            Expanded(child: Text(item.name, style: theme.textTheme.titleSmall)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
@@ -376,10 +365,7 @@ class _MetaChip extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall,
-      ),
+      child: Text(label, style: theme.textTheme.labelSmall),
     );
   }
 }

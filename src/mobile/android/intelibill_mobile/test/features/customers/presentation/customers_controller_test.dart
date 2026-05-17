@@ -285,9 +285,7 @@ void main() {
             isActive: any(named: 'isActive'),
           ),
         ).thenThrow(
-          AppException(
-            failure: const Failure.validation(message: 'invalid'),
-          ),
+          AppException(failure: const Failure.validation(message: 'invalid')),
         );
 
         final container = makeContainer(

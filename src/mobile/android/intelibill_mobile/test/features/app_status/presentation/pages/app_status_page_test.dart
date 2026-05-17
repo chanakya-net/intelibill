@@ -36,9 +36,7 @@ void main() {
               () => LoadedAppStatusController(status),
             ),
           ],
-          child: const MaterialApp(
-            home: AppStatusPage(),
-          ),
+          child: const MaterialApp(home: AppStatusPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -59,9 +57,7 @@ void main() {
               FailingAppStatusController.new,
             ),
           ],
-          child: const MaterialApp(
-            home: AppStatusPage(),
-          ),
+          child: const MaterialApp(home: AppStatusPage()),
         ),
       );
       await tester.pumpAndSettle();

@@ -19,13 +19,13 @@ class BankAccount extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        bankName,
-        accountNumber,
-        accountType,
-        ifscCode,
-        accountHolderName,
-      ];
+    id,
+    bankName,
+    accountNumber,
+    accountType,
+    ifscCode,
+    accountHolderName,
+  ];
 }
 
 class ShopDetails extends Equatable {
@@ -55,15 +55,15 @@ class ShopDetails extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        address,
-        city,
-        state,
-        pincode,
-        contactPerson,
-        mobileNumber,
-        gstNumber,
-        bankAccounts,
-      ];
+    id,
+    name,
+    address,
+    city,
+    state,
+    pincode,
+    contactPerson,
+    mobileNumber,
+    gstNumber,
+    bankAccounts,
+  ];
 }

@@ -118,9 +118,9 @@ void main() {
     });
 
     test('transitions to error state when AppException thrown', () async {
-      when(() => getItems()).thenThrow(
-        AppException(failure: const Failure.network()),
-      );
+      when(
+        () => getItems(),
+      ).thenThrow(AppException(failure: const Failure.network()));
 
       final container = makeContainer();
       addTearDown(container.dispose);
@@ -214,11 +214,7 @@ void main() {
 
         await container
             .read(itemsControllerProvider.notifier)
-            .createItem(
-              name: 'New Widget',
-              barcode: 'BARNEW',
-              uom: 'pcs',
-            );
+            .createItem(name: 'New Widget', barcode: 'BARNEW', uom: 'pcs');
 
         final state = container.read(itemsControllerProvider);
         expect(state.lastAction, 'created');
@@ -245,11 +241,7 @@ void main() {
 
         await container
             .read(itemsControllerProvider.notifier)
-            .createItem(
-              name: 'X',
-              barcode: 'Y',
-              uom: 'Z',
-            );
+            .createItem(name: 'X', barcode: 'Y', uom: 'Z');
 
         final state = container.read(itemsControllerProvider);
         expect(state.submitFailure, isA<ValidationFailure>());
@@ -268,11 +260,7 @@ void main() {
 
         await container
             .read(itemsControllerProvider.notifier)
-            .createItem(
-              name: 'X',
-              barcode: 'Y',
-              uom: 'Z',
-            );
+            .createItem(name: 'X', barcode: 'Y', uom: 'Z');
 
         verifyNever(
           () => createItem(

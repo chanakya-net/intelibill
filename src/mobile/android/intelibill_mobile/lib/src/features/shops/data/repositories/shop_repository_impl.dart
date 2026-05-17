@@ -27,9 +27,7 @@ class ShopRepositoryImpl implements ShopRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -46,9 +44,7 @@ class ShopRepositoryImpl implements ShopRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -68,16 +64,12 @@ class ShopRepositoryImpl implements ShopRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
   @override
-  Future<void> addBankAccount(
-    AddBankAccountRequest request,
-  ) async {
+  Future<void> addBankAccount(AddBankAccountRequest request) async {
     try {
       final requestDto = ShopMapper.toAddBankAccountDto(request);
       await _remoteDataSource.addBankAccount(requestDto);
@@ -88,9 +80,7 @@ class ShopRepositoryImpl implements ShopRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 }

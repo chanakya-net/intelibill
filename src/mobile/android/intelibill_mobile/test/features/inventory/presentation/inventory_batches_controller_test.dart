@@ -130,9 +130,9 @@ void main() {
     });
 
     test('transitions to error state when AppException thrown', () async {
-      when(getInventoryBatches.call).thenThrow(
-        AppException(failure: const Failure.network()),
-      );
+      when(
+        getInventoryBatches.call,
+      ).thenThrow(AppException(failure: const Failure.network()));
 
       final container = makeContainer();
       addTearDown(container.dispose);

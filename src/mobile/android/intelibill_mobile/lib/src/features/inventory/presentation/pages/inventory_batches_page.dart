@@ -77,9 +77,7 @@ class _InventoryBatchesPageState extends ConsumerState<InventoryBatchesPage> {
               },
             ),
           ),
-          Expanded(
-            child: _buildBody(context, batchesState, l10n, canManage),
-          ),
+          Expanded(child: _buildBody(context, batchesState, l10n, canManage)),
         ],
       ),
     );
@@ -176,9 +174,9 @@ class _InventoryBatchesPageState extends ConsumerState<InventoryBatchesPage> {
     );
 
     if (!mounted || adjusted != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.inventoryBatchesAdjustSuccess)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.inventoryBatchesAdjustSuccess)));
   }
 }
 
@@ -254,9 +252,7 @@ class _BatchCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      _MetaChip(
-                        label: 'Qty: ${_formatQty(batch.quantity)}',
-                      ),
+                      _MetaChip(label: 'Qty: ${_formatQty(batch.quantity)}'),
                       _MetaChip(
                         label: 'Cost: ₹${batch.costPrice.toStringAsFixed(2)}',
                       ),

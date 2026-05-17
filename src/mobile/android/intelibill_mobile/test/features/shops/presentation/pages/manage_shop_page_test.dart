@@ -147,8 +147,9 @@ void main() {
     );
   }
 
-  testWidgets(
-      'multiple shops renders selector dropdown on step 1', (tester) async {
+  testWidgets('multiple shops renders selector dropdown on step 1', (
+    tester,
+  ) async {
     final session = fixtureSession(shops: fixtureShops(count: 2));
 
     await tester.pumpWidget(buildPage(session: session));
@@ -160,9 +161,9 @@ void main() {
 
   testWidgets('single shop auto-advances to step 2', (tester) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
-    when(() => getShopUseCase('shop-1')).thenAnswer(
-      (_) async => fixtureShopDetails(),
-    );
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenAnswer((_) async => fixtureShopDetails());
 
     await tester.pumpWidget(buildPage(session: session));
     await tester.pumpAndSettle();
@@ -171,12 +172,13 @@ void main() {
     verify(() => getShopUseCase('shop-1')).called(1);
   });
 
-  testWidgets(
-      'step 2 fields are pre-filled from loaded shop details', (tester) async {
+  testWidgets('step 2 fields are pre-filled from loaded shop details', (
+    tester,
+  ) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
-    when(() => getShopUseCase('shop-1')).thenAnswer(
-      (_) async => fixtureShopDetails(),
-    );
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenAnswer((_) async => fixtureShopDetails());
 
     await tester.pumpWidget(buildPage(session: session));
     await tester.pumpAndSettle();
@@ -194,12 +196,12 @@ void main() {
 
   testWidgets('save calls updateShop then shows success step', (tester) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
-    when(() => getShopUseCase('shop-1')).thenAnswer(
-      (_) async => fixtureShopDetails(),
-    );
-    when(() => updateShopUseCase(any(), any())).thenAnswer(
-      (_) async => fixtureShopDetails(),
-    );
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenAnswer((_) async => fixtureShopDetails());
+    when(
+      () => updateShopUseCase(any(), any()),
+    ).thenAnswer((_) async => fixtureShopDetails());
     when(() => addBankAccountUseCase(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildPage(session: session));
@@ -234,8 +236,9 @@ void main() {
     verify(() => addBankAccountUseCase(any())).called(1);
   });
 
-  testWidgets('save disabled and spinner shown during AsyncLoading',
-      (tester) async {
+  testWidgets('save disabled and spinner shown during AsyncLoading', (
+    tester,
+  ) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
     final completer = Completer<ShopDetails>();
     when(() => getShopUseCase('shop-1')).thenAnswer((_) => completer.future);
@@ -255,9 +258,9 @@ void main() {
 
   testWidgets('shows snackbar on error', (tester) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
-    when(() => getShopUseCase('shop-1')).thenThrow(
-      AppException(failure: const Failure.server(message: 'boom')),
-    );
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenThrow(AppException(failure: const Failure.server(message: 'boom')));
 
     await tester.pumpWidget(buildPage(session: session));
     await tester.pumpAndSettle();
@@ -265,8 +268,9 @@ void main() {
     expect(find.text('boom'), findsOneWidget);
   });
 
-  testWidgets(
-      'blank bank fields: addBankAccount is not called', (tester) async {
+  testWidgets('blank bank fields: addBankAccount is not called', (
+    tester,
+  ) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
     when(() => getShopUseCase('shop-1')).thenAnswer(
       (_) async => const ShopDetails(
@@ -279,9 +283,9 @@ void main() {
         bankAccounts: [],
       ),
     );
-    when(() => updateShopUseCase(any(), any())).thenAnswer(
-      (_) async => fixtureShopDetails(),
-    );
+    when(
+      () => updateShopUseCase(any(), any()),
+    ).thenAnswer((_) async => fixtureShopDetails());
     when(() => addBankAccountUseCase(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildPage(session: session));

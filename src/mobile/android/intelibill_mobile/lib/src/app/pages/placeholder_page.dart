@@ -6,21 +6,14 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 
 @immutable
 class PlaceholderPageDetails {
-  const PlaceholderPageDetails({
-    required this.title,
-    required this.body,
-  });
+  const PlaceholderPageDetails({required this.title, required this.body});
 
   final String title;
   final String body;
 }
 
 class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({
-    required this.title,
-    required this.body,
-    super.key,
-  });
+  const PlaceholderPage({required this.title, required this.body, super.key});
 
   final String title;
   final String body;

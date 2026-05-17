@@ -16,14 +16,10 @@ class AppStatusPage extends ConsumerWidget {
     final statusState = ref.watch(appStatusControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Intelibill status'),
-      ),
+      appBar: AppBar(title: const Text('Intelibill status')),
       body: statusState.when(
         data: (status) => _StatusContent(status: status),
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -35,10 +31,7 @@ class AppStatusPage extends ConsumerWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                ),
+                Text(error.toString(), textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () {
@@ -83,35 +76,20 @@ class _StatusContent extends StatelessWidget {
           style: theme.textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
-        _InfoCard(
-          label: 'Status',
-          value: status.statusText,
-        ),
+        _InfoCard(label: 'Status', value: status.statusText),
         const SizedBox(height: 12),
-        _InfoCard(
-          label: 'API base URL',
-          value: status.apiBaseUrl,
-        ),
+        _InfoCard(label: 'API base URL', value: status.apiBaseUrl),
         const SizedBox(height: 12),
-        _InfoCard(
-          label: 'Environment',
-          value: status.environment ?? 'unknown',
-        ),
+        _InfoCard(label: 'Environment', value: status.environment ?? 'unknown'),
         const SizedBox(height: 12),
-        _InfoCard(
-          label: 'Updated',
-          value: formattedTimestamp,
-        ),
+        _InfoCard(label: 'Updated', value: formattedTimestamp),
       ],
     );
   }
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.label,
-    required this.value,
-  });
+  const _InfoCard({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -126,15 +104,9 @@ class _InfoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: theme.textTheme.labelLarge,
-            ),
+            Text(label, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
-            SelectableText(
-              value,
-              style: theme.textTheme.titleMedium,
-            ),
+            SelectableText(value, style: theme.textTheme.titleMedium),
           ],
         ),
       ),

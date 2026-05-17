@@ -80,9 +80,7 @@ Widget _buildAppWithState(
       itemsControllerProvider.overrideWithValue(
         ItemsState(items: catalogItems),
       ),
-      getProductDetailsProvider.overrideWithValue(
-        detailsUseCase,
-      ),
+      getProductDetailsProvider.overrideWithValue(detailsUseCase),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -142,9 +140,7 @@ void main() {
       expect(find.byKey(AddInventoryPage.submitButtonKey), findsOneWidget);
     });
 
-    testWidgets('generates a batch number when the form opens', (
-      tester,
-    ) async {
+    testWidgets('generates a batch number when the form opens', (tester) async {
       await tester.pumpWidget(_buildAppWithState(const AddInventoryState()));
       await tester.pumpAndSettle();
 
@@ -158,9 +154,7 @@ void main() {
       );
     });
 
-    testWidgets('item name autocomplete fills barcode and UOM', (
-      tester,
-    ) async {
+    testWidgets('item name autocomplete fills barcode and UOM', (tester) async {
       await tester.pumpWidget(
         _buildAppWithState(
           const AddInventoryState(),
@@ -195,9 +189,7 @@ void main() {
       expect(uomField.controller?.text, 'ltr');
     });
 
-    testWidgets('barcode autocomplete fills item name and UOM', (
-      tester,
-    ) async {
+    testWidgets('barcode autocomplete fills item name and UOM', (tester) async {
       await tester.pumpWidget(
         _buildAppWithState(
           const AddInventoryState(),
@@ -298,11 +290,7 @@ void main() {
       expect(salesPriceField.controller?.text, '48');
       expect(taxRateField.controller?.text, '18');
       expect(taxSwitch.value, isTrue);
-      verify(
-        () => getProductDetails(
-          barcode: 'BAR002',
-        ),
-      ).called(1);
+      verify(() => getProductDetails(barcode: 'BAR002')).called(1);
     });
 
     testWidgets('empty submit shows validation errors and no API call', (
@@ -419,16 +407,14 @@ void main() {
 
       // Verify scanner was opened
       final capturedRoute =
-          verify(
-                () => observer.didPush(captureAny(), any()),
-              ).captured.last
+          verify(() => observer.didPush(captureAny(), any())).captured.last
               as Route<dynamic>;
       expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
 
       // Simulate scan result
-      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
-        const BarcodeScanResult(value: 'SCANNED123'),
-      );
+      Navigator.of(
+        tester.element(find.byType(AddInventoryPage)),
+      ).pop(const BarcodeScanResult(value: 'SCANNED123'));
       await tester.pumpAndSettle();
 
       final barcodeField = tester.widget<TextFormField>(
@@ -487,9 +473,9 @@ void main() {
       await tester.tap(find.byKey(AddInventoryPage.scanBarcodeButtonKey));
       await tester.pump();
 
-      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
-        const BarcodeScanResult(value: 'BAR001'),
-      );
+      Navigator.of(
+        tester.element(find.byType(AddInventoryPage)),
+      ).pop(const BarcodeScanResult(value: 'BAR001'));
       await tester.pumpAndSettle();
 
       final itemNameField = tester.widget<TextFormField>(
@@ -554,9 +540,9 @@ void main() {
       await tester.pump();
 
       final longBarcode = 'B' * 121;
-      Navigator.of(tester.element(find.byType(AddInventoryPage))).pop(
-        BarcodeScanResult(value: longBarcode),
-      );
+      Navigator.of(
+        tester.element(find.byType(AddInventoryPage)),
+      ).pop(BarcodeScanResult(value: longBarcode));
       await tester.pumpAndSettle();
 
       expect(find.text(longBarcode), findsOneWidget);

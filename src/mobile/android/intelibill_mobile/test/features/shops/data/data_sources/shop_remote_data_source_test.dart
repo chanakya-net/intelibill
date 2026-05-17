@@ -59,164 +59,170 @@ void main() {
       ).called(1);
     });
 
-    test('calls POST /shops with payload and returns parsed AuthResultDto',
-        () async {
-      const request = CreateShopRequestDto(
-        name: 'My Shop',
-        address: 'Addr',
-        city: 'City',
-        state: 'State',
-        pincode: '000000',
-        contactPerson: 'John',
-        mobileNumber: '999',
-        gstNumber: 'GST',
-      );
+    test(
+      'calls POST /shops with payload and returns parsed AuthResultDto',
+      () async {
+        const request = CreateShopRequestDto(
+          name: 'My Shop',
+          address: 'Addr',
+          city: 'City',
+          state: 'State',
+          pincode: '000000',
+          contactPerson: 'John',
+          mobileNumber: '999',
+          gstNumber: 'GST',
+        );
 
-      final responseData = {
-        'accessToken': 'access',
-        'refreshToken': 'refresh',
-        'accessTokenExpiresAt': '2030-01-01T00:00:00.000Z',
-        'refreshTokenExpiresAt': '2030-01-02T00:00:00.000Z',
-        'user': {
-          'id': 'user-1',
-          'email': 'a@b.com',
-          'phoneNumber': null,
-          'firstName': 'A',
-          'lastName': 'B',
-          'language': 'en-IN',
-        },
-        'activeShopId': 'shop-1',
-        'shops': [
-          {
-            'shopId': 'shop-1',
-            'shopName': 'My Shop',
-            'role': 'Owner',
-            'isDefault': true,
-            'lastUsedAt': null,
+        final responseData = {
+          'accessToken': 'access',
+          'refreshToken': 'refresh',
+          'accessTokenExpiresAt': '2030-01-01T00:00:00.000Z',
+          'refreshTokenExpiresAt': '2030-01-02T00:00:00.000Z',
+          'user': {
+            'id': 'user-1',
+            'email': 'a@b.com',
+            'phoneNumber': null,
+            'firstName': 'A',
+            'lastName': 'B',
+            'language': 'en-IN',
           },
-        ],
-      };
+          'activeShopId': 'shop-1',
+          'shops': [
+            {
+              'shopId': 'shop-1',
+              'shopName': 'My Shop',
+              'role': 'Owner',
+              'isDefault': true,
+              'lastUsedAt': null,
+            },
+          ],
+        };
 
-      when(
-        () => mockApiClient.post<Map<String, dynamic>>(
-          any<String>(),
-          data: any<Map<String, dynamic>>(named: 'data'),
-        ),
-      ).thenAnswer(
-        (_) async => Response(
-          data: responseData,
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/shops'),
-        ),
-      );
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            any<String>(),
+            data: any<Map<String, dynamic>>(named: 'data'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: responseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/shops'),
+          ),
+        );
 
-      final dto = await remoteDataSource.createShop(request);
+        final dto = await remoteDataSource.createShop(request);
 
-      expect(dto.accessToken, 'access');
-      expect(dto.activeShopId, 'shop-1');
+        expect(dto.accessToken, 'access');
+        expect(dto.activeShopId, 'shop-1');
 
-      verify(
-        () => mockApiClient.post<Map<String, dynamic>>(
-          '/shops',
-          data: request.toJson(),
-        ),
-      ).called(1);
-    });
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/shops',
+            data: request.toJson(),
+          ),
+        ).called(1);
+      },
+    );
 
-    test('calls PUT /shops/{shopId} with payload and returns parsed DTO',
-        () async {
-      const request = UpdateShopRequestDto(
-        name: 'My Shop',
-        address: 'Addr',
-        city: 'City',
-        state: 'State',
-        pincode: '000000',
-      );
+    test(
+      'calls PUT /shops/{shopId} with payload and returns parsed DTO',
+      () async {
+        const request = UpdateShopRequestDto(
+          name: 'My Shop',
+          address: 'Addr',
+          city: 'City',
+          state: 'State',
+          pincode: '000000',
+        );
 
-      final responseData = {
-        'shopId': 'shop-1',
-        'name': 'My Shop',
-        'address': 'Addr',
-        'city': 'City',
-        'state': 'State',
-        'pincode': '000000',
-        'bankName': null,
-        'bankAccountNumber': null,
-        'bankAccountType': null,
-        'ifscCode': null,
-        'accountHolderName': null,
-      };
+        final responseData = {
+          'shopId': 'shop-1',
+          'name': 'My Shop',
+          'address': 'Addr',
+          'city': 'City',
+          'state': 'State',
+          'pincode': '000000',
+          'bankName': null,
+          'bankAccountNumber': null,
+          'bankAccountType': null,
+          'ifscCode': null,
+          'accountHolderName': null,
+        };
 
-      when(
-        () => mockApiClient.put<Map<String, dynamic>>(
-          any<String>(),
-          data: any<Map<String, dynamic>>(named: 'data'),
-        ),
-      ).thenAnswer(
-        (_) async => Response(
-          data: responseData,
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/shops/shop-1'),
-        ),
-      );
+        when(
+          () => mockApiClient.put<Map<String, dynamic>>(
+            any<String>(),
+            data: any<Map<String, dynamic>>(named: 'data'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: responseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/shops/shop-1'),
+          ),
+        );
 
-      final dto = await remoteDataSource.updateShop('shop-1', request);
+        final dto = await remoteDataSource.updateShop('shop-1', request);
 
-      expect(dto.shopId, 'shop-1');
-      expect(dto.pincode, '000000');
+        expect(dto.shopId, 'shop-1');
+        expect(dto.pincode, '000000');
 
-      verify(
-        () => mockApiClient.put<Map<String, dynamic>>(
-          '/shops/shop-1',
-          data: request.toJson(),
-        ),
-      ).called(1);
-    });
+        verify(
+          () => mockApiClient.put<Map<String, dynamic>>(
+            '/shops/shop-1',
+            data: request.toJson(),
+          ),
+        ).called(1);
+      },
+    );
 
-    test('calls POST /bank-accounts with payload and returns parsed DTO',
-        () async {
-      const request = AddBankAccountRequestDto(
-        bankName: 'HDFC',
-        accountNumber: '123',
-        accountType: 'Savings',
-        ifscCode: 'HDFC0001',
-        accountHolderName: 'John Doe',
-      );
+    test(
+      'calls POST /bank-accounts with payload and returns parsed DTO',
+      () async {
+        const request = AddBankAccountRequestDto(
+          bankName: 'HDFC',
+          accountNumber: '123',
+          accountType: 'Savings',
+          ifscCode: 'HDFC0001',
+          accountHolderName: 'John Doe',
+        );
 
-      final responseData = {
-        'id': 'ba-1',
-        'bankName': 'HDFC',
-        'accountNumber': '123',
-        'accountType': 'Savings',
-        'ifscCode': 'HDFC0001',
-        'accountHolderName': 'John Doe',
-      };
+        final responseData = {
+          'id': 'ba-1',
+          'bankName': 'HDFC',
+          'accountNumber': '123',
+          'accountType': 'Savings',
+          'ifscCode': 'HDFC0001',
+          'accountHolderName': 'John Doe',
+        };
 
-      when(
-        () => mockApiClient.post<Map<String, dynamic>>(
-          any<String>(),
-          data: any<Map<String, dynamic>>(named: 'data'),
-        ),
-      ).thenAnswer(
-        (_) async => Response(
-          data: responseData,
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/bank-accounts'),
-        ),
-      );
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            any<String>(),
+            data: any<Map<String, dynamic>>(named: 'data'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: responseData,
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/bank-accounts'),
+          ),
+        );
 
-      final dto = await remoteDataSource.addBankAccount(request);
+        final dto = await remoteDataSource.addBankAccount(request);
 
-      expect(dto.id, 'ba-1');
-      expect(dto.bankName, 'HDFC');
+        expect(dto.id, 'ba-1');
+        expect(dto.bankName, 'HDFC');
 
-      verify(
-        () => mockApiClient.post<Map<String, dynamic>>(
-          '/bank-accounts',
-          data: request.toJson(),
-        ),
-      ).called(1);
-    });
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/bank-accounts',
+            data: request.toJson(),
+          ),
+        ).called(1);
+      },
+    );
 
     test('propagates AppException from ApiClient', () async {
       final exception = AppException(

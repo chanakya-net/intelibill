@@ -169,10 +169,7 @@ class ItemsController extends _$ItemsController {
       await refresh();
     } on AppException catch (error) {
       if (!ref.mounted) return;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -211,10 +208,7 @@ class ItemsController extends _$ItemsController {
       await refresh();
     } on AppException catch (error) {
       if (!ref.mounted) return;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(

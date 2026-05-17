@@ -49,9 +49,7 @@ void main() {
           () => mockStorage.delete(key: any(named: 'key')),
         ).thenAnswer((_) async {});
 
-        await secureStorage.saveTokens(
-          accessToken: 'access',
-        );
+        await secureStorage.saveTokens(accessToken: 'access');
 
         verify(
           () => mockStorage.write(key: 'access_token', value: 'access'),

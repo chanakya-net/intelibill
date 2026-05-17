@@ -13,16 +13,11 @@ interface class ShopRepository {
     throw UnimplementedError();
   }
 
-  Future<ShopDetails> updateShop(
-    String shopId,
-    UpdateShopRequest request,
-  ) {
+  Future<ShopDetails> updateShop(String shopId, UpdateShopRequest request) {
     throw UnimplementedError();
   }
 
-  Future<void> addBankAccount(
-    AddBankAccountRequest request,
-  ) {
+  Future<void> addBankAccount(AddBankAccountRequest request) {
     throw UnimplementedError();
   }
 }

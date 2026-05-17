@@ -30,8 +30,7 @@ enum MobileMenuLabelKey {
   inventoryAdjustments('shellInventoryAdjustments'),
   inventoryBatches('shellInventoryBatchesOverview'),
   inventoryBatchInbound('shellBatchInventoryInbound'),
-  addNewProduct('shellAddNewProduct')
-  ;
+  addNewProduct('shellAddNewProduct');
 
   const MobileMenuLabelKey(this.key);
 
@@ -106,11 +105,7 @@ class MobileMenuAction extends MobileMenuDestination {
 typedef MobileMenuExtraBuilder = Object? Function(AppLocalizations l10n);
 
 class MobileMenuRoute extends MobileMenuDestination {
-  const MobileMenuRoute(
-    this.route, {
-    this.matchPrefix,
-    this.extraBuilder,
-  });
+  const MobileMenuRoute(this.route, {this.matchPrefix, this.extraBuilder});
 
   final String route;
   final String? matchPrefix;
@@ -170,10 +165,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.sales,
     icon: Icons.point_of_sale_outlined,
-    destination: MobileMenuRoute(
-      AppRoutes.salesHistory,
-      matchPrefix: '/sales',
-    ),
+    destination: MobileMenuRoute(AppRoutes.salesHistory, matchPrefix: '/sales'),
     section: MobileMenuSection.primary,
     isVisible: canManageSales,
   ),
@@ -260,18 +252,14 @@ final List<MobileMenuItem> _moreMenuItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.addShop,
     icon: Icons.add_business_outlined,
-    destination: MobileMenuRoute(
-      AppRoutes.createShop,
-    ),
+    destination: MobileMenuRoute(AppRoutes.createShop),
     section: MobileMenuSection.shop,
     isVisible: isOwner,
   ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.manageShop,
     icon: Icons.storefront_outlined,
-    destination: MobileMenuRoute(
-      AppRoutes.manageShop,
-    ),
+    destination: MobileMenuRoute(AppRoutes.manageShop),
     section: MobileMenuSection.shop,
     isVisible: _canManageShop,
   ),

@@ -17,9 +17,7 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: BankDetailsForm(formKey: formKey),
-        ),
+        home: Scaffold(body: BankDetailsForm(formKey: formKey)),
       ),
     );
 
@@ -40,9 +38,7 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: BankDetailsForm(formKey: formKey),
-        ),
+        home: Scaffold(body: BankDetailsForm(formKey: formKey)),
       ),
     );
 

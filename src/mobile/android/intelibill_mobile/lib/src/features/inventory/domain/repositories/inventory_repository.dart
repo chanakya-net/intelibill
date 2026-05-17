@@ -17,10 +17,7 @@ interface class InventoryRepository {
     throw UnimplementedError();
   }
 
-  Future<ProductDetails> getProductDetails({
-    String? name,
-    String? barcode,
-  }) {
+  Future<ProductDetails> getProductDetails({String? name, String? barcode}) {
     throw UnimplementedError();
   }
 
@@ -70,10 +67,7 @@ interface class InventoryRepository {
   }
 
   Future<({List<InventoryAdjustment> items, bool hasMore})>
-  getAdjustmentHistory({
-    required int pageNumber,
-    required int pageSize,
-  }) {
+  getAdjustmentHistory({required int pageNumber, required int pageSize}) {
     throw UnimplementedError();
   }
 }

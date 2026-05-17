@@ -64,9 +64,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   void initState() {
     super.initState();
     if (widget.scannerSurfaceBuilder == null) {
-      _controller = MobileScannerController(
-        formats: _supportedFormats,
-      );
+      _controller = MobileScannerController(formats: _supportedFormats);
       _controller!.addListener(_onControllerStateChanged);
       _status = _ScannerStatus.loading;
     } else {
@@ -181,10 +179,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
         // Intelibill branded accent line
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
-          child: Container(
-            height: 2,
-            color: primaryOrange,
-          ),
+          child: Container(height: 2, color: primaryOrange),
         ),
       ),
       body: Stack(
@@ -237,9 +232,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       bottom: 48,
       left: 24,
       right: 24,
-      child: Center(
-        child: _buildStatusContent(l10n, accentColor),
-      ),
+      child: Center(child: _buildStatusContent(l10n, accentColor)),
     );
   }
 

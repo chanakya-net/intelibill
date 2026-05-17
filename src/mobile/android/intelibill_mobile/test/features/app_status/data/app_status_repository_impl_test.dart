@@ -20,9 +20,7 @@ void main() {
 
   group('AppStatusRepositoryImpl', () {
     test('maps remote dto into domain entity', () async {
-      when(
-        () => remoteDataSource.getStatus(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getStatus()).thenAnswer(
         (_) async => AppStatusDto(
           statusText: 'Ready',
           apiBaseUrl: 'https://api.example.com',

@@ -103,9 +103,7 @@ void main() {
         locale: Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: CreateShopPage(),
-        ),
+        home: Scaffold(body: CreateShopPage()),
       ),
     );
   }

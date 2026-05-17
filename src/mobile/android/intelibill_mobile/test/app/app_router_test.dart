@@ -7,11 +7,7 @@ import 'package:intelibill_mobile/src/app/app.dart';
 void main() {
   group('AppRouter Integration', () {
     testWidgets('app renders successfully', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: IntelibillApp(),
-        ),
-      );
+      await tester.pumpWidget(const ProviderScope(child: IntelibillApp()));
 
       expect(find.byType(MaterialApp), findsOneWidget);
       expect(find.byType(IntelibillApp), findsOneWidget);

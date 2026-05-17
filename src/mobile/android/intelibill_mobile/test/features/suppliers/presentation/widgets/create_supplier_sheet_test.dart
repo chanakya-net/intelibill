@@ -33,9 +33,7 @@ void main() {
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: CreateSupplierSheet(),
-        ),
+        home: Scaffold(body: CreateSupplierSheet()),
       ),
     );
   }
@@ -50,9 +48,7 @@ void main() {
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: CreateSupplierSheet(),
-        ),
+        home: const Scaffold(body: CreateSupplierSheet()),
       ),
     );
   }
