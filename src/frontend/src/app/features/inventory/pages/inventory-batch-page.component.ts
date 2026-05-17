@@ -1,5 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
@@ -49,6 +49,7 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     TranslocoPipe,
     BarcodeScannerDialogComponent,
     AutoCompleteModule,
@@ -84,7 +85,13 @@ export class InventoryBatchPageComponent {
   readonly hsnResult = signal<HsnLookupResult | null>(null);
   readonly isLoadingHsn = signal(false);
   readonly selectedHsnCode = signal<string | null>(null);
+  pickerHsnCode: string | null = null;
+  pickerTaxRate: string | null = null;
   readonly pickerOpen = signal(false);
+  readonly pickerHsnOptions = computed(() => [...(this.hsnResult()?.hsnCodes ?? [])]);
+  readonly pickerTaxOptions = computed(() =>
+    (this.hsnResult()?.taxScenarios ?? []).map((s) => ({ label: s.taxPercentage, value: s.taxPercentage })),
+  );
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
@@ -254,6 +261,8 @@ export class InventoryBatchPageComponent {
       }
 
       if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
+        this.pickerHsnCode = result.hsnCodes[0] ?? null;
+        this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
         this.pickerOpen.set(true);
       }
     } catch {

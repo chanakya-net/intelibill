@@ -12,7 +12,38 @@
   <div class="form-card">
     <form class="row-form" [formGroup]="form" (ngSubmit)="onAddRow()">
       <label class="item-name-field">
-        <span>{{ 'inventory.name' | transloco }}</span>
+        <div class="item-name-label-row">
+          <span>{{ 'inventory.name' | transloco }}</span>
+          @if (isLoadingHsn()) {
+            <div class="hsn-loading">
+              <p-progressSpinner [style]="{ width: '1.25rem', height: '1.25rem' }" strokeWidth="6"></p-progressSpinner>
+              <span>{{ 'hsn.loading' | transloco }}</span>
+            </div>
+          }
+          @if (selectedHsnCode()) {
+            <div class="hsn-chip">
+              <span>
+                {{
+                  'hsn.chip'
+                    | transloco: {
+                        hsnCode: selectedHsnCode(),
+                        taxPercentage: form.controls.taxRatePercent.value
+                      }
+                }}
+              </span>
+              <button
+                pButton
+                type="button"
+                [text]="true"
+                size="small"
+                class="hsn-chip-change"
+                (click)="clearHsnSelection()"
+              >
+                {{ 'hsn.change' | transloco }}
+              </button>
+            </div>
+          }
+        </div>
         <p-autocomplete
           formControlName="itemName"
           [suggestions]="nameSuggestions()"
@@ -22,94 +53,40 @@
           appendTo="body"
           [fluid]="true"
         ></p-autocomplete>
-        @if (isLoadingHsn()) {
-          <div class="hsn-loading">
-            <p-progressSpinner styleClass="h-5 w-5" strokeWidth="6"></p-progressSpinner>
-            <span>{{ 'hsn.loading' | transloco }}</span>
-          </div>
-        }
-        @if (selectedHsnCode()) {
-          <div class="hsn-chip">
-            <span>
-              {{
-                'hsn.chip'
-                  | transloco: {
-                      hsnCode: selectedHsnCode(),
-                      taxPercentage: form.controls.taxRatePercent.value
-                    }
-              }}
-            </span>
-            <button
-              pButton
-              type="button"
-              [text]="true"
-              size="small"
-              class="hsn-chip-change"
-              (click)="clearHsnSelection()"
-            >
-              {{ 'hsn.change' | transloco }}
-            </button>
-          </div>
-        }
       </label>
 
       @if (pickerOpen()) {
         @if (hsnResult(); as result) {
           <section class="hsn-picker-card">
-            <div class="hsn-picker-header">
-              <div>
-                <p class="eyebrow">{{ 'hsn.suggestion' | transloco }}</p>
-                <h3>{{ form.controls.itemName.value }}</h3>
-              </div>
-              <button
-                pButton
-                type="button"
-                [text]="true"
-                class="hsn-picker-dismiss"
-                (click)="dismissPicker()"
-              >
-                {{ 'hsn.enterManually' | transloco }}
-              </button>
-            </div>
-
-            <div class="hsn-picker-content">
-              <div class="hsn-picker-column">
-                <span>{{ 'hsn.hsnCode' | transloco }}</span>
-                <div class="hsn-picker-values">
-                  @for (hsnCode of result.hsnCodes; track hsnCode) {
-                    <span>{{ hsnCode }}</span>
-                  }
-                </div>
-              </div>
-
-              <div class="hsn-picker-column">
-                <span>{{ 'hsn.taxScenario' | transloco }}</span>
-                <div class="hsn-picker-values">
-                  @for (scenario of result.taxScenarios; track scenario.condition) {
-                    <span>
-                      {{ scenario.condition }}{{ scenario.condition ? ' · ' : '' }}{{ scenario.taxPercentage }}
-                    </span>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div class="hsn-picker-actions">
-              <button
-                pButton
-                type="button"
-                [label]="'hsn.apply' | transloco"
-                [disabled]="result.hsnCodes.length === 0 || result.taxScenarios.length === 0"
-                (click)="applyHsnSelection(result.hsnCodes[0], result.taxScenarios[0].taxPercentage)"
-              ></button>
-              <button
-                pButton
-                type="button"
-                [text]="true"
-                [label]="'hsn.enterManually' | transloco"
-                (click)="dismissPicker()"
-              ></button>
-            </div>
+            <p class="eyebrow hsn-picker-label">{{ 'hsn.suggestion' | transloco }}</p>
+            <p-select
+              [options]="pickerHsnOptions()"
+              [(ngModel)]="pickerHsnCode"
+              [ngModelOptions]="{ standalone: true }"
+              appendTo="body"
+            ></p-select>
+            <p-select
+              [options]="pickerTaxOptions()"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="pickerTaxRate"
+              [ngModelOptions]="{ standalone: true }"
+              appendTo="body"
+            ></p-select>
+            <button
+              pButton
+              type="button"
+              [label]="'hsn.apply' | transloco"
+              [disabled]="!pickerHsnCode || !pickerTaxRate"
+              (click)="applyHsnSelection(pickerHsnCode!, pickerTaxRate!)"
+            ></button>
+            <button
+              pButton
+              type="button"
+              [text]="true"
+              [label]="'hsn.enterManually' | transloco"
+              (click)="dismissPicker()"
+            ></button>
           </section>
         }
       }
@@ -143,7 +120,7 @@
           </p-inputgroup>
           @if (loadingProduct()) {
             <div class="barcode-loading-overlay">
-              <p-progressSpinner styleClass="h-6 w-6" strokeWidth="6"></p-progressSpinner>
+              <p-progressSpinner [style]="{ width: '1.5rem', height: '1.5rem' }" strokeWidth="6"></p-progressSpinner>
             </div>
           }
         </div>
@@ -297,7 +274,7 @@
 
     @if (loadingDraft() || isSaving()) {
       <div class="loading">
-        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        <p-progressSpinner [style]="{ width: '2rem', height: '2rem' }" strokeWidth="6"></p-progressSpinner>
       </div>
     }
 
