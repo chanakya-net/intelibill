@@ -104,14 +104,9 @@ void main() {
 
     await container
         .read(localeControllerProvider.notifier)
-        .setLocale(
-          const Locale('ta', 'IN'),
-        );
+        .setLocale(const Locale('ta', 'IN'));
 
-    expect(
-      fakePrefs.getString(intelibillLocalePreferenceKey),
-      'ta-IN',
-    );
+    expect(fakePrefs.getString(intelibillLocalePreferenceKey), 'ta-IN');
     expect(
       container.read(localeControllerProvider).value,
       const Locale('ta', 'IN'),

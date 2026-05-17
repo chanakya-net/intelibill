@@ -111,9 +111,9 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
         if (_wasSubmitting && state.errorMessage == null && !state.isLoading) {
           _wasSubmitting = false;
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.profileUpdateSuccess)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(l10n.profileUpdateSuccess)));
             context.pop();
           }
         }
@@ -222,9 +222,7 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.red.shade200,
-                        ),
+                        border: Border.all(color: Colors.red.shade200),
                         color: Colors.red.shade50,
                       ),
                       child: Text(

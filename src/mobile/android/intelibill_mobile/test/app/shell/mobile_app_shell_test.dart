@@ -74,33 +74,27 @@ GoRouter _routerForShell() {
         routes: [
           GoRoute(
             path: AppRoutes.dashboard,
-            builder: (context, state) => const Scaffold(
-              body: Text('Dashboard'),
-            ),
+            builder: (context, state) =>
+                const Scaffold(body: Text('Dashboard')),
           ),
           GoRoute(
             path: AppRoutes.inventory,
-            builder: (context, state) => const Scaffold(
-              body: Text('Inventory'),
-            ),
+            builder: (context, state) =>
+                const Scaffold(body: Text('Inventory')),
           ),
           GoRoute(
             path: AppRoutes.salesHistory,
-            builder: (context, state) => const Scaffold(
-              body: Text('Sales'),
-            ),
+            builder: (context, state) => const Scaffold(body: Text('Sales')),
           ),
           GoRoute(
             path: AppRoutes.customers,
-            builder: (context, state) => const Scaffold(
-              body: Text('Customers'),
-            ),
+            builder: (context, state) =>
+                const Scaffold(body: Text('Customers')),
           ),
           GoRoute(
             path: AppRoutes.language,
-            builder: (context, state) => const Scaffold(
-              body: Text('Language Page'),
-            ),
+            builder: (context, state) =>
+                const Scaffold(body: Text('Language Page')),
           ),
         ],
       ),
@@ -142,9 +136,7 @@ void main() {
     });
 
     testWidgets('more menu triggers logout action', (tester) async {
-      final controller = _TestAuthController(
-        const AuthControllerState(),
-      );
+      final controller = _TestAuthController(const AuthControllerState());
       final router = _routerForShell();
 
       await tester.pumpWidget(
@@ -180,9 +172,7 @@ void main() {
     });
 
     testWidgets('more menu navigates to language route', (tester) async {
-      final controller = _TestAuthController(
-        const AuthControllerState(),
-      );
+      final controller = _TestAuthController(const AuthControllerState());
       final router = _routerForShell();
 
       await tester.pumpWidget(

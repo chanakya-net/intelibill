@@ -49,9 +49,7 @@ void main() {
           'isLoading false, hasMore reflects API', () async {
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj1, _adj2], hasMore: true),
-        );
+        ).thenAnswer((_) async => (items: [_adj1, _adj2], hasMore: true));
 
         final container = makeContainer();
         addTearDown(container.dispose);
@@ -91,12 +89,8 @@ void main() {
       );
 
       test('failure sets non-null failure on state', () async {
-        when(
-          () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenThrow(
-          AppException(
-            failure: const Failure.server(message: 'server error'),
-          ),
+        when(() => getAdjustmentHistory(pageNumber: 1, pageSize: 50)).thenThrow(
+          AppException(failure: const Failure.server(message: 'server error')),
         );
 
         final container = makeContainer();
@@ -116,9 +110,7 @@ void main() {
       test('resets to page 1 and replaces list', () async {
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj1], hasMore: true),
-        );
+        ).thenAnswer((_) async => (items: [_adj1], hasMore: true));
 
         final container = makeContainer();
         addTearDown(container.dispose);
@@ -128,18 +120,12 @@ void main() {
             .refresh();
 
         // Simulate pagination state
-        container
-            .read(adjustmentHistoryControllerProvider.notifier)
-            .state = AdjustmentHistoryState(
-          adjustments: [_adj1, _adj2],
-          pageNumber: 2,
-        );
+        container.read(adjustmentHistoryControllerProvider.notifier).state =
+            AdjustmentHistoryState(adjustments: [_adj1, _adj2], pageNumber: 2);
 
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj3], hasMore: false),
-        );
+        ).thenAnswer((_) async => (items: [_adj3], hasMore: false));
 
         await container
             .read(adjustmentHistoryControllerProvider.notifier)
@@ -156,9 +142,7 @@ void main() {
       test('appends adjustments and increments pageNumber', () async {
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj1], hasMore: true),
-        );
+        ).thenAnswer((_) async => (items: [_adj1], hasMore: true));
 
         final container = makeContainer();
         addTearDown(container.dispose);
@@ -169,9 +153,7 @@ void main() {
 
         when(
           () => getAdjustmentHistory(pageNumber: 2, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj2], hasMore: false),
-        );
+        ).thenAnswer((_) async => (items: [_adj2], hasMore: false));
 
         await container
             .read(adjustmentHistoryControllerProvider.notifier)
@@ -187,9 +169,7 @@ void main() {
       test('does nothing when hasMore is false', () async {
         when(
           () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-        ).thenAnswer(
-          (_) async => (items: [_adj1], hasMore: false),
-        );
+        ).thenAnswer((_) async => (items: [_adj1], hasMore: false));
 
         final container = makeContainer();
         addTearDown(container.dispose);
@@ -218,9 +198,7 @@ void main() {
         () async {
           when(
             () => getAdjustmentHistory(pageNumber: 1, pageSize: 50),
-          ).thenAnswer(
-            (_) async => (items: [_adj1], hasMore: true),
-          );
+          ).thenAnswer((_) async => (items: [_adj1], hasMore: true));
 
           final container = makeContainer();
           addTearDown(container.dispose);

@@ -60,9 +60,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -81,9 +79,7 @@ void main() {
       const state = AuthControllerState();
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -98,9 +94,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -118,9 +112,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -139,9 +131,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -163,9 +153,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -196,11 +184,7 @@ void main() {
       });
 
       final container = ProviderContainer(
-        overrides: [
-          authControllerProvider.overrideWith(
-            () => mockController,
-          ),
-        ],
+        overrides: [authControllerProvider.overrideWith(() => mockController)],
       );
 
       await tester.pumpWidget(_buildPage(container));
@@ -220,9 +204,7 @@ void main() {
 
     testWidgets(
       'shows success snackbar and pops on successful password change',
-      (
-        tester,
-      ) async {
+      (tester) async {
         final session = _sessionFixture();
         final state = AuthControllerState(session: session);
 
@@ -230,9 +212,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
-            authControllerProvider.overrideWith(
-              () => mockController,
-            ),
+            authControllerProvider.overrideWith(() => mockController),
           ],
         );
 
@@ -263,9 +243,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -313,10 +291,6 @@ class _SuccessAuthController extends AuthController {
     required String newPassword,
   }) async {
     // Simulate success
-    state = AsyncData(
-      AuthControllerState(
-        session: _initialState.session,
-      ),
-    );
+    state = AsyncData(AuthControllerState(session: _initialState.session));
   }
 }

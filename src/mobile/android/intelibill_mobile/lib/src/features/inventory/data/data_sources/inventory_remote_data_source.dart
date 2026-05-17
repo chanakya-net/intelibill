@@ -18,10 +18,7 @@ interface class InventoryRemoteDataSource {
     throw UnimplementedError();
   }
 
-  Future<ProductDetailsDto> getProductDetails({
-    String? name,
-    String? barcode,
-  }) {
+  Future<ProductDetailsDto> getProductDetails({String? name, String? barcode}) {
     throw UnimplementedError();
   }
 
@@ -99,10 +96,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<void> updateItem(
-    String itemId,
-    UpdateItemRequestDto request,
-  ) async {
+  Future<void> updateItem(String itemId, UpdateItemRequestDto request) async {
     await _apiClient.patch<void>(
       '$_itemsEndpoint/$itemId',
       data: request.toJson(),
@@ -149,10 +143,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   }) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       _inventoryAdjustmentsEndpoint,
-      queryParameters: {
-        'pageNumber': pageNumber,
-        'pageSize': pageSize,
-      },
+      queryParameters: {'pageNumber': pageNumber, 'pageSize': pageSize},
     );
     return InventoryAdjustmentHistoryResponseDto.fromJson(response.data!);
   }

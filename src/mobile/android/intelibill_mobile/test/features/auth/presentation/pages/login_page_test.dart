@@ -210,10 +210,7 @@ void main() {
       await tester.pumpWidget(_buildPage(container));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byKey(_loginPageIdentifierFieldKey),
-        'user',
-      );
+      await tester.enterText(find.byKey(_loginPageIdentifierFieldKey), 'user');
       await tester.enterText(find.byKey(_loginPagePasswordFieldKey), 'wrong');
       await tester.tap(find.byKey(_loginPageSubmitButtonKey));
       await tester.pumpAndSettle();

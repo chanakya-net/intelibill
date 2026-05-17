@@ -21,11 +21,7 @@ void main() {
         'refreshToken': 'refresh123',
         'accessTokenExpiresAt': '2026-05-15T10:00:00Z',
         'refreshTokenExpiresAt': '2026-06-14T10:00:00Z',
-        'user': {
-          'id': 'user-1',
-          'firstName': 'John',
-          'lastName': 'Doe',
-        },
+        'user': {'id': 'user-1', 'firstName': 'John', 'lastName': 'Doe'},
       };
 
       when(
@@ -71,11 +67,7 @@ void main() {
           'refreshToken': 'new_refresh',
           'accessTokenExpiresAt': '2026-05-15T10:00:00Z',
           'refreshTokenExpiresAt': '2026-06-14T10:00:00Z',
-          'user': {
-            'id': 'user-1',
-            'firstName': 'John',
-            'lastName': 'Doe',
-          },
+          'user': {'id': 'user-1', 'firstName': 'John', 'lastName': 'Doe'},
         };
 
         when(

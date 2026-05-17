@@ -8,10 +8,7 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 
 class MobileAppShell extends ConsumerWidget {
-  const MobileAppShell({
-    required this.child,
-    super.key,
-  });
+  const MobileAppShell({required this.child, super.key});
 
   final Widget child;
 
@@ -149,19 +146,10 @@ Future<void> _showMoreMenu(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                l10n.shellMore,
-                style: theme.textTheme.titleMedium,
-              ),
+              child: Text(l10n.shellMore, style: theme.textTheme.titleMedium),
             ),
             const Divider(height: 1),
-            ..._buildMoreMenuTiles(
-              context,
-              sheetContext,
-              ref,
-              l10n,
-              menuItems,
-            ),
+            ..._buildMoreMenuTiles(context, sheetContext, ref, l10n, menuItems),
           ],
         ),
       );

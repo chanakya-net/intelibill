@@ -327,62 +327,59 @@ void main() {
       verify(() => getSuppliers()).called(greaterThanOrEqualTo(2));
     });
 
-    test(
-      'keeps create form open when post-create refresh fails',
-      () async {
-        var loadCount = 0;
-        const refreshFailure = Failure.server(
-          message: 'Unable to reload suppliers',
-          statusCode: 500,
-        );
-        when(() => getSuppliers()).thenAnswer((_) async {
-          loadCount += 1;
-          if (loadCount == 1) {
-            return _testSuppliers;
-          }
-          throw AppException(failure: refreshFailure);
-        });
-        when(
-          () => createSupplier(
-            name: any(named: 'name'),
-            contactPersonName: any(named: 'contactPersonName'),
-            contactPersonPhone: any(named: 'contactPersonPhone'),
-            address: any(named: 'address'),
-            city: any(named: 'city'),
-            state: any(named: 'state'),
-            pin: any(named: 'pin'),
-            isActive: any(named: 'isActive'),
-            isPreferred: any(named: 'isPreferred'),
-          ),
-        ).thenAnswer((_) async => _testSuppliers.first);
+    test('keeps create form open when post-create refresh fails', () async {
+      var loadCount = 0;
+      const refreshFailure = Failure.server(
+        message: 'Unable to reload suppliers',
+        statusCode: 500,
+      );
+      when(() => getSuppliers()).thenAnswer((_) async {
+        loadCount += 1;
+        if (loadCount == 1) {
+          return _testSuppliers;
+        }
+        throw AppException(failure: refreshFailure);
+      });
+      when(
+        () => createSupplier(
+          name: any(named: 'name'),
+          contactPersonName: any(named: 'contactPersonName'),
+          contactPersonPhone: any(named: 'contactPersonPhone'),
+          address: any(named: 'address'),
+          city: any(named: 'city'),
+          state: any(named: 'state'),
+          pin: any(named: 'pin'),
+          isActive: any(named: 'isActive'),
+          isPreferred: any(named: 'isPreferred'),
+        ),
+      ).thenAnswer((_) async => _testSuppliers.first);
 
-        final container = makeContainer(
-          getSuppliers: getSuppliers,
-          createSupplier: createSupplier,
-        );
-        addTearDown(container.dispose);
+      final container = makeContainer(
+        getSuppliers: getSuppliers,
+        createSupplier: createSupplier,
+      );
+      addTearDown(container.dispose);
 
-        await Future<void>.delayed(Duration.zero);
-        final success = await container
-            .read(suppliersControllerProvider.notifier)
-            .createSupplier(
-              name: 'ABC Traders',
-              address: '12 Main Street',
-              city: 'Mumbai',
-              state: 'Maharashtra',
-              pin: '400001',
-              isActive: true,
-              isPreferred: true,
-            );
+      await Future<void>.delayed(Duration.zero);
+      final success = await container
+          .read(suppliersControllerProvider.notifier)
+          .createSupplier(
+            name: 'ABC Traders',
+            address: '12 Main Street',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            pin: '400001',
+            isActive: true,
+            isPreferred: true,
+          );
 
-        expect(success, isFalse);
-        final state = container.read(suppliersControllerProvider);
-        expect(state.isSubmitting, isFalse);
-        expect(state.failure, refreshFailure);
-        expect(state.submitFailure, refreshFailure);
-        expect(state.suppliers, _testSuppliers);
-      },
-    );
+      expect(success, isFalse);
+      final state = container.read(suppliersControllerProvider);
+      expect(state.isSubmitting, isFalse);
+      expect(state.failure, refreshFailure);
+      expect(state.submitFailure, refreshFailure);
+      expect(state.suppliers, _testSuppliers);
+    });
 
     test(
       'rejects create attempts when submission is already in progress',
@@ -391,10 +388,7 @@ void main() {
           getSuppliers: getSuppliers,
           createSupplier: createSupplier,
           controllerFactory: () => _DelayedRefreshSuppliersController(
-            SuppliersState(
-              suppliers: _testSuppliers,
-              isSubmitting: true,
-            ),
+            SuppliersState(suppliers: _testSuppliers, isSubmitting: true),
             Completer<void>(),
           ),
         );

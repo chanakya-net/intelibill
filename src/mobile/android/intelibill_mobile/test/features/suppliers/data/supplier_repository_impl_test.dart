@@ -35,9 +35,7 @@ void main() {
 
   group('SupplierRepositoryImpl', () {
     test('maps remote dtos into domain entities', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getSuppliers()).thenAnswer(
         (_) async => const [
           SupplierDto(
             supplierId: 'sup-1',
@@ -66,9 +64,7 @@ void main() {
     });
 
     test('returns empty list when data source returns empty list', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer((_) async => []);
+      when(() => remoteDataSource.getSuppliers()).thenAnswer((_) async => []);
 
       final result = await repository.getSuppliers();
 
@@ -123,9 +119,7 @@ void main() {
     });
 
     test('maps multiple suppliers correctly', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getSuppliers()).thenAnswer(
         (_) async => const [
           SupplierDto(
             supplierId: 'sup-1',
@@ -154,9 +148,7 @@ void main() {
     });
 
     test('preserves system supplier flag through mapping', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getSuppliers()).thenAnswer(
         (_) async => const [
           SupplierDto(
             supplierId: 'sup-sys',
@@ -174,9 +166,7 @@ void main() {
     });
 
     test('maps null contact fields safely', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getSuppliers()).thenAnswer(
         (_) async => const [
           SupplierDto(
             supplierId: 'sup-3',
@@ -196,9 +186,7 @@ void main() {
     });
 
     test('defaults balanceDue to 0.0 in mapped entity', () async {
-      when(
-        () => remoteDataSource.getSuppliers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getSuppliers()).thenAnswer(
         (_) async => const [
           SupplierDto(
             supplierId: 'sup-4',

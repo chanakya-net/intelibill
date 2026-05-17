@@ -34,9 +34,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -71,9 +69,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -97,9 +93,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -138,9 +132,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -209,9 +201,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -227,9 +217,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -260,18 +248,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
   @override
   Future<({List<InventoryAdjustment> items, bool hasMore})>
-  getAdjustmentHistory({
-    required int pageNumber,
-    required int pageSize,
-  }) async {
+  getAdjustmentHistory({required int pageNumber, required int pageSize}) async {
     try {
       final response = await _remoteDataSource.getAdjustmentHistory(
         pageNumber: pageNumber,
@@ -289,9 +272,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 

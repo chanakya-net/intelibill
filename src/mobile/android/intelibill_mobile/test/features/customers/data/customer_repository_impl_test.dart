@@ -31,9 +31,7 @@ void main() {
 
   group('CustomerRepositoryImpl', () {
     test('maps remote dtos into domain entities', () async {
-      when(
-        () => remoteDataSource.getCustomers(),
-      ).thenAnswer(
+      when(() => remoteDataSource.getCustomers()).thenAnswer(
         (_) async => const [
           CustomerDto(
             customerId: 'cust-1',
@@ -55,9 +53,7 @@ void main() {
     });
 
     test('returns empty list when data source returns empty list', () async {
-      when(
-        () => remoteDataSource.getCustomers(),
-      ).thenAnswer((_) async => []);
+      when(() => remoteDataSource.getCustomers()).thenAnswer((_) async => []);
 
       final result = await repository.getCustomers();
 
@@ -148,9 +144,7 @@ void main() {
       final exception = AppException(
         failure: const Failure.validation(message: 'invalid'),
       );
-      when(
-        () => remoteDataSource.createCustomer(any()),
-      ).thenThrow(exception);
+      when(() => remoteDataSource.createCustomer(any())).thenThrow(exception);
 
       expect(
         repository.createCustomer(

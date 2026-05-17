@@ -57,9 +57,7 @@ class AuthRepositoryImpl implements AuthRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -95,9 +93,7 @@ class AuthRepositoryImpl implements AuthRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -118,9 +114,7 @@ class AuthRepositoryImpl implements AuthRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -144,9 +138,7 @@ class AuthRepositoryImpl implements AuthRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -172,9 +164,7 @@ class AuthRepositoryImpl implements AuthRepository {
         failure: Failure.serialization(message: error.message),
       );
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
 
@@ -185,9 +175,7 @@ class AuthRepositoryImpl implements AuthRepository {
     } on AppException {
       rethrow;
     } catch (error) {
-      throw AppException(
-        failure: Failure.unknown(message: error.toString()),
-      );
+      throw AppException(failure: Failure.unknown(message: error.toString()));
     } finally {
       await clearTokens();
     }

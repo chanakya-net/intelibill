@@ -140,9 +140,7 @@ void main() {
     testWidgets('shows loading indicator when isLoading is true', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        _buildApp(const SuppliersState(isLoading: true)),
-      );
+      await tester.pumpWidget(_buildApp(const SuppliersState(isLoading: true)));
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
@@ -160,9 +158,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _buildApp(
-          const SuppliersState(failure: NetworkFailure()),
-        ),
+        _buildApp(const SuppliersState(failure: NetworkFailure())),
       );
       await tester.pumpAndSettle();
 
@@ -222,16 +218,10 @@ void main() {
         refreshCount++;
       });
 
-      await tester.pumpWidget(
-        _buildAppWithOverrides(controller: controller),
-      );
+      await tester.pumpWidget(_buildAppWithOverrides(controller: controller));
       await tester.pumpAndSettle();
 
-      await tester.fling(
-        find.byType(ListView),
-        const Offset(0, 300),
-        1000,
-      );
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
       await tester.pumpAndSettle();
 
       expect(refreshCount, greaterThanOrEqualTo(1));

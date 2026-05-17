@@ -145,10 +145,7 @@ class CustomersController extends _$CustomersController {
       return true;
     } on AppException catch (error) {
       if (!ref.mounted) return false;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
       return false;
     } on Object {
       if (!ref.mounted) return false;

@@ -216,9 +216,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.red.shade200,
-                            ),
+                            border: Border.all(color: Colors.red.shade200),
                             color: Colors.red.shade50,
                           ),
                           child: Text(

@@ -10,11 +10,7 @@ void main() {
   testWidgets('app starts at login screen for unauthenticated users', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: IntelibillApp(),
-      ),
-    );
+    await tester.pumpWidget(const ProviderScope(child: IntelibillApp()));
     await tester.pumpAndSettle();
 
     // Verify login page is shown

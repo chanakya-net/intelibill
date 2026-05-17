@@ -140,17 +140,11 @@ class InventoryBatchesController extends _$InventoryBatchesController {
         notes: notes,
       );
       if (!ref.mounted) return;
-      state = state.copyWith(
-        isSubmitting: false,
-        lastAdjustedBatchId: batchId,
-      );
+      state = state.copyWith(isSubmitting: false, lastAdjustedBatchId: batchId);
       await refresh();
     } on AppException catch (error) {
       if (!ref.mounted) return;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(

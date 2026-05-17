@@ -14,9 +14,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Wraps the scanner page in a [MaterialApp] with localizations so we can
 /// push it from a real [Navigator] and await the popped result.
-Widget _buildTestHarness({
-  required ScannerSurfaceBuilder surfaceBuilder,
-}) {
+Widget _buildTestHarness({required ScannerSurfaceBuilder surfaceBuilder}) {
   return MaterialApp(
     locale: const Locale('en', 'IN'),
     supportedLocales: const [Locale('en', 'IN')],
@@ -35,9 +33,8 @@ Widget _buildTestHarness({
               Navigator.of(context).push<BarcodeScanResult?>(
                 MaterialPageRoute<BarcodeScanResult?>(
                   fullscreenDialog: true,
-                  builder: (_) => BarcodeScannerPage(
-                    scannerSurfaceBuilder: surfaceBuilder,
-                  ),
+                  builder: (_) =>
+                      BarcodeScannerPage(scannerSurfaceBuilder: surfaceBuilder),
                 ),
               ),
             );
@@ -78,10 +75,8 @@ class _FakeScannerSurfaceState extends State<_FakeScannerSurface> {
 ScannerSurfaceBuilder _fakeSurface(
   void Function(void Function(BarcodeCapture)) triggerHolder,
 ) {
-  return (context, onDetect) => _FakeScannerSurface(
-    onDetect: onDetect,
-    callback: triggerHolder,
-  );
+  return (context, onDetect) =>
+      _FakeScannerSurface(onDetect: onDetect, callback: triggerHolder);
 }
 
 BarcodeCapture _makeCapture(
@@ -89,16 +84,12 @@ BarcodeCapture _makeCapture(
   BarcodeFormat format = BarcodeFormat.ean13,
 ]) {
   return BarcodeCapture(
-    barcodes: [
-      Barcode(rawValue: value, format: format),
-    ],
+    barcodes: [Barcode(rawValue: value, format: format)],
   );
 }
 
 BarcodeCapture _makeEmptyCapture() {
-  return const BarcodeCapture(
-    barcodes: [Barcode(rawValue: '')],
-  );
+  return const BarcodeCapture(barcodes: [Barcode(rawValue: '')]);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,9 +102,7 @@ void main() {
       void Function(BarcodeCapture)? trigger;
 
       await tester.pumpWidget(
-        _buildTestHarness(
-          surfaceBuilder: _fakeSurface((t) => trigger = t),
-        ),
+        _buildTestHarness(surfaceBuilder: _fakeSurface((t) => trigger = t)),
       );
       await tester.pumpAndSettle();
 
@@ -152,10 +141,8 @@ void main() {
               body: TextButton(
                 key: const Key('open_scanner'),
                 onPressed: () async {
-                  capturedResult =
-                      await Navigator.of(
-                        context,
-                      ).push<BarcodeScanResult?>(
+                  capturedResult = await Navigator.of(context)
+                      .push<BarcodeScanResult?>(
                         MaterialPageRoute<BarcodeScanResult?>(
                           fullscreenDialog: true,
                           builder: (_) => BarcodeScannerPage(
@@ -200,10 +187,8 @@ void main() {
               body: TextButton(
                 key: const Key('open_scanner'),
                 onPressed: () async {
-                  capturedResult =
-                      await Navigator.of(
-                        context,
-                      ).push<BarcodeScanResult?>(
+                  capturedResult = await Navigator.of(context)
+                      .push<BarcodeScanResult?>(
                         MaterialPageRoute<BarcodeScanResult?>(
                           fullscreenDialog: true,
                           builder: (_) => BarcodeScannerPage(
@@ -244,9 +229,7 @@ void main() {
       void Function(BarcodeCapture)? trigger;
 
       await tester.pumpWidget(
-        _buildTestHarness(
-          surfaceBuilder: _fakeSurface((t) => trigger = t),
-        ),
+        _buildTestHarness(surfaceBuilder: _fakeSurface((t) => trigger = t)),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('open_scanner')));
@@ -284,9 +267,7 @@ void main() {
                     MaterialPageRoute<BarcodeScanResult?>(
                       fullscreenDialog: true,
                       builder: (_) => BarcodeScannerPage(
-                        scannerSurfaceBuilder: _fakeSurface(
-                          (t) => trigger = t,
-                        ),
+                        scannerSurfaceBuilder: _fakeSurface((t) => trigger = t),
                       ),
                     ),
                   );

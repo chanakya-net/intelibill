@@ -135,9 +135,7 @@ void main() {
       addTearDown(container.dispose);
 
       final controller = container.read(addInventoryControllerProvider.notifier)
-        ..state = const AddInventoryState(
-          submitFailure: Failure.network(),
-        );
+        ..state = const AddInventoryState(submitFailure: Failure.network());
 
       final submitFuture = submit(controller);
       final state = container.read(addInventoryControllerProvider);

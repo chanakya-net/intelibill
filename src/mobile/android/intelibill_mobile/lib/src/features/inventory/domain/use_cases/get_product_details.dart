@@ -6,13 +6,7 @@ class GetProductDetails {
 
   final InventoryRepository _repository;
 
-  Future<ProductDetails> call({
-    String? name,
-    String? barcode,
-  }) {
-    return _repository.getProductDetails(
-      name: name,
-      barcode: barcode,
-    );
+  Future<ProductDetails> call({String? name, String? barcode}) {
+    return _repository.getProductDetails(name: name, barcode: barcode);
   }
 }

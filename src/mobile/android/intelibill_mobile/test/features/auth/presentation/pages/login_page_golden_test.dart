@@ -64,10 +64,7 @@ void main() {
         overrides: [
           authControllerProvider.overrideWith(GoldenAuthController.new),
         ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          home: const LoginPage(),
-        ),
+        child: MaterialApp(theme: AppTheme.lightTheme, home: const LoginPage()),
       ),
     );
     await tester.pumpAndSettle();

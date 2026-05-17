@@ -1,10 +1,7 @@
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 
 class AppException implements Exception {
-  AppException({
-    required this.failure,
-    this.stackTrace,
-  });
+  AppException({required this.failure, this.stackTrace});
 
   final Failure failure;
   final StackTrace? stackTrace;

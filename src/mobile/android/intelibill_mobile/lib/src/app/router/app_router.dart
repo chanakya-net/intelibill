@@ -16,6 +16,8 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
 
 class AppRoutes {
@@ -36,6 +38,8 @@ class AppRoutes {
   static const String profitLoss = '/sales/profit-loss';
   static const String customers = '/customers';
   static const String suppliers = '/suppliers';
+  static const String createShop = '/shops/create';
+  static const String manageShop = '/shops/manage';
   static const String expenses = '/expenses';
   static const String users = '/users';
   static const String discounts = '/discounts';
@@ -155,6 +159,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const SuppliersPage(),
           ),
           GoRoute(
+            path: AppRoutes.createShop,
+            builder: (context, state) => const CreateShopPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.manageShop,
+            builder: (context, state) => const ManageShopPage(),
+          ),
+          GoRoute(
             path: AppRoutes.expenses,
             builder: (context, state) => _buildPlaceholder(
               context,
@@ -227,8 +239,5 @@ PlaceholderPage _buildPlaceholder(
   required String title,
 }) {
   final l10n = AppLocalizations.of(context)!;
-  return PlaceholderPage(
-    title: title,
-    body: l10n.placeholderBody,
-  );
+  return PlaceholderPage(title: title, body: l10n.placeholderBody);
 }

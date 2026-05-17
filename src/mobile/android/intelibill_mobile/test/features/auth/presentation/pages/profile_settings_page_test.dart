@@ -111,9 +111,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -129,9 +127,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -153,11 +149,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final controller = _SwitchTrackingAuthController(state);
       final container = ProviderContainer(
-        overrides: [
-          authControllerProvider.overrideWith(
-            () => controller,
-          ),
-        ],
+        overrides: [authControllerProvider.overrideWith(() => controller)],
       );
 
       await tester.pumpWidget(_buildPage(container));
@@ -179,9 +171,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 
@@ -201,9 +191,7 @@ void main() {
       final state = AuthControllerState(session: session);
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(
-            () => _StubAuthController(state),
-          ),
+          authControllerProvider.overrideWith(() => _StubAuthController(state)),
         ],
       );
 

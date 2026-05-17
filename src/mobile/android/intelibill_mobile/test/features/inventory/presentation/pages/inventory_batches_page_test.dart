@@ -75,9 +75,7 @@ Widget _buildApp({
         () => _StubInventoryBatchesController(state),
       ),
       authControllerProvider.overrideWith(
-        () => _StubAuthController(
-          AuthControllerState(session: _session(role)),
-        ),
+        () => _StubAuthController(AuthControllerState(session: _session(role))),
       ),
     ],
     child: MaterialApp(
@@ -132,9 +130,7 @@ void main() {
 
     testWidgets('shows voided badge for voided batches', (tester) async {
       await tester.pumpWidget(
-        _buildApp(
-          state: InventoryBatchesState(batches: [_voidedBatch]),
-        ),
+        _buildApp(state: InventoryBatchesState(batches: [_voidedBatch])),
       );
       await tester.pumpAndSettle();
 
@@ -143,9 +139,7 @@ void main() {
 
     testWidgets('Adjust button absent for voided batch', (tester) async {
       await tester.pumpWidget(
-        _buildApp(
-          state: InventoryBatchesState(batches: [_voidedBatch]),
-        ),
+        _buildApp(state: InventoryBatchesState(batches: [_voidedBatch])),
       );
       await tester.pumpAndSettle();
 
@@ -153,42 +147,28 @@ void main() {
     });
 
     testWidgets('Adjust button hidden for Staff role', (tester) async {
-      await tester.pumpWidget(
-        _buildApp(
-          state: _loadedState,
-          role: 'staff',
-        ),
-      );
+      await tester.pumpWidget(_buildApp(state: _loadedState, role: 'staff'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextButton, 'Adjust'), findsNothing);
     });
 
     testWidgets('Adjust button visible for Owner role', (tester) async {
-      await tester.pumpWidget(
-        _buildApp(state: _loadedState),
-      );
+      await tester.pumpWidget(_buildApp(state: _loadedState));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextButton, 'Adjust'), findsOneWidget);
     });
 
     testWidgets('Adjust button visible for Manager role', (tester) async {
-      await tester.pumpWidget(
-        _buildApp(
-          state: _loadedState,
-          role: 'manager',
-        ),
-      );
+      await tester.pumpWidget(_buildApp(state: _loadedState, role: 'manager'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextButton, 'Adjust'), findsOneWidget);
     });
 
     testWidgets('tapping Adjust opens AdjustBatchSheet', (tester) async {
-      await tester.pumpWidget(
-        _buildApp(state: _loadedState),
-      );
+      await tester.pumpWidget(_buildApp(state: _loadedState));
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(TextButton, 'Adjust'));

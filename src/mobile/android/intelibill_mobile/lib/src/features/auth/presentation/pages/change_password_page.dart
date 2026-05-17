@@ -80,9 +80,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
         if (_wasSubmitting && state.errorMessage == null && !state.isLoading) {
           _wasSubmitting = false;
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.passwordChangeSuccess)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(l10n.passwordChangeSuccess)));
             context.pop();
           }
         }
@@ -220,9 +220,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.red.shade200,
-                        ),
+                        border: Border.all(color: Colors.red.shade200),
                         color: Colors.red.shade50,
                       ),
                       child: Text(

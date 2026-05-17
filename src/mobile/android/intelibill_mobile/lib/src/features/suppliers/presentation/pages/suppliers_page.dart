@@ -82,9 +82,7 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
               },
             ),
           ),
-          Expanded(
-            child: _buildBody(context, suppliersState, l10n),
-          ),
+          Expanded(child: _buildBody(context, suppliersState, l10n)),
         ],
       ),
     );
@@ -100,9 +98,9 @@ class _SuppliersPageState extends ConsumerState<SuppliersPage> {
     );
 
     if (!mounted || created != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.suppliersCreateSuccess)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.suppliersCreateSuccess)));
   }
 
   Widget _buildBody(
@@ -225,9 +223,7 @@ class _SupplierCard extends StatelessWidget {
                       horizontal: 8,
                       vertical: 2,
                     ),
-                    margin: EdgeInsets.only(
-                      left: supplier.isPreferred ? 4 : 0,
-                    ),
+                    margin: EdgeInsets.only(left: supplier.isPreferred ? 4 : 0),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(4),

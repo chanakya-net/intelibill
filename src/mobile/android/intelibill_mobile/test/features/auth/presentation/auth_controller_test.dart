@@ -49,9 +49,7 @@ void main() {
       when(
         () => repository.getRememberedIdentifier(),
       ).thenAnswer((_) async => 'remembered@example.com');
-      when(
-        () => repository.getRefreshToken(),
-      ).thenAnswer((_) async => null);
+      when(() => repository.getRefreshToken()).thenAnswer((_) async => null);
 
       final container = ProviderContainer(
         overrides: [
@@ -97,9 +95,7 @@ void main() {
         expect(state.rememberedIdentifier, equals('remembered@example.com'));
         expect(state.rememberMe, isTrue);
         verify(
-          () => repository.refreshToken(
-            refreshToken: 'stored_refresh_token',
-          ),
+          () => repository.refreshToken(refreshToken: 'stored_refresh_token'),
         ).called(1);
       },
     );
@@ -241,41 +237,38 @@ void main() {
       },
     );
 
-    test(
-      'switchShop success updates session with new active shop',
-      () async {
-        final switchedSession = userFixtureSession(
-          accessToken: 'switched_access_token',
-          refreshToken: 'switched_refresh_token',
-        );
+    test('switchShop success updates session with new active shop', () async {
+      final switchedSession = userFixtureSession(
+        accessToken: 'switched_access_token',
+        refreshToken: 'switched_refresh_token',
+      );
 
-        when(
-          () => repository.getRememberedIdentifier(),
-        ).thenAnswer((_) async => null);
-        when(
-          () => repository.switchShop(shopId: any(named: 'shopId')),
-        ).thenAnswer((_) async => switchedSession);
+      when(
+        () => repository.getRememberedIdentifier(),
+      ).thenAnswer((_) async => null);
+      when(
+        () => repository.switchShop(shopId: any(named: 'shopId')),
+      ).thenAnswer((_) async => switchedSession);
 
-        final container = ProviderContainer(
-          overrides: [
-            authRepositoryProvider.overrideWith(
-              (ref) => Future.value(repository),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWith(
+            (ref) => Future.value(repository),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-        await container.read(authControllerProvider.future);
-        final notifier = container.read(authControllerProvider.notifier);
+      await container.read(authControllerProvider.future);
+      final notifier = container.read(authControllerProvider.notifier);
 
-        await notifier.switchShop(shopId: 'shop-id');
+      await notifier.switchShop(shopId: 'shop-id');
 
-        final state = container.read(authControllerProvider).value!;
-        expect(state.session, equals(switchedSession));
-        expect(state.isLoading, isFalse);
-        verify(() => repository.switchShop(shopId: 'shop-id')).called(1);
-      },
-    );
+      final state = container.read(authControllerProvider).value!;
+      expect(state.session, equals(switchedSession));
+      expect(state.isLoading, isFalse);
+      verify(() => repository.switchShop(shopId: 'shop-id')).called(1);
+    });
 
     test('maps invalid credentials failure', () async {
       when(
@@ -449,56 +442,47 @@ void main() {
       );
     });
 
-    test(
-      'preserves remember-me state across logins',
-      () async {
-        when(
-          () => repository.getRememberedIdentifier(),
-        ).thenAnswer((_) async => null);
-        when(
-          () => repository.login(
-            identifier: any(named: 'identifier'),
-            password: any(named: 'password'),
-            rememberMe: any(named: 'rememberMe'),
+    test('preserves remember-me state across logins', () async {
+      when(
+        () => repository.getRememberedIdentifier(),
+      ).thenAnswer((_) async => null);
+      when(
+        () => repository.login(
+          identifier: any(named: 'identifier'),
+          password: any(named: 'password'),
+          rememberMe: any(named: 'rememberMe'),
+        ),
+      ).thenAnswer((invocation) async {
+        final rememberMe = invocation.namedArguments[#rememberMe] as bool;
+        return userFixtureSession(rememberMe: rememberMe);
+      });
+
+      final container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWith(
+            (ref) => Future.value(repository),
           ),
-        ).thenAnswer((invocation) async {
-          final rememberMe = invocation.namedArguments[#rememberMe] as bool;
-          return userFixtureSession(rememberMe: rememberMe);
-        });
+        ],
+      );
+      addTearDown(container.dispose);
 
-        final container = ProviderContainer(
-          overrides: [
-            authRepositoryProvider.overrideWith(
-              (ref) => Future.value(repository),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
+      await container.read(authControllerProvider.future);
+      final notifier = container.read(authControllerProvider.notifier);
 
-        await container.read(authControllerProvider.future);
-        final notifier = container.read(authControllerProvider.notifier);
+      await notifier.login(
+        identifier: 'user',
+        password: 'pass',
+        rememberMe: true,
+      );
+      expect(container.read(authControllerProvider).value?.rememberMe, isTrue);
 
-        await notifier.login(
-          identifier: 'user',
-          password: 'pass',
-          rememberMe: true,
-        );
-        expect(
-          container.read(authControllerProvider).value?.rememberMe,
-          isTrue,
-        );
-
-        await notifier.login(
-          identifier: 'user',
-          password: 'pass',
-          rememberMe: false,
-        );
-        expect(
-          container.read(authControllerProvider).value?.rememberMe,
-          isFalse,
-        );
-      },
-    );
+      await notifier.login(
+        identifier: 'user',
+        password: 'pass',
+        rememberMe: false,
+      );
+      expect(container.read(authControllerProvider).value?.rememberMe, isFalse);
+    });
 
     test('loading state transitions to false when login succeeds', () async {
       final loginCompleter = Completer<AuthSession>();

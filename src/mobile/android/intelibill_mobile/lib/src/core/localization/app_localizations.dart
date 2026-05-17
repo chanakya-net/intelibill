@@ -1740,6 +1740,408 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Scanner unavailable'**
   String get barcodeScannerUnavailable;
+
+  /// No description provided for @shopsCreateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Create Shop'**
+  String get shopsCreateTitle;
+
+  /// No description provided for @shopsCreateShopInfoStepTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Information'**
+  String get shopsCreateShopInfoStepTitle;
+
+  /// No description provided for @shopsCreateBankDetailsStepTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank Details'**
+  String get shopsCreateBankDetailsStepTitle;
+
+  /// No description provided for @shopsCreateSuccessTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Created'**
+  String get shopsCreateSuccessTitle;
+
+  /// No description provided for @shopsCreateSuccessDefaultShopName.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New Shop'**
+  String get shopsCreateSuccessDefaultShopName;
+
+  /// No description provided for @shopsCreateSuccessMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Your shop \"{shopName}\" is ready.'**
+  String shopsCreateSuccessMessage(String shopName);
+
+  /// No description provided for @shopsCreateNextButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Next'**
+  String get shopsCreateNextButton;
+
+  /// No description provided for @shopsCreateSkipButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Skip'**
+  String get shopsCreateSkipButton;
+
+  /// No description provided for @shopsCreateShopNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Name'**
+  String get shopsCreateShopNameLabel;
+
+  /// No description provided for @shopsCreateShopNameHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter shop name'**
+  String get shopsCreateShopNameHint;
+
+  /// No description provided for @shopsCreateShopNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Name is required.'**
+  String get shopsCreateShopNameRequired;
+
+  /// No description provided for @shopsCreateAddressLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Address'**
+  String get shopsCreateAddressLabel;
+
+  /// No description provided for @shopsCreateAddressHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter shop address'**
+  String get shopsCreateAddressHint;
+
+  /// No description provided for @shopsCreateAddressRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Address is required.'**
+  String get shopsCreateAddressRequired;
+
+  /// No description provided for @shopsCreateCityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'City'**
+  String get shopsCreateCityLabel;
+
+  /// No description provided for @shopsCreateCityHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter city'**
+  String get shopsCreateCityHint;
+
+  /// No description provided for @shopsCreateCityRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'City is required.'**
+  String get shopsCreateCityRequired;
+
+  /// No description provided for @shopsCreateStateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'State'**
+  String get shopsCreateStateLabel;
+
+  /// No description provided for @shopsCreateStateHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter state'**
+  String get shopsCreateStateHint;
+
+  /// No description provided for @shopsCreateStateRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'State is required.'**
+  String get shopsCreateStateRequired;
+
+  /// No description provided for @shopsCreatePincodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Pincode'**
+  String get shopsCreatePincodeLabel;
+
+  /// No description provided for @shopsCreatePincodeHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter 6-digit pincode'**
+  String get shopsCreatePincodeHint;
+
+  /// No description provided for @shopsCreatePincodeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Pincode is required.'**
+  String get shopsCreatePincodeRequired;
+
+  /// No description provided for @shopsCreatePincodeInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Pincode must be exactly 6 digits.'**
+  String get shopsCreatePincodeInvalid;
+
+  /// No description provided for @shopsCreateContactPersonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Contact Person'**
+  String get shopsCreateContactPersonLabel;
+
+  /// No description provided for @shopsCreateContactPersonHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter contact person'**
+  String get shopsCreateContactPersonHint;
+
+  /// No description provided for @shopsCreateMobileNumberLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Mobile Number'**
+  String get shopsCreateMobileNumberLabel;
+
+  /// No description provided for @shopsCreateMobileNumberHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter 10-digit mobile number'**
+  String get shopsCreateMobileNumberHint;
+
+  /// No description provided for @shopsCreateMobileNumberInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Mobile number must be 10 digits.'**
+  String get shopsCreateMobileNumberInvalid;
+
+  /// No description provided for @shopsCreateGstNumberLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'GST Number'**
+  String get shopsCreateGstNumberLabel;
+
+  /// No description provided for @shopsCreateGstNumberHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter GST number'**
+  String get shopsCreateGstNumberHint;
+
+  /// No description provided for @shopsCreateGstNumberInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid GST number.'**
+  String get shopsCreateGstNumberInvalid;
+
+  /// No description provided for @shopsCreateBankNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank Name'**
+  String get shopsCreateBankNameLabel;
+
+  /// No description provided for @shopsCreateBankNameHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter bank name'**
+  String get shopsCreateBankNameHint;
+
+  /// No description provided for @shopsCreateBankNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank Name is required.'**
+  String get shopsCreateBankNameRequired;
+
+  /// No description provided for @shopsCreateAccountNumberLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account Number'**
+  String get shopsCreateAccountNumberLabel;
+
+  /// No description provided for @shopsCreateAccountNumberHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter account number'**
+  String get shopsCreateAccountNumberHint;
+
+  /// No description provided for @shopsCreateAccountNumberRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account Number is required.'**
+  String get shopsCreateAccountNumberRequired;
+
+  /// No description provided for @shopsCreateAccountTypeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account Type'**
+  String get shopsCreateAccountTypeLabel;
+
+  /// No description provided for @shopsCreateAccountTypeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account type is required.'**
+  String get shopsCreateAccountTypeRequired;
+
+  /// No description provided for @shopsCreateAccountTypeSavings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Savings'**
+  String get shopsCreateAccountTypeSavings;
+
+  /// No description provided for @shopsCreateAccountTypeCurrent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Current'**
+  String get shopsCreateAccountTypeCurrent;
+
+  /// No description provided for @shopsCreateAccountTypeOverdraft.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Overdraft'**
+  String get shopsCreateAccountTypeOverdraft;
+
+  /// No description provided for @shopsCreateIfscCodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'IFSC Code'**
+  String get shopsCreateIfscCodeLabel;
+
+  /// No description provided for @shopsCreateIfscCodeHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter IFSC code'**
+  String get shopsCreateIfscCodeHint;
+
+  /// No description provided for @shopsCreateIfscCodeInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid IFSC code.'**
+  String get shopsCreateIfscCodeInvalid;
+
+  /// No description provided for @shopsCreateAccountHolderNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account Holder Name'**
+  String get shopsCreateAccountHolderNameLabel;
+
+  /// No description provided for @shopsCreateAccountHolderNameHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter account holder name'**
+  String get shopsCreateAccountHolderNameHint;
+
+  /// No description provided for @shopsCreateAccountHolderNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account Holder Name is required.'**
+  String get shopsCreateAccountHolderNameRequired;
+
+  /// No description provided for @shopsCreateErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get shopsCreateErrorGeneric;
+
+  /// No description provided for @shopsCreateErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You are not authorized.'**
+  String get shopsCreateErrorUnauthorized;
+
+  /// No description provided for @shopsCreateErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission.'**
+  String get shopsCreateErrorForbidden;
+
+  /// No description provided for @shopsCreateErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Network error. Please try again.'**
+  String get shopsCreateErrorNetwork;
+
+  /// No description provided for @shopsCreateErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get shopsCreateErrorTimeout;
+
+  /// No description provided for @shopsManageSelectShopTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manage Shop'**
+  String get shopsManageSelectShopTitle;
+
+  /// No description provided for @shopsManageSelectShopLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select Shop'**
+  String get shopsManageSelectShopLabel;
+
+  /// No description provided for @shopsManageSelectShopRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Please select a shop.'**
+  String get shopsManageSelectShopRequired;
+
+  /// No description provided for @shopsManageSelectShopHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Choose a shop to update its details.'**
+  String get shopsManageSelectShopHint;
+
+  /// No description provided for @shopsManageEditDetailsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Shop Details'**
+  String get shopsManageEditDetailsTitle;
+
+  /// No description provided for @shopsManageSuccessTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Updated'**
+  String get shopsManageSuccessTitle;
+
+  /// No description provided for @shopsManageSuccessDefaultShopName.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop'**
+  String get shopsManageSuccessDefaultShopName;
+
+  /// No description provided for @shopsManageSuccessMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Your shop \"{shopName}\" has been updated.'**
+  String shopsManageSuccessMessage(String shopName);
+
+  /// No description provided for @shopsManageErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get shopsManageErrorGeneric;
+
+  /// No description provided for @shopsManageErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You are not authorized.'**
+  String get shopsManageErrorUnauthorized;
+
+  /// No description provided for @shopsManageErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission.'**
+  String get shopsManageErrorForbidden;
+
+  /// No description provided for @shopsManageErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Network error. Please try again.'**
+  String get shopsManageErrorNetwork;
+
+  /// No description provided for @shopsManageErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get shopsManageErrorTimeout;
 }
 
 class _AppLocalizationsDelegate

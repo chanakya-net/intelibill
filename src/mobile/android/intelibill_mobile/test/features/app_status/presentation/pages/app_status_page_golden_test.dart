@@ -31,9 +31,7 @@ void main() {
             GoldenAppStatusController.new,
           ),
         ],
-        child: const MaterialApp(
-          home: AppStatusPage(),
-        ),
+        child: const MaterialApp(home: AppStatusPage()),
       ),
     );
     await tester.pumpAndSettle();

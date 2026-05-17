@@ -375,16 +375,14 @@ void main() {
       await tester.pump();
 
       final capturedRoute =
-          verify(
-                () => observer.didPush(captureAny(), any()),
-              ).captured.last
+          verify(() => observer.didPush(captureAny(), any())).captured.last
               as Route<dynamic>;
       expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
 
       // Simulate scan result
-      Navigator.of(tester.element(find.byType(CreateItemSheet))).pop(
-        const BarcodeScanResult(value: 'SCANNED123'),
-      );
+      Navigator.of(
+        tester.element(find.byType(CreateItemSheet)),
+      ).pop(const BarcodeScanResult(value: 'SCANNED123'));
       await tester.pumpAndSettle();
 
       final barcodeField = tester.widget<TextFormField>(
@@ -440,16 +438,14 @@ void main() {
       await tester.pump();
 
       final capturedRoute =
-          verify(
-                () => observer.didPush(captureAny(), any()),
-              ).captured.last
+          verify(() => observer.didPush(captureAny(), any())).captured.last
               as Route<dynamic>;
       expect(capturedRoute, isA<MaterialPageRoute<BarcodeScanResult?>>());
 
       // Simulate scan result
-      Navigator.of(tester.element(find.byType(EditItemSheet))).pop(
-        const BarcodeScanResult(value: 'SCANNED456'),
-      );
+      Navigator.of(
+        tester.element(find.byType(EditItemSheet)),
+      ).pop(const BarcodeScanResult(value: 'SCANNED456'));
       await tester.pumpAndSettle();
 
       final barcodeField = tester.widget<TextFormField>(
@@ -494,19 +490,16 @@ void main() {
           find.byKey(CreateItemSheet.nameFieldKey),
           'Test Product',
         );
-        await tester.enterText(
-          find.byKey(CreateItemSheet.uomFieldKey),
-          'pcs',
-        );
+        await tester.enterText(find.byKey(CreateItemSheet.uomFieldKey), 'pcs');
 
         // Tap scan button and simulate a long barcode result
         await tester.tap(find.byKey(CreateItemSheet.scanBarcodeButtonKey));
         await tester.pump();
 
         final longBarcode = 'x' * 121;
-        Navigator.of(tester.element(find.byType(CreateItemSheet))).pop(
-          BarcodeScanResult(value: longBarcode),
-        );
+        Navigator.of(
+          tester.element(find.byType(CreateItemSheet)),
+        ).pop(BarcodeScanResult(value: longBarcode));
         await tester.pumpAndSettle();
 
         expect(
@@ -563,9 +556,9 @@ void main() {
         await tester.pump();
 
         final longBarcode = 'x' * 121;
-        Navigator.of(tester.element(find.byType(EditItemSheet))).pop(
-          BarcodeScanResult(value: longBarcode),
-        );
+        Navigator.of(
+          tester.element(find.byType(EditItemSheet)),
+        ).pop(BarcodeScanResult(value: longBarcode));
         await tester.pumpAndSettle();
 
         expect(

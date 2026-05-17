@@ -54,9 +54,7 @@ class AppTheme {
         color: cardBackground,
         elevation: 10,
         shadowColor: const Color(0x1A7C2D12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -90,14 +88,10 @@ class AppTheme {
         }),
         checkColor: WidgetStateProperty.all(Colors.white),
         side: const BorderSide(color: Color(0xFFE07A2F), width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(5),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
       textTheme: ThemeData.light().textTheme
-          .apply(
-            fontFamily: 'Georgia',
-          )
+          .apply(fontFamily: 'Georgia')
           .copyWith(
             headlineMedium: const TextStyle(
               color: Color(0xFF7C2D12),
@@ -109,9 +103,7 @@ class AppTheme {
             ),
           ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0xFFFED7AA),

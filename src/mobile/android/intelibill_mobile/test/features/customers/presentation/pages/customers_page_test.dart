@@ -83,9 +83,7 @@ void main() {
     testWidgets('shows loading indicator when isLoading is true', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        _buildApp(const CustomersState(isLoading: true)),
-      );
+      await tester.pumpWidget(_buildApp(const CustomersState(isLoading: true)));
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
@@ -93,9 +91,7 @@ void main() {
     testWidgets('shows empty state when customer list is empty', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        _buildApp(const CustomersState()),
-      );
+      await tester.pumpWidget(_buildApp(const CustomersState()));
       await tester.pumpAndSettle();
 
       expect(find.text('No customers found'), findsOneWidget);
@@ -105,9 +101,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _buildApp(
-          const CustomersState(failure: NetworkFailure()),
-        ),
+        _buildApp(const CustomersState(failure: NetworkFailure())),
       );
       await tester.pumpAndSettle();
 
@@ -132,9 +126,7 @@ void main() {
       expect(find.text('9123456789'), findsOneWidget);
     });
 
-    testWidgets('shows outstanding due when greater than zero', (
-      tester,
-    ) async {
+    testWidgets('shows outstanding due when greater than zero', (tester) async {
       await tester.pumpWidget(_buildApp(_loadedState));
       await tester.pumpAndSettle();
 
@@ -190,11 +182,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.fling(
-        find.byType(ListView),
-        const Offset(0, 300),
-        1000,
-      );
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
       await tester.pumpAndSettle();
 
       expect(refreshCount, greaterThanOrEqualTo(1));
@@ -203,12 +191,9 @@ void main() {
     testWidgets('pull-to-refresh works in empty state', (tester) async {
       var refreshCount = 0;
 
-      final controller = _CountingRefreshController(
-        const CustomersState(),
-        () {
-          refreshCount++;
-        },
-      );
+      final controller = _CountingRefreshController(const CustomersState(), () {
+        refreshCount++;
+      });
 
       await tester.pumpWidget(
         ProviderScope(
@@ -224,11 +209,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.fling(
-        find.byType(ListView),
-        const Offset(0, 300),
-        1000,
-      );
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
       await tester.pumpAndSettle();
 
       expect(refreshCount, greaterThanOrEqualTo(1));
