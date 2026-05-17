@@ -38,6 +38,7 @@ public class ApplicationDbContext(
     public DbSet<Expense> Expenses => Set<Expense>();
     public DbSet<ExpenseCategory> ExpenseCategories => Set<ExpenseCategory>();
     public DbSet<DiscountRule> DiscountRules => Set<DiscountRule>();
+    public DbSet<HsnCache> HsnCaches => Set<HsnCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

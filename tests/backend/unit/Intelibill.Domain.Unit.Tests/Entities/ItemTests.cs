@@ -68,4 +68,47 @@ public class ItemTests
 
         Assert.Empty(item.DomainEvents);
     }
+
+    [Fact]
+    public void UpdateHsnCode_WithValidCode_SetsHsnCode()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+
+        item.UpdateHsnCode("30049069");
+
+        Assert.Equal("30049069", item.HsnCode);
+    }
+
+    [Fact]
+    public void UpdateHsnCode_WithNull_SetsHsnCodeToNull()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+        item.UpdateHsnCode("30049069");
+
+        item.UpdateHsnCode(null);
+
+        Assert.Null(item.HsnCode);
+    }
+
+    [Fact]
+    public void UpdateHsnCode_WithWhitespace_SetsHsnCodeToNull()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+        item.UpdateHsnCode("30049069");
+
+        item.UpdateHsnCode("   ");
+
+        Assert.Null(item.HsnCode);
+    }
+
+    [Fact]
+    public void UpdateHsnCode_WithNewCode_ReplacesExistingCode()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+        item.UpdateHsnCode("30049069");
+
+        item.UpdateHsnCode("  10063090  ");
+
+        Assert.Equal("10063090", item.HsnCode);
+    }
 }
