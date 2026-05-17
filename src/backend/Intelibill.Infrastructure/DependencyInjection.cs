@@ -63,6 +63,9 @@ public static class DependencyInjection
         services.AddOptions<ProductLookupOptions>()
             .Bind(configuration.GetSection(ProductLookupOptions.SectionName));
 
+        services.AddOptions<HsnServiceOptions>()
+            .Bind(configuration.GetSection(HsnServiceOptions.SectionName));
+
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
@@ -83,6 +86,7 @@ public static class DependencyInjection
         services.AddScoped<IExpenseRepository, ExpenseRepository>();
         services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
         services.AddScoped<IDiscountRuleRepository, DiscountRuleRepository>();
+        services.AddScoped<IHsnCacheRepository, HsnCacheRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
@@ -150,6 +154,14 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(lookupOptions.BaseUrl);
         });
         services.AddScoped<IExternalProductLookupService, ExternalProductLookupService>();
+
+        services.AddHttpClient("HsnService", (sp, client) =>
+        {
+            var hsnOptions = sp.GetRequiredService<IOptions<HsnServiceOptions>>().Value;
+            client.BaseAddress = new Uri(hsnOptions.BaseUrl);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", hsnOptions.ApiKey);
+        });
+        services.AddScoped<IExternalHsnLookupService, Services.Hsn.ExternalHsnLookupService>();
 
         return services;
     }

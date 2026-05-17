@@ -13,8 +13,10 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null) : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private readonly Action<IServiceCollection>? _configureTestServices = configureTestServices;
+
     private PostgreSqlContainer? _localContainer;
     private PostgreSqlContainer DbContainer => fixture?.DbContainer ?? _localContainer ?? throw new InvalidOperationException("Container not initialized");
 
@@ -96,6 +98,8 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton<IDistributedCache, NoOpDistributedCache>();
+
+            _configureTestServices?.Invoke(services);
         });
     }
 }
