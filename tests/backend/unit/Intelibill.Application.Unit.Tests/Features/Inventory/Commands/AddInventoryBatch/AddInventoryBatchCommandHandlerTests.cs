@@ -14,6 +14,7 @@ public class AddInventoryBatchCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IItemResolver _itemResolver = Substitute.For<IItemResolver>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ISupplierResolver _supplierResolver = Substitute.For<ISupplierResolver>();
     private readonly IBatchFactory _batchFactory = Substitute.For<IBatchFactory>();
     private readonly IInventoryUpdater _inventoryUpdater = Substitute.For<IInventoryUpdater>();
@@ -184,16 +185,99 @@ public class AddInventoryBatchCommandHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task Handle_WithHsnCode_CallsUpdateHsnCodeOnItem()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+
+        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+        existingItem.UpdateHsnCode("OLD");
+
+        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(existingItem);
+
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
+
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                return new BatchCreationResult(batch, tx, ledger);
+            });
+
+        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
+        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
+            .Returns(inventory);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(
+            new AddInventoryBatchCommand(actor.Id, shop.Id, [CreateRow("row-1", "Rice", "111", hsnCode: "NEW")]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("NEW", existingItem.HsnCode);
+        _itemRepository.Received(1).Update(existingItem);
+    }
+
+    [Fact]
+    public async Task Handle_WithNullHsnCode_DoesNotCallUpdateHsnCodeOnItem()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+
+        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+        existingItem.UpdateHsnCode("OLD");
+
+        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(existingItem);
+
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
+
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                return new BatchCreationResult(batch, tx, ledger);
+            });
+
+        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
+        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
+            .Returns(inventory);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(
+            new AddInventoryBatchCommand(actor.Id, shop.Id, [CreateRow("row-1", "Rice", "111", hsnCode: null)]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("OLD", existingItem.HsnCode);
+        _itemRepository.DidNotReceive().Update(existingItem);
+    }
+
     private AddInventoryBatchCommandHandler CreateHandler() =>
         new(
             _userRepository,
             _itemResolver,
+            _itemRepository,
             _supplierResolver,
             _batchFactory,
             _inventoryUpdater,
             _unitOfWork);
 
-    private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode) =>
+    private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode, string? hsnCode = null) =>
         new(
             clientRowId,
             itemName,
@@ -212,5 +296,6 @@ public class AddInventoryBatchCommandHandlerTests
             SupplierId: null,
             ReferenceNumber: "PO-1",
             Notes: "Initial",
-            PerformedAt: null);
+            PerformedAt: null,
+            HsnCode: hsnCode);
 }

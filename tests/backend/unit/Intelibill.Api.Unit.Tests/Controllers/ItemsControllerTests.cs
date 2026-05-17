@@ -87,7 +87,8 @@ public class ItemsControllerTests
             SupplierId: null,
             SupplierName: null,
             TaxIncluded: null,
-            TaxRatePercent: null);
+            TaxRatePercent: null,
+            HsnCode: null);
 
         _bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(dto);

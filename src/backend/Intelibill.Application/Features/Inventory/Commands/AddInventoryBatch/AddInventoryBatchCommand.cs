@@ -25,7 +25,8 @@ public sealed record AddInventoryBatchRowCommand(
     Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
-    DateTimeOffset? PerformedAt);
+    DateTimeOffset? PerformedAt,
+    string? HsnCode);
 
 public sealed record AddInventoryBatchResultDto(
     int RequestedCount,

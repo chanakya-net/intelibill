@@ -151,7 +151,8 @@ public sealed class InventoryController : AuthenticatedControllerBase
                         row.SupplierId,
                         row.ReferenceNumber,
                         row.Notes,
-                        row.PerformedAt))
+                        row.PerformedAt,
+                        row.HsnCode))
                     .ToArray()),
             cancellationToken);
 
@@ -344,7 +345,8 @@ public sealed record AddInventoryBatchRowRequest(
     Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
-    DateTimeOffset? PerformedAt);
+    DateTimeOffset? PerformedAt,
+    string? HsnCode);
 
 public sealed record AddInventoryBatchResponse(
     int RequestedCount,

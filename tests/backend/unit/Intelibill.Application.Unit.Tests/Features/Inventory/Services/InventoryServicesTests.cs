@@ -246,5 +246,6 @@ public class InventoryServicesTests
             SupplierId: supplierId,
             ReferenceNumber: "PO-1",
             Notes: "initial",
-            PerformedAt: performedAt);
+            PerformedAt: performedAt,
+            HsnCode: null);
 }

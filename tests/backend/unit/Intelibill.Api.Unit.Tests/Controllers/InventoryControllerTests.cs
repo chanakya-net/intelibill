@@ -389,7 +389,8 @@ public class InventoryControllerTests
             SupplierId: null,
             ReferenceNumber: null,
             Notes: null,
-            PerformedAt: null);
+            PerformedAt: null,
+            HsnCode: null);
 
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('D', 24)}";

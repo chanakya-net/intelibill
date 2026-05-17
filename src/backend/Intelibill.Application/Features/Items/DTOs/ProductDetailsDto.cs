@@ -10,4 +10,5 @@ public sealed record ProductDetailsDto(
     Guid? SupplierId,
     string? SupplierName,
     bool? TaxIncluded,
-    decimal? TaxRatePercent);
+    decimal? TaxRatePercent,
+    string? HsnCode);
