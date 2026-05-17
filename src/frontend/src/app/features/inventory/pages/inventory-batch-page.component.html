@@ -11,17 +11,108 @@
 
   <div class="form-card">
     <form class="row-form" [formGroup]="form" (ngSubmit)="onAddRow()">
-      <label>
+      <label class="item-name-field">
         <span>{{ 'inventory.name' | transloco }}</span>
         <p-autocomplete
           formControlName="itemName"
           [suggestions]="nameSuggestions()"
           (completeMethod)="onFilterName($event)"
           (onSelect)="onNameSelected($event.value)"
+          (focusout)="onItemNameBlur()"
           appendTo="body"
           [fluid]="true"
         ></p-autocomplete>
+        @if (isLoadingHsn()) {
+          <div class="hsn-loading">
+            <p-progressSpinner styleClass="h-5 w-5" strokeWidth="6"></p-progressSpinner>
+            <span>{{ 'hsn.loading' | transloco }}</span>
+          </div>
+        }
+        @if (selectedHsnCode()) {
+          <div class="hsn-chip">
+            <span>
+              {{
+                'hsn.chip'
+                  | transloco: {
+                      hsnCode: selectedHsnCode(),
+                      taxPercentage: form.controls.taxRatePercent.value
+                    }
+              }}
+            </span>
+            <button
+              pButton
+              type="button"
+              [text]="true"
+              size="small"
+              class="hsn-chip-change"
+              (click)="clearHsnSelection()"
+            >
+              {{ 'hsn.change' | transloco }}
+            </button>
+          </div>
+        }
       </label>
+
+      @if (pickerOpen()) {
+        @if (hsnResult(); as result) {
+          <section class="hsn-picker-card">
+            <div class="hsn-picker-header">
+              <div>
+                <p class="eyebrow">{{ 'hsn.suggestion' | transloco }}</p>
+                <h3>{{ form.controls.itemName.value }}</h3>
+              </div>
+              <button
+                pButton
+                type="button"
+                [text]="true"
+                class="hsn-picker-dismiss"
+                (click)="dismissPicker()"
+              >
+                {{ 'hsn.enterManually' | transloco }}
+              </button>
+            </div>
+
+            <div class="hsn-picker-content">
+              <div class="hsn-picker-column">
+                <span>{{ 'hsn.hsnCode' | transloco }}</span>
+                <div class="hsn-picker-values">
+                  @for (hsnCode of result.hsnCodes; track hsnCode) {
+                    <span>{{ hsnCode }}</span>
+                  }
+                </div>
+              </div>
+
+              <div class="hsn-picker-column">
+                <span>{{ 'hsn.taxScenario' | transloco }}</span>
+                <div class="hsn-picker-values">
+                  @for (scenario of result.taxScenarios; track scenario.condition) {
+                    <span>
+                      {{ scenario.condition }}{{ scenario.condition ? ' · ' : '' }}{{ scenario.taxPercentage }}
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="hsn-picker-actions">
+              <button
+                pButton
+                type="button"
+                [label]="'hsn.apply' | transloco"
+                [disabled]="result.hsnCodes.length === 0 || result.taxScenarios.length === 0"
+                (click)="applyHsnSelection(result.hsnCodes[0], result.taxScenarios[0].taxPercentage)"
+              ></button>
+              <button
+                pButton
+                type="button"
+                [text]="true"
+                [label]="'hsn.enterManually' | transloco"
+                (click)="dismissPicker()"
+              ></button>
+            </div>
+          </section>
+        }
+      }
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>

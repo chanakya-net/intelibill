@@ -126,6 +126,7 @@ describe('InventoryService', () => {
             itemName: 'Premium Tea',
             barcode: 'ABC123',
             itemDescription: null,
+            hsnCode: null,
             uom: 'packet',
             batchNumber: 'BN-1',
             quantity: 5,
@@ -180,6 +181,49 @@ describe('InventoryService', () => {
     http.verify();
   });
 
+  it('lookupHsn_CallsCorrectEndpointWithProductName', () => {
+    const { service, http } = setup();
+
+    service.lookupHsn('Milk').subscribe((result) => {
+      expect(result.hsnCodes).toHaveLength(1);
+    });
+
+    const request = http.expectOne(`${API_BASE_URL}/hsn/lookup`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ productName: 'Milk' });
+
+    request.flush({
+      hsnCodes: ['0401'],
+      taxScenarios: [{ condition: 'General dairy', taxPercentage: '18%' }],
+    });
+
+    http.verify();
+  });
+
+  it('lookupHsn_ReturnsHsnCodesAndTaxScenarios', () => {
+    const { service, http } = setup();
+
+    service.lookupHsn('Milk').subscribe((result) => {
+      expect(result.hsnCodes).toEqual(['0401', '0402']);
+      expect(result.taxScenarios).toEqual([
+        { condition: 'General dairy', taxPercentage: '18%' },
+        { condition: 'Special rate', taxPercentage: '12%' },
+      ]);
+    });
+
+    const request = http.expectOne(`${API_BASE_URL}/hsn/lookup`);
+    expect(request.request.method).toBe('POST');
+    request.flush({
+      hsnCodes: ['0401', '0402'],
+      taxScenarios: [
+        { condition: 'General dairy', taxPercentage: '18%' },
+        { condition: 'Special rate', taxPercentage: '12%' },
+      ],
+    });
+
+    http.verify();
+  });
+
   it('sends batch adjustment request to batch adjust endpoint', () => {
     const { service, http } = setup();
 
@@ -220,6 +264,51 @@ describe('InventoryService', () => {
       inventoryQuantityAfter: 22.5,
       stockTransactionId: 'tx-1',
       performedAt: '2026-05-05T08:30:00.000Z',
+    });
+
+    http.verify();
+  });
+
+  it('addBatchRow_IncludesHsnCodeInPayload', () => {
+    const { service, http } = setup();
+
+    service
+      .addInventoryBatch({
+        items: [
+          {
+            clientRowId: 'row-1',
+            itemName: 'Premium Tea',
+            barcode: 'ABC123',
+            itemDescription: null,
+            hsnCode: '0401',
+            uom: 'packet',
+            batchNumber: 'BN-1',
+            quantity: 5,
+            costPrice: 80,
+            mrp: 100,
+            salesPrice: 95,
+            taxRatePercent: 5,
+            taxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            referenceNumber: null,
+            notes: null,
+            performedAt: null,
+          },
+        ],
+      })
+      .subscribe();
+
+    const request = http.expectOne(INVENTORY_ENDPOINTS.inboundBatch);
+    expect(request.request.body.items[0].hsnCode).toBe('0401');
+
+    request.flush({
+      requestedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      succeeded: [],
+      failed: [],
     });
 
     http.verify();

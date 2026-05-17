@@ -418,6 +418,16 @@
     "noAdjustments": "কোনো সমন্বয় পাওয়া যায়নি",
     "noAdjustmentsDescription": "আপনার বর্তমান ফিল্টারের সাথে মেলে এমন সমন্বয় এখানে দেখাবে।"
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "অ্যাকাউন্ট",
     "updateProfile": "প্রোফাইল আপডেট",

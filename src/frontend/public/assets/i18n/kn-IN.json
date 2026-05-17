@@ -418,6 +418,16 @@
     "noAdjustments": "ಯಾವುದೇ ಸರಿಹೊಂದింపುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
     "noAdjustmentsDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಫಿಲ್ಟರ್‌ಗಳಿಗೆ ಹೊಂದುವ ಸರಿಹೊಂದింపುಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "ಖಾತೆ",
     "updateProfile": "ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಿ",

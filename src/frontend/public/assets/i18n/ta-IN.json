@@ -418,6 +418,16 @@
     "noAdjustments": "எந்த சரிசெய்தல்களும் கிடைக்கவில்லை",
     "noAdjustmentsDescription": "உங்கள் தற்போதைய வடிகட்டல்களுக்கு பொருந்தும் சரிசெய்தல்கள் இங்கே தோன்றும்."
   },
+  "hsn": {
+    "suggestion": "HSN Suggestion",
+    "hsnCode": "HSN Code",
+    "taxScenario": "Tax Scenario",
+    "apply": "Apply",
+    "enterManually": "Enter Manually",
+    "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
+    "change": "Change",
+    "loading": "Looking up HSN..."
+  },
   "profile": {
     "account": "கணக்கு",
     "updateProfile": "சுயவிவரத்தை புதுப்பி",

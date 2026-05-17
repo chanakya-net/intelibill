@@ -17,6 +17,11 @@ import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchPageComponent } from './inventory-batch-page.component';
 
 describe('InventoryBatchPageComponent', () => {
+  const emptyLookupResult = {
+    hsnCodes: [] as string[],
+    taxScenarios: [] as { condition: string; taxPercentage: string }[],
+  };
+
   const productDetails = {
     name: 'Milk',
     description: 'Fresh milk pack',
@@ -26,6 +31,7 @@ describe('InventoryBatchPageComponent', () => {
     salesPrice: 48,
     supplierId: 'supplier-1',
     supplierName: 'Acme Foods',
+    hsnCode: '0401',
     taxIncluded: true as boolean | null,
     taxRatePercent: 18 as number | null,
   };
@@ -33,6 +39,7 @@ describe('InventoryBatchPageComponent', () => {
   const inventoryService = {
     getProductDetailsByNameOrBarcode: vi.fn(() => of(productDetails)),
     addInventoryBatch: vi.fn(),
+    lookupHsn: vi.fn(() => of(emptyLookupResult)),
   };
 
   const draftStorage = {
@@ -114,6 +121,9 @@ describe('InventoryBatchPageComponent', () => {
   beforeEach(() => {
     inventoryService.getProductDetailsByNameOrBarcode.mockReset();
     inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(of(productDetails));
+    inventoryService.addInventoryBatch.mockReset();
+    inventoryService.lookupHsn.mockReset();
+    inventoryService.lookupHsn.mockReturnValue(of(emptyLookupResult));
     draftStorage.loadRows.mockClear();
     draftStorage.saveRows.mockClear();
     draftStorage.clearRows.mockClear();
@@ -235,6 +245,242 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
     expect(component.form.controls.taxIncluded.value).toBe(productDetails.taxIncluded);
     expect(component.form.controls.taxRatePercent.value).toBe(productDetails.taxRatePercent);
+  });
+
+  it('onItemNameBlur_WithName_CallsLookupHsn', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+
+    expect(inventoryService.lookupHsn).toHaveBeenCalledWith('Milk');
+  });
+
+  it('onItemNameBlur_NameLessThan3Chars_DoesNotCallLookupHsn', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('ab');
+
+    await component.onItemNameBlur();
+
+    expect(inventoryService.lookupHsn).not.toHaveBeenCalled();
+  });
+
+  it('onItemNameBlur_SingleHsnAndSingleScenario_AutoAppliesWithoutShowingPicker', async () => {
+    inventoryService.lookupHsn.mockReturnValueOnce(
+      of({
+        hsnCodes: ['0401'],
+        taxScenarios: [{ condition: 'General dairy', taxPercentage: '18%' }],
+      }),
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+    fixture.detectChanges();
+
+    expect(component.selectedHsnCode()).toBe('0401');
+    expect(component.form.controls.taxRatePercent.value).toBe(18);
+    expect(component.pickerOpen()).toBe(false);
+    expect(fixture.debugElement.query(By.css('.hsn-picker-card'))).toBeNull();
+  });
+
+  it('onItemNameBlur_SingleHsnAndSingleScenario_ShowsChip', async () => {
+    inventoryService.lookupHsn.mockReturnValueOnce(
+      of({
+        hsnCodes: ['0401'],
+        taxScenarios: [{ condition: 'General dairy', taxPercentage: '18%' }],
+      }),
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+    fixture.detectChanges();
+
+    expect(component.selectedHsnCode()).toBe('0401');
+    expect(fixture.debugElement.query(By.css('.hsn-chip'))).not.toBeNull();
+  });
+
+  it('onItemNameBlur_MultipleResults_ShowsPickerCard', async () => {
+    inventoryService.lookupHsn.mockReturnValueOnce(
+      of({
+        hsnCodes: ['0401', '0402'],
+        taxScenarios: [
+          { condition: 'General', taxPercentage: '5%' },
+          { condition: 'Special', taxPercentage: '12%' },
+        ],
+      }),
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+    fixture.detectChanges();
+
+    expect(component.pickerOpen()).toBe(true);
+    expect(fixture.debugElement.query(By.css('.hsn-picker-card'))).not.toBeNull();
+  });
+
+  it('onItemNameBlur_ApiError_DoesNotShowPicker', async () => {
+    inventoryService.lookupHsn.mockReturnValueOnce(throwError(() => new Error('lookup failed')));
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+    fixture.detectChanges();
+
+    expect(component.pickerOpen()).toBe(false);
+    expect(fixture.debugElement.query(By.css('.hsn-picker-card'))).toBeNull();
+  });
+
+  it('onItemNameBlur_ApiError_TaxFieldRemainsEditable', async () => {
+    inventoryService.lookupHsn.mockReturnValueOnce(throwError(() => new Error('lookup failed')));
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+
+    await component.onItemNameBlur();
+    component.form.controls.taxRatePercent.setValue(22);
+
+    expect(component.form.controls.taxRatePercent.value).toBe(22);
+    expect(component.form.controls.taxRatePercent.enabled).toBe(true);
+  });
+
+  it('applyHsnSelection_ParsesTaxPercentageStringToNumber', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.applyHsnSelection('0401', '18%');
+
+    expect(component.form.controls.taxRatePercent.value).toBe(18);
+  });
+
+  it('applyHsnSelection_PatchesTaxRatePercentFormControl', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.applyHsnSelection('0401', '12%');
+
+    expect(component.form.controls.taxRatePercent.value).toBe(12);
+  });
+
+  it('applyHsnSelection_SetsSelectedHsnCode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.applyHsnSelection('0401', '12%');
+
+    expect(component.selectedHsnCode()).toBe('0401');
+  });
+
+  it('applyHsnSelection_ClosesPicker', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    component.pickerOpen.set(true);
+
+    component.applyHsnSelection('0401', '12%');
+
+    expect(component.pickerOpen()).toBe(false);
+  });
+
+  it('itemNameChange_AfterApply_ClearsChipAndResetsState', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.applyHsnSelection('0401', '18%');
+    component.hsnResult.set({
+      hsnCodes: ['0401'],
+      taxScenarios: [{ condition: 'General dairy', taxPercentage: '18%' }],
+    });
+    component.pickerOpen.set(true);
+    fixture.detectChanges();
+
+    component.form.controls.itemName.setValue('Curd');
+    fixture.detectChanges();
+
+    expect(component.selectedHsnCode()).toBeNull();
+    expect(component.hsnResult()).toBeNull();
+    expect(component.pickerOpen()).toBe(false);
+  });
+
+  it('existingItemWithHsnCode_PrePopulatesChip', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.form.controls.barcode.setValue('B001');
+
+    await component['fetchProductDetails']();
+    fixture.detectChanges();
+
+    expect(component.selectedHsnCode()).toBe('0401');
+    expect(fixture.debugElement.query(By.css('.hsn-chip'))).not.toBeNull();
+  });
+
+  it('submitForm_IncludesHsnCodeInPayload', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    inventoryService.addInventoryBatch.mockReturnValueOnce(
+      of({
+        requestedCount: 1,
+        successCount: 1,
+        failedCount: 0,
+        succeeded: [
+          {
+            clientRowId: 'row-1',
+            result: createResult('row-1'),
+          },
+        ],
+        failed: [],
+      }),
+    );
+
+    component.selectedHsnCode.set('0401');
+    component.pendingRows.set([
+      createDraftRow('row-1', 'Milk', 'B001'),
+    ]);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({ hsnCode: '0401' })],
+      }),
+    );
+  });
+
+  it('dismissPicker_KeepsTaxFieldEditable', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.pickerOpen.set(true);
+    component.form.controls.taxRatePercent.setValue(9);
+
+    component.dismissPicker();
+    component.form.controls.taxRatePercent.setValue(11);
+
+    expect(component.pickerOpen()).toBe(false);
+    expect(component.form.controls.taxRatePercent.value).toBe(11);
   });
 
   it('calls product lookup with barcode only and patches item name from API', async () => {
