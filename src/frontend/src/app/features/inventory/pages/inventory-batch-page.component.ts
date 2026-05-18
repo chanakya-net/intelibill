@@ -89,9 +89,9 @@ export class InventoryBatchPageComponent {
   pickerTaxRate: string | null = null;
   readonly pickerOpen = signal(false);
   readonly pickerHsnOptions = computed(() => [...(this.hsnResult()?.hsnCodes ?? [])]);
-  readonly pickerTaxOptions = computed(() =>
-    (this.hsnResult()?.taxScenarios ?? []).map((s) => ({ label: s.taxPercentage, value: s.taxPercentage })),
-  );
+  readonly pickerTaxOptions = computed(() => (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage));
+  readonly filteredPickerHsnOptions = signal<string[]>([]);
+  readonly filteredPickerTaxOptions = signal<string[]>([]);
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly loadingDraft = signal(false);
@@ -263,6 +263,8 @@ export class InventoryBatchPageComponent {
       if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
         this.pickerHsnCode = result.hsnCodes[0] ?? null;
         this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
+        this.filteredPickerHsnOptions.set([...result.hsnCodes]);
+        this.filteredPickerTaxOptions.set(result.taxScenarios.map((s) => s.taxPercentage));
         this.pickerOpen.set(true);
       }
     } catch {
@@ -290,6 +292,44 @@ export class InventoryBatchPageComponent {
     this.selectedHsnCode.set(null);
     this.pickerOpen.set(false);
     this.clearHsnSelectionOnNextItemNameChange = false;
+  }
+
+  async onChangeHsnClick(): Promise<void> {
+    this.selectedHsnCode.set(null);
+    this.pickerOpen.set(false);
+    this.clearHsnSelectionOnNextItemNameChange = false;
+    const itemName = this.form.controls.itemName.value.trim();
+    if (itemName.length < 3) {
+      return;
+    }
+    this.isLoadingHsn.set(true);
+    try {
+      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
+      this.hsnResult.set(result);
+      if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
+        this.pickerHsnCode = result.hsnCodes[0] ?? null;
+        this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
+        this.filteredPickerHsnOptions.set([...result.hsnCodes]);
+        this.filteredPickerTaxOptions.set(result.taxScenarios.map((s) => s.taxPercentage));
+        this.pickerOpen.set(true);
+      }
+    } finally {
+      this.isLoadingHsn.set(false);
+    }
+  }
+
+  filterPickerHsn(event: AutoCompleteCompleteEvent): void {
+    const filter = (event.query ?? '').toLowerCase();
+    this.filteredPickerHsnOptions.set(
+      this.pickerHsnOptions().filter((hsn) => hsn.toLowerCase().includes(filter)),
+    );
+  }
+
+  filterPickerTax(event: AutoCompleteCompleteEvent): void {
+    const filter = (event.query ?? '').toLowerCase();
+    this.filteredPickerTaxOptions.set(
+      this.pickerTaxOptions().filter((taxPercentage) => taxPercentage.toLowerCase().includes(filter)),
+    );
   }
 
   openScanner(): void {
