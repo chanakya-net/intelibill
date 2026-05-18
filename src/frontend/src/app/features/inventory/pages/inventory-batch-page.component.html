@@ -37,7 +37,7 @@
                 [text]="true"
                 size="small"
                 class="hsn-chip-change"
-                (click)="clearHsnSelection()"
+                (click)="onChangeHsnClick()"
               >
                 {{ 'hsn.change' | transloco }}
               </button>
@@ -59,20 +59,24 @@
         @if (hsnResult(); as result) {
           <section class="hsn-picker-card">
             <p class="eyebrow hsn-picker-label">{{ 'hsn.suggestion' | transloco }}</p>
-            <p-select
-              [options]="pickerHsnOptions()"
+            <p-autocomplete
+              class="hsn-picker-input"
               [(ngModel)]="pickerHsnCode"
               [ngModelOptions]="{ standalone: true }"
+              [suggestions]="filteredPickerHsnOptions()"
+              [dropdown]="true"
+              (completeMethod)="filterPickerHsn($event)"
               appendTo="body"
-            ></p-select>
-            <p-select
-              [options]="pickerTaxOptions()"
-              optionLabel="label"
-              optionValue="value"
+            ></p-autocomplete>
+            <p-autocomplete
+              class="hsn-picker-input"
+              [suggestions]="filteredPickerTaxOptions()"
               [(ngModel)]="pickerTaxRate"
               [ngModelOptions]="{ standalone: true }"
+              [dropdown]="true"
+              (completeMethod)="filterPickerTax($event)"
               appendTo="body"
-            ></p-select>
+            ></p-autocomplete>
             <button
               pButton
               type="button"
@@ -80,13 +84,7 @@
               [disabled]="!pickerHsnCode || !pickerTaxRate"
               (click)="applyHsnSelection(pickerHsnCode!, pickerTaxRate!)"
             ></button>
-            <button
-              pButton
-              type="button"
-              [text]="true"
-              [label]="'hsn.enterManually' | transloco"
-              (click)="dismissPicker()"
-            ></button>
+            
           </section>
         }
       }
