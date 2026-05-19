@@ -160,7 +160,7 @@ describe('InventoryBatchPageComponent', () => {
     expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith('Milk', 'B001');
     expect(component.form.controls.itemDescription.value).toBe(productDetails.description);
     expect(component.form.controls.uom.value).toBe(productDetails.uom);
-    expect(component.form.controls.costPrice.value).toBe(productDetails.costPrice);
+    expect(component.form.controls.totalPurchaseCost.value).toBe(productDetails.costPrice);
     expect(component.form.controls.mrp.value).toBe(productDetails.mrp);
     expect(component.form.controls.salesPrice.value).toBe(productDetails.salesPrice);
     expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
@@ -209,13 +209,13 @@ describe('InventoryBatchPageComponent', () => {
     component.form.controls.barcode.setValue('B001');
     component.form.controls.itemDescription.setValue('Manual description');
     component.form.controls.uom.setValue('box');
-    component.form.controls.costPrice.setValue(10);
+    component.form.controls.totalPurchaseCost.setValue(10);
     component.form.controls.mrp.setValue(12);
     component.form.controls.salesPrice.setValue(11);
 
     component.form.controls.itemDescription.markAsDirty();
     component.form.controls.uom.markAsDirty();
-    component.form.controls.costPrice.markAsDirty();
+    component.form.controls.totalPurchaseCost.markAsDirty();
     component.form.controls.mrp.markAsDirty();
     component.form.controls.salesPrice.markAsDirty();
 
@@ -223,7 +223,7 @@ describe('InventoryBatchPageComponent', () => {
 
     expect(component.form.controls.itemDescription.value).toBe('Manual description');
     expect(component.form.controls.uom.value).toBe('box');
-    expect(component.form.controls.costPrice.value).toBe(10);
+    expect(component.form.controls.totalPurchaseCost.value).toBe(10);
     expect(component.form.controls.mrp.value).toBe(12);
     expect(component.form.controls.salesPrice.value).toBe(11);
   });
@@ -239,7 +239,7 @@ describe('InventoryBatchPageComponent', () => {
 
     expect(component.form.controls.itemDescription.value).toBe(productDetails.description);
     expect(component.form.controls.uom.value).toBe(productDetails.uom);
-    expect(component.form.controls.costPrice.value).toBe(productDetails.costPrice);
+    expect(component.form.controls.totalPurchaseCost.value).toBe(productDetails.costPrice);
     expect(component.form.controls.mrp.value).toBe(productDetails.mrp);
     expect(component.form.controls.salesPrice.value).toBe(productDetails.salesPrice);
     expect(component.form.controls.supplierName.value).toBe(productDetails.supplierName);
@@ -543,7 +543,7 @@ describe('InventoryBatchPageComponent', () => {
     component.form.controls.itemName.setValue('Milk');
     component.form.controls.barcode.setValue('B001');
     component.form.controls.uom.setValue('ltr');
-    component.form.controls.costPrice.setValue(42);
+    component.form.controls.totalPurchaseCost.setValue(42);
     component.form.controls.mrp.setValue(50);
     component.form.controls.salesPrice.setValue(48);
     component.selectedHsnCode.set('0401');
@@ -561,7 +561,7 @@ describe('InventoryBatchPageComponent', () => {
     component.form.controls.itemName.setValue('Milk');
     component.form.controls.barcode.setValue('B001');
     component.form.controls.uom.setValue('ltr');
-    component.form.controls.costPrice.setValue(42);
+    component.form.controls.totalPurchaseCost.setValue(42);
     component.form.controls.mrp.setValue(50);
     component.form.controls.salesPrice.setValue(48);
 
@@ -722,7 +722,7 @@ describe('InventoryBatchPageComponent', () => {
         uom: 'ltr',
         batchNumber: 'BN-1',
         quantity: 2,
-        costPrice: 42,
+        totalPurchaseCost: 42,
         mrp: 50,
         salesPrice: 48,
         taxRatePercent: 18,
@@ -861,7 +861,7 @@ describe('InventoryBatchPageComponent', () => {
         uom: 'ltr',
         batchNumber: 'BN-EDIT-1',
         quantity: 3,
-        costPrice: 42,
+        totalPurchaseCost: 42,
         mrp: 50,
         salesPrice: 48,
         taxRatePercent: 18,
@@ -1123,7 +1123,7 @@ describe('InventoryBatchPageComponent', () => {
       uom: 'unit',
       batchNumber: 'BN-20260101-ABCDE',
       quantity: 1,
-      costPrice: 10,
+      totalPurchaseCost: 10,
       mrp: 12,
       salesPrice: 11,
       taxRatePercent: 5,

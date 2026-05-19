@@ -15,7 +15,7 @@ public sealed record AddInventoryBatchRowCommand(
     string Uom,
     string BatchNumber,
     decimal Quantity,
-    decimal CostPrice,
+    decimal TotalPurchaseCost,
     decimal Mrp,
     decimal SalesPrice,
     decimal TaxRatePercent,

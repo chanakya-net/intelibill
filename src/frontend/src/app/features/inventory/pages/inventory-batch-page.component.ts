@@ -177,7 +177,7 @@ export class InventoryBatchPageComponent {
     uom: ['', [Validators.required, Validators.maxLength(40)]],
     batchNumber: ['', [Validators.required, Validators.maxLength(80)]],
     quantity: [1, [Validators.required, Validators.min(0.0001)]],
-    costPrice: [0, [Validators.required, Validators.min(0)]],
+    totalPurchaseCost: [0, [Validators.required, Validators.min(0)]],
     mrp: [0, [Validators.required, Validators.min(0)]],
     salesPrice: [0, [Validators.required, Validators.min(0)]],
     taxRatePercent: [0, [Validators.required, Validators.min(0)]],
@@ -448,7 +448,7 @@ export class InventoryBatchPageComponent {
     const itemName = this.form.controls.itemName.value.trim();
     const barcode = this.form.controls.barcode.value.trim();
     const uom = this.form.controls.uom.value.trim();
-    const costPrice = Number(this.form.controls.costPrice.value);
+    const totalPurchaseCost = Number(this.form.controls.totalPurchaseCost.value);
     const mrp = Number(this.form.controls.mrp.value);
     const salesPrice = Number(this.form.controls.salesPrice.value);
 
@@ -456,7 +456,7 @@ export class InventoryBatchPageComponent {
       itemName.length > 0
       && barcode.length > 0
       && uom.length > 0
-      && costPrice > 0
+      && totalPurchaseCost > 0
       && mrp > 0
       && salesPrice > 0
     );
@@ -529,7 +529,7 @@ export class InventoryBatchPageComponent {
       uom: row.uom,
       batchNumber: row.batchNumber,
       quantity: row.quantity,
-      costPrice: row.costPrice,
+      totalPurchaseCost: row.totalPurchaseCost,
       mrp: row.mrp,
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
@@ -662,7 +662,7 @@ export class InventoryBatchPageComponent {
       uom: row.uom,
       batchNumber: row.batchNumber,
       quantity: row.quantity,
-      costPrice: row.costPrice,
+      totalPurchaseCost: row.totalPurchaseCost,
       mrp: row.mrp,
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
@@ -720,7 +720,7 @@ export class InventoryBatchPageComponent {
     itemName: string;
     itemDescription: string;
     uom: string;
-    costPrice: number;
+    totalPurchaseCost: number;
     mrp: number;
     salesPrice: number;
     supplierName: string;
@@ -732,7 +732,7 @@ export class InventoryBatchPageComponent {
       itemName: string;
       itemDescription: string;
       uom: string;
-      costPrice: number;
+      totalPurchaseCost: number;
       mrp: number;
       salesPrice: number;
       supplierName: string;
@@ -754,8 +754,8 @@ export class InventoryBatchPageComponent {
       patch.uom = details.uom;
     }
 
-    if (!this.form.controls.costPrice.dirty) {
-      patch.costPrice = details.costPrice;
+    if (!this.form.controls.totalPurchaseCost.dirty) {
+      patch.totalPurchaseCost = Number((details.costPrice * Number(this.form.controls.quantity.value)).toFixed(2));
     }
 
     if (!this.form.controls.mrp.dirty) {
@@ -863,7 +863,7 @@ export class InventoryBatchPageComponent {
       uom: this.form.controls.uom.value.trim(),
       batchNumber: this.form.controls.batchNumber.value.trim(),
       quantity: Number(this.form.controls.quantity.value),
-      costPrice: Number(this.form.controls.costPrice.value),
+      totalPurchaseCost: Number(this.form.controls.totalPurchaseCost.value),
       mrp: Number(this.form.controls.mrp.value),
       salesPrice: Number(this.form.controls.salesPrice.value),
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
@@ -886,7 +886,7 @@ export class InventoryBatchPageComponent {
       uom: '',
       batchNumber: '',
       quantity: 1,
-      costPrice: 0,
+      totalPurchaseCost: 0,
       mrp: 0,
       salesPrice: 0,
       taxRatePercent: 0,

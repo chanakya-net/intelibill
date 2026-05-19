@@ -837,7 +837,7 @@ public sealed class DiscountPricingIntegrationTests(PostgreSqlTestFixture fixtur
             uom = "pcs",
             batchNumber,
             quantity,
-            costPrice,
+            totalPurchaseCost = costPrice * quantity,
             mrp = 120m,
             salesPrice,
             taxRatePercent,

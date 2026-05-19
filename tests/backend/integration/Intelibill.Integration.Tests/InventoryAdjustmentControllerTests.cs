@@ -761,7 +761,7 @@ public sealed class InventoryAdjustmentControllerTests(PostgreSqlTestFixture fix
             uom = "kg",
             batchNumber = $"B-{Guid.NewGuid():N}"[..18],
             quantity,
-            costPrice,
+            totalPurchaseCost = costPrice * quantity,
             mrp = 120m,
             salesPrice = 110m,
             taxRatePercent = 5m,

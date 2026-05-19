@@ -151,6 +151,29 @@ public class InventoryServicesTests
     }
 
     [Fact]
+    public async Task BatchFactory_WhenTotalPurchaseCostProvided_StoresPerUnitCostAndLedgerTotal()
+    {
+        var batchRepo = Substitute.For<IInventoryBatchRepository>();
+        var txRepo = Substitute.For<IStockTransactionRepository>();
+        var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var supplier = Supplier.Create(shopId, "Known Supplier", null, null, null, null, null, null, true, false);
+
+        batchRepo.GetByBatchNumberAsync(shopId, itemId, "PENCIL-BOX", Arg.Any<CancellationToken>()).Returns((InventoryBatch?)null);
+
+        var row = CreateBatchRow("PENCIL-BOX", supplier.Id, quantity: 20m, totalPurchaseCost: 30m, salesPrice: 3m, mrp: 5m);
+        var result = await factory.CreateBatchAsync(shopId, itemId, row, supplier, actorId, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1.50m, result.Value.Batch.CostPrice);
+        Assert.Equal(30m, result.Value.LedgerEntry.Amount);
+    }
+
+    [Fact]
     public async Task BatchFactory_WhenPerformedAtHasOffset_CreatesUtcInstant()
     {
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
@@ -227,7 +250,14 @@ public class InventoryServicesTests
         await repo.DidNotReceive().AddAsync(Arg.Any<Domain.Entities.Inventory>(), Arg.Any<CancellationToken>());
     }
 
-    private static AddInventoryBatchRowCommand CreateBatchRow(string batchNumber, Guid? supplierId, DateTimeOffset? performedAt = null) =>
+    private static AddInventoryBatchRowCommand CreateBatchRow(
+        string batchNumber,
+        Guid? supplierId,
+        DateTimeOffset? performedAt = null,
+        decimal quantity = 10m,
+        decimal totalPurchaseCost = 800m,
+        decimal salesPrice = 100m,
+        decimal mrp = 120m) =>
         new(
             ClientRowId: "row-1",
             ItemName: "Rice",
@@ -235,10 +265,10 @@ public class InventoryServicesTests
             ItemDescription: "desc",
             Uom: "kg",
             BatchNumber: batchNumber,
-            Quantity: 10m,
-            CostPrice: 80m,
-            Mrp: 120m,
-            SalesPrice: 100m,
+            Quantity: quantity,
+            TotalPurchaseCost: totalPurchaseCost,
+            Mrp: mrp,
+            SalesPrice: salesPrice,
             TaxRatePercent: 5m,
             TaxIncluded: false,
             ExpiryDate: null,

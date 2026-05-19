@@ -8,7 +8,7 @@ export interface InventoryInboundDraftRow {
   readonly uom: string;
   readonly batchNumber: string;
   readonly quantity: number;
-  readonly costPrice: number;
+  readonly totalPurchaseCost: number;
   readonly mrp: number;
   readonly salesPrice: number;
   readonly taxRatePercent: number;

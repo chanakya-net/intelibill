@@ -35,7 +35,7 @@ internal sealed class BatchFactory(
             itemId,
             normalizedBatchNumber,
             row.Quantity,
-            row.CostPrice,
+            ComputeUnitCost(row.TotalPurchaseCost, row.Quantity),
             row.Mrp,
             row.SalesPrice,
             row.TaxRatePercent,
@@ -71,7 +71,7 @@ internal sealed class BatchFactory(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        var ledgerAmount = decimal.Round(row.CostPrice * row.Quantity, 2, MidpointRounding.AwayFromZero);
+        var ledgerAmount = decimal.Round(row.TotalPurchaseCost, 2, MidpointRounding.AwayFromZero);
 
         var ledgerResult = SupplierLedgerEntry.Create(
             shopId,
@@ -91,4 +91,7 @@ internal sealed class BatchFactory(
 
         return new BatchCreationResult(batch, stockTransaction, ledgerEntry);
     }
+
+    private static decimal ComputeUnitCost(decimal totalPurchaseCost, decimal quantity) =>
+        decimal.Round(totalPurchaseCost / quantity, 2, MidpointRounding.AwayFromZero);
 }

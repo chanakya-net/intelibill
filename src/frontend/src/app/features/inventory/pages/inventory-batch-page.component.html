@@ -163,11 +163,11 @@
       </label>
 
       <label>
-        <span>{{ 'inventory.costPrice' | transloco }}</span>
+        <span>{{ 'inventory.totalPurchaseCost' | transloco }}</span>
         <p-inputgroup [pt]="currencyGroupPt">
           <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber
-            formControlName="costPrice"
+            formControlName="totalPurchaseCost"
             [min]="0"
             mode="decimal"
             [maxFractionDigits]="2"
@@ -193,7 +193,7 @@
       </label>
 
       <label class="sales-price-field">
-        <span>{{ 'inventory.salesPrice' | transloco }}</span>
+        <span>{{ 'inventory.perUnitSalesPrice' | transloco }}</span>
         <p-inputgroup [pt]="currencyGroupPt">
           <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
           <p-inputNumber

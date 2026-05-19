@@ -10,7 +10,7 @@ public sealed record AddInventoryCommand(
     string Uom,
     string BatchNumber,
     decimal Quantity,
-    decimal CostPrice,
+    decimal TotalPurchaseCost,
     decimal Mrp,
     decimal SalesPrice,
     decimal TaxRatePercent,

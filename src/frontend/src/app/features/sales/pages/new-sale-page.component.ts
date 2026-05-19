@@ -48,7 +48,7 @@ interface CartItem extends SalesCartDraftItem {}
 
 type PreviewRequestResult =
   | { readonly requestId: number; readonly preview: SalePreviewDto; readonly failed?: false }
-  | { readonly requestId: number; readonly preview: null; readonly failed: true };
+  | { readonly requestId: number; readonly preview: null; readonly failed: true; readonly errorMessage: string };
 
 @Component({
   selector: 'app-new-sale-page',
@@ -250,7 +250,12 @@ export class NewSalePageComponent {
           const request = this.buildPreviewRequest(cart);
           return this.saleService.previewSale(request).pipe(
             map((preview) => ({ requestId, preview } as PreviewRequestResult)),
-            catchError(() => of({ requestId, preview: null, failed: true } as PreviewRequestResult)),
+            catchError((error: unknown) => of({
+              requestId,
+              preview: null,
+              failed: true,
+              errorMessage: this.extractPreviewErrorMessage(error),
+            } as PreviewRequestResult)),
           );
         }),
         takeUntilDestroyed(this.destroyRef),
@@ -261,7 +266,7 @@ export class NewSalePageComponent {
         }
 
         if (result.preview === null) {
-          this.finishPreviewRequest(result.requestId, null, !!result.failed);
+          this.finishPreviewRequest(result.requestId, null, !!result.failed, result.errorMessage);
           return;
         }
 
@@ -299,7 +304,12 @@ export class NewSalePageComponent {
           const request = this.buildPreviewRequest(cart);
           return this.saleService.previewSale(request).pipe(
             map((preview) => ({ requestId, preview } as PreviewRequestResult)),
-            catchError(() => of({ requestId, preview: null, failed: true } as PreviewRequestResult)),
+            catchError((error: unknown) => of({
+              requestId,
+              preview: null,
+              failed: true,
+              errorMessage: this.extractPreviewErrorMessage(error),
+            } as PreviewRequestResult)),
           );
         }),
         takeUntilDestroyed(this.destroyRef),
@@ -310,12 +320,12 @@ export class NewSalePageComponent {
         }
 
         if (result.preview === null) {
-          this.finishPreviewRequest(result.requestId, null, !!result.failed);
+          this.finishPreviewRequest(result.requestId, null, !!result.failed, result.errorMessage);
           return;
         }
 
         const oldPreview = this.checkoutPreview();
-        this.finishPreviewRequest(result.requestId, result.preview, false, oldPreview);
+        this.finishPreviewRequest(result.requestId, result.preview, false, 'sales.newSale.previewError', oldPreview);
       });
 
     // Connect to shop updates on initialization
@@ -635,7 +645,7 @@ export class NewSalePageComponent {
     this.paymentSplitError.set('');
 
     if (this.checkoutPreview() === null) {
-      this.paymentSplitError.set('sales.newSale.previewRequired');
+      this.paymentSplitError.set(this.previewError() || 'sales.newSale.previewRequired');
       return;
     }
 
@@ -1434,6 +1444,7 @@ export class NewSalePageComponent {
     requestId: number,
     preview: SalePreviewDto | null,
     failed = false,
+    errorMessage = 'sales.newSale.previewError',
     oldPreview: SalePreviewDto | null = this.checkoutPreview()
   ): void {
     if (requestId !== this.previewRequestState.latestRequestId) {
@@ -1442,7 +1453,7 @@ export class NewSalePageComponent {
 
     if (preview === null) {
       this.isPreviewLoading.set(false);
-      this.previewError.set(failed ? 'sales.newSale.previewError' : '');
+      this.previewError.set(failed ? errorMessage : '');
       if (failed) {
         this.checkoutPreview.set(null);
       }
@@ -1453,6 +1464,38 @@ export class NewSalePageComponent {
     this.checkoutPreview.set(preview);
     this.revalidateDiscountsAgainstPreview();
     this.isPreviewLoading.set(false);
+  }
+
+  private extractPreviewErrorMessage(error: unknown): string {
+    if (typeof error !== 'object' || error === null) {
+      return 'sales.newSale.previewError';
+    }
+
+    const errorLike = error as { error?: { detail?: unknown; title?: unknown; errors?: unknown } };
+    const detail = errorLike.error?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+
+    const errors = errorLike.error?.errors;
+    if (Array.isArray(errors)) {
+      const firstDescription = errors
+        .map((entry) => (typeof entry === 'object' && entry !== null
+          ? (entry as { description?: unknown }).description
+          : null))
+        .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+      if (firstDescription) {
+        return firstDescription;
+      }
+    }
+
+    const title = errorLike.error?.title;
+    if (typeof title === 'string' && title.trim()) {
+      return title;
+    }
+
+    return 'sales.newSale.previewError';
   }
 
   private clearPreviewState(): void {

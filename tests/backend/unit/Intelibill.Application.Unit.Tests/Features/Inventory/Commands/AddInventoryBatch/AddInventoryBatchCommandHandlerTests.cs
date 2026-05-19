@@ -101,9 +101,9 @@ public class AddInventoryBatchCommandHandlerTests
             .Returns(callInfo =>
             {
                 var row = callInfo.Arg<AddInventoryBatchRowCommand>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
                 return new BatchCreationResult(batch, tx, ledger);
             });
 
@@ -157,9 +157,9 @@ public class AddInventoryBatchCommandHandlerTests
             {
                 var itemId = callInfo.ArgAt<Guid>(1);
                 var row = callInfo.Arg<AddInventoryBatchRowCommand>();
-                var batch = InventoryBatch.Create(shop.Id, itemId, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var batch = InventoryBatch.Create(shop.Id, itemId, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
                 return new BatchCreationResult(batch, tx, ledger);
             });
 
@@ -208,9 +208,9 @@ public class AddInventoryBatchCommandHandlerTests
             .Returns(callInfo =>
             {
                 var row = callInfo.Arg<AddInventoryBatchRowCommand>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
                 return new BatchCreationResult(batch, tx, ledger);
             });
 
@@ -252,9 +252,9 @@ public class AddInventoryBatchCommandHandlerTests
             .Returns(callInfo =>
             {
                 var row = callInfo.Arg<AddInventoryBatchRowCommand>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
                 return new BatchCreationResult(batch, tx, ledger);
             });
 
@@ -302,9 +302,9 @@ public class AddInventoryBatchCommandHandlerTests
             .Returns(callInfo =>
             {
                 var row = callInfo.Arg<AddInventoryBatchRowCommand>();
-                var batch = InventoryBatch.Create(shop.Id, succeededItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var batch = InventoryBatch.Create(shop.Id, succeededItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, succeededItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
                 return new BatchCreationResult(batch, tx, ledger);
             });
 
@@ -356,7 +356,7 @@ public class AddInventoryBatchCommandHandlerTests
             Uom: "kg",
             BatchNumber: "B-1",
             Quantity: 10m,
-            CostPrice: 80m,
+            TotalPurchaseCost: 800m,
             Mrp: 120m,
             SalesPrice: 110m,
             TaxRatePercent: 5m,
@@ -368,4 +368,7 @@ public class AddInventoryBatchCommandHandlerTests
             Notes: "Initial",
             PerformedAt: null,
             HsnCode: hsnCode);
+
+    private static decimal ComputeUnitCost(AddInventoryBatchRowCommand row) =>
+        decimal.Round(row.TotalPurchaseCost / row.Quantity, 2, MidpointRounding.AwayFromZero);
 }

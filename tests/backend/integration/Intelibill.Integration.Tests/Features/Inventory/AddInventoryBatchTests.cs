@@ -92,7 +92,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
                     uom = "kg",
                     batchNumber = "HSN-001",
                     quantity = 5m,
-                    costPrice = 90m,
+                    totalPurchaseCost = 450m,
                     mrp = 120m,
                     salesPrice = 110m,
                     taxRatePercent = 5m,
@@ -144,7 +144,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
                         uom = "kg",
                         batchNumber,
                         quantity = 5m,
-                        costPrice = 90m,
+                        totalPurchaseCost = 450m,
                         mrp = 120m,
                         salesPrice = 110m,
                         taxRatePercent = 5m,
@@ -199,7 +199,7 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
                     uom = "kg",
                     batchNumber = "HSN-TAX-1",
                     quantity = 5m,
-                    costPrice = 90m,
+                    totalPurchaseCost = 450m,
                     mrp = 120m,
                     salesPrice = 110m,
                     taxRatePercent = 18m,
@@ -228,4 +228,3 @@ public sealed class AddInventoryBatchTests(PostgreSqlTestFixture fixture) : IAsy
         Assert.Equal(18m, batch.TaxRatePercent);
     }
 }
-

@@ -178,7 +178,7 @@ public sealed class AddInventoryBatchCommandHandler(
             row.Uom,
             row.BatchNumber,
             row.Quantity,
-            row.CostPrice,
+            row.TotalPurchaseCost,
             row.Mrp,
             row.SalesPrice,
             row.TaxRatePercent,

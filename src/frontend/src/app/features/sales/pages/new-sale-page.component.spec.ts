@@ -540,6 +540,50 @@ describe('NewSalePageComponent', () => {
     vi.useRealTimers();
   });
 
+  it('stores backend preview failure detail', async () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const previewFailure = "Pricing would make batch 'batch-1' sell below cost.";
+    saleService.previewSale.mockReturnValueOnce(
+      throwError(() => ({ error: { detail: previewFailure } }))
+    );
+
+    vi.useFakeTimers();
+    try {
+      component.cart.set([
+        {
+          clientLineKey: 'stable-uuid-key',
+          barcode: 'BC-1',
+          itemName: 'Oreo',
+          batchNumber: 'B-01',
+          inventoryBatchId: 'batch-1',
+          quantity: 1,
+          availableQuantity: 10,
+          salesPrice: 50,
+          mrp: 60,
+          taxRatePercent: 18,
+          taxIncluded: true,
+          costPrice: 0,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+          hsnCode: '0902',
+        },
+      ]);
+      fixture.detectChanges();
+
+      vi.runAllTimers();
+      await Promise.resolve();
+
+      expect(component.checkoutPreview()).toBeNull();
+      expect(component.previewError()).toBe(previewFailure);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('uses preview total for payment sync when preview succeeds', () => {
     const mockPreview: SalePreviewDto = {
       totalAmount: 99,
@@ -977,6 +1021,40 @@ describe('NewSalePageComponent', () => {
     component.onSubmit();
 
     expect(component.paymentSplitError()).toBe('sales.newSale.previewRequired');
+    expect(salesFacade.recordSale).not.toHaveBeenCalled();
+  });
+
+  it('uses the preview failure detail when submit is blocked without a preview', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    const previewFailure = "Pricing would make batch 'batch-x' sell below cost.";
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-x',
+        barcode: 'X',
+        itemName: 'Item X',
+        batchNumber: 'B-X',
+        inventoryBatchId: 'batch-x',
+        quantity: 1,
+        availableQuantity: 5,
+        salesPrice: 100,
+        mrp: 100,
+        taxRatePercent: 5,
+        taxIncluded: false,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: '0902',
+      },
+    ]);
+    component.checkoutPreview.set(null);
+    component.previewError.set(previewFailure);
+    component.paymentForm.controls.paidAmount.setValue(100);
+
+    component.onSubmit();
+
+    expect(component.paymentSplitError()).toBe(previewFailure);
     expect(salesFacade.recordSale).not.toHaveBeenCalled();
   });
 
