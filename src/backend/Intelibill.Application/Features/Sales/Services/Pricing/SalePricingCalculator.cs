@@ -473,17 +473,18 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         return result;
     }
 
-    private static decimal ComputeSafeMaxPercent(decimal preTaxAmount, decimal costAmount)
+    private static decimal ComputeSafeMaxPercent(decimal preTaxAmount, decimal maxDiscountAmount)
     {
         if (preTaxAmount <= 0m)
             return 0m;
 
-        if (costAmount <= 0m)
+        if (maxDiscountAmount >= preTaxAmount)
             return 100m;
 
-        if (preTaxAmount <= costAmount)
+        if (maxDiscountAmount <= 0m)
             return 0m;
-        return Math.Floor((1m - costAmount / preTaxAmount) * 10000m) / 100m;
+
+        return Math.Floor(maxDiscountAmount / preTaxAmount * 10000m) / 100m;
     }
 
     private static bool IsValidInstantDiscount(InstantDiscount discount)
