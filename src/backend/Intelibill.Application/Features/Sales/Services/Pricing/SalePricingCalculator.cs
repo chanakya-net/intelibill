@@ -104,13 +104,24 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             }
 
             var taxableAfterAllDiscounts = RoundMoney(draft.TaxableAfterItemDiscount - saleDiscountForLine);
-            if (taxableAfterAllDiscounts < draft.CostTotal)
+            var revenueForCostCheck = CalculateRevenueForCostCheck(
+                taxableAfterAllDiscounts,
+                draft.TaxRatePercent,
+                draft.IsPriceIncludingTax);
+            if (revenueForCostCheck < draft.CostTotal)
             {
                 return Errors.Sale.LineWouldBeBelowCost(draft.InventoryBatchId);
             }
 
-            var taxAmount = CalculateTaxAmount(taxableAfterAllDiscounts, draft.TaxRatePercent);
-            var totalAmount = RoundMoney(taxableAfterAllDiscounts + taxAmount);
+            var totalPreTaxDiscount = RoundMoney(draft.ItemDiscountAmount + saleDiscountForLine);
+            var totalAmount = CalculateLineTotalAmount(
+                draft.Quantity,
+                draft.SalesPrice,
+                draft.TaxRatePercent,
+                draft.IsPriceIncludingTax,
+                taxableAfterAllDiscounts,
+                totalPreTaxDiscount);
+            var taxAmount = RoundMoney(Math.Max(0m, totalAmount - taxableAfterAllDiscounts));
 
             finalLines.Add(new SalePricingLineCalculation(
                 draft.InventoryBatchId,
@@ -176,8 +187,12 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         var preTaxBeforeDiscount = RoundMoney(ExtractPreTaxAmount(line.Quantity, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax));
         var costTotal = RoundMoney(line.CostPrice * line.Quantity);
 
-        var maxAllowedItemDiscountFlat = RoundMoney(Math.Max(0m, preTaxBeforeDiscount - costTotal));
-        var maxAllowedItemDiscountPercent = ComputeSafeMaxPercent(preTaxBeforeDiscount, costTotal);
+        var maxAllowedItemDiscountFlat = CalculateDiscountCapacity(
+            preTaxBeforeDiscount,
+            costTotal,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
+        var maxAllowedItemDiscountPercent = ComputeSafeMaxPercent(preTaxBeforeDiscount, maxAllowedItemDiscountFlat);
 
         var itemDiscountAmount = CalculateEffectiveItemDiscountAmount(
             line.ItemDiscount,
@@ -190,12 +205,20 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         }
 
         var taxableAfterItemDiscount = RoundMoney(preTaxBeforeDiscount - itemDiscountAmount);
-        if (taxableAfterItemDiscount < costTotal)
+        var revenueAfterItemDiscount = CalculateRevenueForCostCheck(
+            taxableAfterItemDiscount,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
+        if (revenueAfterItemDiscount < costTotal)
         {
             return Errors.Sale.LineWouldBeBelowCost(line.InventoryBatchId);
         }
 
-        var saleDiscountCapacity = RoundMoney(Math.Max(0m, taxableAfterItemDiscount - costTotal));
+        var saleDiscountCapacity = CalculateDiscountCapacity(
+            taxableAfterItemDiscount,
+            costTotal,
+            line.TaxRatePercent,
+            line.IsPriceIncludingTax);
 
         return new LineDraft(
             lineIndex,
@@ -232,6 +255,50 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         if (taxRatePercent <= 0m)
             return 0m;
         return RoundMoney(taxableAmount * taxRatePercent / 100m);
+    }
+
+    private static decimal CalculateLineTotalAmount(
+        decimal quantity,
+        decimal salesPrice,
+        decimal taxRatePercent,
+        bool isPriceIncludingTax,
+        decimal taxableAmount,
+        decimal totalPreTaxDiscount)
+    {
+        if (!isPriceIncludingTax)
+            return RoundMoney(taxableAmount + CalculateTaxAmount(taxableAmount, taxRatePercent));
+
+        if (taxRatePercent <= 0m)
+            return taxableAmount;
+
+        var grossBeforeDiscount = RoundMoney(quantity * salesPrice);
+        var grossDiscount = RoundMoney(totalPreTaxDiscount * (100m + taxRatePercent) / 100m);
+        return RoundMoney(Math.Max(0m, grossBeforeDiscount - grossDiscount));
+    }
+
+    private static decimal CalculateRevenueForCostCheck(
+        decimal taxableAmount,
+        decimal taxRatePercent,
+        bool isPriceIncludingTax)
+    {
+        if (!isPriceIncludingTax)
+            return taxableAmount;
+
+        return RoundMoney(taxableAmount + CalculateTaxAmount(taxableAmount, taxRatePercent));
+    }
+
+    private static decimal CalculateDiscountCapacity(
+        decimal taxableAmount,
+        decimal costTotal,
+        decimal taxRatePercent,
+        bool isPriceIncludingTax)
+    {
+        if (!isPriceIncludingTax || taxRatePercent <= 0m)
+            return RoundMoney(Math.Max(0m, taxableAmount - costTotal));
+
+        var grossAmount = CalculateRevenueForCostCheck(taxableAmount, taxRatePercent, isPriceIncludingTax);
+        var grossCapacity = RoundMoney(Math.Max(0m, grossAmount - costTotal));
+        return RoundMoney(grossCapacity * 100m / (100m + taxRatePercent));
     }
 
     private static decimal CalculateLineDiscountAmount(InstantDiscount discount, decimal preTaxAmount)
@@ -406,17 +473,18 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         return result;
     }
 
-    private static decimal ComputeSafeMaxPercent(decimal preTaxAmount, decimal costAmount)
+    private static decimal ComputeSafeMaxPercent(decimal preTaxAmount, decimal maxDiscountAmount)
     {
         if (preTaxAmount <= 0m)
             return 0m;
 
-        if (costAmount <= 0m)
+        if (maxDiscountAmount >= preTaxAmount)
             return 100m;
 
-        if (preTaxAmount <= costAmount)
+        if (maxDiscountAmount <= 0m)
             return 0m;
-        return Math.Floor((1m - costAmount / preTaxAmount) * 10000m) / 100m;
+
+        return Math.Floor(maxDiscountAmount / preTaxAmount * 10000m) / 100m;
     }
 
     private static bool IsValidInstantDiscount(InstantDiscount discount)

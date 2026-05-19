@@ -8,11 +8,12 @@ export interface InventoryInboundDraftRow {
   readonly uom: string;
   readonly batchNumber: string;
   readonly quantity: number;
-  readonly costPrice: number;
+  readonly totalPurchaseCost: number;
   readonly mrp: number;
   readonly salesPrice: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded?: boolean;
   readonly hsnCode: string | null;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;

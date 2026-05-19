@@ -85,7 +85,8 @@ public class InventoryControllerTests
                 && c.Barcode == request.Barcode
                 && c.HsnCode == request.HsnCode
                 && c.SupplierId == request.SupplierId
-                && c.Quantity == request.Quantity),
+                && c.Quantity == request.Quantity
+                && c.TotalPurchaseCost == request.TotalPurchaseCost),
             Arg.Any<CancellationToken>());
     }
 
@@ -360,11 +361,12 @@ public class InventoryControllerTests
             Uom: "kg",
             BatchNumber: "B-1",
             Quantity: 10m,
-            CostPrice: 80m,
+            TotalPurchaseCost: 800m,
             Mrp: 120m,
             SalesPrice: 110m,
             TaxRatePercent: 5m,
             TaxIncluded: false,
+            PurchaseTaxIncluded: false,
             ExpiryDate: null,
             ManufacturingDate: null,
             SupplierId: null,
@@ -381,11 +383,12 @@ public class InventoryControllerTests
             Uom: "kg",
             BatchNumber: "B-1",
             Quantity: 1m,
-            CostPrice: 80m,
+            TotalPurchaseCost: 80m,
             Mrp: 120m,
             SalesPrice: 110m,
             TaxRatePercent: 5m,
             TaxIncluded: false,
+            PurchaseTaxIncluded: false,
             ExpiryDate: null,
             ManufacturingDate: null,
             SupplierId: null,

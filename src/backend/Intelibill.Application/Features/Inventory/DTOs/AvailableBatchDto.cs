@@ -10,4 +10,5 @@ public sealed record AvailableBatchDto(
     decimal Mrp,
     decimal TaxRatePercent,
     bool TaxIncluded,
+    bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate);

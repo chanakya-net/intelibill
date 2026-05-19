@@ -116,6 +116,39 @@ public class AddInventoryCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenTotalPurchaseCostProvided_StoresPerUnitBatchCostAndLedgerTotal()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(
+            CreateCommand(actor.Id, shop.Id, quantity: 20m, totalPurchaseCost: 30m, salesPrice: 3m, mrp: 5m),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+
+        await _inventoryBatchRepository.Received(1).AddAsync(
+            Arg.Is<InventoryBatch>(b =>
+                b.Quantity == 20m
+                && b.CostPrice == 1.50m
+                && b.SalesPrice == 3m),
+            Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<SupplierLedgerEntry>(e => e.Amount == 30m),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenExistingItem_UpdatesTaxDefaults()
     {
         SetupSystemSupplierLookup();
@@ -411,7 +444,16 @@ public class AddInventoryCommandHandlerTests
             .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
     }
 
-    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null, DateTimeOffset? performedAt = null, string? hsnCode = null) =>
+    private static AddInventoryCommand CreateCommand(
+        Guid actorId,
+        Guid shopId,
+        Guid? supplierId = null,
+        DateTimeOffset? performedAt = null,
+        string? hsnCode = null,
+        decimal quantity = 10m,
+        decimal totalPurchaseCost = 800m,
+        decimal salesPrice = 110m,
+        decimal mrp = 120m) =>
         new(
             actorId,
             shopId,
@@ -421,12 +463,13 @@ public class AddInventoryCommandHandlerTests
             HsnCode: hsnCode,
             Uom: "kg",
             BatchNumber: "B-1",
-            Quantity: 10m,
-            CostPrice: 80m,
-            Mrp: 120m,
-            SalesPrice: 110m,
+            Quantity: quantity,
+            TotalPurchaseCost: totalPurchaseCost,
+            Mrp: mrp,
+            SalesPrice: salesPrice,
             TaxRatePercent: 5m,
             TaxIncluded: false,
+            PurchaseTaxIncluded: false,
             ExpiryDate: null,
             ManufacturingDate: null,
             SupplierId: supplierId,

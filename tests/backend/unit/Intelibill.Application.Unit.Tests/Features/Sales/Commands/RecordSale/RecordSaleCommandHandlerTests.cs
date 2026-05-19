@@ -60,11 +60,17 @@ public class RecordSaleCommandHandlerTests
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
 
-    private static InventoryBatch MakeBatch(Guid shopId, Guid itemId, string batchNumber, decimal quantity = 100m)
+    private static InventoryBatch MakeBatch(
+        Guid shopId,
+        Guid itemId,
+        string batchNumber,
+        decimal quantity = 100m,
+        decimal costPrice = 80m,
+        bool purchaseTaxIncluded = false)
     {
         var result = InventoryBatch.Create(shopId, itemId, batchNumber,
-            quantity, costPrice: 80m, mrp: 120m, salesPrice: 100m,
-            taxRatePercent: 18m, taxIncluded: false, expiryDate: null,
+            quantity, costPrice: costPrice, mrp: 120m, salesPrice: 100m,
+            taxRatePercent: 18m, taxIncluded: false, purchaseTaxIncluded: purchaseTaxIncluded, expiryDate: null,
             manufacturingDate: null, supplierId: null, createdBy: Guid.NewGuid());
         return result.Value;
     }
@@ -145,6 +151,33 @@ public class RecordSaleCommandHandlerTests
         await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPurchaseTaxIncluded_UsesNetCostForPricingAndSaleItem()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", costPrice: 118m, purchaseTaxIncluded: true);
+        var inventory = MakeInventory(shopId, item.Id, 100m);
+        var command = MakeCommand(shopId, actorId);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _salePricingCalculator.Received(1).CalculateAsync(
+            Arg.Is<SalePricingCalculationRequest>(request =>
+                request.Lines.Count == 1
+                && request.Lines[0].CostPrice == 100m),
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(sale => sale.Items.Single().CostPrice == 100m),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -251,7 +251,7 @@ public sealed class SaleDiscountPersistenceTests(PostgreSqlTestFixture fixture) 
             uom = "kg",
             batchNumber,
             quantity,
-            costPrice = 80m,
+            totalPurchaseCost = 80m * quantity,
             mrp = 120m,
             salesPrice = 100m,
             taxRatePercent = 18m,

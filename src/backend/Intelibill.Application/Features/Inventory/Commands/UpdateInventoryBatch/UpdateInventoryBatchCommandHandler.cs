@@ -95,7 +95,8 @@ public sealed class UpdateInventoryBatchCommandHandler(
             command.ExpiryDate,
             command.ManufacturingDate,
             effectiveSupplierId,
-            command.UserId);
+            command.UserId,
+            originalBatch.PurchaseTaxIncluded);
 
         if (newBatchResult.IsError)
             return newBatchResult.Errors;

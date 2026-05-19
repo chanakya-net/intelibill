@@ -50,11 +50,12 @@ export interface AddInventoryBatchRowRequest {
   readonly uom: string;
   readonly batchNumber: string;
   readonly quantity: number;
-  readonly costPrice: number;
+  readonly totalPurchaseCost: number;
   readonly mrp: number;
   readonly salesPrice: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded?: boolean;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
   readonly supplierId: string | null;
@@ -117,6 +118,7 @@ export interface InventoryBatchDto {
   readonly salesPrice: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded?: boolean;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
   readonly supplierId: string | null;
@@ -372,5 +374,6 @@ export interface AvailableBatchDto {
   readonly mrp: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded?: boolean;
   readonly expiryDate: string | null;
 }

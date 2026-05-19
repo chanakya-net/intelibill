@@ -57,6 +57,105 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
+    public async Task Calculate_WhenTaxIncludedAndGrossPriceIsAboveCost_AllowsSale()
+    {
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 1m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 18m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Equal(17.14m, line.PreTaxAmountBeforeDiscount);
+        Assert.Equal(6.86m, line.TaxAmount);
+        Assert.Equal(24m, line.TotalAmount);
+    }
+
+    [Fact]
+    public async Task Calculate_WhenTaxIncluded_PreservesGrossShelfPriceAfterTaxRounding()
+    {
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 19m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 18m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Equal(325.71m, line.TaxableAmount);
+        Assert.Equal(130.29m, line.TaxAmount);
+        Assert.Equal(456m, line.TotalAmount);
+        Assert.Equal(456m, result.Value.TotalAmount);
+    }
+
+    [Fact]
+    public async Task Calculate_WhenTaxIncluded_ReturnsGrossAwareDiscountCapacity()
+    {
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 1m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 18m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Equal(4.29m, line.MaxAllowedItemDiscountFlat);
+    }
+
+    [Fact]
+    public async Task Calculate_WhenTaxIncludedAndDiscountWouldMakeGrossBelowCost_ReturnsError()
+    {
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(
+                    quantity: 1m,
+                    salesPrice: 24m,
+                    taxRatePercent: 40m,
+                    taxIncluded: true,
+                    costPrice: 18m,
+                    itemDiscount: new InstantDiscount(InstantDiscountType.Flat, 5m)),
+            ],
+            SaleDiscount: None()));
+
+        Assert.True(result.IsError);
+        Assert.Equal("SalePricing.ItemDiscountBelowCost", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Calculate_WhenTaxIncludedAndGrossPriceIsBelowCost_ReturnsError()
+    {
+        var calculator = CreateCalculatorWithRules([]);
+
+        var result = await calculator.CalculateAsync(new SalePricingCalculationRequest(
+            ShopId,
+            SaleTime,
+            [
+                Line(quantity: 1m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 25m),
+            ],
+            SaleDiscount: None()));
+
+        Assert.True(result.IsError);
+        Assert.Equal("SalePricing.BelowCost", result.FirstError.Code);
+    }
+
+    [Fact]
     public async Task Calculate_AppliesItemPercentageDiscountBeforeTax()
     {
         var calculator = CreateCalculatorWithRules([]);

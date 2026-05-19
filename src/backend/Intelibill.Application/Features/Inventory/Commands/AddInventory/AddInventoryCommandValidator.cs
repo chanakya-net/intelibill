@@ -26,7 +26,7 @@ internal sealed class AddInventoryCommandValidator : AbstractValidator<AddInvent
         RuleFor(x => x.Quantity)
             .GreaterThan(0).WithErrorCode(Errors.Inventory.QuantityMustBePositive.Code);
 
-        RuleFor(x => x.CostPrice)
+        RuleFor(x => x.TotalPurchaseCost)
             .GreaterThanOrEqualTo(0);
 
         RuleFor(x => x.Mrp)

@@ -101,7 +101,7 @@ public sealed class AddInventoryCommandHandler(
             item.Id,
             command.BatchNumber,
             command.Quantity,
-            command.CostPrice,
+            ComputeUnitCost(command.TotalPurchaseCost, command.Quantity),
             command.Mrp,
             command.SalesPrice,
             command.TaxRatePercent,
@@ -109,7 +109,8 @@ public sealed class AddInventoryCommandHandler(
             command.ExpiryDate,
             command.ManufacturingDate,
             effectiveSupplier.Id,
-            command.ActorUserId);
+            command.ActorUserId,
+            command.PurchaseTaxIncluded);
 
         if (batchResult.IsError)
             return batchResult.Errors;
@@ -141,7 +142,7 @@ public sealed class AddInventoryCommandHandler(
             effectiveSupplier.Id,
             batch.Id,
             SupplierLedgerEntryType.GoodsReceived,
-            ComputeLedgerAmount(command.CostPrice, command.Quantity),
+            ComputeLedgerAmount(command.TotalPurchaseCost),
             DateOnly.FromDateTime(performedAt.UtcDateTime),
             isSystemSupplier ? "Receipt with no supplier assigned" : null,
             command.ActorUserId);
@@ -250,6 +251,9 @@ public sealed class AddInventoryCommandHandler(
         return systemSupplier;
     }
 
-    private static decimal ComputeLedgerAmount(decimal costPrice, decimal quantity) =>
-        decimal.Round(costPrice * quantity, 2, MidpointRounding.AwayFromZero);
+    private static decimal ComputeUnitCost(decimal totalPurchaseCost, decimal quantity) =>
+        decimal.Round(totalPurchaseCost / quantity, 2, MidpointRounding.AwayFromZero);
+
+    private static decimal ComputeLedgerAmount(decimal totalPurchaseCost) =>
+        decimal.Round(totalPurchaseCost, 2, MidpointRounding.AwayFromZero);
 }
