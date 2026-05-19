@@ -6,6 +6,7 @@ public sealed record AddInventoryCommand(
     string ItemName,
     string Barcode,
     string? ItemDescription,
+    string? HsnCode,
     string Uom,
     string BatchNumber,
     decimal Quantity,

@@ -1,3 +1,4 @@
+using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
@@ -186,7 +187,7 @@ public class AddInventoryBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithHsnCode_CallsUpdateHsnCodeOnItem()
+    public async Task Handle_WithHsnCode_UpdatesTaxDefaultsOnItem()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -196,6 +197,7 @@ public class AddInventoryBatchCommandHandlerTests
 
         var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
         existingItem.UpdateHsnCode("OLD");
+        existingItem.UpdateTaxDefaults("OLD", 12m, true);
 
         _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
             .Returns(existingItem);
@@ -223,11 +225,13 @@ public class AddInventoryBatchCommandHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal("NEW", existingItem.HsnCode);
+        Assert.Equal(5m, existingItem.DefaultTaxRatePercent);
+        Assert.False(existingItem.DefaultTaxIncluded);
         _itemRepository.Received(1).Update(existingItem);
     }
 
     [Fact]
-    public async Task Handle_WithNullHsnCode_DoesNotCallUpdateHsnCodeOnItem()
+    public async Task Handle_WithNullHsnCode_PreservesHsnButStillUpdatesTaxDefaults()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -237,6 +241,7 @@ public class AddInventoryBatchCommandHandlerTests
 
         var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
         existingItem.UpdateHsnCode("OLD");
+        existingItem.UpdateTaxDefaults("OLD", 12m, true);
 
         _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
             .Returns(existingItem);
@@ -264,7 +269,72 @@ public class AddInventoryBatchCommandHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal("OLD", existingItem.HsnCode);
-        _itemRepository.DidNotReceive().Update(existingItem);
+        Assert.Equal(5m, existingItem.DefaultTaxRatePercent);
+        Assert.False(existingItem.DefaultTaxIncluded);
+        _itemRepository.Received(1).Update(existingItem);
+    }
+
+    [Fact]
+    public async Task Handle_WhenResolvedRowFails_DoesNotUpdateTaxDefaultsForFailedRow()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+
+        var failedItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+        failedItem.UpdateTaxDefaults("OLD", 12m, true);
+        var succeededItem = Item.Create(shop.Id, "Sugar", "Desc", "kg", "222", true, actor.Id);
+        succeededItem.UpdateTaxDefaults("PREV", 5m, false);
+
+        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(failedItem);
+        _itemResolver.ResolveAsync(shop.Id, "Sugar", "222", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(succeededItem);
+
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(failedItem);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns(succeededItem);
+
+        _batchFactory.CreateBatchAsync(shop.Id, failedItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(Error.Validation("Inventory.BatchRejected", "Batch rejected."));
+        _batchFactory.CreateBatchAsync(shop.Id, succeededItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var batch = InventoryBatch.Create(shop.Id, succeededItem.Id, row.BatchNumber, row.Quantity, row.CostPrice, row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
+                var tx = StockTransaction.Create(shop.Id, succeededItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.CostPrice * row.Quantity, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
+                return new BatchCreationResult(batch, tx, ledger);
+            });
+
+        var inventory = Domain.Entities.Inventory.Create(shop.Id, succeededItem.Id, 10m, 0, 0, actor.Id).Value;
+        _inventoryUpdater.GetOrUpdateAsync(shop.Id, succeededItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
+            .Returns(inventory);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(
+            new AddInventoryBatchCommand(
+                actor.Id,
+                shop.Id,
+                [
+                    CreateRow("row-1", "Rice", "111", hsnCode: "FAILED"),
+                    CreateRow("row-2", "Sugar", "222", hsnCode: "OK")
+                ]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1, result.Value.SuccessCount);
+        Assert.Equal(1, result.Value.FailedCount);
+        Assert.Equal("OLD", failedItem.HsnCode);
+        Assert.Equal(12m, failedItem.DefaultTaxRatePercent);
+        Assert.True(failedItem.DefaultTaxIncluded);
+        Assert.Equal("OK", succeededItem.HsnCode);
+        Assert.Equal(5m, succeededItem.DefaultTaxRatePercent);
+        Assert.False(succeededItem.DefaultTaxIncluded);
+        _itemRepository.DidNotReceive().Update(failedItem);
+        _itemRepository.Received(1).Update(succeededItem);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private AddInventoryBatchCommandHandler CreateHandler() =>

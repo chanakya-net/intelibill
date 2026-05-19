@@ -43,6 +43,7 @@ public sealed class AddInventoryCommandHandler(
             return Errors.Inventory.ItemIdentityConflict;
 
         Item item;
+        var isNewItem = false;
         if (itemByBarcode is not null)
         {
             if (!string.Equals(itemByBarcode.Name, normalizedName, StringComparison.Ordinal))
@@ -69,7 +70,13 @@ public sealed class AddInventoryCommandHandler(
                 createdBy: command.ActorUserId);
 
             await itemRepository.AddAsync(item, cancellationToken);
+            isNewItem = true;
         }
+
+        var hsnCode = string.IsNullOrWhiteSpace(command.HsnCode) ? item.HsnCode : command.HsnCode;
+        item.UpdateTaxDefaults(hsnCode, command.TaxRatePercent, command.TaxIncluded);
+        if (!isNewItem)
+            itemRepository.Update(item);
 
         var existingBatch = await inventoryBatchRepository.GetByBatchNumberAsync(
             command.ActiveShopId,

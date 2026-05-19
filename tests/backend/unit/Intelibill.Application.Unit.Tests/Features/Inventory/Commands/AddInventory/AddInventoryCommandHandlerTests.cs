@@ -109,6 +109,39 @@ public class AddInventoryCommandHandlerTests
             Arg.Any<CancellationToken>());
         await _inventoryRepository.Received(1).AddAsync(Arg.Any<DomainInventory>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+
+        await _itemRepository.Received(1).AddAsync(
+            Arg.Is<Item>(i => i.DefaultTaxRatePercent == 5m && i.DefaultTaxIncluded == false),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenExistingItem_UpdatesTaxDefaults()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
+        existingItem.UpdateTaxDefaults("1001", 12m, true);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(existingItem);
+        _inventoryRepository.GetByItemAsync(shop.Id, existingItem.Id, Arg.Any<CancellationToken>())
+            .Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, existingItem.Id, "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var handler = CreateHandler();
+        var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, hsnCode: "2002"), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("2002", existingItem.HsnCode);
+        Assert.Equal(5m, existingItem.DefaultTaxRatePercent);
+        Assert.False(existingItem.DefaultTaxIncluded);
+        _itemRepository.Received(1).Update(existingItem);
     }
 
     [Fact]
@@ -378,13 +411,14 @@ public class AddInventoryCommandHandlerTests
             .Returns(callInfo => Supplier.CreateUnknownSystemSupplier(callInfo.Arg<Guid>()));
     }
 
-    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null, DateTimeOffset? performedAt = null) =>
+    private static AddInventoryCommand CreateCommand(Guid actorId, Guid shopId, Guid? supplierId = null, DateTimeOffset? performedAt = null, string? hsnCode = null) =>
         new(
             actorId,
             shopId,
             ItemName: "Rice",
             Barcode: "111",
             ItemDescription: "Sona masuri",
+            HsnCode: hsnCode,
             Uom: "kg",
             BatchNumber: "B-1",
             Quantity: 10m,
