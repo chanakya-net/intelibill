@@ -43,7 +43,8 @@ internal sealed class BatchFactory(
             row.ExpiryDate,
             row.ManufacturingDate,
             supplier.Id,
-            actorUserId);
+            actorUserId,
+            row.PurchaseTaxIncluded);
 
         if (batchResult.IsError)
             return batchResult.Errors;

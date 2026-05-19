@@ -69,7 +69,7 @@ public sealed class PreviewSaleQueryHandler(
                 return new SalePricingLineCalculationRequest(
                     line.Batch.Id,
                     line.Command.Quantity,
-                    line.Batch.CostPrice,
+                    line.Batch.GetProfitCostPrice(),
                     line.Batch.SalesPrice,
                     line.Batch.Mrp,
                     line.Command.TaxRatePercent,

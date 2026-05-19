@@ -42,6 +42,7 @@ public sealed class GetInventoryBatchesQueryHandler(
             b.SalesPrice,
             b.TaxRatePercent,
             b.TaxIncluded,
+            b.PurchaseTaxIncluded,
             b.ExpiryDate,
             b.ManufacturingDate,
             b.SupplierId,

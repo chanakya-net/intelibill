@@ -28,6 +28,51 @@ public class InventoryBatchTests
     }
 
     [Fact]
+    public void GetProfitCostPrice_WhenPurchaseTaxIncluded_ReturnsNetUnitCost()
+    {
+        var result = InventoryBatch.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "B-01",
+            quantity: 10m,
+            costPrice: 118m,
+            mrp: 160m,
+            salesPrice: 140m,
+            taxRatePercent: 18m,
+            taxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            createdBy: Guid.NewGuid(),
+            purchaseTaxIncluded: true);
+        Assert.False(result.IsError);
+
+        Assert.Equal(100m, result.Value.GetProfitCostPrice());
+    }
+
+    [Fact]
+    public void GetProfitCostPrice_WhenPurchaseTaxExcluded_ReturnsStoredUnitCost()
+    {
+        var result = InventoryBatch.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "B-01",
+            quantity: 10m,
+            costPrice: 118m,
+            mrp: 160m,
+            salesPrice: 140m,
+            taxRatePercent: 18m,
+            taxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            supplierId: null,
+            createdBy: Guid.NewGuid());
+        Assert.False(result.IsError);
+
+        Assert.Equal(118m, result.Value.GetProfitCostPrice());
+    }
+
+    [Fact]
     public void Create_TaxRateAboveHundred_ReturnsValidationError()
     {
         var result = InventoryBatch.Create(

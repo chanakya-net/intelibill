@@ -15,6 +15,7 @@ public sealed class InventoryBatch : BaseEntity
     public decimal SalesPrice { get; private set; }
     public decimal TaxRatePercent { get; private set; }
     public bool TaxIncluded { get; private set; }
+    public bool PurchaseTaxIncluded { get; private set; }
     public DateOnly? ExpiryDate { get; private set; }
     public DateOnly? ManufacturingDate { get; private set; }
     public Guid? SupplierId { get; private set; }
@@ -40,7 +41,8 @@ public sealed class InventoryBatch : BaseEntity
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
         Guid? supplierId,
-        Guid createdBy)
+        Guid createdBy,
+        bool purchaseTaxIncluded = false)
     {
         var validation = ValidateBatch(batchNumber, quantity, salesPrice, mrp, taxRatePercent);
         if (validation.IsError)
@@ -60,6 +62,7 @@ public sealed class InventoryBatch : BaseEntity
             SalesPrice = salesPrice,
             TaxRatePercent = taxRatePercent,
             TaxIncluded = taxIncluded,
+            PurchaseTaxIncluded = purchaseTaxIncluded,
             ExpiryDate = expiryDate,
             ManufacturingDate = manufacturingDate,
             SupplierId = supplierId,
@@ -86,7 +89,8 @@ public sealed class InventoryBatch : BaseEntity
         DateOnly? expiryDate,
         DateOnly? manufacturingDate,
         Guid? supplierId,
-        Guid updatedBy)
+        Guid updatedBy,
+        bool purchaseTaxIncluded = false)
     {
         var validation = ValidateBatch(batchNumber, quantity, salesPrice, mrp, taxRatePercent);
         if (validation.IsError)
@@ -101,6 +105,7 @@ public sealed class InventoryBatch : BaseEntity
         SalesPrice = salesPrice;
         TaxRatePercent = taxRatePercent;
         TaxIncluded = taxIncluded;
+        PurchaseTaxIncluded = purchaseTaxIncluded;
         ExpiryDate = expiryDate;
         ManufacturingDate = manufacturingDate;
         SupplierId = supplierId;
@@ -154,6 +159,17 @@ public sealed class InventoryBatch : BaseEntity
     public decimal GetTaxAmountPerUnit()
     {
         return SalesPrice * (TaxRatePercent / 100m);
+    }
+
+    public decimal GetProfitCostPrice()
+    {
+        if (!PurchaseTaxIncluded || TaxRatePercent <= 0m)
+        {
+            return CostPrice;
+        }
+
+        var taxAmount = CostPrice * TaxRatePercent / (100m + TaxRatePercent);
+        return decimal.Round(CostPrice - taxAmount, 2, MidpointRounding.AwayFromZero);
     }
 
     private static ErrorOr<Success> ValidateBatch(

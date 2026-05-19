@@ -469,6 +469,7 @@ public class AddInventoryCommandHandlerTests
             SalesPrice: salesPrice,
             TaxRatePercent: 5m,
             TaxIncluded: false,
+            PurchaseTaxIncluded: false,
             ExpiryDate: null,
             ManufacturingDate: null,
             SupplierId: supplierId,

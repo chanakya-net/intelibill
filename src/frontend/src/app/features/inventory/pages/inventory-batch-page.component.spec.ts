@@ -536,6 +536,34 @@ describe('InventoryBatchPageComponent', () => {
     );
   });
 
+  it('submitForm_DerivesPurchaseTaxIncludedFromSalesTaxMode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    inventoryService.addInventoryBatch.mockReturnValueOnce(
+      of({
+        requestedCount: 1,
+        successCount: 1,
+        failedCount: 0,
+        succeeded: [{ clientRowId: 'row-1', result: createResult('row-1') }],
+        failed: [],
+      }),
+    );
+
+    component.pendingRows.set([
+      createDraftRow('row-1', 'Milk', 'B001', { taxIncluded: true }),
+    ]);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({ purchaseTaxIncluded: true })],
+      }),
+    );
+  });
+
   it('buildDraftRow_CapturesSelectedHsnCodeIntoRow', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
@@ -672,7 +700,7 @@ describe('InventoryBatchPageComponent', () => {
     await component['fetchProductDetails']();
 
     expect(component.form.controls.supplierName.value).toBe('');
-    expect(component.form.controls.taxIncluded.value).toBe(false);
+    expect(component.form.controls.taxIncluded.value).toBe(true);
     expect(component.form.controls.taxRatePercent.value).toBe(0);
   });
 
@@ -1113,7 +1141,7 @@ describe('InventoryBatchPageComponent', () => {
     clientRowId: string,
     itemName: string,
     barcode: string,
-    overrides: Partial<{ hsnCode: string | null; supplierId: string | null }> = {},
+    overrides: Partial<{ hsnCode: string | null; supplierId: string | null; taxIncluded: boolean }> = {},
   ) {
     return {
       clientRowId,
@@ -1127,7 +1155,8 @@ describe('InventoryBatchPageComponent', () => {
       mrp: 12,
       salesPrice: 11,
       taxRatePercent: 5,
-      taxIncluded: false,
+      taxIncluded: overrides.taxIncluded ?? true,
+      purchaseTaxIncluded: overrides.taxIncluded ?? true,
       hsnCode: overrides.hsnCode ?? null,
       expiryDate: null,
       manufacturingDate: null,

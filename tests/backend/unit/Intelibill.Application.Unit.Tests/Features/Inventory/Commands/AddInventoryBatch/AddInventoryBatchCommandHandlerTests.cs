@@ -361,6 +361,7 @@ public class AddInventoryBatchCommandHandlerTests
             SalesPrice: 110m,
             TaxRatePercent: 5m,
             TaxIncluded: false,
+            PurchaseTaxIncluded: false,
             ExpiryDate: null,
             ManufacturingDate: null,
             SupplierId: null,

@@ -13,6 +13,7 @@ export interface InventoryInboundDraftRow {
   readonly salesPrice: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded?: boolean;
   readonly hsnCode: string | null;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;

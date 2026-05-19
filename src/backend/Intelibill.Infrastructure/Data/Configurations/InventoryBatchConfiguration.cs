@@ -55,6 +55,10 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(b => b.PurchaseTaxIncluded)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(b => b.IsVoided)
             .HasDefaultValue(false)
             .IsRequired();

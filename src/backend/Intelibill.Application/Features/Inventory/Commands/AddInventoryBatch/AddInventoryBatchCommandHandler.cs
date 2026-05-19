@@ -183,6 +183,7 @@ public sealed class AddInventoryBatchCommandHandler(
             row.SalesPrice,
             row.TaxRatePercent,
             row.TaxIncluded,
+            row.PurchaseTaxIncluded,
             row.ExpiryDate,
             row.ManufacturingDate,
             row.SupplierId,

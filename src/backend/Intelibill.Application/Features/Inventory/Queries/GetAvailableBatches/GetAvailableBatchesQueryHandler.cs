@@ -43,6 +43,7 @@ public sealed class GetAvailableBatchesQueryHandler(
                 b.Mrp,
                 b.TaxRatePercent,
                 b.TaxIncluded,
+                b.PurchaseTaxIncluded,
                 b.ExpiryDate))
             .ToList();
     }

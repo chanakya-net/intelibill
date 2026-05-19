@@ -14,6 +14,7 @@ public sealed record InventoryBatchDto(
     decimal SalesPrice,
     decimal TaxRatePercent,
     bool TaxIncluded,
+    bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
     Guid? SupplierId,

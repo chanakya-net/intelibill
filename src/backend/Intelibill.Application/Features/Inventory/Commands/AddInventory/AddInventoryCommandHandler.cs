@@ -109,7 +109,8 @@ public sealed class AddInventoryCommandHandler(
             command.ExpiryDate,
             command.ManufacturingDate,
             effectiveSupplier.Id,
-            command.ActorUserId);
+            command.ActorUserId,
+            command.PurchaseTaxIncluded);
 
         if (batchResult.IsError)
             return batchResult.Errors;
