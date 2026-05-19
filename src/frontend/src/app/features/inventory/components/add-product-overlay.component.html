@@ -31,6 +31,7 @@
           [suggestions]="nameSuggestions()"
           (completeMethod)="onFilterName($event)"
           (onSelect)="onNameSelected($event.value)"
+          (onBlur)="onNameBlur()"
           appendTo="body"
           [fluid]="true"
         ></p-autocomplete>
@@ -61,11 +62,37 @@
       <label>
         <span>{{ 'hsn.hsnCode' | transloco }}</span>
         <input pInputText type="text" formControlName="hsnCode" />
+        @if (suggestedHsnCodes().length > 0) {
+          <div class="suggestion-list" aria-label="HSN suggestions">
+            @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
+              <button
+                type="button"
+                class="suggestion-chip"
+                (click)="selectSuggestedHsnCode(hsnCode)"
+              >
+                {{ hsnCode }}
+              </button>
+            }
+          </div>
+        }
       </label>
 
       <label>
         <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
         <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
+        @if (suggestedTaxSlabs().length > 0) {
+          <div class="suggestion-list" aria-label="Tax suggestions">
+            @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
+              <button
+                type="button"
+                class="suggestion-chip"
+                (click)="selectSuggestedTaxSlab(taxPercentage)"
+              >
+                {{ taxPercentage }}
+              </button>
+            }
+          </div>
+        }
       </label>
 
       <label class="toggle-row" for="isActive">
