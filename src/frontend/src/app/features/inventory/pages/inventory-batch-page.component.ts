@@ -229,6 +229,7 @@ export class InventoryBatchPageComponent {
     const entry = this.catalogSync.findByName(name);
     if (entry) {
       this.form.controls.barcode.setValue(entry.barcode);
+      void this.fetchProductDetails({ lookupHsnIfMissing: true });
     }
   }
 
@@ -245,6 +246,9 @@ export class InventoryBatchPageComponent {
   }
 
   async onItemNameBlur(): Promise<void> {
+    if (this.loadingProduct()) {
+      return;
+    }
     const itemName = this.form.controls.itemName.value.trim();
     if (itemName.length < 3) {
       return;
@@ -253,6 +257,13 @@ export class InventoryBatchPageComponent {
     this.isLoadingHsn.set(true);
     try {
       const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
+
+      // If product details finished loading while the HSN lookup was in-flight (e.g. name
+      // selected from autocomplete triggers both), the chip is already populated — skip.
+      if (this.selectedHsnCode()) {
+        return;
+      }
+
       this.hsnResult.set(result);
 
       if (result.hsnCodes.length === 1 && result.taxScenarios.length === 1) {
@@ -382,9 +393,10 @@ export class InventoryBatchPageComponent {
     this.isScannerOpen.set(false);
   }
 
-  private async fetchProductDetails(options?: { showInfoToast?: boolean; showErrorToast?: boolean }): Promise<void> {
+  private async fetchProductDetails(options?: { showInfoToast?: boolean; showErrorToast?: boolean; lookupHsnIfMissing?: boolean }): Promise<void> {
     const showInfoToast = options?.showInfoToast ?? true;
     const showErrorToast = options?.showErrorToast ?? true;
+    const lookupHsnIfMissing = options?.lookupHsnIfMissing ?? false;
     const itemName = this.form.controls.itemName.value?.trim();
     const barcode = this.form.controls.barcode.value?.trim();
 
@@ -395,6 +407,7 @@ export class InventoryBatchPageComponent {
 
     this.loadingProduct.set(true);
 
+    let hsnApplied = false;
     try {
       const details = await this.inventoryService
         .getProductDetailsByNameOrBarcode(itemName || undefined, barcode)
@@ -415,6 +428,7 @@ export class InventoryBatchPageComponent {
           this.selectedHsnCode.set(details.hsnCode);
           this.pickerOpen.set(false);
           this.clearHsnSelectionOnNextItemNameChange = true;
+          hsnApplied = true;
         }
       }
     } catch (error) {
@@ -423,6 +437,10 @@ export class InventoryBatchPageComponent {
       }
     } finally {
       this.loadingProduct.set(false);
+    }
+
+    if (lookupHsnIfMissing && !hsnApplied && !this.selectedHsnCode()) {
+      await this.onItemNameBlur();
     }
   }
 
@@ -525,6 +543,9 @@ export class InventoryBatchPageComponent {
       referenceNumber: row.referenceNumber ?? '',
       notes: row.notes ?? '',
     });
+
+    this.selectedHsnCode.set(row.hsnCode ?? null);
+    this.clearHsnSelectionOnNextItemNameChange = row.hsnCode != null;
 
     const updatedRows = this.pendingRows().filter(
       (candidate) => candidate.clientRowId !== clientRowId,
@@ -637,7 +658,7 @@ export class InventoryBatchPageComponent {
       itemName: row.itemName,
       barcode: row.barcode,
       itemDescription: row.itemDescription,
-      hsnCode: this.selectedHsnCode(),
+      hsnCode: row.hsnCode,
       uom: row.uom,
       batchNumber: row.batchNumber,
       quantity: row.quantity,
@@ -847,6 +868,7 @@ export class InventoryBatchPageComponent {
       salesPrice: Number(this.form.controls.salesPrice.value),
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
       taxIncluded: this.form.controls.taxIncluded.value,
+      hsnCode: this.selectedHsnCode(),
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
       supplierId,
