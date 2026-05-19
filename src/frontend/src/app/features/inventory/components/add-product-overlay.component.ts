@@ -47,6 +47,8 @@ export class AddProductOverlayComponent implements OnInit {
     barcode: ['', [Validators.required, Validators.maxLength(120)]],
     description: ['', [Validators.maxLength(320)]],
     uom: ['', [Validators.required, Validators.maxLength(40)]],
+    hsnCode: ['', [Validators.pattern(/^\s*\d{4,8}\s*$/)]],
+    defaultTaxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
     isActive: [true],
   });
 
@@ -106,6 +108,8 @@ export class AddProductOverlayComponent implements OnInit {
           barcode: this.form.controls.barcode.value.trim(),
           description: this.nullableTrimmed(this.form.controls.description.value),
           uom: this.form.controls.uom.value.trim(),
+          hsnCode: this.nullableTrimmed(this.form.controls.hsnCode.value),
+          defaultTaxRatePercent: Number(this.form.controls.defaultTaxRatePercent.value),
           isActive: this.form.controls.isActive.value,
         },
       }),

@@ -41,6 +41,15 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.Property(i => i.HsnCode)
             .HasMaxLength(20);
 
+        builder.Property(i => i.DefaultTaxRatePercent)
+            .IsRequired()
+            .HasPrecision(5, 2)
+            .HasDefaultValue(0m);
+
+        builder.Property(i => i.DefaultTaxIncluded)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasIndex(i => new { i.ShopId, i.Barcode })
             .IsUnique();
 

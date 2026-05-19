@@ -17,6 +17,9 @@ export interface Item {
   readonly uom: string;
   readonly isActive: boolean;
   readonly currentStock: number;
+  readonly hsnCode: string | null;
+  readonly defaultTaxRatePercent: number;
+  readonly defaultTaxIncluded: boolean;
 }
 
 export interface AddItemRequest {
@@ -25,6 +28,8 @@ export interface AddItemRequest {
   readonly description: string | null;
   readonly uom: string;
   readonly isActive: boolean;
+  readonly hsnCode: string | null;
+  readonly defaultTaxRatePercent: number;
 }
 
 export interface UpdateItemRequest {
@@ -32,6 +37,8 @@ export interface UpdateItemRequest {
   readonly barcode: string;
   readonly description: string | null;
   readonly uom: string;
+  readonly hsnCode: string | null;
+  readonly defaultTaxRatePercent: number;
 }
 
 export interface AddInventoryBatchRowRequest {

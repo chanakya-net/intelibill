@@ -58,6 +58,16 @@
         <input pInputText type="text" formControlName="uom" />
       </label>
 
+      <label>
+        <span>{{ 'hsn.hsnCode' | transloco }}</span>
+        <input pInputText type="text" formControlName="hsnCode" />
+      </label>
+
+      <label>
+        <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
+        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
+      </label>
+
       <label class="toggle-row" for="isActive">
         <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
         <span>{{ 'inventory.isActive' | transloco }}</span>

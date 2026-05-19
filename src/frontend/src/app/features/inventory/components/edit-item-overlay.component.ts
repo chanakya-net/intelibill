@@ -47,6 +47,8 @@ export class EditItemOverlayComponent implements OnInit {
     barcode: ['', [Validators.required, Validators.maxLength(128)]],
     description: ['', [Validators.maxLength(1000)]],
     uom: ['', [Validators.required, Validators.maxLength(32)]],
+    hsnCode: ['', [Validators.pattern(/^\s*\d{4,8}\s*$/)]],
+    defaultTaxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
   });
 
   ngOnInit(): void {
@@ -57,6 +59,8 @@ export class EditItemOverlayComponent implements OnInit {
     this.form.controls.barcode.setValue(this.item.barcode);
     this.form.controls.description.setValue(this.item.description ?? '');
     this.form.controls.uom.setValue(this.item.uom);
+    this.form.controls.hsnCode.setValue(this.item.hsnCode ?? '');
+    this.form.controls.defaultTaxRatePercent.setValue(this.item.defaultTaxRatePercent);
   }
 
   onClose(): void {
@@ -87,6 +91,8 @@ export class EditItemOverlayComponent implements OnInit {
           barcode: this.form.controls.barcode.value.trim(),
           description: this.nullableTrimmed(this.form.controls.description.value),
           uom: this.form.controls.uom.value.trim(),
+          hsnCode: this.nullableTrimmed(this.form.controls.hsnCode.value),
+          defaultTaxRatePercent: Number(this.form.controls.defaultTaxRatePercent.value),
         },
       })
     );

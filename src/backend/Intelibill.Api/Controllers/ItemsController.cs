@@ -120,7 +120,9 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Barcode,
                 request.Description,
                 request.Uom,
-                request.IsActive),
+                request.IsActive,
+                request.HsnCode,
+                request.DefaultTaxRatePercent),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -142,6 +144,8 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Barcode,
                 request.Description,
                 request.Uom,
+                request.HsnCode,
+                request.DefaultTaxRatePercent,
                 request.IsActive),
             cancellationToken);
 
@@ -157,11 +161,15 @@ public sealed record AddItemRequest(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive);
+    bool IsActive,
+    string? HsnCode,
+    decimal DefaultTaxRatePercent);
 
 public sealed record UpdateItemRequest(
     string Name,
     string Barcode,
     string? Description,
     string Uom,
+    string? HsnCode,
+    decimal DefaultTaxRatePercent,
     bool? IsActive);

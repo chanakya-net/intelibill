@@ -104,6 +104,8 @@ describe('AddProductOverlayComponent', () => {
     component.form.controls.barcode.setValue('  B001  ');
     component.form.controls.description.setValue('  Product description  ');
     component.form.controls.uom.setValue('  packet  ');
+    component.form.controls.hsnCode.setValue('  0902  ');
+    component.form.controls.defaultTaxRatePercent.setValue(5);
     component.form.controls.isActive.setValue(true);
 
     component.onSubmit();
@@ -117,9 +119,28 @@ describe('AddProductOverlayComponent', () => {
           barcode: 'B001',
           description: 'Product description',
           uom: 'packet',
+          hsnCode: '0902',
+          defaultTaxRatePercent: 5,
           isActive: true,
         },
       })
+    );
+  });
+
+  it('does not submit when HSN code or tax rate are invalid', () => {
+    const component = setup();
+
+    component.form.controls.name.setValue('Premium Tea');
+    component.form.controls.barcode.setValue('B001');
+    component.form.controls.uom.setValue('packet');
+    component.form.controls.hsnCode.setValue('ABC');
+    component.form.controls.defaultTaxRatePercent.setValue(101);
+
+    component.onSubmit();
+
+    expect(component.form.touched).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: InventoryActions.addItemRequested.type })
     );
   });
 });

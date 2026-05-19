@@ -125,6 +125,9 @@ public class UpdateItemCommandHandlerTests
             i.Name == "Premium Rice" &&
             i.Barcode == "222" &&
             i.Description == "Best Quality" &&
+            i.HsnCode == "10063090" &&
+            i.DefaultTaxRatePercent == 5m &&
+            !i.DefaultTaxIncluded &&
             i.UpdatedBy == actor.Id));
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _messageBus.Received(1).PublishAsync(
@@ -230,5 +233,7 @@ public class UpdateItemCommandHandlerTests
             barcode,
             description,
             uom,
+            "10063090",
+            5m,
             isActive);
 }

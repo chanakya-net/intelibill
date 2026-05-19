@@ -49,7 +49,7 @@ public class ItemsControllerTests
 
         var items = (IReadOnlyList<ItemDto>)
         [
-            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m),
+            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, "0401", 5m, false),
         ];
 
         _bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
@@ -131,7 +131,17 @@ public class ItemsControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         var request = CreateRequest();
-        var dto = new ItemDto(Guid.NewGuid(), request.Name, request.Barcode, request.Description, request.Uom, request.IsActive, 0m);
+        var dto = new ItemDto(
+            Guid.NewGuid(),
+            request.Name,
+            request.Barcode,
+            request.Description,
+            request.Uom,
+            request.IsActive,
+            0m,
+            request.HsnCode,
+            request.DefaultTaxRatePercent,
+            false);
 
         _bus.InvokeAsync<ErrorOr<ItemDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(dto);
 
@@ -141,7 +151,13 @@ public class ItemsControllerTests
         Assert.Equal(dto, ok.Value);
 
         await _bus.Received(1).InvokeAsync<ErrorOr<ItemDto>>(
-            Arg.Is<AddItemCommand>(c => c.ActorUserId == userId && c.ActiveShopId == shopId && c.Name == request.Name && c.Barcode == request.Barcode),
+            Arg.Is<AddItemCommand>(c =>
+                c.ActorUserId == userId &&
+                c.ActiveShopId == shopId &&
+                c.Name == request.Name &&
+                c.Barcode == request.Barcode &&
+                c.HsnCode == request.HsnCode &&
+                c.DefaultTaxRatePercent == request.DefaultTaxRatePercent),
             Arg.Any<CancellationToken>());
     }
 
@@ -306,7 +322,9 @@ public class ItemsControllerTests
                 c.ActiveShopId == shopId &&
                 c.ItemId == itemId &&
                 c.Name == request.Name &&
-                c.Barcode == request.Barcode),
+                c.Barcode == request.Barcode &&
+                c.HsnCode == request.HsnCode &&
+                c.DefaultTaxRatePercent == request.DefaultTaxRatePercent),
             Arg.Any<CancellationToken>());
     }
 
@@ -381,7 +399,9 @@ public class ItemsControllerTests
             Barcode: "111",
             Description: "Premium",
             Uom: "kg",
-            IsActive: true);
+            IsActive: true,
+            HsnCode: "10063090",
+            DefaultTaxRatePercent: 5m);
 
     private static UpdateItemRequest CreateUpdateRequest(bool? isActive = null) =>
         new(
@@ -389,6 +409,8 @@ public class ItemsControllerTests
             Barcode: "112",
             Description: "High Quality",
             Uom: "kg",
+            HsnCode: "10063090",
+            DefaultTaxRatePercent: 5m,
             IsActive: isActive);
 
     private System.IO.MemoryStream SetResponseBody()

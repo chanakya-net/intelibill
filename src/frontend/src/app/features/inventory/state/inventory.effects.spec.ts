@@ -52,6 +52,9 @@ describe('InventoryEffects', () => {
         uom: 'ltr',
         isActive: true,
         currentStock: 0,
+        hsnCode: '0401',
+        defaultTaxRatePercent: 5,
+        defaultTaxIncluded: false,
       })
     );
 
@@ -65,6 +68,8 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          hsnCode: '0401',
+          defaultTaxRatePercent: 5,
         },
       })
     );
@@ -79,6 +84,9 @@ describe('InventoryEffects', () => {
           uom: 'ltr',
           isActive: true,
           currentStock: 0,
+          hsnCode: '0401',
+          defaultTaxRatePercent: 5,
+          defaultTaxIncluded: false,
         },
       })
     );
@@ -99,6 +107,8 @@ describe('InventoryEffects', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          hsnCode: null,
+          defaultTaxRatePercent: 0,
         },
       })
     );
@@ -121,6 +131,9 @@ describe('InventoryEffects', () => {
           uom: 'ltr',
           isActive: true,
           currentStock: 10,
+          hsnCode: null,
+          defaultTaxRatePercent: 0,
+          defaultTaxIncluded: false,
         },
       ])
     );
@@ -140,6 +153,9 @@ describe('InventoryEffects', () => {
             uom: 'ltr',
             isActive: true,
             currentStock: 10,
+            hsnCode: null,
+            defaultTaxRatePercent: 0,
+            defaultTaxIncluded: false,
           },
         ],
       })

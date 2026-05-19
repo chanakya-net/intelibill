@@ -35,6 +35,8 @@ describe('InventoryService', () => {
         description: null,
         uom: 'packet',
         isActive: true,
+        hsnCode: '0902',
+        defaultTaxRatePercent: 5,
       })
       .subscribe((item) => {
         expect(item.name).toBe('Premium Tea');
@@ -48,6 +50,8 @@ describe('InventoryService', () => {
       description: null,
       uom: 'packet',
       isActive: true,
+      hsnCode: '0902',
+      defaultTaxRatePercent: 5,
     });
 
     request.flush({
@@ -58,6 +62,9 @@ describe('InventoryService', () => {
       uom: 'packet',
       isActive: true,
       currentStock: 0,
+      hsnCode: '0902',
+      defaultTaxRatePercent: 5,
+      defaultTaxIncluded: false,
     });
 
     http.verify();
@@ -83,6 +90,9 @@ describe('InventoryService', () => {
         uom: 'packet',
         isActive: true,
         currentStock: 10,
+        hsnCode: '0902',
+        defaultTaxRatePercent: 5,
+        defaultTaxIncluded: false,
       },
     ]);
 
@@ -98,6 +108,8 @@ describe('InventoryService', () => {
         barcode: 'ABC999',
         description: 'Updated description',
         uom: 'box',
+        hsnCode: '0902',
+        defaultTaxRatePercent: 12,
       })
       .subscribe();
 
@@ -108,6 +120,8 @@ describe('InventoryService', () => {
       barcode: 'ABC999',
       description: 'Updated description',
       uom: 'box',
+      hsnCode: '0902',
+      defaultTaxRatePercent: 12,
     });
 
     request.flush(null);

@@ -7,4 +7,6 @@ public sealed record AddItemCommand(
     string Barcode,
     string? Description,
     string Uom,
-    bool IsActive);
+    bool IsActive,
+    string? HsnCode,
+    decimal DefaultTaxRatePercent);

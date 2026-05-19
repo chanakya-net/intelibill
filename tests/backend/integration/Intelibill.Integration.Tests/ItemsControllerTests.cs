@@ -95,6 +95,8 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             description = "Premium quality",
             uom = "kg",
             isActive = true,
+            hsnCode = "10063090",
+            defaultTaxRatePercent = 5m,
         });
 
         var response = await client.SendAsync(request);
@@ -103,6 +105,34 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Rice", body.GetProperty("name").GetString());
         Assert.Equal(barcode, body.GetProperty("barcode").GetString());
+        Assert.Equal("10063090", body.GetProperty("hsnCode").GetString());
+        Assert.Equal(5m, body.GetProperty("defaultTaxRatePercent").GetDecimal());
+        Assert.False(body.GetProperty("defaultTaxIncluded").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AddItem_WithInvalidHsnAndTax_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            name = "Rice",
+            barcode = $"ITM-{Guid.NewGuid():N}",
+            description = "Premium quality",
+            uom = "kg",
+            isActive = true,
+            hsnCode = "ABC",
+            defaultTaxRatePercent = 101m,
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

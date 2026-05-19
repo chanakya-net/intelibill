@@ -7,4 +7,7 @@ public sealed record ItemDto(
     string? Description,
     string Uom,
     bool IsActive,
-    decimal CurrentStock);
+    decimal CurrentStock,
+    string? HsnCode,
+    decimal DefaultTaxRatePercent,
+    bool DefaultTaxIncluded);

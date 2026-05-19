@@ -21,5 +21,19 @@ internal sealed class AddItemCommandValidator : AbstractValidator<AddItemCommand
 
         RuleFor(x => x.Description)
             .MaximumLength(1000);
+
+        RuleFor(x => x.HsnCode)
+            .MaximumLength(20)
+            .Must(value => value is null || IsValidHsnCode(value))
+            .When(x => !string.IsNullOrWhiteSpace(x.HsnCode));
+
+        RuleFor(x => x.DefaultTaxRatePercent)
+            .InclusiveBetween(0m, 100m);
+    }
+
+    private static bool IsValidHsnCode(string value)
+    {
+        var normalized = value.Trim();
+        return normalized.Length is >= 4 and <= 8 && normalized.All(char.IsDigit);
     }
 }

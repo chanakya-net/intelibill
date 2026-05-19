@@ -8,4 +8,6 @@ public sealed record UpdateItemCommand(
     string Barcode,
     string? Description,
     string Uom,
+    string? HsnCode,
+    decimal DefaultTaxRatePercent,
     bool? IsActive = null);
