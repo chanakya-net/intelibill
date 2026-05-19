@@ -27,6 +27,12 @@ public static partial class Errors
         public static Error InventoryAggregateNotFound(string barcode) =>
             Error.NotFound("Sale.InventoryAggregateNotFound", $"Inventory aggregate not found for item with barcode '{barcode}'.");
 
+        public static Error InvalidTaxRatePercent =>
+            Error.Validation("Sale.InvalidTaxRatePercent", "Tax rate must be between 0 and 100 with up to 2 decimal places.");
+
+        public static Error InvalidHsnCode =>
+            Error.Validation("Sale.InvalidHsnCode", "HSN code must be 4 to 8 digits.");
+
         public static Error PaidAmountInvalid =>
             Error.Validation("Sale.PaidAmountInvalid", "Paid amount cannot be negative.");
 

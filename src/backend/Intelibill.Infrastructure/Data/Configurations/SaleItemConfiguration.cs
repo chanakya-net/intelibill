@@ -79,6 +79,9 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(si => si.HsnCode)
+            .HasMaxLength(20);
+
         builder.Property(si => si.TotalAmount)
             .HasPrecision(18, 2)
             .IsRequired();

@@ -83,6 +83,7 @@ public class InventoryControllerTests
                 && c.ActiveShopId == shopId
                 && c.ItemName == request.ItemName
                 && c.Barcode == request.Barcode
+                && c.HsnCode == request.HsnCode
                 && c.SupplierId == request.SupplierId
                 && c.Quantity == request.Quantity),
             Arg.Any<CancellationToken>());
@@ -355,6 +356,7 @@ public class InventoryControllerTests
             ItemName: "Rice",
             Barcode: "111",
             ItemDescription: "Sona masuri",
+            HsnCode: "0402",
             Uom: "kg",
             BatchNumber: "B-1",
             Quantity: 10m,

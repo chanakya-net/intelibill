@@ -435,6 +435,79 @@ describe('InventoryBatchPageComponent', () => {
     expect(fixture.debugElement.query(By.css('.hsn-chip'))).not.toBeNull();
   });
 
+  it('onNameSelected_WithHsnCodeInProductDetails_AutoPopulatesHsnChip', async () => {
+    productCatalogSync.findByName.mockReturnValueOnce({ name: 'Milk', barcode: 'B001' });
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.onNameSelected('Milk');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith('Milk', 'B001');
+    expect(component.selectedHsnCode()).toBe('0401');
+    expect(fixture.debugElement.query(By.css('.hsn-chip'))).not.toBeNull();
+  });
+
+  it('onNameSelected_ProductWithoutStoredHsn_FallsBackToHsnLookup', async () => {
+    productCatalogSync.findByName.mockReturnValueOnce({ name: 'Milk', barcode: 'B001' });
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(
+      of({ ...productDetails, hsnCode: null } as any),
+    );
+    inventoryService.lookupHsn.mockReturnValueOnce(
+      of({ hsnCodes: ['0402'], taxScenarios: [{ condition: 'Standard', taxPercentage: '12%' }] }),
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.onNameSelected('Milk');
+    await fixture.whenStable();
+
+    expect(component.selectedHsnCode()).toBe('0402');
+    expect(component.form.controls.taxRatePercent.value).toBe(12);
+  });
+
+  it('onItemNameBlur_WhileProductLoading_SkipsHsnLookup', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component['loadingProduct'].set(true);
+    component.form.controls.itemName.setValue('Milk');
+    await component.onItemNameBlur();
+
+    expect(inventoryService.lookupHsn).not.toHaveBeenCalled();
+  });
+
+  it('onItemNameBlur_HsnAlreadyAppliedBeforeLookupReturns_DoesNotOpenPicker', async () => {
+    // Simulates race: focusout fires before onNameSelected, HSN lookup and product-details
+    // load run concurrently. By the time lookupHsn resolves, selectedHsnCode is already set.
+    let resolveLookup!: (value: any) => void;
+    inventoryService.lookupHsn.mockReturnValueOnce(
+      new (require('rxjs').Observable)((observer: any) => {
+        resolveLookup = (v) => { observer.next(v); observer.complete(); };
+      }),
+    );
+
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    const blurPromise = component.onItemNameBlur();
+
+    // Before lookupHsn resolves, product details arrive and set the HSN code
+    component.selectedHsnCode.set('0401');
+
+    // Now resolve the lookup with results
+    resolveLookup({ hsnCodes: ['0401'], taxScenarios: [{ condition: 'Standard', taxPercentage: '5%' }] });
+    await blurPromise;
+
+    expect(component.pickerOpen()).toBe(false);
+  });
+
   it('submitForm_IncludesHsnCodeInPayload', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
@@ -444,19 +517,13 @@ describe('InventoryBatchPageComponent', () => {
         requestedCount: 1,
         successCount: 1,
         failedCount: 0,
-        succeeded: [
-          {
-            clientRowId: 'row-1',
-            result: createResult('row-1'),
-          },
-        ],
+        succeeded: [{ clientRowId: 'row-1', result: createResult('row-1') }],
         failed: [],
       }),
     );
 
-    component.selectedHsnCode.set('0401');
     component.pendingRows.set([
-      createDraftRow('row-1', 'Milk', 'B001'),
+      createDraftRow('row-1', 'Milk', 'B001', { hsnCode: '0401' }),
     ]);
 
     component.onSaveAll();
@@ -467,6 +534,100 @@ describe('InventoryBatchPageComponent', () => {
         items: [expect.objectContaining({ hsnCode: '0401' })],
       }),
     );
+  });
+
+  it('buildDraftRow_CapturesSelectedHsnCodeIntoRow', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.form.controls.barcode.setValue('B001');
+    component.form.controls.uom.setValue('ltr');
+    component.form.controls.costPrice.setValue(42);
+    component.form.controls.mrp.setValue(50);
+    component.form.controls.salesPrice.setValue(48);
+    component.selectedHsnCode.set('0401');
+
+    component.onAddRow();
+
+    expect(component.pendingRows()).toHaveLength(1);
+    expect(component.pendingRows()[0].hsnCode).toBe('0401');
+  });
+
+  it('buildDraftRow_NoHsnSelected_StoresNullInRow', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.form.controls.itemName.setValue('Milk');
+    component.form.controls.barcode.setValue('B001');
+    component.form.controls.uom.setValue('ltr');
+    component.form.controls.costPrice.setValue(42);
+    component.form.controls.mrp.setValue(50);
+    component.form.controls.salesPrice.setValue(48);
+
+    component.onAddRow();
+
+    expect(component.pendingRows()).toHaveLength(1);
+    expect(component.pendingRows()[0].hsnCode).toBeNull();
+  });
+
+  it('mapRowsToRequest_UsesPerRowHsnCode_NotGlobalSignal', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    inventoryService.addInventoryBatch.mockReturnValueOnce(
+      of({
+        requestedCount: 2,
+        successCount: 2,
+        failedCount: 0,
+        succeeded: [
+          { clientRowId: 'row-1', result: createResult('row-1') },
+          { clientRowId: 'row-2', result: createResult('row-2') },
+        ],
+        failed: [],
+      }),
+    );
+
+    component.pendingRows.set([
+      createDraftRow('row-1', 'Milk', 'B001', { hsnCode: '0401' }),
+      createDraftRow('row-2', 'Curd', 'B002', { hsnCode: '0402' }),
+    ]);
+    // Signal is null (form was reset) — rows must use their own stored hsnCode
+    component.selectedHsnCode.set(null);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const sentItems = inventoryService.addInventoryBatch.mock.calls[0][0].items;
+    expect(sentItems[0].hsnCode).toBe('0401');
+    expect(sentItems[1].hsnCode).toBe('0402');
+  });
+
+  it('onEditRow_RestoresSelectedHsnCodeSignalFromRow', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.pendingRows.set([
+      createDraftRow('row-edit-1', 'Milk', 'B010', { hsnCode: '0401' }),
+    ]);
+
+    component.onEditRow('row-edit-1');
+
+    expect(component.selectedHsnCode()).toBe('0401');
+  });
+
+  it('onEditRow_RowWithNoHsnCode_ClearsSelectedHsnCodeSignal', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+
+    component.selectedHsnCode.set('0401');
+    component.pendingRows.set([
+      createDraftRow('row-edit-2', 'Milk', 'B010', { hsnCode: null }),
+    ]);
+
+    component.onEditRow('row-edit-2');
+
+    expect(component.selectedHsnCode()).toBeNull();
   });
 
   it('dismissPicker_KeepsTaxFieldEditable', async () => {
@@ -566,6 +727,7 @@ describe('InventoryBatchPageComponent', () => {
         salesPrice: 48,
         taxRatePercent: 18,
         taxIncluded: true,
+        hsnCode: null,
         expiryDate: null,
         manufacturingDate: null,
         supplierId: null,
@@ -704,6 +866,7 @@ describe('InventoryBatchPageComponent', () => {
         salesPrice: 48,
         taxRatePercent: 18,
         taxIncluded: true,
+        hsnCode: null,
         expiryDate: '2026-12-31',
         manufacturingDate: '2026-01-01',
         supplierId: 'supplier-1',
@@ -946,7 +1109,12 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.saveSummary()?.failedCount).toBe(1);
   });
 
-  function createDraftRow(clientRowId: string, itemName: string, barcode: string) {
+  function createDraftRow(
+    clientRowId: string,
+    itemName: string,
+    barcode: string,
+    overrides: Partial<{ hsnCode: string | null; supplierId: string | null }> = {},
+  ) {
     return {
       clientRowId,
       itemName,
@@ -960,9 +1128,10 @@ describe('InventoryBatchPageComponent', () => {
       salesPrice: 11,
       taxRatePercent: 5,
       taxIncluded: false,
+      hsnCode: overrides.hsnCode ?? null,
       expiryDate: null,
       manufacturingDate: null,
-      supplierId: null,
+      supplierId: overrides.supplierId ?? null,
       referenceNumber: null,
       notes: null,
       performedAt: new Date().toISOString(),

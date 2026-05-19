@@ -43,7 +43,10 @@ public sealed class AddItemCommandHandler(
             command.Uom,
             normalizedBarcode,
             command.IsActive,
-            command.ActorUserId);
+            command.ActorUserId,
+            command.HsnCode,
+            command.DefaultTaxRatePercent,
+            defaultTaxIncluded: false);
 
         await itemRepository.AddAsync(item, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -55,6 +58,9 @@ public sealed class AddItemCommandHandler(
             item.Description,
             item.Uom,
             item.IsActive,
-            CurrentStock: 0m);
+            CurrentStock: 0m,
+            item.HsnCode,
+            item.DefaultTaxRatePercent,
+            item.DefaultTaxIncluded);
     }
 }

@@ -40,6 +40,26 @@ public class ItemTests
     }
 
     [Fact]
+    public void Create_WithHsnAndTaxDefaults_SetsDefaults()
+    {
+        var item = Item.Create(
+            Guid.NewGuid(),
+            "Atta",
+            null,
+            "KG",
+            "8900001234567",
+            isActive: true,
+            createdBy: Guid.NewGuid(),
+            hsnCode: "  10063090  ",
+            defaultTaxRatePercent: 5m,
+            defaultTaxIncluded: false);
+
+        Assert.Equal("10063090", item.HsnCode);
+        Assert.Equal(5m, item.DefaultTaxRatePercent);
+        Assert.False(item.DefaultTaxIncluded);
+    }
+
+    [Fact]
     public void Create_RaisesItemCreatedDomainEvent_WithCorrectProperties()
     {
         var shopId = Guid.NewGuid();
@@ -110,5 +130,17 @@ public class ItemTests
         item.UpdateHsnCode("  10063090  ");
 
         Assert.Equal("10063090", item.HsnCode);
+    }
+
+    [Fact]
+    public void UpdateTaxDefaults_WithBlankHsn_NormalizesHsnToNull()
+    {
+        var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
+
+        item.UpdateTaxDefaults("   ", 18m);
+
+        Assert.Null(item.HsnCode);
+        Assert.Equal(18m, item.DefaultTaxRatePercent);
+        Assert.False(item.DefaultTaxIncluded);
     }
 }

@@ -95,6 +95,8 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             description = "Premium quality",
             uom = "kg",
             isActive = true,
+            hsnCode = "10063090",
+            defaultTaxRatePercent = 5m,
         });
 
         var response = await client.SendAsync(request);
@@ -103,6 +105,34 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Rice", body.GetProperty("name").GetString());
         Assert.Equal(barcode, body.GetProperty("barcode").GetString());
+        Assert.Equal("10063090", body.GetProperty("hsnCode").GetString());
+        Assert.Equal(5m, body.GetProperty("defaultTaxRatePercent").GetDecimal());
+        Assert.False(body.GetProperty("defaultTaxIncluded").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AddItem_WithInvalidHsnAndTax_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            name = "Rice",
+            barcode = $"ITM-{Guid.NewGuid():N}",
+            description = "Premium quality",
+            uom = "kg",
+            isActive = true,
+            hsnCode = "ABC",
+            defaultTaxRatePercent = 101m,
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -326,6 +356,192 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var detailsResponse = await client.SendAsync(detailsRequest);
 
         Assert.Equal(HttpStatusCode.InternalServerError, detailsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task InventoryInboundBatch_WithHsnAndTax_UpdatesItemDefaultsAndPersistsBatchTax()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var productName = $"Batch Product {Guid.NewGuid():N}";
+        var barcode = $"BATCH-{Guid.NewGuid():N}";
+
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    clientRowId = "row-1",
+                    itemName = productName,
+                    barcode,
+                    itemDescription = "batch row",
+                    hsnCode = "0401",
+                    uom = "kg",
+                    batchNumber = "BATCH-ROW-001",
+                    quantity = 10m,
+                    costPrice = 50m,
+                    mrp = 80m,
+                    salesPrice = 70m,
+                    taxRatePercent = 18m,
+                    taxIncluded = true,
+                    expiryDate = (DateOnly?)null,
+                    manufacturingDate = (DateOnly?)null,
+                    supplierId = (Guid?)null,
+                    referenceNumber = "REF-BATCH-1",
+                    notes = "batch inbound",
+                    performedAt = (DateTimeOffset?)null,
+                },
+            },
+        });
+
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        inboundResponse.EnsureSuccessStatusCode();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var item = await db.Items.SingleAsync(i => i.Barcode == barcode);
+        var batch = await db.InventoryBatches.SingleAsync(b => b.ItemId == item.Id && b.BatchNumber == "BATCH-ROW-001");
+
+        Assert.Equal("0401", item.HsnCode);
+        Assert.Equal(18m, item.DefaultTaxRatePercent);
+        Assert.True(item.DefaultTaxIncluded);
+        Assert.Equal(18m, batch.TaxRatePercent);
+        Assert.True(batch.TaxIncluded);
+    }
+
+    [Fact]
+    public async Task InventoryInbound_WithHsnAndTax_UpdatesItemDefaultsAndPersistsBatchTax()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var productName = $"Single Product {Guid.NewGuid():N}";
+        var barcode = $"SINGLE-{Guid.NewGuid():N}";
+
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = productName,
+            barcode,
+            itemDescription = "single row",
+            hsnCode = "0402",
+            uom = "kg",
+            batchNumber = "SINGLE-ROW-001",
+            quantity = 10m,
+            costPrice = 50m,
+            mrp = 80m,
+            salesPrice = 70m,
+            taxRatePercent = 18m,
+            taxIncluded = true,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = "REF-SINGLE-1",
+            notes = "single inbound",
+            performedAt = (DateTimeOffset?)null,
+        });
+
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        inboundResponse.EnsureSuccessStatusCode();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var item = await db.Items.SingleAsync(i => i.Barcode == barcode);
+        var batch = await db.InventoryBatches.SingleAsync(b => b.ItemId == item.Id && b.BatchNumber == "SINGLE-ROW-001");
+
+        Assert.Equal("0402", item.HsnCode);
+        Assert.Equal(18m, item.DefaultTaxRatePercent);
+        Assert.True(item.DefaultTaxIncluded);
+        Assert.Equal(18m, batch.TaxRatePercent);
+        Assert.True(batch.TaxIncluded);
+    }
+
+    [Fact]
+    public async Task GetProductDetails_WhenBatchTaxUnavailable_UsesItemTaxDefaults()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var productName = $"Tax Fallback {Guid.NewGuid():N}";
+        var barcode = $"TAX-{Guid.NewGuid():N}";
+
+        using var createItemRequest = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        createItemRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        createItemRequest.Content = JsonContent.Create(new
+        {
+            name = productName,
+            barcode,
+            description = "Fallback test product",
+            uom = "kg",
+            isActive = true,
+            hsnCode = "0902",
+            defaultTaxRatePercent = 28m,
+        });
+        var createItemResponse = await client.SendAsync(createItemRequest);
+        createItemResponse.EnsureSuccessStatusCode();
+
+        using var inboundRequest = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound");
+        inboundRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        inboundRequest.Content = JsonContent.Create(new
+        {
+            itemName = productName,
+            barcode,
+            itemDescription = "Fallback test product",
+            uom = "kg",
+            batchNumber = "FALLBACK-BATCH-001",
+            quantity = 4m,
+            costPrice = 20m,
+            mrp = 40m,
+            salesPrice = 35m,
+            taxRatePercent = 5m,
+            taxIncluded = true,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = (Guid?)null,
+            referenceNumber = "REF-FALLBACK",
+            notes = "fallback",
+            performedAt = (DateTimeOffset?)null,
+        });
+        var inboundResponse = await client.SendAsync(inboundRequest);
+        inboundResponse.EnsureSuccessStatusCode();
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var item = await db.Items.SingleAsync(i => i.Barcode == barcode);
+            var batch = await db.InventoryBatches.SingleAsync(b => b.ItemId == item.Id && b.BatchNumber == "FALLBACK-BATCH-001");
+            var supplier = await db.Suppliers.SingleAsync(s => s.Id == batch.SupplierId);
+
+            item.UpdateTaxDefaults("0902", 28m, false);
+
+            supplier.Update(
+                supplier.Name,
+                supplier.ContactPersonName,
+                supplier.ContactPersonPhone,
+                supplier.Address,
+                supplier.City,
+                supplier.State,
+                supplier.Pin,
+                isActive: false,
+                supplier.IsPreferred);
+
+            await db.SaveChangesAsync();
+        }
+
+        using var detailsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items/details?barcode={Uri.EscapeDataString(barcode)}");
+        detailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailsResponse = await client.SendAsync(detailsRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        var body = await detailsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(28m, body.GetProperty("taxRatePercent").GetDecimal());
+        Assert.False(body.GetProperty("taxIncluded").GetBoolean());
+        Assert.Equal("0902", body.GetProperty("hsnCode").GetString());
     }
 
     [Fact]

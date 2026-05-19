@@ -37,6 +37,29 @@ public class SaleItemTests
         Assert.Equal(354m, saleItem.TotalAmount);
         Assert.Equal(InstantDiscountType.None, saleItem.ItemDiscountOverrideType);
         Assert.Equal(0m, saleItem.ItemDiscountOverrideValue);
+        Assert.Null(saleItem.HsnCode);
+    }
+
+    [Fact]
+    public void Create_WithBlankHsnCode_NormalizesToNull()
+    {
+        var saleItem = SaleItem.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            quantity: 1m, costPrice: 80m, salesPrice: 100m, mrp: 120m,
+            taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: false,
+            hsnCode: "   ");
+
+        Assert.Null(saleItem.HsnCode);
+    }
+
+    [Fact]
+    public void Create_WithHsnCode_SetsNormalizedValue()
+    {
+        var saleItem = SaleItem.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            quantity: 1m, costPrice: 80m, salesPrice: 100m, mrp: 120m,
+            taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: false,
+            hsnCode: " 0902 ");
+
+        Assert.Equal("0902", saleItem.HsnCode);
     }
 
     [Fact]

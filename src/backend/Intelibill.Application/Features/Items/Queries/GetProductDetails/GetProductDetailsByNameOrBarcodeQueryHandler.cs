@@ -33,8 +33,6 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
             ? await itemRepository.GetByNameAsync(query.ActiveShopId, query.ProductName, cancellationToken)
             : null;
 
-        var createdFromExternalLookup = false;
-
         if (item is null && !string.IsNullOrWhiteSpace(query.Barcode))
         {
             var normalizedBarcode = query.Barcode.Trim();
@@ -70,7 +68,6 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
 
                         await itemRepository.AddAsync(item, cancellationToken);
                         await unitOfWork.SaveChangesAsync(cancellationToken);
-                        createdFromExternalLookup = true;
                     }
                 }
             }
@@ -84,9 +81,6 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
 
         if (batches.Count == 0)
         {
-            if (!createdFromExternalLookup)
-                return Error.NotFound("product.no_batches", "Product has no pricing information");
-
             return new ProductDetailsDto(
                 item.Name,
                 item.Description ?? string.Empty,
@@ -96,9 +90,9 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
                 0m,
                 null,
                 null,
-                null,
-                null,
-                null);
+                item.DefaultTaxIncluded,
+                item.DefaultTaxRatePercent,
+                item.HsnCode);
         }
 
         var latestBatch = batches[0];
@@ -119,6 +113,9 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
                 taxRatePercent = latestBatch.TaxRatePercent;
             }
         }
+
+        taxIncluded ??= item.DefaultTaxIncluded;
+        taxRatePercent ??= item.DefaultTaxRatePercent;
 
         return new ProductDetailsDto(
             item.Name,

@@ -649,6 +649,14 @@
       "totalDue": "देయ రాశీ",
       "taxIncludedPrice": "कर सहित मूल्य",
       "taxExcludedPrice": "कर रहित मूल्य",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "बिक्री दर्ज करें",
       "creditRequiresCustomerPhone": "क्रेडिट विकल्प केवल तब उपलब्ध है जब ग्राहक का फोन नंबर दिया हो।",
       "paidAmount": "भुगतान की गई राशि",
@@ -737,7 +745,8 @@
       "returnNumber": "Return #",
       "refundAmount": "Refund Amount",
       "voided": "Voided",
-      "voidReason": "Void Reason"
+      "voidReason": "Void Reason",
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "बिक्री रिपोर्ट",

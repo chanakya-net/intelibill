@@ -10,6 +10,9 @@ const milkItem: Item = {
   uom: 'ltr',
   isActive: true,
   currentStock: 10,
+  hsnCode: '0401',
+  defaultTaxRatePercent: 5,
+  defaultTaxIncluded: false,
 };
 
 describe('inventoryReducer', () => {
@@ -53,6 +56,9 @@ describe('inventoryReducer', () => {
       uom: 'pcs',
       isActive: true,
       currentStock: 8,
+      hsnCode: null,
+      defaultTaxRatePercent: 0,
+      defaultTaxIncluded: false,
     };
 
     const next = inventoryReducer(
@@ -97,6 +103,8 @@ describe('inventoryReducer', () => {
           description: null,
           uom: 'ltr',
           isActive: true,
+          hsnCode: null,
+          defaultTaxRatePercent: 0,
         },
       })
     );

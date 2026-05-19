@@ -77,6 +77,8 @@ public sealed class ItemsUpdateControllerTests(PostgreSqlTestFixture fixture) : 
             description = "Item description",
             uom = "kg",
             isActive = true,
+            hsnCode = (string?)null,
+            defaultTaxRatePercent = 0m,
         });
 
         var response = await client.SendAsync(request);
@@ -104,6 +106,8 @@ public sealed class ItemsUpdateControllerTests(PostgreSqlTestFixture fixture) : 
             barcode = updatedBarcode,
             description = "Updated description",
             uom = "box",
+            hsnCode = "10063090",
+            defaultTaxRatePercent = 12m,
         });
 
         var updateResponse = await client.SendAsync(updateRequest);
@@ -122,6 +126,35 @@ public sealed class ItemsUpdateControllerTests(PostgreSqlTestFixture fixture) : 
         Assert.Equal(updatedBarcode, updatedItem.GetProperty("barcode").GetString());
         Assert.Equal("Updated description", updatedItem.GetProperty("description").GetString());
         Assert.Equal("box", updatedItem.GetProperty("uom").GetString());
+        Assert.Equal("10063090", updatedItem.GetProperty("hsnCode").GetString());
+        Assert.Equal(12m, updatedItem.GetProperty("defaultTaxRatePercent").GetDecimal());
+        Assert.False(updatedItem.GetProperty("defaultTaxIncluded").GetBoolean());
+    }
+
+    [Fact]
+    public async Task UpdateItem_WithInvalidHsnAndTax_Returns400()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var itemId = await CreateItemAsync(client, ownerToken, "Rice", $"ITM-{Guid.NewGuid():N}");
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/items/{itemId}");
+        updateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        updateRequest.Content = JsonContent.Create(new
+        {
+            name = "Premium Rice",
+            barcode = $"ITM-{Guid.NewGuid():N}",
+            description = "Updated description",
+            uom = "box",
+            hsnCode = "ABC",
+            defaultTaxRatePercent = -1m,
+        });
+
+        var updateResponse = await client.SendAsync(updateRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
     }
 
     [Fact]

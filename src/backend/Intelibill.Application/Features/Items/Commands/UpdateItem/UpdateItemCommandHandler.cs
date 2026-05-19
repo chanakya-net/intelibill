@@ -54,7 +54,10 @@ public sealed class UpdateItemCommandHandler(
             normalizedUom,
             normalizedBarcode,
             targetIsActive,
-            command.ActorUserId);
+            command.ActorUserId,
+            command.HsnCode,
+            command.DefaultTaxRatePercent,
+            defaultTaxIncluded: false);
 
         itemRepository.Update(item);
         await unitOfWork.SaveChangesAsync(cancellationToken);

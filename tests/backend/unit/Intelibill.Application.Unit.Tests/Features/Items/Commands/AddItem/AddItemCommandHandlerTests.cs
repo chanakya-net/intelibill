@@ -51,9 +51,17 @@ public class AddItemCommandHandlerTests
         Assert.False(result.IsError);
         Assert.Equal("Rice", result.Value.Name);
         Assert.Equal("111", result.Value.Barcode);
+        Assert.Equal("10063090", result.Value.HsnCode);
+        Assert.Equal(5m, result.Value.DefaultTaxRatePercent);
+        Assert.False(result.Value.DefaultTaxIncluded);
         Assert.Equal(0m, result.Value.CurrentStock);
 
-        await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i => i.Name == "Rice" && i.Barcode == "111"), Arg.Any<CancellationToken>());
+        await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i =>
+            i.Name == "Rice" &&
+            i.Barcode == "111" &&
+            i.HsnCode == "10063090" &&
+            i.DefaultTaxRatePercent == 5m &&
+            !i.DefaultTaxIncluded), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -90,5 +98,7 @@ public class AddItemCommandHandlerTests
             Barcode: "111",
             Description: "Premium",
             Uom: "kg",
-            IsActive: true);
+            IsActive: true,
+            HsnCode: "10063090",
+            DefaultTaxRatePercent: 5m);
 }

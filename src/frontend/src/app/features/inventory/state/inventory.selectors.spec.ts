@@ -17,6 +17,9 @@ const itemOne: Item = {
   uom: 'ltr',
   isActive: true,
   currentStock: 10,
+  hsnCode: '0401',
+  defaultTaxRatePercent: 5,
+  defaultTaxIncluded: false,
 };
 
 const itemTwo: Item = {
@@ -27,6 +30,9 @@ const itemTwo: Item = {
   uom: 'pcs',
   isActive: true,
   currentStock: 4,
+  hsnCode: null,
+  defaultTaxRatePercent: 0,
+  defaultTaxIncluded: false,
 };
 
 describe('inventory selectors', () => {

@@ -32,6 +32,7 @@ describe('migrateLegacyCartItem', () => {
       costPrice: 40,
       itemDiscountType: 0,
       itemDiscountValue: 0,
+      hsnCode: '0902',
     };
     const result = migrateLegacyCartItem(item);
     expect(result).not.toBeNull();
@@ -51,6 +52,7 @@ describe('migrateLegacyCartItem', () => {
       taxRatePercent: 18,
       taxIncluded: false,
       costPrice: 0,
+      hsnCode: null,
     };
     const result = migrateLegacyCartItem(item);
     expect(result).not.toBeNull();
@@ -72,11 +74,31 @@ describe('migrateLegacyCartItem', () => {
       taxRatePercent: 0,
       taxIncluded: false,
       costPrice: 0,
+      hsnCode: null,
     };
     const result = migrateLegacyCartItem(item);
     expect(result).not.toBeNull();
     expect(result!.itemDiscountType).toBe(0);
     expect(result!.itemDiscountValue).toBe(0);
+  });
+
+  it('defaults hsnCode to null when missing', () => {
+    const item = {
+      inventoryBatchId: 'batch-1',
+      barcode: 'BC-1',
+      itemName: 'Oreo',
+      batchNumber: 'B-01',
+      quantity: 1,
+      availableQuantity: 5,
+      salesPrice: 50,
+      mrp: 60,
+      taxRatePercent: 0,
+      taxIncluded: false,
+      costPrice: 0,
+    };
+    const result = migrateLegacyCartItem(item);
+    expect(result).not.toBeNull();
+    expect(result!.hsnCode).toBeNull();
   });
 });
 
@@ -108,6 +130,7 @@ describe('SalesCartIndexedDbService', () => {
       costPrice: 40,
       itemDiscountType: 0,
       itemDiscountValue: 0,
+      hsnCode: '0902',
     };
 
     stubIndexedDb({

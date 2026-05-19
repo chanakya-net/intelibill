@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
@@ -39,6 +40,87 @@ public class SalesServicesTests
         Assert.Equal(2, warnings.Count);
         await itemRepository.Received(1).GetByIdsAsync(shopId, Arg.Is<IReadOnlyList<Guid>>(ids => ids.SequenceEqual(new[] { item.Id })), Arg.Any<CancellationToken>());
         await batchRepository.Received(1).GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenHsnCodeInvalid_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001", "Rice");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id, HsnCode: "ABC");
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.InvalidHsnCode.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenTaxRateScaleInvalid_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001", "Rice");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 10.123m, false, batch.Id);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.InvalidTaxRatePercent.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenTaxRateOutOfRange_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001", "Rice");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var commandLine = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 120m, false, batch.Id);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>())
+            .Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([inventory]);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.InvalidTaxRatePercent.Code, result.FirstError.Code);
     }
 
     [Fact]

@@ -17,7 +17,9 @@ public class AddItemCommandValidatorTests
             Barcode: CreateQrLikeBarcode(),
             Description: "Premium quality rice",
             Uom: "kg",
-            IsActive: true);
+            IsActive: true,
+            HsnCode: null,
+            DefaultTaxRatePercent: 0m);
 
         var result = _validator.TestValidate(command);
 
@@ -34,7 +36,9 @@ public class AddItemCommandValidatorTests
             Barcode: "",
             Description: null,
             Uom: "kg",
-            IsActive: true);
+            IsActive: true,
+            HsnCode: null,
+            DefaultTaxRatePercent: 0m);
 
         var result = _validator.TestValidate(command);
 
@@ -43,4 +47,41 @@ public class AddItemCommandValidatorTests
 
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('A', 24)}";
+
+    [Theory]
+    [InlineData("123")]
+    [InlineData("ABC123")]
+    [InlineData("123456789")]
+    public void Validate_WhenHsnCodeInvalid_ReturnsError(string hsnCode)
+    {
+        var command = CreateValidCommand() with { HsnCode = hsnCode };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.HsnCode);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public void Validate_WhenDefaultTaxRatePercentOutOfRange_ReturnsError(decimal taxRate)
+    {
+        var command = CreateValidCommand() with { DefaultTaxRatePercent = taxRate };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.DefaultTaxRatePercent);
+    }
+
+    private static AddItemCommand CreateValidCommand() =>
+        new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Name: "Rice",
+            Barcode: "123",
+            Description: null,
+            Uom: "kg",
+            IsActive: true,
+            HsnCode: "10063090",
+            DefaultTaxRatePercent: 5m);
 }

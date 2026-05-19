@@ -52,6 +52,9 @@ describe('EditItemOverlayComponent', () => {
     uom: 'kg',
     isActive: true,
     currentStock: 50,
+    hsnCode: '10063090',
+    defaultTaxRatePercent: 5,
+    defaultTaxIncluded: false,
   };
 
   function setup(item: Item = mockItem): EditItemOverlayComponent {
@@ -88,6 +91,8 @@ describe('EditItemOverlayComponent', () => {
     expect(component.form.controls.barcode.value).toBe('B001');
     expect(component.form.controls.description.value).toBe('Premium rice');
     expect(component.form.controls.uom.value).toBe('kg');
+    expect(component.form.controls.hsnCode.value).toBe('10063090');
+    expect(component.form.controls.defaultTaxRatePercent.value).toBe(5);
   });
 
   it('initializes form with null description as empty string', () => {
@@ -126,6 +131,8 @@ describe('EditItemOverlayComponent', () => {
     component.form.controls.barcode.setValue('b'.repeat(129));
     component.form.controls.description.setValue('c'.repeat(1001));
     component.form.controls.uom.setValue('d'.repeat(33));
+    component.form.controls.hsnCode.setValue('ABC');
+    component.form.controls.defaultTaxRatePercent.setValue(101);
 
     component.onSubmit();
 
@@ -143,6 +150,8 @@ describe('EditItemOverlayComponent', () => {
     component.form.controls.barcode.setValue('  B002  ');
     component.form.controls.description.setValue('  High quality  ');
     component.form.controls.uom.setValue('  kg  ');
+    component.form.controls.hsnCode.setValue('  10063090  ');
+    component.form.controls.defaultTaxRatePercent.setValue(12);
 
     component.onSubmit();
 
@@ -156,6 +165,8 @@ describe('EditItemOverlayComponent', () => {
           barcode: 'B002',
           description: 'High quality',
           uom: 'kg',
+          hsnCode: '10063090',
+          defaultTaxRatePercent: 12,
         },
       })
     );

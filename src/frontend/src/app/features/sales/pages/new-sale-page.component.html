@@ -196,9 +196,6 @@
               </td>
               <td>
                 <div class="price-breakdown">
-                  @if (hasTax(item)) {
-                    <span class="tax-mode-tag">{{ item.taxIncluded ? ('sales.newSale.taxIncludedPrice' | transloco) : ('sales.newSale.taxExcludedPrice' | transloco) }}</span>
-                  }
                   <p class="price-line">
                     <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
                     <span>₹{{ getUnitSubtotal(item) | number:'1.2-2' }}</span>
@@ -213,6 +210,38 @@
                     <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
                     <span>₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
                   </p>
+
+                  <div class="line-overrides">
+                    <div class="line-override">
+                      <label class="text-xs text-slate-500">{{ 'sales.newSale.hsnCode' | transloco }}</label>
+                      <input
+                        pInputText
+                        type="text"
+                        [ngModel]="item.hsnCode ?? ''"
+                        [ngModelOptions]="{ standalone: true }"
+                        (ngModelChange)="onCartItemHsnCodeChange(item.clientLineKey, $event)"
+                      />
+                      @if (getCartItemHsnError(item.clientLineKey)) {
+                        <p class="error-hint">{{ getCartItemHsnError(item.clientLineKey) | transloco }}</p>
+                      }
+                    </div>
+                    <div class="line-override">
+                      <label class="text-xs text-slate-500">{{ 'sales.newSale.taxRatePercent' | transloco }}</label>
+                      <p-inputNumber
+                        [ngModel]="item.taxRatePercent"
+                        [ngModelOptions]="{ standalone: true }"
+                        (ngModelChange)="onCartItemTaxRateChange(item.clientLineKey, $event)"
+                        [min]="0"
+                        [max]="100"
+                        [useGrouping]="false"
+                        [maxFractionDigits]="2"
+                        suffix="%"
+                      />
+                      @if (getCartItemTaxError(item.clientLineKey)) {
+                        <p class="error-hint">{{ getCartItemTaxError(item.clientLineKey) | transloco }}</p>
+                      }
+                    </div>
+                  </div>
 
                   <div class="discount-row">
                     <div class="discount-badges">

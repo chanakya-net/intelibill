@@ -57,7 +57,8 @@ public sealed class SalesController : AuthenticatedControllerBase
                     i.IsPriceIncludingTax,
                     i.InventoryBatchId,
                     i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
-                    i.ClientLineKey)).ToList(),
+                    i.ClientLineKey,
+                    i.HsnCode)).ToList(),
                 request.SaleDiscount is null
                     ? null
                     : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value)),
@@ -149,7 +150,8 @@ public sealed class SalesController : AuthenticatedControllerBase
                     i.TaxRatePercent,
                     i.IsPriceIncludingTax,
                     new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
-                    i.ClientLineKey)).ToList()),
+                    i.ClientLineKey,
+                    i.HsnCode)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -264,7 +266,8 @@ public sealed record RecordSaleItemRequest(
     bool IsPriceIncludingTax,
     Guid InventoryBatchId,
     InstantDiscountRequest? ItemDiscount = null,
-    string? ClientLineKey = null);
+    string? ClientLineKey = null,
+    string? HsnCode = null);
 
 public sealed record PreviewSaleRequest(
     InstantDiscountRequest SaleDiscount,
@@ -282,7 +285,8 @@ public sealed record PreviewSaleItemRequest(
     decimal TaxRatePercent,
     bool IsPriceIncludingTax,
     InstantDiscountRequest ItemDiscount,
-    string? ClientLineKey = null);
+    string? ClientLineKey = null,
+    string? HsnCode = null);
 
 public sealed record InstantDiscountRequest(
     InstantDiscountType Type,

@@ -79,6 +79,29 @@ label span {
   color: #57534e;
 }
 
+.suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.suggestion-chip {
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  background: #fffbeb;
+  color: #9a3412;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.suggestion-chip:hover {
+  border-color: rgba(180, 83, 9, 0.42);
+  background: #fef3c7;
+}
+
 label input[pInputText] {
   width: 100%;
   box-sizing: border-box;

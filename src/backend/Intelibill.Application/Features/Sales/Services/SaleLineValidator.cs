@@ -55,6 +55,12 @@ internal sealed class SaleLineValidator(
 
         foreach (var (cmdItem, item, batch) in resolvedContexts)
         {
+            if (!IsValidTaxRatePercent(cmdItem.TaxRatePercent))
+                return Errors.Sale.InvalidTaxRatePercent;
+
+            if (!string.IsNullOrWhiteSpace(cmdItem.HsnCode) && !IsValidHsnCode(cmdItem.HsnCode))
+                return Errors.Sale.InvalidHsnCode;
+
             if (!item.IsActive)
                 return Errors.Sale.ItemInactive(cmdItem.Barcode);
 
@@ -69,8 +75,7 @@ internal sealed class SaleLineValidator(
 
             var hasMismatch = cmdItem.CostPrice != batch.CostPrice
                 || cmdItem.SalesPrice != batch.SalesPrice
-                || cmdItem.Mrp != batch.Mrp
-                || cmdItem.TaxRatePercent != batch.TaxRatePercent;
+                || cmdItem.Mrp != batch.Mrp;
 
             if (hasMismatch)
                 warnings.Add($"Price mismatch for item '{item.Name}' (barcode: {item.Barcode}, batch: {batch.BatchNumber}).");
@@ -82,5 +87,27 @@ internal sealed class SaleLineValidator(
         }
 
         return new SaleLineValidationResult(validated, itemNameById);
+    }
+
+    private static bool IsValidHsnCode(string value)
+    {
+        var normalized = value.Trim();
+        return normalized.Length is >= 4 and <= 8 && normalized.All(char.IsDigit);
+    }
+
+    private static bool IsValidTaxRatePercent(decimal value)
+    {
+        if (value < 0m || value > 100m)
+        {
+            return false;
+        }
+
+        return GetScale(value) <= 2;
+    }
+
+    private static int GetScale(decimal value)
+    {
+        var bits = decimal.GetBits(value);
+        return (bits[3] >> 16) & 0x7F;
     }
 }

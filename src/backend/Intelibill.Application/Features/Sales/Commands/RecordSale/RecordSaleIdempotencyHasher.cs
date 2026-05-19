@@ -43,7 +43,8 @@ internal static class RecordSaleIdempotencyHasher
                     item.InventoryBatchId,
                     itemDiscount.Type,
                     itemDiscount.Value,
-                    item.ClientLineKey);
+                    item.ClientLineKey,
+                    Normalize(item.HsnCode));
             }).ToList());
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
@@ -81,4 +82,5 @@ internal sealed record RecordSaleItemIdempotencyPayload(
     Guid InventoryBatchId,
     InstantDiscountType ItemDiscountType,
     decimal ItemDiscountValue,
-    string? ClientLineKey);
+    string? ClientLineKey,
+    string? HsnCode);

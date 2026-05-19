@@ -278,6 +278,72 @@ public class PreviewSaleQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenTaxOverrideProvided_UsesOverrideForPricing()
+    {
+        var shopId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", quantity: 100m);
+        var inventory = MakeInventory(shopId, item.Id, quantity: 100m);
+
+        var query = new PreviewSaleQuery(
+            userId,
+            shopId,
+            new InstantDiscount(InstantDiscountType.None, 0m),
+            [
+                new PreviewSaleLineQuery(
+                    batch.Id,
+                    "BC-001",
+                    "B-01",
+                    "Rice",
+                    1m,
+                    80m,
+                    100m,
+                    120m,
+                    5m,
+                    false,
+                    new InstantDiscount(InstantDiscountType.None, 0m),
+                    "line-1"),
+            ]);
+
+        _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(MakeUser());
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>())
+            .Returns(MakeShop());
+        _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
+
+        var cmdItem = new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 5m, false, batch.Id, ClientLineKey: "line-1");
+        var validated = new ValidatedSaleLine(cmdItem, item, batch, inventory, HasPriceMismatch: false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleLineValidationResult>>(
+                new SaleLineValidationResult([validated], new Dictionary<Guid, string> { { item.Id, item.Name } })));
+
+        SalePricingCalculationRequest? capturedRequest = null;
+        _pricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedRequest = callInfo.ArgAt<SalePricingCalculationRequest>(0);
+                return Task.FromResult<ErrorOr<SalePricingCalculationResult>>(
+                    new SalePricingCalculationResult(
+                        [
+                            new SalePricingLineCalculation(
+                                batch.Id, 1m, 80m, 100m, 5m, batch.TaxIncluded,
+                                100m, 0m, 0m, 100m, 5m, 105m, 10m, 10m, null, null),
+                        ],
+                        100m, 100m, 5m, 0m, 105m, null, []));
+            });
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(5m, capturedRequest!.Lines[0].TaxRatePercent);
+        Assert.Equal(batch.TaxIncluded, capturedRequest.Lines[0].IsPriceIncludingTax);
+    }
+
+    [Fact]
     public async Task Handle_WhenBelowCostInstantDiscount_ReturnsError()
     {
         var shopId = Guid.NewGuid();

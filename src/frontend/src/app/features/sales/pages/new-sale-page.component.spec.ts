@@ -18,6 +18,7 @@ import { NewSalePageComponent } from './new-sale-page.component';
 describe('NewSalePageComponent', () => {
   const inventoryService = {
     getAvailableBatchesBySearchTerm: vi.fn(),
+    getProductDetailsByNameOrBarcode: vi.fn(),
   };
 
   const router = {
@@ -106,6 +107,22 @@ describe('NewSalePageComponent', () => {
           expiryDate: null,
         },
       ])
+    );
+    inventoryService.getProductDetailsByNameOrBarcode.mockReset();
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      of({
+        name: 'Oreo',
+        description: '',
+        uom: 'Unit',
+        costPrice: 0,
+        mrp: 0,
+        salesPrice: 0,
+        supplierId: null,
+        supplierName: null,
+        hsnCode: '0902',
+        taxIncluded: true,
+        taxRatePercent: 18,
+      })
     );
 
     saleService.previewSale.mockReset();
@@ -242,6 +259,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: '0902',
       },
       {
         clientLineKey: 'clk-exc',
@@ -258,6 +276,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
     fixture.detectChanges();
@@ -287,6 +306,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: '0902',
       },
     ]);
 
@@ -315,6 +335,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
       {
         clientLineKey: 'clk-b',
@@ -331,6 +352,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
     fixture.detectChanges();
@@ -422,6 +444,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
       {
         clientLineKey: 'clk-b',
@@ -438,6 +461,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
     fixture.detectChanges();
@@ -498,6 +522,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: '0902',
       },
     ]);
     fixture.detectChanges(); // runs the cart effect, fires previewTrigger$
@@ -510,6 +535,7 @@ describe('NewSalePageComponent', () => {
     expect(callArg.items).toHaveLength(1);
     expect(callArg.items[0].clientLineKey).toBe('stable-uuid-key');
     expect(callArg.items[0].clientLineKey).not.toBe('batch-1');
+    expect(callArg.items[0].hsnCode).toBe('0902');
 
     vi.useRealTimers();
   });
@@ -546,6 +572,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
 
@@ -587,6 +614,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 10,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
 
@@ -624,6 +652,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 10,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
 
@@ -668,6 +697,39 @@ describe('NewSalePageComponent', () => {
     expect(text).toContain('sales.newSale.discounts.configuredSalePercent');
   });
 
+  it('renders HSN and tax override labels while hiding tax mode tags', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+
+    component.cart.set([
+      {
+        clientLineKey: 'clk-1',
+        barcode: 'BC-1',
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        costPrice: 10,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+      },
+    ]);
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('sales.newSale.hsnCode');
+    expect(text).toContain('sales.newSale.taxRatePercent');
+    expect(text).not.toContain('sales.newSale.taxIncludedPrice');
+    expect(text).not.toContain('sales.newSale.taxExcludedPrice');
+  });
+
   it('renders sale discount ineligible hint i18n key', () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     const component = fixture.componentInstance;
@@ -688,6 +750,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 10,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
 
@@ -788,6 +851,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 10,
         itemDiscountType: 1,
         itemDiscountValue: 10,
+        hsnCode: null,
       },
     ]);
 
@@ -834,6 +898,7 @@ describe('NewSalePageComponent', () => {
         costPrice: 40,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: null,
       },
     ]);
 
@@ -898,11 +963,12 @@ describe('NewSalePageComponent', () => {
         availableQuantity: 5,
         salesPrice: 100,
         mrp: 100,
-        taxRatePercent: 0,
+        taxRatePercent: 5,
         taxIncluded: false,
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: '0902',
       },
     ]);
     component.checkoutPreview.set(null);
@@ -929,11 +995,12 @@ describe('NewSalePageComponent', () => {
         availableQuantity: 5,
         salesPrice: 100,
         mrp: 100,
-        taxRatePercent: 0,
+        taxRatePercent: 5,
         taxIncluded: false,
         costPrice: 0,
         itemDiscountType: 0,
         itemDiscountValue: 0,
+        hsnCode: '0902',
       },
     ]);
     component.checkoutPreview.set({
@@ -955,6 +1022,7 @@ describe('NewSalePageComponent', () => {
     expect(salesFacade.recordSale).toHaveBeenCalledWith(
       expect.objectContaining({
         idempotencyKey: expect.stringMatching(/^sale-/),
+        items: [expect.objectContaining({ hsnCode: '0902', taxRatePercent: 5 })],
       })
     );
   });
@@ -1031,11 +1099,12 @@ describe('NewSalePageComponent', () => {
           salesPrice: 150,
           mrp: 150,
           taxRatePercent: 0,
-          taxIncluded: false,
-          costPrice: 100,
-          itemDiscountType: 0,
-          itemDiscountValue: 0,
-        },
+        taxIncluded: false,
+        costPrice: 100,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+      },
       ]);
 
       fixture.detectChanges();
@@ -1153,6 +1222,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 
@@ -1196,6 +1266,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 
@@ -1328,6 +1399,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 
@@ -1403,6 +1475,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 
@@ -1434,6 +1507,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 
@@ -1477,6 +1551,7 @@ describe('NewSalePageComponent', () => {
           costPrice: 100,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ]);
 

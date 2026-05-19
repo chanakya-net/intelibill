@@ -48,6 +48,7 @@ public sealed record SaleItemDto
     public decimal TaxRatePercent { get; init; }
     public bool IsPriceIncludingTax { get; init; }
     public bool HasPriceMismatch { get; init; }
+    public string? HsnCode { get; init; }
     public decimal ReturnedQuantity { get; init; }
     public decimal ReturnableQuantity { get; init; }
     public string ReturnStatus { get; init; }

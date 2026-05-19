@@ -44,6 +44,9 @@ describe('InventoryPageComponent', () => {
       uom: 'ltr',
       isActive: true,
       currentStock: 10,
+      hsnCode: '0401',
+      defaultTaxRatePercent: 5,
+      defaultTaxIncluded: false,
     },
   ]);
   const submittingSignal = signal(false);
@@ -111,6 +114,9 @@ describe('InventoryPageComponent', () => {
         uom: 'ltr',
         isActive: true,
         currentStock: 10,
+        hsnCode: '0401',
+        defaultTaxRatePercent: 5,
+        defaultTaxIncluded: false,
       },
     ]);
     submittingSignal.set(false);

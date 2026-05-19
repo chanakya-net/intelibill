@@ -124,6 +124,8 @@ export class NewSalePageComponent {
 
   readonly openLineDiscountEditorByKey = signal<Record<string, boolean>>({});
   readonly cartItemDiscountErrorByKey = signal<Record<string, string>>({});
+  readonly cartItemHsnErrorByKey = signal<Record<string, string>>({});
+  readonly cartItemTaxErrorByKey = signal<Record<string, string>>({});
 
   // Shop realtime updates
   readonly highlightedRowKeys = signal<Set<string>>(new Set());
@@ -386,12 +388,20 @@ export class NewSalePageComponent {
       if (!this.cartBootstrapped()) {
         return;
       }
+      const hasOverrideErrors = this.revalidateLineOverrides(cart);
       if (cart.length === 0) {
         this.checkoutPreview.set(null);
         this.isPreviewLoading.set(false);
         this.previewError.set('');
         return;
       }
+      if (hasOverrideErrors) {
+        this.checkoutPreview.set(null);
+        this.isPreviewLoading.set(false);
+        this.previewError.set('sales.newSale.overrides.invalid');
+        return;
+      }
+      this.previewError.set('');
       this.previewTrigger$.next();
     });
   }
@@ -629,8 +639,13 @@ export class NewSalePageComponent {
       return;
     }
 
-    if (this.saleDiscountError() || Object.values(this.cartItemDiscountErrorByKey()).some((v) => !!v)) {
-      this.paymentSplitError.set('sales.newSale.discounts.fixErrors');
+    const hasOverrideErrors = this.revalidateLineOverrides(this.cart());
+    if (
+      this.saleDiscountError() ||
+      Object.values(this.cartItemDiscountErrorByKey()).some((v) => !!v) ||
+      hasOverrideErrors
+    ) {
+      this.paymentSplitError.set(hasOverrideErrors ? 'sales.newSale.overrides.fixErrors' : 'sales.newSale.discounts.fixErrors');
       return;
     }
 
@@ -647,6 +662,7 @@ export class NewSalePageComponent {
       inventoryBatchId: item.inventoryBatchId,
       clientLineKey: item.clientLineKey,
       itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue } satisfies InstantDiscountRequest,
+      hsnCode: item.hsnCode ?? null,
     }));
 
     const customerName = this.customerForm.controls.customerName.value.trim() || null;
@@ -719,6 +735,7 @@ export class NewSalePageComponent {
         isPriceIncludingTax: item.taxIncluded,
         itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
         clientLineKey: item.clientLineKey,
+        hsnCode: item.hsnCode ?? null,
       })),
     };
   }
@@ -815,6 +832,14 @@ export class NewSalePageComponent {
     return this.cartItemDiscountErrorByKey()[clientLineKey] ?? '';
   }
 
+  getCartItemHsnError(clientLineKey: string): string {
+    return this.cartItemHsnErrorByKey()[clientLineKey] ?? '';
+  }
+
+  getCartItemTaxError(clientLineKey: string): string {
+    return this.cartItemTaxErrorByKey()[clientLineKey] ?? '';
+  }
+
   onCartItemDiscountTypeChange(clientLineKey: string, type: 0 | 1 | 2): void {
     if (!clientLineKey) return;
 
@@ -880,6 +905,27 @@ export class NewSalePageComponent {
     this.cart.update((items) =>
       items.map((row) =>
         row.clientLineKey === clientLineKey ? { ...row, itemDiscountValue: normalized } : row
+      )
+    );
+  }
+
+  onCartItemHsnCodeChange(clientLineKey: string, value: string | null | undefined): void {
+    if (!clientLineKey) return;
+    const normalized = this.normalizeHsnCode(value);
+    this.cart.update((items) =>
+      items.map((row) =>
+        row.clientLineKey === clientLineKey ? { ...row, hsnCode: normalized } : row
+      )
+    );
+  }
+
+  onCartItemTaxRateChange(clientLineKey: string, value: number | null | undefined): void {
+    if (!clientLineKey) return;
+    const raw = Number(value ?? 0);
+    const normalized = Number.isFinite(raw) ? this.roundAmount(raw) : 0;
+    this.cart.update((items) =>
+      items.map((row) =>
+        row.clientLineKey === clientLineKey ? { ...row, taxRatePercent: normalized } : row
       )
     );
   }
@@ -1023,6 +1069,55 @@ export class NewSalePageComponent {
     }
   }
 
+  private revalidateLineOverrides(cart: readonly CartItem[]): boolean {
+    if (cart.length === 0) {
+      this.cartItemHsnErrorByKey.set({});
+      this.cartItemTaxErrorByKey.set({});
+      return false;
+    }
+
+    const hsnErrors: Record<string, string> = {};
+    const taxErrors: Record<string, string> = {};
+
+    for (const item of cart) {
+      const key = item.clientLineKey;
+      if (!key) continue;
+
+      const normalizedHsn = this.normalizeHsnCode(item.hsnCode);
+      if (!this.isValidHsnCode(normalizedHsn)) {
+        hsnErrors[key] = 'sales.newSale.hsnInvalid';
+      }
+
+      if (!this.isValidTaxRatePercent(item.taxRatePercent)) {
+        taxErrors[key] = 'sales.newSale.taxRateInvalid';
+      }
+    }
+
+    this.cartItemHsnErrorByKey.set(hsnErrors);
+    this.cartItemTaxErrorByKey.set(taxErrors);
+    return Object.keys(hsnErrors).length > 0 || Object.keys(taxErrors).length > 0;
+  }
+
+  private isValidHsnCode(value: string | null): boolean {
+    if (!value) return true;
+    return /^\d{4,8}$/.test(value);
+  }
+
+  private isValidTaxRatePercent(value: number): boolean {
+    if (!Number.isFinite(value)) {
+      return false;
+    }
+    if (value < 0 || value > 100) {
+      return false;
+    }
+    return Math.abs(value - this.roundAmount(value)) < 0.0001;
+  }
+
+  private normalizeHsnCode(value: string | null | undefined): string | null {
+    const trimmed = (value ?? '').trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
   private getSaleDiscountLimits(): { isEligible: boolean; maxFlat: number; maxPercent: number } {
     const preview = this.checkoutPreview();
     if (!preview) {
@@ -1133,6 +1228,7 @@ export class NewSalePageComponent {
   private addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): boolean {
     const barcode = batch.barcode;
     let added = false;
+    let addedLineKey: string | null = null;
 
     this.cart.update((items) => {
       const existingIndex = items.findIndex(
@@ -1164,10 +1260,12 @@ export class NewSalePageComponent {
       }
 
       added = true;
+      const clientLineKey = crypto.randomUUID();
+      addedLineKey = clientLineKey;
       return [
         ...items,
         {
-          clientLineKey: crypto.randomUUID(),
+          clientLineKey,
           barcode,
           itemName: batch.itemName,
           batchNumber: batch.batchNumber,
@@ -1181,6 +1279,7 @@ export class NewSalePageComponent {
           costPrice: 0,
           itemDiscountType: 0,
           itemDiscountValue: 0,
+          hsnCode: null,
         },
       ];
     });
@@ -1188,6 +1287,10 @@ export class NewSalePageComponent {
     if (!added) {
       this.batchSearchError.set('sales.newSale.exceedsStock');
       return false;
+    }
+
+    if (addedLineKey) {
+      this.applyProductDefaultsForLine(addedLineKey, batch.itemName, barcode);
     }
 
     return true;
@@ -1202,6 +1305,31 @@ export class NewSalePageComponent {
     this.batchSearchError.set('');
   }
 
+  private applyProductDefaultsForLine(clientLineKey: string, itemName: string, barcode: string): void {
+    const normalizedName = itemName?.trim();
+    const normalizedBarcode = barcode?.trim();
+    if (!normalizedName && !normalizedBarcode) {
+      return;
+    }
+
+    this.inventoryService.getProductDetailsByNameOrBarcode(normalizedName, normalizedBarcode).subscribe({
+      next: (details) => {
+        const resolvedHsn = this.normalizeHsnCode(details.hsnCode);
+        if (!resolvedHsn) {
+          return;
+        }
+        this.cart.update((items) =>
+          items.map((item) =>
+            item.clientLineKey === clientLineKey && !this.normalizeHsnCode(item.hsnCode)
+              ? { ...item, hsnCode: resolvedHsn }
+              : item
+          )
+        );
+      },
+      error: () => undefined,
+    });
+  }
+
   private async loadPersistedCart(shopId: string, token: number): Promise<void> {
     try {
       const rows = await this.cartStorage.loadCart(shopId, this.cartRetentionMs);
@@ -1209,6 +1337,9 @@ export class NewSalePageComponent {
         return;
       }
       this.cart.set([...rows]);
+      rows
+        .filter((row) => !this.normalizeHsnCode(row.hsnCode))
+        .forEach((row) => this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode));
     } catch {
       if (token === this.cartLoadToken) {
         this.cart.set([]);

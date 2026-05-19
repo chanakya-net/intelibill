@@ -109,16 +109,6 @@ public sealed class AddInventoryBatchCommandHandler(
 
         var item = itemOrError.Value;
 
-        if (!string.IsNullOrWhiteSpace(row.HsnCode))
-        {
-            item.UpdateHsnCode(row.HsnCode);
-
-            // Avoid switching a newly-added item (Added) to Modified; that would prevent INSERT and break FK integrity.
-            var existingItem = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, row.Barcode.Trim(), cancellationToken);
-            if (existingItem is not null)
-                itemRepository.Update(item);
-        }
-
         var supplierOrError = await supplierResolver.ResolveAsync(
             command.ActiveShopId,
             row.SupplierId,
@@ -155,6 +145,14 @@ public sealed class AddInventoryBatchCommandHandler(
 
         var inventory = inventoryOrError.Value;
 
+        var hsnCode = string.IsNullOrWhiteSpace(row.HsnCode) ? item.HsnCode : row.HsnCode;
+        item.UpdateTaxDefaults(hsnCode, row.TaxRatePercent, row.TaxIncluded);
+
+        // Avoid switching a newly-added item (Added) to Modified; that would prevent INSERT and break FK integrity.
+        var existingItem = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, row.Barcode.Trim(), cancellationToken);
+        if (existingItem is not null)
+            itemRepository.Update(item);
+
         return new AddInventoryResultDto(
             item.Id,
             item.Name,
@@ -176,6 +174,7 @@ public sealed class AddInventoryBatchCommandHandler(
             row.ItemName,
             row.Barcode,
             row.ItemDescription,
+            row.HsnCode,
             row.Uom,
             row.BatchNumber,
             row.Quantity,

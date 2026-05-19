@@ -649,6 +649,14 @@
       "totalDue": "ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು",
       "taxIncludedPrice": "ತೆರಿಗೆ ಸೇರಿರುವ ಬೆಲೆ",
       "taxExcludedPrice": "ತೆರಿಗೆ ಹೊರತಾದ ಬೆಲೆ",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "ಮಾರಾಟ ದಾಖಲಿಸಿ",
       "creditRequiresCustomerPhone": "ಗ್ರಾಹಕನ ಫೋನ್ ಸಂಖ್ಯೆ ನೀಡಿದಾಗ ಮಾತ್ರ ಕ್ರೆಡಿಟ್ ಆಯ್ಕೆ ಲಭ್ಯವಾಗುತ್ತದೆ.",
       "paidAmount": "ಪಾವತಿಸಿದ ಮೊತ್ತ",
@@ -737,7 +745,8 @@
       "returnNumber": "Return #",
       "refundAmount": "Refund Amount",
       "voided": "Voided",
-      "voidReason": "Void Reason"
+      "voidReason": "Void Reason",
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "ಮಾರಾಟ ವರದಿ",

@@ -9,8 +9,8 @@ public class AddInventoryCommandValidatorTests
     private readonly AddInventoryCommandValidator _v = new();
 
     private static AddInventoryCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "Item", "BARCODE-001", null, "kg",
-            "BATCH-001", 10m, 80m, 120m, 100m, 18m, false, null, null, null, null, null, null);
+        new(Guid.NewGuid(), Guid.NewGuid(), "Item", "BARCODE-001", null, null,
+            "kg", "BATCH-001", 10m, 80m, 120m, 100m, 18m, false, null, null, null, null, null, null);
 
     [Fact] public void Validate_WhenItemNameEmpty_ReturnsError() =>
         _v.TestValidate(Valid() with { ItemName = "" }).ShouldHaveValidationErrorFor(x => x.ItemName);

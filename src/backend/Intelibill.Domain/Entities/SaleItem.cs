@@ -28,6 +28,7 @@ public sealed class SaleItem : BaseEntity
     public decimal? ConfiguredBatchRulePercentage { get; private set; }
     public InstantDiscountType ItemDiscountOverrideType { get; private set; }
     public decimal ItemDiscountOverrideValue { get; private set; }
+    public string? HsnCode { get; private set; }
 
     private SaleItem() { }
 
@@ -53,7 +54,8 @@ public sealed class SaleItem : BaseEntity
         Guid? configuredBatchRuleId = null,
         decimal? configuredBatchRulePercentage = null,
         InstantDiscountType itemDiscountOverrideType = InstantDiscountType.None,
-        decimal itemDiscountOverrideValue = 0m)
+        decimal itemDiscountOverrideValue = 0m,
+        string? hsnCode = null)
     {
         var originalUnitPrice = originalSalesPrice ?? salesPrice;
         var effectiveFinalUnitPrice = finalSalesPrice ?? originalUnitPrice;
@@ -93,8 +95,12 @@ public sealed class SaleItem : BaseEntity
             ConfiguredBatchRulePercentage = configuredBatchRulePercentage,
             ItemDiscountOverrideType = itemDiscountOverrideType,
             ItemDiscountOverrideValue = itemDiscountOverrideValue,
+            HsnCode = NormalizeHsnCode(hsnCode),
         };
     }
+
+    private static string? NormalizeHsnCode(string? hsnCode) =>
+        string.IsNullOrWhiteSpace(hsnCode) ? null : hsnCode.Trim();
 
     private static decimal CalculatePreTaxAmount(
         decimal quantity,

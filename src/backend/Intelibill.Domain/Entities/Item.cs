@@ -14,6 +14,8 @@ public sealed class Item : BaseEntity
     public Guid? UpdatedBy { get; private set; }
 
     public string? HsnCode { get; private set; }
+    public decimal DefaultTaxRatePercent { get; private set; }
+    public bool DefaultTaxIncluded { get; private set; }
 
     public Inventory? Inventory { get; private set; }
     public ICollection<InventoryBatch> Batches { get; private set; } = [];
@@ -28,7 +30,10 @@ public sealed class Item : BaseEntity
         string uom,
         string barcode,
         bool isActive,
-        Guid createdBy)
+        Guid createdBy,
+        string? hsnCode = null,
+        decimal defaultTaxRatePercent = 0m,
+        bool defaultTaxIncluded = false)
     {
         var item = new Item
         {
@@ -39,6 +44,9 @@ public sealed class Item : BaseEntity
             Barcode = barcode.Trim(),
             IsActive = isActive,
             CreatedBy = createdBy,
+            HsnCode = NormalizeOptional(hsnCode),
+            DefaultTaxRatePercent = defaultTaxRatePercent,
+            DefaultTaxIncluded = defaultTaxIncluded,
         };
 
         item.AddDomainEvent(new Events.ItemCreatedDomainEvent(item.Id, item.Barcode, item.Name, item.ShopId));
@@ -52,7 +60,10 @@ public sealed class Item : BaseEntity
         string uom,
         string barcode,
         bool isActive,
-        Guid updatedBy)
+        Guid updatedBy,
+        string? hsnCode = null,
+        decimal defaultTaxRatePercent = 0m,
+        bool defaultTaxIncluded = false)
     {
         Name = name.Trim();
         Description = NormalizeOptional(description);
@@ -60,6 +71,7 @@ public sealed class Item : BaseEntity
         Barcode = barcode.Trim();
         IsActive = isActive;
         UpdatedBy = updatedBy;
+        UpdateTaxDefaults(hsnCode, defaultTaxRatePercent, defaultTaxIncluded);
     }
 
     public void MarkUpdatedBy(Guid updatedBy)
@@ -69,7 +81,14 @@ public sealed class Item : BaseEntity
 
     public void UpdateHsnCode(string? hsnCode)
     {
-        HsnCode = string.IsNullOrWhiteSpace(hsnCode) ? null : hsnCode.Trim();
+        HsnCode = NormalizeOptional(hsnCode);
+    }
+
+    public void UpdateTaxDefaults(string? hsnCode, decimal defaultTaxRatePercent, bool defaultTaxIncluded = false)
+    {
+        HsnCode = NormalizeOptional(hsnCode);
+        DefaultTaxRatePercent = defaultTaxRatePercent;
+        DefaultTaxIncluded = defaultTaxIncluded;
     }
 
     private static string? NormalizeOptional(string? value)

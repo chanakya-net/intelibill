@@ -31,7 +31,10 @@ public sealed class GetItemsQueryHandler(
                 item.Description,
                 item.Uom,
                 item.IsActive,
-                quantities.GetValueOrDefault(item.Id, 0m)))
+                quantities.GetValueOrDefault(item.Id, 0m),
+                item.HsnCode,
+                item.DefaultTaxRatePercent,
+                item.DefaultTaxIncluded))
             .ToList();
     }
 }

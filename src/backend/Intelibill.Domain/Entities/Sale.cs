@@ -275,7 +275,8 @@ public sealed class Sale : BaseEntity
             configuredBatchRuleId: line.ConfiguredBatchRuleId,
             configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
             itemDiscountOverrideType: line.ItemDiscountOverrideType,
-            itemDiscountOverrideValue: line.ItemDiscountOverrideValue);
+            itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
+            hsnCode: line.HsnCode);
 
     private Sale WithItems(IReadOnlyCollection<SaleItem> items)
     {

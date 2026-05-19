@@ -649,6 +649,14 @@
       "totalDue": "পরিশোধযোগ্য মোট",
       "taxIncludedPrice": "করসহ মূল্য",
       "taxExcludedPrice": "কর ছাড়া মূল্য",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "বিক্রয় নথিভুক্ত করুন",
       "creditRequiresCustomerPhone": "গ্রাহকের ফোন নম্বর দিলে তবেই ক্রেডিট অপশন পাওয়া যাবে।",
       "paidAmount": "পরিশোধিত পরিমাণ",
@@ -737,7 +745,8 @@
       "returnNumber": "Return #",
       "refundAmount": "Refund Amount",
       "voided": "Voided",
-      "voidReason": "Void Reason"
+      "voidReason": "Void Reason",
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "বিক্রয় রিপোর্ট",

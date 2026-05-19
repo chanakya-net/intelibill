@@ -15,6 +15,7 @@ export interface SalesCartDraftItem {
   readonly costPrice: number;
   readonly itemDiscountType: number;
   readonly itemDiscountValue: number;
+  readonly hsnCode: string | null;
 }
 
 interface SalesCartRecord {
@@ -47,6 +48,7 @@ export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null 
     costPrice: typeof obj['costPrice'] === 'number' ? obj['costPrice'] : 0,
     itemDiscountType: typeof obj['itemDiscountType'] === 'number' ? obj['itemDiscountType'] : 0,
     itemDiscountValue: typeof obj['itemDiscountValue'] === 'number' ? obj['itemDiscountValue'] : 0,
+    hsnCode: typeof obj['hsnCode'] === 'string' ? obj['hsnCode'] : null,
   };
 }
 

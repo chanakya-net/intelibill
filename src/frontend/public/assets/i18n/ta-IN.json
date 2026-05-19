@@ -649,6 +649,14 @@
       "totalDue": "செலுத்த வேண்டிய மொத்தம்",
       "taxIncludedPrice": "வரி உட்பட விலை",
       "taxExcludedPrice": "வரி இல்லா விலை",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "விற்பனை பதிவு செய்",
       "creditRequiresCustomerPhone": "வாடிக்கையாளரின் தொலைபேசி எண் கொடுத்தால் மட்டுமே கடன் விருப்பம் கிடைக்கும்.",
       "paidAmount": "செலுத்திய தொகை",
@@ -737,7 +745,8 @@
       "returnNumber": "Return #",
       "refundAmount": "Refund Amount",
       "voided": "Voided",
-      "voidReason": "Void Reason"
+      "voidReason": "Void Reason",
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "விற்பனை அறிக்கை",
