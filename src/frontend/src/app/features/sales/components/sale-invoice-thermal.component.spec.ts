@@ -266,4 +266,56 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(text).not.toContain('profit');
     expect(text).not.toContain('margin');
   });
+
+  describe('GST/HSN conditional rendering', () => {
+    it('GST shop: shows GSTIN in header', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: 'GSTIN99887766' });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('GSTIN99887766');
+    });
+
+    it('non-GST shop: hides GSTIN in header', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('GSTIN');
+    });
+
+    it('GST shop: shows HSN label per item line', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: '5602' })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('HSN');
+      expect(fixture.nativeElement.textContent).toContain('5602');
+    });
+
+    it('GST shop: blank HSN renders blank, not N/A', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: null })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('N/A');
+    });
+
+    it('non-GST shop: hides HSN line per item', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: '6303' })] });
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('HSN');
+      expect(fixture.nativeElement.textContent).not.toContain('6303');
+    });
+
+    it('non-GST shop: tax line still visible', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ taxRatePercent: 18, taxAmount: 36 })] });
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Tax 18%');
+    });
+  });
 });

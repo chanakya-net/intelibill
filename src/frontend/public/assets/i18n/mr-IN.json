@@ -745,7 +745,8 @@
       "returnNumber": "Return #",
       "refundAmount": "Refund Amount",
       "voided": "Voided",
-      "voidReason": "Void Reason"
+      "voidReason": "Void Reason",
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "विक्री अहवाल",

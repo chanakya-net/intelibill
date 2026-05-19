@@ -740,4 +740,78 @@ describe('SaleInvoiceA4Component', () => {
       expect(totalsElement).not.toBeNull();
     });
   });
+
+  describe('GST/HSN conditional rendering', () => {
+    it('GST shop: shows GSTIN in header', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const headerElement = fixture.nativeElement.querySelector('.invoice__header');
+      expect(headerElement?.textContent).toContain('GSTIN12345678');
+    });
+
+    it('non-GST shop: hides GSTIN in header', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      const headerElement = fixture.nativeElement.querySelector('.invoice__header');
+      expect(headerElement?.textContent).not.toContain('GSTIN');
+    });
+
+    it('GST shop: shows HSN column header in item table', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).toContain('HSN');
+    });
+
+    it('non-GST shop: hides HSN column header in item table', () => {
+      component.sale = makeSale();
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).not.toContain('HSN');
+    });
+
+    it('GST shop: shows HSN value in item row', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: '1234' })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).toContain('1234');
+    });
+
+    it('GST shop: blank HSN renders blank, not N/A', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: null })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).not.toContain('N/A');
+    });
+
+    it('non-GST shop: hides HSN cells in item rows', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ hsnCode: '5678' })] });
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).not.toContain('5678');
+    });
+
+    it('non-GST shop: tax column still visible', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ taxRatePercent: 12 })] });
+      component.shop = makeShop({ gstNumber: null });
+      fixture.detectChanges();
+
+      const tableElement = fixture.nativeElement.querySelector('table');
+      expect(tableElement?.textContent).toContain('12%');
+    });
+  });
 });
