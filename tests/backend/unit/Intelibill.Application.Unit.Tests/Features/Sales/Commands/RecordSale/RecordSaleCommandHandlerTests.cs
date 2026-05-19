@@ -80,10 +80,11 @@ public class RecordSaleCommandHandlerTests
         string barcode = "BC-001", string batchNumber = "B-01",
         decimal quantity = 5m,
         Guid? inventoryBatchId = null,
-        string? idempotencyKey = null) =>
+        string? idempotencyKey = null,
+        string? hsnCode = null) =>
         new(actorId, shopId, idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
-            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
+            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)]);
 
     private static SalePricingCalculationResult BuildPricingResult(params ValidatedSaleLine[] lines)
     {
@@ -250,6 +251,56 @@ public class RecordSaleCommandHandlerTests
             .ValidateLinesAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>());
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenIdempotencyKeyReusedAndLineHsnCodeDiffers_ReturnsConflict()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, idempotencyKey: idempotencyKey, hsnCode: "0902");
+        var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
+
+        var lineInput = new SaleLineInput(
+            shopId,
+            item.Id,
+            batch.Id,
+            command.Items[0].Quantity,
+            batch.CostPrice,
+            batch.SalesPrice,
+            batch.Mrp,
+            batch.TaxRatePercent,
+            batch.TaxIncluded,
+            HasPriceMismatch: false,
+            HsnCode: "0902");
+
+        var sale = Sale.Record(
+            shopId,
+            actorId,
+            idempotencyKey,
+            requestHash,
+            "INV-TEST-05",
+            [lineInput],
+            command.CustomerId,
+            command.CustomerName,
+            command.CustomerPhone,
+            command.PaymentMethod,
+            command.PaidAmount,
+            command.DueAmount,
+            DateTimeOffset.UtcNow).Value;
+
+        _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
+            .Returns(sale);
+
+        var changedLineCommand = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, idempotencyKey: idempotencyKey, hsnCode: "0903");
+        var result = await CreateHandler().HandleAsync(changedLineCommand, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.IdempotencyConflict.Code, result.FirstError.Code);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -428,7 +479,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, null, null, PaymentMethod.UPI, 944m, 0m,
+        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, null, null, PaymentMethod.UPI, 905m, 0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
              new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id)]);
 
@@ -490,7 +541,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Guest", "+911111111111", PaymentMethod.Cash, 944m, 0m,
+        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Guest", "+911111111111", PaymentMethod.Cash, 905m, 0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
                 new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id),

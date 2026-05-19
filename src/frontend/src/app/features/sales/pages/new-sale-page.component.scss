@@ -136,6 +136,19 @@
   margin-top: 0.25rem;
 }
 
+.line-overrides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.line-override {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .discount-badges {
   display: inline-flex;
   flex-wrap: wrap;

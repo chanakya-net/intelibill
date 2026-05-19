@@ -660,6 +660,147 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task GetSaleDetail_IncludesRecordedLineHsnCode()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var saleHsnCode = "0902";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Detail HSN Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                    hsnCode = saleHsnCode,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/sales/{saleId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailResponse = await client.SendAsync(detailRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleItem = detail.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(saleHsnCode, saleItem.GetProperty("hsnCode").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedSale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        Assert.Equal(saleHsnCode, persistedSale.Items.Single().HsnCode);
+    }
+
+    [Fact]
+    public async Task GetSaleDetail_RecordedLineHsnCode_IsNotChangedByProductHsnUpdate()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-002", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var itemId = inboundBody.GetProperty("itemId").GetGuid();
+        var recordedHsnCode = "0902";
+        var updatedHsnCode = "0910";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Historic HSN Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-002",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                    hsnCode = recordedHsnCode,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var updateItemRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/items/{itemId}");
+        updateItemRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        updateItemRequest.Content = JsonContent.Create(new
+        {
+            name = "Test Item",
+            barcode = "B-002",
+            description = (string?)null,
+            uom = "kg",
+            hsnCode = updatedHsnCode,
+            defaultTaxRatePercent = 0m,
+        });
+
+        var updateItemResponse = await client.SendAsync(updateItemRequest);
+        Assert.Equal(HttpStatusCode.NoContent, updateItemResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedSaleItem = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        Assert.Equal(recordedHsnCode, persistedSaleItem.Items.Single().HsnCode);
+
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/sales/{saleId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var detailResponse = await client.SendAsync(detailRequest);
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleItem = detail.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(recordedHsnCode, saleItem.GetProperty("hsnCode").GetString());
+    }
+
+    [Fact]
     public async Task GetSaleDetail_ReturnsNullCustomerIdentityForWalkInSales()
     {
         using var client = CreateClient();

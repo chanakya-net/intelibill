@@ -649,6 +649,14 @@
       "totalDue": "Total Due",
       "taxIncludedPrice": "Tax Included",
       "taxExcludedPrice": "Tax Excluded",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "Record Sale",
       "creditRequiresCustomerPhone": "Credit option available only when customer phone is provided.",
       "paidAmount": "Paid Amount",

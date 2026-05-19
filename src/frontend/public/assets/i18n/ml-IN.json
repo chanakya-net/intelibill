@@ -649,6 +649,14 @@
       "totalDue": "അടക്കേണ്ട ആകെ",
       "taxIncludedPrice": "നികുതി ഉൾപ്പെട്ട വില",
       "taxExcludedPrice": "നികുതി ഇല്ലാത്ത വില",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "വിൽപ്പന രേഖപ്പെടുത്തുക",
       "creditRequiresCustomerPhone": "ഉപഭോക്താവിന്റെ ഫോൺ നമ്പർ നൽകിയാൽ മാത്രമേ ക്രെഡിറ്റ് ഓപ്ഷൻ ലഭ്യമാകൂ.",
       "paidAmount": "അടച്ച തുക",

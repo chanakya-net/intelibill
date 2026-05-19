@@ -22,4 +22,5 @@ public sealed record SaleLineInput(
     Guid? ConfiguredBatchRuleId = null,
     decimal? ConfiguredBatchRulePercentage = null,
     InstantDiscountType ItemDiscountOverrideType = InstantDiscountType.None,
-    decimal ItemDiscountOverrideValue = 0m);
+    decimal ItemDiscountOverrideValue = 0m,
+    string? HsnCode = null);

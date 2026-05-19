@@ -28,4 +28,5 @@ public sealed record RecordSaleItemCommand(
     bool IsPriceIncludingTax,
     Guid InventoryBatchId,
     InstantDiscount? ItemDiscount = null,
-    string? ClientLineKey = null);
+    string? ClientLineKey = null,
+    string? HsnCode = null);

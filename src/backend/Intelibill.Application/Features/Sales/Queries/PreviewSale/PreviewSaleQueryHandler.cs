@@ -46,7 +46,8 @@ public sealed class PreviewSaleQueryHandler(
             i.IsPriceIncludingTax,
             i.InventoryBatchId,
             i.ItemDiscount,
-            i.ClientLineKey)).ToList();
+            i.ClientLineKey,
+            i.HsnCode)).ToList();
 
         var validationWarnings = new List<string>();
         var validationOrError = await saleLineValidator.ValidateLinesAsync(
@@ -71,7 +72,7 @@ public sealed class PreviewSaleQueryHandler(
                     line.Batch.CostPrice,
                     line.Batch.SalesPrice,
                     line.Batch.Mrp,
-                    line.Batch.TaxRatePercent,
+                    line.Command.TaxRatePercent,
                     line.Batch.TaxIncluded,
                     query.Items[index].ItemDiscount);
             }).ToList(),

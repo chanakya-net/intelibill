@@ -34,6 +34,7 @@ export interface PreviewSaleItemRequest {
   readonly isPriceIncludingTax: boolean;
   readonly itemDiscount: InstantDiscountRequest;
   readonly clientLineKey: string;
+  readonly hsnCode: string | null;
 }
 
 export interface PreviewSaleRequest {
@@ -112,6 +113,7 @@ export interface RecordSaleItemRequest {
   readonly inventoryBatchId: string;
   readonly clientLineKey: string | null;
   readonly itemDiscount: InstantDiscountRequest | null;
+  readonly hsnCode: string | null;
 }
 
 export interface RecordSaleRequest {
@@ -148,6 +150,7 @@ export interface SaleItemDto {
   readonly returnedQuantity: number;
   readonly returnableQuantity: number;
   readonly returnStatus: string;
+  readonly hsnCode: string | null;
 }
 
 export interface SaleReturnDto {

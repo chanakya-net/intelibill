@@ -62,7 +62,7 @@ public sealed class RecordSaleCommandHandler(
                     line.Batch.CostPrice,
                     line.Batch.SalesPrice,
                     line.Batch.Mrp,
-                    line.Batch.TaxRatePercent,
+                    line.Command.TaxRatePercent,
                     line.Batch.TaxIncluded,
                     line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m))).ToList(),
             effectiveSaleDiscount);
@@ -111,7 +111,8 @@ public sealed class RecordSaleCommandHandler(
                 calculation.ConfiguredBatchRuleId,
                 calculation.ConfiguredBatchRulePercentage,
                 (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Type,
-                (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Value);
+                (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Value,
+                line.Command.HsnCode);
         }).ToList();
 
         var saleOrError = Sale.Record(
@@ -232,6 +233,7 @@ public sealed class RecordSaleCommandHandler(
                 TaxableAmount = si.TaxableAmount,
                 TaxAmount = si.TaxAmount,
                 TotalAmount = si.TotalAmount,
+                HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
             }).ToList(),
             sale.Warnings);
@@ -279,6 +281,7 @@ public sealed class RecordSaleCommandHandler(
                 TaxableAmount = si.TaxableAmount,
                 TaxAmount = si.TaxAmount,
                 TotalAmount = si.TotalAmount,
+                HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
             }).ToList(),
             warnings);

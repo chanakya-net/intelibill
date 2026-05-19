@@ -146,6 +146,7 @@ describe('SaleService', () => {
           taxRatePercent: 10,
           isPriceIncludingTax: false,
           hasPriceMismatch: false,
+          hsnCode: null,
           returnedQuantity: 0,
           returnableQuantity: 5,
           returnStatus: 'NotReturned',
@@ -198,6 +199,7 @@ describe('SaleService', () => {
         inventoryBatchId: 'batch-1',
         clientLineKey: 'clk-uuid-001',
         itemDiscount: { type: 0 as const, value: 0 },
+        hsnCode: '0902',
       }],
     };
 
@@ -339,6 +341,7 @@ describe('SaleService', () => {
           isPriceIncludingTax: false,
           itemDiscount: { type: 0, value: 0 },
           clientLineKey: 'clk-uuid-001',
+          hsnCode: '0902',
         },
       ],
     };

@@ -30,6 +30,7 @@ describe('SaleInvoiceThermalComponent', () => {
     taxRatePercent: 18,
     isPriceIncludingTax: false,
     hasPriceMismatch: false,
+    hsnCode: null,
     returnedQuantity: 0,
     returnableQuantity: 2,
     returnStatus: 'Returnable',

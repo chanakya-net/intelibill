@@ -1259,6 +1259,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("has_price_mismatch");
 
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("hsn_code");
+
                     b.Property<Guid>("InventoryBatchId")
                         .HasColumnType("uuid")
                         .HasColumnName("inventory_batch_id");

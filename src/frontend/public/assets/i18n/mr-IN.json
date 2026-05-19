@@ -649,6 +649,14 @@
       "totalDue": "देय एकूण",
       "taxIncludedPrice": "कर समाविष्ट",
       "taxExcludedPrice": "कर वगळून",
+      "hsnCode": "HSN Code",
+      "taxRatePercent": "Tax %",
+      "hsnInvalid": "Enter a valid HSN code.",
+      "taxRateInvalid": "Enter a valid tax rate.",
+      "overrides": {
+        "invalid": "Fix HSN/Tax overrides to preview the sale.",
+        "fixErrors": "Fix HSN/Tax errors before recording."
+      },
       "recordSale": "विक्री नोंदवा",
       "creditRequiresCustomerPhone": "ग्राहकाचा फोन नंबर दिल्यासच क्रेडिट पर्याय उपलब्ध होईल.",
       "paidAmount": "भरलेली रक्कम",

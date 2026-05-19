@@ -86,6 +86,7 @@ public sealed class GetSaleDetailQueryHandler(
                 TaxableAmount = si.TaxableAmount,
                 TaxAmount = si.TaxAmount,
                 TotalAmount = si.TotalAmount,
+                HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
             }).ToList(),
             [])

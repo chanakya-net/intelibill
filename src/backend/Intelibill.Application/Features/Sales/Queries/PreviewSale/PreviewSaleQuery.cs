@@ -20,5 +20,5 @@ public sealed record PreviewSaleLineQuery(
     decimal TaxRatePercent,
     bool IsPriceIncludingTax,
     InstantDiscount ItemDiscount,
-    string? ClientLineKey = null);
-
+    string? ClientLineKey = null,
+    string? HsnCode = null);
