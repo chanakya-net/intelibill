@@ -8,6 +8,13 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class CustomerRepository(ApplicationDbContext context)
     : RepositoryBase<Customer>(context), ICustomerRepository
 {
+    public IAsyncEnumerable<Customer> StreamActiveByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        DbSet
+            .AsNoTracking()
+            .Where(c => c.ShopId == shopId && c.IsActive)
+            .OrderBy(c => c.Name)
+            .AsAsyncEnumerable();
+
     public async Task<IReadOnlyList<Customer>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Where(c => c.ShopId == shopId)

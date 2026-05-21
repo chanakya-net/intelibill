@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -81,6 +82,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             itemName = "Test Item",
             barcode,
             itemDescription = (string?)null,
+            hsnCode = (string?)null,
             uom = "kg",
             batchNumber,
             quantity,
@@ -89,6 +91,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             salesPrice = 100m,
             taxRatePercent = 18m,
             taxIncluded = false,
+            purchaseTaxIncluded = false,
             expiryDate = (DateOnly?)null,
             manufacturingDate = (DateOnly?)null,
             supplierId = (Guid?)null,
@@ -99,6 +102,164 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task AddInventoryBatchAsync(HttpClient client, string token, int count)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var items = Enumerable.Range(0, count)
+            .Select(i => new
+            {
+                clientRowId = $"row-{i}",
+                itemName = $"Bulk Item {i}",
+                barcode = $"BULK-{Guid.NewGuid():N}",
+                itemDescription = (string?)null,
+                uom = "kg",
+                batchNumber = $"BATCH-{i:000}",
+                quantity = 1m,
+                totalPurchaseCost = 80m,
+                mrp = 120m,
+                salesPrice = 100m,
+                taxRatePercent = 18m,
+                taxIncluded = false,
+                purchaseTaxIncluded = false,
+                expiryDate = (DateOnly?)null,
+                manufacturingDate = (DateOnly?)null,
+                supplierId = (Guid?)null,
+                referenceNumber = (string?)null,
+                notes = (string?)null,
+                performedAt = (DateTimeOffset?)null,
+                hsnCode = (string?)null,
+            })
+            .ToList();
+
+        request.Content = JsonContent.Create(new { items });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private async Task VoidBatchDirectlyAsync(string ownerToken, Guid batchId)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(ownerToken);
+        var userId = Guid.Parse(jwt.Subject);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == batchId);
+        batch.Void(userId);
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<Guid> AddCustomerAsync(HttpClient client, string token, string name, string phoneNumber, bool isActive)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/customers");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            phoneNumber,
+            address = (string?)null,
+            isActive,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("customerId").GetGuid();
+    }
+
+    private static async Task<Guid> CreateDiscountRuleAsync(HttpClient client, string token, Guid? inventoryBatchId = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/discounts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            ruleType = (inventoryBatchId is null ? DiscountRuleType.SalePercentage : DiscountRuleType.BatchPercentage).ToString(),
+            name = "Offline 5% Rule",
+            description = (string?)null,
+            inventoryBatchId,
+            percentage = 5m,
+            thresholdAmount = (decimal?)null,
+            startsAt = (DateTimeOffset?)null,
+            endsAt = (DateTimeOffset?)null,
+            belowCostConfirmed = true,
+            belowCostConfirmationReason = "Test",
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("id").GetGuid();
+    }
+
+    private static async Task DisableDiscountRuleAsync(HttpClient client, string token, Guid ruleId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/discounts/{ruleId}/disable");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { reason = "Disabled for test" });
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales/invoice-leases/reserve");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            deviceId,
+            blockSize = 25,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<(Guid UserId, string Email, string Password)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId)
+    {
+        var email = $"member-{Guid.NewGuid():N}@test.com";
+        var password = "Pass123!Aa";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            shopIds = new[] { shopId },
+            email,
+            firstName = "Shop",
+            lastName = "Member",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
+            password,
+            confirmPassword = password,
+            role = "Staff",
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("userId").GetGuid(), email, password);
+    }
+
+    private static async Task<IReadOnlyList<JsonElement>> ReadNdjsonAsync(HttpResponseMessage response)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        var lines = new List<JsonElement>();
+        string? line;
+        while ((line = await reader.ReadLineAsync()) is not null)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+            using var doc = JsonDocument.Parse(line);
+            lines.Add(doc.RootElement.Clone());
+        }
+
+        return lines;
     }
 
     private static async Task<Guid> GetShopIdFromTokenAsync(HttpClient client, string token)
@@ -121,6 +282,123 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;
+    }
+
+    [Fact]
+    public async Task StreamOfflineSnapshot_AsOwner_ReturnsNdjson_EndsWithComplete_AndFiltersInactive()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        var barcode = UniqueBarcode();
+        var batch1 = await AddInventoryAsync(client, ownerToken, barcode, "BATCH-001", 10m);
+        var batch1Id = batch1.GetProperty("inventoryBatchId").GetGuid();
+
+        var batch2 = await AddInventoryAsync(client, ownerToken, barcode, "BATCH-002", 5m);
+        var batch2Id = batch2.GetProperty("inventoryBatchId").GetGuid();
+        await VoidBatchDirectlyAsync(ownerToken, batch2Id);
+
+        await AddCustomerAsync(client, ownerToken, "Active Customer", $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}", true);
+        await AddCustomerAsync(client, ownerToken, "Inactive Customer", $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}", false);
+
+        await CreateDiscountRuleAsync(client, ownerToken, inventoryBatchId: batch1Id);
+        var disabledRuleId = await CreateDiscountRuleAsync(client, ownerToken);
+        await DisableDiscountRuleAsync(client, ownerToken, disabledRuleId);
+
+        await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-1");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/offline-snapshot/stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/x-ndjson; charset=utf-8", response.Content.Headers.ContentType?.ToString());
+
+        var lines = await ReadNdjsonAsync(response);
+        Assert.True(lines.Count > 0);
+
+        var first = lines[0];
+        Assert.Equal("metadata", first.GetProperty("type").GetString());
+        var snapshotId = first.GetProperty("metadata").GetProperty("snapshotId").GetGuid();
+        Assert.NotEqual(Guid.Empty, snapshotId);
+        Assert.Equal(shopId, first.GetProperty("metadata").GetProperty("shopId").GetGuid());
+
+        Assert.Equal("complete", lines[^1].GetProperty("type").GetString());
+        Assert.Equal(snapshotId, lines[^1].GetProperty("complete").GetProperty("snapshotId").GetGuid());
+
+        var batchIds = lines
+            .Where(l => l.GetProperty("type").GetString() == "batch")
+            .Select(l => l.GetProperty("batch").GetProperty("batchId").GetGuid())
+            .ToList();
+
+        Assert.Contains(batch1Id, batchIds);
+        Assert.DoesNotContain(batch2Id, batchIds);
+
+        var customerNames = lines
+            .Where(l => l.GetProperty("type").GetString() == "customer")
+            .Select(l => l.GetProperty("customer").GetProperty("name").GetString())
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .ToList();
+
+        Assert.Contains("Active Customer", customerNames);
+        Assert.DoesNotContain("Inactive Customer", customerNames);
+
+        Assert.DoesNotContain(lines, l => l.GetProperty("type").GetString() == "error");
+    }
+
+    [Fact]
+    public async Task StreamOfflineSnapshot_WhenMembershipRemoved_Returns403()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        var (memberUserId, email, password) = await AddShopUserAsync(client, ownerToken, shopId);
+        var memberToken = await LoginAsync(client, email, password);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var memberships = await db.ShopMemberships
+                .Where(sm => sm.UserId == memberUserId && sm.ShopId == shopId)
+                .ToListAsync();
+            db.ShopMemberships.RemoveRange(memberships);
+            await db.SaveChangesAsync();
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/offline-snapshot/stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StreamOfflineSnapshot_LargeShop_FlushesMetadataEarly()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        await AddInventoryBatchAsync(client, ownerToken, 60);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/offline-snapshot/stream");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        var firstLine = await reader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.False(string.IsNullOrWhiteSpace(firstLine));
+        using var doc = JsonDocument.Parse(firstLine!);
+        Assert.Equal("metadata", doc.RootElement.GetProperty("type").GetString());
     }
 
     // ======================= EXISTING TESTS (PRESERVED) =======================

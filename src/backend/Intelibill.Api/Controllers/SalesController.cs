@@ -1,5 +1,8 @@
+using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
@@ -24,8 +27,84 @@ namespace Intelibill.Api.Controllers;
 [Authorize]
 public sealed class SalesController : AuthenticatedControllerBase
 {
-    public SalesController(IMessageBus bus) : base(bus)
+    private static readonly JsonSerializerOptions NdjsonOptions = new()
     {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    };
+
+    private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService;
+
+    public SalesController(IMessageBus bus, IOfflineSalesSnapshotStreamingService offlineSnapshotStreamingService) : base(bus)
+    {
+        _offlineSnapshotStreamingService = offlineSnapshotStreamingService;
+    }
+
+    [HttpGet("offline-snapshot/stream")]
+    public async Task StreamOfflineSnapshot(CancellationToken cancellationToken)
+    {
+        if (UserId is null)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
+        if (ActiveShopId is null)
+        {
+            Response.StatusCode = 400;
+            return;
+        }
+
+        var validation = await _offlineSnapshotStreamingService.ValidateAccessAsync(
+            UserId.Value,
+            ActiveShopId.Value,
+            cancellationToken);
+
+        if (validation.IsError)
+        {
+            Response.StatusCode = validation.FirstError.Type == ErrorType.NotFound ? 401 : 403;
+            return;
+        }
+
+        var snapshotId = Guid.NewGuid();
+        var startedAt = DateTimeOffset.UtcNow;
+
+        Response.ContentType = "application/x-ndjson; charset=utf-8";
+        Response.Headers.CacheControl = "no-store";
+
+        var count = 0;
+
+        try
+        {
+            await foreach (var record in _offlineSnapshotStreamingService.StreamAsync(
+                               ActiveShopId.Value,
+                               snapshotId,
+                               startedAt,
+                               cancellationToken))
+            {
+                var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions) + "\n";
+                await Response.WriteAsync(line, cancellationToken);
+                count++;
+                if (count == 1 || count % 50 == 0)
+                    await Response.Body.FlushAsync(cancellationToken);
+            }
+
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // client cancelled
+        }
+        catch (Exception ex)
+        {
+            // best-effort: emit error record (do not emit complete)
+            var error = new OfflineSalesSnapshotErrorRecord(
+                new OfflineSalesSnapshotError(snapshotId, "OfflineSnapshot.StreamFailed", ex.Message));
+
+            var line = JsonSerializer.Serialize(error, NdjsonOptions) + "\n";
+            await Response.WriteAsync(line, cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
     }
 
     [HttpPost]

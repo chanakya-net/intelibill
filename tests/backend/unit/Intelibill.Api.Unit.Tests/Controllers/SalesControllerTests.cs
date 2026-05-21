@@ -3,6 +3,7 @@ using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
@@ -25,11 +26,13 @@ namespace Intelibill.Api.Unit.Tests.Controllers;
 public class SalesControllerTests
 {
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
+    private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService =
+        Substitute.For<IOfflineSalesSnapshotStreamingService>();
     private readonly SalesController _controller;
 
     public SalesControllerTests()
     {
-        _controller = new SalesController(_bus);
+        _controller = new SalesController(_bus, _offlineSnapshotStreamingService);
     }
 
     private void SetUserClaims(params Claim[] claims)

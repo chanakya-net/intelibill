@@ -8,6 +8,19 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class DiscountRuleRepository(ApplicationDbContext context)
     : RepositoryBase<DiscountRule>(context), IDiscountRuleRepository
 {
+    public IAsyncEnumerable<DiscountRule> StreamActiveByShopAsync(
+        Guid shopId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default) =>
+        DbSet
+            .AsNoTracking()
+            .Where(r => r.ShopId == shopId
+                && r.IsActive
+                && (r.StartsAt == null || r.StartsAt <= now)
+                && (r.EndsAt == null || r.EndsAt > now))
+            .OrderBy(r => r.Name)
+            .AsAsyncEnumerable();
+
     public async Task<IReadOnlyList<DiscountRule>> GetByShopAsync(
         Guid shopId,
         CancellationToken cancellationToken = default) =>

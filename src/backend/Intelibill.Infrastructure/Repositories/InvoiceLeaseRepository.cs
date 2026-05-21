@@ -18,6 +18,16 @@ internal sealed class InvoiceLeaseRepository : RepositoryBase<InvoiceLease>, IIn
         _context = context;
     }
 
+    public IAsyncEnumerable<InvoiceLease> StreamActiveByShopAsync(
+        Guid shopId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default) =>
+        DbSet
+            .AsNoTracking()
+            .Where(l => l.ShopId == shopId && l.ExpiresAt > now)
+            .OrderBy(l => l.ExpiresAt)
+            .AsAsyncEnumerable();
+
     public async Task<InvoiceLease> ReserveAsync(
         Guid shopId,
         string deviceId,

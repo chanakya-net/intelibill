@@ -4,6 +4,7 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface IInvoiceLeaseRepository : IRepository<InvoiceLease>
 {
+    IAsyncEnumerable<InvoiceLease> StreamActiveByShopAsync(Guid shopId, DateTimeOffset now, CancellationToken cancellationToken = default);
     Task<InvoiceLease> ReserveAsync(
         Guid shopId,
         string deviceId,

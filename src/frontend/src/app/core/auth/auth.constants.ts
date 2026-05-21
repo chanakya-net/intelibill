@@ -59,6 +59,7 @@ export const SALE_ENDPOINTS = {
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
+  offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {
