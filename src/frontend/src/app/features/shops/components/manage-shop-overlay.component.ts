@@ -190,6 +190,15 @@ export class ManageShopOverlayComponent implements OnInit {
     void this.networkStatus.checkConnectivity();
   }
 
+  onContinueToOfflineBilling(): void {
+    if (this.isSubmitting() || this.isLoadingDetails() || !this.isSelectedShopOwnerOrManager()) {
+      return;
+    }
+
+    this.offlineEnablementErrorKey.set('');
+    this.activeStep.set(3);
+  }
+
   onSubmit(): void {
     if (this.isSubmitting() || this.isLoadingDetails()) {
       return;

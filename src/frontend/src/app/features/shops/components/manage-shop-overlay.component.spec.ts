@@ -283,6 +283,19 @@ describe('ManageShopOverlayComponent', () => {
     );
   });
 
+  it('lets a manager continue to offline billing and enable the device', async () => {
+    const { component } = setup();
+
+    component.form.controls.shopId.setValue('shop-2');
+    component.onShopSelectionChange();
+    component.onContinueToOfflineBilling();
+    await component.onEnableOfflineBilling();
+
+    expect(component.activeStep()).toBe(3);
+    expect(offlineEnablement.enableForShop).toHaveBeenCalledWith('shop-2', '');
+    expect(component.offlineDeviceSettings()?.enabled).toBe(true);
+  });
+
   it('dispatches update action with trimmed values and moves to step 2 on success', () => {
     const { component, fixture } = setup();
     component.form.controls.name.setValue('  Updated Shop  ');

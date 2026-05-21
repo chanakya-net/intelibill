@@ -257,7 +257,21 @@
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
 
-              <div class="flex pt-4 justify-end">
+              <div class="flex pt-4 justify-end gap-2">
+                @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
+                  <button
+                    pButton
+                    type="button"
+                    [label]="'shops.nextStep' | transloco"
+                    icon="pi pi-arrow-right"
+                    iconPos="right"
+                    severity="secondary"
+                    [text]="true"
+                    [disabled]="isSubmitting() || isLoadingDetails()"
+                    (click)="onContinueToOfflineBilling()"
+                  ></button>
+                }
+
                 <button
                   pButton
                   type="submit"
