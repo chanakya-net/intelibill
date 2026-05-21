@@ -11,7 +11,7 @@ import { SaleService, type InvoiceLeaseDto } from './sale.service';
 
 export type OfflineSalesEnablementResult =
   | { readonly ok: true; readonly settings: OfflineSalesDeviceSettings; readonly lease: InvoiceLeaseSnapshot }
-  | { readonly ok: false; readonly reason: 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'SNAPSHOT_INCOMPLETE' | 'LEASE_UNAVAILABLE' };
+  | { readonly ok: false; readonly reason: 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'ACTIVE_SHOP_MISMATCH' | 'SNAPSHOT_INCOMPLETE' | 'LEASE_UNAVAILABLE' };
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesDeviceEnablementService {
@@ -27,6 +27,9 @@ export class OfflineSalesDeviceEnablementService {
     const session = this.auth.session();
     if (!session || !shopId) {
       return { ok: false, reason: 'UNAUTHENTICATED' };
+    }
+    if (session.activeShopId !== shopId) {
+      return { ok: false, reason: 'ACTIVE_SHOP_MISMATCH' };
     }
 
     await this.networkStatus.checkConnectivity();
@@ -105,4 +108,3 @@ export class OfflineSalesDeviceEnablementService {
     return { ok: true, settings, lease };
   }
 }
-

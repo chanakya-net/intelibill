@@ -519,4 +519,23 @@ describe('ManageShopOverlayComponent', () => {
     expect(offlineEnablement.enableForShop).toHaveBeenCalledWith('shop-1', '');
     expect(component.offlineDeviceSettings()?.enabled).toBe(true);
   });
+
+  it('keeps readiness enabled when API becomes unreachable', () => {
+    const { component } = setup();
+    storedSettings = {
+      ...(offlineDeviceStorage.loadSettings('shop-1') as OfflineSalesDeviceSettings),
+      enabled: true,
+      lastCompleteSnapshotAt: '2026-05-21T00:00:00.000Z',
+      lastReservedLease: {
+        leaseId: 'lease-1',
+        fiscalYear: '2026-2027',
+        remainingCount: 100,
+        expiresAt: '2026-06-21T00:00:00.000Z',
+      },
+    };
+    component.offlineDeviceSettings.set(storedSettings);
+    canReachApiSignal.set(false);
+
+    expect(component.offlineReadinessState()).toBe('enabled');
+  });
 });

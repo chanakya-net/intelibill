@@ -318,11 +318,10 @@ export class ManageShopOverlayComponent implements OnInit {
     return this.isSelectedShopOwnerOrManager() && this.networkStatus.canReachApi();
   }
 
-  offlineReadinessState(): 'enabled' | 'needsSetup' | 'apiUnreachable' {
+  offlineReadinessState(): 'enabled' | 'needsSetup' {
     const shopId = this.form.controls.shopId.value;
     const settings = this.offlineDeviceSettings();
     if (!shopId || !settings?.deviceId) return 'needsSetup';
-    if (!this.networkStatus.canReachApi()) return 'apiUnreachable';
     return settings.enabled ? 'enabled' : 'needsSetup';
   }
 
@@ -392,6 +391,9 @@ export class ManageShopOverlayComponent implements OnInit {
             break;
           case 'LEASE_UNAVAILABLE':
             this.offlineEnablementErrorKey.set('offlineSalesDevice.errors.leaseUnavailable');
+            break;
+          case 'ACTIVE_SHOP_MISMATCH':
+            this.offlineEnablementErrorKey.set('offlineSalesDevice.errors.enableFailed');
             break;
           default:
             this.offlineEnablementErrorKey.set('offlineSalesDevice.errors.enableFailed');

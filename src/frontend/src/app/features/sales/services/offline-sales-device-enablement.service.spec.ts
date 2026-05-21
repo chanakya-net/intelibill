@@ -124,6 +124,19 @@ describe('OfflineSalesDeviceEnablementService', () => {
     expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
   });
 
+  it('blocks enablement when selected shop differs from active shop', async () => {
+    const service = setup();
+
+    const result = await service.enableForShop('shop-2', 'Counter 2');
+
+    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, reason: 'ACTIVE_SHOP_MISMATCH' });
+    expect(network.checkConnectivity).not.toHaveBeenCalled();
+    expect(snapshotSync.syncForShop).not.toHaveBeenCalled();
+    expect(saleService.reserveInvoiceLease).not.toHaveBeenCalled();
+    expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
+  });
+
   it('does not persist enabled state when snapshot is incomplete', async () => {
     const service = setup();
     (snapshotDb.getUsableSnapshotInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
@@ -159,4 +172,3 @@ describe('OfflineSalesDeviceEnablementService', () => {
     expect(settingsStorage.updateSettings).toHaveBeenCalledTimes(1);
   });
 });
-
