@@ -1,4 +1,13 @@
-import { APP_INITIALIZER, ApplicationConfig, inject, provideBrowserGlobalErrorListeners, isDevMode } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import {
+  APP_INITIALIZER,
+  ApplicationConfig,
+  Injector,
+  PLATFORM_ID,
+  inject,
+  provideBrowserGlobalErrorListeners,
+  isDevMode,
+} from '@angular/core';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
@@ -83,29 +92,23 @@ export const appConfig: ApplicationConfig = {
     {
       provide: APP_INITIALIZER,
       multi: true,
-      useFactory: initializeAuthSession,
-    },
-    {
-      provide: APP_INITIALIZER,
-      multi: true,
-      useFactory: initializeProductSignalR,
+      useFactory: initializeAppServices,
     },
   ],
 };
 
-function initializeAuthSession(): () => Promise<boolean> {
+function initializeAppServices(): () => Promise<void> {
+  const localizationService = inject(LocalizationService);
+  const authService = inject(AuthService);
+  const injector = inject(Injector);
+  const platformId = inject(PLATFORM_ID);
+
   return async () => {
-    const localizationService = inject(LocalizationService);
-    const authService = inject(AuthService);
-
     await localizationService.initialize();
-    return firstValueFrom(authService.bootstrapSession());
-  };
-}
+    await firstValueFrom(authService.bootstrapSession());
 
-function initializeProductSignalR(): () => Promise<void> {
-  return () => {
-    const signalRService = inject(ProductSignalRService);
-    return signalRService.startConnection();
+    if (isPlatformBrowser(platformId)) {
+      await injector.get(ProductSignalRService).startConnection();
+    }
   };
 }
