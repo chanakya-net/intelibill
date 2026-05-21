@@ -1,5 +1,5 @@
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -176,19 +176,19 @@ export class AuthService {
     }
 
     const refresh$ = this.refreshAccessToken({ preserveSessionOnError: true }).pipe(
-      catchError(() => of(null)),
       switchMap(async (refreshedSession): Promise<BootstrapSessionStatus> => {
         if (refreshedSession) {
           return 'READY';
         }
 
-        if (!(await this.shouldClearSessionAfterRefreshFailure())) {
+        if (await this.shouldPreserveSessionAfterRefreshFailure()) {
           return 'API_UNREACHABLE';
         }
 
         this.clearSession();
         return 'REFRESH_FAILED';
       }),
+      catchError((error) => this.resolveBootstrapRefreshFailure(error)),
       finalize(() => {
         this.bootstrapInFlight$ = null;
       }),
@@ -225,7 +225,11 @@ export class AuthService {
         // to localStorage. Re-read storage before clearing to avoid spurious logout
         // on multi-tab refresh races.
         const fresherSession = this.storage.loadSession();
-        if (fresherSession && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
+        if (
+          fresherSession
+          && fresherSession.accessToken !== session.accessToken
+          && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)
+        ) {
           this.sessionSignal.set(fresherSession);
           return of(fresherSession);
         }
@@ -419,8 +423,8 @@ export class AuthService {
     this.proactiveRefreshTimerId = setTimeout(() => {
       this.proactiveRefreshTimerId = null;
       this.refreshAccessToken({ preserveSessionOnError: true }).subscribe({
-        error: () => {
-          void this.handleProactiveRefreshFailure();
+        error: (error: unknown) => {
+          void this.handleProactiveRefreshFailure(error);
         },
       });
     }, delay);
@@ -447,14 +451,31 @@ export class AuthService {
     return isPlatformBrowser(this.platformId);
   }
 
-  private async handleProactiveRefreshFailure(): Promise<void> {
-    if (await this.shouldClearSessionAfterRefreshFailure()) {
+  private async handleProactiveRefreshFailure(error: unknown): Promise<void> {
+    if (!(await this.shouldPreserveSessionAfterRefreshFailure(error))) {
       this.clearSession();
     }
   }
 
-  private async shouldClearSessionAfterRefreshFailure(): Promise<boolean> {
+  private async resolveBootstrapRefreshFailure(error: unknown): Promise<BootstrapSessionStatus> {
+    if (await this.shouldPreserveSessionAfterRefreshFailure(error)) {
+      return 'API_UNREACHABLE';
+    }
+
+    this.clearSession();
+    return 'REFRESH_FAILED';
+  }
+
+  private async shouldPreserveSessionAfterRefreshFailure(error?: unknown): Promise<boolean> {
+    if (error !== undefined && !this.isNetworkRefreshFailure(error)) {
+      return false;
+    }
+
     await this.networkStatus.checkConnectivity();
-    return this.networkStatus.canReachApi();
+    return !this.networkStatus.canReachApi();
+  }
+
+  private isNetworkRefreshFailure(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 0;
   }
 }

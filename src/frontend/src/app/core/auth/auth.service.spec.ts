@@ -627,6 +627,72 @@ describe('AuthService', () => {
     http.verify();
   });
 
+  it('bootstrapSessionWithStatus returns REFRESH_FAILED when refresh is rejected even if ping later fails', async () => {
+    const now = Date.now();
+    storage.loadSession.mockReturnValue(
+      buildSession({
+        accessTokenExpiresAt: new Date(now - 10_000).toISOString(),
+        refreshTokenExpiresAt: new Date(now + 60_000).toISOString(),
+      })
+    );
+    networkStatus.canReachApi.mockReturnValue(false);
+
+    const { service, http } = setup();
+    const statusPromise = firstValueFrom(service.bootstrapSessionWithStatus());
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+
+    await expect(statusPromise).resolves.toBe('REFRESH_FAILED');
+    expect(networkStatus.checkConnectivity).not.toHaveBeenCalled();
+    expect(storage.clearSession).toHaveBeenCalledTimes(1);
+    http.verify();
+  });
+
+  it('proactive refresh clears the session for rejected refresh responses without probing connectivity', async () => {
+    storage.loadSession.mockReturnValue(
+      buildSession({
+        accessTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+        refreshTokenExpiresAt: new Date(Date.now() + 240_000).toISOString(),
+      })
+    );
+    networkStatus.canReachApi.mockReturnValue(false);
+    vi.useFakeTimers();
+
+    const { http } = setup();
+    await vi.advanceTimersByTimeAsync(60_001);
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+    await vi.runAllTimersAsync();
+
+    expect(storage.clearSession).toHaveBeenCalledTimes(1);
+    expect(networkStatus.checkConnectivity).not.toHaveBeenCalled();
+    http.verify();
+  });
+
+  it('proactive refresh preserves the session for unreachable refresh failures', async () => {
+    storage.loadSession.mockReturnValue(
+      buildSession({
+        accessTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+        refreshTokenExpiresAt: new Date(Date.now() + 240_000).toISOString(),
+      })
+    );
+    networkStatus.canReachApi.mockReturnValue(false);
+    vi.useFakeTimers();
+
+    const { http } = setup();
+    await vi.advanceTimersByTimeAsync(60_001);
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    request.flush({}, { status: 0, statusText: 'Unknown Error' });
+    await vi.runAllTimersAsync();
+
+    expect(storage.clearSession).not.toHaveBeenCalled();
+    expect(networkStatus.checkConnectivity).toHaveBeenCalledTimes(1);
+    http.verify();
+  });
+
   it('shares API_UNREACHABLE bootstrap status across concurrent callers', async () => {
     const now = Date.now();
     storage.loadSession.mockReturnValue(
