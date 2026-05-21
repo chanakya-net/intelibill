@@ -7,6 +7,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
@@ -58,6 +59,57 @@ public class SalesControllerTests
             0m,
             [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
 
+    private static OfflineSalesSyncRequest CreateOfflineSyncRequest(Guid? batchId = null) =>
+        new(
+            "device-1",
+            [
+                new OfflineSaleSyncRequest(
+                    $"offline-{Guid.NewGuid():N}",
+                    "INV-2025-26-000001",
+                    DateTimeOffset.UtcNow,
+                    null,
+                    "Ravi Kumar",
+                    "+919876543210",
+                    PaymentMethod.Cash,
+                    118m,
+                    0m,
+                    100m,
+                    118m,
+                    0m,
+                    18m,
+                    118m,
+                    InstantDiscountType.None,
+                    0m,
+                    null,
+                    null,
+                    null,
+                    null,
+                    [
+                        new OfflineSaleSyncLineRequest(
+                            "BC-001",
+                            "B-01",
+                            "Rice",
+                            1m,
+                            80m,
+                            100m,
+                            120m,
+                            18m,
+                            false,
+                            batchId ?? Guid.NewGuid(),
+                            100m,
+                            0m,
+                            0m,
+                            100m,
+                            18m,
+                            118m,
+                            null,
+                            null,
+                            InstantDiscountType.None,
+                            0m,
+                            null)
+                    ])
+            ]);
+
     private static SaleDto CreateDto() =>
         new(
             Guid.NewGuid(),
@@ -97,6 +149,16 @@ public class SalesControllerTests
         SetUserClaims();
 
         var result = await _controller.RecordSale(CreateRequest(), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task SyncOfflineSales_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.SyncOfflineSales(CreateOfflineSyncRequest(), CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -161,6 +223,17 @@ public class SalesControllerTests
     }
 
     [Fact]
+    public async Task SyncOfflineSales_WhenNoActiveShopClaim_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        var result = await _controller.SyncOfflineSales(CreateOfflineSyncRequest(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
     public async Task RecordSale_WhenValid_ReturnsCreated()
     {
         var userId = Guid.NewGuid();
@@ -192,6 +265,44 @@ public class SalesControllerTests
                 && c.Items.Count == 1
                 && c.Items[0].Barcode == "BC-001"
                 && c.Items[0].InventoryBatchId == batchId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SyncOfflineSales_WhenValid_ReturnsOkAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateOfflineSyncRequest(batchId);
+        var response = new OfflineSalesSyncResponseDto(
+            [new OfflineSaleSyncResultDto(
+                request.Sales[0].ClientSaleId,
+                "created",
+                Guid.NewGuid(),
+                request.Sales[0].InvoiceNumber,
+                [])]);
+
+        _bus.InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(response);
+
+        var result = await _controller.SyncOfflineSales(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(response, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(
+            Arg.Is<SyncOfflineSalesCommand>(c =>
+                c.ActorUserId == userId
+                && c.ShopId == shopId
+                && c.DeviceId == request.DeviceId
+                && c.Sales.Count == 1
+                && c.Sales[0].InvoiceNumber == request.Sales[0].InvoiceNumber
+                && c.Sales[0].Items[0].InventoryBatchId == batchId),
             Arg.Any<CancellationToken>());
     }
 

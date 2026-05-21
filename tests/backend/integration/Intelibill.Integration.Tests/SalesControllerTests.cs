@@ -205,7 +205,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId)
+    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales/invoice-leases/reserve");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -217,7 +217,11 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
+
+    private static string FormatInvoiceNumber(string prefix, int number, int padding) =>
+        $"{prefix}{number.ToString($"D{padding}", System.Globalization.CultureInfo.InvariantCulture)}";
 
     private static async Task<(Guid UserId, string Email, string Password)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId)
     {
@@ -399,6 +403,346 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.False(string.IsNullOrWhiteSpace(firstLine));
         using var doc = JsonDocument.Parse(firstLine!);
         Assert.Equal("metadata", doc.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task OfflineSync_HappyPath_CreatesSaleWithFrozenValues()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var itemId = inboundBody.GetProperty("itemId").GetGuid();
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var leaseBody = await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-1");
+        var prefix = leaseBody.GetProperty("prefix").GetString()!;
+        var padding = leaseBody.GetProperty("numberPadding").GetInt32();
+        var startNumber = leaseBody.GetProperty("rangeStart").GetInt32();
+        var invoiceNumber = FormatInvoiceNumber(prefix, startNumber, padding);
+
+        var soldAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+
+        using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        syncRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        syncRequest.Content = JsonContent.Create(new
+        {
+            deviceId = "device-1",
+            sales = new[]
+            {
+                new
+                {
+                    clientSaleId,
+                    invoiceNumber,
+                    soldAt,
+                    paymentMethod = (int)PaymentMethod.Cash,
+                    paidAmount = 236m,
+                    dueAmount = 0m,
+                    subtotalBeforeDiscount = 200m,
+                    totalBeforeDiscount = 236m,
+                    totalDiscountAmount = 0m,
+                    totalTaxAmount = 36m,
+                    totalAmount = 236m,
+                    saleDiscountOverrideType = (int)InstantDiscountType.None,
+                    saleDiscountOverrideValue = 0m,
+                    items = new[]
+                    {
+                        new
+                        {
+                            barcode,
+                            batchNumber = "B-001",
+                            itemName = "Test Item",
+                            quantity = 2m,
+                            costPrice = 80m,
+                            salesPrice = 100m,
+                            mrp = 120m,
+                            taxRatePercent = 18m,
+                            isPriceIncludingTax = false,
+                            inventoryBatchId = batchId,
+                            preTaxAmountBeforeDiscount = 200m,
+                            itemDiscountAmount = 0m,
+                            saleDiscountAmount = 0m,
+                            taxableAmount = 200m,
+                            taxAmount = 36m,
+                            totalAmount = 236m,
+                            itemDiscountOverrideType = (int)InstantDiscountType.None,
+                            itemDiscountOverrideValue = 0m,
+                        },
+                    },
+                },
+            },
+        });
+
+        var response = await client.SendAsync(syncRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var result = body.GetProperty("results").EnumerateArray().Single();
+        Assert.Equal(clientSaleId, result.GetProperty("clientSaleId").GetString());
+        Assert.Equal("created", result.GetProperty("status").GetString());
+        var saleId = result.GetProperty("saleId").GetGuid();
+        Assert.NotEqual(Guid.Empty, saleId);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var sale = await db.Sales.Include(s => s.Items).FirstOrDefaultAsync(s => s.Id == saleId);
+        Assert.NotNull(sale);
+        Assert.Equal(invoiceNumber, sale!.InvoiceNumber);
+        Assert.Equal(236m, sale.TotalAmount);
+        Assert.Equal(SaleSource.Offline, sale.Source);
+        Assert.Equal("device-1", sale.DeviceId);
+        Assert.Equal(clientSaleId, sale.ClientSaleId);
+        Assert.NotNull(sale.SyncedAt);
+        Assert.Single(sale.Items);
+        Assert.Equal(236m, sale.Items[0].TotalAmount);
+
+        var batch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.Id == batchId);
+        Assert.NotNull(batch);
+        Assert.Equal(8m, batch!.Quantity);
+
+        var inventory = await db.Inventory.FirstOrDefaultAsync(i => i.ItemId == itemId);
+        Assert.NotNull(inventory);
+        Assert.Equal(8m, inventory!.Quantity);
+    }
+
+    [Fact]
+    public async Task OfflineSync_DuplicateRequest_ReturnsExistingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 5m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var leaseBody = await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-1");
+        var prefix = leaseBody.GetProperty("prefix").GetString()!;
+        var padding = leaseBody.GetProperty("numberPadding").GetInt32();
+        var startNumber = leaseBody.GetProperty("rangeStart").GetInt32();
+        var invoiceNumber = FormatInvoiceNumber(prefix, startNumber, padding);
+
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+        var soldAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+
+        var payload = new
+        {
+            deviceId = "device-1",
+            sales = new[]
+            {
+                new
+                {
+                    clientSaleId,
+                    invoiceNumber,
+                    soldAt,
+                    paymentMethod = (int)PaymentMethod.Cash,
+                    paidAmount = 118m,
+                    dueAmount = 0m,
+                    subtotalBeforeDiscount = 100m,
+                    totalBeforeDiscount = 118m,
+                    totalDiscountAmount = 0m,
+                    totalTaxAmount = 18m,
+                    totalAmount = 118m,
+                    saleDiscountOverrideType = (int)InstantDiscountType.None,
+                    saleDiscountOverrideValue = 0m,
+                    items = new[]
+                    {
+                        new
+                        {
+                            barcode,
+                            batchNumber = "B-001",
+                            itemName = "Test Item",
+                            quantity = 1m,
+                            costPrice = 80m,
+                            salesPrice = 100m,
+                            mrp = 120m,
+                            taxRatePercent = 18m,
+                            isPriceIncludingTax = false,
+                            inventoryBatchId = batchId,
+                            preTaxAmountBeforeDiscount = 100m,
+                            itemDiscountAmount = 0m,
+                            saleDiscountAmount = 0m,
+                            taxableAmount = 100m,
+                            taxAmount = 18m,
+                            totalAmount = 118m,
+                            itemDiscountOverrideType = (int)InstantDiscountType.None,
+                            itemDiscountOverrideValue = 0m,
+                        },
+                    },
+                },
+            },
+        };
+
+        using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        syncRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        syncRequest.Content = JsonContent.Create(payload);
+
+        var firstResponse = await client.SendAsync(syncRequest);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        var firstBody = await firstResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var firstSaleId = firstBody.GetProperty("results").EnumerateArray().Single().GetProperty("saleId").GetGuid();
+
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        replayRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        replayRequest.Content = JsonContent.Create(payload);
+
+        var replayResponse = await client.SendAsync(replayRequest);
+        Assert.Equal(HttpStatusCode.OK, replayResponse.StatusCode);
+        var replayBody = await replayResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var replayResult = replayBody.GetProperty("results").EnumerateArray().Single();
+        Assert.Equal(firstSaleId, replayResult.GetProperty("saleId").GetGuid());
+        Assert.Equal("duplicate", replayResult.GetProperty("status").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var saleCount = await db.Sales.CountAsync(s => s.ClientSaleId == clientSaleId);
+        Assert.Equal(1, saleCount);
+
+        var batch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.Id == batchId);
+        Assert.NotNull(batch);
+        Assert.Equal(4m, batch!.Quantity);
+    }
+
+    [Fact]
+    public async Task OfflineSync_WhenMembershipMissing_ReturnsForbidden()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        var (memberUserId, email, password) = await AddShopUserAsync(client, ownerToken, shopId);
+        var memberToken = await LoginAsync(client, email, password);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var memberships = await db.ShopMemberships
+                .Where(sm => sm.UserId == memberUserId && sm.ShopId == shopId)
+                .ToListAsync();
+            db.ShopMemberships.RemoveRange(memberships);
+            await db.SaveChangesAsync();
+        }
+
+        using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        syncRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
+        syncRequest.Content = JsonContent.Create(new
+        {
+            deviceId = "device-1",
+            sales = new[]
+            {
+                new
+                {
+                    clientSaleId = $"offline-{Guid.NewGuid():N}",
+                    invoiceNumber = "INV-TEST-0001",
+                    soldAt = DateTimeOffset.UtcNow,
+                    paymentMethod = (int)PaymentMethod.Cash,
+                    paidAmount = 118m,
+                    dueAmount = 0m,
+                    subtotalBeforeDiscount = 100m,
+                    totalBeforeDiscount = 118m,
+                    totalDiscountAmount = 0m,
+                    totalTaxAmount = 18m,
+                    totalAmount = 118m,
+                    saleDiscountOverrideType = (int)InstantDiscountType.None,
+                    saleDiscountOverrideValue = 0m,
+                    items = new[]
+                    {
+                        new
+                        {
+                            barcode = "BC-001",
+                            batchNumber = "B-001",
+                            itemName = "Test Item",
+                            quantity = 1m,
+                            costPrice = 80m,
+                            salesPrice = 100m,
+                            mrp = 120m,
+                            taxRatePercent = 18m,
+                            isPriceIncludingTax = false,
+                            inventoryBatchId = Guid.NewGuid(),
+                            preTaxAmountBeforeDiscount = 100m,
+                            itemDiscountAmount = 0m,
+                            saleDiscountAmount = 0m,
+                            taxableAmount = 100m,
+                            taxAmount = 18m,
+                            totalAmount = 118m,
+                            itemDiscountOverrideType = (int)InstantDiscountType.None,
+                            itemDiscountOverrideValue = 0m,
+                        },
+                    },
+                },
+            },
+        });
+
+        var response = await client.SendAsync(syncRequest);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OfflineSync_WhenBatchLimitExceeded_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var sales = Enumerable.Range(0, 51)
+            .Select(i => new
+            {
+                clientSaleId = $"offline-{i}-{Guid.NewGuid():N}",
+                invoiceNumber = $"INV-TEST-{i:0000}",
+                soldAt = DateTimeOffset.UtcNow,
+                paymentMethod = (int)PaymentMethod.Cash,
+                paidAmount = 118m,
+                dueAmount = 0m,
+                subtotalBeforeDiscount = 100m,
+                totalBeforeDiscount = 118m,
+                totalDiscountAmount = 0m,
+                totalTaxAmount = 18m,
+                totalAmount = 118m,
+                saleDiscountOverrideType = (int)InstantDiscountType.None,
+                saleDiscountOverrideValue = 0m,
+                items = new[]
+                {
+                    new
+                    {
+                        barcode = "BC-001",
+                        batchNumber = "B-001",
+                        itemName = "Test Item",
+                        quantity = 1m,
+                        costPrice = 80m,
+                        salesPrice = 100m,
+                        mrp = 120m,
+                        taxRatePercent = 18m,
+                        isPriceIncludingTax = false,
+                        inventoryBatchId = Guid.NewGuid(),
+                        preTaxAmountBeforeDiscount = 100m,
+                        itemDiscountAmount = 0m,
+                        saleDiscountAmount = 0m,
+                        taxableAmount = 100m,
+                        taxAmount = 18m,
+                        totalAmount = 118m,
+                        itemDiscountOverrideType = (int)InstantDiscountType.None,
+                        itemDiscountOverrideValue = 0m,
+                    },
+                },
+            })
+            .ToList();
+
+        using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        syncRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        syncRequest.Content = JsonContent.Create(new
+        {
+            deviceId = "device-1",
+            sales,
+        });
+
+        var response = await client.SendAsync(syncRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     // ======================= EXISTING TESTS (PRESERVED) =======================

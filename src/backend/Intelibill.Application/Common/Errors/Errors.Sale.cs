@@ -54,6 +54,24 @@ public static partial class Errors
         public static Error IdempotencyConflict =>
             Error.Conflict("Sale.IdempotencyConflict", "Idempotency key has already been used with different request content.");
 
+        public static Error OfflineSalesRequired =>
+            Error.Validation("Sale.OfflineSalesRequired", "At least one offline sale is required.");
+
+        public static Error OfflineBatchLimitExceeded =>
+            Error.Validation("Sale.OfflineBatchLimitExceeded", "Offline sale sync supports up to 50 sales per request.");
+
+        public static Error ClientSaleIdRequired =>
+            Error.Validation("Sale.ClientSaleIdRequired", "Client sale id is required.");
+
+        public static Error InvoiceNumberRequired =>
+            Error.Validation("Sale.InvoiceNumberRequired", "Invoice number is required.");
+
+        public static Error InvoiceNumberAlreadyUsed =>
+            Error.Conflict("Sale.InvoiceNumberAlreadyUsed", "Invoice number is already used for another sale.");
+
+        public static Error InvoiceLeaseNotFound =>
+            Error.Validation("Sale.InvoiceLeaseNotFound", "Invoice number is not reserved for this device.");
+
         public static Error PaidAndDueAmountMismatch =>
             Error.Validation("Sale.PaidAndDueAmountMismatch", "Paid amount and due amount must match sale total.");
 

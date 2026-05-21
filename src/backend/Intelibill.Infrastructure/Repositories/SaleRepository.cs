@@ -25,6 +25,26 @@ internal sealed class SaleRepository(ApplicationDbContext context)
                 && s.ActorUserId == actorUserId
                 && s.IdempotencyKey == idempotencyKey, cancellationToken);
 
+    public async Task<Sale?> GetByClientSaleIdAsync(
+        Guid shopId,
+        string deviceId,
+        string clientSaleId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s =>
+                s.ShopId == shopId
+                && s.DeviceId == deviceId
+                && s.ClientSaleId == clientSaleId,
+                cancellationToken);
+
+    public async Task<Sale?> GetByInvoiceNumberAsync(Guid shopId, string invoiceNumber, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.ShopId == shopId && s.InvoiceNumber == invoiceNumber, cancellationToken);
+
     public async Task<IReadOnlyList<Sale>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)

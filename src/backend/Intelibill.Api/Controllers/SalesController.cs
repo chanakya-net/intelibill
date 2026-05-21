@@ -6,6 +6,7 @@ using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
@@ -162,6 +163,69 @@ public sealed class SalesController : AuthenticatedControllerBase
                 ActiveShopId!.Value,
                 request.DeviceId,
                 request.BlockSize),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("offline-sync")]
+    [Authorize(Policy = "OwnerManagerOrStaff")]
+    public async Task<IActionResult> SyncOfflineSales(
+        [FromBody] OfflineSalesSyncRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(
+            new SyncOfflineSalesCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.DeviceId,
+                request.Sales.Select(s => new OfflineSaleSyncCommand(
+                    s.ClientSaleId,
+                    s.InvoiceNumber,
+                    s.SoldAt,
+                    s.CustomerId,
+                    s.CustomerName,
+                    s.CustomerPhone,
+                    s.PaymentMethod,
+                    s.PaidAmount,
+                    s.DueAmount,
+                    s.SubtotalBeforeDiscount,
+                    s.TotalBeforeDiscount,
+                    s.TotalDiscountAmount,
+                    s.TotalTaxAmount,
+                    s.TotalAmount,
+                    s.SaleDiscountOverrideType,
+                    s.SaleDiscountOverrideValue,
+                    s.ConfiguredSaleRuleId,
+                    s.ConfiguredSaleRuleType,
+                    s.ConfiguredSaleRulePercentage,
+                    s.ConfiguredSaleRuleThresholdAmount,
+                    s.Items.Select(i => new OfflineSaleSyncLineCommand(
+                        i.Barcode,
+                        i.BatchNumber,
+                        i.ItemName,
+                        i.Quantity,
+                        i.CostPrice,
+                        i.SalesPrice,
+                        i.Mrp,
+                        i.TaxRatePercent,
+                        i.IsPriceIncludingTax,
+                        i.InventoryBatchId,
+                        i.PreTaxAmountBeforeDiscount,
+                        i.ItemDiscountAmount,
+                        i.SaleDiscountAmount,
+                        i.TaxableAmount,
+                        i.TaxAmount,
+                        i.TotalAmount,
+                        i.ConfiguredBatchRuleId,
+                        i.ConfiguredBatchRulePercentage,
+                        i.ItemDiscountOverrideType,
+                        i.ItemDiscountOverrideValue,
+                        i.HsnCode)).ToList()))
+                    .ToList()),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -357,6 +421,56 @@ public sealed record RecordSaleRequest(
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,
     int? BlockSize = null);
+
+public sealed record OfflineSalesSyncRequest(
+    string DeviceId,
+    IReadOnlyList<OfflineSaleSyncRequest> Sales);
+
+public sealed record OfflineSaleSyncRequest(
+    string ClientSaleId,
+    string InvoiceNumber,
+    DateTimeOffset SoldAt,
+    Guid? CustomerId,
+    string? CustomerName,
+    string? CustomerPhone,
+    PaymentMethod PaymentMethod,
+    decimal PaidAmount,
+    decimal DueAmount,
+    decimal SubtotalBeforeDiscount,
+    decimal TotalBeforeDiscount,
+    decimal TotalDiscountAmount,
+    decimal TotalTaxAmount,
+    decimal TotalAmount,
+    InstantDiscountType SaleDiscountOverrideType,
+    decimal SaleDiscountOverrideValue,
+    Guid? ConfiguredSaleRuleId,
+    DiscountRuleType? ConfiguredSaleRuleType,
+    decimal? ConfiguredSaleRulePercentage,
+    decimal? ConfiguredSaleRuleThresholdAmount,
+    IReadOnlyList<OfflineSaleSyncLineRequest> Items);
+
+public sealed record OfflineSaleSyncLineRequest(
+    string Barcode,
+    string BatchNumber,
+    string ItemName,
+    decimal Quantity,
+    decimal CostPrice,
+    decimal SalesPrice,
+    decimal Mrp,
+    decimal TaxRatePercent,
+    bool IsPriceIncludingTax,
+    Guid InventoryBatchId,
+    decimal PreTaxAmountBeforeDiscount,
+    decimal ItemDiscountAmount,
+    decimal SaleDiscountAmount,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal TotalAmount,
+    Guid? ConfiguredBatchRuleId,
+    decimal? ConfiguredBatchRulePercentage,
+    InstantDiscountType ItemDiscountOverrideType,
+    decimal ItemDiscountOverrideValue,
+    string? HsnCode);
 
 public sealed record RecordSaleItemRequest(
     string Barcode,
