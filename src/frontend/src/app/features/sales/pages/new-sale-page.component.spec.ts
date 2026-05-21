@@ -2515,6 +2515,17 @@ describe('NewSalePageComponent', () => {
       expect(component.isSnapshotTooOld()).toBe(true);
     });
 
+    it('isSnapshotTooOld returns false when snapshot timestamp is missing or invalid', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.snapshotCompletedAt.set(null);
+      expect(component.isSnapshotTooOld()).toBe(false);
+
+      component.snapshotCompletedAt.set('not-a-date');
+      expect(component.isSnapshotTooOld()).toBe(false);
+    });
+
     it('onOfflineDone navigates to /sales and clears confirmation', () => {
       networkStatus.canReachApi.set(false);
 

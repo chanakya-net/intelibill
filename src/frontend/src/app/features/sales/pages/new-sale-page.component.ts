@@ -235,7 +235,7 @@ export class NewSalePageComponent {
 
   readonly isSnapshotTooOld = computed(() => {
     const ageMs = this.snapshotAgeMs();
-    if (ageMs === null) return true;
+    if (ageMs === null) return false;
     return ageMs > MAX_OFFLINE_AGE_MS;
   });
 

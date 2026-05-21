@@ -89,7 +89,7 @@ export class SaleInvoicePrintPageComponent {
 
   private async loadOfflineInvoice(clientSaleId: string, shopId: string): Promise<void> {
     const settings = this.deviceSettingsStorage.loadSettings(shopId);
-    const deviceId = settings?.deviceId ?? this.deviceSettingsStorage.getOrCreateDeviceId(shopId);
+    const deviceId = settings?.deviceId ?? '';
 
     if (!deviceId) {
       this.errorMessage.set('Offline device was not found.');

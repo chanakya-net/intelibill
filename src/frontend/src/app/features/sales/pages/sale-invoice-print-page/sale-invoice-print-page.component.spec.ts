@@ -8,7 +8,9 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
+import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { ShopService } from '../../../shops/services/shop.service';
+import { OfflineSalesQueueIndexedDbService } from '../../services/offline-sales-queue-indexeddb.service';
 import { SaleDto, SaleService } from '../../services/sale.service';
 import { SaleInvoicePrintPageComponent } from './sale-invoice-print-page.component';
 
@@ -63,14 +65,27 @@ describe('SaleInvoicePrintPageComponent', () => {
     session: vi.fn(),
   };
 
-  const createActivatedRoute = (template?: string, saleId = 'sale-1') => ({
+  const deviceSettingsStorage = {
+    loadSettings: vi.fn(),
+    getOrCreateDeviceId: vi.fn(),
+  };
+
+  const offlineQueueDb = {
+    getQueuedSale: vi.fn(),
+  };
+
+  const createActivatedRoute = (template?: string, saleId = 'sale-1', queryParams: Record<string, string> = {}) => ({
     snapshot: {
       paramMap: convertToParamMap({ saleId }),
-      queryParamMap: convertToParamMap(template === undefined ? {} : { template }),
+      queryParamMap: convertToParamMap({ ...(template === undefined ? {} : { template }), ...queryParams }),
     },
   });
 
-  const createComponent = (template?: string): ComponentFixture<SaleInvoicePrintPageComponent> => {
+  const createComponent = (
+    template?: string,
+    saleId = 'sale-1',
+    queryParams: Record<string, string> = {}
+  ): ComponentFixture<SaleInvoicePrintPageComponent> => {
     TestBed.configureTestingModule({
       imports: [
         CommonModule,
@@ -82,10 +97,12 @@ describe('SaleInvoicePrintPageComponent', () => {
         SaleInvoicePrintPageComponent,
       ],
       providers: [
-        { provide: ActivatedRoute, useValue: createActivatedRoute(template) },
+        { provide: ActivatedRoute, useValue: createActivatedRoute(template, saleId, queryParams) },
         { provide: SaleService, useValue: saleService },
         { provide: ShopService, useValue: shopService },
         { provide: AuthService, useValue: authService },
+        { provide: OfflineSalesDeviceSettingsStorage, useValue: deviceSettingsStorage },
+        { provide: OfflineSalesQueueIndexedDbService, useValue: offlineQueueDb },
       ],
     });
 
@@ -98,10 +115,16 @@ describe('SaleInvoicePrintPageComponent', () => {
     saleService.getSaleById.mockReset();
     shopService.getShopDetails.mockReset();
     authService.session.mockReset();
+    deviceSettingsStorage.loadSettings.mockReset();
+    deviceSettingsStorage.getOrCreateDeviceId.mockReset();
+    offlineQueueDb.getQueuedSale.mockReset();
     saleService.getSaleById.mockReturnValue(of(sale));
     shopService.getShopDetails.mockReturnValue(of(shop));
+    deviceSettingsStorage.loadSettings.mockReturnValue(null);
+    offlineQueueDb.getQueuedSale.mockResolvedValue(null);
     authService.session.mockReturnValue({
       activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
     });
   });
 
@@ -184,5 +207,16 @@ describe('SaleInvoicePrintPageComponent', () => {
     fixture.componentInstance.onPrintAgain();
 
     expect(window.print).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a device id when offline invoice settings are missing', async () => {
+    const fixture = createComponent(undefined, 'offline-sale-1', { offline: '1' });
+    await Promise.resolve();
+
+    expect(deviceSettingsStorage.loadSettings).toHaveBeenCalledWith('shop-1');
+    expect(deviceSettingsStorage.getOrCreateDeviceId).not.toHaveBeenCalled();
+    expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.errorMessage()).toBe('Offline device was not found.');
+    expect(window.print).not.toHaveBeenCalled();
   });
 });
