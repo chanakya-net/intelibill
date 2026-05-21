@@ -16,11 +16,12 @@ describe('authGuard', () => {
   const urlTree = { redirected: true } as unknown;
   const router = {
     createUrlTree: vi.fn<Router['createUrlTree']>().mockReturnValue(urlTree as never),
+    parseUrl: vi.fn<Router['parseUrl']>((url: string) => ({ toString: () => url } as never)),
   };
 
-  function runGuard(routeData?: Record<string, unknown>): Promise<boolean | unknown> {
+  function runGuard(routeData?: Record<string, unknown>, url = '/sales/new'): Promise<boolean | unknown> {
     const route = { data: routeData ?? {} } as ActivatedRouteSnapshot;
-    const state = { url: '/sales/new' } as RouterStateSnapshot;
+    const state = { url } as RouterStateSnapshot;
 
     return TestBed.runInInjectionContext(async () => {
       const result = authGuard(route, state) as any;
@@ -48,6 +49,7 @@ describe('authGuard', () => {
     authService.bootstrapSessionWithStatus.mockReset();
     authService.canUseOfflineSalesAuthGrace.mockReset();
     router.createUrlTree.mockClear();
+    router.parseUrl.mockClear();
   });
 
   it('allows when user is already authenticated', async () => {
@@ -78,9 +80,19 @@ describe('authGuard', () => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));
 
-    await expect(runGuard({})).resolves.toBe(urlTree);
+    await expect(runGuard({}, '/dashboard')).resolves.toBe(urlTree);
     expect(authService.canUseOfflineSalesAuthGrace).not.toHaveBeenCalled();
     expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('allows configured offline-grace paths on parent protected route', async () => {
+    authService.isAuthenticated.mockReturnValue(false);
+    authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));
+    authService.canUseOfflineSalesAuthGrace.mockResolvedValue(true);
+
+    await expect(
+      runGuard({ allowOfflineSalesGracePaths: ['/sales/new'] }, '/sales/new')
+    ).resolves.toBe(true);
   });
 
   it('uses normal auth success when API is reachable', async () => {

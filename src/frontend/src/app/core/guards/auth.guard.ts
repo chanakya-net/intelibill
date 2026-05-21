@@ -5,7 +5,7 @@ import { from, of, switchMap } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 
-export const authGuard: CanActivateFn = (route) => {
+export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -19,7 +19,17 @@ export const authGuard: CanActivateFn = (route) => {
         return of(true);
       }
 
-      if (status === 'API_UNREACHABLE' && route.data?.['allowOfflineSalesGrace'] === true) {
+      const allowOfflineSalesGrace = route.data?.['allowOfflineSalesGrace'] === true;
+      const allowOfflineSalesGracePaths = route.data?.['allowOfflineSalesGracePaths'];
+      const isOfflineSalesGracePath =
+        Array.isArray(allowOfflineSalesGracePaths) &&
+        allowOfflineSalesGracePaths.some(
+          (path) =>
+            typeof path === 'string' &&
+            router.parseUrl(path).toString() === router.parseUrl(state.url).toString()
+        );
+
+      if (status === 'API_UNREACHABLE' && (allowOfflineSalesGrace || isOfflineSalesGracePath)) {
         return from(authService.canUseOfflineSalesAuthGrace()).pipe(
           switchMap((canUseGrace) => of(canUseGrace ? true : router.createUrlTree(['/login'])))
         );
