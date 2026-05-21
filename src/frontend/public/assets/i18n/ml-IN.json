@@ -1076,5 +1076,29 @@
       "endsAt": "അവസാനിക്കുന്നത്",
       "isActive": "നില"
     }
+  },
+  "offlineSalesDevice": {
+    "title": "Offline billing for this device",
+    "description": "Enable offline billing for this browser/device only. Setup requires the API to be reachable and downloads a full snapshot before enabling.",
+    "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",
+    "apiUnreachable": "API is unreachable. Reconnect to the internet to enable offline billing.",
+    "deviceLabel": "Device label",
+    "deviceLabelPlaceholder": "e.g. Counter 1 / Front desk",
+    "saveLabel": "Save label",
+    "status": "Status",
+    "statusEnabled": "Enabled",
+    "statusNeedsSetup": "Not enabled",
+    "statusApiUnreachable": "API unreachable",
+    "snapshotAge": "Last snapshot age",
+    "invoiceRemaining": "Invoices remaining",
+    "enable": "Enable offline billing",
+    "enabling": "Enabling…",
+    "errors": {
+      "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",
+      "apiUnreachable": "API is unreachable. Try again when connected.",
+      "snapshotIncomplete": "Snapshot setup did not complete. Please retry.",
+      "leaseUnavailable": "Invoice lease could not be reserved. Please retry.",
+      "enableFailed": "Offline setup failed. Please retry."
+    }
   }
 }

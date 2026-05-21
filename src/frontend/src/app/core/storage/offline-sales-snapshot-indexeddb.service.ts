@@ -80,6 +80,11 @@ interface ShopPointerRecord {
   readonly lastAttemptStatus?: OfflineSalesSnapshotAttemptStatus;
 }
 
+export interface OfflineUsableSnapshotInfo {
+  readonly snapshotId: string;
+  readonly completedAt: string;
+}
+
 interface SnapshotScopedRecord<T> {
   readonly key: string;
   readonly snapshotId: string;
@@ -268,6 +273,26 @@ export class OfflineSalesSnapshotIndexedDbService {
     });
 
     return pointer?.usableSnapshotId ?? null;
+  }
+
+  async getUsableSnapshotInfo(shopId: string): Promise<OfflineUsableSnapshotInfo | null> {
+    if (!shopId || typeof indexedDB === 'undefined') {
+      return null;
+    }
+
+    const database = await this.openDatabase();
+    const pointer = await new Promise<ShopPointerRecord | undefined>((resolve, reject) => {
+      const transaction = database.transaction(this.shopPointersStore, 'readonly');
+      const request = transaction.objectStore(this.shopPointersStore).get(shopId);
+      request.onsuccess = () => resolve(request.result as ShopPointerRecord | undefined);
+      request.onerror = () => reject(request.error);
+    });
+
+    if (!pointer?.usableSnapshotId || !pointer.usableCompletedAt) {
+      return null;
+    }
+
+    return { snapshotId: pointer.usableSnapshotId, completedAt: pointer.usableCompletedAt };
   }
 
   private async writeEntity<T>(

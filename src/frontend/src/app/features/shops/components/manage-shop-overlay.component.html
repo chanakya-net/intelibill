@@ -76,6 +76,25 @@
               (keydown.enter)="onStepIconClick(value)"
               (keydown.space)="onStepIconClick(value)"
             >
+              <i class="pi pi-wifi"></i>
+            </span>
+          </ng-template>
+        </p-step>
+        <p-step [value]="4">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
+            >
               <i class="pi pi-check"></i>
             </span>
           </ng-template>
@@ -306,6 +325,114 @@
         </p-step-panel>
 
         <p-step-panel [value]="3">
+          <ng-template #content>
+            <div class="overlay-form space-y-4">
+              @if (isSelectedShopOwnerOrManager()) {
+                <div class="offline-card">
+                  <h3 class="text-lg font-semibold mb-1">{{ 'offlineSalesDevice.title' | transloco }}</h3>
+                  <p class="text-sm text-muted">{{ 'offlineSalesDevice.description' | transloco }}</p>
+
+                  @if (!networkStatus.canReachApi()) {
+                    <p class="owner-hint mt-3">
+                      {{ 'offlineSalesDevice.apiUnreachable' | transloco }}
+                    </p>
+                  }
+
+                  <div class="field-wrap space-y-1.5 mt-4">
+                    <label for="offline-device-label">{{ 'offlineSalesDevice.deviceLabel' | transloco }}</label>
+                    <input
+                      id="offline-device-label"
+                      type="text"
+                      pInputText
+                      class="w-full"
+                      [disabled]="isSubmitting() || isLoadingDetails()"
+                      [placeholder]="'offlineSalesDevice.deviceLabelPlaceholder' | transloco"
+                      [ngModel]="offlineDeviceLabel()"
+                      (ngModelChange)="offlineDeviceLabel.set($event)"
+                    />
+                    <div class="flex justify-end pt-2">
+                      <p-button
+                        type="button"
+                        [label]="'offlineSalesDevice.saveLabel' | transloco"
+                        severity="secondary"
+                        [text]="true"
+                        [disabled]="isSubmitting() || isLoadingDetails()"
+                        (onClick)="onSaveOfflineDeviceLabel()"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="offline-status mt-4">
+                    <div class="status-row">
+                      <span class="status-label">{{ 'offlineSalesDevice.status' | transloco }}</span>
+                      <span class="status-value">
+                        @switch (offlineReadinessState()) {
+                          @case ('enabled') { {{ 'offlineSalesDevice.statusEnabled' | transloco }} }
+                          @case ('apiUnreachable') { {{ 'offlineSalesDevice.statusApiUnreachable' | transloco }} }
+                          @default { {{ 'offlineSalesDevice.statusNeedsSetup' | transloco }} }
+                        }
+                      </span>
+                    </div>
+
+                    @if (offlineSnapshotAgeLabel()) {
+                      <div class="status-row">
+                        <span class="status-label">{{ 'offlineSalesDevice.snapshotAge' | transloco }}</span>
+                        <span class="status-value">{{ offlineSnapshotAgeLabel() }}</span>
+                      </div>
+                    }
+
+                    @if (offlineInvoiceRemainingCount() !== null) {
+                      <div class="status-row">
+                        <span class="status-label">{{ 'offlineSalesDevice.invoiceRemaining' | transloco }}</span>
+                        <span class="status-value">{{ offlineInvoiceRemainingCount() }}</span>
+                      </div>
+                    }
+                  </div>
+
+                  @if (offlineEnablementErrorKey()) {
+                    <p class="server-error mt-4">{{ offlineEnablementErrorKey() | transloco }}</p>
+                  }
+
+                  <div class="flex pt-4 justify-between">
+                    <p-button
+                      type="button"
+                      [label]="'shops.previousStep' | transloco"
+                      icon="pi pi-arrow-left"
+                      severity="secondary"
+                      [text]="true"
+                      [disabled]="isSubmitting() || isLoadingDetails()"
+                      (onClick)="onPreviousStep()"
+                    />
+                    <button
+                      pButton
+                      type="button"
+                      [label]="isOfflineEnablePending() ? ('offlineSalesDevice.enabling' | transloco) : ('offlineSalesDevice.enable' | transloco)"
+                      [loading]="isOfflineEnablePending()"
+                      [disabled]="!canEnableOfflineBilling() || isOfflineEnablePending()"
+                      class="save-button"
+                      (click)="onEnableOfflineBilling()"
+                    ></button>
+                  </div>
+                </div>
+              }
+
+              <div class="flex justify-end pt-2">
+                <button
+                  pButton
+                  type="button"
+                  [label]="'shops.nextStep' | transloco"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="save-button"
+                  [disabled]="isSubmitting() || isLoadingDetails()"
+                  (click)="activeStep.set(4)"
+                ></button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="4">
           <ng-template #content>
             <div class="flex flex-col items-center gap-4 py-8">
               <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
