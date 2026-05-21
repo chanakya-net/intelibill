@@ -88,4 +88,19 @@ public class SyncOfflineSalesCommandValidatorTests
 
         result.ShouldNotHaveAnyValidationErrors();
     }
+
+    [Fact]
+    public void Validate_WhenSalePayloadInvalid_DoesNotRejectEnvelope()
+    {
+        var invalidSale = ValidSale() with
+        {
+            ClientSaleId = "",
+            InvoiceNumber = "",
+            Items = [],
+        };
+
+        var result = _validator.TestValidate(ValidCommand([invalidSale]));
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
 }

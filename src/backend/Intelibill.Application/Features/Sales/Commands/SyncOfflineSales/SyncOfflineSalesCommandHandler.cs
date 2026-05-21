@@ -1,3 +1,4 @@
+using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -7,6 +8,7 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
@@ -14,7 +16,9 @@ public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,
     ISaleLineValidator saleLineValidator,
+    ICustomerResolver customerResolver,
     ISaleRepository saleRepository,
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
     IUnitOfWork unitOfWork)
 {
@@ -46,7 +50,24 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         foreach (var sale in command.Sales)
         {
-            var normalizedClientSaleId = sale.ClientSaleId.Trim();
+            var normalizedClientSaleId = string.IsNullOrWhiteSpace(sale.ClientSaleId)
+                ? string.Empty
+                : sale.ClientSaleId.Trim();
+
+            if (string.IsNullOrWhiteSpace(normalizedClientSaleId))
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.ClientSaleIdRequired));
+                continue;
+            }
+
+            if (normalizedClientSaleId.Length > 120)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.ClientSaleIdTooLong", "Client sale id must be 120 characters or less.")));
+                continue;
+            }
+
             var requestHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, deviceId, sale);
 
             var existingSale = await saleRepository.GetByClientSaleIdAsync(
@@ -72,7 +93,117 @@ public sealed class SyncOfflineSalesCommandHandler(
                 continue;
             }
 
-            if (!TryMatchLease(activeLeases, sale.InvoiceNumber, out _))
+            var invoiceNumber = string.IsNullOrWhiteSpace(sale.InvoiceNumber)
+                ? string.Empty
+                : sale.InvoiceNumber.Trim();
+
+            if (string.IsNullOrWhiteSpace(invoiceNumber))
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InvoiceNumberRequired));
+                continue;
+            }
+
+            if (invoiceNumber.Length > 40)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.InvoiceNumberTooLong", "Invoice number must be 40 characters or less.")));
+                continue;
+            }
+
+            if (sale.Items.Count == 0)
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.ItemsRequired));
+                continue;
+            }
+
+            if (sale.PaidAmount < 0)
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.PaidAmountInvalid));
+                continue;
+            }
+
+            if (sale.DueAmount < 0)
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.DueAmountInvalid));
+                continue;
+            }
+
+            if (sale.PaymentMethod == PaymentMethod.Credit && sale.DueAmount <= 0)
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.CreditRequiresDueAmount));
+                continue;
+            }
+
+            if (sale.DueAmount > 0 && !sale.CustomerId.HasValue && string.IsNullOrWhiteSpace(sale.CustomerPhone))
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.CustomerIdentityRequiredForDue));
+                continue;
+            }
+
+            if (sale.TotalAmount < 0)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.TotalAmountInvalid", "Total amount cannot be negative.")));
+                continue;
+            }
+
+            if (sale.TotalTaxAmount < 0)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.TotalTaxAmountInvalid", "Total tax amount cannot be negative.")));
+                continue;
+            }
+
+            if (sale.SubtotalBeforeDiscount < 0)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.SubtotalBeforeDiscountInvalid", "Subtotal before discount cannot be negative.")));
+                continue;
+            }
+
+            if (sale.TotalBeforeDiscount < 0)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.TotalBeforeDiscountInvalid", "Total before discount cannot be negative.")));
+                continue;
+            }
+
+            if (sale.TotalDiscountAmount < 0)
+            {
+                results.Add(BuildErrorResult(
+                    normalizedClientSaleId,
+                    Error.Validation("Sale.TotalDiscountAmountInvalid", "Total discount amount cannot be negative.")));
+                continue;
+            }
+
+            if (!AmountsMatch(sale.PaidAmount, sale.DueAmount, sale.TotalAmount))
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.PaidAndDueAmountMismatch));
+                continue;
+            }
+
+            var customerResolution = await customerResolver.ResolveAsync(
+                command.ShopId,
+                sale.CustomerId,
+                sale.CustomerPhone,
+                hasDueAmount: sale.DueAmount > 0,
+                sale.PaymentMethod,
+                cancellationToken);
+
+            if (customerResolution.IsError)
+            {
+                results.Add(BuildErrorResult(normalizedClientSaleId, customerResolution.FirstError));
+                continue;
+            }
+
+            var resolvedCustomer = customerResolution.Value;
+
+            if (!TryMatchLease(activeLeases, invoiceNumber, out _))
             {
                 results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InvoiceLeaseNotFound));
                 continue;
@@ -80,7 +211,7 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             var existingInvoiceSale = await saleRepository.GetByInvoiceNumberAsync(
                 command.ShopId,
-                sale.InvoiceNumber,
+                invoiceNumber,
                 cancellationToken);
 
             if (existingInvoiceSale is not null)
@@ -89,25 +220,83 @@ public sealed class SyncOfflineSalesCommandHandler(
                 continue;
             }
 
-            var lineCommands = sale.Items.Select(item =>
-                new RecordSaleItemCommand(
-                    item.Barcode,
-                    item.BatchNumber,
-                    item.ItemName,
-                    item.Quantity,
-                    item.CostPrice,
-                    item.SalesPrice,
-                    item.Mrp,
-                    item.TaxRatePercent,
-                    item.IsPriceIncludingTax,
-                    item.InventoryBatchId,
-                    ItemDiscount: null,
-                    ClientLineKey: null,
-                    HsnCode: item.HsnCode)).ToList();
+            var lineCommands = new List<RecordSaleItemCommand>(sale.Items.Count);
+            var lineByKey = new Dictionary<string, OfflineSaleSyncLineCommand>(sale.Items.Count);
 
-            var lineMap = lineCommands
-                .Zip(sale.Items, (cmd, line) => new { cmd, line })
-                .ToDictionary(x => x.cmd, x => x.line);
+            for (var i = 0; i < sale.Items.Count; i++)
+            {
+                var line = sale.Items[i];
+
+                if (string.IsNullOrWhiteSpace(line.Barcode))
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.BarcodeRequired", "Barcode is required.")));
+                    goto NextSale;
+                }
+
+                if (string.IsNullOrWhiteSpace(line.BatchNumber))
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.BatchNumberRequired", "Batch number is required.")));
+                    goto NextSale;
+                }
+
+                if (string.IsNullOrWhiteSpace(line.ItemName))
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.ItemNameRequired", "Item name is required.")));
+                    goto NextSale;
+                }
+
+                if (line.InventoryBatchId == Guid.Empty)
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.InventoryBatchIdRequired", "Inventory batch id is required.")));
+                    goto NextSale;
+                }
+
+                if (line.Quantity <= 0)
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.")));
+                    goto NextSale;
+                }
+
+                if (line.PreTaxAmountBeforeDiscount < 0
+                    || line.ItemDiscountAmount < 0
+                    || line.SaleDiscountAmount < 0
+                    || line.TaxableAmount < 0
+                    || line.TaxAmount < 0
+                    || line.TotalAmount < 0)
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Error.Validation("Sale.LineAmountsInvalid", "Line amounts cannot be negative.")));
+                    goto NextSale;
+                }
+
+                var lineKey = i.ToString(CultureInfo.InvariantCulture);
+                lineByKey.Add(lineKey, line);
+                lineCommands.Add(new RecordSaleItemCommand(
+                    line.Barcode,
+                    line.BatchNumber,
+                    line.ItemName,
+                    line.Quantity,
+                    line.CostPrice,
+                    line.SalesPrice,
+                    line.Mrp,
+                    line.TaxRatePercent,
+                    line.IsPriceIncludingTax,
+                    line.InventoryBatchId,
+                    ItemDiscount: null,
+                    ClientLineKey: lineKey,
+                    HsnCode: line.HsnCode));
+            }
 
             var warnings = new List<string>();
             var validation = await saleLineValidator.ValidateLinesAsync(
@@ -127,7 +316,15 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             foreach (var validated in validatedLines)
             {
-                var line = lineMap[validated.Command];
+                if (string.IsNullOrWhiteSpace(validated.Command.ClientLineKey)
+                    || !lineByKey.TryGetValue(validated.Command.ClientLineKey, out var line))
+                {
+                    results.Add(BuildErrorResult(
+                        normalizedClientSaleId,
+                        Errors.General.Unexpected("Offline sale line mapping failed.")));
+                    goto NextSale;
+                }
+
                 var saleItem = SaleItem.Create(
                     command.ShopId,
                     validated.Item.Id,
@@ -167,10 +364,10 @@ public sealed class SyncOfflineSalesCommandHandler(
                 command.ActorUserId,
                 offlineIdempotencyKey,
                 requestHash,
-                sale.InvoiceNumber,
-                sale.CustomerId,
-                sale.CustomerName,
-                sale.CustomerPhone,
+                invoiceNumber,
+                resolvedCustomer?.Id ?? sale.CustomerId,
+                resolvedCustomer?.Name ?? sale.CustomerName,
+                resolvedCustomer?.PhoneNumber ?? sale.CustomerPhone,
                 sale.PaymentMethod,
                 sale.SoldAt,
                 sale.PaidAmount,
@@ -208,7 +405,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     validated.Batch.Id,
                     StockTransactionType.Out,
                     -validated.Command.Quantity,
-                    sale.InvoiceNumber,
+                    invoiceNumber,
                     null,
                     sale.SoldAt,
                     command.ActorUserId,
@@ -221,7 +418,57 @@ public sealed class SyncOfflineSalesCommandHandler(
             }
 
             await saleRepository.AddAsync(saleEntity, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
+            {
+                var ledgerResult = CustomerLedgerEntry.Create(
+                    saleEntity.ShopId,
+                    saleEntity.CustomerId.Value,
+                    saleEntity.Id,
+                    CustomerLedgerEntryType.SaleDue,
+                    saleEntity.DueAmount,
+                    DateOnly.FromDateTime(saleEntity.SoldAt.UtcDateTime),
+                    $"Due recorded from sale {saleEntity.InvoiceNumber}",
+                    command.ActorUserId);
+
+                if (ledgerResult.IsError)
+                {
+                    results.Add(BuildErrorResult(normalizedClientSaleId, ledgerResult.FirstError));
+                    continue;
+                }
+
+                await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+            }
+
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                var concurrentSale = await saleRepository.GetByClientSaleIdAsync(
+                    command.ShopId,
+                    deviceId,
+                    normalizedClientSaleId,
+                    cancellationToken);
+
+                if (concurrentSale is null)
+                    throw;
+
+                if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
+                {
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
+                    continue;
+                }
+
+                results.Add(new OfflineSaleSyncResultDto(
+                    normalizedClientSaleId,
+                    StatusDuplicate,
+                    concurrentSale.Id,
+                    concurrentSale.InvoiceNumber,
+                    []));
+                continue;
+            }
 
             results.Add(new OfflineSaleSyncResultDto(
                 normalizedClientSaleId,
@@ -229,10 +476,17 @@ public sealed class SyncOfflineSalesCommandHandler(
                 saleEntity.Id,
                 saleEntity.InvoiceNumber,
                 []));
+
+        NextSale:
+            continue;
         }
 
         return new OfflineSalesSyncResponseDto(results);
     }
+
+    private static bool AmountsMatch(decimal paidAmount, decimal dueAmount, decimal totalAmount) =>
+        decimal.Round(paidAmount + dueAmount, 2, MidpointRounding.AwayFromZero) ==
+        decimal.Round(totalAmount, 2, MidpointRounding.AwayFromZero);
 
     private static bool TryMatchLease(
         IReadOnlyList<InvoiceLease> leases,
