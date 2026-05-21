@@ -5,6 +5,7 @@ import { NetworkStatusService } from './network-status.service';
 
 describe('NetworkStatusService', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
+  const serverTime = '2026-05-21T12:34:56.789Z';
 
   beforeEach(() => {
     fetchSpy = vi.spyOn(globalThis, 'fetch');
@@ -22,9 +23,13 @@ describe('NetworkStatusService', () => {
     return TestBed.inject(NetworkStatusService);
   }
 
+  function successfulPingResponse(time = serverTime): Response {
+    return new Response(JSON.stringify({ serverTime: time }), { status: 200 });
+  }
+
   it('initial browser online state reflects navigator.onLine', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
-    fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+    fetchSpy.mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
 
@@ -33,7 +38,7 @@ describe('NetworkStatusService', () => {
 
   it('browser offline event sets isOnline false and canReachApi false immediately', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
-    fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+    fetchSpy.mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
     expect(service.isOnline()).toBe(true);
@@ -45,17 +50,27 @@ describe('NetworkStatusService', () => {
     expect(service.canReachApi()).toBe(false);
   });
 
-  it('successful ping sets canReachApi true and updates lastVerifiedAt', async () => {
+  it('successful ping sets canReachApi true and stores the API serverTime', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
-    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ serverTime: new Date().toISOString() }), { status: 200 }));
+    fetchSpy.mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
-    const before = Date.now();
     await service.checkConnectivity();
 
     expect(service.canReachApi()).toBe(true);
-    expect(service.lastVerifiedAt()).not.toBeNull();
-    expect(service.lastVerifiedAt()!.getTime()).toBeGreaterThanOrEqual(before);
+    expect(service.lastVerifiedAt()?.toISOString()).toBe(serverTime);
+  });
+
+  it('does not ping when the browser is already offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    fetchSpy.mockResolvedValue(successfulPingResponse());
+
+    const service = makeService();
+    await service.checkConnectivity();
+
+    expect(service.isOnline()).toBe(false);
+    expect(service.canReachApi()).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('failed ping sets canReachApi false and does not update lastVerifiedAt', async () => {
@@ -87,7 +102,7 @@ describe('NetworkStatusService', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     fetchSpy
       .mockRejectedValueOnce(new TypeError('network error'))
-      .mockResolvedValue(new Response('{}', { status: 200 }));
+      .mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
     const checkPromise = service.checkConnectivity();
@@ -97,6 +112,23 @@ describe('NetworkStatusService', () => {
     expect(service.canReachApi()).toBe(true);
     expect(service.lastVerifiedAt()).not.toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops retrying when the browser goes offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    fetchSpy.mockRejectedValue(new TypeError('network error'));
+
+    const service = makeService();
+    const checkPromise = service.checkConnectivity();
+    await vi.advanceTimersByTimeAsync(1);
+
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    await vi.runAllTimersAsync();
+    await checkPromise;
+
+    expect(service.isOnline()).toBe(false);
+    expect(service.canReachApi()).toBe(false);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('exhausts all retries and sets canReachApi false', async () => {
@@ -124,7 +156,7 @@ describe('NetworkStatusService', () => {
 
     expect(service.isChecking()).toBe(true);
 
-    resolveFetch(new Response('{}', { status: 200 }));
+    resolveFetch(successfulPingResponse());
     await checkPromise;
 
     expect(service.isChecking()).toBe(false);
@@ -132,7 +164,7 @@ describe('NetworkStatusService', () => {
 
   it('ping fetch uses cache: no-store to bypass service worker cache', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
-    fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+    fetchSpy.mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
     await service.checkConnectivity();
@@ -145,7 +177,7 @@ describe('NetworkStatusService', () => {
 
   it('online event after offline triggers a connectivity check', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
-    fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+    fetchSpy.mockResolvedValue(successfulPingResponse());
 
     const service = makeService();
     expect(service.isOnline()).toBe(false);

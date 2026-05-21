@@ -5,6 +5,10 @@ const PING_TIMEOUT_MS = 5_000;
 const PING_MAX_RETRIES = 2;
 const PING_RETRY_DELAYS_MS = [500, 1_000] as const;
 
+type PingResponse = {
+  serverTime: string;
+};
+
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -29,19 +33,36 @@ export class NetworkStatusService {
   }
 
   async checkConnectivity(): Promise<void> {
+    if (!navigator.onLine) {
+      this.isOnline.set(false);
+      this.canReachApi.set(false);
+      return;
+    }
+
     if (this.isChecking()) return;
     this.isChecking.set(true);
 
     try {
       for (let attempt = 0; attempt <= PING_MAX_RETRIES; attempt++) {
-        if (attempt > 0) {
-          await delay(PING_RETRY_DELAYS_MS[attempt - 1]);
+        if (!navigator.onLine) {
+          this.isOnline.set(false);
+          this.canReachApi.set(false);
+          return;
         }
 
-        const success = await this.attemptPing();
-        if (success) {
+        if (attempt > 0) {
+          await delay(PING_RETRY_DELAYS_MS[attempt - 1]);
+          if (!navigator.onLine) {
+            this.isOnline.set(false);
+            this.canReachApi.set(false);
+            return;
+          }
+        }
+
+        const serverTime = await this.attemptPing();
+        if (serverTime) {
           this.canReachApi.set(true);
-          this.lastVerifiedAt.set(new Date());
+          this.lastVerifiedAt.set(serverTime);
           return;
         }
       }
@@ -51,7 +72,7 @@ export class NetworkStatusService {
     }
   }
 
-  private async attemptPing(): Promise<boolean> {
+  private async attemptPing(): Promise<Date | null> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
 
@@ -61,9 +82,16 @@ export class NetworkStatusService {
         cache: 'no-store',
         signal: controller.signal,
       });
-      return response.ok;
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = await response.json() as PingResponse;
+      const serverTime = new Date(payload.serverTime);
+
+      return Number.isNaN(serverTime.getTime()) ? null : serverTime;
     } catch {
-      return false;
+      return null;
     } finally {
       clearTimeout(timeout);
     }
