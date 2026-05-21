@@ -6,11 +6,16 @@ import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService, ShopUpdatePayload } from '../../../core/services/shop-updates-signalr.service';
+import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
+import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
+import { OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
+import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
 import { SaleService, SalePreviewDto } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
 import { NewSalePageComponent } from './new-sale-page.component';
@@ -58,6 +63,7 @@ describe('NewSalePageComponent', () => {
       activeShopId: 'shop-1',
       shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
     }),
+    canUseOfflineSalesAuthGrace: vi.fn(async () => true),
   };
 
   const cartStorage = {
@@ -87,6 +93,34 @@ describe('NewSalePageComponent', () => {
     },
     startConnection: vi.fn(async () => undefined),
     stopConnection: vi.fn(async () => undefined),
+  };
+
+  const networkStatus = {
+    isOnline: signal(true),
+    canReachApi: signal(true),
+    lastVerifiedAt: signal<Date | null>(null),
+    isChecking: signal(false),
+    checkConnectivity: vi.fn(async () => undefined),
+  };
+
+  const offlineFinalization = {
+    finalizeAndQueue: vi.fn(),
+  };
+
+  const deviceSettingsStorage = {
+    getOrCreateDeviceId: vi.fn(() => 'device-1'),
+    loadSettings: vi.fn(() => null),
+    updateSettings: vi.fn(),
+  };
+
+  const offlineSnapshotDb = {
+    getUsableSnapshotInfo: vi.fn(async () => null),
+    getUsableBatches: vi.fn(async () => []),
+    getUsableCustomers: vi.fn(async () => []),
+  };
+
+  const offlineQueueDb = {
+    getStatusCounts: vi.fn(async () => ({ Pending: 0, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 })),
   };
 
   beforeEach(() => {
@@ -154,6 +188,21 @@ describe('NewSalePageComponent', () => {
     productCatalogSync.filterByName.mockClear();
     productCatalogSync.filterByBarcode.mockClear();
     customersFacade.loadCustomers.mockReset();
+    networkStatus.canReachApi.set(true);
+    networkStatus.isOnline.set(true);
+    offlineFinalization.finalizeAndQueue.mockReset();
+    deviceSettingsStorage.loadSettings.mockReset();
+    deviceSettingsStorage.loadSettings.mockReturnValue(null);
+    offlineSnapshotDb.getUsableSnapshotInfo.mockReset();
+    offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue(null);
+    offlineSnapshotDb.getUsableBatches.mockReset();
+    offlineSnapshotDb.getUsableBatches.mockResolvedValue([]);
+    offlineSnapshotDb.getUsableCustomers.mockReset();
+    offlineSnapshotDb.getUsableCustomers.mockResolvedValue([]);
+    offlineQueueDb.getStatusCounts.mockReset();
+    offlineQueueDb.getStatusCounts.mockResolvedValue({ Pending: 0, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    authService.canUseOfflineSalesAuthGrace.mockReset();
+    authService.canUseOfflineSalesAuthGrace.mockResolvedValue(true);
 
     TestBed.configureTestingModule({
       imports: [NewSalePageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
@@ -167,6 +216,11 @@ describe('NewSalePageComponent', () => {
         { provide: SalesFacade, useValue: salesFacade },
         { provide: SaleService, useValue: saleService },
         { provide: ShopUpdatesSignalRService, useValue: shopUpdatesService },
+        { provide: NetworkStatusService, useValue: networkStatus },
+        { provide: OfflineSaleFinalizationService, useValue: offlineFinalization },
+        { provide: OfflineSalesDeviceSettingsStorage, useValue: deviceSettingsStorage },
+        { provide: OfflineSalesSnapshotIndexedDbService, useValue: offlineSnapshotDb },
+        { provide: OfflineSalesQueueIndexedDbService, useValue: offlineQueueDb },
       ],
     });
   });
@@ -1716,6 +1770,593 @@ describe('NewSalePageComponent', () => {
       component.printThermal('s1');
 
       expect(windowOpenSpy).toHaveBeenCalledWith('/sales/s1/print?template=thermal', '_blank');
+    });
+  });
+
+  describe('offline sales flow', () => {
+    const enabledDeviceSettings = {
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      label: 'POS 1',
+      enabled: true,
+      enabledAt: '2025-01-01T00:00:00Z',
+      enabledByUserId: 'owner-1',
+      enabledByUserName: 'Owner One',
+      lastCompleteSnapshotAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1h ago
+      lastApiVerifiedAt: null,
+      lastSnapshotWarningMarker: null,
+      lastReservedLease: {
+        leaseId: 'lease-1',
+        fiscalYear: '2025',
+        remainingCount: 50,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+    };
+
+    const offlineBatch = {
+      batchId: 'batch-offline-1',
+      itemId: 'item-1',
+      itemName: 'Offline Item',
+      barcode: '1234567890',
+      uom: 'Unit',
+      hsnCode: null,
+      batchNumber: 'B-OFL-01',
+      quantity: 20,
+      costPrice: 30,
+      mrp: 60,
+      salesPrice: 50,
+      taxRatePercent: 18,
+      taxIncluded: true,
+      purchaseTaxIncluded: false,
+      expiryDate: null,
+    };
+
+    it('online path uses inventoryService when canReachApi is true', async () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.searchInput.set('oreo');
+      await component.onBarcodeSearch();
+
+      expect(inventoryService.getAvailableBatchesBySearchTerm).toHaveBeenCalledWith('oreo');
+      expect(offlineSnapshotDb.getUsableBatches).not.toHaveBeenCalled();
+    });
+
+    it('offline search loads from snapshot when canReachApi is false and device is enabled', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableBatches.mockResolvedValue([offlineBatch] as any);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      component.searchInput.set('Offline');
+      await component.onBarcodeSearch();
+
+      expect(inventoryService.getAvailableBatchesBySearchTerm).not.toHaveBeenCalled();
+      expect(offlineSnapshotDb.getUsableBatches).toHaveBeenCalledWith('shop-1');
+      expect(component.availableBatches()).toHaveLength(1);
+      expect(component.availableBatches()[0].inventoryBatchId).toBe('batch-offline-1');
+      expect(component.availableBatches()[0].itemName).toBe('Offline Item');
+    });
+
+    it('canCreateNewCustomer is false when offline', () => {
+      networkStatus.canReachApi.set(false);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      expect(component.canCreateNewCustomer()).toBe(false);
+    });
+
+    it('canCreateNewCustomer is true when online', () => {
+      networkStatus.canReachApi.set(true);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      expect(component.canCreateNewCustomer()).toBe(true);
+    });
+
+    it('offline submit - success clears cart and shows pending-sync confirmation', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({
+        ok: true,
+        payload: {
+          invoiceNumber: 'INV-2025-001',
+          pricing: {
+            totals: { grandTotal: 150.5 },
+          },
+        },
+      });
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      // Add item to cart
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).toHaveBeenCalled();
+      expect(component.showOfflineConfirmation()).toBe(true);
+      expect(component.offlineConfirmation()?.invoiceNumber).toBe('INV-2025-001');
+      expect(component.offlineConfirmation()?.grandTotal).toBe(150.5);
+      expect(component.cart()).toHaveLength(0);
+    });
+
+    it('offline submit - snapshot too old blocks and shows error', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      // Snapshot 49 hours old (over 48h limit)
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({
+        snapshotId: 'snap-1',
+        shopId: 'shop-1',
+        completedAt: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
+      } as any);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      // Manually set snapshotCompletedAt to trigger isSnapshotTooOld
+      component.snapshotCompletedAt.set(new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockSnapshotTooOld');
+    });
+
+    it('offline submit - missing catalog item sets error key', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({
+        ok: false,
+        reason: 'MISSING_CATALOG_ITEM',
+      });
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockMissingItem');
+    });
+
+    it('offline submit - due without customer blocks with error', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      // Credit/due with no customer selected
+      component.paymentForm.patchValue({ paymentMethod: 4, paidAmount: 0, dueAmount: 50 });
+      component.selectedCustomerId.set(null);
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockDueRequiresCustomer');
+    });
+
+    it('offline submit - due with uncached customer id still blocks with error', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineSnapshotDb.getUsableCustomers.mockResolvedValue([] as any);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.selectedCustomerId.set('cust-missing');
+      component.paymentForm.patchValue({ paymentMethod: 4, paidAmount: 0, dueAmount: 50 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockDueRequiresCustomer');
+    });
+
+    it('offline submit - missing snapshot blocks with stale key', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue(null);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.snapshotCompletedAt.set(null);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockSnapshotStale');
+    });
+
+    it('offline submit - invoice unavailable sets error key', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({
+        ok: false,
+        reason: 'INVOICE_UNAVAILABLE',
+      });
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockInvoiceUnavailable');
+    });
+
+    it('offline submit - all payment methods (cash/card/upi/credit) are not blocked at payment level', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineSnapshotDb.getUsableCustomers.mockResolvedValue([
+        { customerId: 'cust-1', name: 'Alice', phoneNumber: '+919999111222' },
+      ] as any);
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({
+        ok: true,
+        payload: {
+          invoiceNumber: 'INV-2025-001',
+          pricing: { totals: { grandTotal: 50 } },
+        },
+      });
+
+      const cartItem = {
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      };
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      // Test Cash (1)
+      component.cart.set([{ ...cartItem }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+      await component.onSubmit();
+      expect(component.showOfflineConfirmation()).toBe(true);
+      component.showOfflineConfirmation.set(false);
+
+      // Test UPI (2)
+      component.cart.set([{ ...cartItem }]);
+      component.paymentForm.patchValue({ paymentMethod: 2, paidAmount: 50, dueAmount: 0 });
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({ ok: true, payload: { invoiceNumber: 'INV-2', pricing: { totals: { grandTotal: 50 } } } });
+      await component.onSubmit();
+      expect(component.showOfflineConfirmation()).toBe(true);
+      component.showOfflineConfirmation.set(false);
+
+      // Test Card (3)
+      component.cart.set([{ ...cartItem }]);
+      component.paymentForm.patchValue({ paymentMethod: 3, paidAmount: 50, dueAmount: 0 });
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({ ok: true, payload: { invoiceNumber: 'INV-3', pricing: { totals: { grandTotal: 50 } } } });
+      await component.onSubmit();
+      expect(component.showOfflineConfirmation()).toBe(true);
+      component.showOfflineConfirmation.set(false);
+
+      // Test Credit/Due (4) with a cached customer selected
+      component.cart.set([{ ...cartItem }]);
+      component.selectedCustomerId.set('cust-1');
+      component.paymentForm.patchValue({ paymentMethod: 4, paidAmount: 0, dueAmount: 50 });
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({ ok: true, payload: { invoiceNumber: 'INV-4', pricing: { totals: { grandTotal: 50 } } } });
+      await component.onSubmit();
+      expect(offlineFinalization.finalizeAndQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pricingInput: expect.objectContaining({ paymentMethod: 4 }),
+        })
+      );
+      expect(component.showOfflineConfirmation()).toBe(true);
+    });
+
+    it('offline submit - device not enabled blocks when offline but ineligible', async () => {
+      networkStatus.canReachApi.set(false);
+      // Device settings not enabled (null)
+      deviceSettingsStorage.loadSettings.mockReturnValue(null);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockDeviceNotEnabled');
+    });
+
+    it('offline submit - auth grace expired blocks with error', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      authService.canUseOfflineSalesAuthGrace.mockResolvedValue(false);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(offlineFinalization.finalizeAndQueue).not.toHaveBeenCalled();
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockAuthGraceInvalid');
+    });
+
+    it('offline submit - insufficient shadow stock sets error key', async () => {
+      networkStatus.canReachApi.set(false);
+      deviceSettingsStorage.loadSettings.mockReturnValue(enabledDeviceSettings as any);
+      offlineSnapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', shopId: 'shop-1', completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() } as any);
+      offlineFinalization.finalizeAndQueue.mockResolvedValue({
+        ok: false,
+        reason: 'INSUFFICIENT_SHADOW_STOCK',
+      });
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      component.cart.set([{
+        barcode: '1234567890',
+        itemName: 'Test Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        quantity: 1,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+        costPrice: 30,
+        availableQuantity: 20,
+      }]);
+      component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+
+      await component.onSubmit();
+
+      expect(component.paymentSplitError()).toBe('sales.newSale.offline.blockInsufficientStock');
+    });
+
+    it('staleWarningCount returns 1 when snapshot is 5 hours old', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.snapshotCompletedAt.set(new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString());
+
+      expect(component.staleWarningCount()).toBe(1);
+    });
+
+    it('staleWarningCount returns 0 when snapshot is fresh (1 hour old)', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
+
+      expect(component.staleWarningCount()).toBe(0);
+    });
+
+    it('isSnapshotTooOld returns true when snapshot is 49 hours old', () => {
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+
+      component.snapshotCompletedAt.set(new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString());
+
+      expect(component.isSnapshotTooOld()).toBe(true);
+    });
+
+    it('onOfflineDone navigates to /sales and clears confirmation', () => {
+      networkStatus.canReachApi.set(false);
+
+      const fixture = TestBed.createComponent(NewSalePageComponent);
+      const component = fixture.componentInstance;
+      component.showOfflineConfirmation.set(true);
+      component.offlineConfirmation.set({ invoiceNumber: 'INV-1', grandTotal: 100 });
+
+      component.onOfflineDone();
+
+      expect(component.showOfflineConfirmation()).toBe(false);
+      expect(component.offlineConfirmation()).toBeNull();
+      expect(router.navigate).toHaveBeenCalledWith(['/sales']);
     });
   });
 });

@@ -20,6 +20,52 @@
     </div>
   }
 
+  <!-- Offline Status Banner -->
+  @if (isOfflineMode()) {
+    <div class="offline-status-banner" [class.offline-status-stale-warn]="staleWarningCount() > 0" [class.offline-status-blocked]="isSnapshotTooOld()">
+      <div class="offline-status-header">
+        <i class="pi pi-wifi" style="text-decoration: line-through"></i>
+        <span>{{ 'sales.newSale.offline.banner.offlineMode' | transloco }}</span>
+      </div>
+      @if (isOfflineEligible()) {
+        <div class="offline-status-details">
+          @if (snapshotAgeHours() !== null) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.snapshotAge' | transloco: { hours: snapshotAgeHours() } }}
+            </span>
+          }
+          @if (offlineInvoiceRemaining() > 0) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.invoicesRemaining' | transloco: { count: offlineInvoiceRemaining() } }}
+            </span>
+          }
+          @if (offlinePendingCount() > 0) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.pendingSync' | transloco: { count: offlinePendingCount() } }}
+            </span>
+          }
+          @if (offlineNeedsReviewCount() > 0) {
+            <span class="offline-status-detail offline-status-needs-review">
+              {{ 'sales.newSale.offline.banner.needsReview' | transloco: { count: offlineNeedsReviewCount() } }}
+            </span>
+          }
+        </div>
+        @if (staleWarningCount() > 0 && !isSnapshotTooOld()) {
+          <p class="offline-status-warning">
+            {{ 'sales.newSale.offline.banner.staleWarning' | transloco: { hours: snapshotAgeHours() } }}
+          </p>
+        }
+        @if (isSnapshotTooOld()) {
+          <p class="offline-status-warning offline-status-blocked-msg">
+            {{ 'sales.newSale.offline.banner.snapshotTooOld' | transloco }}
+          </p>
+        }
+      } @else {
+        <p class="offline-status-warning">{{ 'sales.newSale.offline.banner.notEligible' | transloco }}</p>
+      }
+    </div>
+  }
+
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
   }
@@ -498,8 +544,12 @@
         </div>
       </div>
 
-      @if (!canUseCredit()) {
+      @if (!isOfflineMode() && !canUseCredit()) {
         <p class="error-hint mt-2">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
+      }
+
+      @if (isOfflineMode() && paymentForm.controls.paymentMethod.value === 2) {
+        <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
       }
 
       <div class="flex justify-end mt-4">
@@ -509,8 +559,8 @@
         <p-button
           [label]="'sales.newSale.recordSale' | transloco"
           icon="pi pi-check"
-          [disabled]="cart().length === 0 || isSubmitting()"
-          [loading]="isSubmitting()"
+          [disabled]="cart().length === 0 || (isOfflineMode() ? isOfflineSubmitting() : isSubmitting())"
+          [loading]="isOfflineMode() ? isOfflineSubmitting() : isSubmitting()"
           (click)="onSubmit()"
           size="large"
         />
@@ -565,6 +615,43 @@
       [label]="'sales.invoice.done' | transloco"
       icon="pi pi-check"
       (click)="onDone()"
+      styleClass="w-full"
+    />
+  </div>
+</p-dialog>
+
+<!-- Offline Sale Queued Confirmation Dialog -->
+<p-dialog
+  [header]="'sales.newSale.offline.confirmation.title' | transloco"
+  [visible]="showOfflineConfirmation()"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '450px' }"
+>
+  <div class="flex flex-col items-center py-4 text-center">
+    <i class="pi pi-clock text-6xl text-amber-500 mb-4"></i>
+    <h2 class="text-xl font-bold mb-2">{{ 'sales.newSale.offline.confirmation.queued' | transloco }}</h2>
+    <p class="text-slate-600 mb-4">{{ 'sales.newSale.offline.confirmation.description' | transloco }}</p>
+
+    @if (offlineConfirmation(); as info) {
+      <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
+        <div class="flex justify-between mb-2">
+          <span class="text-slate-500">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
+          <span class="font-mono font-bold">{{ info.invoiceNumber }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
+          <span class="font-bold text-orange-600">₹{{ info.grandTotal | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    }
+
+    <p-button
+      [label]="'common.done' | transloco"
+      icon="pi pi-check"
+      (click)="onOfflineDone()"
       styleClass="w-full"
     />
   </div>
