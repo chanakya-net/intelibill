@@ -457,10 +457,12 @@ public sealed class SyncOfflineSalesCommandHandler(
 
                 if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
                 {
+                    unitOfWork.ClearChanges();
                     results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
                     continue;
                 }
 
+                unitOfWork.ClearChanges();
                 results.Add(new OfflineSaleSyncResultDto(
                     normalizedClientSaleId,
                     StatusDuplicate,
