@@ -55,6 +55,14 @@ export class OfflineSalesQueueIndexedDbService {
       .sort((a, b) => Date.parse(a.soldAt) - Date.parse(b.soldAt));
   }
 
+  async getQueuedSale(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
+    if (!shopId || !deviceId || !clientSaleId) {
+      return null;
+    }
+
+    return await this.getRecord(shopId, deviceId, clientSaleId);
+  }
+
   async markSyncInProgress(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
     return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => ({
       ...current,

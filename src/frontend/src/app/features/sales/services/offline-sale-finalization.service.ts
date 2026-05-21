@@ -16,7 +16,7 @@ export interface OfflineFinalizeRequest {
 }
 
 export type OfflineFinalizeResult =
-  | { readonly ok: true; readonly payload: OfflineQueuedSalePayload }
+  | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
   | { readonly ok: false; readonly reason: 'SNAPSHOT_STALE' | 'MISSING_CATALOG_ITEM' | 'INSUFFICIENT_SHADOW_STOCK' | 'MISSING_DUE_CUSTOMER' | 'INVOICE_UNAVAILABLE' };
 
 @Injectable({ providedIn: 'root' })
@@ -72,10 +72,12 @@ export class OfflineSaleFinalizationService {
 
     let invoiceNumber: string;
     let consumedLeaseNextNumber: number;
+    let remainingInvoiceCount = 0;
     try {
       const consumed = await this.leaseDb.consumeNextInvoiceNumber(request.shopId, request.deviceId, request.fiscalYear);
       invoiceNumber = consumed.invoiceNumber;
       consumedLeaseNextNumber = consumed.lease.nextNumber;
+      remainingInvoiceCount = consumed.remainingCount;
     } catch (error) {
       if (
         error instanceof InvoiceLeaseNotFoundError ||
@@ -125,7 +127,7 @@ export class OfflineSaleFinalizationService {
       await this.shadowDb.reduceQuantity(request.shopId, request.deviceId, line.inventoryBatchId, line.quantity);
     }
 
-    return { ok: true, payload };
+    return { ok: true, payload, remainingInvoiceCount };
   }
 
   private buildSnapshotPricingLine(

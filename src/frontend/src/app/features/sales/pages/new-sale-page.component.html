@@ -646,6 +646,21 @@
           <span class="font-bold text-orange-600">₹{{ info.grandTotal | number:'1.2-2' }}</span>
         </div>
       </div>
+
+      <div class="grid grid-cols-2 gap-3 w-full mb-4">
+        <p-button
+          [label]="'sales.invoice.printA4' | transloco"
+          icon="pi pi-file"
+          [outlined]="true"
+          (click)="printOfflineA4()"
+        />
+        <p-button
+          [label]="'sales.invoice.printThermal' | transloco"
+          icon="pi pi-print"
+          [outlined]="true"
+          (click)="printOfflineThermal()"
+        />
+      </div>
     }
 
     <p-button
