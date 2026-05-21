@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authGuard } from './core/guards/auth.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
+import { shellRoutes } from './core/layout/shell.routes';
 
 describe('app routes', () => {
   const authService = {
@@ -48,10 +49,14 @@ describe('app routes', () => {
 
   it('permits /sales/new offline grace through top-level protected route', async () => {
     const shellRoute = routes.find((route) => route.path === '');
+    const shellRoot = shellRoutes.find((route) => route.path === '');
+    const salesNewChildRoute = shellRoot?.children?.find((route) => route.path === 'sales/new');
 
     expect(shellRoute).toBeDefined();
     expect(shellRoute?.canActivate).toContain(authGuard);
     expect(shellRoute?.data?.['allowOfflineSalesGracePaths']).toEqual(['/sales/new']);
+    expect(salesNewChildRoute?.canActivate).toContain(authGuard);
+    expect(salesNewChildRoute?.data?.['allowOfflineSalesGrace']).toBe(true);
 
     authService.isAuthenticated.mockReturnValue(false);
     authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));
@@ -70,5 +75,33 @@ describe('app routes', () => {
     });
 
     expect(result).toBe(true);
+  });
+
+  it('blocks other protected shell URLs when API is unreachable', async () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const shellRoot = shellRoutes.find((route) => route.path === '');
+    const dashboardRoute = shellRoot?.children?.find((route) => route.path === 'dashboard');
+
+    expect(shellRoute).toBeDefined();
+    expect(dashboardRoute).toBeDefined();
+    expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
+
+    authService.isAuthenticated.mockReturnValue(false);
+    authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));
+
+    const result = await TestBed.runInInjectionContext(async () => {
+      const route = { data: shellRoute?.data ?? {} } as ActivatedRouteSnapshot;
+      const state = { url: '/dashboard' } as RouterStateSnapshot;
+      const guardResult = authGuard(route, state) as any;
+
+      if (typeof guardResult === 'boolean') {
+        return guardResult;
+      }
+
+      return firstValueFrom(guardResult);
+    });
+
+    expect(result).toEqual({ redirected: true });
+    expect(authService.canUseOfflineSalesAuthGrace).not.toHaveBeenCalled();
   });
 });

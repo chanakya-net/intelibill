@@ -626,4 +626,28 @@ describe('AuthService', () => {
     expect(storage.clearSession).not.toHaveBeenCalled();
     http.verify();
   });
+
+  it('shares API_UNREACHABLE bootstrap status across concurrent callers', async () => {
+    const now = Date.now();
+    storage.loadSession.mockReturnValue(
+      buildSession({
+        accessTokenExpiresAt: new Date(now - 10_000).toISOString(),
+        refreshTokenExpiresAt: new Date(now + 60_000).toISOString(),
+      })
+    );
+    networkStatus.canReachApi.mockReturnValue(false);
+
+    const { service, http } = setup();
+    const firstStatus = firstValueFrom(service.bootstrapSessionWithStatus());
+    const secondStatus = firstValueFrom(service.bootstrapSessionWithStatus());
+
+    const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    request.flush({}, { status: 0, statusText: 'Unknown Error' });
+
+    await expect(firstStatus).resolves.toBe('API_UNREACHABLE');
+    await expect(secondStatus).resolves.toBe('API_UNREACHABLE');
+    expect(networkStatus.checkConnectivity).toHaveBeenCalledTimes(1);
+    expect(storage.clearSession).not.toHaveBeenCalled();
+    http.verify();
+  });
 });

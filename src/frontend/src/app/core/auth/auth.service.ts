@@ -49,7 +49,7 @@ export class AuthService {
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
   private refreshInFlight$: Observable<AuthSession | null> | null = null;
-  private bootstrapInFlight$: Observable<boolean> | null = null;
+  private bootstrapInFlight$: Observable<BootstrapSessionStatus> | null = null;
   private sessionChannel: BroadcastChannel | null = null;
   private proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -158,7 +158,7 @@ export class AuthService {
     }
 
     if (this.bootstrapInFlight$) {
-      return this.bootstrapInFlight$.pipe(map((isReady) => (isReady ? 'READY' : 'UNAUTHENTICATED')));
+      return this.bootstrapInFlight$;
     }
 
     const session = this.sessionSignal();
@@ -176,21 +176,9 @@ export class AuthService {
     }
 
     const refresh$ = this.refreshAccessToken({ preserveSessionOnError: true }).pipe(
-      map((refreshedSession) => !!refreshedSession),
-      catchError(() => {
-        return of(false);
-      }),
-      finalize(() => {
-        this.bootstrapInFlight$ = null;
-      }),
-      shareReplay(1)
-    );
-
-    this.bootstrapInFlight$ = refresh$;
-
-    return refresh$.pipe(
-      switchMap(async (isReady): Promise<BootstrapSessionStatus> => {
-        if (isReady) {
+      catchError(() => of(null)),
+      switchMap(async (refreshedSession): Promise<BootstrapSessionStatus> => {
+        if (refreshedSession) {
           return 'READY';
         }
 
@@ -201,8 +189,16 @@ export class AuthService {
 
         this.clearSession();
         return 'REFRESH_FAILED';
-      })
+      }),
+      finalize(() => {
+        this.bootstrapInFlight$ = null;
+      }),
+      shareReplay(1)
     );
+
+    this.bootstrapInFlight$ = refresh$;
+
+    return refresh$;
   }
 
   refreshAccessToken(options?: { readonly preserveSessionOnError?: boolean }): Observable<AuthSession | null> {
