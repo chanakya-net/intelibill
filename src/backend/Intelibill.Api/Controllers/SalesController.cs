@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
+using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
@@ -65,6 +66,26 @@ public sealed class SalesController : AuthenticatedControllerBase
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
+    }
+
+    [HttpPost("invoice-leases/reserve")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> ReserveInvoiceLease(
+        [FromBody] ReserveInvoiceLeaseRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<InvoiceLeaseDto>>(
+            new ReserveInvoiceLeaseCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.DeviceId,
+                request.BlockSize),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
     }
 
     [HttpGet]
@@ -253,6 +274,10 @@ public sealed record RecordSaleRequest(
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemRequest> Items,
     InstantDiscountRequest? SaleDiscount = null);
+
+public sealed record ReserveInvoiceLeaseRequest(
+    string DeviceId,
+    int? BlockSize = null);
 
 public sealed record RecordSaleItemRequest(
     string Barcode,

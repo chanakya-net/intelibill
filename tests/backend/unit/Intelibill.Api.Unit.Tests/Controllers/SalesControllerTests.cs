@@ -5,6 +5,7 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
+using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
@@ -72,6 +73,21 @@ public class SalesControllerTests
             [],
             []);
 
+    private static InvoiceLeaseDto CreateLeaseDto(Guid shopId, string deviceId) =>
+        new(
+            Guid.NewGuid(),
+            shopId,
+            deviceId,
+            "2025-26",
+            "INV-2025-26-",
+            6,
+            1,
+            200,
+            1,
+            200,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddDays(7));
+
     [Fact]
     public async Task RecordSale_WhenNoUserClaim_ReturnsUnauthorized()
     {
@@ -80,6 +96,54 @@ public class SalesControllerTests
         var result = await _controller.RecordSale(CreateRequest(), CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task ReserveInvoiceLease_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.ReserveInvoiceLease(new ReserveInvoiceLeaseRequest("device-1"), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task ReserveInvoiceLease_WhenNoActiveShopClaim_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        var result = await _controller.ReserveInvoiceLease(new ReserveInvoiceLeaseRequest("device-1"), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReserveInvoiceLease_WhenValid_ReturnsOkAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = CreateLeaseDto(shopId, "device-1");
+        _bus.InvokeAsync<ErrorOr<InvoiceLeaseDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.ReserveInvoiceLease(new ReserveInvoiceLeaseRequest("device-1", 200), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<InvoiceLeaseDto>>(
+            Arg.Is<ReserveInvoiceLeaseCommand>(c =>
+                c.ActorUserId == userId
+                && c.ShopId == shopId
+                && c.DeviceId == "device-1"
+                && c.BlockSize == 200),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

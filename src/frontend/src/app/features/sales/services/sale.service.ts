@@ -128,6 +128,26 @@ export interface RecordSaleRequest {
   readonly saleDiscount: InstantDiscountRequest | null;
 }
 
+export interface ReserveInvoiceLeaseRequest {
+  readonly deviceId: string;
+  readonly blockSize?: number | null;
+}
+
+export interface InvoiceLeaseDto {
+  readonly leaseId: string;
+  readonly shopId: string;
+  readonly deviceId: string;
+  readonly fiscalYear: string;
+  readonly prefix: string;
+  readonly numberPadding: number;
+  readonly rangeStart: number;
+  readonly rangeEnd: number;
+  readonly nextNumber: number;
+  readonly remainingCount: number;
+  readonly reservedAt: string;
+  readonly expiresAt: string;
+}
+
 export interface SaleItemDto {
   readonly saleItemId: string;
   readonly itemId: string;
@@ -312,6 +332,10 @@ export class SaleService {
 
   recordSale(request: RecordSaleRequest): Observable<SaleDto> {
     return this.http.post<SaleDto>(SALE_ENDPOINTS.record, request);
+  }
+
+  reserveInvoiceLease(request: ReserveInvoiceLeaseRequest): Observable<InvoiceLeaseDto> {
+    return this.http.post<InvoiceLeaseDto>(SALE_ENDPOINTS.reserveInvoiceLease, request);
   }
 
   previewSale(request: PreviewSaleRequest): Observable<SalePreviewDto> {
