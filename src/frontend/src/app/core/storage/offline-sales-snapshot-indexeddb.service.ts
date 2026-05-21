@@ -295,6 +295,41 @@ export class OfflineSalesSnapshotIndexedDbService {
     return { snapshotId: pointer.usableSnapshotId, completedAt: pointer.usableCompletedAt };
   }
 
+  async getUsableBatches(shopId: string): Promise<readonly OfflineSellableBatchSnapshot[]> {
+    return await this.readUsableEntities(this.batchesStore, shopId);
+  }
+
+  async getUsableCustomers(shopId: string): Promise<readonly OfflineCustomerLiteSnapshot[]> {
+    return await this.readUsableEntities(this.customersStore, shopId);
+  }
+
+  async getUsableDiscountRules(shopId: string): Promise<readonly OfflineDiscountRuleSnapshot[]> {
+    return await this.readUsableEntities(this.discountRulesStore, shopId);
+  }
+
+  private async readUsableEntities<T>(storeName: string, shopId: string): Promise<readonly T[]> {
+    if (!shopId || typeof indexedDB === 'undefined') {
+      return [];
+    }
+
+    const usableSnapshotId = await this.getUsableSnapshotId(shopId);
+    if (!usableSnapshotId) {
+      return [];
+    }
+
+    const database = await this.openDatabase();
+    const all = await new Promise<SnapshotScopedRecord<T>[]>((resolve, reject) => {
+      const transaction = database.transaction(storeName, 'readonly');
+      const request = transaction.objectStore(storeName).getAll();
+      request.onsuccess = () => resolve((request.result as SnapshotScopedRecord<T>[]) ?? []);
+      request.onerror = () => reject(request.error);
+    });
+
+    return all
+      .filter((record) => record.shopId === shopId && record.snapshotId === usableSnapshotId)
+      .map((record) => record.entity);
+  }
+
   private async writeEntity<T>(
     storeName: string,
     snapshotId: string,

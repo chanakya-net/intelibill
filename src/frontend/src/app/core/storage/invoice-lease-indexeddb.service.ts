@@ -158,6 +158,52 @@ export class InvoiceLeaseIndexedDbService {
     });
   }
 
+  async rollbackConsumedInvoiceNumber(
+    shopId: string,
+    deviceId: string,
+    fiscalYear: string,
+    consumedLeaseNextNumber: number
+  ): Promise<InvoiceLeaseSnapshot | null> {
+    if (!shopId || !deviceId || !fiscalYear || typeof indexedDB === 'undefined') {
+      throw new InvoiceLeaseNotFoundError();
+    }
+
+    const database = await this.openDatabase();
+    return await new Promise<InvoiceLeaseSnapshot | null>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.get(this.buildKey(shopId, deviceId, fiscalYear));
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result as InvoiceLeaseRecord | undefined;
+        if (!record) {
+          reject(new InvoiceLeaseNotFoundError());
+          return;
+        }
+
+        const lease = this.normalizeLease(record.lease);
+        if (lease.nextNumber !== consumedLeaseNextNumber || consumedLeaseNextNumber <= lease.rangeStart) {
+          resolve(lease);
+          return;
+        }
+
+        const restoredLease = this.normalizeLease({
+          ...lease,
+          nextNumber: consumedLeaseNextNumber - 1,
+        });
+
+        const putRequest = store.put({
+          ...record,
+          lease: restoredLease,
+          updatedAt: new Date().toISOString(),
+        } satisfies InvoiceLeaseRecord);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => resolve(restoredLease);
+      };
+    });
+  }
+
   getRemainingCount(lease: InvoiceLeaseSnapshot): number {
     return Math.max(lease.rangeEnd - lease.nextNumber + 1, 0);
   }

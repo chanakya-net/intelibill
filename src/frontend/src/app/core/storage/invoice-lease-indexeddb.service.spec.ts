@@ -44,6 +44,32 @@ describe('InvoiceLeaseIndexedDbService', () => {
     expect(result.remainingCount).toBe(1);
   });
 
+  it('rolls back the consumed invoice only when the lease cursor still matches', async () => {
+    stubIndexedDb();
+    await service.saveLease(makeLease());
+
+    const result = await service.consumeNextInvoiceNumber('shop-1', 'device-1', '2025-26');
+    const restored = await service.rollbackConsumedInvoiceNumber('shop-1', 'device-1', '2025-26', result.lease.nextNumber);
+
+    expect(restored!.nextNumber).toBe(1);
+    const loaded = await service.loadLease('shop-1', 'device-1', '2025-26');
+    expect(loaded!.nextNumber).toBe(1);
+    expect(loaded!.remainingCount).toBe(2);
+  });
+
+  it('does not roll back when another consumption has advanced the cursor', async () => {
+    stubIndexedDb();
+    await service.saveLease(makeLease({ rangeEnd: 3, remainingCount: 3 }));
+
+    const first = await service.consumeNextInvoiceNumber('shop-1', 'device-1', '2025-26');
+    await service.consumeNextInvoiceNumber('shop-1', 'device-1', '2025-26');
+    const restored = await service.rollbackConsumedInvoiceNumber('shop-1', 'device-1', '2025-26', first.lease.nextNumber);
+
+    expect(restored!.nextNumber).toBe(3);
+    const loaded = await service.loadLease('shop-1', 'device-1', '2025-26');
+    expect(loaded!.nextNumber).toBe(3);
+  });
+
   it('throws when the lease is expired', async () => {
     stubIndexedDb();
     const lease = makeLease({ expiresAt: new Date(Date.now() - 60_000).toISOString() });
