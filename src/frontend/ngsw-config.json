@@ -27,6 +27,18 @@
   ],
   "dataGroups": [
     {
+      "name": "ping-no-cache",
+      "urls": [
+        "/api/ping"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 1,
+        "maxAge": "0s",
+        "timeout": "5s"
+      }
+    },
+    {
       "name": "api-fresh",
       "urls": [
         "/api/**"

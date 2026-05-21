@@ -63,7 +63,9 @@ describe('NetworkStatusService', () => {
     fetchSpy.mockRejectedValue(new TypeError('network error'));
 
     const service = makeService();
-    await service.checkConnectivity();
+    const checkPromise = service.checkConnectivity();
+    await vi.runAllTimersAsync();
+    await checkPromise;
 
     expect(service.canReachApi()).toBe(false);
     expect(service.lastVerifiedAt()).toBeNull();
@@ -74,9 +76,40 @@ describe('NetworkStatusService', () => {
     fetchSpy.mockResolvedValue(new Response(null, { status: 503 }));
 
     const service = makeService();
-    await service.checkConnectivity();
+    const checkPromise = service.checkConnectivity();
+    await vi.runAllTimersAsync();
+    await checkPromise;
 
     expect(service.canReachApi()).toBe(false);
+  });
+
+  it('retries on transient failure and succeeds on later attempt', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    fetchSpy
+      .mockRejectedValueOnce(new TypeError('network error'))
+      .mockResolvedValue(new Response('{}', { status: 200 }));
+
+    const service = makeService();
+    const checkPromise = service.checkConnectivity();
+    await vi.runAllTimersAsync();
+    await checkPromise;
+
+    expect(service.canReachApi()).toBe(true);
+    expect(service.lastVerifiedAt()).not.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('exhausts all retries and sets canReachApi false', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    fetchSpy.mockRejectedValue(new TypeError('network error'));
+
+    const service = makeService();
+    const checkPromise = service.checkConnectivity();
+    await vi.runAllTimersAsync();
+    await checkPromise;
+
+    expect(service.canReachApi()).toBe(false);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   it('isChecking is true during a ping and false after', async () => {
