@@ -1,11 +1,11 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
-import { map } from 'rxjs';
+import { from, of, switchMap } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (route) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -13,13 +13,19 @@ export const authGuard: CanActivateFn = () => {
     return true;
   }
 
-  return authService.bootstrapSession().pipe(
-    map((isReady) => {
-      if (isReady) {
-        return true;
+  return authService.bootstrapSessionWithStatus().pipe(
+    switchMap((status) => {
+      if (status === 'READY') {
+        return of(true);
       }
 
-      return router.createUrlTree(['/login']);
+      if (status === 'API_UNREACHABLE' && route.data?.['allowOfflineSalesGrace'] === true) {
+        return from(authService.canUseOfflineSalesAuthGrace()).pipe(
+          switchMap((canUseGrace) => of(canUseGrace ? true : router.createUrlTree(['/login'])))
+        );
+      }
+
+      return of(router.createUrlTree(['/login']));
     })
   );
 };

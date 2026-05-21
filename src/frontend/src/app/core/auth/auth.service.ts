@@ -22,9 +22,15 @@ import {
 import { AuthStorage } from './auth.storage';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
+import { NetworkStatusService } from '../services/network-status.service';
+import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
+import { OfflineSalesSnapshotIndexedDbService } from '../storage/offline-sales-snapshot-indexeddb.service';
 
 const CLOCK_SKEW_BUFFER_MS = 30_000;
 const PROACTIVE_REFRESH_LEAD_MS = 60_000;
+const OFFLINE_AUTH_GRACE_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+export type BootstrapSessionStatus = 'READY' | 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'REFRESH_FAILED';
 
 type SessionBroadcastMessage =
   | { readonly type: 'SESSION_UPDATED'; readonly session: AuthSession }
@@ -36,6 +42,9 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly storage = inject(AuthStorage);
   private readonly localizationService = inject(LocalizationService);
+  private readonly networkStatus = inject(NetworkStatusService);
+  private readonly offlineSalesDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
+  private readonly offlineSalesSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly platformId = inject(PLATFORM_ID);
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
@@ -140,32 +149,35 @@ export class AuthService {
   }
 
   bootstrapSession(): Observable<boolean> {
+    return this.bootstrapSessionWithStatus().pipe(map((status) => status === 'READY'));
+  }
+
+  bootstrapSessionWithStatus(): Observable<BootstrapSessionStatus> {
     if (!this.isBrowser()) {
-      return of(true);
+      return of('READY');
     }
 
     if (this.bootstrapInFlight$) {
-      return this.bootstrapInFlight$;
+      return this.bootstrapInFlight$.pipe(map((isReady) => (isReady ? 'READY' : 'UNAUTHENTICATED')));
     }
 
     const session = this.sessionSignal();
     if (!session) {
-      return of(false);
+      return of('UNAUTHENTICATED');
     }
 
     if (!this.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
-      return of(true);
+      return of('READY');
     }
 
     if (this.isExpired(session.refreshTokenExpiresAt)) {
       this.clearSession();
-      return of(false);
+      return of('UNAUTHENTICATED');
     }
 
-    this.bootstrapInFlight$ = this.refreshAccessToken().pipe(
+    const refresh$ = this.refreshAccessToken({ preserveSessionOnError: true }).pipe(
       map((refreshedSession) => !!refreshedSession),
       catchError(() => {
-        this.clearSession();
         return of(false);
       }),
       finalize(() => {
@@ -174,10 +186,26 @@ export class AuthService {
       shareReplay(1)
     );
 
-    return this.bootstrapInFlight$;
+    this.bootstrapInFlight$ = refresh$;
+
+    return refresh$.pipe(
+      switchMap(async (isReady): Promise<BootstrapSessionStatus> => {
+        if (isReady) {
+          return 'READY';
+        }
+
+        await this.networkStatus.checkConnectivity();
+        if (!this.networkStatus.canReachApi()) {
+          return 'API_UNREACHABLE';
+        }
+
+        this.clearSession();
+        return 'REFRESH_FAILED';
+      })
+    );
   }
 
-  refreshAccessToken(): Observable<AuthSession | null> {
+  refreshAccessToken(options?: { readonly preserveSessionOnError?: boolean }): Observable<AuthSession | null> {
     if (!this.isBrowser()) {
       return of(null);
     }
@@ -206,7 +234,9 @@ export class AuthService {
           this.sessionSignal.set(fresherSession);
           return of(fresherSession);
         }
-        this.clearSession();
+        if (!options?.preserveSessionOnError) {
+          this.clearSession();
+        }
         return throwError(() => error);
       }),
       finalize(() => {
@@ -272,6 +302,39 @@ export class AuthService {
     }
 
     return !this.isExpired(this.sessionSignal()!.refreshTokenExpiresAt);
+  }
+
+  async canUseOfflineSalesAuthGrace(): Promise<boolean> {
+    const session = this.sessionSignal();
+    if (!session?.activeShopId) {
+      return false;
+    }
+
+    if (this.isExpired(session.refreshTokenExpiresAt)) {
+      return false;
+    }
+
+    const activeRole = session.shops.find((shop) => shop.shopId === session.activeShopId)?.role?.trim();
+    if (!activeRole) {
+      return false;
+    }
+
+    const settings = this.offlineSalesDeviceSettingsStorage.loadSettings(session.activeShopId);
+    if (!settings?.enabled) {
+      return false;
+    }
+
+    const usable = await this.offlineSalesSnapshotDb.getUsableSnapshotInfo(session.activeShopId);
+    if (!usable?.snapshotId || !usable.completedAt) {
+      return false;
+    }
+
+    const verifiedAt = Date.parse(settings.lastApiVerifiedAt ?? '');
+    if (!Number.isFinite(verifiedAt)) {
+      return false;
+    }
+
+    return Date.now() - verifiedAt <= OFFLINE_AUTH_GRACE_WINDOW_MS;
   }
 
   getLastRememberedIdentifier(): string {
