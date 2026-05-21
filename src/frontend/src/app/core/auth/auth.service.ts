@@ -182,8 +182,7 @@ export class AuthService {
           return 'READY';
         }
 
-        await this.networkStatus.checkConnectivity();
-        if (!this.networkStatus.canReachApi()) {
+        if (!(await this.shouldClearSessionAfterRefreshFailure())) {
           return 'API_UNREACHABLE';
         }
 
@@ -419,7 +418,11 @@ export class AuthService {
 
     this.proactiveRefreshTimerId = setTimeout(() => {
       this.proactiveRefreshTimerId = null;
-      this.refreshAccessToken().subscribe({ error: () => { /* clearSession called internally */ } });
+      this.refreshAccessToken({ preserveSessionOnError: true }).subscribe({
+        error: () => {
+          void this.handleProactiveRefreshFailure();
+        },
+      });
     }, delay);
   }
 
@@ -442,5 +445,16 @@ export class AuthService {
 
   private isBrowser(): boolean {
     return isPlatformBrowser(this.platformId);
+  }
+
+  private async handleProactiveRefreshFailure(): Promise<void> {
+    if (await this.shouldClearSessionAfterRefreshFailure()) {
+      this.clearSession();
+    }
+  }
+
+  private async shouldClearSessionAfterRefreshFailure(): Promise<boolean> {
+    await this.networkStatus.checkConnectivity();
+    return this.networkStatus.canReachApi();
   }
 }
