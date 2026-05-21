@@ -61,6 +61,32 @@ describe('NetworkStatusService', () => {
     expect(service.lastVerifiedAt()?.toISOString()).toBe(serverTime);
   });
 
+  it('ignores a successful ping that resolves after the browser goes offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    let resolveFetch!: (r: Response) => void;
+    fetchSpy.mockImplementation(
+      () => new Promise<Response>((res) => { resolveFetch = res; }),
+    );
+
+    const service = makeService();
+    const checkPromise = service.checkConnectivity();
+
+    expect(service.isChecking()).toBe(true);
+
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    window.dispatchEvent(new Event('offline'));
+
+    expect(service.isOnline()).toBe(false);
+    expect(service.canReachApi()).toBe(false);
+
+    resolveFetch(successfulPingResponse());
+    await checkPromise;
+
+    expect(service.isOnline()).toBe(false);
+    expect(service.canReachApi()).toBe(false);
+    expect(service.lastVerifiedAt()).toBeNull();
+  });
+
   it('does not ping when the browser is already offline', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     fetchSpy.mockResolvedValue(successfulPingResponse());

@@ -60,6 +60,12 @@ export class NetworkStatusService {
         }
 
         const serverTime = await this.attemptPing();
+        if (!navigator.onLine) {
+          this.isOnline.set(false);
+          this.canReachApi.set(false);
+          return;
+        }
+
         if (serverTime) {
           this.canReachApi.set(true);
           this.lastVerifiedAt.set(serverTime);
