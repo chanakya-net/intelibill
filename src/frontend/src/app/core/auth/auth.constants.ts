@@ -90,3 +90,7 @@ export const DISCOUNT_ENDPOINTS = {
 export const EXPORT_ENDPOINTS = {
   sales: `${API_BASE_URL}/exports/sales`,
 } as const;
+
+export const CONNECTIVITY_ENDPOINTS = {
+  ping: `${API_BASE_URL}/ping`,
+} as const;
