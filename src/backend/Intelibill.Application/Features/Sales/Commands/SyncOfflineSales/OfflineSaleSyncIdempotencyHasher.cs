@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -11,6 +12,7 @@ internal static class OfflineSaleSyncIdempotencyHasher
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        NumberHandling = JsonNumberHandling.Strict,
     };
 
     internal static string ComputeKey(string deviceId, string clientSaleId)
@@ -34,7 +36,7 @@ internal static class OfflineSaleSyncIdempotencyHasher
             sale.CustomerId,
             Normalize(sale.CustomerName),
             Normalize(sale.CustomerPhone),
-            sale.PaymentMethod,
+            (int)sale.PaymentMethod,
             sale.PaidAmount,
             sale.DueAmount,
             sale.SubtotalBeforeDiscount,
@@ -42,10 +44,10 @@ internal static class OfflineSaleSyncIdempotencyHasher
             sale.TotalDiscountAmount,
             sale.TotalTaxAmount,
             sale.TotalAmount,
-            sale.SaleDiscountOverrideType,
+            (int)sale.SaleDiscountOverrideType,
             sale.SaleDiscountOverrideValue,
             sale.ConfiguredSaleRuleId,
-            sale.ConfiguredSaleRuleType,
+            sale.ConfiguredSaleRuleType is null ? null : (int)sale.ConfiguredSaleRuleType,
             sale.ConfiguredSaleRulePercentage,
             sale.ConfiguredSaleRuleThresholdAmount,
             sale.Items.Select(item => new OfflineSaleSyncLineIdempotencyPayload(
@@ -67,7 +69,7 @@ internal static class OfflineSaleSyncIdempotencyHasher
                 item.TotalAmount,
                 item.ConfiguredBatchRuleId,
                 item.ConfiguredBatchRulePercentage,
-                item.ItemDiscountOverrideType,
+                (int)item.ItemDiscountOverrideType,
                 item.ItemDiscountOverrideValue,
                 Normalize(item.HsnCode))).ToList());
 
@@ -89,7 +91,7 @@ internal sealed record OfflineSaleSyncIdempotencyPayload(
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
-    PaymentMethod PaymentMethod,
+    int PaymentMethod,
     decimal PaidAmount,
     decimal DueAmount,
     decimal SubtotalBeforeDiscount,
@@ -97,10 +99,10 @@ internal sealed record OfflineSaleSyncIdempotencyPayload(
     decimal TotalDiscountAmount,
     decimal TotalTaxAmount,
     decimal TotalAmount,
-    InstantDiscountType SaleDiscountOverrideType,
+    int SaleDiscountOverrideType,
     decimal SaleDiscountOverrideValue,
     Guid? ConfiguredSaleRuleId,
-    DiscountRuleType? ConfiguredSaleRuleType,
+    int? ConfiguredSaleRuleType,
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineIdempotencyPayload> Items);
@@ -124,6 +126,6 @@ internal sealed record OfflineSaleSyncLineIdempotencyPayload(
     decimal TotalAmount,
     Guid? ConfiguredBatchRuleId,
     decimal? ConfiguredBatchRulePercentage,
-    InstantDiscountType ItemDiscountOverrideType,
+    int ItemDiscountOverrideType,
     decimal ItemDiscountOverrideValue,
     string? HsnCode);

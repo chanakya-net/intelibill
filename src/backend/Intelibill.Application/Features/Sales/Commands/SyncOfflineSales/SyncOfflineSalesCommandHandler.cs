@@ -62,9 +62,7 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             if (normalizedClientSaleId.Length > 120)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.ClientSaleIdTooLong", "Client sale id must be 120 characters or less.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.ClientSaleIdTooLong));
                 continue;
             }
 
@@ -105,9 +103,7 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             if (invoiceNumber.Length > 40)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.InvoiceNumberTooLong", "Invoice number must be 40 characters or less.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InvoiceNumberTooLong));
                 continue;
             }
 
@@ -143,41 +139,31 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             if (sale.TotalAmount < 0)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.TotalAmountInvalid", "Total amount cannot be negative.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.TotalAmountInvalid));
                 continue;
             }
 
             if (sale.TotalTaxAmount < 0)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.TotalTaxAmountInvalid", "Total tax amount cannot be negative.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.TotalTaxAmountInvalid));
                 continue;
             }
 
             if (sale.SubtotalBeforeDiscount < 0)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.SubtotalBeforeDiscountInvalid", "Subtotal before discount cannot be negative.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.SubtotalBeforeDiscountInvalid));
                 continue;
             }
 
             if (sale.TotalBeforeDiscount < 0)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.TotalBeforeDiscountInvalid", "Total before discount cannot be negative.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.TotalBeforeDiscountInvalid));
                 continue;
             }
 
             if (sale.TotalDiscountAmount < 0)
             {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Error.Validation("Sale.TotalDiscountAmountInvalid", "Total discount amount cannot be negative.")));
+                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.TotalDiscountAmountInvalid));
                 continue;
             }
 
@@ -229,41 +215,31 @@ public sealed class SyncOfflineSalesCommandHandler(
 
                 if (string.IsNullOrWhiteSpace(line.Barcode))
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.BarcodeRequired", "Barcode is required.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.BarcodeRequired));
                     goto NextSale;
                 }
 
                 if (string.IsNullOrWhiteSpace(line.BatchNumber))
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.BatchNumberRequired", "Batch number is required.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.BatchNumberRequired));
                     goto NextSale;
                 }
 
                 if (string.IsNullOrWhiteSpace(line.ItemName))
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.ItemNameRequired", "Item name is required.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.ItemNameRequired));
                     goto NextSale;
                 }
 
                 if (line.InventoryBatchId == Guid.Empty)
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.InventoryBatchIdRequired", "Inventory batch id is required.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InventoryBatchIdRequired));
                     goto NextSale;
                 }
 
                 if (line.Quantity <= 0)
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.OfflineLineQuantityMustBePositive));
                     goto NextSale;
                 }
 
@@ -274,9 +250,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     || line.TaxAmount < 0
                     || line.TotalAmount < 0)
                 {
-                    results.Add(BuildErrorResult(
-                        normalizedClientSaleId,
-                        Error.Validation("Sale.LineAmountsInvalid", "Line amounts cannot be negative.")));
+                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.OfflineLineAmountsInvalid));
                     goto NextSale;
                 }
 
@@ -348,14 +322,6 @@ public sealed class SyncOfflineSalesCommandHandler(
                     itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
                     hsnCode: line.HsnCode);
                 saleItems.Add(saleItem);
-            }
-
-            if (TryGetInsufficientInventoryLine(validatedLines, out var insufficient))
-            {
-                results.Add(BuildErrorResult(
-                    normalizedClientSaleId,
-                    Errors.Sale.InsufficientStock(insufficient.Command.Barcode, insufficient.Command.BatchNumber)));
-                continue;
             }
 
             var offlineIdempotencyKey = OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, normalizedClientSaleId);
@@ -444,8 +410,10 @@ public sealed class SyncOfflineSalesCommandHandler(
             {
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
+                unitOfWork.ClearChanges();
+
                 var concurrentSale = await saleRepository.GetByClientSaleIdAsync(
                     command.ShopId,
                     deviceId,
@@ -453,16 +421,17 @@ public sealed class SyncOfflineSalesCommandHandler(
                     cancellationToken);
 
                 if (concurrentSale is null)
-                    throw;
+                {
+                    results.Add(BuildErrorResult(normalizedClientSaleId, GetSaveFailureError(ex)));
+                    continue;
+                }
 
                 if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
                 {
-                    unitOfWork.ClearChanges();
                     results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
                     continue;
                 }
 
-                unitOfWork.ClearChanges();
                 results.Add(new OfflineSaleSyncResultDto(
                     normalizedClientSaleId,
                     StatusDuplicate,
@@ -518,20 +487,19 @@ public sealed class SyncOfflineSalesCommandHandler(
     private static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
 
-    private static bool TryGetInsufficientInventoryLine(
-        IReadOnlyList<ValidatedSaleLine> lines,
-        out ValidatedSaleLine insufficient)
+    private static Error GetSaveFailureError(DbUpdateException exception) =>
+        ContainsExceptionText(exception, "ix_sales_shop_id_invoice_number")
+            ? Errors.Sale.InvoiceNumberAlreadyUsed
+            : Errors.General.Unexpected("Offline sale could not be synced. Please retry.");
+
+    private static bool ContainsExceptionText(Exception exception, string text)
     {
-        foreach (var line in lines)
+        for (var current = exception; current is not null; current = current.InnerException)
         {
-            if (line.Inventory.Quantity - line.Command.Quantity < 0)
-            {
-                insufficient = line;
+            if (current.Message.Contains(text, StringComparison.OrdinalIgnoreCase))
                 return true;
-            }
         }
 
-        insufficient = null!;
         return false;
     }
 }

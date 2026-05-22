@@ -609,4 +609,92 @@ public class SyncOfflineSalesCommandHandlerTests
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenSaveFailsWithoutClientSaleRace_ReturnsFailedResultAndContinuesBatch()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 1m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 1m);
+        var firstSale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            invoiceNumber: "INV-2025-26-000001",
+            items: [CreateLine(batch.Id)]);
+        var secondSale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            invoiceNumber: "INV-2025-26-000002",
+            items: [CreateLine(batch.Id)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [firstSale, secondSale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        _saleRepository.GetByClientSaleIdAsync(shopId, deviceId, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new DbUpdateException("fk race")), Task.FromResult(1));
+        _unitOfWork.When(x => x.ClearChanges()).Do(_ =>
+        {
+            batch.AddQuantity(1m, actorId);
+            inventory.AddQuantity(1m, actorId);
+        });
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Collection(
+            result.Value.Results,
+            first =>
+            {
+                Assert.Equal(firstSale.ClientSaleId, first.ClientSaleId);
+                Assert.Equal("failed", first.Status);
+                Assert.Contains(first.Errors, error => error.Code == Errors.General.Unexpected().Code);
+            },
+            second =>
+            {
+                Assert.Equal(secondSale.ClientSaleId, second.ClientSaleId);
+                Assert.Equal("created", second.Status);
+            });
+        _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenInvoiceNumberUniqueSaveFails_ReturnsInvoiceConflictResult()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine(batch.Id)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        _saleRepository.GetByClientSaleIdAsync(shopId, deviceId, sale.ClientSaleId, Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(
+                new DbUpdateException(
+                    "unique race",
+                    new InvalidOperationException("ix_sales_shop_id_invoice_number"))));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("failed", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code);
+        _unitOfWork.Received(1).ClearChanges();
+    }
+
 }

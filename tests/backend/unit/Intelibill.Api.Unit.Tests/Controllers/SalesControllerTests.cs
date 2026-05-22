@@ -307,6 +307,43 @@ public class SalesControllerTests
     }
 
     [Fact]
+    public async Task SyncOfflineSales_WhenRequestBodyMissing_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var result = await _controller.SyncOfflineSales(null, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        await _bus.DidNotReceive().InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SyncOfflineSales_WhenSalesMissing_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+        var request = CreateOfflineSyncRequest() with { Sales = null! };
+
+        var result = await _controller.SyncOfflineSales(request, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        await _bus.DidNotReceive().InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task RecordSale_WhenItemNotFound_ReturnsNotFound()
     {
         var userId = Guid.NewGuid();

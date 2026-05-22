@@ -82,6 +82,17 @@ public class SyncOfflineSalesCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenSalesMissing_ReturnsError()
+    {
+        var command = ValidCommand(null!) with { Sales = null! };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.Sales)
+            .WithErrorCode("Sale.OfflineSalesRequired");
+    }
+
+    [Fact]
     public void Validate_WhenValid_NoErrors()
     {
         var result = _validator.TestValidate(ValidCommand());

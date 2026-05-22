@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -171,11 +172,14 @@ public sealed class SalesController : AuthenticatedControllerBase
     [HttpPost("offline-sync")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
     public async Task<IActionResult> SyncOfflineSales(
-        [FromBody] OfflineSalesSyncRequest request,
+        [FromBody] OfflineSalesSyncRequest? request,
         CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+
+        if (request?.Sales is null)
+            return new List<Error> { Errors.Sale.OfflineSalesRequired }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<OfflineSalesSyncResponseDto>>(
             new SyncOfflineSalesCommand(

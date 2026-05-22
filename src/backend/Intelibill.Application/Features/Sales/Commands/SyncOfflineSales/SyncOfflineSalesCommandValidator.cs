@@ -15,13 +15,18 @@ public sealed class SyncOfflineSalesCommandValidator : AbstractValidator<SyncOff
             .WithMessage(Errors.InvoiceLease.DeviceIdRequired.Description);
 
         RuleFor(x => x.Sales)
+            .NotNull()
+            .WithErrorCode(Errors.Sale.OfflineSalesRequired.Code)
+            .WithMessage(Errors.Sale.OfflineSalesRequired.Description)
             .NotEmpty()
             .WithErrorCode(Errors.Sale.OfflineSalesRequired.Code)
-            .WithMessage(Errors.Sale.OfflineSalesRequired.Description);
-
-        RuleFor(x => x.Sales)
-            .Must(sales => sales.Count <= MaxBatchSize)
-            .WithErrorCode(Errors.Sale.OfflineBatchLimitExceeded.Code)
-            .WithMessage(Errors.Sale.OfflineBatchLimitExceeded.Description);
+            .WithMessage(Errors.Sale.OfflineSalesRequired.Description)
+            .DependentRules(() =>
+            {
+                RuleFor(x => x.Sales)
+                    .Must(sales => sales.Count <= MaxBatchSize)
+                    .WithErrorCode(Errors.Sale.OfflineBatchLimitExceeded.Code)
+                    .WithMessage(Errors.Sale.OfflineBatchLimitExceeded.Description);
+            });
     }
 }
