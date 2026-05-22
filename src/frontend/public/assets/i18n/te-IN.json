@@ -614,7 +614,18 @@
       "noSales": "అమ్మకాలు కనుగొనబడలేదు",
       "noSalesDescription": "మొదటి అమ్మకం నమోదు చేయండి.",
       "taxIncluded": "పన్ను",
-      "discount": "ఆదా"
+      "discount": "ఆదా",
+      "offlineQueue": {
+        "ariaLabel": "Offline sales queue status",
+        "eyebrow": "Offline queue",
+        "title": "Sync status",
+        "retry": "Retry",
+        "pending": "Pending",
+        "syncing": "Syncing",
+        "failed": "Failed",
+        "warnings": "Warnings",
+        "needsReview": "Needs review"
+      }
     },
     "newSale": {
       "eyebrow": "అమ్మకాలు",
@@ -698,6 +709,33 @@
         "totalAmount": "Total Amount",
         "printA4": "Print A4",
         "printThermal": "Print Thermal"
+      },
+      "offline": {
+        "banner": {
+          "offlineMode": "Offline Mode",
+          "snapshotAge": "Snapshot: {{hours}}h ago",
+          "invoicesRemaining": "{{count}} invoices remaining",
+          "pendingSync": "{{count}} pending sync",
+          "needsReview": "{{count}} needs review",
+          "staleWarning": "Snapshot is {{hours}}h old — data may be stale.",
+          "snapshotTooOld": "Snapshot is over 48 hours old. Offline sales are blocked.",
+          "notEligible": "Offline billing not set up for this device."
+        },
+        "upiAttestedNote": "UPI offline — payment attested by cashier.",
+        "cachedCustomerOnlyNote": "Offline sales support cached customers or walk-in only. New customers can be added once the API is reachable.",
+        "confirmation": {
+          "title": "Sale Queued",
+          "queued": "Sale Queued for Sync",
+          "description": "This sale will be synced to the server when the connection is restored."
+        },
+        "blockSnapshotStale": "Offline sales blocked: snapshot is stale or missing.",
+        "blockSnapshotTooOld": "Offline sales blocked: snapshot is over 48 hours old.",
+        "blockDeviceNotEnabled": "Offline sales are not enabled for this device.",
+        "blockAuthGraceInvalid": "Offline session has expired. Please reconnect to continue.",
+        "blockMissingItem": "One or more items are not in the offline catalog.",
+        "blockInsufficientStock": "Insufficient offline stock for one or more items.",
+        "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
       }
     },
     "detail": {
@@ -1075,6 +1113,30 @@
       "startsAt": "వద్ద ప్రారంభమవుతుంది",
       "endsAt": "వద్ద ముగుస్తుంది",
       "isActive": "స్థితి"
+    }
+  },
+  "offlineSalesDevice": {
+    "title": "Offline billing for this device",
+    "description": "Enable offline billing for this browser/device only. Setup requires the API to be reachable and downloads a full snapshot before enabling.",
+    "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",
+    "apiUnreachable": "API is unreachable. Reconnect to the internet to enable offline billing.",
+    "deviceLabel": "Device label",
+    "deviceLabelPlaceholder": "e.g. Counter 1 / Front desk",
+    "saveLabel": "Save label",
+    "status": "Status",
+    "statusEnabled": "Enabled",
+    "statusNeedsSetup": "Not enabled",
+    "statusApiUnreachable": "API unreachable",
+    "snapshotAge": "Last snapshot age",
+    "invoiceRemaining": "Invoices remaining",
+    "enable": "Enable offline billing",
+    "enabling": "Enabling…",
+    "errors": {
+      "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",
+      "apiUnreachable": "API is unreachable. Try again when connected.",
+      "snapshotIncomplete": "Snapshot setup did not complete. Please retry.",
+      "leaseUnavailable": "Invoice lease could not be reserved. Please retry.",
+      "enableFailed": "Offline setup failed. Please retry."
     }
   }
 }

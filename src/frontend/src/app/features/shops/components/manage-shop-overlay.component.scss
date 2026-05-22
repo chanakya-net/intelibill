@@ -139,6 +139,41 @@
   padding: 0.6rem 0.75rem;
 }
 
+.offline-card {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+}
+
+.offline-status {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  background: #f8fafc;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+}
+
+.status-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  font-weight: 700;
+}
+
+.status-value {
+  font-size: 0.9rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .save-button {
   @include buttons.button-primary(true);
 }

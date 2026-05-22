@@ -22,9 +22,12 @@ import { TagModule } from 'primeng/tag';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
+import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
+import { OfflineCustomerLiteSnapshot, OfflineSalesSnapshotIndexedDbService, OfflineSellableBatchSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { AvailableBatchDto, InventoryService } from '../../inventory/services/inventory.service';
@@ -40,9 +43,16 @@ import {
   PAYMENT_METHOD_VALUES,
   SaleService,
 } from '../services/sale.service';
+import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
+import { OfflineSalePricingInput, OfflineSalePricingLineInput } from '../services/offline-sale-core.types';
+import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
+import { calculateOfflineFrozenSale } from '../services/offline-sale-pricing-calculator';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
+
+const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
+const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
 
 interface CartItem extends SalesCartDraftItem {}
 
@@ -79,6 +89,7 @@ type PreviewRequestResult =
 })
 export class NewSalePageComponent {
   private readonly cartRetentionMs = 5 * 60 * 1000;
+  private readonly offlineClockIntervalMs = 60 * 1000;
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
@@ -90,6 +101,11 @@ export class NewSalePageComponent {
   private readonly saleService = inject(SaleService);
   private readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly networkStatus = inject(NetworkStatusService);
+  private readonly offlineFinalization = inject(OfflineSaleFinalizationService);
+  private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
+  private readonly offlineSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
+  private readonly offlineQueueDb = inject(OfflineSalesQueueIndexedDbService);
   private cartLoadToken = 0;
   private readonly previewTrigger$ = new Subject<void>();
   private readonly serverUpdateTrigger$ = new Subject<void>();
@@ -143,6 +159,21 @@ export class NewSalePageComponent {
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly cartBootstrapped = signal(false);
 
+  // Offline mode signals
+  readonly deviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
+  readonly snapshotCompletedAt = signal<string | null>(null);
+  readonly offlinePendingCount = signal<number>(0);
+  readonly offlineNeedsReviewCount = signal<number>(0);
+  readonly offlineInvoiceRemaining = signal<number>(0);
+  readonly isOfflineSubmitting = signal(false);
+  readonly offlineSubmitError = signal('');
+  readonly offlineConfirmation = signal<{ invoiceNumber: string; grandTotal: number; clientSaleId: string } | null>(null);
+  readonly showOfflineConfirmation = signal(false);
+  private offlineCatalogCache = signal<readonly OfflineSellableBatchSnapshot[] | null>(null);
+  private offlineCatalogCacheKey = signal<string | null>(null);
+  private readonly offlineCachedCustomers = signal<readonly OfflineCustomerLiteSnapshot[]>([]);
+  private readonly nowTick = signal(Date.now());
+
   readonly subtotalAmount = computed(() => {
     const preview = this.checkoutPreview();
     if (preview !== null) {
@@ -176,9 +207,45 @@ export class NewSalePageComponent {
   ];
 
   readonly canUseCredit = computed(() => !!this.selectedCustomerId());
+  readonly canSelectCreditPaymentMethod = computed(() => this.isOfflineMode() || this.canUseCredit());
   readonly paymentMethodsForSelection = computed(() =>
-    this.paymentMethods.filter((method) => method.value !== 4 || this.canUseCredit())
+    this.paymentMethods.filter((method) => method.value !== 4 || this.canSelectCreditPaymentMethod())
   );
+
+  readonly isOfflineMode = computed(() => !this.networkStatus.canReachApi());
+
+  readonly isOfflineEligible = computed(() => {
+    const settings = this.deviceSettings();
+    return !!settings?.enabled;
+  });
+
+  readonly snapshotAgeMs = computed(() => {
+    const completedAt = this.snapshotCompletedAt();
+    this.nowTick();
+    if (!completedAt) return null;
+    const ms = Date.now() - Date.parse(completedAt);
+    return Number.isFinite(ms) ? ms : null;
+  });
+
+  readonly staleWarningCount = computed(() => {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null || ageMs <= 0) return 0;
+    return Math.floor(ageMs / STALE_INTERVAL_4H);
+  });
+
+  readonly isSnapshotTooOld = computed(() => {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null) return false;
+    return ageMs > MAX_OFFLINE_AGE_MS;
+  });
+
+  readonly snapshotAgeHours = computed(() => {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null) return null;
+    return Math.floor(ageMs / (60 * 60 * 1000));
+  });
+
+  readonly canCreateNewCustomer = computed(() => !this.isOfflineMode());
 
   readonly batchPickerForm = this.fb.nonNullable.group({
     batchNumber: ['', Validators.required],
@@ -197,6 +264,11 @@ export class NewSalePageComponent {
   });
 
   constructor() {
+    const offlineClockId = window.setInterval(() => {
+      this.nowTick.set(Date.now());
+    }, this.offlineClockIntervalMs);
+    this.destroyRef.onDestroy(() => window.clearInterval(offlineClockId));
+
     this.customersFacade.loadCustomers();
     this.salesFacade.clearError();
     this.salesFacade.clearMutationStatus();
@@ -210,7 +282,9 @@ export class NewSalePageComponent {
         if (!typedName || !selectedName || typedName !== selectedName) {
           this.selectedCustomerId.set(null);
           this.selectedCustomerName.set(null);
-          this.enforceNoCustomerCreditRestrictions();
+          if (!this.isOfflineMode()) {
+            this.enforceNoCustomerCreditRestrictions();
+          }
         }
       });
 
@@ -244,6 +318,10 @@ export class NewSalePageComponent {
           const cart = this.cart();
           if (cart.length === 0) {
             this.clearPreviewState();
+            return of(null);
+          }
+          if (this.isOfflineMode()) {
+            this.isPreviewLoading.set(false);
             return of(null);
           }
           const requestId = this.beginPreviewRequest();
@@ -298,6 +376,10 @@ export class NewSalePageComponent {
           const cart = this.cart();
           if (cart.length === 0) {
             this.clearPreviewState();
+            return of(null);
+          }
+          if (this.isOfflineMode()) {
+            this.isPreviewLoading.set(false);
             return of(null);
           }
           const requestId = this.beginPreviewRequest();
@@ -357,7 +439,7 @@ export class NewSalePageComponent {
     effect(() => {
       const dueControl = this.paymentForm.controls.dueAmount;
 
-      if (this.canUseCredit()) {
+      if (this.isOfflineMode() || this.canUseCredit()) {
         if (dueControl.disabled) {
           dueControl.enable({ emitEvent: false });
         }
@@ -391,10 +473,35 @@ export class NewSalePageComponent {
       void this.persistCart(shopId, cart);
     });
 
+    // Load device settings and snapshot info reactively
+    effect(() => {
+      const shopId = this.activeShopId();
+      if (!shopId) {
+        this.deviceSettings.set(null);
+        this.snapshotCompletedAt.set(null);
+        this.offlineCatalogCache.set(null);
+        this.offlineCatalogCacheKey.set(null);
+        this.offlineCachedCustomers.set([]);
+        return;
+      }
+      const settings = this.deviceSettingsStorage.loadSettings(shopId);
+      this.deviceSettings.set(settings);
+      this.offlineCatalogCache.set(null);
+      this.offlineCatalogCacheKey.set(null);
+      if (settings?.enabled) {
+        void this.refreshOfflineState(shopId, settings.deviceId);
+      }
+    });
+
     // Schedule preview whenever cart changes (after bootstrap). Item-level discount
     // edits always go through cart mutations, so they reach this effect automatically.
     effect(() => {
       const cart = this.cart();
+      this.isOfflineMode();
+      this.isOfflineEligible();
+      this.snapshotCompletedAt();
+      this.saleDiscountType();
+      this.saleDiscountValue();
       if (!this.cartBootstrapped()) {
         return;
       }
@@ -412,13 +519,26 @@ export class NewSalePageComponent {
         return;
       }
       this.previewError.set('');
+      if (this.isOfflineMode()) {
+        if (this.isOfflineEligible()) {
+          void this.refreshOfflinePreview(cart);
+        } else {
+          this.clearPreviewState();
+        }
+        return;
+      }
       this.previewTrigger$.next();
     });
   }
 
-  onBarcodeSearch(): void {
+  async onBarcodeSearch(): Promise<void> {
     const searchTerm = this.searchInput().trim();
     if (!searchTerm) return;
+
+    if (this.isOfflineMode() && this.isOfflineEligible()) {
+      await this.searchOfflineCatalog(searchTerm);
+      return;
+    }
 
     this.batchSearchError.set('');
     this.isSearchingBatches.set(true);
@@ -467,6 +587,16 @@ export class NewSalePageComponent {
 
   onFilterCustomerName(event: AutoCompleteCompleteEvent): void {
     const query = event.query.trim().toLowerCase();
+
+    if (this.isOfflineMode()) {
+      const filtered = this.offlineCachedCustomers()
+        .filter((c) => !query || c.name.toLowerCase().includes(query))
+        .map((c) => c.name.trim())
+        .filter((name) => name.length > 0);
+      this.customerNameSuggestions.set([...new Set(filtered)].slice(0, 20));
+      return;
+    }
+
     const activeCustomers = this.customers().filter((customer) => customer.isActive);
     const filteredNames = activeCustomers
       .filter((customer) => !query || customer.name.toLowerCase().includes(query))
@@ -482,6 +612,25 @@ export class NewSalePageComponent {
     if (!normalizedName) {
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
+      return;
+    }
+
+    if (this.isOfflineMode()) {
+      const matches = this.offlineCachedCustomers().filter(
+        (c) => c.name.trim().toLowerCase() === normalizedName
+      );
+      if (matches.length !== 1) {
+        this.selectedCustomerId.set(null);
+        this.selectedCustomerName.set(null);
+        return;
+      }
+      const [offlineCustomer] = matches;
+      this.selectedCustomerId.set(offlineCustomer.customerId);
+      this.selectedCustomerName.set(normalizedName);
+      this.customerForm.patchValue(
+        { customerName: offlineCustomer.name, customerPhone: offlineCustomer.phoneNumber },
+        { emitEvent: false }
+      );
       return;
     }
 
@@ -523,7 +672,7 @@ export class NewSalePageComponent {
 
     this.searchInput.set(barcode);
     this.isScannerOpen.set(false);
-    this.onBarcodeSearch();
+    void this.onBarcodeSearch();
   }
 
   onSelectBatch(batch: AvailableBatchDto): void {
@@ -634,8 +783,9 @@ export class NewSalePageComponent {
     return item.salesPrice + this.getUnitTaxAmount(item);
   }
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.isSubmitting()) return;
+    if (this.isOfflineSubmitting()) return;
     if (this.cart().length === 0) return;
     if (this.paymentForm.invalid) {
       this.paymentForm.markAllAsTouched();
@@ -644,18 +794,29 @@ export class NewSalePageComponent {
 
     this.paymentSplitError.set('');
 
+    // OFFLINE BRANCH
+    if (this.isOfflineMode()) {
+      if (this.isOfflineEligible()) {
+        const blockingErrorKey = this.getBlockingCartValidationErrorKey(this.cart());
+        if (blockingErrorKey) {
+          this.paymentSplitError.set(blockingErrorKey);
+          return;
+        }
+        await this.onOfflineSubmit();
+      } else {
+        this.paymentSplitError.set('sales.newSale.offline.blockDeviceNotEnabled');
+      }
+      return;
+    }
+
     if (this.checkoutPreview() === null) {
       this.paymentSplitError.set(this.previewError() || 'sales.newSale.previewRequired');
       return;
     }
 
-    const hasOverrideErrors = this.revalidateLineOverrides(this.cart());
-    if (
-      this.saleDiscountError() ||
-      Object.values(this.cartItemDiscountErrorByKey()).some((v) => !!v) ||
-      hasOverrideErrors
-    ) {
-      this.paymentSplitError.set(hasOverrideErrors ? 'sales.newSale.overrides.fixErrors' : 'sales.newSale.discounts.fixErrors');
+    const blockingErrorKey = this.getBlockingCartValidationErrorKey(this.cart());
+    if (blockingErrorKey) {
+      this.paymentSplitError.set(blockingErrorKey);
       return;
     }
 
@@ -1108,6 +1269,19 @@ export class NewSalePageComponent {
     return Object.keys(hsnErrors).length > 0 || Object.keys(taxErrors).length > 0;
   }
 
+  private getBlockingCartValidationErrorKey(cart: readonly CartItem[]): string | null {
+    const hasOverrideErrors = this.revalidateLineOverrides(cart);
+    if (hasOverrideErrors) {
+      return 'sales.newSale.overrides.fixErrors';
+    }
+
+    if (this.saleDiscountError() || Object.values(this.cartItemDiscountErrorByKey()).some((v) => !!v)) {
+      return 'sales.newSale.discounts.fixErrors';
+    }
+
+    return null;
+  }
+
   private isValidHsnCode(value: string | null): boolean {
     if (!value) return true;
     return /^\d{4,8}$/.test(value);
@@ -1237,6 +1411,7 @@ export class NewSalePageComponent {
 
   private addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): boolean {
     const barcode = batch.barcode;
+    const snapshotCostPrice = Number(batch.costPrice ?? 0);
     let added = false;
     let addedLineKey: string | null = null;
 
@@ -1286,10 +1461,10 @@ export class NewSalePageComponent {
           mrp: batch.mrp,
           taxRatePercent: batch.taxRatePercent,
           taxIncluded: batch.taxIncluded,
-          costPrice: 0,
+          costPrice: Number.isFinite(snapshotCostPrice) ? this.roundAmount(snapshotCostPrice) : 0,
           itemDiscountType: 0,
           itemDiscountValue: 0,
-          hsnCode: null,
+          hsnCode: this.normalizeHsnCode(batch.hsnCode),
         },
       ];
     });
@@ -1299,7 +1474,7 @@ export class NewSalePageComponent {
       return false;
     }
 
-    if (addedLineKey) {
+    if (addedLineKey && !this.isOfflineMode()) {
       this.applyProductDefaultsForLine(addedLineKey, batch.itemName, barcode);
     }
 
@@ -1346,10 +1521,14 @@ export class NewSalePageComponent {
       if (token !== this.cartLoadToken) {
         return;
       }
-      this.cart.set([...rows]);
-      rows
-        .filter((row) => !this.normalizeHsnCode(row.hsnCode))
-        .forEach((row) => this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode));
+
+      // Preserve in-memory edits made before the async cart bootstrap completes.
+      if (this.cart().length === 0) {
+        this.cart.set([...rows]);
+        rows
+          .filter((row) => !this.normalizeHsnCode(row.hsnCode))
+          .forEach((row) => this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode));
+      }
     } catch {
       if (token === this.cartLoadToken) {
         this.cart.set([]);
@@ -1525,11 +1704,426 @@ export class NewSalePageComponent {
     this.router.navigate(['/sales']);
   }
 
+  onOfflineDone(): void {
+    this.showOfflineConfirmation.set(false);
+    this.offlineConfirmation.set(null);
+    this.router.navigate(['/sales']);
+  }
+
+  private async refreshOfflineState(shopId: string, deviceId: string): Promise<void> {
+    const snapshotInfo = await this.offlineSnapshotDb.getUsableSnapshotInfo(shopId);
+    this.snapshotCompletedAt.set(snapshotInfo?.completedAt ?? null);
+
+    const settings = this.resolveOfflineSettings(shopId);
+    if (settings?.lastReservedLease) {
+      this.offlineInvoiceRemaining.set(settings.lastReservedLease.remainingCount);
+    } else {
+      this.offlineInvoiceRemaining.set(0);
+    }
+
+    try {
+      const customers = await this.offlineSnapshotDb.getUsableCustomers(shopId);
+      this.offlineCachedCustomers.set(customers);
+    } catch {
+      // non-fatal
+    }
+
+    try {
+      const counts = await this.offlineQueueDb.getStatusCounts(shopId, deviceId);
+      this.offlinePendingCount.set(counts.Pending + counts.Syncing);
+      this.offlineNeedsReviewCount.set(counts.NeedsReview);
+    } catch {
+      // non-fatal
+    }
+  }
+
+  private async searchOfflineCatalog(term: string): Promise<void> {
+    this.isSearchingBatches.set(true);
+    this.batchSearchError.set('');
+    this.availableBatches.set([]);
+    this.showBatchPicker.set(false);
+
+    try {
+      const shopId = this.activeShopId();
+      const cacheKey = `${shopId}:${this.snapshotCompletedAt() ?? ''}`;
+      let catalog = this.offlineCatalogCache();
+      if (!catalog || this.offlineCatalogCacheKey() !== cacheKey) {
+        catalog = await this.offlineSnapshotDb.getUsableBatches(shopId);
+        this.offlineCatalogCache.set(catalog);
+        this.offlineCatalogCacheKey.set(cacheKey);
+      }
+
+      const q = term.toLowerCase();
+      const matched = catalog.filter(
+        (b) =>
+          b.itemName.toLowerCase().includes(q) ||
+          b.barcode.toLowerCase().startsWith(q)
+      );
+
+      if (matched.length === 0) {
+        this.batchSearchError.set('sales.newSale.noBatchesFound');
+        return;
+      }
+
+      const batches: AvailableBatchDto[] = matched.map((b) => ({
+        barcode: b.barcode,
+        itemName: b.itemName,
+        batchNumber: b.batchNumber,
+        inventoryBatchId: b.batchId,
+        quantity: b.quantity,
+        costPrice: b.costPrice,
+        salesPrice: b.salesPrice,
+        mrp: b.mrp,
+        taxRatePercent: b.taxRatePercent,
+        taxIncluded: b.taxIncluded,
+        purchaseTaxIncluded: b.purchaseTaxIncluded,
+        hsnCode: b.hsnCode ?? null,
+        expiryDate: b.expiryDate ?? null,
+      }));
+
+      this.availableBatches.set(batches);
+      this.showBatchPicker.set(true);
+    } catch {
+      this.batchSearchError.set('sales.newSale.searchError');
+    } finally {
+      this.isSearchingBatches.set(false);
+    }
+  }
+
+  private async refreshOfflinePreview(cart: readonly CartItem[]): Promise<void> {
+    const shopId = this.activeShopId();
+    if (!shopId) {
+      this.clearPreviewState();
+      return;
+    }
+
+    const requestId = this.beginPreviewRequest();
+
+    try {
+      const rules = await this.offlineSnapshotDb.getUsableDiscountRules(shopId);
+      const preview = this.buildOfflinePreview(cart, rules);
+      this.finishPreviewRequest(requestId, preview);
+    } catch {
+      this.finishPreviewRequest(requestId, null, true, 'sales.newSale.previewError');
+    }
+  }
+
+  private buildOfflinePreview(
+    cart: readonly CartItem[],
+    rules: readonly {
+      readonly ruleId: string;
+      readonly ruleType: string;
+      readonly inventoryBatchId?: string | null;
+      readonly percentage: number;
+      readonly thresholdAmount?: number | null;
+    }[],
+  ): SalePreviewDto {
+    const pricing = calculateOfflineFrozenSale({
+      soldAt: new Date().toISOString(),
+      paymentMethod: this.paymentForm.controls.paymentMethod.value,
+      paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
+      customerId: this.selectedCustomerId(),
+      customerName: this.customerForm.controls.customerName.value.trim() || null,
+      customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
+      saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+      lines: cart.map((item) => ({
+        clientLineId: item.clientLineKey,
+        inventoryBatchId: item.inventoryBatchId,
+        itemId: item.inventoryBatchId,
+        barcode: item.barcode,
+        itemName: item.itemName,
+        batchNumber: item.batchNumber,
+        quantity: item.quantity,
+        salesPrice: item.salesPrice,
+        mrp: item.mrp,
+        costPrice: item.costPrice,
+        taxRatePercent: item.taxRatePercent,
+        taxIncluded: item.taxIncluded,
+        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+        hsnCode: item.hsnCode ?? null,
+      })),
+      rules,
+    });
+
+    const configuredRuleByBatchId = new Map(
+      rules
+        .filter((rule) => rule.ruleType === 'BatchPercentage' && rule.inventoryBatchId && rule.percentage > 0)
+        .map((rule) => [rule.inventoryBatchId!, rule])
+    );
+    const saleLevelEligibleSubtotal = this.roundAmount(
+      pricing.lines.reduce((sum, line) => sum + (line.preTaxAmount - line.itemDiscountAmount), 0)
+    );
+
+    return {
+      totalAmount: pricing.totals.grandTotal,
+      totalTaxableAmount: this.roundAmount(pricing.lines.reduce((sum, line) => sum + line.taxableAmount, 0)),
+      totalTaxAmount: pricing.totals.totalTax,
+      totalDiscountAmount: pricing.totals.totalDiscount,
+      saleLevelEligibleSubtotal,
+      configuredSaleRule: null,
+      lines: pricing.lines.map((line) => {
+        const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
+        const preTaxMargin = Math.max(0, line.preTaxAmount - (line.costPrice * line.quantity));
+        const maxAllowedItemDiscountFlat = this.roundAmount(preTaxMargin);
+        const maxAllowedItemDiscountPercent = line.preTaxAmount > 0
+          ? this.roundAmount((preTaxMargin * 100) / line.preTaxAmount)
+          : 0;
+
+        return {
+          itemId: line.itemId,
+          barcode: line.barcode,
+          itemName: line.itemName,
+          inventoryBatchId: line.inventoryBatchId,
+          batchNumber: line.batchNumber,
+          quantity: line.quantity,
+          costPrice: line.costPrice,
+          salesPrice: line.salesPrice,
+          mrp: line.mrp,
+          taxRatePercent: line.taxRatePercent,
+          isPriceIncludingTax: line.taxIncluded,
+          preTaxAmountBeforeDiscount: line.preTaxAmount,
+          itemDiscountAmount: line.itemDiscountAmount,
+          saleDiscountAmount: line.saleDiscountAmount,
+          taxableAmount: line.taxableAmount,
+          taxAmount: line.taxAmount,
+          lineTotalAmount: line.lineTotal,
+          maxAllowedItemDiscountFlat,
+          maxAllowedItemDiscountPercent,
+          configuredBatchRuleId: configuredRule?.ruleId ?? null,
+          configuredBatchRulePercentage: configuredRule?.percentage ?? null,
+          hasClientPriceMismatch: false,
+          clientLineKey: line.clientLineId,
+        };
+      }),
+      infos: [],
+      warnings: [],
+    };
+  }
+
+  private async onOfflineSubmit(): Promise<void> {
+    if (this.isOfflineSubmitting()) return;
+
+    const shopId = this.activeShopId();
+    const settings = this.resolveOfflineSettings(shopId);
+    if (!settings?.enabled || !settings.deviceId) {
+      this.paymentSplitError.set('sales.newSale.offline.blockDeviceNotEnabled');
+      return;
+    }
+
+    const snapshotCompletedAt = await this.resolveOfflineSnapshotCompletedAt(shopId);
+    if (!snapshotCompletedAt) {
+      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotStale');
+      return;
+    }
+
+    const snapshotAgeMs = Date.now() - Date.parse(snapshotCompletedAt);
+    if (!Number.isFinite(snapshotAgeMs)) {
+      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotStale');
+      return;
+    }
+
+    if (snapshotAgeMs > MAX_OFFLINE_AGE_MS) {
+      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotTooOld');
+      return;
+    }
+
+    if (!this.hasUsableOfflineInvoiceLease(settings)) {
+      this.paymentSplitError.set('sales.newSale.offline.blockInvoiceUnavailable');
+      return;
+    }
+
+    const hasGrace = await this.authService.canUseOfflineSalesAuthGrace();
+    if (!hasGrace) {
+      this.paymentSplitError.set('sales.newSale.offline.blockAuthGraceInvalid');
+      return;
+    }
+
+    const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
+    const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
+    const totalAmount = this.roundAmount(this.totalAmount());
+
+    if (
+      !Number.isFinite(paidAmount) ||
+      !Number.isFinite(dueAmount) ||
+      paidAmount < 0 ||
+      dueAmount < 0 ||
+      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+    ) {
+      this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
+      return;
+    }
+
+    const paymentMethod = this.paymentForm.controls.paymentMethod.value;
+    const offlineCustomer = await this.resolveOfflineCustomer(shopId);
+    if ((paymentMethod === 4 || dueAmount > 0) && !offlineCustomer) {
+      this.paymentSplitError.set('sales.newSale.offline.blockDueRequiresCustomer');
+      return;
+    }
+
+    this.isOfflineSubmitting.set(true);
+    this.offlineSubmitError.set('');
+    this.paymentSplitError.set('');
+
+    try {
+      const customerName = offlineCustomer?.name ?? null;
+      const customerPhone = offlineCustomer?.phoneNumber ?? null;
+
+      const lines: OfflineSalePricingLineInput[] = this.cart().map((item) => ({
+        clientLineId: item.clientLineKey,
+        inventoryBatchId: item.inventoryBatchId,
+        itemId: item.inventoryBatchId,
+        barcode: item.barcode,
+        itemName: item.itemName,
+        batchNumber: item.batchNumber,
+        quantity: item.quantity,
+        salesPrice: item.salesPrice,
+        mrp: item.mrp,
+        costPrice: item.costPrice,
+        taxRatePercent: item.taxRatePercent,
+        taxIncluded: item.taxIncluded,
+        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+        hsnCode: item.hsnCode ?? null,
+      }));
+
+      const pricingInput: OfflineSalePricingInput = {
+        soldAt: new Date().toISOString(),
+        paymentMethod: this.paymentForm.controls.paymentMethod.value,
+        paidAmount,
+        customerId: offlineCustomer?.customerId ?? null,
+        customerName,
+        customerPhone,
+        saleDiscount: { type: this.saleDiscountType() as 0 | 1 | 2, value: this.saleDiscountValue() },
+        lines,
+        rules: [],
+      };
+
+      const fiscalYear = settings.lastReservedLease?.fiscalYear ?? new Date().getFullYear().toString();
+      const request: OfflineFinalizeRequest = {
+        shopId,
+        deviceId: settings.deviceId,
+        fiscalYear,
+        pricingInput,
+        maxSnapshotAgeMs: MAX_OFFLINE_AGE_MS,
+      };
+
+      const result = await this.offlineFinalization.finalizeAndQueue(request);
+
+      if (result.ok) {
+        this.updateOfflineInvoiceLeaseCount(shopId, result.remainingInvoiceCount);
+        this.offlineConfirmation.set({
+          invoiceNumber: result.payload.invoiceNumber,
+          grandTotal: result.payload.pricing.totals.grandTotal,
+          clientSaleId: result.payload.clientSaleId,
+        });
+        this.showOfflineConfirmation.set(true);
+        this.resetTransientState();
+        this.offlineCatalogCache.set(null);
+        this.offlineCatalogCacheKey.set(null);
+        await this.refreshOfflineState(shopId, settings.deviceId);
+      } else {
+        const reasonKey: Record<typeof result.reason, string> = {
+          SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
+          MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
+          INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',
+          MISSING_DUE_CUSTOMER: 'sales.newSale.offline.blockDueRequiresCustomer',
+          INVOICE_UNAVAILABLE: 'sales.newSale.offline.blockInvoiceUnavailable',
+        };
+        this.paymentSplitError.set(reasonKey[result.reason]);
+      }
+    } finally {
+      this.isOfflineSubmitting.set(false);
+    }
+  }
+
+  private resolveOfflineSettings(shopId: string): OfflineSalesDeviceSettings | null {
+    const current = this.deviceSettings();
+    if (current?.shopId === shopId) {
+      return current;
+    }
+
+    const loaded = this.deviceSettingsStorage.loadSettings(shopId);
+    this.deviceSettings.set(loaded);
+    return loaded;
+  }
+
+  private async resolveOfflineSnapshotCompletedAt(shopId: string): Promise<string | null> {
+    const current = this.snapshotCompletedAt();
+    if (current) {
+      return current;
+    }
+
+    const snapshotInfo = await this.offlineSnapshotDb.getUsableSnapshotInfo(shopId);
+    const completedAt = snapshotInfo?.completedAt ?? null;
+    this.snapshotCompletedAt.set(completedAt);
+    return completedAt;
+  }
+
+  private hasUsableOfflineInvoiceLease(settings: OfflineSalesDeviceSettings): boolean {
+    const lease = settings.lastReservedLease;
+    if (!lease || lease.remainingCount <= 0) {
+      return false;
+    }
+
+    const expiresAtMs = Date.parse(lease.expiresAt);
+    return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
+  }
+
+  private async resolveOfflineCustomer(shopId: string): Promise<OfflineCustomerLiteSnapshot | null> {
+    const selectedCustomerId = this.selectedCustomerId();
+    if (!selectedCustomerId) {
+      return null;
+    }
+
+    let customers = this.offlineCachedCustomers();
+    if (customers.length === 0) {
+      customers = await this.offlineSnapshotDb.getUsableCustomers(shopId);
+      this.offlineCachedCustomers.set(customers);
+    }
+
+    return customers.find((customer) => customer.customerId === selectedCustomerId) ?? null;
+  }
+
   printA4(saleId: string): void {
     window.open(`/sales/${saleId}/print?template=a4`, '_blank');
   }
 
   printThermal(saleId: string): void {
     window.open(`/sales/${saleId}/print?template=thermal`, '_blank');
+  }
+
+  printOfflineA4(): void {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return;
+    }
+
+    window.open(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`, '_blank');
+  }
+
+  printOfflineThermal(): void {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return;
+    }
+
+    window.open(`/sales/${confirmation.clientSaleId}/print?template=thermal&offline=1`, '_blank');
+  }
+
+  private updateOfflineInvoiceLeaseCount(shopId: string, remainingCount: number): void {
+    const updated = this.deviceSettingsStorage.updateSettings(shopId, (current) => ({
+      ...current,
+      lastReservedLease: current.lastReservedLease
+        ? {
+            ...current.lastReservedLease,
+            remainingCount,
+          }
+        : null,
+    }));
+
+    if (updated) {
+      this.deviceSettings.set(updated);
+    }
+
+    this.offlineInvoiceRemaining.set(remainingCount);
   }
 }

@@ -6,6 +6,10 @@
     <p *ngIf="shop.gstNumber" class="thermal-invoice__line">GSTIN: {{ shop.gstNumber }}</p>
   </header>
 
+  <section *ngIf="pendingSync" class="thermal-invoice__section thermal-invoice__pending">
+    <p class="thermal-invoice__pending-text">{{ 'sales.newSale.offline.confirmation.queued' | transloco }}</p>
+  </section>
+
   <section class="thermal-invoice__section">
     <div class="thermal-invoice__meta">
       <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>

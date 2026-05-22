@@ -551,5 +551,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             SaveChangesCalled = true;
             return Task.FromResult(1);
         }
+
+        public void ClearChanges() { }
     }
 }

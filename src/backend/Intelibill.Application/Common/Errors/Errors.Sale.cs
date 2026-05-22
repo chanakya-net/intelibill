@@ -54,8 +54,65 @@ public static partial class Errors
         public static Error IdempotencyConflict =>
             Error.Conflict("Sale.IdempotencyConflict", "Idempotency key has already been used with different request content.");
 
+        public static Error OfflineSalesRequired =>
+            Error.Validation("Sale.OfflineSalesRequired", "At least one offline sale is required.");
+
+        public static Error OfflineBatchLimitExceeded =>
+            Error.Validation("Sale.OfflineBatchLimitExceeded", "Offline sale sync supports up to 50 sales per request.");
+
+        public static Error ClientSaleIdRequired =>
+            Error.Validation("Sale.ClientSaleIdRequired", "Client sale id is required.");
+
+        public static Error ClientSaleIdTooLong =>
+            Error.Validation("Sale.ClientSaleIdTooLong", "Client sale id must be 120 characters or less.");
+
+        public static Error InvoiceNumberRequired =>
+            Error.Validation("Sale.InvoiceNumberRequired", "Invoice number is required.");
+
+        public static Error InvoiceNumberTooLong =>
+            Error.Validation("Sale.InvoiceNumberTooLong", "Invoice number must be 40 characters or less.");
+
+        public static Error InvoiceNumberAlreadyUsed =>
+            Error.Conflict("Sale.InvoiceNumberAlreadyUsed", "Invoice number is already used for another sale.");
+
+        public static Error InvoiceLeaseNotFound =>
+            Error.Validation("Sale.InvoiceLeaseNotFound", "Invoice number is not reserved for this device.");
+
         public static Error PaidAndDueAmountMismatch =>
             Error.Validation("Sale.PaidAndDueAmountMismatch", "Paid amount and due amount must match sale total.");
+
+        public static Error TotalAmountInvalid =>
+            Error.Validation("Sale.TotalAmountInvalid", "Total amount cannot be negative.");
+
+        public static Error TotalTaxAmountInvalid =>
+            Error.Validation("Sale.TotalTaxAmountInvalid", "Total tax amount cannot be negative.");
+
+        public static Error SubtotalBeforeDiscountInvalid =>
+            Error.Validation("Sale.SubtotalBeforeDiscountInvalid", "Subtotal before discount cannot be negative.");
+
+        public static Error TotalBeforeDiscountInvalid =>
+            Error.Validation("Sale.TotalBeforeDiscountInvalid", "Total before discount cannot be negative.");
+
+        public static Error TotalDiscountAmountInvalid =>
+            Error.Validation("Sale.TotalDiscountAmountInvalid", "Total discount amount cannot be negative.");
+
+        public static Error BarcodeRequired =>
+            Error.Validation("Sale.BarcodeRequired", "Barcode is required.");
+
+        public static Error BatchNumberRequired =>
+            Error.Validation("Sale.BatchNumberRequired", "Batch number is required.");
+
+        public static Error ItemNameRequired =>
+            Error.Validation("Sale.ItemNameRequired", "Item name is required.");
+
+        public static Error InventoryBatchIdRequired =>
+            Error.Validation("Sale.InventoryBatchIdRequired", "Inventory batch id is required.");
+
+        public static Error OfflineLineQuantityMustBePositive =>
+            Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.");
+
+        public static Error OfflineLineAmountsInvalid =>
+            Error.Validation("Sale.LineAmountsInvalid", "Line amounts cannot be negative.");
 
         public static Error CreditCustomerNotFound =>
             Error.NotFound("Sale.CreditCustomerNotFound", "Registered customer was not found for this credit or due sale.");

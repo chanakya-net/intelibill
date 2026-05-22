@@ -21,5 +21,6 @@ public interface ISaleLineValidator
         Guid shopId,
         IReadOnlyList<RecordSaleItemCommand> items,
         List<string> warnings,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool allowInsufficientStock = false);
 }

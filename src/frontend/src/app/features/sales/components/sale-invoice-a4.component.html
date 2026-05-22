@@ -1,6 +1,10 @@
 <article class="invoice">
   <!-- Header -->
   <header class="invoice__header">
+    <div *ngIf="pendingSync" class="invoice__pending-sync" role="status">
+      {{ 'sales.newSale.offline.confirmation.queued' | transloco }}
+    </div>
+
     <div class="invoice__shop-info">
       <h1 class="invoice__shop-name">{{ shop.name }}</h1>
       <p class="invoice__shop-address">

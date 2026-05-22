@@ -249,10 +249,11 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
 
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var startDate = today.AddDays(-6);
-        var outsidePerformedAt = DateTimeOffset.Now.AddDays(-7).ToUniversalTime();
-        var inRangePerformedAt = DateTimeOffset.Now.AddMinutes(-30).ToUniversalTime();
-        var inRangeIncreasePerformedAt = DateTimeOffset.Now.AddMinutes(-20).ToUniversalTime();
-        var inRangeVoidedPerformedAt = DateTimeOffset.Now.AddMinutes(-10).ToUniversalTime();
+        var inRangeDate = today.AddDays(-1);
+        var outsidePerformedAt = AtUtcTime(startDate.AddDays(-1), new TimeOnly(12, 0));
+        var inRangePerformedAt = AtUtcTime(inRangeDate, new TimeOnly(12, 0));
+        var inRangeIncreasePerformedAt = AtUtcTime(inRangeDate, new TimeOnly(12, 5));
+        var inRangeVoidedPerformedAt = AtUtcTime(inRangeDate, new TimeOnly(12, 10));
 
         await CreateAdjustmentAsync(
             client,
@@ -310,7 +311,7 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal(-100m, body.GetProperty("profitAfterTax").GetDecimal());
         Assert.Contains(
             body.GetProperty("profitTrendSeries").EnumerateArray(),
-            point => point.GetProperty("date").GetDateTime().Date == today.ToDateTime(TimeOnly.MinValue).Date
+            point => point.GetProperty("date").GetDateTime().Date == inRangeDate.ToDateTime(TimeOnly.MinValue).Date
                 && point.GetProperty("profitAfterTax").GetDecimal() == -100m);
     }
 
@@ -358,12 +359,12 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var ownerToken = await CreateShopAsync(client, token);
 
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
-        var startDate = today;
-        var endDate = today;
-        var inRangePerformedAt = DateTimeOffset.Now.AddMinutes(-25).ToUniversalTime();
-        var outOfRangePerformedAt = DateTimeOffset.Now.AddDays(-1).AddMinutes(-25).ToUniversalTime();
-        var increasePerformedAt = DateTimeOffset.Now.AddMinutes(-20).ToUniversalTime();
-        var voidedPerformedAt = DateTimeOffset.Now.AddMinutes(-15).ToUniversalTime();
+        var startDate = today.AddDays(-1);
+        var endDate = startDate;
+        var inRangePerformedAt = AtUtcTime(startDate, new TimeOnly(12, 0));
+        var outOfRangePerformedAt = AtUtcTime(startDate.AddDays(-1), new TimeOnly(12, 0));
+        var increasePerformedAt = AtUtcTime(startDate, new TimeOnly(12, 5));
+        var voidedPerformedAt = AtUtcTime(startDate, new TimeOnly(12, 10));
 
         var batchId = await CreateInboundAsync(client, ownerToken, quantity: 10m, costPrice: 50m);
         await CreateAdjustmentAsync(
@@ -500,6 +501,9 @@ public sealed class DashboardControllerTests(PostgreSqlTestFixture fixture) : IA
         var localDateTime = date.ToDateTime(time, DateTimeKind.Unspecified);
         return new DateTimeOffset(localDateTime, TimeZoneInfo.Local.GetUtcOffset(localDateTime)).ToUniversalTime();
     }
+
+    private static DateTimeOffset AtUtcTime(DateOnly date, TimeOnly time) =>
+        new(date.ToDateTime(time, DateTimeKind.Utc));
 
     private static async Task<Guid> GetShopIdFromTokenAsync(HttpClient client, string token)
     {

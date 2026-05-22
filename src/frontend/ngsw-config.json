@@ -27,6 +27,32 @@
   ],
   "dataGroups": [
     {
+      "name": "ping-no-cache",
+      "urls": [
+        "/api/ping"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 1,
+        "maxAge": "0s",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "offline-sales-api-no-cache",
+      "urls": [
+        "/api/sales/offline-snapshot/stream",
+        "/api/sales/invoice-leases/reserve",
+        "/api/sales/offline-sync"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 1,
+        "maxAge": "0s",
+        "timeout": "5s"
+      }
+    },
+    {
       "name": "api-fresh",
       "urls": [
         "/api/**"

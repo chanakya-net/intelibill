@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -33,6 +34,18 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.InvoiceNumber)
             .IsRequired()
             .HasMaxLength(40);
+
+        builder.Property(s => s.Source)
+            .IsRequired()
+            .HasDefaultValue(SaleSource.Online);
+
+        builder.Property(s => s.ClientSaleId)
+            .HasMaxLength(120);
+
+        builder.Property(s => s.DeviceId)
+            .HasMaxLength(120);
+
+        builder.Property(s => s.SyncedAt);
 
         builder.Property(s => s.CustomerId);
 
@@ -97,6 +110,9 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .IsUnique();
 
         builder.HasIndex(s => new { s.ShopId, s.ActorUserId, s.IdempotencyKey })
+            .IsUnique();
+
+        builder.HasIndex(s => new { s.ShopId, s.DeviceId, s.ClientSaleId })
             .IsUnique();
 
         builder.HasIndex(s => s.ShopId);

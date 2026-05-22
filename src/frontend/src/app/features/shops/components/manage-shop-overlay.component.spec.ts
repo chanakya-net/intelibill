@@ -5,6 +5,9 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { UserShop } from '../../../core/auth/auth.models';
+import { NetworkStatusService } from '../../../core/services/network-status.service';
+import { OfflineSalesDeviceSettingsStorage, type OfflineSalesDeviceSettings } from '../../../core/storage/offline-sales-device-settings.storage';
+import { OfflineSalesDeviceEnablementService } from '../../sales/services/offline-sales-device-enablement.service';
 import { ShopDetails } from '../services/shop.service';
 import { ShopsActions } from '../state/shops.actions';
 import {
@@ -41,6 +44,83 @@ describe('ManageShopOverlayComponent', () => {
   const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'set-default' | null>(null);
   const lastMutationSucceededSignal = signal(false);
 
+  const canReachApiSignal = signal(true);
+  const lastVerifiedAtSignal = signal<Date | null>(new Date('2026-05-21T00:00:00.000Z'));
+
+  const networkStatus = {
+    isOnline: signal(true),
+    canReachApi: canReachApiSignal,
+    lastVerifiedAt: lastVerifiedAtSignal,
+    isChecking: signal(false),
+    checkConnectivity: vi.fn(async () => {}),
+  } satisfies Partial<NetworkStatusService>;
+
+  let storedSettings: OfflineSalesDeviceSettings | null = null;
+  const offlineDeviceStorage = {
+    getOrCreateDeviceId: vi.fn((_shopId: string) => 'device-1'),
+    loadSettings: vi.fn((shopId: string) => {
+      storedSettings ??= {
+        shopId,
+        deviceId: 'device-1',
+        label: '',
+        enabled: false,
+        enabledAt: null,
+        enabledByUserId: null,
+        enabledByUserName: null,
+        lastCompleteSnapshotAt: null,
+        lastApiVerifiedAt: null,
+        lastSnapshotWarningMarker: null,
+        lastReservedLease: null,
+      };
+      return storedSettings;
+    }),
+    saveSettings: vi.fn((settings: OfflineSalesDeviceSettings) => {
+      storedSettings = settings;
+    }),
+    updateSettings: vi.fn((shopId: string, update: (current: OfflineSalesDeviceSettings) => OfflineSalesDeviceSettings) => {
+      const current = offlineDeviceStorage.loadSettings(shopId) as OfflineSalesDeviceSettings;
+      const next = update(current);
+      offlineDeviceStorage.saveSettings(next);
+      return next;
+    }),
+  } satisfies Partial<OfflineSalesDeviceSettingsStorage>;
+
+  const offlineEnablement = {
+    enableForShop: vi.fn(async (shopId: string, label: string) => ({
+      ok: true as const,
+      settings: {
+        ...(offlineDeviceStorage.loadSettings(shopId) as OfflineSalesDeviceSettings),
+        label,
+        enabled: true,
+        enabledAt: '2026-05-21T00:00:00.000Z',
+        enabledByUserId: 'user-1',
+        enabledByUserName: 'Test User',
+        lastCompleteSnapshotAt: '2026-05-21T00:00:00.000Z',
+        lastApiVerifiedAt: '2026-05-21T00:00:00.000Z',
+        lastReservedLease: {
+          leaseId: 'lease-1',
+          fiscalYear: '2026-2027',
+          remainingCount: 100,
+          expiresAt: '2026-06-21T00:00:00.000Z',
+        },
+      },
+      lease: {
+        leaseId: 'lease-1',
+        shopId,
+        deviceId: 'device-1',
+        fiscalYear: '2026-2027',
+        prefix: 'INV-',
+        numberPadding: 6,
+        rangeStart: 1,
+        rangeEnd: 100,
+        nextNumber: 1,
+        remainingCount: 100,
+        reservedAt: '2026-05-21T00:00:00.000Z',
+        expiresAt: '2026-06-21T00:00:00.000Z',
+      },
+    })),
+  } satisfies Partial<OfflineSalesDeviceEnablementService>;
+
   const store = {
     dispatch,
     selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
@@ -75,12 +155,18 @@ describe('ManageShopOverlayComponent', () => {
   const shops: readonly UserShop[] = [
     { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
     { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: false, lastUsedAt: null },
+    { shopId: 'shop-3', shopName: 'Outlet', role: 'Staff', isDefault: false, lastUsedAt: null },
   ];
 
   function setup(): { component: ManageShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<ManageShopOverlayComponent>> } {
     TestBed.configureTestingModule({
       imports: [ManageShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: NetworkStatusService, useValue: networkStatus },
+        { provide: OfflineSalesDeviceSettingsStorage, useValue: offlineDeviceStorage },
+        { provide: OfflineSalesDeviceEnablementService, useValue: offlineEnablement },
+      ],
     });
 
     const fixture = TestBed.createComponent(ManageShopOverlayComponent);
@@ -114,6 +200,11 @@ describe('ManageShopOverlayComponent', () => {
     });
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
+    canReachApiSignal.set(true);
+    storedSettings = null;
+    (networkStatus.checkConnectivity as ReturnType<typeof vi.fn>).mockClear();
+    (offlineEnablement.enableForShop as ReturnType<typeof vi.fn>).mockClear();
+    (offlineDeviceStorage.updateSettings as ReturnType<typeof vi.fn>).mockClear();
   });
 
   afterEach(() => {
@@ -190,6 +281,19 @@ describe('ManageShopOverlayComponent', () => {
         errorMessage: 'errors.shops.onlyOwnersCanUpdate',
       })
     );
+  });
+
+  it('lets a manager continue to offline billing and enable the device', async () => {
+    const { component } = setup();
+
+    component.form.controls.shopId.setValue('shop-2');
+    component.onShopSelectionChange();
+    component.onContinueToOfflineBilling();
+    await component.onEnableOfflineBilling();
+
+    expect(component.activeStep()).toBe(3);
+    expect(offlineEnablement.enableForShop).toHaveBeenCalledWith('shop-2', '');
+    expect(component.offlineDeviceSettings()?.enabled).toBe(true);
   });
 
   it('dispatches update action with trimmed values and moves to step 2 on success', () => {
@@ -339,20 +443,20 @@ describe('ManageShopOverlayComponent', () => {
   it('moves one step back when previous is triggered', () => {
     const { component } = setup();
 
-    component.activeStep.set(3);
+    component.activeStep.set(4);
     component.onPreviousStep();
 
-    expect(component.activeStep()).toBe(2);
+    expect(component.activeStep()).toBe(3);
   });
 
   it('moves to clicked previous icon step only', () => {
     const { component } = setup();
 
-    component.activeStep.set(3);
+    component.activeStep.set(4);
     component.onStepIconClick(2);
     expect(component.activeStep()).toBe(2);
 
-    component.onStepIconClick(3);
+    component.onStepIconClick(4);
     expect(component.activeStep()).toBe(2);
   });
 
@@ -395,5 +499,56 @@ describe('ManageShopOverlayComponent', () => {
     expect(dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: ShopsActions.updateShopRequested.type })
     );
+  });
+
+  it('hides offline device setup for staff', () => {
+    const { component, fixture } = setup();
+    component.form.controls.shopId.setValue('shop-3');
+    component.onShopSelectionChange();
+    component.activeStep.set(3);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#offline-device-label')).toBeNull();
+  });
+
+  it('disables enable button when API is unreachable', () => {
+    const { component, fixture } = setup();
+    component.activeStep.set(3);
+    canReachApiSignal.set(false);
+    fixture.detectChanges();
+
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button.save-button')) as HTMLButtonElement[];
+    const enableButton = buttons.find((b) => (b.textContent ?? '').toLowerCase().includes('enable'));
+    expect(enableButton).toBeTruthy();
+    expect(enableButton!.disabled).toBe(true);
+  });
+
+  it('runs enablement and stores returned settings on success', async () => {
+    const { component } = setup();
+    component.activeStep.set(3);
+
+    await component.onEnableOfflineBilling();
+
+    expect(offlineEnablement.enableForShop).toHaveBeenCalledWith('shop-1', '');
+    expect(component.offlineDeviceSettings()?.enabled).toBe(true);
+  });
+
+  it('keeps readiness enabled when API becomes unreachable', () => {
+    const { component } = setup();
+    storedSettings = {
+      ...(offlineDeviceStorage.loadSettings('shop-1') as OfflineSalesDeviceSettings),
+      enabled: true,
+      lastCompleteSnapshotAt: '2026-05-21T00:00:00.000Z',
+      lastReservedLease: {
+        leaseId: 'lease-1',
+        fiscalYear: '2026-2027',
+        remainingCount: 100,
+        expiresAt: '2026-06-21T00:00:00.000Z',
+      },
+    };
+    component.offlineDeviceSettings.set(storedSettings);
+    canReachApiSignal.set(false);
+
+    expect(component.offlineReadinessState()).toBe('enabled');
   });
 });

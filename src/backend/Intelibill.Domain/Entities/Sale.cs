@@ -15,6 +15,10 @@ public sealed class Sale : BaseEntity
     public string RequestHash { get; private set; } = string.Empty;
     public string[] Warnings { get; private set; } = [];
     public string InvoiceNumber { get; private set; } = string.Empty;
+    public SaleSource Source { get; private set; }
+    public string? ClientSaleId { get; private set; }
+    public string? DeviceId { get; private set; }
+    public DateTimeOffset? SyncedAt { get; private set; }
     public Guid? CustomerId { get; private set; }
     public string? CustomerName { get; private set; }
     public string? CustomerPhone { get; private set; }
@@ -117,6 +121,10 @@ public sealed class Sale : BaseEntity
             RequestHash = requestHash,
             Warnings = warnings?.ToArray() ?? [],
             InvoiceNumber = invoiceNumber,
+            Source = SaleSource.Online,
+            ClientSaleId = null,
+            DeviceId = null,
+            SyncedAt = null,
             CustomerId = customerId,
             CustomerName = NormalizeOptional(customerName),
             CustomerPhone = NormalizeOptional(customerPhone),
@@ -162,7 +170,12 @@ public sealed class Sale : BaseEntity
         decimal? configuredSaleRulePercentage = null,
         decimal? configuredSaleRuleThresholdAmount = null,
         InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
-        decimal saleDiscountOverrideValue = 0m)
+        decimal saleDiscountOverrideValue = 0m,
+        SaleSource source = SaleSource.Online,
+        string? clientSaleId = null,
+        string? deviceId = null,
+        DateTimeOffset? syncedAt = null,
+        IReadOnlyList<string>? warnings = null)
     {
         var effectiveSubtotalBeforeDiscount = subtotalBeforeDiscount
             ?? decimal.Round(items.Sum(i => i.PreTaxAmountBeforeDiscount), 2, MidpointRounding.AwayFromZero);
@@ -175,7 +188,12 @@ public sealed class Sale : BaseEntity
             ActorUserId = actorUserId,
             IdempotencyKey = idempotencyKey,
             RequestHash = requestHash,
+            Warnings = warnings?.ToArray() ?? [],
             InvoiceNumber = invoiceNumber,
+            Source = source,
+            ClientSaleId = NormalizeOptional(clientSaleId),
+            DeviceId = NormalizeOptional(deviceId),
+            SyncedAt = syncedAt,
             CustomerId = customerId,
             CustomerName = NormalizeOptional(customerName),
             CustomerPhone = NormalizeOptional(customerPhone),
@@ -220,7 +238,11 @@ public sealed class Sale : BaseEntity
         decimal? configuredSaleRulePercentage = null,
         decimal? configuredSaleRuleThresholdAmount = null,
         InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
-        decimal saleDiscountOverrideValue = 0m)
+        decimal saleDiscountOverrideValue = 0m,
+        SaleSource source = SaleSource.Online,
+        string? clientSaleId = null,
+        string? deviceId = null,
+        DateTimeOffset? syncedAt = null)
     {
         var idempotencyKey = $"legacy-{Guid.NewGuid():N}";
         var requestHash = $"legacy-{Guid.NewGuid():N}";
@@ -248,7 +270,11 @@ public sealed class Sale : BaseEntity
             configuredSaleRulePercentage,
             configuredSaleRuleThresholdAmount,
             saleDiscountOverrideType,
-            saleDiscountOverrideValue);
+            saleDiscountOverrideValue,
+            source,
+            clientSaleId,
+            deviceId,
+            syncedAt);
     }
 
     private static string? NormalizeOptional(string? value) =>

@@ -128,6 +128,26 @@ export interface RecordSaleRequest {
   readonly saleDiscount: InstantDiscountRequest | null;
 }
 
+export interface ReserveInvoiceLeaseRequest {
+  readonly deviceId: string;
+  readonly blockSize?: number | null;
+}
+
+export interface InvoiceLeaseDto {
+  readonly leaseId: string;
+  readonly shopId: string;
+  readonly deviceId: string;
+  readonly fiscalYear: string;
+  readonly prefix: string;
+  readonly numberPadding: number;
+  readonly rangeStart: number;
+  readonly rangeEnd: number;
+  readonly nextNumber: number;
+  readonly remainingCount: number;
+  readonly reservedAt: string;
+  readonly expiresAt: string;
+}
+
 export interface SaleItemDto {
   readonly saleItemId: string;
   readonly itemId: string;
@@ -306,12 +326,91 @@ export interface ProfitLossReportItemDto {
   readonly inventoryAdjustmentId: string | null;
 }
 
+export interface OfflineSalesSyncLineRequest {
+  readonly barcode: string;
+  readonly batchNumber: string;
+  readonly itemName: string;
+  readonly quantity: number;
+  readonly costPrice: number;
+  readonly salesPrice: number;
+  readonly mrp: number;
+  readonly taxRatePercent: number;
+  readonly isPriceIncludingTax: boolean;
+  readonly inventoryBatchId: string;
+  readonly preTaxAmountBeforeDiscount: number;
+  readonly itemDiscountAmount: number;
+  readonly saleDiscountAmount: number;
+  readonly taxableAmount: number;
+  readonly taxAmount: number;
+  readonly totalAmount: number;
+  readonly configuredBatchRuleId: string | null;
+  readonly configuredBatchRulePercentage: number | null;
+  readonly itemDiscountOverrideType: number;
+  readonly itemDiscountOverrideValue: number;
+  readonly hsnCode: string | null;
+}
+
+export interface OfflineSaleSyncRequest {
+  readonly clientSaleId: string;
+  readonly invoiceNumber: string;
+  readonly soldAt: string;
+  readonly customerId: string | null;
+  readonly customerName: string | null;
+  readonly customerPhone: string | null;
+  readonly paymentMethod: number;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
+  readonly subtotalBeforeDiscount: number;
+  readonly totalBeforeDiscount: number;
+  readonly totalDiscountAmount: number;
+  readonly totalTaxAmount: number;
+  readonly totalAmount: number;
+  readonly saleDiscountOverrideType: number;
+  readonly saleDiscountOverrideValue: number;
+  readonly configuredSaleRuleId: string | null;
+  readonly configuredSaleRuleType: string | null;
+  readonly configuredSaleRulePercentage: number | null;
+  readonly configuredSaleRuleThresholdAmount: number | null;
+  readonly items: readonly OfflineSalesSyncLineRequest[];
+}
+
+export interface OfflineSalesSyncRequest {
+  readonly deviceId: string;
+  readonly sales: readonly OfflineSaleSyncRequest[];
+}
+
+export interface OfflineSaleSyncErrorDto {
+  readonly code: string;
+  readonly message: string;
+}
+
+export interface OfflineSaleSyncResultDto {
+  readonly clientSaleId: string;
+  readonly status: string;
+  readonly saleId: string | null;
+  readonly invoiceNumber: string | null;
+  readonly errors: readonly OfflineSaleSyncErrorDto[];
+  readonly warnings: readonly string[];
+}
+
+export interface OfflineSalesSyncResponseDto {
+  readonly results: readonly OfflineSaleSyncResultDto[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class SaleService {
   private readonly http = inject(HttpClient);
 
   recordSale(request: RecordSaleRequest): Observable<SaleDto> {
     return this.http.post<SaleDto>(SALE_ENDPOINTS.record, request);
+  }
+
+  reserveInvoiceLease(request: ReserveInvoiceLeaseRequest): Observable<InvoiceLeaseDto> {
+    return this.http.post<InvoiceLeaseDto>(SALE_ENDPOINTS.reserveInvoiceLease, request);
+  }
+
+  syncOfflineSales(request: OfflineSalesSyncRequest): Observable<OfflineSalesSyncResponseDto> {
+    return this.http.post<OfflineSalesSyncResponseDto>(SALE_ENDPOINTS.offlineSync, request);
   }
 
   previewSale(request: PreviewSaleRequest): Observable<SalePreviewDto> {

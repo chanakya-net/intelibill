@@ -8,6 +8,21 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class InventoryBatchRepository(ApplicationDbContext context)
     : RepositoryBase<InventoryBatch>(context), IInventoryBatchRepository
 {
+    public IAsyncEnumerable<InventoryBatch> StreamActiveSellableWithItemByShopAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default) =>
+        DbSet
+            .AsNoTracking()
+            .Include(b => b.Item)
+            .Where(b => b.ShopId == shopId
+                && !b.IsVoided
+                && b.Quantity > 0
+                && b.Item.IsActive)
+            .OrderBy(b => b.Item.Name)
+            .ThenBy(b => b.ExpiryDate)
+            .ThenBy(b => b.BatchNumber)
+            .AsAsyncEnumerable();
+
     public async Task<IReadOnlyList<InventoryBatch>> GetByItemAsync(Guid shopId, Guid itemId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Where(b => b.ShopId == shopId && b.ItemId == itemId)

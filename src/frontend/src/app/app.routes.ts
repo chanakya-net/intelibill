@@ -47,6 +47,7 @@ export const routes: Routes = [
 	{
 		path: '',
 		canActivate: [authGuard],
+		data: { allowOfflineSalesGracePaths: ['/sales/new'] },
 		loadChildren: () =>
 			import('./core/layout/shell.routes').then((m) => m.shellRoutes),
 	},

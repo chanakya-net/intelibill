@@ -883,6 +883,127 @@ namespace Intelibill.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.InvoiceLease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("device_id");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FiscalYearStart")
+                        .HasColumnType("integer")
+                        .HasColumnName("fiscal_year_start");
+
+                    b.Property<Guid>("InvoiceSequenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_sequence_id");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<int>("NumberPadding")
+                        .HasColumnType("integer")
+                        .HasColumnName("number_padding");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("prefix");
+
+                    b.Property<int>("RangeEnd")
+                        .HasColumnType("integer")
+                        .HasColumnName("range_end");
+
+                    b.Property<int>("RangeStart")
+                        .HasColumnType("integer")
+                        .HasColumnName("range_start");
+
+                    b.Property<DateTimeOffset>("ReservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reserved_at");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invoice_leases");
+
+                    b.HasIndex("InvoiceSequenceId")
+                        .HasDatabaseName("ix_invoice_leases_invoice_sequence_id");
+
+                    b.HasIndex("ShopId", "ExpiresAt")
+                        .HasDatabaseName("ix_invoice_leases_shop_id_expires_at");
+
+                    b.HasIndex("ShopId", "DeviceId", "FiscalYearStart")
+                        .HasDatabaseName("ix_invoice_leases_shop_id_device_id_fiscal_year_start");
+
+                    b.ToTable("invoice_leases", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.InvoiceSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FiscalYearStart")
+                        .HasColumnType("integer")
+                        .HasColumnName("fiscal_year_start");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("prefix");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invoice_sequences");
+
+                    b.HasIndex("ShopId", "FiscalYearStart")
+                        .IsUnique()
+                        .HasDatabaseName("ix_invoice_sequences_shop_id_fiscal_year_start");
+
+                    b.ToTable("invoice_sequences", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Item", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1020,6 +1141,117 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("password_reset_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal?>("AvailableQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("available_quantity");
+
+                    b.Property<string>("ClientSaleId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("client_sale_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("code");
+
+                    b.Property<decimal?>("ConsumedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("consumed_quantity");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("device_id");
+
+                    b.Property<Guid?>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_resolved");
+
+                    b.Property<int>("IssueType")
+                        .HasColumnType("integer")
+                        .HasColumnName("issue_type");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("message");
+
+                    b.Property<decimal?>("PrintedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("printed_quantity");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reconciliation_issues");
+
+                    b.HasIndex("InventoryBatchId")
+                        .HasDatabaseName("ix_reconciliation_issues_inventory_batch_id");
+
+                    b.HasIndex("ItemId")
+                        .HasDatabaseName("ix_reconciliation_issues_item_id");
+
+                    b.HasIndex("SaleId")
+                        .HasDatabaseName("ix_reconciliation_issues_sale_id");
+
+                    b.HasIndex("ShopId", "IsResolved")
+                        .HasDatabaseName("ix_reconciliation_issues_shop_id_is_resolved");
+
+                    b.HasIndex("ShopId", "ClientSaleId", "DeviceId")
+                        .HasDatabaseName("ix_reconciliation_issues_shop_id_client_sale_id_device_id");
+
+                    b.ToTable("reconciliation_issues", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1081,6 +1313,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("actor_user_id");
 
+                    b.Property<string>("ClientSaleId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("client_sale_id");
+
                     b.Property<Guid?>("ConfiguredSaleRuleId")
                         .HasColumnType("uuid")
                         .HasColumnName("configured_sale_rule_id");
@@ -1116,6 +1353,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("customer_phone");
+
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("device_id");
 
                     b.Property<decimal>("DueAmount")
                         .HasPrecision(18, 2)
@@ -1166,10 +1408,20 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sold_at");
 
+                    b.Property<int>("Source")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("source");
+
                     b.Property<decimal>("SubtotalBeforeDiscount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("subtotal_before_discount");
+
+                    b.Property<DateTimeOffset?>("SyncedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("synced_at");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
@@ -1225,6 +1477,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "ActorUserId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("ix_sales_shop_id_actor_user_id_idempotency_key");
+
+                    b.HasIndex("ShopId", "DeviceId", "ClientSaleId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sales_shop_id_device_id_client_sale_id");
 
                     b.ToTable("sales", (string)null);
                 });
@@ -2335,6 +2591,35 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.InvoiceLease", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InvoiceSequence", "InvoiceSequence")
+                        .WithMany()
+                        .HasForeignKey("InvoiceSequenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_invoice_leases_invoice_sequences_invoice_sequence_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_invoice_leases_shops_shop_id");
+
+                    b.Navigation("InvoiceSequence");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.InvoiceSequence", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_invoice_sequences_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Item", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -2355,6 +2640,34 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_password_reset_tokens_users_user_id");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reconciliation_issues_inventory_batches_inventory_batch_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reconciliation_issues_items_item_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reconciliation_issues_sales_sale_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reconciliation_issues_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.RefreshToken", b =>

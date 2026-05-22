@@ -1,5 +1,5 @@
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -22,9 +22,15 @@ import {
 import { AuthStorage } from './auth.storage';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
+import { NetworkStatusService } from '../services/network-status.service';
+import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
+import { OfflineSalesSnapshotIndexedDbService } from '../storage/offline-sales-snapshot-indexeddb.service';
 
 const CLOCK_SKEW_BUFFER_MS = 30_000;
 const PROACTIVE_REFRESH_LEAD_MS = 60_000;
+const OFFLINE_AUTH_GRACE_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+export type BootstrapSessionStatus = 'READY' | 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'REFRESH_FAILED';
 
 type SessionBroadcastMessage =
   | { readonly type: 'SESSION_UPDATED'; readonly session: AuthSession }
@@ -36,11 +42,14 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly storage = inject(AuthStorage);
   private readonly localizationService = inject(LocalizationService);
+  private readonly networkStatus = inject(NetworkStatusService);
+  private readonly offlineSalesDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
+  private readonly offlineSalesSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly platformId = inject(PLATFORM_ID);
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
   private refreshInFlight$: Observable<AuthSession | null> | null = null;
-  private bootstrapInFlight$: Observable<boolean> | null = null;
+  private bootstrapInFlight$: Observable<BootstrapSessionStatus> | null = null;
   private sessionChannel: BroadcastChannel | null = null;
   private proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -140,8 +149,12 @@ export class AuthService {
   }
 
   bootstrapSession(): Observable<boolean> {
+    return this.bootstrapSessionWithStatus().pipe(map((status) => status === 'READY'));
+  }
+
+  bootstrapSessionWithStatus(): Observable<BootstrapSessionStatus> {
     if (!this.isBrowser()) {
-      return of(true);
+      return of('READY');
     }
 
     if (this.bootstrapInFlight$) {
@@ -150,34 +163,44 @@ export class AuthService {
 
     const session = this.sessionSignal();
     if (!session) {
-      return of(false);
+      return of('UNAUTHENTICATED');
     }
 
     if (!this.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
-      return of(true);
+      return of('READY');
     }
 
     if (this.isExpired(session.refreshTokenExpiresAt)) {
       this.clearSession();
-      return of(false);
+      return of('UNAUTHENTICATED');
     }
 
-    this.bootstrapInFlight$ = this.refreshAccessToken().pipe(
-      map((refreshedSession) => !!refreshedSession),
-      catchError(() => {
+    const refresh$ = this.refreshAccessToken({ preserveSessionOnError: true }).pipe(
+      switchMap(async (refreshedSession): Promise<BootstrapSessionStatus> => {
+        if (refreshedSession) {
+          return 'READY';
+        }
+
+        if (await this.shouldPreserveSessionAfterRefreshFailure()) {
+          return 'API_UNREACHABLE';
+        }
+
         this.clearSession();
-        return of(false);
+        return 'REFRESH_FAILED';
       }),
+      catchError((error) => this.resolveBootstrapRefreshFailure(error)),
       finalize(() => {
         this.bootstrapInFlight$ = null;
       }),
       shareReplay(1)
     );
 
-    return this.bootstrapInFlight$;
+    this.bootstrapInFlight$ = refresh$;
+
+    return refresh$;
   }
 
-  refreshAccessToken(): Observable<AuthSession | null> {
+  refreshAccessToken(options?: { readonly preserveSessionOnError?: boolean }): Observable<AuthSession | null> {
     if (!this.isBrowser()) {
       return of(null);
     }
@@ -202,11 +225,17 @@ export class AuthService {
         // to localStorage. Re-read storage before clearing to avoid spurious logout
         // on multi-tab refresh races.
         const fresherSession = this.storage.loadSession();
-        if (fresherSession && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
+        if (
+          fresherSession
+          && fresherSession.accessToken !== session.accessToken
+          && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)
+        ) {
           this.sessionSignal.set(fresherSession);
           return of(fresherSession);
         }
-        this.clearSession();
+        if (!options?.preserveSessionOnError) {
+          this.clearSession();
+        }
         return throwError(() => error);
       }),
       finalize(() => {
@@ -272,6 +301,39 @@ export class AuthService {
     }
 
     return !this.isExpired(this.sessionSignal()!.refreshTokenExpiresAt);
+  }
+
+  async canUseOfflineSalesAuthGrace(): Promise<boolean> {
+    const session = this.sessionSignal();
+    if (!session?.activeShopId) {
+      return false;
+    }
+
+    if (this.isExpired(session.refreshTokenExpiresAt)) {
+      return false;
+    }
+
+    const activeRole = session.shops.find((shop) => shop.shopId === session.activeShopId)?.role?.trim();
+    if (!activeRole) {
+      return false;
+    }
+
+    const settings = this.offlineSalesDeviceSettingsStorage.loadSettings(session.activeShopId);
+    if (!settings?.enabled) {
+      return false;
+    }
+
+    const usable = await this.offlineSalesSnapshotDb.getUsableSnapshotInfo(session.activeShopId);
+    if (!usable?.snapshotId || !usable.completedAt) {
+      return false;
+    }
+
+    const verifiedAt = Date.parse(settings.lastApiVerifiedAt ?? '');
+    if (!Number.isFinite(verifiedAt)) {
+      return false;
+    }
+
+    return Date.now() - verifiedAt <= OFFLINE_AUTH_GRACE_WINDOW_MS;
   }
 
   getLastRememberedIdentifier(): string {
@@ -360,7 +422,11 @@ export class AuthService {
 
     this.proactiveRefreshTimerId = setTimeout(() => {
       this.proactiveRefreshTimerId = null;
-      this.refreshAccessToken().subscribe({ error: () => { /* clearSession called internally */ } });
+      this.refreshAccessToken({ preserveSessionOnError: true }).subscribe({
+        error: (error: unknown) => {
+          void this.handleProactiveRefreshFailure(error);
+        },
+      });
     }, delay);
   }
 
@@ -383,5 +449,33 @@ export class AuthService {
 
   private isBrowser(): boolean {
     return isPlatformBrowser(this.platformId);
+  }
+
+  private async handleProactiveRefreshFailure(error: unknown): Promise<void> {
+    if (!(await this.shouldPreserveSessionAfterRefreshFailure(error))) {
+      this.clearSession();
+    }
+  }
+
+  private async resolveBootstrapRefreshFailure(error: unknown): Promise<BootstrapSessionStatus> {
+    if (await this.shouldPreserveSessionAfterRefreshFailure(error)) {
+      return 'API_UNREACHABLE';
+    }
+
+    this.clearSession();
+    return 'REFRESH_FAILED';
+  }
+
+  private async shouldPreserveSessionAfterRefreshFailure(error?: unknown): Promise<boolean> {
+    if (error !== undefined && !this.isNetworkRefreshFailure(error)) {
+      return false;
+    }
+
+    await this.networkStatus.checkConnectivity();
+    return !this.networkStatus.canReachApi();
+  }
+
+  private isNetworkRefreshFailure(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 0;
   }
 }

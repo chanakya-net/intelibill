@@ -22,6 +22,7 @@ import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-acc
 import { DashboardEffects } from '../../features/dashboard/state/dashboard.effects';
 import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
 import { discountsGuard } from '../guards/discounts.guard';
+import { authGuard } from '../guards/auth.guard';
 
 export const shellRoutes: Routes = [
 	{
@@ -59,6 +60,8 @@ export const shellRoutes: Routes = [
 			},
 			{
 				path: 'sales/new',
+				canActivate: [authGuard],
+				data: { allowOfflineSalesGrace: true },
 				loadComponent: () =>
 					import('../../features/sales/pages/new-sale-page.component').then(
 						(m) => m.NewSalePageComponent

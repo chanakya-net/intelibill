@@ -58,6 +58,9 @@ export const SALE_ENDPOINTS = {
   preview: `${API_BASE_URL}/sales/preview`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,
+  reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
+  offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
+  offlineSync: `${API_BASE_URL}/sales/offline-sync`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {
@@ -89,4 +92,8 @@ export const DISCOUNT_ENDPOINTS = {
 
 export const EXPORT_ENDPOINTS = {
   sales: `${API_BASE_URL}/exports/sales`,
+} as const;
+
+export const CONNECTIVITY_ENDPOINTS = {
+  ping: `${API_BASE_URL}/ping`,
 } as const;

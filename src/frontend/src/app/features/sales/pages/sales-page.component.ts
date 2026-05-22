@@ -18,6 +18,7 @@ import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';
 import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
+import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sync.service';
 
 @Component({
   selector: 'app-sales-page',
@@ -44,8 +45,12 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
 })
 export class SalesPageComponent {
   private readonly salesFacade = inject(SalesFacade);
+  private readonly offlineSalesQueueSync = inject(OfflineSalesQueueSyncService);
 
   readonly sales = this.salesFacade.allSales;
+  readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
+  readonly hasOfflineQueueStatus = computed(() => this.offlineQueueCounts().totalVisible > 0);
+  readonly isRetryingOfflineQueue = signal(false);
   readonly tableSales = computed(() => [...this.sales()]);
   readonly searchValue = signal('');
   readonly filteredSales = computed(() => {
@@ -66,6 +71,8 @@ export class SalesPageComponent {
 
   constructor() {
     this.salesFacade.loadSales();
+    void this.offlineSalesQueueSync.cleanupSyncedRecords()
+      .then(() => this.offlineSalesQueueSync.refreshActiveStatusCounts());
   }
 
   paymentMethodLabel(method: number): string {
@@ -98,5 +105,13 @@ export class SalesPageComponent {
     this.showDetailOverlay.set(false);
     this.viewingSaleId.set(null);
     this.salesFacade.clearSaleDetail();
+  }
+
+  onRetryOfflineQueue(): void {
+    if (this.isRetryingOfflineQueue()) return;
+
+    this.isRetryingOfflineQueue.set(true);
+    void this.offlineSalesQueueSync.retryActiveShop()
+      .finally(() => this.isRetryingOfflineQueue.set(false));
   }
 }

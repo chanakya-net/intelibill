@@ -133,6 +133,26 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(text).toContain('Invoice');
   });
 
+  it('shows pending sync marker when enabled', () => {
+    component.sale = makeSale();
+    component.shop = makeShop();
+    component.pendingSync = true;
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.thermal-invoice__pending-text');
+    expect(marker).not.toBeNull();
+    expect(marker?.textContent).toContain('Sale Queued for Sync');
+  });
+
+  it('does not show pending sync marker when disabled', () => {
+    component.sale = makeSale();
+    component.shop = makeShop();
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.thermal-invoice__pending-text');
+    expect(marker).toBeNull();
+  });
+
   it('renders Walk-in customer fallback', () => {
     const sale = makeSale({ customerId: null, customerName: null, customerPhone: null });
 

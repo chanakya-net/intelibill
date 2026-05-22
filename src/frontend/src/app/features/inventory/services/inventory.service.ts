@@ -370,10 +370,12 @@ export interface AvailableBatchDto {
   readonly batchNumber: string;
   readonly inventoryBatchId: string;
   readonly quantity: number;
+  readonly costPrice?: number;
   readonly salesPrice: number;
   readonly mrp: number;
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
   readonly purchaseTaxIncluded?: boolean;
+  readonly hsnCode?: string | null;
   readonly expiryDate: string | null;
 }
