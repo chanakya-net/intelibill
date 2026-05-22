@@ -92,7 +92,35 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-2');
   });
 
-  function stubFetch(bodyText: string): void {
+  it('fetches the snapshot stream with no-store caching to bypass service worker API cache', async () => {
+    const completedAt = new Date().toISOString();
+    const ndjson =
+      [
+        JSON.stringify({
+          type: 'metadata',
+          metadata: { snapshotId: 'attempt-3', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+        }),
+        JSON.stringify({
+          type: 'complete',
+          complete: { snapshotId: 'attempt-3', completedAt },
+        }),
+      ].join('\n') + '\n';
+
+    const fetchSpy = stubFetch(ndjson);
+
+    await service.syncForShop(shopId);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ngsw-bypass=true'),
+      expect.any(Object),
+    );
+  });
+
+  function stubFetch(bodyText: string): ReturnType<typeof vi.fn> {
     const encoder = new TextEncoder();
     const bytes = encoder.encode(bodyText);
 
@@ -103,7 +131,9 @@ describe('OfflineSalesSnapshotSyncService', () => {
       },
     });
 
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, body: stream })) as unknown as typeof fetch);
+    const fetchSpy = vi.fn(async () => ({ ok: true, body: stream }));
+    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch);
+    return fetchSpy;
   }
 
   function stubIndexedDb(): void {

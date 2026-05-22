@@ -10,8 +10,8 @@ import { ShopDetails, ShopService } from '../../../shops/services/shop.service';
 import { SaleDto, SaleService } from '../../services/sale.service';
 import { SaleInvoiceA4Component } from '../../components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../components/sale-invoice-thermal.component';
-import { OfflineQueuedSalePayload } from '../../services/offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from '../../services/offline-sales-queue-indexeddb.service';
+import { mapOfflineQueuedSaleToSaleDto } from '../../services/offline-sale-invoice.mapper';
 
 type InvoiceTemplate = 'a4' | 'thermal';
 
@@ -35,6 +35,7 @@ export class SaleInvoicePrintPageComponent {
   readonly sale = signal<SaleDto | null>(null);
   readonly shop = signal<ShopDetails | null>(null);
   readonly template = signal<InvoiceTemplate>(this.resolveTemplate());
+  readonly pendingSync = signal(false);
 
   constructor() {
     this.loadInvoice();
@@ -63,10 +64,12 @@ export class SaleInvoicePrintPageComponent {
     }
 
     if (this.isOfflineInvoice()) {
+      this.pendingSync.set(true);
       void this.loadOfflineInvoice(saleId, activeShopId);
       return;
     }
 
+    this.pendingSync.set(false);
     this.isLoading.set(true);
     this.errorMessage.set('');
 
@@ -107,7 +110,7 @@ export class SaleInvoicePrintPageComponent {
         return;
       }
 
-      this.sale.set(this.mapOfflineQueuedSale(queuedSale.payload));
+      this.sale.set(mapOfflineQueuedSaleToSaleDto(queuedSale.payload));
       this.shop.set(this.buildOfflineShopDetails(shopId));
       this.isLoading.set(false);
       setTimeout(() => window.print());
@@ -148,50 +151,6 @@ export class SaleInvoicePrintPageComponent {
       bankAccountType: null,
       ifscCode: null,
       accountHolderName: null,
-    };
-  }
-
-  private mapOfflineQueuedSale(payload: OfflineQueuedSalePayload): SaleDto {
-    return {
-      saleId: payload.clientSaleId,
-      invoiceNumber: payload.invoiceNumber,
-      customerId: payload.customerId,
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      paymentMethod: payload.paymentMethod,
-      soldAt: payload.soldAt,
-      paidAmount: payload.pricing.totals.paidAmount,
-      dueAmount: payload.pricing.totals.dueAmount,
-      totalBeforeDiscount: payload.pricing.totals.totalBeforeDiscount,
-      totalDiscountAmount: payload.pricing.totals.totalDiscount,
-      totalAmount: payload.pricing.totals.grandTotal,
-      totalTaxAmount: payload.pricing.totals.totalTax,
-      items: payload.pricing.lines.map((line) => ({
-        saleItemId: line.clientLineId,
-        itemId: line.itemId,
-        itemName: line.itemName,
-        inventoryBatchId: line.inventoryBatchId,
-        quantity: line.quantity,
-        salesPrice: line.salesPrice,
-        originalSalesPrice: line.salesPrice,
-        finalSalesPrice: line.lineTotal,
-        preTaxAmountBeforeDiscount: line.preTaxAmount,
-        itemDiscountAmount: line.itemDiscountAmount,
-        saleDiscountAmount: line.saleDiscountAmount,
-        taxableAmount: line.taxableAmount,
-        taxAmount: line.taxAmount,
-        totalAmount: line.lineTotal,
-        savingsAmount: line.itemDiscountAmount + line.saleDiscountAmount,
-        taxRatePercent: line.taxRatePercent,
-        isPriceIncludingTax: line.taxIncluded,
-        hasPriceMismatch: false,
-        returnedQuantity: 0,
-        returnableQuantity: line.quantity,
-        returnStatus: 'None',
-        hsnCode: line.hsnCode,
-      })),
-      returns: [],
-      warnings: ['Pending sync'],
     };
   }
 }

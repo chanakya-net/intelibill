@@ -10,6 +10,7 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { ShopService } from '../../../shops/services/shop.service';
+import { OfflineQueuedSalePayload } from '../../services/offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from '../../services/offline-sales-queue-indexeddb.service';
 import { SaleDto, SaleService } from '../../services/sale.service';
 import { SaleInvoicePrintPageComponent } from './sale-invoice-print-page.component';
@@ -51,6 +52,53 @@ describe('SaleInvoicePrintPageComponent', () => {
     bankAccountType: null,
     ifscCode: null,
     accountHolderName: null,
+  };
+
+  const offlineQueuedSalePayload: OfflineQueuedSalePayload = {
+    clientSaleId: 'offline-sale-1',
+    idempotencyKey: 'offline-sale-offline-sale-1',
+    shopId: 'shop-1',
+    deviceId: 'device-1',
+    invoiceNumber: 'INV-2026-001',
+    soldAt: '2026-05-01T10:30:00Z',
+    pricing: {
+      lines: [
+        {
+          clientLineId: 'line-1',
+          inventoryBatchId: 'batch-1',
+          itemId: 'item-1',
+          barcode: '123',
+          itemName: 'Offline Item',
+          batchNumber: 'B1',
+          quantity: 1,
+          salesPrice: 50,
+          mrp: 60,
+          costPrice: 20,
+          taxRatePercent: 5,
+          taxIncluded: true,
+          hsnCode: null,
+          preTaxAmount: 47.62,
+          itemDiscountAmount: 2.38,
+          saleDiscountAmount: 0,
+          taxableAmount: 45.24,
+          taxAmount: 2.26,
+          lineTotal: 47.5,
+          configuredRuleId: null,
+        },
+      ],
+      totals: {
+        totalBeforeDiscount: 50,
+        totalDiscount: 2.38,
+        totalTax: 2.26,
+        grandTotal: 47.5,
+        paidAmount: 47.5,
+        dueAmount: 0,
+      },
+    },
+    paymentMethod: 1,
+    customerId: null,
+    customerName: 'Walk-in',
+    customerPhone: null,
   };
 
   const saleService = {
@@ -150,6 +198,33 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(window.print).toHaveBeenCalledTimes(1);
   });
 
+  it('loads queued offline invoice payload when route is offline', async () => {
+    deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue({
+      payload: offlineQueuedSalePayload,
+    } as never);
+
+    const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
+
+    fixture.detectChanges();
+
+    expect(deviceSettingsStorage.loadSettings).toHaveBeenCalledWith('shop-1');
+    expect(offlineQueueDb.getQueuedSale).toHaveBeenCalledWith('shop-1', 'device-1', 'offline-sale-1');
+    expect(saleService.getSaleById).not.toHaveBeenCalled();
+    expect(shopService.getShopDetails).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001');
+    expect(fixture.componentInstance.pendingSync()).toBe(true);
+    expect(fixture.componentInstance.sale()?.totalAmount).toBe(47.5);
+    expect(fixture.componentInstance.sale()?.paidAmount).toBe(47.5);
+    expect(fixture.componentInstance.sale()?.dueAmount).toBe(0);
+    expect(fixture.componentInstance.sale()?.items[0].itemName).toBe('Offline Item');
+    expect(fixture.componentInstance.sale()?.soldAt).toBe('2026-05-01T10:30:00Z');
+    vi.runOnlyPendingTimers();
+    expect(window.print).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.textContent).toContain('Sale Queued for Sync');
+  });
+
   it('defaults missing or invalid template values to A4', () => {
     const missingFixture = createComponent();
 
@@ -218,5 +293,16 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
     expect(fixture.componentInstance.errorMessage()).toBe('Offline device was not found.');
     expect(window.print).not.toHaveBeenCalled();
+  });
+
+  it('loads server-backed invoice when offline route flag is not set', () => {
+    const fixture = createComponent();
+
+    fixture.detectChanges();
+    vi.runOnlyPendingTimers();
+
+    expect(saleService.getSaleById).toHaveBeenCalledTimes(1);
+    expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.sale()?.saleId).toBe('sale-1');
   });
 });

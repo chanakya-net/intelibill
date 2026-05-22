@@ -50,6 +50,18 @@ describe('OfflineSalesQueueIndexedDbService', () => {
     expect(pending[0].clientSaleId).toBe('sale-1');
   });
 
+  it('loads retryable sales from pending and failed records only in sold-time order', async () => {
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'failed-late', '2026-05-22T10:03:00.000Z'));
+    await service.applySyncResult('shop-1', 'device-1', 'failed-late', { status: 'Failed', errorCode: 'X' });
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'pending-early', '2026-05-22T10:01:00.000Z'));
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'needs-review', '2026-05-22T10:02:00.000Z'));
+    await service.applySyncResult('shop-1', 'device-1', 'needs-review', { status: 'NeedsReview', errorCode: 'REVIEW' });
+
+    const retryable = await service.getRetryableSales('shop-1', 'device-1');
+
+    expect(retryable.map((item) => item.clientSaleId)).toEqual(['pending-early', 'failed-late']);
+  });
+
   it('updates sync status preserving client sale id and idempotency key', async () => {
     await service.savePendingSale(makeInput('shop-1', 'device-1', 'sale-1', '2026-05-22T10:01:00.000Z'));
 

@@ -49,6 +49,20 @@ describe('calculateOfflineFrozenSale', () => {
 
     expect(result.lines).toHaveLength(2);
     expect(result.lines[0].clientLineId).toBe('batch-1-1');
+    expect(result.lines[0]).toMatchObject({
+      configuredRuleId: 'rule-1',
+      configuredRulePercentage: 5,
+      itemDiscountOverrideType: 2,
+      itemDiscountOverrideValue: 10,
+    });
+    expect(result).toMatchObject({
+      saleDiscountOverrideType: 1,
+      saleDiscountOverrideValue: 10,
+      configuredSaleRuleId: null,
+      configuredSaleRuleType: null,
+      configuredSaleRulePercentage: null,
+      configuredSaleRuleThresholdAmount: null,
+    });
     expect(result.totals.totalBeforeDiscount).toBe(250);
     expect(result.totals.totalDiscount).toBe(34);
     expect(result.totals.totalTax).toBe(33.03);
@@ -87,6 +101,12 @@ describe('calculateOfflineFrozenSale', () => {
     expect(result.lines[0].itemDiscountAmount).toBe(0);
     expect(result.lines[0].configuredRuleId).toBeNull();
     expect(result.lines[0].saleDiscountAmount).toBe(10);
+    expect(result).toMatchObject({
+      configuredSaleRuleId: 'sale-rule',
+      configuredSaleRuleType: 'SalePercentage',
+      configuredSaleRulePercentage: 10,
+      configuredSaleRuleThresholdAmount: null,
+    });
     expect(result.totals.totalDiscount).toBe(10);
     expect(result.totals.grandTotal).toBe(90);
   });

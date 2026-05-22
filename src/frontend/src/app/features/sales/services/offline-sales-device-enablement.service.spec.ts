@@ -9,6 +9,7 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
 import { OfflineSalesDeviceEnablementService } from './offline-sales-device-enablement.service';
 import { SaleService } from './sale.service';
@@ -82,6 +83,13 @@ describe('OfflineSalesDeviceEnablementService', () => {
   } satisfies Partial<SaleService>;
 
   const leaseDb = { saveLease: vi.fn(async (_lease: any) => {}) } satisfies Partial<InvoiceLeaseIndexedDbService>;
+  const queueSync = { syncForShop: vi.fn(async (_shopId: string, _deviceId: string) => ({
+    attemptedCount: 0,
+    syncedCount: 0,
+    warningCount: 0,
+    needsReviewCount: 0,
+    failedCount: 0,
+  })) } satisfies Partial<OfflineSalesQueueSyncService>;
 
   function setup(): OfflineSalesDeviceEnablementService {
     TestBed.configureTestingModule({
@@ -94,6 +102,7 @@ describe('OfflineSalesDeviceEnablementService', () => {
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
         { provide: SaleService, useValue: saleService },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
+        { provide: OfflineSalesQueueSyncService, useValue: queueSync },
       ],
     });
 
@@ -108,6 +117,7 @@ describe('OfflineSalesDeviceEnablementService', () => {
     (snapshotDb.getUsableSnapshotInfo as ReturnType<typeof vi.fn>).mockClear();
     (saleService.reserveInvoiceLease as ReturnType<typeof vi.fn>).mockClear();
     (leaseDb.saveLease as ReturnType<typeof vi.fn>).mockClear();
+    (queueSync.syncForShop as ReturnType<typeof vi.fn>).mockClear();
     (settingsStorage.updateSettings as ReturnType<typeof vi.fn>).mockClear();
   });
 
@@ -170,5 +180,14 @@ describe('OfflineSalesDeviceEnablementService', () => {
     expect(result.ok).toBe(true);
     expect(leaseDb.saveLease).toHaveBeenCalledTimes(1);
     expect(settingsStorage.updateSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('triggers queue sync after successful enablement', async () => {
+    const service = setup();
+
+    const result = await service.enableForShop('shop-1', 'Counter 1');
+
+    expect(result.ok).toBe(true);
+    expect(queueSync.syncForShop).toHaveBeenCalledWith('shop-1', 'device-1');
   });
 });

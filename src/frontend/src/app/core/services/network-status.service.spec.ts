@@ -201,6 +201,19 @@ describe('NetworkStatusService', () => {
     );
   });
 
+  it('ping fetch includes ngsw-bypass query to avoid stale service worker API responses', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    fetchSpy.mockResolvedValue(successfulPingResponse());
+
+    const service = makeService();
+    await service.checkConnectivity();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ngsw-bypass=true'),
+      expect.any(Object),
+    );
+  });
+
   it('online event after offline triggers a connectivity check', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     fetchSpy.mockResolvedValue(successfulPingResponse());

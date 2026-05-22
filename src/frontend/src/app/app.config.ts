@@ -31,6 +31,7 @@ import { LocalizationService } from './core/i18n/localization.service';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './core/i18n/language.constants';
 import { TranslocoHttpLoader } from './core/i18n/transloco-http.loader';
 import { ProductSignalRService } from './core/services/product-signalr.service';
+import { OfflineSalesQueueSyncService } from './features/sales/services/offline-sales-queue-sync.service';
 
 const enterprisePreset = definePreset(Aura, {
   semantic: {
@@ -108,6 +109,9 @@ function initializeAppServices(): () => Promise<void> {
     await firstValueFrom(authService.bootstrapSession());
 
     if (isPlatformBrowser(platformId)) {
+      const offlineSalesQueueSync = injector.get(OfflineSalesQueueSyncService);
+      offlineSalesQueueSync.startAutoSyncWatchers();
+      offlineSalesQueueSync.runStartupSync();
       await injector.get(ProductSignalRService).startConnection();
     }
   };

@@ -15,6 +15,7 @@ import { ShopDetails } from '../../shops/services/shop.service';
 export class SaleInvoiceThermalComponent {
   @Input() sale!: SaleDto;
   @Input() shop!: ShopDetails;
+  @Input() pendingSync = false;
 
   get shopAddress(): string {
     return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode].filter(Boolean).join(', ');

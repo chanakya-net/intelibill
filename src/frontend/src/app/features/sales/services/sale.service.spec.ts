@@ -368,4 +368,87 @@ describe('SaleService', () => {
     req.flush(preview);
     http.verify();
   });
+
+  it('sends POST request to reserve invoice lease endpoint', () => {
+    const { service, http } = setup();
+    const payload = { deviceId: 'device-1' };
+
+    service.reserveInvoiceLease(payload).subscribe((result) => {
+      expect(result.leaseId).toBe('lease-1');
+      expect(result.remainingCount).toBe(200);
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.reserveInvoiceLease);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush({
+      leaseId: 'lease-1',
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      fiscalYear: '2026-27',
+      prefix: 'INV-',
+      numberPadding: 6,
+      rangeStart: 1,
+      rangeEnd: 200,
+      nextNumber: 1,
+      remainingCount: 200,
+      reservedAt: '2026-05-22T00:00:00.000Z',
+      expiresAt: '2026-05-29T00:00:00.000Z',
+    });
+    http.verify();
+  });
+
+  it('sends POST request to offline sync endpoint', () => {
+    const { service, http } = setup();
+    const payload = {
+      deviceId: 'device-1',
+      sales: [
+        {
+          clientSaleId: 'client-1',
+          invoiceNumber: 'INV-1',
+          soldAt: '2026-05-22T10:00:00.000Z',
+          customerId: null,
+          customerName: null,
+          customerPhone: null,
+          paymentMethod: 1,
+          paidAmount: 100,
+          dueAmount: 0,
+          subtotalBeforeDiscount: 100,
+          totalBeforeDiscount: 100,
+          totalDiscountAmount: 0,
+          totalTaxAmount: 0,
+          totalAmount: 100,
+          saleDiscountOverrideType: 0,
+          saleDiscountOverrideValue: 0,
+          configuredSaleRuleId: null,
+          configuredSaleRuleType: null,
+          configuredSaleRulePercentage: null,
+          configuredSaleRuleThresholdAmount: null,
+          items: [],
+        },
+      ],
+    };
+
+    service.syncOfflineSales(payload).subscribe((result) => {
+      expect(result.results[0].clientSaleId).toBe('client-1');
+      expect(result.results[0].status).toBe('Synced');
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.offlineSync);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush({
+      results: [
+        {
+          clientSaleId: 'client-1',
+          status: 'Synced',
+          saleId: 'server-sale-1',
+          invoiceNumber: 'INV-1',
+          errors: [],
+          warnings: [],
+        },
+      ],
+    });
+    http.verify();
+  });
 });

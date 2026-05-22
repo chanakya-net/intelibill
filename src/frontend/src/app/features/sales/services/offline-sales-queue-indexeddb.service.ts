@@ -55,6 +55,13 @@ export class OfflineSalesQueueIndexedDbService {
       .sort((a, b) => Date.parse(a.soldAt) - Date.parse(b.soldAt));
   }
 
+  async getRetryableSales(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
+    const records = await this.getAllByShopDevice(shopId, deviceId);
+    return records
+      .filter((record) => record.status === 'Pending' || record.status === 'Failed')
+      .sort((a, b) => Date.parse(a.soldAt) - Date.parse(b.soldAt));
+  }
+
   async getQueuedSale(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
     if (!shopId || !deviceId || !clientSaleId) {
       return null;
@@ -164,7 +171,7 @@ export class OfflineSalesQueueIndexedDbService {
     });
   }
 
-  private async getAllByShopDevice(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
+  async getAllByShopDevice(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
     const database = await this.openDatabase();
     const all = await this.getAll(database);
     return all.filter((record) => record.shopId === shopId && record.deviceId === deviceId);

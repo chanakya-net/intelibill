@@ -147,6 +147,9 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
       taxAmount: taxAmountBeforeSaleDiscount,
       lineTotal: lineTotalBeforeSaleDiscount,
       configuredRuleId: rule?.ruleId ?? null,
+      configuredRulePercentage: rule?.percentage ?? null,
+      itemDiscountOverrideType: line.itemDiscount.type,
+      itemDiscountOverrideValue: line.itemDiscount.value,
     };
   });
 
@@ -195,5 +198,11 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
       paidAmount,
       dueAmount,
     },
+    saleDiscountOverrideType: input.saleDiscount.type,
+    saleDiscountOverrideValue: input.saleDiscount.value,
+    configuredSaleRuleId: saleRule?.ruleId ?? null,
+    configuredSaleRuleType: saleRule?.ruleType ?? null,
+    configuredSaleRulePercentage: saleRule?.percentage ?? null,
+    configuredSaleRuleThresholdAmount: saleRule?.thresholdAmount ?? null,
   };
 }

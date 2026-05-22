@@ -12,6 +12,33 @@
     <p class="error">{{ serverError() }}</p>
   }
 
+  @if (hasOfflineQueueStatus()) {
+    <section class="offline-queue-status" [attr.aria-label]="'sales.history.offlineQueue.ariaLabel' | transloco">
+      <div class="offline-queue-status-header">
+        <div>
+          <p class="offline-queue-eyebrow">{{ 'sales.history.offlineQueue.eyebrow' | transloco }}</p>
+          <h2>{{ 'sales.history.offlineQueue.title' | transloco }}</h2>
+        </div>
+        <p-button
+          icon="pi pi-refresh"
+          [label]="'sales.history.offlineQueue.retry' | transloco"
+          [outlined]="true"
+          severity="secondary"
+          [loading]="isRetryingOfflineQueue()"
+          [disabled]="offlineQueueCounts().pending + offlineQueueCounts().failed === 0"
+          (click)="onRetryOfflineQueue()"
+        />
+      </div>
+      <div class="offline-queue-counts">
+        <span class="offline-queue-chip pending">{{ 'sales.history.offlineQueue.pending' | transloco }} {{ offlineQueueCounts().pending }}</span>
+        <span class="offline-queue-chip syncing">{{ 'sales.history.offlineQueue.syncing' | transloco }} {{ offlineQueueCounts().syncing }}</span>
+        <span class="offline-queue-chip failed">{{ 'sales.history.offlineQueue.failed' | transloco }} {{ offlineQueueCounts().failed }}</span>
+        <span class="offline-queue-chip warning">{{ 'sales.history.offlineQueue.warnings' | transloco }} {{ offlineQueueCounts().warning }}</span>
+        <span class="offline-queue-chip review">{{ 'sales.history.offlineQueue.needsReview' | transloco }} {{ offlineQueueCounts().needsReview }}</span>
+      </div>
+    </section>
+  }
+
   @if (isLoading()) {
     <!-- Mobile Skeleton -->
     <div class="mobile-grid-container">

@@ -614,7 +614,18 @@
       "noSales": "કોઈ વેચાણ મળ્યું નહીં",
       "noSalesDescription": "અહીં જોવા માટે તમારું પ્રથમ વેચાણ નોંધો.",
       "taxIncluded": "કર",
-      "discount": "બચત"
+      "discount": "બચત",
+      "offlineQueue": {
+        "ariaLabel": "Offline sales queue status",
+        "eyebrow": "Offline queue",
+        "title": "Sync status",
+        "retry": "Retry",
+        "pending": "Pending",
+        "syncing": "Syncing",
+        "failed": "Failed",
+        "warnings": "Warnings",
+        "needsReview": "Needs review"
+      }
     },
     "newSale": {
       "eyebrow": "વેચાણ",
@@ -711,6 +722,7 @@
           "notEligible": "Offline billing not set up for this device."
         },
         "upiAttestedNote": "UPI offline — payment attested by cashier.",
+        "cachedCustomerOnlyNote": "Offline sales support cached customers or walk-in only. New customers can be added once the API is reachable.",
         "confirmation": {
           "title": "Sale Queued",
           "queued": "Sale Queued for Sync",

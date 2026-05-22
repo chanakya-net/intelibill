@@ -1962,10 +1962,22 @@ describe('NewSalePageComponent', () => {
       component.cart.set([createOfflineCartItem()]);
       component.snapshotCompletedAt.set(new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString());
       component.paymentForm.patchValue({ paymentMethod: 1, paidAmount: 50, dueAmount: 0 });
+      component.customerForm.patchValue({
+        customerName: 'Manual Offline Customer',
+        customerPhone: '+919876543210',
+      });
 
       await component.onSubmit();
 
-      expect(offlineFinalization.finalizeAndQueue).toHaveBeenCalled();
+      expect(offlineFinalization.finalizeAndQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pricingInput: expect.objectContaining({
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+          }),
+        }),
+      );
       expect(component.showOfflineConfirmation()).toBe(true);
       expect(component.offlineConfirmation()?.invoiceNumber).toBe('INV-2025-001');
       expect(component.offlineConfirmation()?.grandTotal).toBe(150.5);

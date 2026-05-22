@@ -11,6 +11,8 @@ import {
   type OfflineSellableBatchSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 
+const SERVICE_WORKER_BYPASS_QUERY = 'ngsw-bypass=true';
+
 type OfflineSnapshotStreamRecord =
   | { readonly type: 'metadata'; readonly metadata: OfflineSalesSnapshotMetadata }
   | { readonly type: 'batch'; readonly batch: OfflineSellableBatchSnapshot }
@@ -47,7 +49,8 @@ export class OfflineSalesSnapshotSyncService {
     let snapshotId: string | null = null;
 
     try {
-      const response = await fetch(SALE_ENDPOINTS.offlineSnapshotStream, {
+      const response = await fetch(this.withServiceWorkerBypass(SALE_ENDPOINTS.offlineSnapshotStream), {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -151,5 +154,10 @@ export class OfflineSalesSnapshotSyncService {
         await this.snapshotDb.markFailed(snapshotId, shopId, 'OfflineSnapshot.StreamFailed', message);
       }
     }
+  }
+
+  private withServiceWorkerBypass(url: string): string {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}${SERVICE_WORKER_BYPASS_QUERY}`;
   }
 }

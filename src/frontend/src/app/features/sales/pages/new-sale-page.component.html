@@ -406,6 +406,9 @@
           }
         </div>
       </div>
+      @if (isOfflineMode()) {
+        <p class="text-xs text-slate-500 mt-2">{{ 'sales.newSale.offline.cachedCustomerOnlyNote' | transloco }}</p>
+      }
     </p-card>
 
     <!-- Payment -->

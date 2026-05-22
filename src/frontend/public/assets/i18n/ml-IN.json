@@ -614,7 +614,18 @@
       "noSales": "വിൽപ്പന ഒന്നും കണ്ടെത്തിയില്ല",
       "noSalesDescription": "നിങ്ങളുടെ ആദ്യ വിൽപ്പന രേഖപ്പെടുത്തുക.",
       "taxIncluded": "നികുതി",
-      "discount": "ലാഭം"
+      "discount": "ലാഭം",
+      "offlineQueue": {
+        "ariaLabel": "Offline sales queue status",
+        "eyebrow": "Offline queue",
+        "title": "Sync status",
+        "retry": "Retry",
+        "pending": "Pending",
+        "syncing": "Syncing",
+        "failed": "Failed",
+        "warnings": "Warnings",
+        "needsReview": "Needs review"
+      }
     },
     "newSale": {
       "eyebrow": "വിൽപ്പന",
@@ -711,6 +722,7 @@
           "notEligible": "Offline billing not set up for this device."
         },
         "upiAttestedNote": "UPI offline — payment attested by cashier.",
+        "cachedCustomerOnlyNote": "Offline sales support cached customers or walk-in only. New customers can be added once the API is reachable.",
         "confirmation": {
           "title": "Sale Queued",
           "queued": "Sale Queued for Sync",

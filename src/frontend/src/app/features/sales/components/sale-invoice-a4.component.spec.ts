@@ -193,6 +193,32 @@ describe('SaleInvoiceA4Component', () => {
       expect(headerElement?.textContent).toContain('INV-123456');
     });
 
+    it('shows pending sync marker when enabled', () => {
+      const sale = makeSale();
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      component.pendingSync = true;
+      fixture.detectChanges();
+
+      const marker = fixture.nativeElement.querySelector('.invoice__pending-sync');
+      expect(marker).not.toBeNull();
+      expect(marker?.textContent).toContain('Sale Queued for Sync');
+    });
+
+    it('does not show pending sync marker when disabled', () => {
+      const sale = makeSale();
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const marker = fixture.nativeElement.querySelector('.invoice__pending-sync');
+      expect(marker).toBeNull();
+    });
+
     it('renders customer name', () => {
       const sale = makeSale({ customerName: 'Jane Smith' });
       const shop = makeShop();

@@ -1954,8 +1954,8 @@ export class NewSalePageComponent {
     }
 
     const paymentMethod = this.paymentForm.controls.paymentMethod.value;
-    const offlineCustomerId = await this.resolveOfflineDueCustomerId(shopId);
-    if ((paymentMethod === 4 || dueAmount > 0) && !offlineCustomerId) {
+    const offlineCustomer = await this.resolveOfflineCustomer(shopId);
+    if ((paymentMethod === 4 || dueAmount > 0) && !offlineCustomer) {
       this.paymentSplitError.set('sales.newSale.offline.blockDueRequiresCustomer');
       return;
     }
@@ -1965,8 +1965,8 @@ export class NewSalePageComponent {
     this.paymentSplitError.set('');
 
     try {
-      const customerName = this.customerForm.controls.customerName.value.trim() || null;
-      const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
+      const customerName = offlineCustomer?.name ?? null;
+      const customerPhone = offlineCustomer?.phoneNumber ?? null;
 
       const lines: OfflineSalePricingLineInput[] = this.cart().map((item) => ({
         clientLineId: item.clientLineKey,
@@ -1989,7 +1989,7 @@ export class NewSalePageComponent {
         soldAt: new Date().toISOString(),
         paymentMethod: this.paymentForm.controls.paymentMethod.value,
         paidAmount,
-        customerId: offlineCustomerId,
+        customerId: offlineCustomer?.customerId ?? null,
         customerName,
         customerPhone,
         saleDiscount: { type: this.saleDiscountType() as 0 | 1 | 2, value: this.saleDiscountValue() },
@@ -2068,7 +2068,7 @@ export class NewSalePageComponent {
     return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
   }
 
-  private async resolveOfflineDueCustomerId(shopId: string): Promise<string | null> {
+  private async resolveOfflineCustomer(shopId: string): Promise<OfflineCustomerLiteSnapshot | null> {
     const selectedCustomerId = this.selectedCustomerId();
     if (!selectedCustomerId) {
       return null;
@@ -2080,9 +2080,7 @@ export class NewSalePageComponent {
       this.offlineCachedCustomers.set(customers);
     }
 
-    return customers.some((customer) => customer.customerId === selectedCustomerId)
-      ? selectedCustomerId
-      : null;
+    return customers.find((customer) => customer.customerId === selectedCustomerId) ?? null;
   }
 
   printA4(saleId: string): void {

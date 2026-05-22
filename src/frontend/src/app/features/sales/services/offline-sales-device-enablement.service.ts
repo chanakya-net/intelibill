@@ -6,6 +6,7 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { InvoiceLeaseIndexedDbService, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
 import { SaleService, type InvoiceLeaseDto } from './sale.service';
 
@@ -22,6 +23,7 @@ export class OfflineSalesDeviceEnablementService {
   private readonly snapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly saleService = inject(SaleService);
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
+  private readonly queueSync = inject(OfflineSalesQueueSyncService);
 
   async enableForShop(shopId: string, label: string): Promise<OfflineSalesEnablementResult> {
     const session = this.auth.session();
@@ -104,6 +106,8 @@ export class OfflineSalesDeviceEnablementService {
     if (!settings) {
       return { ok: false, reason: 'UNAUTHENTICATED' };
     }
+
+    void this.queueSync.syncForShop(settings.shopId, settings.deviceId);
 
     return { ok: true, settings, lease };
   }

@@ -60,6 +60,7 @@ export const SALE_ENDPOINTS = {
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
+  offlineSync: `${API_BASE_URL}/sales/offline-sync`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

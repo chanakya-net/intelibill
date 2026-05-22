@@ -15,6 +15,7 @@ import { ShopDetails } from '../../shops/services/shop.service';
 export class SaleInvoiceA4Component {
   @Input() sale!: SaleDto;
   @Input() shop!: ShopDetails;
+  @Input() pendingSync = false;
 
   getPaymentMethodLabel(method: number): string {
     const map: Record<number, string> = { 1: 'Cash', 2: 'UPI', 3: 'Card', 4: 'Credit' };

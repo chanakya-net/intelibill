@@ -62,6 +62,9 @@ export interface OfflineFrozenSaleLine {
   readonly taxAmount: number;
   readonly lineTotal: number;
   readonly configuredRuleId: string | null;
+  readonly configuredRulePercentage?: number | null;
+  readonly itemDiscountOverrideType?: number;
+  readonly itemDiscountOverrideValue?: number;
 }
 
 export interface OfflineFrozenSaleTotals {
@@ -76,6 +79,12 @@ export interface OfflineFrozenSaleTotals {
 export interface OfflineFrozenSalePricing {
   readonly lines: readonly OfflineFrozenSaleLine[];
   readonly totals: OfflineFrozenSaleTotals;
+  readonly saleDiscountOverrideType?: number;
+  readonly saleDiscountOverrideValue?: number;
+  readonly configuredSaleRuleId?: string | null;
+  readonly configuredSaleRuleType?: string | null;
+  readonly configuredSaleRulePercentage?: number | null;
+  readonly configuredSaleRuleThresholdAmount?: number | null;
 }
 
 export interface OfflineQueuedSalePayload {
