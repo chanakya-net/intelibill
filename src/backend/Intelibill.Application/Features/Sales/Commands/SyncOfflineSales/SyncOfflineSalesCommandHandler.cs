@@ -102,12 +102,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     continue;
                 }
 
-                results.Add(new OfflineSaleSyncResultDto(
-                    normalizedClientSaleId,
-                    StatusDuplicate,
-                    existingSale.Id,
-                    existingSale.InvoiceNumber,
-                    []));
+                results.Add(BuildDuplicateResult(normalizedClientSaleId, existingSale));
                 continue;
             }
 
@@ -326,6 +321,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     HsnCode: line.HsnCode));
             }
 
+            var warningCountBeforeValidation = warnings.Count;
             var validation = await saleLineValidator.ValidateLinesAsync(
                 command.ShopId,
                 lineCommands,
@@ -341,6 +337,13 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             var validatedLines = validation.Value.Lines;
             var saleItems = new List<SaleItem>(validatedLines.Count);
+            AddValidationVarianceIssues(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedClientSaleId,
+                deviceId,
+                warnings.Skip(warningCountBeforeValidation),
+                pendingIssues);
             AddPricingVarianceWarnings(
                 command.ShopId,
                 command.ActorUserId,
@@ -556,12 +559,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     continue;
                 }
 
-                results.Add(new OfflineSaleSyncResultDto(
-                    normalizedClientSaleId,
-                    StatusDuplicate,
-                    concurrentSale.Id,
-                    concurrentSale.InvoiceNumber,
-                    []));
+                results.Add(BuildDuplicateResult(normalizedClientSaleId, concurrentSale));
                 continue;
             }
 
@@ -771,6 +769,31 @@ public sealed class SyncOfflineSalesCommandHandler(
         }
     }
 
+    private static void AddValidationVarianceIssues(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        IEnumerable<string> validationWarnings,
+        List<ReconciliationIssue> issues)
+    {
+        foreach (var warning in validationWarnings)
+        {
+            if (warning.StartsWith("Price mismatch", StringComparison.Ordinal))
+                continue;
+
+            issues.Add(ReconciliationIssue.Create(
+                shopId,
+                null,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.ValidationConflict,
+                "offline_sync.validation_variance",
+                warning,
+                actorUserId));
+        }
+    }
+
     private static bool IsSaleDiscountRuleVariance(
         OfflineSaleSyncCommand sale,
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById)
@@ -857,6 +880,12 @@ public sealed class SyncOfflineSalesCommandHandler(
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static OfflineSaleSyncResultDto BuildDuplicateResult(string clientSaleId, Sale sale) =>
+        new(clientSaleId, StatusDuplicate, sale.Id, sale.InvoiceNumber, [])
+        {
+            Warnings = sale.Warnings,
+        };
 
     private static OfflineSaleSyncResultDto BuildNeedsReviewResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
