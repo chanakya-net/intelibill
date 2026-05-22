@@ -20,11 +20,15 @@ public sealed class SyncOfflineSalesCommandHandler(
     ISaleRepository saleRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
+    IReconciliationIssueRepository reconciliationIssueRepository,
+    IDiscountRuleRepository discountRuleRepository,
     IUnitOfWork unitOfWork)
 {
     private const string StatusCreated = "created";
     private const string StatusDuplicate = "duplicate";
     private const string StatusFailed = "failed";
+    private const string StatusSyncedWithWarnings = "SyncedWithWarnings";
+    private const string StatusNeedsReview = "NeedsReview";
 
     public async Task<ErrorOr<OfflineSalesSyncResponseDto>> HandleAsync(
         SyncOfflineSalesCommand command,
@@ -45,6 +49,11 @@ public sealed class SyncOfflineSalesCommandHandler(
             deviceId,
             now,
             cancellationToken);
+        var activeDiscountRules = await discountRuleRepository.GetActiveByShopAsync(
+            command.ShopId,
+            now,
+            cancellationToken);
+        var activeDiscountRulesById = activeDiscountRules.ToDictionary(rule => rule.Id);
 
         var results = new List<OfflineSaleSyncResultDto>(command.Sales.Count);
 
@@ -78,7 +87,18 @@ public sealed class SyncOfflineSalesCommandHandler(
             {
                 if (!string.Equals(existingSale.RequestHash, requestHash, StringComparison.Ordinal))
                 {
-                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
+                    await AddReviewIssueAsync(
+                        command.ShopId,
+                        existingSale.Id,
+                        normalizedClientSaleId,
+                        deviceId,
+                        ReconciliationIssueType.ValidationConflict,
+                        Errors.Sale.IdempotencyConflict.Code,
+                        Errors.Sale.IdempotencyConflict.Description,
+                        command.ActorUserId,
+                        cancellationToken);
+                    await unitOfWork.SaveChangesAsync(cancellationToken);
+                    results.Add(BuildNeedsReviewResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
                     continue;
                 }
 
@@ -173,6 +193,9 @@ public sealed class SyncOfflineSalesCommandHandler(
                 continue;
             }
 
+            var warnings = new List<string>();
+            var pendingIssues = new List<ReconciliationIssue>();
+
             var customerResolution = await customerResolver.ResolveAsync(
                 command.ShopId,
                 sale.CustomerId,
@@ -188,10 +211,30 @@ public sealed class SyncOfflineSalesCommandHandler(
             }
 
             var resolvedCustomer = customerResolution.Value;
+            AddCustomerVarianceWarnings(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedClientSaleId,
+                deviceId,
+                sale,
+                resolvedCustomer,
+                warnings,
+                pendingIssues);
 
             if (!TryMatchLease(activeLeases, invoiceNumber, out _))
             {
-                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InvoiceLeaseNotFound));
+                await AddReviewIssueAsync(
+                    command.ShopId,
+                    null,
+                    normalizedClientSaleId,
+                    deviceId,
+                    ReconciliationIssueType.InvoiceConflict,
+                    Errors.Sale.InvoiceLeaseNotFound.Code,
+                    Errors.Sale.InvoiceLeaseNotFound.Description,
+                    command.ActorUserId,
+                    cancellationToken);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                results.Add(BuildNeedsReviewResult(normalizedClientSaleId, Errors.Sale.InvoiceLeaseNotFound));
                 continue;
             }
 
@@ -202,7 +245,18 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             if (existingInvoiceSale is not null)
             {
-                results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.InvoiceNumberAlreadyUsed));
+                await AddReviewIssueAsync(
+                    command.ShopId,
+                    null,
+                    normalizedClientSaleId,
+                    deviceId,
+                    ReconciliationIssueType.InvoiceConflict,
+                    Errors.Sale.InvoiceNumberAlreadyUsed.Code,
+                    Errors.Sale.InvoiceNumberAlreadyUsed.Description,
+                    command.ActorUserId,
+                    cancellationToken);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                results.Add(BuildNeedsReviewResult(normalizedClientSaleId, Errors.Sale.InvoiceNumberAlreadyUsed));
                 continue;
             }
 
@@ -272,12 +326,12 @@ public sealed class SyncOfflineSalesCommandHandler(
                     HsnCode: line.HsnCode));
             }
 
-            var warnings = new List<string>();
             var validation = await saleLineValidator.ValidateLinesAsync(
                 command.ShopId,
                 lineCommands,
                 warnings,
-                cancellationToken);
+                cancellationToken,
+                allowInsufficientStock: true);
 
             if (validation.IsError)
             {
@@ -287,6 +341,25 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             var validatedLines = validation.Value.Lines;
             var saleItems = new List<SaleItem>(validatedLines.Count);
+            AddPricingVarianceWarnings(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedClientSaleId,
+                deviceId,
+                validatedLines,
+                lineByKey,
+                warnings,
+                pendingIssues);
+            AddDiscountVarianceWarnings(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedClientSaleId,
+                deviceId,
+                sale,
+                lineByKey.Values,
+                activeDiscountRulesById,
+                warnings,
+                pendingIssues);
 
             foreach (var validated in validatedLines)
             {
@@ -324,6 +397,15 @@ public sealed class SyncOfflineSalesCommandHandler(
                 saleItems.Add(saleItem);
             }
 
+            var stockConsumptions = BuildStockConsumptionPlan(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedClientSaleId,
+                deviceId,
+                validatedLines,
+                warnings,
+                pendingIssues);
+
             var offlineIdempotencyKey = OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, normalizedClientSaleId);
             var saleEntity = Sale.Create(
                 command.ShopId,
@@ -332,8 +414,8 @@ public sealed class SyncOfflineSalesCommandHandler(
                 requestHash,
                 invoiceNumber,
                 resolvedCustomer?.Id ?? sale.CustomerId,
-                resolvedCustomer?.Name ?? sale.CustomerName,
-                resolvedCustomer?.PhoneNumber ?? sale.CustomerPhone,
+                sale.CustomerName ?? resolvedCustomer?.Name,
+                sale.CustomerPhone ?? resolvedCustomer?.PhoneNumber,
                 sale.PaymentMethod,
                 sale.SoldAt,
                 sale.PaidAmount,
@@ -353,15 +435,22 @@ public sealed class SyncOfflineSalesCommandHandler(
                 source: SaleSource.Offline,
                 clientSaleId: normalizedClientSaleId,
                 deviceId: deviceId,
-                syncedAt: now);
+                syncedAt: now,
+                warnings: warnings);
 
-            foreach (var validated in validatedLines)
+            for (var i = 0; i < validatedLines.Count; i++)
             {
-                var batchResult = validated.Batch.SubtractQuantity(validated.Command.Quantity, command.ActorUserId);
+                var validated = validatedLines[i];
+                var consumedQuantity = stockConsumptions[i].ConsumedQuantity;
+
+                if (consumedQuantity <= 0)
+                    continue;
+
+                var batchResult = validated.Batch.SubtractQuantity(consumedQuantity, command.ActorUserId);
                 if (batchResult.IsError)
                     throw new InvalidOperationException(batchResult.FirstError.Description);
 
-                var inventoryResult = validated.Inventory.SubtractQuantity(validated.Command.Quantity, command.ActorUserId);
+                var inventoryResult = validated.Inventory.SubtractQuantity(consumedQuantity, command.ActorUserId);
                 if (inventoryResult.IsError)
                     throw new InvalidOperationException(inventoryResult.FirstError.Description);
 
@@ -370,7 +459,7 @@ public sealed class SyncOfflineSalesCommandHandler(
                     validated.Item.Id,
                     validated.Batch.Id,
                     StockTransactionType.Out,
-                    -validated.Command.Quantity,
+                    -consumedQuantity,
                     invoiceNumber,
                     null,
                     sale.SoldAt,
@@ -384,6 +473,12 @@ public sealed class SyncOfflineSalesCommandHandler(
             }
 
             await saleRepository.AddAsync(saleEntity, cancellationToken);
+
+            foreach (var issue in pendingIssues)
+            {
+                issue.LinkSale(saleEntity.Id);
+                await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
+            }
 
             if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
             {
@@ -422,13 +517,42 @@ public sealed class SyncOfflineSalesCommandHandler(
 
                 if (concurrentSale is null)
                 {
-                    results.Add(BuildErrorResult(normalizedClientSaleId, GetSaveFailureError(ex)));
+                    var saveError = GetSaveFailureError(ex);
+                    if (saveError.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code)
+                    {
+                        await AddReviewIssueAsync(
+                            command.ShopId,
+                            null,
+                            normalizedClientSaleId,
+                            deviceId,
+                            ReconciliationIssueType.InvoiceConflict,
+                            saveError.Code,
+                            saveError.Description,
+                            command.ActorUserId,
+                            cancellationToken);
+                        await unitOfWork.SaveChangesAsync(cancellationToken);
+                        results.Add(BuildNeedsReviewResult(normalizedClientSaleId, saveError));
+                        continue;
+                    }
+
+                    results.Add(BuildErrorResult(normalizedClientSaleId, saveError));
                     continue;
                 }
 
                 if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
                 {
-                    results.Add(BuildErrorResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
+                    await AddReviewIssueAsync(
+                        command.ShopId,
+                        concurrentSale.Id,
+                        normalizedClientSaleId,
+                        deviceId,
+                        ReconciliationIssueType.ValidationConflict,
+                        Errors.Sale.IdempotencyConflict.Code,
+                        Errors.Sale.IdempotencyConflict.Description,
+                        command.ActorUserId,
+                        cancellationToken);
+                    await unitOfWork.SaveChangesAsync(cancellationToken);
+                    results.Add(BuildNeedsReviewResult(normalizedClientSaleId, Errors.Sale.IdempotencyConflict));
                     continue;
                 }
 
@@ -443,10 +567,13 @@ public sealed class SyncOfflineSalesCommandHandler(
 
             results.Add(new OfflineSaleSyncResultDto(
                 normalizedClientSaleId,
-                StatusCreated,
+                warnings.Count > 0 ? StatusSyncedWithWarnings : StatusCreated,
                 saleEntity.Id,
                 saleEntity.InvoiceNumber,
-                []));
+                [])
+            {
+                Warnings = warnings,
+            });
 
         NextSale:
             continue;
@@ -484,6 +611,256 @@ public sealed class SyncOfflineSalesCommandHandler(
         return false;
     }
 
+    private async Task AddReviewIssueAsync(
+        Guid shopId,
+        Guid? saleId,
+        string clientSaleId,
+        string deviceId,
+        ReconciliationIssueType issueType,
+        string code,
+        string message,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var issue = ReconciliationIssue.Create(
+            shopId,
+            saleId,
+            clientSaleId,
+            deviceId,
+            issueType,
+            code,
+            message,
+            actorUserId);
+        await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
+    }
+
+    private static void AddCustomerVarianceWarnings(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        OfflineSaleSyncCommand sale,
+        Customer? resolvedCustomer,
+        List<string> warnings,
+        List<ReconciliationIssue> issues)
+    {
+        if (resolvedCustomer is null)
+            return;
+
+        if (!resolvedCustomer.IsActive)
+        {
+            var message = $"Offline customer '{resolvedCustomer.Name}' is inactive at sync time.";
+            warnings.Add(message);
+            issues.Add(ReconciliationIssue.Create(
+                shopId,
+                null,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.CustomerVariance,
+                "offline_sync.customer_inactive",
+                message,
+                actorUserId));
+        }
+
+        var printedName = NormalizeOptional(sale.CustomerName);
+        var printedPhone = NormalizeOptional(sale.CustomerPhone);
+        var nameChanged = printedName is not null
+            && !string.Equals(printedName, resolvedCustomer.Name, StringComparison.Ordinal);
+        var phoneChanged = printedPhone is not null
+            && !string.Equals(printedPhone, resolvedCustomer.PhoneNumber, StringComparison.Ordinal);
+
+        if (!nameChanged && !phoneChanged)
+            return;
+
+        var changedMessage = "Offline customer details changed at sync time; printed customer details were preserved.";
+        warnings.Add(changedMessage);
+        issues.Add(ReconciliationIssue.Create(
+            shopId,
+            null,
+            clientSaleId,
+            deviceId,
+            ReconciliationIssueType.CustomerVariance,
+            "offline_sync.customer_changed",
+            changedMessage,
+            actorUserId));
+    }
+
+    private static void AddPricingVarianceWarnings(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        IReadOnlyList<ValidatedSaleLine> validatedLines,
+        Dictionary<string, OfflineSaleSyncLineCommand> lineByKey,
+        List<string> warnings,
+        List<ReconciliationIssue> issues)
+    {
+        foreach (var validated in validatedLines)
+        {
+            if (!validated.HasPriceMismatch)
+                continue;
+
+            var printedLine = !string.IsNullOrWhiteSpace(validated.Command.ClientLineKey)
+                && lineByKey.TryGetValue(validated.Command.ClientLineKey, out var line)
+                    ? line
+                    : null;
+            var printedPrice = printedLine?.SalesPrice ?? validated.Command.SalesPrice;
+            var message = $"Offline price variance for item '{validated.Item.Name}' batch '{validated.Batch.BatchNumber}': printed {printedPrice}, current {validated.Batch.SalesPrice}.";
+            warnings.Add(message);
+            issues.Add(ReconciliationIssue.Create(
+                shopId,
+                null,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.PricingVariance,
+                "offline_sync.pricing_variance",
+                message,
+                actorUserId,
+                validated.Item.Id,
+                validated.Batch.Id));
+        }
+    }
+
+    private static void AddDiscountVarianceWarnings(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        OfflineSaleSyncCommand sale,
+        IEnumerable<OfflineSaleSyncLineCommand> lines,
+        IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
+        List<string> warnings,
+        List<ReconciliationIssue> issues)
+    {
+        if (sale.ConfiguredSaleRuleId.HasValue
+            && IsSaleDiscountRuleVariance(sale, activeDiscountRulesById))
+        {
+            var message = "Offline sale discount rule changed at sync time; printed sale discount was preserved.";
+            warnings.Add(message);
+            issues.Add(ReconciliationIssue.Create(
+                shopId,
+                null,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.DiscountVariance,
+                "offline_sync.discount_variance",
+                message,
+                actorUserId));
+        }
+
+        foreach (var line in lines)
+        {
+            if (!line.ConfiguredBatchRuleId.HasValue
+                || !IsBatchDiscountRuleVariance(line, activeDiscountRulesById))
+            {
+                continue;
+            }
+
+            var message = $"Offline item discount rule changed for batch '{line.BatchNumber}'; printed item discount was preserved.";
+            warnings.Add(message);
+            issues.Add(ReconciliationIssue.Create(
+                shopId,
+                null,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.DiscountVariance,
+                "offline_sync.discount_variance",
+                message,
+                actorUserId,
+                inventoryBatchId: line.InventoryBatchId));
+        }
+    }
+
+    private static bool IsSaleDiscountRuleVariance(
+        OfflineSaleSyncCommand sale,
+        IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById)
+    {
+        if (!sale.ConfiguredSaleRuleId.HasValue
+            || !activeDiscountRulesById.TryGetValue(sale.ConfiguredSaleRuleId.Value, out var rule))
+        {
+            return true;
+        }
+
+        return rule.RuleType != sale.ConfiguredSaleRuleType
+            || rule.Percentage != sale.ConfiguredSaleRulePercentage
+            || rule.ThresholdAmount != sale.ConfiguredSaleRuleThresholdAmount;
+    }
+
+    private static bool IsBatchDiscountRuleVariance(
+        OfflineSaleSyncLineCommand line,
+        IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById)
+    {
+        if (!line.ConfiguredBatchRuleId.HasValue
+            || !activeDiscountRulesById.TryGetValue(line.ConfiguredBatchRuleId.Value, out var rule))
+        {
+            return true;
+        }
+
+        return rule.InventoryBatchId != line.InventoryBatchId
+            || rule.RuleType != DiscountRuleType.BatchPercentage
+            || rule.Percentage != line.ConfiguredBatchRulePercentage;
+    }
+
+    private static List<OfflineStockConsumption> BuildStockConsumptionPlan(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        IReadOnlyList<ValidatedSaleLine> validatedLines,
+        List<string> warnings,
+        List<ReconciliationIssue> issues)
+    {
+        var remainingByBatchId = validatedLines
+            .Select(line => line.Batch)
+            .DistinctBy(batch => batch.Id)
+            .ToDictionary(batch => batch.Id, batch => Math.Max(0m, batch.Quantity));
+        var remainingByItemId = validatedLines
+            .Select(line => line.Inventory)
+            .DistinctBy(inventory => inventory.ItemId)
+            .ToDictionary(inventory => inventory.ItemId, inventory => Math.Max(0m, inventory.Quantity));
+        var plan = new List<OfflineStockConsumption>(validatedLines.Count);
+
+        foreach (var validated in validatedLines)
+        {
+            var availableQuantity = Math.Min(
+                remainingByBatchId[validated.Batch.Id],
+                remainingByItemId[validated.Item.Id]);
+            var consumedQuantity = Math.Min(validated.Command.Quantity, availableQuantity);
+            remainingByBatchId[validated.Batch.Id] -= consumedQuantity;
+            remainingByItemId[validated.Item.Id] -= consumedQuantity;
+
+            if (consumedQuantity < validated.Command.Quantity)
+            {
+                var message = $"Offline stock shortage for item '{validated.Item.Name}' batch '{validated.Batch.BatchNumber}': printed {validated.Command.Quantity}, consumed {consumedQuantity}.";
+                warnings.Add(message);
+                issues.Add(ReconciliationIssue.Create(
+                    shopId,
+                    null,
+                    clientSaleId,
+                    deviceId,
+                    ReconciliationIssueType.StockVariance,
+                    "offline_sync.stock_shortage",
+                    message,
+                    actorUserId,
+                    validated.Item.Id,
+                    validated.Batch.Id,
+                    validated.Command.Quantity,
+                    availableQuantity,
+                    consumedQuantity));
+            }
+
+            plan.Add(new OfflineStockConsumption(consumedQuantity));
+        }
+
+        return plan;
+    }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static OfflineSaleSyncResultDto BuildNeedsReviewResult(string clientSaleId, Error error) =>
+        new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
+
     private static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
 
@@ -502,4 +879,6 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         return false;
     }
+
+    private sealed record OfflineStockConsumption(decimal ConsumedQuantity);
 }

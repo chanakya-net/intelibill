@@ -22,6 +22,8 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
+    private readonly IReconciliationIssueRepository _reconciliationIssueRepository = Substitute.For<IReconciliationIssueRepository>();
+    private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public SyncOfflineSalesCommandHandlerTests()
@@ -34,6 +36,11 @@ public class SyncOfflineSalesCommandHandlerTests
                 Arg.Any<PaymentMethod>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>((Customer?)null));
+        _discountRuleRepository.GetActiveByShopAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<DiscountRule>>([]));
     }
 
     private SyncOfflineSalesCommandHandler CreateHandler() =>
@@ -45,6 +52,8 @@ public class SyncOfflineSalesCommandHandlerTests
             _saleRepository,
             _customerLedgerEntryRepository,
             _stockTransactionRepository,
+            _reconciliationIssueRepository,
+            _discountRuleRepository,
             _unitOfWork);
 
     private static User CreateMemberUser(Guid shopId)
@@ -173,17 +182,290 @@ public class SyncOfflineSalesCommandHandlerTests
                 shopId,
                 Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(),
                 Arg.Any<List<string>>(),
-                Arg.Any<CancellationToken>())
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
             .Returns(callInfo =>
             {
                 var commands = callInfo.ArgAt<IReadOnlyList<RecordSaleItemCommand>>(1);
                 var lines = commands
-                    .Select(command => new ValidatedSaleLine(command, item, batch, inventory, false))
+                    .Select(command => new ValidatedSaleLine(
+                        command,
+                        item,
+                        batch,
+                        inventory,
+                        command.CostPrice != batch.CostPrice
+                        || command.SalesPrice != batch.SalesPrice
+                        || command.Mrp != batch.Mrp
+                        || command.TaxRatePercent != batch.TaxRatePercent
+                        || command.IsPriceIncludingTax != batch.TaxIncluded))
                     .ToList();
 
                 return Task.FromResult<ErrorOr<SaleLineValidationResult>>(
                     new SaleLineValidationResult(lines, new Dictionary<Guid, string> { [item.Id] = item.Name }));
             });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenStockIsShort_CreatesSaleConsumesAvailableAndPersistsStockVariance()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 1m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 1m);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 354m,
+            items: [CreateLine(batch.Id, quantity: 3m)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", syncResult.Status);
+        Assert.Contains(syncResult.Warnings, warning => warning.Contains("stock", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(0m, batch.Quantity);
+        Assert.Equal(0m, inventory.Quantity);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(tx => tx.Quantity == -1m),
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.Items.Single().Quantity == 3m),
+            Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received(1).AddAsync(
+            Arg.Is<ReconciliationIssue>(issue =>
+                issue.ShopId == shopId
+                && issue.ClientSaleId == sale.ClientSaleId
+                && issue.DeviceId == deviceId
+                && issue.IssueType == ReconciliationIssueType.StockVariance
+                && issue.PrintedQuantity == 3m
+                && issue.AvailableQuantity == 1m
+                && issue.ConsumedQuantity == 1m
+                && !issue.IsResolved),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCustomerInactive_CreatesSaleWithWarningAndCustomerVarianceIssue()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var customer = Customer.Create(shopId, "Current Name", "+910000000000", null, isActive: false);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            customerId: customer.Id,
+            customerPhone: "+919876543210",
+            items: [CreateLine(batch.Id)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        _customerResolver.ResolveAsync(shopId, customer.Id, sale.CustomerPhone, false, PaymentMethod.Cash, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", syncResult.Status);
+        Assert.Contains(syncResult.Warnings, warning => warning.Contains("customer", StringComparison.OrdinalIgnoreCase));
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.CustomerId == customer.Id && s.CustomerName == sale.CustomerName && s.CustomerPhone == sale.CustomerPhone),
+            Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received().AddAsync(
+            Arg.Is<ReconciliationIssue>(issue =>
+                issue.IssueType == ReconciliationIssueType.CustomerVariance
+                && issue.ClientSaleId == sale.ClientSaleId
+                && !issue.IsResolved),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPricingDiffers_CreatesSaleWithPricingVarianceIssue()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 413m,
+            items: [CreateLine(batch.Id) with { SalesPrice = 350m, TotalAmount = 413m, PreTaxAmountBeforeDiscount = 350m, TaxableAmount = 350m, TaxAmount = 63m }]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", syncResult.Status);
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.Items.Single().SalesPrice == 350m && s.TotalAmount == 413m),
+            Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received(1).AddAsync(
+            Arg.Is<ReconciliationIssue>(issue => issue.IssueType == ReconciliationIssueType.PricingVariance),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDiscountRuleChanged_CreatesSaleWithDiscountVarianceIssue()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var configuredRuleId = Guid.NewGuid();
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 106.2m,
+            items:
+            [
+                CreateLine(batch.Id) with
+                {
+                    ConfiguredBatchRuleId = configuredRuleId,
+                    ConfiguredBatchRulePercentage = 10m,
+                    ItemDiscountAmount = 10m,
+                    TaxableAmount = 90m,
+                    TaxAmount = 16.2m,
+                    TotalAmount = 106.2m,
+                },
+            ]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        _discountRuleRepository.GetActiveByShopAsync(shopId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", syncResult.Status);
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.Items.Single().ConfiguredBatchRuleId == configuredRuleId && s.TotalAmount == 106.2m),
+            Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received(1).AddAsync(
+            Arg.Is<ReconciliationIssue>(issue => issue.IssueType == ReconciliationIssueType.DiscountVariance),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenInvoiceAlreadyUsedByDifferentSale_ReturnsNeedsReviewAndPersistsInvoiceConflict()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+        var existingSale = Sale.Create(
+            shopId,
+            actorId,
+            "other-key",
+            "other-hash",
+            sale.InvoiceNumber,
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            sale.SoldAt,
+            118m,
+            0m,
+            118m,
+            18m,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false)]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        _saleRepository.GetByInvoiceNumberAsync(shopId, sale.InvoiceNumber, Arg.Any<CancellationToken>())
+            .Returns(existingSale);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received(1).AddAsync(
+            Arg.Is<ReconciliationIssue>(issue => issue.IssueType == ReconciliationIssueType.InvoiceConflict && issue.SaleId == null),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenClientSalePayloadDiffers_ReturnsNeedsReviewAndPersistsValidationConflict()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+        var existingSale = Sale.Create(
+            shopId,
+            actorId,
+            OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, sale.ClientSaleId),
+            "DIFFERENT-HASH",
+            sale.InvoiceNumber,
+            null,
+            sale.CustomerName,
+            sale.CustomerPhone,
+            sale.PaymentMethod,
+            sale.SoldAt,
+            sale.PaidAmount,
+            sale.DueAmount,
+            sale.TotalAmount,
+            sale.TotalTaxAmount,
+            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false)],
+            source: SaleSource.Offline,
+            clientSaleId: sale.ClientSaleId,
+            deviceId: deviceId,
+            syncedAt: DateTimeOffset.UtcNow);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _saleRepository.GetByClientSaleIdAsync(shopId, deviceId, sale.ClientSaleId, Arg.Any<CancellationToken>())
+            .Returns(existingSale);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.IdempotencyConflict.Code);
+        await _reconciliationIssueRepository.Received(1).AddAsync(
+            Arg.Is<ReconciliationIssue>(issue => issue.IssueType == ReconciliationIssueType.ValidationConflict && issue.SaleId == existingSale.Id),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -418,7 +700,7 @@ public class SyncOfflineSalesCommandHandlerTests
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal("created", Assert.Single(result.Value.Results).Status);
+        Assert.Equal("SyncedWithWarnings", Assert.Single(result.Value.Results).Status);
         await _customerLedgerEntryRepository.Received(1).AddAsync(
             Arg.Is<CustomerLedgerEntry>(entry =>
                 entry.CustomerId == customer.Id
@@ -426,7 +708,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 && entry.Amount == 118m),
             Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).AddAsync(
-            Arg.Is<Sale>(s => s.CustomerId == customer.Id && s.CustomerName == customer.Name),
+            Arg.Is<Sale>(s => s.CustomerId == customer.Id && s.CustomerName == sale.CustomerName),
             Arg.Any<CancellationToken>());
     }
 
@@ -470,7 +752,7 @@ public class SyncOfflineSalesCommandHandlerTests
         _saleRepository.GetByClientSaleIdAsync(shopId, deviceId, sale.ClientSaleId, Arg.Any<CancellationToken>())
             .Returns((Sale?)null, concurrentSale);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<int>(new DbUpdateException("unique race")));
+            .Returns(Task.FromException<int>(new DbUpdateException("unique race")), Task.FromResult(1));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
@@ -521,14 +803,14 @@ public class SyncOfflineSalesCommandHandlerTests
         _saleRepository.GetByClientSaleIdAsync(shopId, deviceId, sale.ClientSaleId, Arg.Any<CancellationToken>())
             .Returns((Sale?)null, concurrentSale);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<int>(new DbUpdateException("unique race")));
+            .Returns(Task.FromException<int>(new DbUpdateException("unique race")), Task.FromResult(1));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
         var syncResult = Assert.Single(result.Value.Results);
-        Assert.Equal("failed", syncResult.Status);
+        Assert.Equal("NeedsReview", syncResult.Status);
         Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.IdempotencyConflict.Code);
     }
 
@@ -685,16 +967,18 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromException<int>(
                 new DbUpdateException(
                     "unique race",
-                    new InvalidOperationException("ix_sales_shop_id_invoice_number"))));
+                    new InvalidOperationException("ix_sales_shop_id_invoice_number"))),
+                Task.FromResult(1));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
         var syncResult = Assert.Single(result.Value.Results);
-        Assert.Equal("failed", syncResult.Status);
+        Assert.Equal("NeedsReview", syncResult.Status);
         Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code);
         _unitOfWork.Received(1).ClearChanges();
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
 }

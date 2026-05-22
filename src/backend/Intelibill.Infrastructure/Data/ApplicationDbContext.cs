@@ -30,6 +30,7 @@ public class ApplicationDbContext(
     public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleItem> SaleItems => Set<SaleItem>();
+    public DbSet<ReconciliationIssue> ReconciliationIssues => Set<ReconciliationIssue>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<InvoiceSequence> InvoiceSequences => Set<InvoiceSequence>();

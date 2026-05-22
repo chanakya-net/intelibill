@@ -174,7 +174,8 @@ public sealed class Sale : BaseEntity
         SaleSource source = SaleSource.Online,
         string? clientSaleId = null,
         string? deviceId = null,
-        DateTimeOffset? syncedAt = null)
+        DateTimeOffset? syncedAt = null,
+        IReadOnlyList<string>? warnings = null)
     {
         var effectiveSubtotalBeforeDiscount = subtotalBeforeDiscount
             ?? decimal.Round(items.Sum(i => i.PreTaxAmountBeforeDiscount), 2, MidpointRounding.AwayFromZero);
@@ -187,6 +188,7 @@ public sealed class Sale : BaseEntity
             ActorUserId = actorUserId,
             IdempotencyKey = idempotencyKey,
             RequestHash = requestHash,
+            Warnings = warnings?.ToArray() ?? [],
             InvoiceNumber = invoiceNumber,
             Source = source,
             ClientSaleId = NormalizeOptional(clientSaleId),

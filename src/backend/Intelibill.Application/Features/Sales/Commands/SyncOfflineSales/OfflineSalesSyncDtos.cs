@@ -7,6 +7,9 @@ public sealed record OfflineSaleSyncResultDto(
     string Status,
     Guid? SaleId,
     string? InvoiceNumber,
-    IReadOnlyList<OfflineSaleSyncErrorDto> Errors);
+    IReadOnlyList<OfflineSaleSyncErrorDto> Errors)
+{
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+}
 
 public sealed record OfflineSaleSyncErrorDto(string Code, string Message);

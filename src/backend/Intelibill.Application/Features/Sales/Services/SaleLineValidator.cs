@@ -16,7 +16,8 @@ internal sealed class SaleLineValidator(
         Guid shopId,
         IReadOnlyList<RecordSaleItemCommand> items,
         List<string> warnings,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowInsufficientStock = false)
     {
         var lineContexts = new List<(RecordSaleItemCommand Cmd, InventoryBatch Batch)>();
         foreach (var cmdItem in items)
@@ -67,7 +68,7 @@ internal sealed class SaleLineValidator(
             if (batch.IsVoided)
                 return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
 
-            if (requestedQuantityByBatchId[batch.Id] > batch.Quantity)
+            if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.Quantity)
                 return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
 
             if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))
@@ -75,7 +76,9 @@ internal sealed class SaleLineValidator(
 
             var hasMismatch = cmdItem.CostPrice != batch.CostPrice
                 || cmdItem.SalesPrice != batch.SalesPrice
-                || cmdItem.Mrp != batch.Mrp;
+                || cmdItem.Mrp != batch.Mrp
+                || cmdItem.TaxRatePercent != batch.TaxRatePercent
+                || cmdItem.IsPriceIncludingTax != batch.TaxIncluded;
 
             if (hasMismatch)
                 warnings.Add($"Price mismatch for item '{item.Name}' (barcode: {item.Barcode}, batch: {batch.BatchNumber}).");
