@@ -18,7 +18,7 @@ public sealed class RecordSaleCommandHandler
     private readonly ISalePricingCalculator salePricingCalculator;
     private readonly ICustomerResolver customerResolver;
     private readonly ISaleRepository saleRepository;
-    private readonly ISaleDtoBuilder saleDtoBuilder;
+    private readonly SaleDtoBuilder saleDtoBuilder;
     private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
     private readonly IStockTransactionRepository stockTransactionRepository;
     private readonly IUnitOfWork unitOfWork;
@@ -28,7 +28,7 @@ public sealed class RecordSaleCommandHandler
         ISalePricingCalculator salePricingCalculator,
         ICustomerResolver customerResolver,
         ISaleRepository saleRepository,
-        ISaleDtoBuilder saleDtoBuilder,
+        SaleDtoBuilder saleDtoBuilder,
         ICustomerLedgerEntryRepository customerLedgerEntryRepository,
         IStockTransactionRepository stockTransactionRepository,
         IUnitOfWork unitOfWork)
@@ -190,6 +190,6 @@ public sealed class RecordSaleCommandHandler
             return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
         }
 
-        return SaleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
+        return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
     }
 }

@@ -4,15 +4,7 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-public interface ISaleDtoBuilder
-{
-    Task<SaleDto> BuildSaleDtoAsync(
-        Sale sale,
-        IReadOnlyList<string> warnings,
-        CancellationToken cancellationToken);
-}
-
-internal sealed class SaleDtoBuilder(IItemRepository itemRepository) : ISaleDtoBuilder
+public sealed class SaleDtoBuilder(IItemRepository itemRepository)
 {
     public async Task<SaleDto> BuildSaleDtoAsync(
         Sale sale,
@@ -26,7 +18,11 @@ internal sealed class SaleDtoBuilder(IItemRepository itemRepository) : ISaleDtoB
         return BuildSaleDto(sale, itemNameById, warnings);
     }
 
-    internal static SaleDto BuildSaleDto(
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Kept instance method so handlers route via DI instance.")]
+    internal SaleDto BuildSaleDto(
         Sale sale,
         IReadOnlyDictionary<Guid, string> itemNameById,
         IReadOnlyList<string> warnings)

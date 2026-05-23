@@ -34,7 +34,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
-        services.AddScoped<ISaleDtoBuilder, SaleDtoBuilder>();
+        services.AddScoped<SaleDtoBuilder>();
 
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
 
