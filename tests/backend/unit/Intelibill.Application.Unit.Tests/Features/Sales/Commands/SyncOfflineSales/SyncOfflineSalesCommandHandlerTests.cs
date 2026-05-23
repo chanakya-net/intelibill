@@ -24,10 +24,12 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly IReconciliationIssueRepository _reconciliationIssueRepository = Substitute.For<IReconciliationIssueRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
+    private readonly OfflineSaleVarianceAnalyzer _varianceAnalyzer;
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public SyncOfflineSalesCommandHandlerTests()
     {
+        _varianceAnalyzer = new OfflineSaleVarianceAnalyzer(_reconciliationIssueRepository);
         _customerResolver.ResolveAsync(
                 Arg.Any<Guid>(),
                 Arg.Any<Guid?>(),
@@ -54,6 +56,7 @@ public class SyncOfflineSalesCommandHandlerTests
             _stockTransactionRepository,
             _reconciliationIssueRepository,
             _discountRuleRepository,
+            _varianceAnalyzer,
             _unitOfWork);
 
     private static User CreateMemberUser(Guid shopId)
@@ -1101,5 +1104,4 @@ public class SyncOfflineSalesCommandHandlerTests
         _unitOfWork.Received(1).ClearChanges();
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
-
 }

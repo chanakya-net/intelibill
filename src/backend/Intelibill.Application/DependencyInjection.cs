@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -37,6 +38,8 @@ public static class DependencyInjection
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
 
         services.AddScoped<DiscountRuleValidationService>();
+
+        services.AddScoped<OfflineSaleVarianceAnalyzer>();
 
         return services;
     }
