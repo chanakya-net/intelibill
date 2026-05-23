@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-internal sealed class SyncOfflineSalesCommandHandler(
+public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,
     ISaleLineValidator saleLineValidator,
@@ -20,7 +20,6 @@ internal sealed class SyncOfflineSalesCommandHandler(
     ISaleRepository saleRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
-    IReconciliationIssueRepository reconciliationIssueRepository,
     IDiscountRuleRepository discountRuleRepository,
     OfflineSaleVarianceAnalyzer varianceAnalyzer,
     IUnitOfWork unitOfWork)
@@ -156,7 +155,7 @@ internal sealed class SyncOfflineSalesCommandHandler(
         }
 
         await saleRepository.AddAsync(saleEntity, cancellationToken);
-        foreach (var issue in pendingIssues) { issue.LinkSale(saleEntity.Id); await reconciliationIssueRepository.AddAsync(issue, cancellationToken); }
+        await varianceAnalyzer.PersistReviewIssuesAsync(saleEntity.Id, pendingIssues, cancellationToken);
 
         if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
         {

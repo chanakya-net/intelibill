@@ -45,19 +45,18 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<IReadOnlyList<DiscountRule>>([]));
     }
 
-    private SyncOfflineSalesCommandHandler CreateHandler() =>
-        new(
-            _userRepository,
-            _invoiceLeaseRepository,
-            _saleLineValidator,
-            _customerResolver,
-            _saleRepository,
-            _customerLedgerEntryRepository,
-            _stockTransactionRepository,
-            _reconciliationIssueRepository,
-            _discountRuleRepository,
-            _varianceAnalyzer,
-            _unitOfWork);
+	    private SyncOfflineSalesCommandHandler CreateHandler() =>
+	        new(
+	            _userRepository,
+	            _invoiceLeaseRepository,
+	            _saleLineValidator,
+	            _customerResolver,
+	            _saleRepository,
+	            _customerLedgerEntryRepository,
+	            _stockTransactionRepository,
+	            _discountRuleRepository,
+	            _varianceAnalyzer,
+	            _unitOfWork);
 
     private static User CreateMemberUser(Guid shopId)
     {
