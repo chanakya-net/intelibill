@@ -72,19 +72,19 @@ public sealed class GetDashboardQueryHandler(
             query.ShopId, customerIds, cancellationToken);
 
         // Compute all KPIs using pure functions
-        var salesKpis = DashboardKpiCalculator.CalculateSalesKpis(sales, saleReturns, adjustmentLosses);
-        var expenseKpis = DashboardKpiCalculator.CalculateExpenseKpis(expenses);
-        var paymentMix = DashboardKpiCalculator.CalculatePaymentMix(sales);
-        var stockRisk = DashboardKpiCalculator.CalculateStockRisk(inventories);
+        var salesKpis = SalesKpiCalculator.CalculateSalesKpis(sales, saleReturns, adjustmentLosses);
+        var expenseKpis = ExpenseKpiCalculator.CalculateExpenseKpis(expenses);
+        var paymentMix = SalesKpiCalculator.CalculatePaymentMix(sales);
+        var stockRisk = StockRiskKpiCalculator.CalculateStockRisk(inventories);
 
         var creditSalesPercentage = salesKpis.SalesBooked > 0
             ? paymentMix.Credit / salesKpis.SalesBooked
             : 0m;
 
-        var (highestDueCustomer, topFiveDueCustomers) = DashboardKpiCalculator.CalculateCustomerDues(
+        var (highestDueCustomer, topFiveDueCustomers) = CustomerDueCalculator.CalculateCustomerDues(
             customerBalances, customers);
 
-        var alerts = DashboardKpiCalculator.BuildAlerts(
+        var alerts = DashboardAlertBuilder.BuildAlerts(
             isStaff, stockRisk.CriticalStockCount, stockRisk.RunningLowStockCount,
             highestDueCustomer, creditSalesPercentage);
 
@@ -96,12 +96,12 @@ public sealed class GetDashboardQueryHandler(
 
         if (!isStaff)
         {
-            var trends = DashboardKpiCalculator.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate, adjustmentLosses);
+            var trends = DashboardTrendBuilder.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate, adjustmentLosses);
             salesTrendSeries = trends.SalesTrend;
             profitTrendSeries = trends.ProfitTrend;
             paymentMixTrendSeries = trends.PaymentMixTrend;
 
-            previousPeriodSummary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
+            previousPeriodSummary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
                 prevSales, prevSaleReturns, prevExpenses, prevStartDate, prevEndDate, prevAdjustmentLosses);
         }
 
@@ -125,7 +125,7 @@ public sealed class GetDashboardQueryHandler(
             CreditSalesAmount: isStaff ? null : paymentMix.Credit,
             CreditSalesPercentage: isStaff ? null : creditSalesPercentage,
             PaymentMix: isStaff ? null : paymentMix,
-            CreditShareWarning: isStaff ? null : creditSalesPercentage >= DashboardKpiCalculator.CreditShareWarningThreshold,
+            CreditShareWarning: isStaff ? null : creditSalesPercentage >= SalesKpiCalculator.CreditShareWarningThreshold,
             RunningLowStockCount: stockRisk.RunningLowStockCount,
             CriticalStockCount: stockRisk.CriticalStockCount,
             RankedShortageList: stockRisk.RankedShortageList,

@@ -28,7 +28,7 @@ public class DashboardKpiCalculatorTests
         var voidedDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Expired, 10m);
         voidedDecrease.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake", Guid.NewGuid());
 
-        var kpis = DashboardKpiCalculator.CalculateSalesKpis(
+        var kpis = SalesKpiCalculator.CalculateSalesKpis(
             [sale],
             saleReturns: [],
             adjustmentLosses: [activeDecrease, increase, voidedDecrease]);
@@ -56,7 +56,7 @@ public class DashboardKpiCalculatorTests
             totalTaxAmount: 10m,
             [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
 
-        var mix = DashboardKpiCalculator.CalculatePaymentMix([sale]);
+        var mix = SalesKpiCalculator.CalculatePaymentMix([sale]);
 
         Assert.Equal(40m, mix.Cash);
         Assert.Equal(60m, mix.Credit);
@@ -69,7 +69,7 @@ public class DashboardKpiCalculatorTests
     {
         var highestDue = new Application.Features.Dashboard.DTOs.CustomerDueDto(Guid.NewGuid(), "Big Buyer", 1000m);
 
-        var alerts = DashboardKpiCalculator.BuildAlerts(
+        var alerts = DashboardAlertBuilder.BuildAlerts(
             isStaff: false,
             criticalStockCount: 2,
             runningLowStockCount: 3,
@@ -104,7 +104,7 @@ public class DashboardKpiCalculatorTests
             totalTaxAmount: 10m,
             [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
 
-        var trends = DashboardKpiCalculator.BuildTrendSeries([saleOnMiddleDay], [], start, end);
+        var trends = DashboardTrendBuilder.BuildTrendSeries([saleOnMiddleDay], [], start, end);
 
         Assert.Equal(3, trends.SalesTrend.Count);
         Assert.Equal(0m, trends.SalesTrend[0].Amount);
@@ -162,7 +162,7 @@ public class DashboardKpiCalculatorTests
             new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
         ignoredVoided.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake", Guid.NewGuid());
 
-        var trends = DashboardKpiCalculator.BuildTrendSeries(
+        var trends = DashboardTrendBuilder.BuildTrendSeries(
             [saleToday],
             saleReturns: [],
             startDate: start,
@@ -210,7 +210,7 @@ public class DashboardKpiCalculatorTests
             totalTaxAmount: 10m,
             [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
 
-        var summary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
+        var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [partialCashSale, upiSale],
             prevSaleReturns: [],
             prevExpenses: [],
@@ -242,7 +242,7 @@ public class DashboardKpiCalculatorTests
             totalTaxAmount: 10m,
             [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
 
-        var summary = DashboardKpiCalculator.BuildPreviousPeriodSummary(
+        var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [sale],
             prevSaleReturns: [],
             prevExpenses: [],
