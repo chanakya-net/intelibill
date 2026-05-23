@@ -9,31 +9,50 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Wolverine.Attributes;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-public sealed class RecordSaleCommandHandler(
-    ISaleLineValidator saleLineValidator,
-    ISalePricingCalculator salePricingCalculator,
-    ICustomerResolver customerResolver,
-    ISaleRepository saleRepository,
-    ISaleDtoBuilder saleDtoBuilder,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    IStockTransactionRepository stockTransactionRepository,
-    IUnitOfWork unitOfWork)
+[WolverineHandler]
+public sealed class RecordSaleCommandHandler
 {
+    private readonly ISaleLineValidator saleLineValidator;
+    private readonly ISalePricingCalculator salePricingCalculator;
+    private readonly ICustomerResolver customerResolver;
+    private readonly ISaleRepository saleRepository;
+    private readonly SaleDtoBuilder saleDtoBuilder;
+    private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
+    private readonly IStockTransactionRepository stockTransactionRepository;
+    private readonly IUnitOfWork unitOfWork;
+
+    public RecordSaleCommandHandler(
+        ISaleLineValidator saleLineValidator,
+        ISalePricingCalculator salePricingCalculator,
+        ICustomerResolver customerResolver,
+        ISaleRepository saleRepository,
+        IServiceProvider serviceProvider,
+        ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+        IStockTransactionRepository stockTransactionRepository,
+        IUnitOfWork unitOfWork)
+    {
+        this.saleLineValidator = saleLineValidator;
+        this.salePricingCalculator = salePricingCalculator;
+        this.customerResolver = customerResolver;
+        this.saleRepository = saleRepository;
+        this.saleDtoBuilder = serviceProvider.GetRequiredService<SaleDtoBuilder>();
+        this.customerLedgerEntryRepository = customerLedgerEntryRepository;
+        this.stockTransactionRepository = stockTransactionRepository;
+        this.unitOfWork = unitOfWork;
+    }
+
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
 
-        var existingSale = await saleRepository.GetByIdempotencyKeyAsync(
-            command.ShopId,
-            command.ActorUserId,
-            normalizedIdempotencyKey,
-            cancellationToken);
-
+        var existingSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
         if (existingSale is not null)
         {
             if (!string.Equals(existingSale.RequestHash, requestHash, StringComparison.Ordinal))
@@ -42,29 +61,25 @@ public sealed class RecordSaleCommandHandler(
             return await saleDtoBuilder.BuildSaleDtoAsync(existingSale, existingSale.Warnings, cancellationToken);
         }
 
-        var validationResultOrError = await saleLineValidator.ValidateLinesAsync(
-            command.ShopId, command.Items, warnings, cancellationToken);
-
+        var validationResultOrError = await saleLineValidator.ValidateLinesAsync(command.ShopId, command.Items, warnings, cancellationToken);
         if (validationResultOrError.IsError)
             return validationResultOrError.Errors;
 
         var (validatedLines, itemNameById) = validationResultOrError.Value;
-
         var soldAt = DateTimeOffset.UtcNow;
         var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
         var pricingRequest = new SalePricingCalculationRequest(
             command.ShopId,
             soldAt,
-            validatedLines.Select(line =>
-                new SalePricingLineCalculationRequest(
-                    line.Batch.Id,
-                    line.Command.Quantity,
-                    line.Batch.GetProfitCostPrice(),
-                    line.Batch.SalesPrice,
-                    line.Batch.Mrp,
-                    line.Command.TaxRatePercent,
-                    line.Batch.TaxIncluded,
-                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m))).ToList(),
+            validatedLines.Select(line => new SalePricingLineCalculationRequest(
+                line.Batch.Id,
+                line.Command.Quantity,
+                line.Batch.GetProfitCostPrice(),
+                line.Batch.SalesPrice,
+                line.Batch.Mrp,
+                line.Command.TaxRatePercent,
+                line.Batch.TaxIncluded,
+                line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m))).ToList(),
             effectiveSaleDiscount);
 
         var pricingOrError = await salePricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
@@ -73,21 +88,12 @@ public sealed class RecordSaleCommandHandler(
         var pricing = pricingOrError.Value;
 
         var normalizedCustomerPhone = string.IsNullOrWhiteSpace(command.CustomerPhone) ? null : command.CustomerPhone.Trim();
-
-        var resolvedCustomerOrError = await customerResolver.ResolveAsync(
-            command.ShopId,
-            command.CustomerId,
-            command.CustomerPhone,
-            command.DueAmount > 0,
-            command.PaymentMethod,
-            cancellationToken);
-
+        var resolvedCustomerOrError = await customerResolver.ResolveAsync(command.ShopId, command.CustomerId, command.CustomerPhone, command.DueAmount > 0, command.PaymentMethod, cancellationToken);
         if (resolvedCustomerOrError.IsError)
             return resolvedCustomerOrError.Errors;
 
         var resolvedCustomer = resolvedCustomerOrError.Value;
         var invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
-
         var saleLineInputs = validatedLines.Select((line, index) =>
         {
             var calculation = pricing.Lines[index];
@@ -115,16 +121,31 @@ public sealed class RecordSaleCommandHandler(
                 line.Command.HsnCode);
         }).ToList();
 
-        var saleOrError = Sale.Record(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, requestHash, invoiceNumber, saleLineInputs,
-            resolvedCustomer?.Id ?? command.CustomerId, resolvedCustomer?.Name ?? command.CustomerName, resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
-            command.PaymentMethod, command.PaidAmount, command.DueAmount, soldAt, pricing.ConfiguredSaleRule?.RuleId, pricing.ConfiguredSaleRule?.RuleType,
-            pricing.ConfiguredSaleRule?.Percentage, pricing.ConfiguredSaleRule?.ThresholdAmount, effectiveSaleDiscount.Type, effectiveSaleDiscount.Value, warnings);
-
+        var saleOrError = Sale.Record(
+            command.ShopId,
+            command.ActorUserId,
+            normalizedIdempotencyKey,
+            requestHash,
+            invoiceNumber,
+            saleLineInputs,
+            resolvedCustomer?.Id ?? command.CustomerId,
+            resolvedCustomer?.Name ?? command.CustomerName,
+            resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
+            command.PaymentMethod,
+            command.PaidAmount,
+            command.DueAmount,
+            soldAt,
+            pricing.ConfiguredSaleRule?.RuleId,
+            pricing.ConfiguredSaleRule?.RuleType,
+            pricing.ConfiguredSaleRule?.Percentage,
+            pricing.ConfiguredSaleRule?.ThresholdAmount,
+            effectiveSaleDiscount.Type,
+            effectiveSaleDiscount.Value,
+            warnings);
         if (saleOrError.IsError)
             return saleOrError.Errors;
 
         var sale = saleOrError.Value;
-
         foreach (var (cmdItem, item, batch, inventory, _) in validatedLines)
         {
             var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
@@ -133,17 +154,12 @@ public sealed class RecordSaleCommandHandler(
             var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
             if (inventoryResult.IsError) return inventoryResult.Errors;
 
-            var txResult = StockTransaction.Create(
-                command.ShopId, item.Id, batch.Id,
-                StockTransactionType.Out, -cmdItem.Quantity,
-                invoiceNumber, null, soldAt,
-                command.ActorUserId, command.ActorUserId);
+            var txResult = StockTransaction.Create(command.ShopId, item.Id, batch.Id, StockTransactionType.Out, -cmdItem.Quantity, invoiceNumber, null, soldAt, command.ActorUserId, command.ActorUserId);
             if (txResult.IsError) return txResult.Errors;
             await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
         }
 
         await saleRepository.AddAsync(sale, cancellationToken);
-
         if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
         {
             var ledgerResult = CustomerLedgerEntry.Create(
@@ -155,7 +171,6 @@ public sealed class RecordSaleCommandHandler(
                 DateOnly.FromDateTime(sale.SoldAt.UtcDateTime),
                 $"Due recorded from sale {sale.InvoiceNumber}",
                 command.ActorUserId);
-
             if (ledgerResult.IsError)
                 return ledgerResult.Errors;
 
@@ -168,12 +183,7 @@ public sealed class RecordSaleCommandHandler(
         }
         catch (DbUpdateException)
         {
-            var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(
-                command.ShopId,
-                command.ActorUserId,
-                normalizedIdempotencyKey,
-                cancellationToken);
-
+            var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
             if (concurrentSale is null)
                 throw;
 

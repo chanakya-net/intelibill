@@ -9,9 +9,11 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Wolverine.Attributes;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
+[WolverineHandler]
 public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,

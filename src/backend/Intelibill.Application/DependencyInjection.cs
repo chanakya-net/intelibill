@@ -12,7 +12,6 @@ using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
-
 namespace Intelibill.Application;
 
 public static class DependencyInjection
@@ -35,9 +34,8 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
-        services.AddScoped<ISaleDtoBuilder, SaleDtoBuilder>();
         services.AddScoped<SaleDtoBuilder>();
-        
+
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
 
         services.AddScoped<DiscountRuleValidationService>();

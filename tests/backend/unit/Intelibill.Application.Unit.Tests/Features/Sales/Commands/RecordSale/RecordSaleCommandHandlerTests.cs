@@ -21,6 +21,7 @@ public class RecordSaleCommandHandlerTests
     private readonly ICustomerResolver _customerResolver = Substitute.For<ICustomerResolver>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly SaleDtoBuilder _saleDtoBuilder;
+    private readonly IServiceProvider _serviceProvider = Substitute.For<IServiceProvider>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
@@ -29,6 +30,7 @@ public class RecordSaleCommandHandlerTests
     public RecordSaleCommandHandlerTests()
     {
         _saleDtoBuilder = new SaleDtoBuilder(_itemRepository);
+        _serviceProvider.GetService(typeof(SaleDtoBuilder)).Returns(_saleDtoBuilder);
         _customerResolver.ResolveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<PaymentMethod>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>((Customer?)null));
         _salePricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
@@ -57,7 +59,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _serviceProvider, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
