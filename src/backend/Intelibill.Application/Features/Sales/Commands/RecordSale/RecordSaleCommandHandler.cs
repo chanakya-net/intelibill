@@ -17,7 +17,7 @@ public sealed class RecordSaleCommandHandler(
     ISalePricingCalculator salePricingCalculator,
     ICustomerResolver customerResolver,
     ISaleRepository saleRepository,
-    IItemRepository itemRepository,
+    ISaleDtoBuilder saleDtoBuilder,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
     IUnitOfWork unitOfWork)
@@ -39,7 +39,7 @@ public sealed class RecordSaleCommandHandler(
             if (!string.Equals(existingSale.RequestHash, requestHash, StringComparison.Ordinal))
                 return Errors.Sale.IdempotencyConflict;
 
-            return await BuildSaleDtoAsync(existingSale, existingSale.Warnings, cancellationToken);
+            return await saleDtoBuilder.BuildSaleDtoAsync(existingSale, existingSale.Warnings, cancellationToken);
         }
 
         var validationResultOrError = await saleLineValidator.ValidateLinesAsync(
@@ -115,27 +115,10 @@ public sealed class RecordSaleCommandHandler(
                 line.Command.HsnCode);
         }).ToList();
 
-        var saleOrError = Sale.Record(
-            command.ShopId,
-            command.ActorUserId,
-            normalizedIdempotencyKey,
-            requestHash,
-            invoiceNumber,
-            saleLineInputs,
-            resolvedCustomer?.Id ?? command.CustomerId,
-            resolvedCustomer?.Name ?? command.CustomerName,
-            resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
-            command.PaymentMethod,
-            command.PaidAmount,
-            command.DueAmount,
-            soldAt,
-            pricing.ConfiguredSaleRule?.RuleId,
-            pricing.ConfiguredSaleRule?.RuleType,
-            pricing.ConfiguredSaleRule?.Percentage,
-            pricing.ConfiguredSaleRule?.ThresholdAmount,
-            effectiveSaleDiscount.Type,
-            effectiveSaleDiscount.Value,
-            warnings);
+        var saleOrError = Sale.Record(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, requestHash, invoiceNumber, saleLineInputs,
+            resolvedCustomer?.Id ?? command.CustomerId, resolvedCustomer?.Name ?? command.CustomerName, resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
+            command.PaymentMethod, command.PaidAmount, command.DueAmount, soldAt, pricing.ConfiguredSaleRule?.RuleId, pricing.ConfiguredSaleRule?.RuleType,
+            pricing.ConfiguredSaleRule?.Percentage, pricing.ConfiguredSaleRule?.ThresholdAmount, effectiveSaleDiscount.Type, effectiveSaleDiscount.Value, warnings);
 
         if (saleOrError.IsError)
             return saleOrError.Errors;
@@ -197,93 +180,9 @@ public sealed class RecordSaleCommandHandler(
             if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
                 return Errors.Sale.IdempotencyConflict;
 
-            return await BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
+            return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
         }
 
-        return new SaleDto(
-            sale.Id,
-            sale.InvoiceNumber,
-            sale.CustomerId,
-            sale.CustomerName,
-            sale.CustomerPhone,
-            sale.PaymentMethod,
-            sale.SoldAt,
-            sale.PaidAmount,
-            sale.DueAmount,
-            sale.TotalBeforeDiscount,
-            sale.TotalDiscountAmount,
-            sale.TotalAmount,
-            sale.TotalTaxAmount,
-            sale.Items.Select(si => new SaleItemDto(
-                si.Id,
-                si.ItemId,
-                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
-                si.InventoryBatchId,
-                si.Quantity,
-                si.SalesPrice,
-                si.TaxRatePercent,
-                si.IsPriceIncludingTax,
-                si.HasPriceMismatch)
-            {
-                OriginalSalesPrice = si.OriginalSalesPrice,
-                FinalSalesPrice = si.FinalSalesPrice,
-                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
-                ItemDiscountAmount = si.ItemDiscountAmount,
-                SaleDiscountAmount = si.SaleDiscountAmount,
-                TaxableAmount = si.TaxableAmount,
-                TaxAmount = si.TaxAmount,
-                TotalAmount = si.TotalAmount,
-                HsnCode = si.HsnCode,
-                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-            }).ToList(),
-            sale.Warnings);
-    }
-
-    private async Task<SaleDto> BuildSaleDtoAsync(
-        Sale sale,
-        IReadOnlyList<string> warnings,
-        CancellationToken cancellationToken)
-    {
-        var itemIds = sale.Items.Select(i => i.ItemId).Distinct().ToList();
-        var items = await itemRepository.GetByIdsAsync(sale.ShopId, itemIds, cancellationToken);
-        var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
-
-        return new SaleDto(
-            sale.Id,
-            sale.InvoiceNumber,
-            sale.CustomerId,
-            sale.CustomerName,
-            sale.CustomerPhone,
-            sale.PaymentMethod,
-            sale.SoldAt,
-            sale.PaidAmount,
-            sale.DueAmount,
-            sale.TotalBeforeDiscount,
-            sale.TotalDiscountAmount,
-            sale.TotalAmount,
-            sale.TotalTaxAmount,
-            sale.Items.Select(si => new SaleItemDto(
-                si.Id,
-                si.ItemId,
-                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
-                si.InventoryBatchId,
-                si.Quantity,
-                si.SalesPrice,
-                si.TaxRatePercent,
-                si.IsPriceIncludingTax,
-                si.HasPriceMismatch)
-            {
-                OriginalSalesPrice = si.OriginalSalesPrice,
-                FinalSalesPrice = si.FinalSalesPrice,
-                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
-                ItemDiscountAmount = si.ItemDiscountAmount,
-                SaleDiscountAmount = si.SaleDiscountAmount,
-                TaxableAmount = si.TaxableAmount,
-                TaxAmount = si.TaxAmount,
-                TotalAmount = si.TotalAmount,
-                HsnCode = si.HsnCode,
-                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-            }).ToList(),
-            warnings);
+        return SaleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
     }
 }

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-internal sealed class SyncOfflineSalesCommandHandler(
+public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,
     ISaleLineValidator saleLineValidator,

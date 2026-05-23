@@ -6,6 +6,7 @@ using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
+using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -34,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
+        services.AddScoped<ISaleDtoBuilder, SaleDtoBuilder>();
+        services.AddScoped<SaleDtoBuilder>();
         
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
 
