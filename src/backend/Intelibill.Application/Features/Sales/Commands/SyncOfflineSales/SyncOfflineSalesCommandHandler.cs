@@ -101,7 +101,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (customerRes.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, customerRes.FirstError);
 
         var resolvedCust = customerRes.Value;
-        OfflineSaleVarianceAnalyzer.AddCustomerVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, resolvedCust, warnings, pendingIssues);
+        OfflineSaleSyncHelpers.AddCustomerVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, resolvedCust, warnings, pendingIssues);
 
         if (!TryMatchLease(activeLeases, invNum, out _))
         {
@@ -127,6 +127,7 @@ public sealed class SyncOfflineSalesCommandHandler(
             if (string.IsNullOrWhiteSpace(line.ItemName)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemNameRequired);
             if (line.InventoryBatchId == Guid.Empty) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InventoryBatchIdRequired);
             if (line.Quantity <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineQuantityMustBePositive);
+            if (OfflineSaleSyncHelpers.HasNegativeOfflineLineAmounts(line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineAmountsInvalid);
 
             var key = i.ToString(CultureInfo.InvariantCulture);
             lineByKey.Add(key, line);
@@ -138,9 +139,9 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (validation.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, validation.FirstError);
 
         var vLines = validation.Value.Lines;
-        OfflineSaleVarianceAnalyzer.AddValidationVarianceIssues(command.ShopId, command.ActorUserId, normalizedId, deviceId, warnings.Skip(warnCountBefore), pendingIssues);
-        OfflineSaleVarianceAnalyzer.AddPricingVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, lineByKey, warnings, pendingIssues);
-        OfflineSaleVarianceAnalyzer.AddDiscountVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, lineByKey.Values, activeDiscountRulesById, warnings, pendingIssues);
+        OfflineSaleSyncHelpers.AddValidationVarianceIssues(command.ShopId, command.ActorUserId, normalizedId, deviceId, warnings.Skip(warnCountBefore), pendingIssues);
+        OfflineSaleSyncHelpers.AddPricingVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, lineByKey, warnings, pendingIssues);
+        OfflineSaleSyncHelpers.AddDiscountVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, lineByKey.Values, activeDiscountRulesById, warnings, pendingIssues);
 
         var saleItems = new List<SaleItem>(vLines.Count);
         foreach (var v in vLines)
@@ -149,7 +150,7 @@ public sealed class SyncOfflineSalesCommandHandler(
             saleItems.Add(SaleItem.Create(command.ShopId, v.Item.Id, v.Batch.Id, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, v.HasPriceMismatch, preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount, itemDiscountAmount: line.ItemDiscountAmount, saleDiscountAmount: line.SaleDiscountAmount, taxableAmount: line.TaxableAmount, taxAmount: line.TaxAmount, totalAmount: line.TotalAmount, configuredBatchRuleId: line.ConfiguredBatchRuleId, configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage, itemDiscountOverrideType: line.ItemDiscountOverrideType, itemDiscountOverrideValue: line.ItemDiscountOverrideValue, hsnCode: line.HsnCode));
         }
 
-        var consumption = OfflineSaleVarianceAnalyzer.BuildStockConsumptionPlan(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, warnings, pendingIssues);
+        var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, warnings, pendingIssues);
         var saleEntity = Sale.Create(command.ShopId, command.ActorUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, normalizedId), hash, invNum, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, normalizedId, deviceId, now, warnings);
 
         for (var i = 0; i < vLines.Count; i++)
@@ -170,7 +171,7 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
         {
-            var ledger = CustomerLedgerEntry.Create(saleEntity.ShopId, saleEntity.CustomerId.Value, saleEntity.Id, CustomerLedgerEntryType.SaleDue, saleEntity.DueAmount, DateOnly.FromDateTime(saleEntity.SoldAt.UtcDateTime), $"Due: {saleEntity.InvoiceNumber}", command.ActorUserId);
+            var ledger = CustomerLedgerEntry.Create(saleEntity.ShopId, saleEntity.CustomerId.Value, saleEntity.Id, CustomerLedgerEntryType.SaleDue, saleEntity.DueAmount, DateOnly.FromDateTime(saleEntity.SoldAt.UtcDateTime), $"Due recorded from sale {saleEntity.InvoiceNumber}", command.ActorUserId);
             if (ledger.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, ledger.FirstError);
             await customerLedgerEntryRepository.AddAsync(ledger.Value, cancellationToken);
         }
