@@ -1,0 +1,305 @@
+using ClosedXML.Excel;
+using System.Globalization;
+
+using Intelibill.Application.Features.Exports.Sales;
+using Intelibill.Application.Features.Exports.Sales.DTOs;
+
+namespace Intelibill.Infrastructure.Services.Exports;
+
+internal static class SalesExcelSummaryRenderer
+{
+    internal static Task<SalesExportResult> RenderSummaryAsync(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    {
+        var worksheet = workbook.Worksheets.Add("Sales Summary");
+
+        var currentRow = 1;
+        currentRow = SalesExcelExportRenderer.RenderMetadata(worksheet, dataset.Metadata, currentRow);
+
+        currentRow++;
+
+        var gstRates = dataset.TaxBreakup
+            .Select(t => t.TaxRatePercent)
+            .Distinct()
+            .OrderBy(r => r)
+            .ToList();
+
+        var headerRow = currentRow + 1;
+        var columnPlan = RenderHeaders(worksheet, gstRates, headerRow);
+        var firstDataRow = headerRow + 1;
+
+        var dataRow = firstDataRow;
+        foreach (var row in dataset.SummaryRows)
+        {
+            RenderSummaryRow(worksheet, row, columnPlan, dataRow);
+            dataRow++;
+        }
+
+        var totalsRow = dataRow + 1;
+        RenderTotalsRow(worksheet, dataset.SummaryRows, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
+
+        ApplyPolishing(worksheet, columnPlan.TotalColumnsEnd, headerRow);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var content = stream.ToArray();
+
+        return Task.FromResult(new SalesExportResult(
+            content,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "sales-export.xlsx"));
+    }
+
+    internal static SummaryColumnPlan RenderHeaders(IXLWorksheet worksheet, IReadOnlyList<decimal> gstRates, int startRow)
+    {
+        var col = 1;
+        var plan = new SummaryColumnPlan();
+
+        worksheet.Cell(startRow, col).Value = "Invoice #";
+        plan.InvoiceNumberColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Date";
+        plan.DateColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Customer";
+        plan.CustomerColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Payment Method";
+        plan.PaymentMethodColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Paid Amount";
+        plan.PaidAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        worksheet.Cell(startRow, col).Value = "Due Amount";
+        plan.DueAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        worksheet.Cell(startRow, col).Value = "Return #";
+        plan.ReturnNumbersColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Return Amount";
+        plan.ReturnAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        worksheet.Cell(startRow, col).Value = "Sales Taxable";
+        plan.SalesTaxableColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        foreach (var rate in gstRates)
+        {
+            var rateLabel = FormatRate(rate);
+
+            worksheet.Cell(startRow, col).Value = $"Sales Taxable {rateLabel}%";
+            plan.SalesTaxableRateColumns[rate] = col;
+            plan.TotalFormulaColumns.Add(col++);
+
+            worksheet.Cell(startRow, col).Value = $"Sales GST {rateLabel}%";
+            plan.SalesTaxRateColumns[rate] = col;
+            plan.TotalFormulaColumns.Add(col++);
+        }
+
+        foreach (var rate in gstRates)
+        {
+            var rateLabel = FormatRate(rate);
+
+            worksheet.Cell(startRow, col).Value = $"Return Taxable {rateLabel}%";
+            plan.ReturnTaxableRateColumns[rate] = col;
+            plan.TotalFormulaColumns.Add(col++);
+
+            worksheet.Cell(startRow, col).Value = $"Return GST {rateLabel}%";
+            plan.ReturnTaxRateColumns[rate] = col;
+            plan.TotalFormulaColumns.Add(col++);
+        }
+
+        worksheet.Cell(startRow, col).Value = "Net Taxable";
+        plan.NetTaxableColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        worksheet.Cell(startRow, col).Value = "Net Sales Amount";
+        plan.NetSalesColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        for (var i = 1; i <= col; i++)
+        {
+            worksheet.Cell(startRow, i).Style.Font.Bold = true;
+            worksheet.Cell(startRow, i).Style.Font.FontColor = XLColor.White;
+            worksheet.Cell(startRow, i).Style.Fill.BackgroundColor = XLColor.FromHtml("#2D4A87");
+            worksheet.Cell(startRow, i).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+
+        plan.HeaderRow = startRow;
+        plan.TotalColumnsEnd = col;
+        return plan;
+    }
+
+    internal static void RenderSummaryRow(
+        IXLWorksheet worksheet,
+        SalesExportSummaryRowDto row,
+        SummaryColumnPlan columnPlan,
+        int rowNum)
+    {
+        worksheet.Cell(rowNum, columnPlan.InvoiceNumberColumn).Value = row.InvoiceNumber;
+        worksheet.Cell(rowNum, columnPlan.DateColumn).Value = row.SaleDate.UtcDateTime;
+        worksheet.Cell(rowNum, columnPlan.DateColumn).Style.DateFormat.Format = "yyyy-MM-dd";
+        worksheet.Cell(rowNum, columnPlan.CustomerColumn).Value = row.CustomerName ?? string.Empty;
+        worksheet.Cell(rowNum, columnPlan.PaymentMethodColumn).Value = row.PaymentMethod;
+
+        worksheet.Cell(rowNum, columnPlan.PaidAmountColumn).Value = row.PaidAmount;
+        worksheet.Cell(rowNum, columnPlan.PaidAmountColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.DueAmountColumn).Value = row.DueAmount;
+        worksheet.Cell(rowNum, columnPlan.DueAmountColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.ReturnNumbersColumn).Value = row.ReturnNumbers ?? string.Empty;
+
+        worksheet.Cell(rowNum, columnPlan.ReturnAmountColumn).Value = row.ReturnAmount;
+        worksheet.Cell(rowNum, columnPlan.ReturnAmountColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.SalesTaxableColumn).Value = row.TaxableAmount;
+        worksheet.Cell(rowNum, columnPlan.SalesTaxableColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        foreach (var (_, salesTaxableColumn) in columnPlan.SalesTaxableRateColumns)
+        {
+            worksheet.Cell(rowNum, salesTaxableColumn).Value = 0m;
+            worksheet.Cell(rowNum, salesTaxableColumn).Style.NumberFormat.Format = "#,##0.00";
+        }
+
+        foreach (var (_, salesTaxColumn) in columnPlan.SalesTaxRateColumns)
+        {
+            worksheet.Cell(rowNum, salesTaxColumn).Value = 0m;
+            worksheet.Cell(rowNum, salesTaxColumn).Style.NumberFormat.Format = "#,##0.00";
+        }
+
+        foreach (var (_, returnTaxableColumn) in columnPlan.ReturnTaxableRateColumns)
+        {
+            worksheet.Cell(rowNum, returnTaxableColumn).Value = 0m;
+            worksheet.Cell(rowNum, returnTaxableColumn).Style.NumberFormat.Format = "#,##0.00";
+        }
+
+        foreach (var (_, returnTaxColumn) in columnPlan.ReturnTaxRateColumns)
+        {
+            worksheet.Cell(rowNum, returnTaxColumn).Value = 0m;
+            worksheet.Cell(rowNum, returnTaxColumn).Style.NumberFormat.Format = "#,##0.00";
+        }
+
+        worksheet.Cell(rowNum, columnPlan.NetTaxableColumn).Value = row.TaxableAmount - row.ReturnTaxableAmount;
+        worksheet.Cell(rowNum, columnPlan.NetTaxableColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.NetSalesColumn).Value = row.NetSalesAmount;
+        worksheet.Cell(rowNum, columnPlan.NetSalesColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        if (row.HasReturns)
+        {
+            worksheet.Range(rowNum, 1, rowNum, columnPlan.TotalColumnsEnd).Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF8E1");
+        }
+    }
+
+    internal static void RenderTotalsRow(
+        IXLWorksheet worksheet,
+        IReadOnlyList<SalesExportSummaryRowDto> summaryRows,
+        IReadOnlyList<SalesExportTaxBreakupDto> taxBreakup,
+        SummaryColumnPlan columnPlan,
+        int firstDataRow,
+        int totalsRow)
+    {
+        var lastDataRow = Math.Max(firstDataRow, totalsRow - 1);
+        var hasData = summaryRows.Count > 0;
+        var breakupByRate = taxBreakup.ToDictionary(t => t.TaxRatePercent);
+
+        worksheet.Cell(totalsRow, 1).Value = "TOTALS";
+        worksheet.Cell(totalsRow, 1).Style.Font.Bold = true;
+
+        foreach (var col in columnPlan.TotalFormulaColumns)
+        {
+            if (hasData)
+            {
+                var columnLetter = XLHelper.GetColumnLetterFromNumber(col);
+                worksheet.Cell(totalsRow, col).FormulaA1 = $"SUM({columnLetter}{firstDataRow}:{columnLetter}{lastDataRow})";
+            }
+            else
+            {
+                worksheet.Cell(totalsRow, col).Value = 0m;
+            }
+
+            worksheet.Cell(totalsRow, col).Style.NumberFormat.Format = "#,##0.00";
+            worksheet.Cell(totalsRow, col).Style.Font.Bold = true;
+        }
+
+        foreach (var (rate, salesTaxableColumn) in columnPlan.SalesTaxableRateColumns)
+        {
+            var saleTaxable = breakupByRate.GetValueOrDefault(rate)?.SaleTaxableAmount ?? 0m;
+            worksheet.Cell(totalsRow, salesTaxableColumn).Value = saleTaxable;
+
+            var saleTax = breakupByRate.GetValueOrDefault(rate)?.SaleTaxAmount ?? 0m;
+            var salesTaxCol = columnPlan.SalesTaxRateColumns[rate];
+            worksheet.Cell(totalsRow, salesTaxCol).Value = saleTax;
+        }
+
+        foreach (var (rate, returnTaxableColumn) in columnPlan.ReturnTaxableRateColumns)
+        {
+            var returnTaxable = breakupByRate.GetValueOrDefault(rate)?.ReturnTaxableAmount ?? 0m;
+            worksheet.Cell(totalsRow, returnTaxableColumn).Value = returnTaxable;
+
+            var returnTaxCol = columnPlan.ReturnTaxRateColumns[rate];
+            var returnTax = breakupByRate.GetValueOrDefault(rate)?.ReturnTaxAmount ?? 0m;
+            worksheet.Cell(totalsRow, returnTaxCol).Value = returnTax;
+        }
+
+        var range = worksheet.Range(totalsRow, 1, totalsRow, columnPlan.TotalColumnsEnd);
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF3FF");
+        range.Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+    }
+
+    internal static void ApplyPolishing(IXLWorksheet worksheet, int totalColumnsEnd, int headerRow)
+    {
+        worksheet.SheetView.FreezeRows(headerRow);
+        worksheet.Range(headerRow, 1, headerRow, totalColumnsEnd).SetAutoFilter();
+        worksheet.Columns(1, totalColumnsEnd).AdjustToContents();
+
+        for (var col = 1; col <= totalColumnsEnd; col++)
+        {
+            if (worksheet.Column(col).Width < 12)
+            {
+                worksheet.Column(col).Width = 12;
+            }
+        }
+
+        worksheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+    }
+
+    internal static string FormatRate(decimal rate)
+    {
+        return rate.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+}
+
+internal sealed class SummaryColumnPlan
+{
+    public SummaryColumnPlan()
+    {
+        SalesTaxableRateColumns = new Dictionary<decimal, int>();
+        SalesTaxRateColumns = new Dictionary<decimal, int>();
+        ReturnTaxableRateColumns = new Dictionary<decimal, int>();
+        ReturnTaxRateColumns = new Dictionary<decimal, int>();
+        TotalFormulaColumns = new List<int>();
+    }
+
+    public int HeaderRow { get; set; }
+    public int InvoiceNumberColumn { get; set; }
+    public int DateColumn { get; set; }
+    public int CustomerColumn { get; set; }
+    public int PaymentMethodColumn { get; set; }
+    public int PaidAmountColumn { get; set; }
+    public int DueAmountColumn { get; set; }
+    public int ReturnNumbersColumn { get; set; }
+    public int ReturnAmountColumn { get; set; }
+    public int SalesTaxableColumn { get; set; }
+    public Dictionary<decimal, int> SalesTaxableRateColumns { get; }
+    public Dictionary<decimal, int> SalesTaxRateColumns { get; }
+    public Dictionary<decimal, int> ReturnTaxableRateColumns { get; }
+    public Dictionary<decimal, int> ReturnTaxRateColumns { get; }
+    public int NetTaxableColumn { get; set; }
+    public int NetSalesColumn { get; set; }
+    public int TotalColumnsEnd { get; set; }
+    public List<int> TotalFormulaColumns { get; }
+}
