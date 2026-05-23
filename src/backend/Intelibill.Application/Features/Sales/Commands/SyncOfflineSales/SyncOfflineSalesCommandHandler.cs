@@ -21,7 +21,7 @@ public sealed class SyncOfflineSalesCommandHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
     IDiscountRuleRepository discountRuleRepository,
-    OfflineSaleVarianceAnalyzer varianceAnalyzer,
+    IOfflineSaleVarianceAnalyzer varianceAnalyzer,
     IUnitOfWork unitOfWork)
 {
     private const string StatusCreated = "created";
@@ -83,8 +83,13 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (string.IsNullOrWhiteSpace(invNum)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberRequired);
         if (invNum.Length > 40) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberTooLong);
         if (sale.Items.Count == 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemsRequired);
-        if (sale.PaidAmount < 0 || sale.DueAmount < 0 || sale.TotalAmount < 0 || sale.TotalTaxAmount < 0 || sale.SubtotalBeforeDiscount < 0 || sale.TotalBeforeDiscount < 0 || sale.TotalDiscountAmount < 0)
-            return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineAmountsInvalid);
+        if (sale.PaidAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.PaidAmountInvalid);
+        if (sale.DueAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.DueAmountInvalid);
+        if (sale.TotalAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalAmountInvalid);
+        if (sale.TotalTaxAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalTaxAmountInvalid);
+        if (sale.SubtotalBeforeDiscount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.SubtotalBeforeDiscountInvalid);
+        if (sale.TotalBeforeDiscount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalBeforeDiscountInvalid);
+        if (sale.TotalDiscountAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalDiscountAmountInvalid);
 
         if (sale.PaymentMethod == PaymentMethod.Credit && sale.DueAmount <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.CreditRequiresDueAmount);
         if (sale.DueAmount > 0 && !sale.CustomerId.HasValue && string.IsNullOrWhiteSpace(sale.CustomerPhone)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.CustomerIdentityRequiredForDue);
@@ -117,8 +122,11 @@ public sealed class SyncOfflineSalesCommandHandler(
         for (var i = 0; i < sale.Items.Count; i++)
         {
             var line = sale.Items[i];
-            if (string.IsNullOrWhiteSpace(line.Barcode) || string.IsNullOrWhiteSpace(line.BatchNumber) || string.IsNullOrWhiteSpace(line.ItemName) || line.InventoryBatchId == Guid.Empty || line.Quantity <= 0)
-                return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineAmountsInvalid);
+            if (string.IsNullOrWhiteSpace(line.Barcode)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BarcodeRequired);
+            if (string.IsNullOrWhiteSpace(line.BatchNumber)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BatchNumberRequired);
+            if (string.IsNullOrWhiteSpace(line.ItemName)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemNameRequired);
+            if (line.InventoryBatchId == Guid.Empty) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InventoryBatchIdRequired);
+            if (line.Quantity <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineQuantityMustBePositive);
 
             var key = i.ToString(CultureInfo.InvariantCulture);
             lineByKey.Add(key, line);
@@ -148,9 +156,12 @@ public sealed class SyncOfflineSalesCommandHandler(
         {
             var consumed = consumption[i].ConsumedQuantity;
             if (consumed <= 0) continue;
-            vLines[i].Batch.SubtractQuantity(consumed, command.ActorUserId);
-            vLines[i].Inventory.SubtractQuantity(consumed, command.ActorUserId);
+            var batchResult = vLines[i].Batch.SubtractQuantity(consumed, command.ActorUserId);
+            if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
+            var inventoryResult = vLines[i].Inventory.SubtractQuantity(consumed, command.ActorUserId);
+            if (inventoryResult.IsError) throw new InvalidOperationException(inventoryResult.FirstError.Description);
             var tx = StockTransaction.Create(command.ShopId, vLines[i].Item.Id, vLines[i].Batch.Id, StockTransactionType.Out, -consumed, invNum, null, sale.SoldAt, command.ActorUserId, command.ActorUserId);
+            if (tx.IsError) throw new InvalidOperationException(tx.FirstError.Description);
             await stockTransactionRepository.AddAsync(tx.Value, cancellationToken);
         }
 

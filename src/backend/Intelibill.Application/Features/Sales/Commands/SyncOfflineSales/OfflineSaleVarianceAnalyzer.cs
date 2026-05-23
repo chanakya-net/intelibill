@@ -5,9 +5,10 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-public sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
+internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
+    : IOfflineSaleVarianceAnalyzer
 {
-    internal async Task AddReviewIssueAsync(
+    public async Task AddReviewIssueAsync(
         Guid shopId,
         Guid? saleId,
         string clientSaleId,
@@ -30,7 +31,7 @@ public sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository r
         await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
     }
 
-    internal async Task PersistReviewIssuesAsync(
+    public async Task PersistReviewIssuesAsync(
         Guid saleId,
         IEnumerable<ReconciliationIssue> issues,
         CancellationToken cancellationToken)

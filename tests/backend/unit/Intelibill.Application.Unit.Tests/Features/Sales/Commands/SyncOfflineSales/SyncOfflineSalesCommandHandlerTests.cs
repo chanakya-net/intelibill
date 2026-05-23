@@ -24,7 +24,7 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly IReconciliationIssueRepository _reconciliationIssueRepository = Substitute.For<IReconciliationIssueRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
-    private readonly OfflineSaleVarianceAnalyzer _varianceAnalyzer;
+    private readonly IOfflineSaleVarianceAnalyzer _varianceAnalyzer;
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public SyncOfflineSalesCommandHandlerTests()
