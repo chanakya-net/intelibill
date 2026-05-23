@@ -4,9 +4,17 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-internal sealed class SaleDtoBuilder(IItemRepository itemRepository)
+public interface ISaleDtoBuilder
 {
-    internal async Task<SaleDto> BuildSaleDtoAsync(
+    Task<SaleDto> BuildSaleDtoAsync(
+        Sale sale,
+        IReadOnlyList<string> warnings,
+        CancellationToken cancellationToken);
+}
+
+internal sealed class SaleDtoBuilder(IItemRepository itemRepository) : ISaleDtoBuilder
+{
+    public async Task<SaleDto> BuildSaleDtoAsync(
         Sale sale,
         IReadOnlyList<string> warnings,
         CancellationToken cancellationToken)

@@ -9,19 +9,16 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Wolverine.Attributes;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-[WolverineHandler]
 public sealed class RecordSaleCommandHandler
 {
     private readonly ISaleLineValidator saleLineValidator;
     private readonly ISalePricingCalculator salePricingCalculator;
     private readonly ICustomerResolver customerResolver;
     private readonly ISaleRepository saleRepository;
-    private readonly SaleDtoBuilder saleDtoBuilder;
+    private readonly ISaleDtoBuilder saleDtoBuilder;
     private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
     private readonly IStockTransactionRepository stockTransactionRepository;
     private readonly IUnitOfWork unitOfWork;
@@ -31,7 +28,7 @@ public sealed class RecordSaleCommandHandler
         ISalePricingCalculator salePricingCalculator,
         ICustomerResolver customerResolver,
         ISaleRepository saleRepository,
-        IServiceProvider serviceProvider,
+        ISaleDtoBuilder saleDtoBuilder,
         ICustomerLedgerEntryRepository customerLedgerEntryRepository,
         IStockTransactionRepository stockTransactionRepository,
         IUnitOfWork unitOfWork)
@@ -40,7 +37,7 @@ public sealed class RecordSaleCommandHandler
         this.salePricingCalculator = salePricingCalculator;
         this.customerResolver = customerResolver;
         this.saleRepository = saleRepository;
-        this.saleDtoBuilder = serviceProvider.GetRequiredService<SaleDtoBuilder>();
+        this.saleDtoBuilder = saleDtoBuilder;
         this.customerLedgerEntryRepository = customerLedgerEntryRepository;
         this.stockTransactionRepository = stockTransactionRepository;
         this.unitOfWork = unitOfWork;
