@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-public sealed class RecordSaleCommandHandler
+internal sealed class RecordSaleCommandHandler
 {
     private readonly ISaleLineValidator saleLineValidator;
     private readonly ISalePricingCalculator salePricingCalculator;

@@ -5,7 +5,7 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-public sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
+internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
 {
     internal async Task AddReviewIssueAsync(
         Guid shopId,
