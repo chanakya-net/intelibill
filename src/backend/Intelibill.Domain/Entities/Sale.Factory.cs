@@ -137,4 +137,5 @@ public sealed partial class Sale
             itemDiscountOverrideType: line.ItemDiscountOverrideType,
             itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
             hsnCode: line.HsnCode);
+
 }
