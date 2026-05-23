@@ -24,7 +24,7 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly IReconciliationIssueRepository _reconciliationIssueRepository = Substitute.For<IReconciliationIssueRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
-    private readonly OfflineSaleVarianceAnalyzer _varianceAnalyzer;
+    private readonly IOfflineSaleVarianceAnalyzer _varianceAnalyzer;
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public SyncOfflineSalesCommandHandlerTests()
@@ -54,7 +54,6 @@ public class SyncOfflineSalesCommandHandlerTests
             _saleRepository,
             _customerLedgerEntryRepository,
             _stockTransactionRepository,
-            _reconciliationIssueRepository,
             _discountRuleRepository,
             _varianceAnalyzer,
             _unitOfWork);
@@ -219,6 +218,37 @@ public class SyncOfflineSalesCommandHandlerTests
                 return Task.FromResult<ErrorOr<SaleLineValidationResult>>(
                     new SaleLineValidationResult(lines, new Dictionary<Guid, string> { [item.Id] = item.Name }));
             });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenOfflineLineAmountIsNegative_ReturnsFailedResult()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            items: [CreateLine(batch.Id) with { ItemDiscountAmount = -1m }]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        _invoiceLeaseRepository.GetActiveByDeviceAsync(shopId, deviceId, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([CreateLease(shopId, deviceId)]);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("failed", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == Errors.Sale.OfflineLineAmountsInvalid.Code);
+        await _saleLineValidator.DidNotReceive()
+            .ValidateLinesAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
