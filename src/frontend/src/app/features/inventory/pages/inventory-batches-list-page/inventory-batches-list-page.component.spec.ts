@@ -6,7 +6,8 @@ import { MessageService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InventoryBatchesListPageComponent } from './inventory-batches-list-page.component';
-import { InventoryService, InventoryBatchDto } from '../../services/inventory.service';
+import { InventoryService } from '../../services/inventory.service';
+import type { InventoryBatchDto } from '../../services/inventory.models';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { API_BASE_URL } from '../../../../core/auth/auth.constants';
 

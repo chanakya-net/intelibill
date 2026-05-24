@@ -20,6 +20,8 @@ import type {
   VoidSaleReturnRequest,
 } from './sale.models';
 
+export * from './sale.models';
+
 @Injectable({ providedIn: 'root' })
 export class SaleService {
   private readonly http = inject(HttpClient);

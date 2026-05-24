@@ -11,7 +11,7 @@ import { API_BASE_URL } from '../../../../core/auth/auth.constants';
 import {
   InventoryAdjustmentHistoryItem,
   InventoryBatchDto,
-} from '../../services/inventory.service';
+} from '../../services/inventory.models';
 import { InventoryAdjustmentsPageComponent } from './inventory-adjustments-page.component';
 
 describe('InventoryAdjustmentsPageComponent', () => {

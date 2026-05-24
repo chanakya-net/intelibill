@@ -35,9 +35,9 @@ import {
   InventoryBatchDto,
   InventoryAdjustmentDirection,
   InventoryAdjustmentReason,
-  InventoryService,
   UpdateInventoryBatchRequest,
-} from '../../services/inventory.service';
+} from '../../services/inventory.models';
+import { InventoryService } from '../../services/inventory.service';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { Supplier } from '../../../suppliers/services/supplier.service';
 import {

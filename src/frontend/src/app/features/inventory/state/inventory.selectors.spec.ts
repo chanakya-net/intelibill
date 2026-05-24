@@ -1,4 +1,4 @@
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 import { InventoryState } from './inventory.reducer';
 import {
   selectInventoryErrorMessage,

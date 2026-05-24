@@ -14,7 +14,8 @@ import {
 } from '../state/inventory.selectors';
 import { AddProductOverlayComponent } from './add-product-overlay.component';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
-import { HsnLookupResult, InventoryService } from '../services/inventory.service';
+import { InventoryService } from '../services/inventory.service';
+import type { HsnLookupResult } from '../services/inventory.models';
 
 describe('AddProductOverlayComponent', () => {
   const dispatch = vi.fn();

@@ -12,7 +12,7 @@ import {
   selectInventorySubmitting,
 } from '../state/inventory.selectors';
 import { EditItemOverlayComponent } from './edit-item-overlay.component';
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 
 describe('EditItemOverlayComponent', () => {
   const dispatch = vi.fn();

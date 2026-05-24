@@ -1,7 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 import { InventoryActions, ItemMutationType } from './inventory.actions';
 
 export const inventoryFeatureKey = 'inventory';

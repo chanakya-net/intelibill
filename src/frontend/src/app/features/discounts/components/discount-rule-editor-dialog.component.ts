@@ -13,7 +13,8 @@ import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 
-import { InventoryService, AvailableBatchDto } from '../../inventory/services/inventory.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
+import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import {
   CreateDiscountRuleRequest,
   DiscountRuleDto,

@@ -1,6 +1,6 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { AddItemRequest, UpdateItemRequest, Item } from '../services/inventory.service';
+import type { AddItemRequest, Item, UpdateItemRequest } from '../services/inventory.models';
 
 export type ItemMutationType = 'add-item' | 'update-item';
 

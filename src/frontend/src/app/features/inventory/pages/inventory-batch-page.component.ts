@@ -15,8 +15,8 @@ import {
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
   AddInventoryBatchSucceededRow,
-  InventoryService,
-} from '../services/inventory.service';
+} from '../services/inventory.models';
+import { InventoryService } from '../services/inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';

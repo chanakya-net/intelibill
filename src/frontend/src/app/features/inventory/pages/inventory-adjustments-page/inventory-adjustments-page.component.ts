@@ -33,8 +33,8 @@ import {
   InventoryAdjustmentHistoryQuery,
   InventoryAdjustmentReason,
   InventoryBatchDto,
-  InventoryService,
-} from '../../services/inventory.service';
+} from '../../services/inventory.models';
+import { InventoryService } from '../../services/inventory.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
 

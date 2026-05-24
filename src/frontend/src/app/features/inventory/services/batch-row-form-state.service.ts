@@ -7,9 +7,9 @@ import { firstValueFrom } from 'rxjs';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import {
   HsnLookupResult,
-  InventoryService,
   ProductDetailsDto,
-} from '../services/inventory.service';
+} from '../services/inventory.models';
+import { InventoryService } from '../services/inventory.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';

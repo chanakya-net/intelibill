@@ -1,6 +1,6 @@
 import { InventoryActions } from './inventory.actions';
 import { InventoryState, inventoryReducer } from './inventory.reducer';
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 
 const milkItem: Item = {
   id: 'item-1',

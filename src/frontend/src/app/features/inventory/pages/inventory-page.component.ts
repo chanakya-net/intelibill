@@ -18,7 +18,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddProductOverlayComponent } from '../components/add-product-overlay.component';
 import { EditItemOverlayComponent } from '../components/edit-item-overlay.component';
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
 import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import {

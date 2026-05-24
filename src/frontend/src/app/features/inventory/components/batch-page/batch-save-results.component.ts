@@ -6,7 +6,7 @@ import { TableModule } from 'primeng/table';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
-import { AddInventoryBatchResponse } from '../../services/inventory.service';
+import type { AddInventoryBatchResponse } from '../../services/inventory.models';
 import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-draft-indexeddb.service';
 
 @Component({
