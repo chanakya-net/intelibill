@@ -33,14 +33,14 @@
     </p-select>
   </label>
 
-  <app-dashboard-chart
-    [chartData]="selectedChartData()"
-    [chartType]="selectedPrimeChartType()"
-    [title]="selectedChartTitle()"
-    [loading]="loading()"
-    [chartOptions]="selectedChartOptions()"
-    (chartTypeChange)="onChartTypeChange($event)">
-  </app-dashboard-chart>
+	  <app-dashboard-chart
+	    [chartData]="selectedChartData()"
+	    [chartType]="selectedChartType()"
+	    [title]="selectedChartTitle()"
+	    [loading]="loading()"
+	    [chartOptions]="selectedChartOptions()"
+	    (chartTypeChange)="onChartTypeChange($event)">
+	  </app-dashboard-chart>
 
   @if (loading() && !data()) {
     <div class="dashboard-loading"><p-progressSpinner></p-progressSpinner></div>
@@ -125,16 +125,16 @@
         @if (sectionExpanded().paymentBehavior) {
           <div class="dashboard-kpi-grid">
             <app-dashboard-metric-card [label]="'dashboard.creditSalesAmount'" [value]="dashboard.creditSalesAmount" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
-            <app-dashboard-metric-card
-              [label]="'dashboard.creditSalesPercentage'"
-              [value]="dashboard.creditSalesPercentage | percent: '1.1-1'"
-              [loading]="loading()"
-              [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.creditSalesPercentage)">
-            </app-dashboard-metric-card>
-          </div>
-        }
-      </div>
-    }
+	            <app-dashboard-metric-card
+	              [label]="'dashboard.creditSalesPercentage'"
+	              [value]="dashboard.creditSalesPercentage | percent: '1.1-1'"
+	              [loading]="loading()"
+	              [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.creditSalesPercentage, true)">
+	            </app-dashboard-metric-card>
+	          </div>
+	        }
+	      </div>
+	    }
 
     <div class="dashboard-section card-style">
       <button type="button" class="dashboard-section-toggle" (click)="toggleSection('stockRisk')" [attr.aria-expanded]="sectionExpanded().stockRisk">

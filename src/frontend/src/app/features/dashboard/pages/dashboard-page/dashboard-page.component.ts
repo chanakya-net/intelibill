@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, OnInit, Signal, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, Signal, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -115,6 +115,11 @@ export class DashboardPageComponent implements OnInit {
   readonly selectedMetric = signal<DashboardMetric>('sales');
   readonly selectedChartType = signal<DashboardChartType>('bar');
   readonly sectionExpanded = signal({ sales: false, expenses: false, paymentBehavior: false, stockRisk: false, receivables: false });
+  private readonly enforceValidChartType = effect(() => {
+    const metric = this.activeMetric();
+    const chartType = this.selectedChartType();
+    if (metric === 'sales' && (chartType === 'pie' || chartType === 'doughnut')) this.selectedChartType.set('bar');
+  });
 
   readonly presetOptions = computed<SelectOption<DashboardPreset>[]>(() => PRESETS.map((preset) => ({ label: preset.labelKey, value: preset.value })));
   readonly metricOptions = computed<SelectOption<DashboardMetric>[]>(() => METRIC_OPTIONS.map((metric) => ({ label: metric.labelKey, value: metric.value })));
@@ -155,13 +160,6 @@ export class DashboardPageComponent implements OnInit {
       ],
       datasets: [{ label: 'Expenses', data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense] }],
     };
-  });
-
-  readonly selectedPrimeChartType = computed<'bar' | 'line' | 'pie' | 'doughnut'>(() => {
-    const nextType = this.selectedChartType();
-    if (this.activeMetric() === 'sales' && (nextType === 'pie' || nextType === 'doughnut')) return 'bar';
-    if (nextType === 'stackedBar') return 'bar';
-    return nextType;
   });
 
   readonly selectedChartOptions = computed(() => {
