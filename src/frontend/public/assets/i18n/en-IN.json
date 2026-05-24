@@ -912,6 +912,11 @@
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "Expense Recorded",
     "expenseCorrection": "Expense Correction",
     "netExpense": "Net Expense",
@@ -962,7 +967,8 @@
     "chartTypeStackedBar": "Column Bar Stacked",
     "chartTypeLine": "Line",
     "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut"
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "Metric"
   },
   "discounts": {
     "title": "Discount Rules",

@@ -912,6 +912,11 @@
     "cashCollected": "नकद संग्रह",
     "profitBeforeTax": "कर से पहले लाभ",
     "profitAfterTax": "कर के बाद लाभ",
+    "chartTypeBar": "स्तंभ चार्ट",
+    "chartTypeStackedBar": "स्टैक्ड कॉलम चार्ट",
+    "chartTypeLine": "लाइन चार्ट",
+    "chartTypePie": "पाई चार्ट",
+    "chartTypeDoughnut": "डोनट चार्ट",
     "expenseRecorded": "व्यय दर्ज",
     "expenseCorrection": "व्यय सुधार",
     "netExpense": "शुद्ध व्यय",
@@ -962,7 +967,8 @@
     "chartTypeStackedBar": "Column Bar Stacked",
     "chartTypeLine": "Line",
     "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut"
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "मेट्रिक"
   },
   "discounts": {
     "title": "छूट नियम",

@@ -912,6 +912,11 @@
     "cashCollected": "பணம் சேகரிக்கப்பட்டது",
     "profitBeforeTax": "வரிக்கு முந்தைய லாபம்",
     "profitAfterTax": "வரிக்குப் பிறகு லாபம்",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "செலவு பதிவு செய்யப்பட்டது",
     "expenseCorrection": "செலவு திருத்தம்",
     "netExpense": "நிகர செலவு",
@@ -962,7 +967,8 @@
     "chartTypeStackedBar": "Column Bar Stacked",
     "chartTypeLine": "Line",
     "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut"
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "அளவீடு"
   },
   "discounts": {
     "title": "தள்ளுபடி விதிகள்",

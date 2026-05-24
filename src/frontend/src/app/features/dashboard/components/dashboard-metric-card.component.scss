@@ -1,0 +1,35 @@
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kpi-label {
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 700;
+}
+
+.kpi-value {
+  font-size: clamp(1.45rem, 1.1rem + 1.1vw, 2.15rem);
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.kpi-comparison {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.kpi-comparison--up {
+  color: var(--green-600, #16a34a);
+}
+
+.kpi-comparison--down {
+  color: var(--red-500, #ef4444);
+}
+
+.kpi-comparison--flat {
+  color: var(--text-color-secondary);
+}

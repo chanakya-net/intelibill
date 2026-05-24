@@ -912,6 +912,11 @@
     "cashCollected": "নগদ আদায়",
     "profitBeforeTax": "কর আগে লাভ",
     "profitAfterTax": "কর পরে লাভ",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "খরচ রেকর্ড",
     "expenseCorrection": "খরচ সংশোধন",
     "netExpense": "নিট খরচ",
@@ -962,7 +967,8 @@
     "chartTypeStackedBar": "Column Bar Stacked",
     "chartTypeLine": "Line",
     "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut"
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "মেট্রিক"
   },
   "discounts": {
     "title": "ছাড়ের নিয়ম",
