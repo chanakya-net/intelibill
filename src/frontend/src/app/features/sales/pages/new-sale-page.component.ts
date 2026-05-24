@@ -5,19 +5,12 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { DialogModule } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputGroupModule } from 'primeng/inputgroup';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -28,7 +21,7 @@ import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
-import { NO_DISCOUNT, PAYMENT_METHOD_VALUES } from '../services/sale.models';
+import { NO_DISCOUNT, PAYMENT_METHOD_VALUES, PaymentMethod } from '../services/sale.models';
 import type {
   InstantDiscountRequest,
   PreviewSaleRequest,
@@ -42,7 +35,26 @@ import { OfflineSaleStateService } from '../services/offline-sale-state.service'
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
-import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
+import { CartCheckoutSummaryComponent } from '../components/new-sale/cart-checkout-summary.component';
+import {
+  CartQuantityChangedEvent,
+  CartLineTextEvent,
+  CartLineNumberEvent,
+  CartTableComponent,
+} from '../components/new-sale/cart-table.component';
+import { BatchSearchBarComponent } from '../components/new-sale/batch-search-bar.component';
+import { BatchPickerDialogComponent } from '../components/new-sale/batch-picker-dialog.component';
+import { OfflineStatusBannerComponent } from '../components/new-sale/offline-status-banner.component';
+import { CustomerDto, SaleCustomerSectionComponent } from '../components/new-sale/sale-customer-section.component';
+import {
+  PaymentMethodOption,
+  SalePaymentSectionComponent,
+} from '../components/new-sale/sale-payment-section.component';
+import {
+  CreateSaleResponse,
+  SaleConfirmationDialogComponent,
+} from '../components/new-sale/sale-confirmation-dialog.component';
+import { SyncStatus } from '../components/new-sale/offline-status-banner.component';
 
 const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
@@ -55,21 +67,20 @@ const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
     FormsModule,
     ReactiveFormsModule,
     BarcodeScannerDialogComponent,
-    AutoCompleteModule,
     ButtonModule,
     CardModule,
-    DialogModule,
     DividerModule,
     InputGroupAddonModule,
     InputGroupModule,
-    InputTextModule,
-    InputNumberModule,
-    ProgressSpinnerModule,
-    SelectModule,
-    TableModule,
-    TagModule,
     TranslocoPipe,
-    DateOnlyPipe,
+    BatchSearchBarComponent,
+    BatchPickerDialogComponent,
+    CartCheckoutSummaryComponent,
+    CartTableComponent,
+    OfflineStatusBannerComponent,
+    SaleCustomerSectionComponent,
+    SalePaymentSectionComponent,
+    SaleConfirmationDialogComponent,
   ],
   templateUrl: './new-sale-page.component.html',
   styleUrl: './new-sale-page.component.scss',
@@ -109,6 +120,36 @@ export class NewSalePageComponent {
   readonly paymentSplitError = signal('');
   readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
   private isSyncingPaymentControls = false;
+  readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
+  readonly selectedCustomer = signal<CustomerDto | null>(null);
+  readonly customerSelectionPool = computed<readonly CustomerDto[]>(() => {
+    if (this.isOfflineMode()) {
+      return this.offlineCustomers().map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: null,
+      }));
+    }
+
+    return this.customers()
+      .filter((customer) => customer.isActive)
+      .map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: customer.address,
+      }));
+  });
+  readonly syncStatus = computed<SyncStatus>(() => ({
+    snapshotAgeHours: this.snapshotAgeHours(),
+    offlineInvoiceRemaining: this.offlineInvoiceRemaining(),
+    pendingSyncCount: this.offlinePendingCount(),
+    needsReviewCount: this.offlineNeedsReviewCount(),
+    staleWarningCount: this.staleWarningCount(),
+    isSnapshotTooOld: this.isSnapshotTooOld(),
+    isOfflineEligible: this.isOfflineEligible(),
+  }));
 
   readonly checkoutPreview = this.salePreview.checkoutPreview;
   readonly isPreviewLoading = this.salePreview.isPreviewLoading;
@@ -174,6 +215,36 @@ export class NewSalePageComponent {
     return this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
   });
 
+  readonly saleConfirmationResult = computed<CreateSaleResponse | null>(() => {
+    const sale = this.lastRecordedSale();
+    if (!sale) {
+      return null;
+    }
+
+    return {
+      saleId: sale.saleId,
+      invoiceNumber: sale.invoiceNumber,
+      totalAmount: sale.totalAmount,
+      isOffline: false,
+      printTemplate: 'a4',
+    };
+  });
+
+  readonly offlineSaleConfirmationResult = computed<CreateSaleResponse | null>(() => {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return null;
+    }
+
+    return {
+      saleId: confirmation.clientSaleId,
+      invoiceNumber: confirmation.invoiceNumber,
+      totalAmount: confirmation.grandTotal,
+      isOffline: true,
+      printTemplate: 'a4',
+    };
+  });
+
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
@@ -189,6 +260,26 @@ export class NewSalePageComponent {
   readonly paymentMethodsForSelection = computed(() =>
     this.paymentMethods.filter((method) => method.value !== 4 || this.canSelectCreditPaymentMethod())
   );
+  readonly selectedPaymentMethod = computed(() =>
+    this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value)
+  );
+
+  readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
+  readonly batchPickerQuantity = signal(1);
+
+  readonly isLineDiscountEditorOpenFn = (itemId: string): boolean => this.isLineDiscountEditorOpen(itemId);
+  readonly hasTaxFn = (item: CartItem): boolean => this.hasTax(item);
+  readonly canIncreaseFn = (item: CartItem): boolean => this.canIncreaseCartItem(item);
+  readonly getLineSubtotalFn = (item: CartItem): number => this.getLineSubtotal(item);
+  readonly getLineTaxAmountFn = (item: CartItem): number => this.getLineTaxAmount(item);
+  readonly getLineTotalFn = (item: CartItem): number => this.getLineTotal(item);
+  readonly getUnitSubtotalFn = (item: CartItem): number => this.getUnitSubtotal(item);
+  readonly getUnitTaxAmountFn = (item: CartItem): number => this.getUnitTaxAmount(item);
+  readonly getUnitFinalPriceFn = (item: CartItem): number => this.getUnitFinalPrice(item);
+  readonly getPreviewLineFn = (itemId: string) => this.getPreviewLine(itemId);
+  readonly getCartItemHsnErrorFn = (itemId: string) => this.getCartItemHsnError(itemId);
+  readonly getCartItemTaxErrorFn = (itemId: string) => this.getCartItemTaxError(itemId);
+  readonly getCartItemDiscountErrorFn = (itemId: string) => this.getCartItemDiscountError(itemId);
 
   readonly isOfflineMode = computed(() => !this.networkStatus.canReachApi());
 
@@ -262,6 +353,7 @@ export class NewSalePageComponent {
         if (!typedName || !selectedName || typedName !== selectedName) {
           this.selectedCustomerId.set(null);
           this.selectedCustomerName.set(null);
+          this.selectedCustomer.set(null);
           if (!this.isOfflineMode()) {
             this.enforceNoCustomerCreditRestrictions();
           }
@@ -466,6 +558,49 @@ export class NewSalePageComponent {
     });
   }
 
+  onBatchSearchTermChanged(value: string): void {
+    this.searchInput.set((value ?? '').toString());
+  }
+
+  onBatchSearchSuggestionFilter(value: string): void {
+    this.onFilterSearch({ query: value } as AutoCompleteCompleteEvent);
+  }
+
+  onBatchSearchRequested(value: string): void {
+    this.searchInput.set((value ?? '').toString());
+    void this.onBarcodeSearch();
+  }
+
+  onOpenBatchPicker(): void {
+    if (this.availableBatches().length > 0) {
+      this.showBatchPicker.set(true);
+    }
+  }
+
+  onBatchQuantityChanged(quantity: number | null): void {
+    const normalized = Number(quantity ?? 1);
+    this.batchPickerForm.patchValue({ quantity: Number.isFinite(normalized) ? Math.max(1, normalized) : 1 });
+    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
+  }
+
+  onBatchPickerBatchSelected(batch: AvailableBatchDto): void {
+    const normalizedQuantity = Number.isFinite(Number(this.batchPickerQuantity())) ? Math.max(1, Math.trunc(Number(this.batchPickerQuantity()))) : 1;
+    this.selectedBatch.set(batch);
+    this.batchPickerForm.patchValue({
+      batchNumber: batch.batchNumber,
+      quantity: normalizedQuantity,
+    });
+    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
+    this.onAddToCart();
+  }
+
+  onBatchPickerClosed(): void {
+    this.showBatchPicker.set(false);
+    this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
+    this.batchPickerQuantity.set(1);
+    this.batchSearchError.set('');
+  }
+
   onFilterSearch(event: AutoCompleteCompleteEvent): void {
     const query = event.query.trim();
     if (!query) {
@@ -477,6 +612,10 @@ export class NewSalePageComponent {
     const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
     const merged = [...new Set([...names, ...barcodes])];
     this.searchSuggestions.set(merged.slice(0, 20));
+  }
+
+  onBatchSearchSuggestions(query: string): void {
+    this.onFilterSearch({ query } as AutoCompleteCompleteEvent);
   }
 
   onSearchSuggestionSelected(value: string): void {
@@ -510,41 +649,54 @@ export class NewSalePageComponent {
     if (!normalizedName) {
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
       return;
     }
 
-    if (this.isOfflineMode()) {
-      const matches = this.offlineCustomers().filter(
-        (c) => c.name.trim().toLowerCase() === normalizedName
-      );
-      if (matches.length !== 1) {
-        this.selectedCustomerId.set(null);
-        this.selectedCustomerName.set(null);
-        return;
-      }
-      const [offlineCustomer] = matches;
-      this.selectedCustomerId.set(offlineCustomer.customerId);
-      this.selectedCustomerName.set(normalizedName);
-      this.customerForm.patchValue(
-        { customerName: offlineCustomer.name, customerPhone: offlineCustomer.phoneNumber },
-        { emitEvent: false }
-      );
+    const customer = this.customerSelectionPool().find((candidate) => candidate.name.trim().toLowerCase() === normalizedName);
+    if (!customer) {
+      this.onCustomerSectionSelected(null);
       return;
     }
 
-    const matches = this.customers().filter(
-      (customer) => customer.isActive && customer.name.trim().toLowerCase() === normalizedName
-    );
+    this.onCustomerSectionSelected(customer);
+  }
 
-    if (matches.length !== 1) {
+  onCustomerSectionNameChanged(value: string | null): void {
+    const nextValue = (value ?? '').toString();
+    if (this.customerForm.controls.customerName.value === nextValue) {
+      return;
+    }
+
+    this.customerForm.controls.customerName.setValue(nextValue, { emitEvent: false });
+  }
+
+  onCustomerSectionPhoneChanged(value: string | null): void {
+    const nextValue = (value ?? '').toString();
+    if (this.customerForm.controls.customerPhone.value === nextValue) {
+      return;
+    }
+
+    this.customerForm.controls.customerPhone.setValue(nextValue, { emitEvent: false });
+  }
+
+  onCustomerSectionSearchCustomers(query: string): void {
+    this.onFilterCustomerName({ query } as AutoCompleteCompleteEvent);
+  }
+
+  onCustomerSectionSuggestionSelected(name: string): void {
+    this.onCustomerSuggestionSelected(name);
+  }
+
+  onCustomerSectionSelected(customer: CustomerDto | null): void {
+    this.selectedCustomer.set(customer);
+    if (!customer) {
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
       return;
     }
 
-    const [customer] = matches;
-    this.selectedCustomerId.set(customer.customerId);
-    this.selectedCustomerName.set(normalizedName);
     this.customerForm.patchValue(
       {
         customerName: customer.name,
@@ -552,6 +704,8 @@ export class NewSalePageComponent {
       },
       { emitEvent: false }
     );
+    this.selectedCustomerId.set(customer.customerId);
+    this.selectedCustomerName.set(customer.name.trim().toLowerCase());
   }
 
   openScanner(): void {
@@ -576,6 +730,114 @@ export class NewSalePageComponent {
   onSelectBatch(batch: AvailableBatchDto): void {
     this.selectedBatch.set(batch);
     this.batchPickerForm.patchValue({ batchNumber: batch.batchNumber, quantity: 1 });
+  }
+
+  onCartTableQuantityChanged(event: CartQuantityChangedEvent): void {
+    const index = this.cart().findIndex((item) => item.clientLineKey === event.itemId);
+    if (index < 0) {
+      return;
+    }
+
+    const item = this.cart()[index];
+    const target = Math.max(1, Math.trunc(Number(event.qty ?? item.quantity)));
+    if (!Number.isFinite(target)) {
+      return;
+    }
+
+    if (target > item.quantity) {
+      const canIncrease = target - item.quantity;
+      for (let i = 0; i < canIncrease; i += 1) {
+        this.onIncreaseCartItem(index);
+      }
+      return;
+    }
+
+    if (target < item.quantity) {
+      const canDecrease = item.quantity - target;
+      for (let i = 0; i < canDecrease; i += 1) {
+        this.onDecreaseCartItem(index);
+      }
+    }
+  }
+
+  onCartTableItemRemoved(itemId: string): void {
+    const index = this.cart().findIndex((item) => item.clientLineKey === itemId);
+    if (index < 0) {
+      return;
+    }
+
+    this.onRemoveCartItem(index);
+  }
+
+  onCartTableHsnCodeChange(event: CartLineTextEvent): void {
+    this.onCartItemHsnCodeChange(event.itemId, event.value);
+  }
+
+  onCartTableTaxRateChange(event: CartLineNumberEvent): void {
+    this.onCartItemTaxRateChange(event.itemId, event.value);
+  }
+
+  onCartTableDiscountTypeChange(event: CartLineNumberEvent): void {
+    this.onCartItemDiscountTypeChange(event.itemId, event.value as 0 | 1 | 2);
+  }
+
+  onCartTableDiscountValueChange(event: CartLineTextEvent): void {
+    this.onCartItemDiscountValueChange(event.itemId, Number(event.value ?? 0));
+  }
+
+  onCartTableLineDiscountEditorToggled(itemId: string): void {
+    this.toggleLineDiscountEditor(itemId);
+  }
+
+  onPaymentMethodChanged(method: PaymentMethod): void {
+    const nextValue = this.getPaymentMethodValue(method);
+    this.paymentForm.controls.paymentMethod.setValue(nextValue, { emitEvent: true });
+  }
+
+  onPaymentPaidAmountChanged(value: number | null): void {
+    this.paymentForm.controls.paidAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+  }
+
+  onPaymentDueAmountChanged(value: number | null): void {
+    this.paymentForm.controls.dueAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+  }
+
+  onPaymentSubmitRequested(): void {
+    void this.onSubmit();
+  }
+
+  onOnlineConfirmationPrintA4Requested(): void {
+    const sale = this.saleConfirmationResult();
+    if (!sale) {
+      return;
+    }
+
+    this.printA4(sale.saleId);
+  }
+
+  onOnlineConfirmationPrintThermalRequested(): void {
+    const sale = this.saleConfirmationResult();
+    if (!sale) {
+      return;
+    }
+
+    this.printThermal(sale.saleId);
+  }
+
+  onOfflineConfirmationPrintA4Requested(): void {
+    this.printOfflineA4();
+  }
+
+  onOfflineConfirmationPrintThermalRequested(): void {
+    this.printOfflineThermal();
+  }
+
+  getPaymentMethodLabel(paymentMethod: number): PaymentMethod {
+    return (PAYMENT_METHOD_VALUES.find((candidate) => candidate.value === paymentMethod)?.label as PaymentMethod) ?? 'Cash';
+  }
+
+  private getPaymentMethodValue(method: PaymentMethod): number {
+    return PAYMENT_METHOD_VALUES.find((candidate) => candidate.label === method)?.value ?? 1;
   }
 
   onAddToCart(): void {

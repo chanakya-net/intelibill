@@ -12,7 +12,6 @@
     />
   </header>
 
-  <!-- Shop Update Notification -->
   @if (showUpdateNotification()) {
     <div class="update-notification">
       <i class="pi pi-info-circle"></i>
@@ -20,162 +19,43 @@
     </div>
   }
 
-  <!-- Offline Status Banner -->
-  @if (isOfflineMode()) {
-    <div class="offline-status-banner" [class.offline-status-stale-warn]="staleWarningCount() > 0" [class.offline-status-blocked]="isSnapshotTooOld()">
-      <div class="offline-status-header">
-        <i class="pi pi-wifi" style="text-decoration: line-through"></i>
-        <span>{{ 'sales.newSale.offline.banner.offlineMode' | transloco }}</span>
-      </div>
-      @if (isOfflineEligible()) {
-        <div class="offline-status-details">
-          @if (snapshotAgeHours() !== null) {
-            <span class="offline-status-detail">
-              {{ 'sales.newSale.offline.banner.snapshotAge' | transloco: { hours: snapshotAgeHours() } }}
-            </span>
-          }
-          @if (offlineInvoiceRemaining() > 0) {
-            <span class="offline-status-detail">
-              {{ 'sales.newSale.offline.banner.invoicesRemaining' | transloco: { count: offlineInvoiceRemaining() } }}
-            </span>
-          }
-          @if (offlinePendingCount() > 0) {
-            <span class="offline-status-detail">
-              {{ 'sales.newSale.offline.banner.pendingSync' | transloco: { count: offlinePendingCount() } }}
-            </span>
-          }
-          @if (offlineNeedsReviewCount() > 0) {
-            <span class="offline-status-detail offline-status-needs-review">
-              {{ 'sales.newSale.offline.banner.needsReview' | transloco: { count: offlineNeedsReviewCount() } }}
-            </span>
-          }
-        </div>
-        @if (staleWarningCount() > 0 && !isSnapshotTooOld()) {
-          <p class="offline-status-warning">
-            {{ 'sales.newSale.offline.banner.staleWarning' | transloco: { hours: snapshotAgeHours() } }}
-          </p>
-        }
-        @if (isSnapshotTooOld()) {
-          <p class="offline-status-warning offline-status-blocked-msg">
-            {{ 'sales.newSale.offline.banner.snapshotTooOld' | transloco }}
-          </p>
-        }
-      } @else {
-        <p class="offline-status-warning">{{ 'sales.newSale.offline.banner.notEligible' | transloco }}</p>
-      }
-    </div>
-  }
+  <app-offline-status-banner [isOffline]="isOfflineMode()" [syncStatus]="syncStatus()" />
 
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
   }
 
   <div class="new-sale-body">
-    <!-- Item Search -->
     <p-card>
       <ng-template pTemplate="header">
         <div class="card-title">{{ 'sales.newSale.scanItem' | transloco }}</div>
       </ng-template>
 
-      <div class="flex gap-2 items-start flex-wrap">
-        <div class="flex-1 min-w-48">
-          <p-inputgroup>
-            <p-autocomplete
-              [ngModel]="searchInput()"
-              (ngModelChange)="searchInput.set(($event ?? '').toString())"
-              [suggestions]="searchSuggestions()"
-              (completeMethod)="onFilterSearch($event)"
-              (onSelect)="onSearchSuggestionSelected($event.value)"
-              (keyup.enter)="onBarcodeSearch()"
-              [placeholder]="'inventory.searchPlaceholder' | transloco"
-              appendTo="body"
-              [fluid]="true"
-            ></p-autocomplete>
-            <p-inputgroup-addon>
-              <button
-                pButton
-                type="button"
-                icon="pi pi-camera"
-                severity="secondary"
-                text
-                (click)="openScanner()"
-                [attr.aria-label]="'inventory.openScanner' | transloco"
-              ></button>
-            </p-inputgroup-addon>
-          </p-inputgroup>
-        </div>
-        <p-button
-          [label]="'sales.newSale.search' | transloco"
-          icon="pi pi-search"
-          (click)="onBarcodeSearch()"
-          [disabled]="isSearchingBatches()"
-        />
-      </div>
-
-      @if (isSearchingBatches()) {
-        <div class="flex items-center gap-2 mt-3 text-sm text-slate-500">
-          <p-progressSpinner styleClass="h-4 w-4" strokeWidth="6" />
-          <span>{{ 'sales.newSale.searching' | transloco }}</span>
-        </div>
-      }
+      <app-batch-search-bar
+        [searchTerm]="searchInput()"
+        [loading]="isSearchingBatches()"
+        [searchSuggestions]="searchSuggestions()"
+        (searchTermChanged)="onBatchSearchTermChanged($event)"
+        (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
+        (suggestionSelected)="onSearchSuggestionSelected($event)"
+        (search)="onBatchSearchRequested($event)"
+        (openPicker)="onOpenBatchPicker()"
+        (cameraOpen)="openScanner()"
+      />
 
       @if (batchSearchError()) {
         <p class="error mt-2">{{ batchSearchError().startsWith('sales.') ? (batchSearchError() | transloco) : batchSearchError() }}</p>
       }
 
-      <!-- Batch Picker -->
-      @if (showBatchPicker()) {
-        <div class="batch-picker mt-4">
-          <p class="text-sm font-semibold text-slate-600 mb-2">{{ 'sales.newSale.selectBatch' | transloco }}</p>
-          <div class="flex flex-col gap-2 mb-3">
-            @for (batch of availableBatches(); track batch.batchNumber) {
-              <div
-                class="batch-option"
-                [class.selected]="selectedBatch()?.batchNumber === batch.batchNumber"
-                (click)="onSelectBatch(batch)"
-              >
-                <div class="flex items-center justify-between">
-                  <div>
-                    <span class="font-medium text-slate-800">{{ batch.batchNumber }}</span>
-                    @if (batch.expiryDate) {
-                      <span class="text-xs text-slate-500 ml-2">{{ 'sales.newSale.expiry' | transloco }}: {{ batch.expiryDate | dateOnly:'dd MMM yyyy' }}</span>
-                    }
-                  </div>
-                  <div class="text-right">
-                    <p class="font-bold text-orange-600">₹{{ batch.salesPrice | number:'1.2-2' }}</p>
-                    <p class="text-xs text-slate-400">{{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}</p>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-
-          @if (selectedBatch()) {
-            <div class="flex items-end gap-3 flex-wrap">
-              <div class="flex flex-col gap-1">
-                <label class="text-xs text-slate-500">{{ 'sales.newSale.quantity' | transloco }}</label>
-                <p-inputNumber
-                  [formControl]="batchPickerForm.controls.quantity"
-                  [min]="1"
-                  [max]="selectedBatch()!.quantity"
-                  [showButtons]="true"
-                  buttonLayout="horizontal"
-                  incrementButtonIcon="pi pi-plus"
-                  decrementButtonIcon="pi pi-minus"
-                />
-                @if (batchPickerForm.controls.quantity.errors?.['exceedsStock']) {
-                  <p class="error-hint">{{ 'sales.newSale.exceedsStock' | transloco }}</p>
-                }
-              </div>
-              <p-button
-                [label]="'sales.newSale.addToCart' | transloco"
-                icon="pi pi-cart-plus"
-                (click)="onAddToCart()"
-              />
-            </div>
-          }
-        </div>
-      }
+      <app-batch-picker-dialog
+        [visible]="showBatchPicker()"
+        [batches]="availableBatches()"
+        [loading]="isSearchingBatches()"
+        [quantity]="batchPickerQuantity()"
+        (batchSelected)="onBatchPickerBatchSelected($event)"
+        (closed)="onBatchPickerClosed()"
+        (quantityChanged)="onBatchQuantityChanged($event)"
+      />
     </p-card>
 
     <app-barcode-scanner-dialog
@@ -184,7 +64,6 @@
       (detected)="onScannedBarcode($event)"
     />
 
-    <!-- Cart -->
     <p-card>
       <ng-template pTemplate="header">
         <div class="card-header-row">
@@ -200,477 +79,119 @@
         </div>
       </ng-template>
 
-      @if (cart().length === 0) {
-        <div class="empty-cart text-center py-6 text-slate-400">
-          <i class="pi pi-shopping-cart text-4xl mb-2"></i>
-          <p>{{ 'sales.newSale.emptyCart' | transloco }}</p>
-        </div>
-      } @else {
-        <p-table [value]="cart()" styleClass="p-datatable-sm">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>{{ 'inventory.name' | transloco }}</th>
-              <th>{{ 'sales.newSale.batch' | transloco }}</th>
-              <th>{{ 'sales.newSale.qty' | transloco }}</th>
-              <th>{{ 'sales.newSale.price' | transloco }}</th>
-              <th>{{ 'sales.newSale.subtotal' | transloco }}</th>
-              <th></th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-item let-rowIndex="rowIndex">
-            <tr [ngClass]="{ 'highlight-row': highlightedRowKeys().has(item.clientLineKey) }">
-              <td>{{ item.itemName }}</td>
-              <td>{{ item.batchNumber }}</td>
-              <td>
-                <div class="qty-controls">
-                  <p-button
-                    icon="pi pi-minus"
-                    severity="secondary"
-                    [text]="true"
-                    (click)="onDecreaseCartItem(rowIndex)"
-                    [disabled]="item.quantity <= 1"
-                  />
-                  <span class="qty-value">{{ item.quantity }}</span>
-                  <p-button
-                    icon="pi pi-plus"
-                    severity="secondary"
-                    [text]="true"
-                    (click)="onIncreaseCartItem(rowIndex)"
-                    [disabled]="!canIncreaseCartItem(item)"
-                  />
-                </div>
-              </td>
-              <td>
-                <div class="price-breakdown">
-                  <p class="price-line">
-                    <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
-                    <span>₹{{ getUnitSubtotal(item) | number:'1.2-2' }}</span>
-                  </p>
-                  @if (hasTax(item)) {
-                    <p class="price-line">
-                      <span>{{ 'sales.newSale.tax' | transloco }} ({{ item.taxRatePercent | number:'1.0-2' }}%)</span>
-                      <span>₹{{ getUnitTaxAmount(item) | number:'1.2-2' }}</span>
-                    </p>
-                  }
-                  <p class="price-line final">
-                    <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
-                    <span>₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
-                  </p>
-
-                  <div class="line-overrides">
-                    <div class="line-override">
-                      <label class="text-xs text-slate-500">{{ 'sales.newSale.hsnCode' | transloco }}</label>
-                      <input
-                        pInputText
-                        type="text"
-                        [ngModel]="item.hsnCode ?? ''"
-                        [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="onCartItemHsnCodeChange(item.clientLineKey, $event)"
-                      />
-                      @if (getCartItemHsnError(item.clientLineKey)) {
-                        <p class="error-hint">{{ getCartItemHsnError(item.clientLineKey) | transloco }}</p>
-                      }
-                    </div>
-                    <div class="line-override">
-                      <label class="text-xs text-slate-500">{{ 'sales.newSale.taxRatePercent' | transloco }}</label>
-                      <p-inputNumber
-                        [ngModel]="item.taxRatePercent"
-                        [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="onCartItemTaxRateChange(item.clientLineKey, $event)"
-                        [min]="0"
-                        [max]="100"
-                        [useGrouping]="false"
-                        [maxFractionDigits]="2"
-                        suffix="%"
-                      />
-                      @if (getCartItemTaxError(item.clientLineKey)) {
-                        <p class="error-hint">{{ getCartItemTaxError(item.clientLineKey) | transloco }}</p>
-                      }
-                    </div>
-                  </div>
-
-                  <div class="discount-row">
-                    <div class="discount-badges">
-                      @if (getPreviewLine(item.clientLineKey); as previewLine) {
-                        @if (previewLine.configuredBatchRulePercentage !== null) {
-                          <p-tag
-                            severity="info"
-                            [value]="'sales.newSale.discounts.configuredPercent' | transloco:{ percent: previewLine.configuredBatchRulePercentage }"
-                          />
-                        }
-                      }
-
-                      @if (item.itemDiscountType !== 0 && item.itemDiscountValue > 0) {
-                        <p-tag
-                          severity="secondary"
-                          [value]="item.itemDiscountType === 1
-                            ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: item.itemDiscountValue })
-                            : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (item.itemDiscountValue | number:'1.0-2') })"
-                        />
-                      }
-                    </div>
-
-                    <p-button
-                      size="small"
-                      severity="secondary"
-                      [text]="true"
-                      icon="pi pi-pencil"
-                      [label]="'sales.newSale.discounts.edit' | transloco"
-                      (click)="toggleLineDiscountEditor(item.clientLineKey)"
-                    />
-                  </div>
-
-                  @if (isLineDiscountEditorOpen(item.clientLineKey)) {
-                    <div class="discount-editor">
-                      <p-select
-                        [options]="instantDiscountTypeOptions"
-                        optionValue="value"
-                        optionLabel="labelKey"
-                        [ngModel]="item.itemDiscountType"
-                        [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="onCartItemDiscountTypeChange(item.clientLineKey, $event)"
-                        appendTo="body"
-                      >
-                        <ng-template pTemplate="selectedItem" let-opt>
-                          {{ opt?.labelKey | transloco }}
-                        </ng-template>
-                        <ng-template pTemplate="item" let-opt>
-                          {{ opt.labelKey | transloco }}
-                        </ng-template>
-                      </p-select>
-
-                      <p-inputNumber
-                        [ngModel]="item.itemDiscountValue"
-                        [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="onCartItemDiscountValueChange(item.clientLineKey, $event)"
-                        [min]="0"
-                        [suffix]="item.itemDiscountType === 1 ? '%' : ''"
-                        [placeholder]="'sales.newSale.discounts.value' | transloco"
-                        [useGrouping]="false"
-                        [maxFractionDigits]="2"
-                      />
-                    </div>
-
-                    @if (getCartItemDiscountError(item.clientLineKey)) {
-                      <p class="error-hint">{{ getCartItemDiscountError(item.clientLineKey) | transloco }}</p>
-                    }
-                  }
-                </div>
-              </td>
-              <td class="font-medium">₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
-              <td>
-                <p-button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  [text]="true"
-                  (click)="onRemoveCartItem(rowIndex)"
-                />
-              </td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="footer">
-            <tr>
-              <td colspan="4" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
-              <td class="font-bold text-orange-600">₹{{ totalAmount() | number:'1.2-2' }}</td>
-              <td></td>
-            </tr>
-          </ng-template>
-        </p-table>
-      }
+      <app-cart-table
+        [cartItems]="cart()"
+        [highlightedRowKeys]="highlightedRowKeys()"
+        [checkoutPreview]="checkoutPreview()"
+        [saleDiscountType]="saleDiscountType()"
+        [saleDiscountError]="saleDiscountError()"
+        [isLineDiscountEditorOpen]="isLineDiscountEditorOpenFn"
+        [hasTax]="hasTaxFn"
+        [canIncrease]="canIncreaseFn"
+        [getLineSubtotal]="getLineSubtotalFn"
+        [getLineTaxAmount]="getLineTaxAmountFn"
+        [getLineTotal]="getLineTotalFn"
+        [getUnitSubtotal]="getUnitSubtotalFn"
+        [getUnitTaxAmount]="getUnitTaxAmountFn"
+        [getUnitFinalPrice]="getUnitFinalPriceFn"
+        [getPreviewLine]="getPreviewLineFn"
+        [getCartItemHsnError]="getCartItemHsnErrorFn"
+        [getCartItemTaxError]="getCartItemTaxErrorFn"
+        [getCartItemDiscountError]="getCartItemDiscountErrorFn"
+        [instantDiscountTypeOptions]="instantDiscountTypeOptions"
+        [totalAmount]="totalAmount()"
+        (quantityChanged)="onCartTableQuantityChanged($event)"
+        (itemRemoved)="onCartTableItemRemoved($event)"
+        (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
+        (cartItemTaxRateChange)="onCartTableTaxRateChange($event)"
+        (cartItemDiscountTypeChange)="onCartTableDiscountTypeChange($event)"
+        (cartItemDiscountValueChange)="onCartTableDiscountValueChange($event)"
+        (lineDiscountEditorToggled)="onCartTableLineDiscountEditorToggled($event)"
+      />
     </p-card>
 
-    <!-- Customer Section -->
     <p-card>
       <ng-template pTemplate="header">
         <div class="card-title">{{ 'sales.newSale.customerSection' | transloco }}</div>
       </ng-template>
 
-      <div class="flex gap-4 flex-wrap" [formGroup]="customerForm">
-        <div class="flex flex-col gap-1 flex-1 min-w-48">
-          <label class="text-xs text-slate-500">{{ 'sales.newSale.customerName' | transloco }}</label>
-          <p-autocomplete
-            formControlName="customerName"
-            [suggestions]="customerNameSuggestions()"
-            (completeMethod)="onFilterCustomerName($event)"
-            (onSelect)="onCustomerSuggestionSelected($event.value)"
-            [placeholder]="'sales.newSale.walkIn' | transloco"
-            appendTo="body"
-            [fluid]="true"
-          />
-        </div>
-        <div class="flex flex-col gap-1 flex-1 min-w-48">
-          <label class="text-xs text-slate-500">{{ 'sales.newSale.customerPhone' | transloco }}</label>
-          <input pInputText type="tel" formControlName="customerPhone" placeholder="+91 98765 43210" />
-          @if (customerForm.controls.customerPhone.touched && customerForm.controls.customerPhone.errors?.['pattern']) {
-            <p class="error-hint">{{ 'sales.newSale.invalidPhone' | transloco }}</p>
-          }
-        </div>
-      </div>
-      @if (isOfflineMode()) {
-        <p class="text-xs text-slate-500 mt-2">{{ 'sales.newSale.offline.cachedCustomerOnlyNote' | transloco }}</p>
-      }
+      <app-sale-customer-section
+        [selectedCustomer]="selectedCustomer()"
+        [customerNameControl]="customerForm.controls.customerName"
+        [customerPhoneControl]="customerForm.controls.customerPhone"
+        [customerNameSuggestions]="customerNameSuggestions()"
+        [customers]="customerSelectionPool()"
+        [isOfflineMode]="isOfflineMode()"
+        (customerSelected)="onCustomerSectionSelected($event)"
+        (searchCustomers)="onCustomerSectionSearchCustomers($event)"
+      />
     </p-card>
 
-    <!-- Payment -->
     <p-card>
       <ng-template pTemplate="header">
         <div class="card-title">{{ 'sales.newSale.paymentSection' | transloco }}</div>
       </ng-template>
 
-      <div class="flex gap-4 items-start flex-wrap" [formGroup]="paymentForm">
-        <div class="flex flex-col gap-1">
-          <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
-          <p-select
-            formControlName="paymentMethod"
-            [options]="paymentMethodsForSelection()"
-            optionLabel="label"
-            optionValue="value"
-            [placeholder]="'sales.newSale.selectPayment' | transloco"
-          />
-        </div>
+      <app-sale-payment-section
+        [paymentMethods]="paymentMethodsForSelection()"
+        [selectedMethod]="selectedPaymentMethod()"
+        [paidAmount]="paymentForm.controls.paidAmount.value"
+        [dueAmount]="paymentForm.controls.dueAmount.value"
+        [isOfflineMode]="isOfflineMode()"
+        [totalAmount]="totalAmount()"
+        [currencyInputPt]="currencyInputPt"
+        [currencyGroupPt]="currencyGroupPt"
+        [currencyAddonPt]="currencyAddonPt"
+        [canUseCredit]="canUseCredit()"
+        [dueAmountDisabled]="!isOfflineMode() && !canUseCredit()"
+        [paymentSplitError]="paymentSplitError()"
+        [isSubmitting]="isOfflineMode() ? isOfflineSubmitting() : isSubmitting()"
+        [cartLength]="cart().length"
+        (methodChanged)="onPaymentMethodChanged($event)"
+        (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
+        (dueAmountChanged)="onPaymentDueAmountChanged($event)"
+        (submitRequested)="onPaymentSubmitRequested()"
+      />
 
-        <div class="flex flex-col gap-1">
-          <label class="text-xs text-slate-500">{{ 'sales.newSale.paidAmount' | transloco }}</label>
-          <p-inputgroup [pt]="currencyGroupPt">
-            <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-            <p-inputNumber
-              formControlName="paidAmount"
-              mode="decimal"
-              [min]="0"
-              [max]="totalAmount()"
-              [pt]="currencyInputPt"
-            />
-          </p-inputgroup>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
-          <p-inputgroup [pt]="currencyGroupPt">
-            <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-            <p-inputNumber
-              formControlName="dueAmount"
-              mode="decimal"
-              [min]="0"
-              [max]="totalAmount()"
-              [pt]="currencyInputPt"
-            />
-          </p-inputgroup>
-        </div>
-
-        <div class="summary-box flex-1">
-          <div class="flex justify-between text-sm text-slate-600">
-            <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
-            <span>₹{{ subtotalAmount() | number:'1.2-2' }}</span>
-          </div>
-          <div class="flex justify-between text-sm text-slate-500">
-            <span>{{ 'sales.newSale.tax' | transloco }}</span>
-            <span>₹{{ totalTaxAmount() | number:'1.2-2' }}</span>
-          </div>
-
-          <div class="sale-discount-row mt-2">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2 flex-wrap">
-                @if (checkoutPreview(); as preview) {
-                  @if (preview.configuredSaleRule !== null) {
-                    <p-tag
-                      severity="info"
-                      [value]="'sales.newSale.discounts.configuredSalePercent' | transloco:{ percent: preview.configuredSaleRule.percentage }"
-                    />
-                  }
-                }
-
-                @if (saleDiscountType() !== 0 && saleDiscountValue() > 0) {
-                  <p-tag
-                    severity="secondary"
-                    [value]="saleDiscountType() === 1
-                      ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: saleDiscountValue() })
-                      : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (saleDiscountValue() | number:'1.0-2') })"
-                  />
-                }
-              </div>
-
-              <p-button
-                size="small"
-                severity="secondary"
-                [text]="true"
-                icon="pi pi-pencil"
-                [label]="'sales.newSale.discounts.editSale' | transloco"
-                [disabled]="checkoutPreview() !== null && !isSaleDiscountEligible()"
-                (click)="toggleSaleDiscountEditor()"
-              />
-            </div>
-
-            @if (checkoutPreview() !== null && !isSaleDiscountEligible()) {
-              <p class="text-xs text-slate-500 mt-1">{{ 'sales.newSale.discounts.saleNotEligible' | transloco }}</p>
-            }
-
-            @if (isSaleDiscountEditorOpen()) {
-              <div class="discount-editor mt-2">
-                <p-select
-                  [options]="instantDiscountTypeOptions"
-                  optionValue="value"
-                  optionLabel="labelKey"
-                  [ngModel]="saleDiscountType()"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onSaleDiscountTypeChange($event)"
-                >
-                  <ng-template pTemplate="selectedItem" let-opt>
-                    {{ opt?.labelKey | transloco }}
-                  </ng-template>
-                  <ng-template pTemplate="item" let-opt>
-                    {{ opt.labelKey | transloco }}
-                  </ng-template>
-                </p-select>
-
-                <p-inputNumber
-                  [ngModel]="saleDiscountValue()"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onSaleDiscountValueChange($event)"
-                  [min]="0"
-                  [suffix]="saleDiscountType() === 1 ? '%' : ''"
-                  [placeholder]="'sales.newSale.discounts.value' | transloco"
-                  [useGrouping]="false"
-                  [maxFractionDigits]="2"
-                />
-              </div>
-
-              @if (saleDiscountError()) {
-                <p class="error-hint mt-1">{{ saleDiscountError() | transloco }}</p>
-              }
-            }
-          </div>
-
-          <div class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1">
-            <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
-            <span>₹{{ totalAmount() | number:'1.2-2' }}</span>
-          </div>
-        </div>
-      </div>
-
-      @if (!isOfflineMode() && !canUseCredit()) {
-        <p class="error-hint mt-2">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
-      }
-
-      @if (isOfflineMode() && paymentForm.controls.paymentMethod.value === 2) {
-        <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
-      }
-
-      <div class="flex justify-end mt-4">
-        @if (paymentSplitError()) {
-          <p class="error mr-3">{{ paymentSplitError() | transloco }}</p>
-        }
-        <p-button
-          [label]="'sales.newSale.recordSale' | transloco"
-          icon="pi pi-check"
-          [disabled]="cart().length === 0 || (isOfflineMode() ? isOfflineSubmitting() : isSubmitting())"
-          [loading]="isOfflineMode() ? isOfflineSubmitting() : isSubmitting()"
-          (click)="onSubmit()"
-          size="large"
-        />
-      </div>
+      <app-cart-checkout-summary
+        [preview]="checkoutPreview()"
+        [loading]="isPreviewLoading()"
+        [totalAmount]="totalAmount()"
+        [subtotalAmount]="subtotalAmount()"
+        [totalTaxAmount]="totalTaxAmount()"
+        [totalDiscountAmount]="totalDiscountAmount()"
+        [saleDiscountType]="saleDiscountType()"
+        [saleDiscountValue]="saleDiscountValue()"
+        [isSaleDiscountEligible]="isSaleDiscountEligible()"
+        [isDiscountEditorOpen]="isSaleDiscountEditorOpen()"
+        [instantDiscountTypeOptions]="instantDiscountTypeOptions"
+        [saleDiscountError]="saleDiscountError()"
+        (saleDiscountEditorToggled)="toggleSaleDiscountEditor()"
+        (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
+        (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
+      />
     </p-card>
   </div>
 </section>
 
-<!-- Sale Recorded Confirmation Dialog -->
-<p-dialog
-  [header]="'sales.newSale.confirmation.title' | transloco"
+<app-sale-confirmation-dialog
   [visible]="showConfirmation()"
-  [modal]="true"
-  [closable]="false"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '450px' }"
->
-  <div class="flex flex-col items-center py-4 text-center">
-    <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
-    <h2 class="text-xl font-bold mb-2">{{ 'sales.newSale.confirmation.success' | transloco }}</h2>
+  [saleResult]="saleConfirmationResult()"
+  [titleKey]="'sales.newSale.confirmation.title'"
+  (closed)="onDone()"
+  (printA4Requested)="onOnlineConfirmationPrintA4Requested()"
+  (printThermalRequested)="onOnlineConfirmationPrintThermalRequested()"
+/>
 
-    @if (lastRecordedSale(); as sale) {
-      <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
-        <div class="flex justify-between mb-2">
-          <span class="text-slate-500">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
-          <span class="font-mono font-bold">{{ sale.invoiceNumber }}</span>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
-          <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 w-full mb-4">
-        <p-button
-          [label]="'sales.invoice.printA4' | transloco"
-          icon="pi pi-file"
-          [outlined]="true"
-          (click)="printA4(sale.saleId)"
-        />
-        <p-button
-          [label]="'sales.invoice.printThermal' | transloco"
-          icon="pi pi-print"
-          [outlined]="true"
-          (click)="printThermal(sale.saleId)"
-        />
-      </div>
-    }
-
-    <p-button
-      [label]="'sales.invoice.done' | transloco"
-      icon="pi pi-check"
-      (click)="onDone()"
-      styleClass="w-full"
-    />
-  </div>
-</p-dialog>
-
-<!-- Offline Sale Queued Confirmation Dialog -->
-<p-dialog
-  [header]="'sales.newSale.offline.confirmation.title' | transloco"
+<app-sale-confirmation-dialog
   [visible]="showOfflineConfirmation()"
-  [modal]="true"
-  [closable]="false"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '450px' }"
->
-  <div class="flex flex-col items-center py-4 text-center">
-    <i class="pi pi-clock text-6xl text-amber-500 mb-4"></i>
-    <h2 class="text-xl font-bold mb-2">{{ 'sales.newSale.offline.confirmation.queued' | transloco }}</h2>
-    <p class="text-slate-600 mb-4">{{ 'sales.newSale.offline.confirmation.description' | transloco }}</p>
-
-    @if (offlineConfirmation(); as info) {
-      <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
-        <div class="flex justify-between mb-2">
-          <span class="text-slate-500">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
-          <span class="font-mono font-bold">{{ info.invoiceNumber }}</span>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
-          <span class="font-bold text-orange-600">₹{{ info.grandTotal | number:'1.2-2' }}</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 w-full mb-4">
-        <p-button
-          [label]="'sales.invoice.printA4' | transloco"
-          icon="pi pi-file"
-          [outlined]="true"
-          (click)="printOfflineA4()"
-        />
-        <p-button
-          [label]="'sales.invoice.printThermal' | transloco"
-          icon="pi pi-print"
-          [outlined]="true"
-          (click)="printOfflineThermal()"
-        />
-      </div>
-    }
-
-    <p-button
-      [label]="'common.done' | transloco"
-      icon="pi pi-check"
-      (click)="onOfflineDone()"
-      styleClass="w-full"
-    />
-  </div>
-</p-dialog>
+  [saleResult]="offlineSaleConfirmationResult()"
+  [titleKey]="'sales.newSale.offline.confirmation.title'"
+  [saleTypeLabel]="'sales.invoice.invoiceNumber'"
+  [doneButtonLabel]="'common.done'"
+  [printA4ButtonLabel]="'sales.invoice.printA4'"
+  [printThermalButtonLabel]="'sales.invoice.printThermal'"
+  (closed)="onOfflineDone()"
+  (printA4Requested)="onOfflineConfirmationPrintA4Requested()"
+  (printThermalRequested)="onOfflineConfirmationPrintThermalRequested()"
+/>

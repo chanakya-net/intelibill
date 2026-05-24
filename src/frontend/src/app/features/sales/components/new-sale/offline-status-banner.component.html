@@ -1,0 +1,53 @@
+@if (isOffline) {
+  @if (syncStatus; as status) {
+    <div
+      class="offline-status-banner"
+      [class.offline-status-stale-warn]="status.staleWarningCount > 0"
+      [class.offline-status-blocked]="status.isSnapshotTooOld"
+    >
+      <div class="offline-status-header">
+        <i class="pi pi-wifi" style="text-decoration: line-through"></i>
+        <span>{{ 'sales.newSale.offline.banner.offlineMode' | transloco }}</span>
+      </div>
+
+      @if (status.isOfflineEligible) {
+        <div class="offline-status-details">
+          @if (status.snapshotAgeHours !== null) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.snapshotAge' | transloco: { hours: status.snapshotAgeHours } }}
+            </span>
+          }
+          @if (status.offlineInvoiceRemaining > 0) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.invoicesRemaining' | transloco: { count: status.offlineInvoiceRemaining } }}
+            </span>
+          }
+          @if (status.pendingSyncCount > 0) {
+            <span class="offline-status-detail">
+              {{ 'sales.newSale.offline.banner.pendingSync' | transloco: { count: status.pendingSyncCount } }}
+            </span>
+          }
+          @if (status.needsReviewCount > 0) {
+            <span class="offline-status-detail offline-status-needs-review">
+              {{ 'sales.newSale.offline.banner.needsReview' | transloco: { count: status.needsReviewCount } }}
+            </span>
+          }
+        </div>
+
+        @if (status.staleWarningCount > 0 && !status.isSnapshotTooOld) {
+          <p class="offline-status-warning">
+            {{ 'sales.newSale.offline.banner.staleWarning' | transloco: { hours: status.snapshotAgeHours } }}
+          </p>
+        }
+
+        @if (status.isSnapshotTooOld) {
+          <p class="offline-status-warning offline-status-blocked-msg">
+            {{ 'sales.newSale.offline.banner.snapshotTooOld' | transloco }}
+          </p>
+        }
+      } @else {
+        <p class="offline-status-warning">{{ 'sales.newSale.offline.banner.notEligible' | transloco }}</p>
+      }
+    </div>
+  }
+}

@@ -1,0 +1,54 @@
+<p-dialog
+  [header]="titleKey | transloco"
+  [visible]="visible"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '450px' }"
+>
+  <div class="flex flex-col items-center py-4 text-center">
+    <i [ngClass]="saleResult?.isOffline ? 'pi pi-clock text-6xl text-amber-500 mb-4' : 'pi pi-check-circle text-6xl text-green-500 mb-4'"></i>
+    <h2 class="text-xl font-bold mb-2">
+      {{ (saleResult?.isOffline ? 'sales.newSale.offline.confirmation.queued' : 'sales.newSale.confirmation.success') | transloco }}
+    </h2>
+    @if (saleResult?.isOffline) {
+      <p class="text-slate-600 mb-4">{{ 'sales.newSale.offline.confirmation.description' | transloco }}</p>
+    }
+
+    @if (saleResult; as sale) {
+      <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
+        <div class="flex justify-between mb-2">
+          <span class="text-slate-500">{{ saleTypeLabel | transloco }}</span>
+          <span class="font-mono font-bold">{{ sale.invoiceNumber }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
+          <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 w-full mb-4">
+        <p-button
+          [label]="printA4ButtonLabel | transloco"
+          icon="pi pi-file"
+          [outlined]="true"
+          (click)="onPrintA4()"
+        />
+        <p-button
+          [label]="printThermalButtonLabel | transloco"
+          icon="pi pi-print"
+          [outlined]="true"
+          (click)="onPrintThermal()"
+        />
+      </div>
+    }
+
+    <p-button
+      [label]="doneButtonLabel | transloco"
+      icon="pi pi-check"
+      (click)="onClose()"
+      styleClass="w-full"
+    />
+  </div>
+</p-dialog>
