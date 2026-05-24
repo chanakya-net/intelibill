@@ -253,6 +253,24 @@ export interface HsnLookupResult {
   readonly taxScenarios: readonly HsnTaxScenario[];
 }
 
+export interface InventoryBatchOption {
+  readonly id: string;
+  readonly label: string;
+  readonly itemName: string;
+  readonly batchNumber: string;
+  readonly barcode: string;
+  readonly quantity: number;
+}
+
+export interface AdjustmentRowDto {
+  readonly batchId: string;
+  readonly direction: InventoryAdjustmentDirection;
+  readonly reason: InventoryAdjustmentReason;
+  readonly quantity: number;
+  readonly performedAt: string | null;
+  readonly notes: string | null;
+}
+
 export interface AvailableBatchDto {
   readonly barcode: string;
   readonly itemName: string;
