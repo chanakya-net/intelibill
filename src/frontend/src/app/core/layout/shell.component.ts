@@ -69,8 +69,8 @@ export class ShellComponent {
   readonly shops = this.store.selectSignal(selectShops);
   readonly shopDetailsById = this.store.selectSignal(selectShopDetailsEntities);
   readonly isShopsSubmitting = this.store.selectSignal(selectShopsSubmitting);
-  readonly activeShop = computed(() => this.shops().find((shop) => shop.isDefault) ?? null);
-  readonly activeShopId = computed(() => this.activeShop()?.shopId ?? null);
+  readonly activeShop = this.shopPermissionsService.activeShop;
+  readonly activeShopId = this.shopPermissionsService.activeShopId;
   readonly activeShopLabel = computed(() => {
     const activeShop = this.activeShop();
     if (!activeShop) {

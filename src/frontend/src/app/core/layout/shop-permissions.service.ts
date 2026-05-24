@@ -7,7 +7,7 @@ export class ShopPermissionsService {
   private readonly authService = inject(AuthService);
   private readonly session = this.authService.session;
 
-  private readonly activeShop = computed(() => {
+  readonly activeShop = computed(() => {
     const session = this.session();
     const shops = session?.shops ?? [];
     if (shops.length === 0) {
@@ -22,6 +22,7 @@ export class ShopPermissionsService {
     return shops.find((shop) => shop.isDefault) ?? shops[0] ?? null;
   });
 
+  readonly activeShopId = computed(() => this.activeShop()?.shopId ?? null);
   private readonly activeRole = computed(() => (this.activeShop()?.role ?? '').trim().toLowerCase());
   private readonly hasActiveShop = computed(() => this.activeShop() !== null);
 
