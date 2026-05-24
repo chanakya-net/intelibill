@@ -238,7 +238,7 @@
                 </div>
                 <p class="mt-1 text-slate-500">Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable {{ line.returnableQuantity }}</p>
                 @if (line.financial && returnPreview()!.hasFinancialAccess) {
-                  <p class="mt-2 font-medium text-slate-700"> Refund {{ line.financial.approvedRefundAmount | currency:'INR':'symbol':'1.2-2' }} <span class="text-slate-400">/ max {{ line.financial.maxRefundAmount | currency:'INR':'symbol':'1.2-2' }}</span> </p>
+                  <p class="mt-2 font-medium text-slate-700">Refund {{ line.financial.approvedRefundAmount | currency:'INR':'symbol':'1.2-2' }} <span class="text-slate-400">/ max {{ line.financial.maxRefundAmount | currency:'INR':'symbol':'1.2-2' }}</span></p>
                 }
               </div>
             }

@@ -118,7 +118,12 @@ export class SaleDetailOverlayComponent {
   openReturnPreview(): void {
     const detail = this.sale();
     if (!detail || !this.canPreviewReturns()) return;
-    this.returnDrafts.set(detail.items.map((item) => ({ saleItemId: item.saleItemId, selected: false, quantity: 0, condition: null, approvedRefundAmount: null, notes: '' })));
+    this.returnDrafts.set(
+      detail.items.map((item) => ({
+        saleItemId: item.saleItemId, selected: false, quantity: 0,
+        condition: null, approvedRefundAmount: null, notes: '',
+      })),
+    );
     this.validationMessages.set([]);
     this.dueReductionOverrideAmount.set(null);
     this.dueOverrideReason.set('');
@@ -127,15 +132,36 @@ export class SaleDetailOverlayComponent {
     this.salesFacade.clearSaleReturnPreview();
     this.showReturnPreview.set(true);
   }
-  closeReturnPreview(): void { this.showReturnPreview.set(false); this.validationMessages.set([]); this.dueOverrideConfirmed.set(false); this.payoutMethod.set(null); this.salesFacade.clearSaleReturnPreview(); }
+  closeReturnPreview(): void {
+    this.showReturnPreview.set(false); this.validationMessages.set([]);
+    this.dueOverrideConfirmed.set(false); this.payoutMethod.set(null);
+    this.salesFacade.clearSaleReturnPreview();
+  }
   toggleReturnLine(item: SaleItemDto, selected: boolean): void {
-    this.updateDraft(item.saleItemId, (draft) => ({ ...draft, selected, quantity: selected ? item.returnableQuantity : 0, approvedRefundAmount: selected && this.hasFinancialAccess() ? this.getMaxRefundAmount(item, item.returnableQuantity) : null, condition: selected ? draft.condition : null, notes: selected ? draft.notes : '' }));
+    this.updateDraft(item.saleItemId, (draft) => ({
+      ...draft,
+      selected,
+      quantity: selected ? item.returnableQuantity : 0,
+      approvedRefundAmount:
+        selected && this.hasFinancialAccess()
+          ? this.getMaxRefundAmount(item, item.returnableQuantity)
+          : null,
+      condition: selected ? draft.condition : null,
+      notes: selected ? draft.notes : '',
+    }));
     this.salesFacade.clearSaleReturnPreview();
   }
   updateReturnQuantity(item: SaleItemDto, quantity: number | string | null): void {
     const normalizedQuantity = this.clampNumber(Number(quantity), 0, item.returnableQuantity);
     const maxRefund = this.getMaxRefundAmount(item, normalizedQuantity);
-    this.updateDraft(item.saleItemId, (draft) => ({ ...draft, quantity: normalizedQuantity, approvedRefundAmount: draft.selected && this.hasFinancialAccess() ? this.clampNumber(draft.approvedRefundAmount ?? maxRefund, 0, maxRefund) : null }));
+    this.updateDraft(item.saleItemId, (draft) => ({
+      ...draft,
+      quantity: normalizedQuantity,
+      approvedRefundAmount:
+        draft.selected && this.hasFinancialAccess()
+          ? this.clampNumber(draft.approvedRefundAmount ?? maxRefund, 0, maxRefund)
+          : null,
+    }));
     this.salesFacade.clearSaleReturnPreview();
   }
   updateReturnCondition(item: SaleItemDto, condition: SaleReturnCondition | null): void { this.updateDraft(item.saleItemId, (draft) => ({ ...draft, condition })); this.salesFacade.clearSaleReturnPreview(); }
@@ -153,11 +179,18 @@ export class SaleDetailOverlayComponent {
     if (!detail) return;
     const errors = this.validateReturnDrafts();
     this.validationMessages.set(errors);
-    if (errors.length > 0) { this.salesFacade.clearSaleReturnPreview(); return; }
+    if (errors.length > 0) {
+      this.salesFacade.clearSaleReturnPreview();
+      return;
+    }
     const payload: PreviewSaleReturnRequest = {
       dueReductionOverrideAmount: this.hasFinancialAccess() ? this.dueReductionOverrideAmount() : null,
       dueOverrideReason: this.hasFinancialAccess() ? this.normalizeOptional(this.dueOverrideReason()) : null,
-      items: this.selectedDrafts().map((draft) => ({ saleItemId: draft.saleItemId, quantity: draft.quantity, condition: draft.condition!, approvedRefundAmount: this.hasFinancialAccess() ? draft.approvedRefundAmount : null, notes: this.normalizeOptional(draft.notes) })),
+      items: this.selectedDrafts().map((draft) => ({
+        saleItemId: draft.saleItemId, quantity: draft.quantity, condition: draft.condition!,
+        approvedRefundAmount: this.hasFinancialAccess() ? draft.approvedRefundAmount : null,
+        notes: this.normalizeOptional(draft.notes),
+      })),
     };
     this.salesFacade.previewSaleReturn(detail.saleId, payload);
   }
@@ -184,7 +217,13 @@ export class SaleDetailOverlayComponent {
     };
     this.salesFacade.recordSaleReturn(detail.saleId, payload);
   }
-  openVoidReturn(saleReturn: SaleReturnDto): void { if (!this.canSubmitReturns() || saleReturn.isVoided) return; this.selectedReturnToVoid.set(saleReturn); this.voidReason.set(''); this.validationMessages.set([]); this.salesFacade.clearSaleReturnPreview(); this.showVoidReturn.set(true); }
+  openVoidReturn(saleReturn: SaleReturnDto): void {
+    if (!this.canSubmitReturns() || saleReturn.isVoided) return;
+    this.selectedReturnToVoid.set(saleReturn); this.voidReason.set('');
+    this.validationMessages.set([]); this.salesFacade.clearSaleReturnPreview();
+    this.showVoidReturn.set(true);
+  }
+
   closeVoidReturn(): void { this.showVoidReturn.set(false); this.selectedReturnToVoid.set(null); this.voidReason.set(''); this.validationMessages.set([]); }
   updateVoidReason(reason: string): void { this.voidReason.set(reason); }
   submitVoidReturn(): void {
@@ -203,13 +242,11 @@ export class SaleDetailOverlayComponent {
   getMaxRefundAmount(item: SaleItemDto, quantity: number): number {
     const grossOriginalValue = quantity * item.salesPrice;
     if (item.taxRatePercent <= 0 || item.isPriceIncludingTax) return this.roundMoney(grossOriginalValue);
-    return this.roundMoney(grossOriginalValue + grossOriginalValue * item.taxRatePercent / 100);
+    return this.roundMoney(grossOriginalValue + (grossOriginalValue * item.taxRatePercent) / 100);
   }
   getPreviewItemName(saleItemId: string): string { return this.sale()?.items.find((line) => line.saleItemId === saleItemId)?.itemName || 'Unknown Item'; }
   returnStatusLabel(saleReturn: SaleReturnDto): string { return saleReturn.isVoided ? 'Voided' : 'Active'; }
-  returnStatusSeverity(saleReturn: SaleReturnDto): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
-    return saleReturn.isVoided ? 'secondary' : 'success';
-  }
+  returnStatusSeverity(saleReturn: SaleReturnDto): 'success' | 'info' | 'warn' | 'danger' | 'secondary' { return saleReturn.isVoided ? 'secondary' : 'success'; }
   private updateDraft(saleItemId: string, update: (draft: ReturnLineDraft) => ReturnLineDraft): void {
     this.returnDrafts.update((drafts) => drafts.map((draft) => draft.saleItemId === saleItemId ? update(draft) : draft));
   }
