@@ -268,3 +268,12 @@ export interface AvailableBatchDto {
   readonly hsnCode?: string | null;
   readonly expiryDate: string | null;
 }
+
+export type BatchStatusFilter = 'all' | 'active' | 'voided';
+
+export interface BatchFilters {
+  readonly search: string;
+  readonly status: BatchStatusFilter;
+  readonly fromDate: string;
+  readonly toDate: string;
+}

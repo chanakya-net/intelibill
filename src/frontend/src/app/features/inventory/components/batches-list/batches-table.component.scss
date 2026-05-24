@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+.loading {
+  padding: 0.75rem;
+  color: var(--text-color-secondary);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+:host ::ng-deep {
+  .p-datatable-sm {
+    .p-datatable-thead > tr > th {
+      background: var(--surface-section);
+      font-weight: 600;
+    }
+  }
+
+  .p-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+/* Mobile grid — hidden on desktop */
+.mobile-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1rem;
+}
+
+.desktop-table {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .mobile-grid-container {
+    display: none;
+  }
+
+  .desktop-table {
+    display: block;
+  }
+}
+
+@media (max-width: 1023px) {
+  .mobile-empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+}
+
+@media screen and (max-width: 960px) {
+  :host ::ng-deep {
+    .p-datatable.p-datatable-stack {
+      .p-datatable-tbody > tr > td {
+        .p-column-title {
+          font-weight: 600;
+          min-width: 120px;
+          display: inline-block;
+        }
+      }
+    }
+  }
+}

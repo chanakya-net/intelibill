@@ -6,285 +6,17 @@
     <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
   </header>
 
-  <!-- Mobile Stacked List (≤1023px) -->
-  <div class="mobile-grid-container">
-    <div class="mobile-search-bar">
-      <p-iconfield iconPosition="left" class="mobile-search-field">
-        <p-inputicon>
-          <i class="pi pi-search"></i>
-        </p-inputicon>
-        <input
-          pInputText
-          type="text"
-          [ngModel]="searchValue()"
-          (ngModelChange)="searchValue.set($event)"
-          [placeholder]="'inventory.searchPlaceholder' | transloco"
-          class="w-full pr-10"
-        />
-        @if (searchValue()) {
-          <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
-            <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
-          </p-inputicon>
-        }
-      </p-iconfield>
-    </div>
+  <app-batches-filter-bar
+    class="mb-6"
+    [filters]="batchFilters()"
+    (filtersChange)="onFiltersChange($event)"
+  />
 
-    <div class="batch-list flex flex-col gap-3 px-1">
-      @for (batch of filteredBatches(); track batch.id) {
-        <p-card
-          class="batch-card-item"
-          [class.opacity-50]="batch.isVoided"
-          [pt]="{
-            root: {
-              class:
-                'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200',
-            },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' },
-          }"
-        >
-          <div class="flex items-center gap-4">
-            <!-- Left: Avatar -->
-            <p-avatar
-              [label]="productInitials(batch.itemName)"
-              [style]="{ 'background-color': productAvatarColor(batch.itemName), color: '#ffffff' }"
-              shape="circle"
-              size="large"
-              class="shadow-sm flex-shrink-0"
-            />
-
-            <!-- Center: Info -->
-            <div class="flex-1 flex flex-col gap-1 min-w-0">
-              <div class="font-bold text-slate-800 text-base truncate leading-tight">
-                {{ batch.itemName }}
-              </div>
-              <div class="flex flex-col gap-0.5 mt-0.5">
-                <div class="flex items-center gap-1.5">
-                  <span
-                    class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none"
-                    >Batch</span
-                  >
-                  <span
-                    class="text-slate-500 font-mono text-xs tracking-tighter truncate leading-none"
-                    >{{ batch.batchNumber }}</span
-                  >
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span
-                    class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none"
-                    >Qty</span
-                  >
-                  <span class="text-xs font-bold text-slate-700 leading-none">{{
-                    batch.quantity
-                  }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right: Price & Actions -->
-            <div class="flex flex-col items-end gap-3">
-              <div class="flex flex-col items-end">
-                <span class="text-[10px] text-slate-400 font-bold uppercase leading-none">{{
-                  'common.currencySymbol' | transloco
-                }}</span>
-                <span class="text-sm font-extrabold text-slate-800 leading-none">{{
-                  batch.salesPrice | number: '1.2-2'
-                }}</span>
-              </div>
-
-              <div class="flex gap-1.5">
-                <p-button
-                  icon="pi pi-sliders-h"
-                  [outlined]="true"
-                  severity="secondary"
-                  [pt]="{
-                    root: {
-                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
-                    },
-                  }"
-                  (click)="onAdjustBatch(batch)"
-                  [disabled]="batch.isVoided"
-                  [attr.aria-label]="'inventory.adjustBatch' | transloco"
-                />
-                <p-button
-                  icon="pi pi-pencil"
-                  [outlined]="true"
-                  severity="secondary"
-                  [pt]="{
-                    root: {
-                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
-                    },
-                  }"
-                  (click)="onEditBatch(batch)"
-                  [disabled]="batch.isVoided"
-                  [attr.aria-label]="'common.edit' | transloco"
-                />
-                <p-button
-                  icon="pi pi-trash"
-                  [outlined]="true"
-                  severity="danger"
-                  [pt]="{
-                    root: { class: 'w-8 h-8 p-0 border-red-200 text-red-500 hover:bg-red-50' },
-                  }"
-                  (click)="onVoidBatch(batch.id)"
-                  [disabled]="batch.isVoided"
-                  [attr.aria-label]="'common.void' | transloco"
-                />
-              </div>
-            </div>
-          </div>
-        </p-card>
-      }
-
-      @if (filteredBatches().length === 0) {
-        <div class="mobile-empty-state">
-          <p class="text-slate-500 italic">{{ 'inventory.noItemsFound' | transloco }}</p>
-        </div>
-      }
-    </div>
-  </div>
-
-  <!-- Desktop table -->
-  <div class="card p-4 bg-white shadow rounded-lg desktop-table">
-    <p-table
-      #batchesTable
-      [value]="tableBatches()"
-      [loading]="loading()"
-      [paginator]="tableBatches().length > 10"
-      [rows]="10"
-      [rowsPerPageOptions]="[10, 25, 50]"
-      [globalFilterFields]="[
-        'itemName',
-        'barcode',
-        'batchNumber',
-        'quantity',
-        'salesPrice',
-        'isVoided',
-      ]"
-      [sortField]="'itemName'"
-      [sortOrder]="1"
-      [scrollable]="true"
-      styleClass="p-datatable-sm"
-    >
-      <ng-template pTemplate="caption">
-        <app-table-filter-bar
-          [table]="batchesTable"
-          [searchValue]="searchValue()"
-          (searchValueChange)="searchValue.set($event)"
-          [placeholder]="'inventory.searchPlaceholder' | transloco"
-        />
-      </ng-template>
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="itemName" style="min-width: 12rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.item' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="itemName" />
-                <p-columnFilter type="text" field="itemName" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th pSortableColumn="barcode" style="min-width: 10rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.barcode' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="barcode" />
-                <p-columnFilter type="text" field="barcode" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th pSortableColumn="batchNumber" style="min-width: 10rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.batchNumber' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="batchNumber" />
-                <p-columnFilter type="text" field="batchNumber" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th pSortableColumn="quantity" style="min-width: 8rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.quantity' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="quantity" />
-                <p-columnFilter type="numeric" field="quantity" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th pSortableColumn="salesPrice" style="min-width: 9rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.salesPrice' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="salesPrice" />
-                <p-columnFilter type="numeric" field="salesPrice" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th pSortableColumn="isVoided" style="min-width: 8rem">
-            <div class="flex items-center justify-between">
-              {{ 'inventory.status' | transloco }}
-              <div class="flex items-center gap-1">
-                <p-sortIcon field="isVoided" />
-                <p-columnFilter type="boolean" field="isVoided" display="menu" />
-              </div>
-            </div>
-          </th>
-          <th style="min-width: 7rem">
-            <div class="flex items-center justify-center">
-              {{ 'common.actions' | transloco }}
-            </div>
-          </th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-batch>
-        <tr [class.opacity-50]="batch.isVoided">
-          <td>{{ batch.itemName }}</td>
-          <td>{{ batch.barcode }}</td>
-          <td>{{ batch.batchNumber }}</td>
-          <td>{{ batch.quantity }}</td>
-          <td>
-            {{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number: '1.2-2' }}
-          </td>
-          <td>
-            @if (batch.isVoided) {
-              <p-tag severity="danger" [value]="'inventory.voided' | transloco"></p-tag>
-            } @else {
-              <p-tag severity="success" [value]="'inventory.active' | transloco"></p-tag>
-            }
-          </td>
-          <td>
-            <div class="flex gap-2">
-              <button
-                pButton
-                icon="pi pi-sliders-h"
-                class="p-button-text p-button-sm"
-                (click)="onAdjustBatch(batch)"
-                [disabled]="batch.isVoided"
-                [attr.aria-label]="'inventory.adjustBatch' | transloco"
-              ></button>
-              <button
-                pButton
-                icon="pi pi-pencil"
-                class="p-button-text p-button-sm"
-                (click)="onEditBatch(batch)"
-                [disabled]="batch.isVoided"
-                [attr.aria-label]="'common.edit' | transloco"
-              ></button>
-              <button
-                pButton
-                icon="pi pi-trash"
-                class="p-button-text p-button-danger p-button-sm"
-                (click)="onVoidBatch(batch.id)"
-                [disabled]="batch.isVoided"
-                [attr.aria-label]="'common.void' | transloco"
-              ></button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
+  <app-batches-table
+    [batches]="filteredBatches()"
+    [loading]="loading()"
+    (batchClicked)="onBatchTableAction($event)"
+  />
 </section>
 
 <p-dialog
@@ -297,9 +29,9 @@
 >
   <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2">
     <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">{{
-        'inventory.originalBatch' | transloco
-      }}</span>
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.originalBatch' | transloco }}
+      </span>
       <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
     </div>
 
@@ -320,9 +52,9 @@
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.costPrice' | transloco }}</label>
         <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{
-            'common.currencySymbol' | transloco
-          }}</p-inputgroup-addon>
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
           <p-inputNumber
             formControlName="costPrice"
             [min]="0"
@@ -339,9 +71,9 @@
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.mrp' | transloco }}</label>
         <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{
-            'common.currencySymbol' | transloco
-          }}</p-inputgroup-addon>
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
           <p-inputNumber
             formControlName="mrp"
             [min]="0"
@@ -355,9 +87,9 @@
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.salesPrice' | transloco }}</label>
         <p-inputgroup class="w-full" [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{
-            'common.currencySymbol' | transloco
-          }}</p-inputgroup-addon>
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
           <p-inputNumber
             formControlName="salesPrice"
             [min]="0"
@@ -452,18 +184,16 @@
     (ngSubmit)="onSaveAdjustment()"
   >
     <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">{{
-        'inventory.batchNumber' | transloco
-      }}</span>
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.batchNumber' | transloco }}
+      </span>
       <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
       <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{
-          'inventory.adjustmentDirectionLabel' | transloco
-        }}</label>
+        <label class="text-sm font-semibold">{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
         <p-select
           formControlName="direction"
           [options]="directionOptions()"
@@ -473,9 +203,7 @@
         ></p-select>
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{
-          'inventory.adjustmentReasonLabel' | transloco
-        }}</label>
+        <label class="text-sm font-semibold">{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
         <p-select
           formControlName="reason"
           [options]="adjustmentReasonOptions()"
@@ -515,10 +243,10 @@
         </div>
         <div>
           <span>{{ 'inventory.unitCost' | transloco }}</span>
-          <strong
-            >{{ 'common.currencySymbol' | transloco }}
-            {{ preview.unitCost | number: '1.2-2' }}</strong
-          >
+          <strong>
+            {{ 'common.currencySymbol' | transloco }}
+            {{ preview.unitCost | number: '1.2-2' }}
+          </strong>
         </div>
         <div>
           <span>{{ 'inventory.costImpact' | transloco }}</span>
