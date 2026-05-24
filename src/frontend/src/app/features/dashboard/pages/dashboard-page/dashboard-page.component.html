@@ -23,7 +23,14 @@
       [ngModel]="selectedMetric()"
       (ngModelChange)="onMetricChange($event)"
       appendTo="body"
-    ></p-select>
+    >
+      <ng-template pTemplate="selectedItem" let-option>
+        {{ option.label | transloco }}
+      </ng-template>
+      <ng-template pTemplate="item" let-option>
+        {{ option.label | transloco }}
+      </ng-template>
+    </p-select>
   </label>
 
   <app-dashboard-chart
@@ -170,6 +177,7 @@
           <div class="dashboard-kpi-grid">
             <app-dashboard-metric-card
               [label]="dashboard.highestDueCustomer ? dashboard.highestDueCustomer.displayName : 'dashboard.noReceivableRisk'"
+              [translateLabel]="!dashboard.highestDueCustomer"
               [value]="dashboard.highestDueCustomer?.outstandingDue ?? null"
               [loading]="loading()"
               [currency]="true">

@@ -2,12 +2,12 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit, Signal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
-import {
+import { 
   ChartData,
   DashboardChartType,
   buildPaymentMixDonutChartData,
@@ -15,7 +15,7 @@ import {
   buildProfitTrendChartData,
   buildSalesTrendChartData,
 } from '../../utils/dashboard-chart-builders';
-import { DashboardDto, PaymentMixDto, PaymentMixTrendPointDto } from '../../services/dashboard.service';
+import { DashboardDto, PaymentMixDto, PaymentMixTrendPointDto } from '../../models/dashboard-dto';
 import { DashboardPreset } from '../../state/dashboard.actions';
 import { DashboardFacade } from '../../state/dashboard.facade';
 import { DashboardDateRangeChange, DashboardDateRangeComponent, SelectOption } from '../../components/dashboard-date-range.component';
@@ -32,13 +32,66 @@ interface ComparisonSummary {
   creditSalesPercentage: Comparison | null;
 }
 
-const PRESETS: { label: string; value: DashboardPreset }[] = [
-  { label: 'dashboard.presetToday', value: 'today' },
-  { label: 'dashboard.presetLast7', value: 'last7' },
-  { label: 'dashboard.presetLast30', value: 'last30' },
-  { label: 'dashboard.presetThisMonth', value: 'thisMonth' },
-  { label: 'dashboard.presetLastMonth', value: 'lastMonth' },
-  { label: 'dashboard.presetCustom', value: 'custom' },
+const PRESETS: { labelKey: string; value: DashboardPreset }[] = [
+  { labelKey: 'dashboard.presetToday', value: 'today' },
+  { labelKey: 'dashboard.presetLast7', value: 'last7' },
+  { labelKey: 'dashboard.presetLast30', value: 'last30' },
+  { labelKey: 'dashboard.presetThisMonth', value: 'thisMonth' },
+  { labelKey: 'dashboard.presetLastMonth', value: 'lastMonth' },
+  { labelKey: 'dashboard.presetCustom', value: 'custom' },
+];
+
+const SALES_CHART_LABELS: SalesChartLabels = {
+  salesBooked: 'Sales Booked',
+  netSalesBooked: 'Net Sales',
+  profitBeforeTax: 'Profit Before Tax',
+  profitAfterTax: 'Profit After Tax',
+};
+
+const PAYMENT_MIX_CHART_LABELS: PaymentMixChartLabels = {
+  cash: 'Cash',
+  upi: 'UPI',
+  card: 'Card',
+  credit: 'Credit',
+};
+
+const CHART_TITLES: Record<DashboardMetric, string> = {
+  sales: 'Sales Trend',
+  expense: 'Expenses',
+  paymentMix: 'Payment Behavior',
+  profit: 'Profit',
+};
+
+const EXPENSE_CHART_LABELS = {
+  expenseRecorded: 'Expense Recorded',
+  expenseCorrection: 'Expense Correction',
+  netExpense: 'Net Expense',
+};
+
+type SalesChartLabels = {
+  salesBooked: string;
+  netSalesBooked: string;
+  profitBeforeTax: string;
+  profitAfterTax: string;
+};
+
+type PaymentMixChartLabels = {
+  cash: string;
+  upi: string;
+  card: string;
+  credit: string;
+};
+
+type MetricOption = {
+  labelKey: string;
+  value: DashboardMetric;
+};
+
+const METRIC_OPTIONS: ReadonlyArray<MetricOption> = [
+  { labelKey: 'dashboard.salesTrendTitle', value: 'sales' },
+  { labelKey: 'dashboard.profitAfterTax', value: 'profit' },
+  { labelKey: 'dashboard.sectionExpenses', value: 'expense' },
+  { labelKey: 'dashboard.paymentMixTitle', value: 'paymentMix' },
 ];
 
 @Component({
@@ -50,7 +103,6 @@ const PRESETS: { label: string; value: DashboardPreset }[] = [
 })
 export class DashboardPageComponent implements OnInit {
   private readonly facade = inject(DashboardFacade);
-  private readonly transloco = inject(TranslocoService);
 
   readonly data: Signal<DashboardDto | null | undefined> = toSignal(this.facade.data$);
   readonly loading = toSignal(this.facade.loading$, { initialValue: false });
@@ -64,40 +116,21 @@ export class DashboardPageComponent implements OnInit {
   readonly selectedChartType = signal<DashboardChartType>('bar');
   readonly sectionExpanded = signal({ sales: false, expenses: false, paymentBehavior: false, stockRisk: false, receivables: false });
 
-  readonly presetOptions = computed(() => PRESETS.map((preset) => ({ label: this.transloco.translate(preset.label), value: preset.value })) as SelectOption<DashboardPreset>[]);
-  readonly metricOptions = computed<SelectOption<DashboardMetric>[]>(() => [
-    { label: this.transloco.translate('dashboard.salesTrendTitle'), value: 'sales' },
-    { label: this.transloco.translate('dashboard.sectionExpenses'), value: 'expense' },
-    { label: this.transloco.translate('dashboard.paymentMixTitle'), value: 'paymentMix' },
-  ]);
+  readonly presetOptions = computed<SelectOption<DashboardPreset>[]>(() => PRESETS.map((preset) => ({ label: preset.labelKey, value: preset.value })));
+  readonly metricOptions = computed<SelectOption<DashboardMetric>[]>(() => METRIC_OPTIONS.map((metric) => ({ label: metric.labelKey, value: metric.value })));
 
   readonly isLoadingWithData = computed(() => this.loading() && !!this.data());
   readonly salesChartData = computed<ChartData | null>(() => buildSalesTrendChartData(
     this.data()?.salesTrendSeries,
     this.data()?.profitTrendSeries,
-    {
-      salesBooked: this.transloco.translate('dashboard.salesBooked'),
-      netSalesBooked: this.transloco.translate('dashboard.netSalesBooked'),
-      profitBeforeTax: this.transloco.translate('dashboard.profitBeforeTax'),
-      profitAfterTax: this.transloco.translate('dashboard.profitAfterTax'),
-    }
+    SALES_CHART_LABELS,
   ));
 
-  readonly profitChartData = computed<ChartData | null>(() => buildProfitTrendChartData(this.data()?.profitTrendSeries, this.transloco.translate('dashboard.profitAfterTax')));
+  readonly profitChartData = computed<ChartData | null>(() => buildProfitTrendChartData(this.data()?.profitTrendSeries, 'Profit After Tax'));
 
-  readonly paymentMixTrendChartData = computed<ChartData | null>(() => buildPaymentMixTrendChartData(this.data()?.paymentMixTrendSeries, {
-    cash: this.transloco.translate('dashboard.paymentMixCash'),
-    upi: this.transloco.translate('dashboard.paymentMixUpi'),
-    card: this.transloco.translate('dashboard.paymentMixCard'),
-    credit: this.transloco.translate('dashboard.paymentMixCredit'),
-  }));
+  readonly paymentMixTrendChartData = computed<ChartData | null>(() => buildPaymentMixTrendChartData(this.data()?.paymentMixTrendSeries, PAYMENT_MIX_CHART_LABELS));
 
-  readonly paymentMixDonutData = computed<ChartData | null>(() => buildPaymentMixDonutChartData(this.data()?.paymentMix, {
-    cash: this.transloco.translate('dashboard.paymentMixCash'),
-    upi: this.transloco.translate('dashboard.paymentMixUpi'),
-    card: this.transloco.translate('dashboard.paymentMixCard'),
-    credit: this.transloco.translate('dashboard.paymentMixCredit'),
-  }));
+  readonly paymentMixDonutData = computed<ChartData | null>(() => buildPaymentMixDonutChartData(this.data()?.paymentMix, PAYMENT_MIX_CHART_LABELS));
 
   readonly activeMetric = computed<DashboardMetric>(() => {
     const selected = this.selectedMetric();
@@ -116,11 +149,11 @@ export class DashboardPageComponent implements OnInit {
 
     return {
       labels: [
-        this.transloco.translate('dashboard.expenseRecorded'),
-        this.transloco.translate('dashboard.expenseCorrection'),
-        this.transloco.translate('dashboard.netExpense'),
+        EXPENSE_CHART_LABELS.expenseRecorded,
+        EXPENSE_CHART_LABELS.expenseCorrection,
+        EXPENSE_CHART_LABELS.netExpense,
       ],
-      datasets: [{ label: this.transloco.translate('dashboard.sectionExpenses'), data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense] }],
+      datasets: [{ label: 'Expenses', data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense] }],
     };
   });
 
@@ -159,13 +192,7 @@ export class DashboardPageComponent implements OnInit {
   });
 
   readonly selectedChartTitle = computed(() => {
-    const map: Record<DashboardMetric, string> = {
-      sales: 'dashboard.salesTrendTitle',
-      profit: 'dashboard.profitAfterTax',
-      paymentMix: 'dashboard.paymentBehavior',
-      expense: 'dashboard.sectionExpenses',
-    };
-    return this.transloco.translate(map[this.activeMetric()]);
+    return CHART_TITLES[this.activeMetric()];
   });
 
   readonly previousPeriodComparisons = computed<ComparisonSummary | null>(() => {

@@ -23,6 +23,7 @@ export class DashboardMetricCardComponent {
   @Input() loading = false;
   @Input() delta: DashboardMetricCardDelta | null = null;
   @Input() currency = false;
+  @Input() translateLabel = true;
 
   get valueText(): string {
     return this.formatValue(this.value, this.currency);

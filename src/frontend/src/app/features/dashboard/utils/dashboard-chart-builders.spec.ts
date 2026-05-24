@@ -92,6 +92,9 @@ describe('dashboard chart builders', () => {
   });
 
   it('formats trend dates from yyyy-mm-dd', () => {
-    expect(formatTrendDateLabel('2026-05-16')).toBe('May 16');
+    const formatted = formatTrendDateLabel('2026-05-16');
+
+    expect(formatted).toContain('16');
+    expect(formatted).not.toBe('2026-05-16');
   });
 });

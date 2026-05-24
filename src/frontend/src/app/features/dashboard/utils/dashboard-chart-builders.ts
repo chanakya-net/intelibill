@@ -1,9 +1,9 @@
-import {
+import type {
+  PaymentMixDto,
   PaymentMixTrendPointDto,
   ProfitTrendPointDto,
   SalesTrendPointDto,
-  PaymentMixDto,
-} from '../services/dashboard.service';
+} from '../models/dashboard-dto';
 
 export type DashboardChartType = 'bar' | 'stackedBar' | 'line' | 'pie' | 'doughnut';
 

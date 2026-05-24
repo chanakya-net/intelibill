@@ -54,4 +54,13 @@ describe('DashboardMetricCardComponent', () => {
     const badge = fixture.debugElement.query(By.css('.kpi-comparison'));
     expect(badge?.nativeElement.textContent).toContain('↓');
   });
+
+  it('does not translate label when disabled', () => {
+    fixture.componentInstance.label = 'Acme Holdings';
+    fixture.componentInstance.value = 100;
+    fixture.componentInstance.translateLabel = false;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Acme Holdings');
+  });
 });

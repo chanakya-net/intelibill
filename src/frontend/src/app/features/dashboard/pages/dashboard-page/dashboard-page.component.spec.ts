@@ -218,4 +218,17 @@ describe('DashboardPageComponent', () => {
 
     expect(fixture.componentInstance.selectedChartType()).toBe('bar');
   });
+
+  it('includes profit metric option', () => {
+    const facade = createFacade(makeOwnerDto());
+    TestBed.configureTestingModule({
+      imports: [DashboardPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      providers: [{ provide: DashboardFacade, useValue: facade }],
+    });
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.metricOptions().map((option) => option.value)).toContain('profit');
+  });
 });

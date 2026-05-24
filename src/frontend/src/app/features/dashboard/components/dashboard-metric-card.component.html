@@ -1,6 +1,12 @@
 <p-card>
   <div class="kpi-card">
-    <span class="kpi-label">{{ label | transloco }}</span>
+    <span class="kpi-label">
+      @if (translateLabel) {
+        {{ label | transloco }}
+      } @else {
+        {{ label }}
+      }
+    </span>
     @if (loading) {
       <span class="kpi-value">—</span>
     } @else {
