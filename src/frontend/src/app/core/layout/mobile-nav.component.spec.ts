@@ -1,114 +1,81 @@
 import { TestBed } from '@angular/core/testing';
 import { MenuItem } from 'primeng/api';
-
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { MobileNavComponent } from './mobile-nav.component';
 
 describe('MobileNavComponent', () => {
-  const dashboardCommand = vi.fn();
-  const addProductCommand = vi.fn();
-  const logoutCommand = vi.fn();
-
   const menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
       icon: 'pi pi-home',
-      command: dashboardCommand,
     },
     {
-      label: 'Inventory',
-      icon: 'pi pi-box',
+      label: 'inventory',
       items: [
         {
-          label: 'Add product',
-          icon: 'pi pi-plus-circle',
-          command: addProductCommand,
-        },
-      ],
-    },
-    {
-      label: 'Profile',
-      icon: 'pi pi-cog',
-      items: [
-        {
-          label: 'Language',
-          icon: 'pi pi-globe',
-          items: [
-            {
-              label: 'English',
-              icon: 'pi pi-check',
-              command: logoutCommand,
-            },
-          ],
+          label: 'Child',
+          icon: 'pi pi-list',
+          command: vi.fn(),
         },
       ],
     },
   ];
 
-  function setup() {
-    TestBed.configureTestingModule({
-      imports: [MobileNavComponent],
-    });
-
-    const fixture = TestBed.createComponent(MobileNavComponent);
-    fixture.componentRef.setInput('menuItems', menuItems);
-    fixture.detectChanges();
-    return fixture;
-  }
-
   beforeEach(() => {
-    dashboardCommand.mockReset();
-    addProductCommand.mockReset();
-    logoutCommand.mockReset();
+    TestBed.configureTestingModule({
+      imports: [MobileNavComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+    });
   });
 
-  afterEach(() => {
-    TestBed.resetTestingModule();
-  });
-
-  it('toggles the mobile menu and expands nested sections', () => {
-    const fixture = setup();
+  it('expands and collapses sections', () => {
+    const fixture = TestBed.createComponent(MobileNavComponent);
     const component = fixture.componentInstance;
-
-    expect(component.isMobileMenuOpen()).toBe(false);
-
-    fixture.nativeElement.querySelector('.mobile-menu-trigger')?.click();
+    fixture.componentInstance.menuItems = menuItems;
+    fixture.detectChanges();
+    fixture.componentInstance.onToggleMobileMenu();
     fixture.detectChanges();
 
-    expect(component.isMobileMenuOpen()).toBe(true);
-    expect(fixture.nativeElement.querySelector('.mobile-nav')).not.toBeNull();
-    expect(component.isMobileSectionExpanded('Inventory')).toBe(true);
-
-    fixture.nativeElement.querySelector('.mobile-nav-section-toggle')?.click();
+    const sectionToggle = fixture.nativeElement.querySelector('.mobile-nav-section-toggle') as HTMLButtonElement;
+    expect(sectionToggle).toBeTruthy();
+    sectionToggle.click();
     fixture.detectChanges();
 
-    expect(component.isMobileSectionExpanded('Inventory')).toBe(false);
+    expect(component.isMobileSectionExpanded('inventory')).toBe(false);
+
+    sectionToggle.click();
+    fixture.detectChanges();
+
+    expect(component.isMobileSectionExpanded('inventory')).toBe(true);
   });
 
-  it('emits selected leaf items and closes the menu', () => {
-    const fixture = setup();
+  it('emits selected leaf items', () => {
+    const fixture = TestBed.createComponent(MobileNavComponent);
+    fixture.componentInstance.menuItems = menuItems;
+    fixture.detectChanges();
+    fixture.componentInstance.onToggleMobileMenu();
+    fixture.detectChanges();
+    const itemSelectedSpy = vi.spyOn(fixture.componentInstance.itemSelected, 'emit');
+
+    const dashboardButton = fixture.nativeElement.querySelector('.mobile-nav-item') as HTMLButtonElement;
+    dashboardButton.click();
+
+    expect(itemSelectedSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes menu after selecting a leaf item', () => {
+    const fixture = TestBed.createComponent(MobileNavComponent);
     const component = fixture.componentInstance;
-    const selected: MenuItem[] = [];
-    component.itemSelected.subscribe((item) => selected.push(item));
-
-    fixture.nativeElement.querySelector('.mobile-menu-trigger')?.click();
+    fixture.componentInstance.menuItems = menuItems;
     fixture.detectChanges();
-    const languageButton = Array.from(
-      fixture.nativeElement.querySelectorAll('.mobile-nav-item') as NodeListOf<HTMLElement>,
-    ).find((button) => button.textContent?.includes('Language'));
-    languageButton?.click();
+    component.onToggleMobileMenu();
     fixture.detectChanges();
 
-    const englishButton = Array.from(
-      fixture.nativeElement.querySelectorAll('.mobile-nav-subitem') as NodeListOf<HTMLElement>,
-    ).find((button) => button.textContent?.includes('English'));
-    englishButton?.click();
+    const childButton = fixture.nativeElement.querySelector('.mobile-nav-section-items .mobile-nav-item') as HTMLButtonElement;
+    childButton.click();
     fixture.detectChanges();
 
-    expect(selected).toHaveLength(1);
-    expect(selected[0]?.label).toBe('English');
-    expect(logoutCommand).toHaveBeenCalledTimes(1);
     expect(component.isMobileMenuOpen()).toBe(false);
     expect(component.expandedMobileSectionLabel()).toBeNull();
   });

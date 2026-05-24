@@ -1,8 +1,9 @@
 <button
+  #mobileMenuTrigger
   type="button"
   class="mobile-menu-trigger"
   [attr.aria-expanded]="isMobileMenuOpen()"
-  aria-label="Mobile navigation"
+  [attr.aria-label]="'shell.appName' | transloco"
   (click)="onToggleMobileMenu()"
 >
   <i
@@ -14,22 +15,22 @@
 </button>
 
 @if (isMobileMenuOpen()) {
-  <nav class="mobile-nav" aria-label="Mobile navigation">
-    @for (item of menuItems; track item) {
-      <div class="mobile-nav-section">
-        @if (item.items?.length) {
+  <nav class="mobile-nav" #mobileNavRef aria-label="Mobile navigation">
+    @for (item of menuItems; track item.label) {
+      @if (item.items?.length) {
+        <div class="mobile-nav-section">
           <button
             type="button"
             class="mobile-nav-section-toggle"
-            (click)="onMobileNavItemClick(item)"
+            (click)="onToggleMobileSection(item.label ?? '')"
           >
             <span class="mobile-nav-section-label">{{ item.label }}</span>
-            <i
-              class="pi pi-chevron-down mobile-nav-section-chevron"
-              [class.rotated]="isMobileSectionExpanded(item.label ?? '')"
-              aria-hidden="true"
-            ></i>
-          </button>
+              <i
+                class="pi pi-chevron-down mobile-nav-section-chevron"
+                [class.rotated]="isMobileSectionExpanded(item.label ?? '')"
+                aria-hidden="true"
+              ></i>
+            </button>
 
           @if (isMobileSectionExpanded(item.label ?? '')) {
             <div class="mobile-nav-section-items">
@@ -38,7 +39,7 @@
                   type="button"
                   class="mobile-nav-item"
                   [disabled]="sub.disabled ?? false"
-                  (click)="onMobileNavItemClick(sub, item)"
+                  (click)="onMobileNavItemClick(sub)"
                 >
                   <i [class]="sub.icon" aria-hidden="true"></i>
                   <span>{{ sub.label }}</span>
@@ -58,7 +59,7 @@
                         type="button"
                         class="mobile-nav-subitem"
                         [disabled]="nested.disabled ?? false"
-                        (click)="onMobileNavItemClick(nested, sub)"
+                        (click)="onMobileNavItemClick(nested)"
                       >
                         @if (nested.icon) {
                           <i [class]="nested.icon" aria-hidden="true"></i>
@@ -71,18 +72,22 @@
               }
             </div>
           }
-        } @else {
+        </div>
+      } @else {
+        <div class="mobile-nav-section">
           <button
             type="button"
             class="mobile-nav-item"
             [disabled]="item.disabled ?? false"
             (click)="onMobileNavItemClick(item)"
           >
-            <i [class]="item.icon" aria-hidden="true"></i>
+            @if (item.icon) {
+              <i [class]="item.icon" aria-hidden="true"></i>
+            }
             <span>{{ item.label }}</span>
           </button>
-        }
-      </div>
+        </div>
+      }
     }
   </nav>
 }

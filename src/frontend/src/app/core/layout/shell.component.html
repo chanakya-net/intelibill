@@ -49,7 +49,7 @@
                   [class.is-current]="shop.shopId === activeShopId()"
                   (click)="onSelectShop(shop.shopId)"
                 >
-                  {{ getShopDisplayLabel(shop) }}
+                  {{ shop.shopName }}{{ shopDetailsById()[shop.shopId]?.pincode?.trim() ? ` - ${shopDetailsById()[shop.shopId]?.pincode?.trim()}` : '' }}
                   @if (shop.shopId === activeShopId()) {
                     <span>{{ 'shell.active' | transloco }}</span>
                   }
@@ -61,14 +61,17 @@
 
       </div>
 
-      @if (mainMenuItems().length > 0) {
+      @if (menuService.mainMenuItems().length > 0) {
         <div class="shell-middle-zone">
-          <p-menubar [model]="mainMenuItems()" [pt]="menubarPt"></p-menubar>
+          <p-menubar [model]="menuService.mainMenuItems()" [pt]="menubarPt"></p-menubar>
         </div>
       }
 
       <div class="shell-actions" #profileMenuRoot>
-        <app-mobile-nav [menuItems]="mobileMenuItems()"></app-mobile-nav>
+        <app-mobile-nav
+          [menuItems]="menuService.mainMenuItems()"
+          (itemSelected)="onMenuItemSelected($event)"
+        ></app-mobile-nav>
 
         <button
           type="button"
@@ -76,7 +79,7 @@
           [attr.aria-label]="'shell.openProfileMenu' | transloco"
           [attr.aria-expanded]="isProfileMenuOpen()"
           aria-haspopup="menu"
-          (click)="onToggleProfileMenu($event, profileMenu)"
+          (click)="onToggleProfileMenu($event)"
         >
           <span class="profile-avatar">{{ profileInitials() }}</span>
           <span class="profile-text">
@@ -97,13 +100,14 @@
         ></p-tieredMenu>
       </div>
     </div>
+
   </header>
 
   <main class="mx-auto w-full max-w-[95rem] px-4 py-6 sm:px-6 lg:px-8">
     <router-outlet></router-outlet>
   </main>
 
-  @if (showCreateShopOverlay()) {
+  @if (showCreateShopOverlayAuto() || showCreateShopOverlayManual()) {
     <app-create-shop-overlay
       (closeRequested)="onCreateShopOverlayClose()"
     ></app-create-shop-overlay>

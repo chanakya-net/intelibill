@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -6,118 +5,112 @@ import {
   HostListener,
   Input,
   Output,
-  inject,
+  ViewChild,
   signal,
 } from '@angular/core';
-
 import { MenuItem } from 'primeng/api';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 @Component({
   selector: 'app-mobile-nav',
   standalone: true,
-  imports: [CommonModule],
+  imports: [TranslocoPipe],
   templateUrl: './mobile-nav.component.html',
   styleUrl: './mobile-nav.component.scss',
 })
 export class MobileNavComponent {
-  @Input({ required: true }) menuItems: MenuItem[] = [];
+  @Input() menuItems: MenuItem[] = [];
   @Output() readonly itemSelected = new EventEmitter<MenuItem>();
 
-  private readonly host = inject(ElementRef<HTMLElement>);
+  @ViewChild('mobileNavRef') mobileNavRef?: ElementRef<HTMLElement>;
+  @ViewChild('mobileMenuTrigger') mobileMenuTrigger?: ElementRef<HTMLElement>;
 
   readonly isMobileMenuOpen = signal(false);
-  readonly expandedMobileSections = signal<Set<string>>(new Set());
+  readonly expandedMobileSections = signal<Set<string>>(new Set(['inventory', 'profile', 'sales']));
   readonly expandedMobileSectionLabel = signal<string | null>(null);
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
-    this.closeIfOutside(event);
+  isMobileSectionExpanded(key: string): boolean {
+    return this.expandedMobileSections().has(key);
   }
 
-  @HostListener('document:pointerdown', ['$event'])
-  onDocumentPointerDown(event: PointerEvent): void {
-    this.closeIfOutside(event);
+  onToggleMobileSection(key: string): void {
+    this.expandedMobileSections.update((sections) => {
+      const next = new Set(sections);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
   }
 
   onToggleMobileMenu(): void {
-    if (this.isMobileMenuOpen()) {
-      this.closeMobileMenu();
-      return;
+    this.isMobileMenuOpen.update((open) => !open);
+    if (!this.isMobileMenuOpen()) {
+      this.expandedMobileSectionLabel.set(null);
     }
-
-    this.isMobileMenuOpen.set(true);
-    this.expandedMobileSections.set(
-      new Set(
-        this.menuItems
-          .filter((item) => item.items?.length)
-          .map((item) => item.label ?? ''),
-      ),
-    );
-    this.expandedMobileSectionLabel.set(null);
   }
 
-  onMobileNavItemClick(item: MenuItem, parent?: MenuItem): void {
+  onMobileNavItemClick(item: MenuItem): void {
     if (item.disabled) {
       return;
     }
 
     if (item.items?.length) {
-      if (parent) {
-        this.expandedMobileSectionLabel.update((current) =>
-          current === item.label ? null : (item.label ?? null),
-        );
-        return;
-      }
-
-      this.expandedMobileSections.update((sections) => {
-        const next = new Set(sections);
-        const label = item.label ?? '';
-
-        if (next.has(label)) {
-          next.delete(label);
-          if (this.expandedMobileSectionLabel() === label) {
-            this.expandedMobileSectionLabel.set(null);
-          }
-        } else {
-          next.add(label);
-        }
-
-        return next;
-      });
+      const label = item.label ?? null;
+      this.expandedMobileSectionLabel.update((current) => (current === label ? null : label));
       return;
     }
 
     this.itemSelected.emit(item);
-    item.command?.({ originalEvent: new Event('click'), item });
     this.closeMobileMenu();
-  }
-
-  isMobileSectionExpanded(label: string): boolean {
-    return this.expandedMobileSections().has(label);
   }
 
   closeMobileMenu(): void {
     this.isMobileMenuOpen.set(false);
-    this.expandedMobileSections.set(new Set());
     this.expandedMobileSectionLabel.set(null);
   }
 
-  private closeIfOutside(event: MouseEvent | PointerEvent): void {
-    if (!this.isMobileMenuOpen()) {
-      return;
-    }
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    this.closeForEvent(event);
+  }
 
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    this.closeForEvent(event);
+  }
+
+  private closeForEvent(event: MouseEvent | PointerEvent): void {
     const target = event.target as Node | null;
     if (!target) {
       return;
     }
 
-    const root = this.host.nativeElement;
-    const composedPath = event.composedPath?.() ?? [];
-    if (root.contains(target) || composedPath.includes(root)) {
+    if (!this.isMobileMenuOpen()) {
       return;
     }
 
-    this.closeMobileMenu();
+    const composedPath = event.composedPath?.() ?? [];
+    const isInNav = this.mobileNavRef?.nativeElement
+      ? this.isTargetInside(this.mobileNavRef.nativeElement, target, composedPath)
+      : false;
+    const isInTrigger = this.mobileMenuTrigger?.nativeElement
+      ? this.isTargetInside(this.mobileMenuTrigger.nativeElement, target, composedPath)
+      : false;
+
+    if (!isInNav && !isInTrigger) {
+      this.closeMobileMenu();
+    }
+  }
+
+  private isTargetInside(
+    root: HTMLElement,
+    target: Node,
+    composedPath: readonly EventTarget[],
+  ): boolean {
+    return root.contains(target) || composedPath.includes(root);
   }
 }

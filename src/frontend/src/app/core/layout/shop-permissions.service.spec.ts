@@ -1,51 +1,29 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthService } from '../auth/auth.service';
-import { AuthSession } from '../auth/auth.models';
 import { ShopPermissionsService } from './shop-permissions.service';
 
-function buildSession(role: string | null): AuthSession | null {
-  if (!role) {
-    return null;
-  }
-
-  return {
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
-    accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-    refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
-    rememberMe: true,
-    user: {
-      id: 'user-1',
-      email: 'user@example.com',
-      phoneNumber: null,
-      firstName: 'Test',
-      lastName: 'User',
-    },
-    activeShopId: 'shop-1',
-    shops: [
-      {
-        shopId: 'shop-1',
-        shopName: 'Main',
-        role,
-        isDefault: true,
-        lastUsedAt: null,
-      },
-    ],
-  };
-}
-
 describe('ShopPermissionsService', () => {
-  const session = signal<AuthSession | null>(null);
+  const sessionSignal = signal({
+    activeShopId: 'shop-1',
+    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+  } as never);
 
   const authService = {
-    session,
+    session: sessionSignal,
   };
 
-  function setup(): ShopPermissionsService {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    sessionSignal.set({
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    } as never);
+  });
+
+  function createService(): ShopPermissionsService {
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: authService }],
     });
@@ -53,71 +31,47 @@ describe('ShopPermissionsService', () => {
     return TestBed.inject(ShopPermissionsService);
   }
 
-  afterEach(() => {
-    session.set(null);
-    TestBed.resetTestingModule();
-  });
-
   it.each([
-    [
-      'Owner',
-      {
-        isOwnerOfActiveShop: true,
-        isOwnerOrManagerOfActiveShop: true,
-        canManageSuppliers: true,
-        canManageCustomers: true,
-        canManageSales: true,
-        canManageExpenses: true,
-        canManageDiscounts: true,
-        canManageBankAccounts: true,
-        canViewInventory: true,
-      },
-    ],
-    [
-      'Manager',
-      {
-        isOwnerOfActiveShop: false,
-        isOwnerOrManagerOfActiveShop: true,
-        canManageSuppliers: false,
-        canManageCustomers: true,
-        canManageSales: true,
-        canManageExpenses: true,
-        canManageDiscounts: true,
-        canManageBankAccounts: false,
-        canViewInventory: true,
-      },
-    ],
-    [
-      'Staff',
-      {
-        isOwnerOfActiveShop: false,
-        isOwnerOrManagerOfActiveShop: false,
-        canManageSuppliers: false,
-        canManageCustomers: false,
-        canManageSales: true,
-        canManageExpenses: false,
-        canManageDiscounts: false,
-        canManageBankAccounts: false,
-        canViewInventory: true,
-      },
-    ],
-  ])('maps %s role permissions from active shop', (role, expected) => {
-    const service = setup();
-    session.set(buildSession(role as string));
+    ['owner', true, true, true, true, true, true, true, true],
+    ['manager', false, true, false, true, true, true, false, true],
+    ['staff', false, false, false, false, false, false, false, true],
+  ] satisfies Array<[string, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean]>)(
+    'computes permissions for %s role',
+    (
+      role,
+      isOwner,
+      isOwnerManager,
+      canManageSuppliers,
+      canManageCustomers,
+      canManageExpenses,
+      canManageDiscounts,
+      canManageBankAccounts,
+      canViewInventory,
+    ) => {
+      const service = createService();
+      sessionSignal.set({
+        activeShopId: 'shop-1',
+        shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
+      } as never);
 
-    expect(service.isOwnerOfActiveShop()).toBe(expected.isOwnerOfActiveShop);
-    expect(service.isOwnerOrManagerOfActiveShop()).toBe(expected.isOwnerOrManagerOfActiveShop);
-    expect(service.canManageSuppliers()).toBe(expected.canManageSuppliers);
-    expect(service.canManageCustomers()).toBe(expected.canManageCustomers);
-    expect(service.canManageSales()).toBe(expected.canManageSales);
-    expect(service.canManageExpenses()).toBe(expected.canManageExpenses);
-    expect(service.canManageDiscounts()).toBe(expected.canManageDiscounts);
-    expect(service.canManageBankAccounts()).toBe(expected.canManageBankAccounts);
-    expect(service.canViewInventory()).toBe(expected.canViewInventory);
-  });
+      expect(service.isOwnerOfActiveShop()).toBe(isOwner);
+      expect(service.isOwnerOrManagerOfActiveShop()).toBe(isOwnerManager);
+      expect(service.canManageSuppliers()).toBe(canManageSuppliers);
+      expect(service.canManageCustomers()).toBe(canManageCustomers);
+      expect(service.canManageSales()).toBe(true);
+      expect(service.canManageExpenses()).toBe(canManageExpenses);
+      expect(service.canManageDiscounts()).toBe(canManageDiscounts);
+      expect(service.canManageBankAccounts()).toBe(canManageBankAccounts);
+      expect(service.canViewInventory()).toBe(canViewInventory);
+    },
+  );
 
-  it('returns false for every permission when no session is available', () => {
-    const service = setup();
+  it('returns false for all permissions when no active shop exists', () => {
+    const service = createService();
+    sessionSignal.set({
+      activeShopId: null,
+      shops: [],
+    } as never);
 
     expect(service.isOwnerOfActiveShop()).toBe(false);
     expect(service.isOwnerOrManagerOfActiveShop()).toBe(false);

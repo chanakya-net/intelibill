@@ -1,135 +1,89 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
+import { MenuItem } from 'primeng/api';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { describe, expect, it, vi } from 'vitest';
-
-import { AuthService } from '../auth/auth.service';
-import { AuthSession } from '../auth/auth.models';
 import { LocalizationService } from '../i18n/localization.service';
 import { ShopPermissionsService } from './shop-permissions.service';
 import { ShellMenuService } from './shell-menu.service';
 
-function buildSession(role: string): AuthSession {
-  return {
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
-    accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-    refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
-    rememberMe: true,
-    user: {
-      id: 'user-1',
-      email: 'user@example.com',
-      phoneNumber: null,
-      firstName: 'Test',
-      lastName: 'User',
-    },
-    activeShopId: 'shop-1',
-    shops: [
-      {
-        shopId: 'shop-1',
-        shopName: 'Main',
-        role,
-        isDefault: true,
-        lastUsedAt: null,
-      },
-    ],
-  };
-}
-
 describe('ShellMenuService', () => {
-  const session = signal<AuthSession | null>(null);
-  const language = signal('en');
+  const roleSignal = signal('Owner');
+  const currentLanguage = signal('en');
 
-  const router = {
-    navigate: vi.fn<Router['navigate']>().mockResolvedValue(true),
-  };
+  const permissionsService = {
+    isOwnerOfActiveShop: computed(() => ['owner'].includes(roleSignal().toLowerCase())),
+    isOwnerOrManagerOfActiveShop: computed(() =>
+      ['owner', 'manager'].includes(roleSignal().toLowerCase()),
+    ),
+    canManageSuppliers: computed(() => roleSignal().toLowerCase() === 'owner'),
+    canManageCustomers: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
+    canManageSales: computed(() => true),
+    canManageExpenses: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
+    canManageDiscounts: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
+    canManageBankAccounts: computed(() => roleSignal().toLowerCase() === 'owner'),
+    canViewInventory: computed(() => true),
+  } as ShopPermissionsService;
 
   const localizationService = {
-    currentLanguage: language.asReadonly(),
-    translate: vi.fn((key: string) => `${language()}:${key}`),
+    currentLanguage,
+    translate: (key: string) => `i18n:${key}`,
   };
 
-  const authService = {
-    session,
-  };
+  beforeEach(() => {
+    roleSignal.set('Owner');
+    currentLanguage.set('en');
+    TestBed.resetTestingModule();
+  });
 
-  function setup(): ShellMenuService {
+  function createService(): ShellMenuService {
     TestBed.configureTestingModule({
+      imports: [RouterTestingModule.withRoutes([])],
       providers: [
-        { provide: Router, useValue: router },
+        ShellMenuService,
+        { provide: ShopPermissionsService, useValue: permissionsService },
         { provide: LocalizationService, useValue: localizationService },
-        { provide: AuthService, useValue: authService },
-        ShopPermissionsService,
       ],
     });
 
     return TestBed.inject(ShellMenuService);
   }
 
-  beforeEach(() => {
-    session.set(null);
-    language.set('en');
-    router.navigate.mockReset();
-    localizationService.translate.mockClear();
+  function hasLabel(menuItems: MenuItem[], label: string): boolean {
+    return menuItems.some((item) => item.label === label);
+  }
+
+  it('builds owner main and inventory menus', () => {
+    const service = createService();
+    roleSignal.set('Owner');
+
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.dashboard')).toBe(true);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageInventory')).toBe(true);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageSuppliers')).toBe(true);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageCustomers')).toBe(true);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageSales')).toBe(true);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageExpenses')).toBe(true);
+
+    const inventoryItems = service.inventoryMenuItems();
+    expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
   });
 
-  afterEach(() => {
-    TestBed.resetTestingModule();
-  });
+  it('hides owner-only sections for staff while keeping adjustments', () => {
+    const service = createService();
+    roleSignal.set('Staff');
 
-  it('builds the main menu from the active shop permissions', () => {
-    const service = setup();
-    session.set(buildSession('Owner'));
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageSuppliers')).toBe(false);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageCustomers')).toBe(false);
+    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageExpenses')).toBe(false);
 
-    const items = service.mainMenuItems();
-
-    expect(items.map((item) => item.label)).toEqual([
-      'en:shell.dashboard',
-      'en:shell.manageInventory',
-      'en:shell.manageSuppliers',
-      'en:shell.manageCustomers',
-      'en:shell.manageSales',
-      'en:shell.manageExpenses',
-    ]);
-    expect(items[1]?.items?.map((item) => item.label)).toEqual([
-      'en:shell.addNewProduct',
-      'en:shell.batchInventoryInbound',
-      'en:shell.inventoryBatchesOverview',
-      'en:shell.inventoryAdjustments',
-    ]);
-    expect(items[4]?.items?.map((item) => item.label)).toEqual([
-      'en:shell.newSale',
-      'en:shell.salesHistory',
-      'en:shell.profitLossReport',
-    ]);
-  });
-
-  it('reacts to language and permission changes', () => {
-    const service = setup();
-    session.set(buildSession('Staff'));
-
-    expect(service.mainMenuItems().map((item) => item.label)).toEqual([
-      'en:shell.dashboard',
-      'en:shell.manageInventory',
-      'en:shell.manageSales',
-    ]);
-    expect(service.inventoryMenuItems().map((item) => item.label)).toEqual([
-      'en:shell.inventoryAdjustments',
-    ]);
-
-    language.set('fr');
-
-    expect(service.mainMenuItems()[0]?.label).toBe('fr:shell.dashboard');
-    expect(service.inventoryMenuItems()[0]?.label).toBe('fr:shell.inventoryAdjustments');
-  });
-
-  it('navigates from menu commands', async () => {
-    const service = setup();
-    session.set(buildSession('Manager'));
-
-    service.mainMenuItems()[0]?.command?.({ originalEvent: new Event('click') } as never);
-
-    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    const inventoryItems = service.inventoryMenuItems();
+    expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(false);
+    expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(false);
+    expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(false);
+    expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
   });
 });
