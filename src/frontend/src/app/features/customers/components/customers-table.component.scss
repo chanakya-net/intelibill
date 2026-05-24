@@ -1,0 +1,83 @@
+:host {
+  display: block;
+}
+
+.customer-list,
+.customers-table-card,
+.mobile-grid-container,
+.mobile-empty-state {
+  width: 100%;
+}
+
+:host ::ng-deep {
+  .p-datatable-thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .p-tag {
+    padding: 0.15rem 0.5rem;
+  }
+}
+
+.customers-table-card {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e7e5e4;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.customer-name-link {
+  border: none;
+  background: none;
+  color: #1e40af;
+  font-weight: 600;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.customer-name-link:hover {
+  text-decoration: underline;
+}
+
+.empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.desktop-table {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .mobile-grid-container {
+    display: none;
+  }
+
+  .desktop-table {
+    display: block;
+  }
+}
