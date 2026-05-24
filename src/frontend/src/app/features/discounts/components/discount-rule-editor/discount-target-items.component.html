@@ -1,0 +1,47 @@
+<div class="field wide">
+  <label for="discount-rule-batch-search">{{ 'discounts.editor.fields.batchSearch' | transloco }}</label>
+  <input
+    id="discount-rule-batch-search"
+    pInputText
+    type="text"
+    class="w-full"
+    [value]="batchSearchTerm()"
+    (input)="onBatchSearchTermChange(($any($event.target)).value)"
+  />
+  <p class="hint">
+    {{ 'discounts.editor.fields.selectedBatch' | transloco }}:
+    {{ selectedBatchLabel() || ('discounts.editor.fields.noneSelected' | transloco) }}
+  </p>
+
+  @if (searchLoading()) {
+    <p class="hint">{{ 'discounts.editor.batchSearch.loading' | transloco }}</p>
+  } @else if (batchSearchTerm().trim().length > 0 && batchSearchMinCharsRequired()) {
+    <p class="hint">{{ 'discounts.editor.batchSearch.minChars' | transloco }}</p>
+  } @else if (batchSearchNoResults()) {
+    <p class="hint">{{ 'discounts.editor.batchSearch.noResults' | transloco }}</p>
+  }
+
+  @if (batchSearchResults().length > 0) {
+    <div class="batch-results">
+      @for (batch of batchSearchResults(); track batch.inventoryBatchId) {
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="batch-result"
+          (click)="onSelectBatch(batch)"
+        >
+          <span class="batch-result-primary">{{ batch.itemName }} · {{ batch.batchNumber }}</span>
+          <span class="batch-result-metric">{{ 'discounts.editor.batchSearch.quantityAvailable' | transloco: { quantity: batch.quantity } }}</span>
+          <span class="batch-result-metric">{{ 'discounts.editor.batchSearch.price' | transloco: { price: batch.salesPrice } }}</span>
+          @if (batch.expiryDate) {
+            <span class="batch-result-metric">
+              {{ 'discounts.editor.batchSearch.expiry' | transloco: { date: (batch.expiryDate | dateOnly: 'mediumDate') } }}
+            </span>
+          }
+        </button>
+      }
+    </div>
+  }
+</div>
