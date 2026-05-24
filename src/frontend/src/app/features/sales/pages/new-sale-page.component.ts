@@ -304,12 +304,14 @@ export class NewSalePageComponent {
     };
 
     this.salePreview.refreshOnlinePreview({
+      destroyRef: this.destroyRef,
       getCart: () => this.cart(),
       getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
       onPreviewApplied: handlePreviewApplied,
     });
 
     this.salePreview.refreshOnServerUpdate({
+      destroyRef: this.destroyRef,
       getCart: () => this.cart(),
       getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
       onPreviewApplied: handlePreviewApplied,

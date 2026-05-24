@@ -11,6 +11,7 @@ type PreviewRequestResult =
   | { readonly requestId: number; readonly preview: null; readonly failed: true; readonly errorMessage: string };
 
 interface PreviewSetupOptions {
+  readonly destroyRef: DestroyRef;
   readonly getCart: () => readonly CartItem[];
   readonly getSaleDiscount: () => InstantDiscountRequest;
   readonly onPreviewApplied?: (preview: SalePreviewDto, oldPreview: SalePreviewDto | null) => void;
@@ -26,12 +27,11 @@ interface FinishPreviewOptions {
 export class SalePreviewService {
   private readonly saleService = inject(SaleService);
   private readonly networkStatus = inject(NetworkStatusService);
-  private readonly destroyRef = inject(DestroyRef);
   private readonly previewTrigger$ = new Subject<void>();
   private readonly serverUpdateTrigger$ = new Subject<void>();
   private readonly previewRequestState = { latestRequestId: 0 };
-  private previewWireupDone = false;
-  private serverUpdateWireupDone = false;
+  private readonly previewWireupRefs = new WeakSet<DestroyRef>();
+  private readonly serverUpdateWireupRefs = new WeakSet<DestroyRef>();
 
   readonly checkoutPreview = signal<SalePreviewDto | null>(null);
   readonly isPreviewLoading = signal(false);
@@ -46,16 +46,16 @@ export class SalePreviewService {
   }
 
   refreshOnlinePreview(options: PreviewSetupOptions): void {
-    if (this.previewWireupDone) {
+    if (this.previewWireupRefs.has(options.destroyRef)) {
       return;
     }
-    this.previewWireupDone = true;
+    this.previewWireupRefs.add(options.destroyRef);
 
     this.previewTrigger$
       .pipe(
         debounceTime(300),
         switchMap(() => this.buildPreviewRequestStream(options)),
-        takeUntilDestroyed(this.destroyRef),
+        takeUntilDestroyed(options.destroyRef),
       )
       .subscribe((result: PreviewRequestResult | null) => {
         if (result === null) {
@@ -77,15 +77,15 @@ export class SalePreviewService {
   }
 
   refreshOnServerUpdate(options: PreviewSetupOptions): void {
-    if (this.serverUpdateWireupDone) {
+    if (this.serverUpdateWireupRefs.has(options.destroyRef)) {
       return;
     }
-    this.serverUpdateWireupDone = true;
+    this.serverUpdateWireupRefs.add(options.destroyRef);
 
     this.serverUpdateTrigger$
       .pipe(
         switchMap(() => this.buildPreviewRequestStream(options)),
-        takeUntilDestroyed(this.destroyRef),
+        takeUntilDestroyed(options.destroyRef),
       )
       .subscribe((result: PreviewRequestResult | null) => {
         if (result === null) {

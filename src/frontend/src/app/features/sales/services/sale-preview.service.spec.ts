@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { DestroyRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
@@ -16,6 +16,35 @@ describe('SalePreviewService', () => {
   const networkStatus = {
     canReachApi,
   };
+
+  class TestDestroyRef implements DestroyRef {
+    private callbacks: Array<() => void> = [];
+    private destroyedFlag = false;
+
+    get destroyed(): boolean {
+      return this.destroyedFlag;
+    }
+
+    onDestroy(callback: () => void): () => void {
+      if (this.destroyedFlag) {
+        callback();
+        return () => undefined;
+      }
+      this.callbacks.push(callback);
+      return () => {
+        this.callbacks = this.callbacks.filter((entry) => entry !== callback);
+      };
+    }
+
+    destroy(): void {
+      if (this.destroyedFlag) {
+        return;
+      }
+      this.destroyedFlag = true;
+      this.callbacks.forEach((callback) => callback());
+      this.callbacks = [];
+    }
+  }
 
   function setup(): SalePreviewService {
     TestBed.configureTestingModule({
@@ -39,8 +68,10 @@ describe('SalePreviewService', () => {
   it('debounces preview trigger before calling the API', async () => {
     vi.useFakeTimers();
     const service = setup();
+    const destroyRef = new TestDestroyRef();
 
     service.refreshOnlinePreview({
+      destroyRef,
       getCart: () => [makeCartItem()],
       getSaleDiscount: () => ({ type: 0, value: 0 }),
     });
@@ -61,8 +92,10 @@ describe('SalePreviewService', () => {
 
   it('refreshes immediately on server update trigger', async () => {
     const service = setup();
+    const destroyRef = new TestDestroyRef();
 
     service.refreshOnServerUpdate({
+      destroyRef,
       getCart: () => [makeCartItem()],
       getSaleDiscount: () => ({ type: 0, value: 0 }),
     });
@@ -71,6 +104,45 @@ describe('SalePreviewService', () => {
     await Promise.resolve();
 
     expect(saleService.previewSale).toHaveBeenCalledTimes(1);
+  });
+
+  it('rebinds preview callbacks when page is recreated', async () => {
+    vi.useFakeTimers();
+    const service = setup();
+    const firstDestroyRef = new TestDestroyRef();
+    const secondDestroyRef = new TestDestroyRef();
+    const appliedFirst = vi.fn();
+    const appliedSecond = vi.fn();
+
+    service.refreshOnlinePreview({
+      destroyRef: firstDestroyRef,
+      getCart: () => [makeCartItem()],
+      getSaleDiscount: () => ({ type: 0, value: 0 }),
+      onPreviewApplied: appliedFirst,
+    });
+
+    service.triggerPreview();
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+    expect(appliedFirst).toHaveBeenCalledTimes(1);
+
+    firstDestroyRef.destroy();
+
+    service.refreshOnlinePreview({
+      destroyRef: secondDestroyRef,
+      getCart: () => [makeCartItem()],
+      getSaleDiscount: () => ({ type: 0, value: 0 }),
+      onPreviewApplied: appliedSecond,
+    });
+
+    service.triggerPreview();
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+
+    expect(appliedFirst).toHaveBeenCalledTimes(1);
+    expect(appliedSecond).toHaveBeenCalledTimes(1);
+    expect(saleService.previewSale).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   it('tracks preview request lifecycle and ignores stale responses', () => {
