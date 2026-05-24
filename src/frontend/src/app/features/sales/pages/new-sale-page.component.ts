@@ -4,7 +4,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { Observable, Subject, catchError, debounceTime, map, of, switchMap } from 'rxjs';
 
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
@@ -26,7 +25,6 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
 import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
-import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import { OfflineCustomerLiteSnapshot, OfflineSalesSnapshotIndexedDbService, OfflineSellableBatchSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
@@ -35,30 +33,24 @@ import { BarcodeDetection } from '../../../core/services/barcode-detector.servic
 import {
   InstantDiscountRequest,
   NO_DISCOUNT,
-  PreviewSaleRequest,
   RecordSaleItemRequest,
   RecordSaleRequest,
   SalePreviewDto,
   SalePreviewLineDto,
   PAYMENT_METHOD_VALUES,
-  SaleService,
 } from '../services/sale.service';
 import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
 import { OfflineSalePricingInput, OfflineSalePricingLineInput } from '../services/offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
 import { calculateOfflineFrozenSale } from '../services/offline-sale-pricing-calculator';
+import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { SalePreviewService } from '../services/sale-preview.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
-
-interface CartItem extends SalesCartDraftItem {}
-
-type PreviewRequestResult =
-  | { readonly requestId: number; readonly preview: SalePreviewDto; readonly failed?: false }
-  | { readonly requestId: number; readonly preview: null; readonly failed: true; readonly errorMessage: string };
 
 @Component({
   selector: 'app-new-sale-page',
@@ -95,10 +87,10 @@ export class NewSalePageComponent {
   private readonly authService = inject(AuthService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly inventoryService = inject(InventoryService);
-  private readonly cartStorage = inject(SalesCartIndexedDbService);
   private readonly customersFacade = inject(CustomersFacade);
   private readonly salesFacade = inject(SalesFacade);
-  private readonly saleService = inject(SaleService);
+  private readonly cartState = inject(SaleCartStateService);
+  private readonly salePreview = inject(SalePreviewService);
   private readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly networkStatus = inject(NetworkStatusService);
@@ -106,12 +98,9 @@ export class NewSalePageComponent {
   private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly offlineQueueDb = inject(OfflineSalesQueueIndexedDbService);
-  private cartLoadToken = 0;
-  private readonly previewTrigger$ = new Subject<void>();
-  private readonly serverUpdateTrigger$ = new Subject<void>();
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
-  readonly cart = signal<CartItem[]>([]);
+  readonly cart = this.cartState.cart;
   readonly searchInput = signal('');
   readonly searchSuggestions = signal<string[]>([]);
   readonly isSearchingBatches = signal(false);
@@ -128,9 +117,9 @@ export class NewSalePageComponent {
   readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
   private isSyncingPaymentControls = false;
 
-  readonly checkoutPreview = signal<SalePreviewDto | null>(null);
-  readonly isPreviewLoading = signal(false);
-  readonly previewError = signal('');
+  readonly checkoutPreview = this.salePreview.checkoutPreview;
+  readonly isPreviewLoading = this.salePreview.isPreviewLoading;
+  readonly previewError = this.salePreview.previewError;
 
   // Discounts (cashier instant override). Configured discounts come from preview DTO.
   readonly isSaleDiscountEditorOpen = signal(false);
@@ -148,7 +137,6 @@ export class NewSalePageComponent {
   readonly showUpdateNotification = signal(false);
   readonly updateNotificationText = signal('');
   readonly showConfirmation = signal(false);
-  private readonly previewRequestState = { latestRequestId: 0 };
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
@@ -157,7 +145,7 @@ export class NewSalePageComponent {
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
   readonly customers = this.customersFacade.allCustomers;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  readonly cartBootstrapped = signal(false);
+  readonly cartBootstrapped = this.cartState.cartBootstrapped;
 
   // Offline mode signals
   readonly deviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
@@ -310,46 +298,22 @@ export class NewSalePageComponent {
         this.syncPaymentSplitFromDue(value);
       });
 
-    // Wire debounced preview trigger (300ms for local edits per issue #234)
-    this.previewTrigger$
-      .pipe(
-        debounceTime(300),
-        switchMap((): Observable<PreviewRequestResult | null> => {
-          const cart = this.cart();
-          if (cart.length === 0) {
-            this.clearPreviewState();
-            return of(null);
-          }
-          if (this.isOfflineMode()) {
-            this.isPreviewLoading.set(false);
-            return of(null);
-          }
-          const requestId = this.beginPreviewRequest();
-          const request = this.buildPreviewRequest(cart);
-          return this.saleService.previewSale(request).pipe(
-            map((preview) => ({ requestId, preview } as PreviewRequestResult)),
-            catchError((error: unknown) => of({
-              requestId,
-              preview: null,
-              failed: true,
-              errorMessage: this.extractPreviewErrorMessage(error),
-            } as PreviewRequestResult)),
-          );
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((result: PreviewRequestResult | null) => {
-        if (result === null) {
-          return;
-        }
+    const handlePreviewApplied = (preview: SalePreviewDto, oldPreview: SalePreviewDto | null): void => {
+      this.detectAndHighlightChangedRows(oldPreview, preview);
+      this.revalidateDiscountsAgainstPreview();
+    };
 
-        if (result.preview === null) {
-          this.finishPreviewRequest(result.requestId, null, !!result.failed, result.errorMessage);
-          return;
-        }
+    this.salePreview.refreshOnlinePreview({
+      getCart: () => this.cart(),
+      getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
+      onPreviewApplied: handlePreviewApplied,
+    });
 
-        this.finishPreviewRequest(result.requestId, result.preview);
-      });
+    this.salePreview.refreshOnServerUpdate({
+      getCart: () => this.cart(),
+      getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
+      onPreviewApplied: handlePreviewApplied,
+    });
 
     // Subscribe to server updates and trigger immediate preview refresh (no debounce)
     this.shopUpdatesService.updates$
@@ -366,48 +330,7 @@ export class NewSalePageComponent {
         setTimeout(() => this.showUpdateNotification.set(false), 2000);
 
         // Immediately trigger preview refresh for server updates
-        this.serverUpdateTrigger$.next();
-      });
-
-    // Handle server update trigger with immediate (non-debounced) refresh
-    this.serverUpdateTrigger$
-      .pipe(
-        switchMap((): Observable<PreviewRequestResult | null> => {
-          const cart = this.cart();
-          if (cart.length === 0) {
-            this.clearPreviewState();
-            return of(null);
-          }
-          if (this.isOfflineMode()) {
-            this.isPreviewLoading.set(false);
-            return of(null);
-          }
-          const requestId = this.beginPreviewRequest();
-          const request = this.buildPreviewRequest(cart);
-          return this.saleService.previewSale(request).pipe(
-            map((preview) => ({ requestId, preview } as PreviewRequestResult)),
-            catchError((error: unknown) => of({
-              requestId,
-              preview: null,
-              failed: true,
-              errorMessage: this.extractPreviewErrorMessage(error),
-            } as PreviewRequestResult)),
-          );
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((result: PreviewRequestResult | null) => {
-        if (result === null) {
-          return;
-        }
-
-        if (result.preview === null) {
-          this.finishPreviewRequest(result.requestId, null, !!result.failed, result.errorMessage);
-          return;
-        }
-
-        const oldPreview = this.checkoutPreview();
-        this.finishPreviewRequest(result.requestId, result.preview, false, 'sales.newSale.previewError', oldPreview);
+        this.salePreview.triggerServerUpdateRefresh();
       });
 
     // Connect to shop updates on initialization
@@ -450,27 +373,20 @@ export class NewSalePageComponent {
     });
 
     effect(() => {
-      const shopId = this.activeShopId();
-      const token = ++this.cartLoadToken;
-      this.cartBootstrapped.set(false);
-
-      if (!shopId) {
-        this.cart.set([]);
-        this.cartBootstrapped.set(true);
-        return;
-      }
-
-      void this.loadPersistedCart(shopId, token);
+      this.activeShopId();
+      void this.cartState.loadPersistedCart(this.cartRetentionMs, (row) => {
+        this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
+      });
     });
 
     effect(() => {
-      const shopId = this.activeShopId();
-      const cart = this.cart();
-      if (!shopId || !this.cartBootstrapped()) {
+      this.activeShopId();
+      this.cart();
+      if (!this.cartBootstrapped()) {
         return;
       }
 
-      void this.persistCart(shopId, cart);
+      void this.cartState.persistCart();
     });
 
     // Load device settings and snapshot info reactively
@@ -523,11 +439,11 @@ export class NewSalePageComponent {
         if (this.isOfflineEligible()) {
           void this.refreshOfflinePreview(cart);
         } else {
-          this.clearPreviewState();
+          this.salePreview.clearPreviewState();
         }
         return;
       }
-      this.previewTrigger$.next();
+      this.salePreview.triggerPreview();
     });
   }
 
@@ -553,9 +469,15 @@ export class NewSalePageComponent {
           return;
         }
         if (list.length === 1) {
-          if (this.addBatchToCart(list[0], 1)) {
-            this.resetSearchAndPickerState();
+          const result = this.cartState.addBatchToCart(list[0], 1);
+          if (!result.added) {
+            this.batchSearchError.set('sales.newSale.exceedsStock');
+            return;
           }
+          if (result.addedLineKey && !this.isOfflineMode()) {
+            this.applyProductDefaultsForLine(result.addedLineKey, list[0].itemName, list[0].barcode);
+          }
+          this.resetSearchAndPickerState();
         } else {
           this.availableBatches.set(list);
           this.showBatchPicker.set(true);
@@ -694,93 +616,66 @@ export class NewSalePageComponent {
       return;
     }
 
-    if (!this.addBatchToCart(batch, qty)) {
+    const result = this.cartState.addBatchToCart(batch, qty);
+    if (!result.added) {
       this.batchPickerForm.controls.quantity.setErrors({ exceedsStock: true });
+      this.batchSearchError.set('sales.newSale.exceedsStock');
       return;
+    }
+
+    if (result.addedLineKey && !this.isOfflineMode()) {
+      this.applyProductDefaultsForLine(result.addedLineKey, batch.itemName, batch.barcode);
     }
 
     this.resetSearchAndPickerState();
   }
 
   onIncreaseCartItem(index: number): void {
-    this.cart.update((items) =>
-      items.map((item, i) =>
-        i === index && item.quantity < item.availableQuantity
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      )
-    );
+    this.cartState.onIncreaseCartItem(index);
   }
 
   onDecreaseCartItem(index: number): void {
-    this.cart.update((items) =>
-      items.map((item, i) =>
-        i === index && item.quantity > 1
-          ? { ...item, quantity: item.quantity - 1 }
-          : item
-      )
-    );
+    this.cartState.onDecreaseCartItem(index);
   }
 
   canIncreaseCartItem(item: CartItem): boolean {
-    return item.quantity < item.availableQuantity;
+    return this.cartState.canIncreaseCartItem(item);
   }
 
   onRemoveCartItem(index: number): void {
-    this.cart.update((items) => items.filter((_, i) => i !== index));
+    this.cartState.onRemoveCartItem(index);
   }
 
   onClearCart(): void {
-    this.cart.set([]);
+    this.cartState.onClearCart();
   }
 
   hasTax(item: CartItem): boolean {
-    return item.taxRatePercent > 0;
+    return this.cartState.hasTax(item);
   }
 
   getLineSubtotal(item: CartItem): number {
-    return this.getUnitSubtotal(item) * item.quantity;
+    return this.cartState.getLineSubtotal(item);
   }
 
   getLineTaxAmount(item: CartItem): number {
-    return this.getUnitTaxAmount(item) * item.quantity;
+    return this.cartState.getLineTaxAmount(item);
   }
 
   getLineTotal(item: CartItem): number {
-    return this.getUnitFinalPrice(item) * item.quantity;
+    return this.cartState.getLineTotal(item);
   }
 
   getUnitSubtotal(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return item.salesPrice;
-    }
-
-    if (!item.taxIncluded) {
-      return item.salesPrice;
-    }
-
-    return item.salesPrice / (1 + item.taxRatePercent / 100);
+    return this.cartState.getUnitSubtotal(item);
   }
 
   getUnitTaxAmount(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return 0;
-    }
-
-    const basePrice = this.getUnitSubtotal(item);
-    return (basePrice * item.taxRatePercent) / 100;
+    return this.cartState.getUnitTaxAmount(item);
   }
 
   getUnitFinalPrice(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return item.salesPrice;
-    }
-
-    if (item.taxIncluded) {
-      return item.salesPrice;
-    }
-
-    return item.salesPrice + this.getUnitTaxAmount(item);
+    return this.cartState.getUnitFinalPrice(item);
   }
 
   async onSubmit(): Promise<void> {
@@ -888,27 +783,6 @@ export class NewSalePageComponent {
 
   onCancel(): void {
     this.router.navigate(['/sales']);
-  }
-
-  private buildPreviewRequest(cart: readonly CartItem[]): PreviewSaleRequest {
-    return {
-      saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
-      items: cart.map((item) => ({
-        inventoryBatchId: item.inventoryBatchId,
-        barcode: item.barcode,
-        batchNumber: item.batchNumber,
-        itemName: item.itemName,
-        quantity: item.quantity,
-        costPrice: item.costPrice,
-        salesPrice: item.salesPrice,
-        mrp: item.mrp,
-        taxRatePercent: item.taxRatePercent,
-        isPriceIncludingTax: item.taxIncluded,
-        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
-        clientLineKey: item.clientLineKey,
-        hsnCode: item.hsnCode ?? null,
-      })),
-    };
   }
 
   toggleSaleDiscountEditor(): void {
@@ -1409,78 +1283,6 @@ export class NewSalePageComponent {
     }
   }
 
-  private addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): boolean {
-    const barcode = batch.barcode;
-    const snapshotCostPrice = Number(batch.costPrice ?? 0);
-    let added = false;
-    let addedLineKey: string | null = null;
-
-    this.cart.update((items) => {
-      const existingIndex = items.findIndex(
-        (item) => item.inventoryBatchId === batch.inventoryBatchId,
-      );
-
-      if (existingIndex >= 0) {
-        const existing = items[existingIndex];
-        const maxAvailable = Math.max(existing.availableQuantity, batch.quantity);
-        const nextQuantity = existing.quantity + quantityToAdd;
-        if (nextQuantity > maxAvailable) {
-          return items;
-        }
-
-        added = true;
-        return items.map((item, index) =>
-          index === existingIndex
-            ? {
-                ...item,
-                quantity: nextQuantity,
-                availableQuantity: maxAvailable,
-              }
-            : item,
-        );
-      }
-
-      if (quantityToAdd > batch.quantity) {
-        return items;
-      }
-
-      added = true;
-      const clientLineKey = crypto.randomUUID();
-      addedLineKey = clientLineKey;
-      return [
-        ...items,
-        {
-          clientLineKey,
-          barcode,
-          itemName: batch.itemName,
-          batchNumber: batch.batchNumber,
-          inventoryBatchId: batch.inventoryBatchId,
-          quantity: quantityToAdd,
-          availableQuantity: batch.quantity,
-          salesPrice: batch.salesPrice,
-          mrp: batch.mrp,
-          taxRatePercent: batch.taxRatePercent,
-          taxIncluded: batch.taxIncluded,
-          costPrice: Number.isFinite(snapshotCostPrice) ? this.roundAmount(snapshotCostPrice) : 0,
-          itemDiscountType: 0,
-          itemDiscountValue: 0,
-          hsnCode: this.normalizeHsnCode(batch.hsnCode),
-        },
-      ];
-    });
-
-    if (!added) {
-      this.batchSearchError.set('sales.newSale.exceedsStock');
-      return false;
-    }
-
-    if (addedLineKey && !this.isOfflineMode()) {
-      this.applyProductDefaultsForLine(addedLineKey, batch.itemName, barcode);
-    }
-
-    return true;
-  }
-
   private resetSearchAndPickerState(): void {
     this.showBatchPicker.set(false);
     this.selectedBatch.set(null);
@@ -1513,44 +1315,6 @@ export class NewSalePageComponent {
       },
       error: () => undefined,
     });
-  }
-
-  private async loadPersistedCart(shopId: string, token: number): Promise<void> {
-    try {
-      const rows = await this.cartStorage.loadCart(shopId, this.cartRetentionMs);
-      if (token !== this.cartLoadToken) {
-        return;
-      }
-
-      // Preserve in-memory edits made before the async cart bootstrap completes.
-      if (this.cart().length === 0) {
-        this.cart.set([...rows]);
-        rows
-          .filter((row) => !this.normalizeHsnCode(row.hsnCode))
-          .forEach((row) => this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode));
-      }
-    } catch {
-      if (token === this.cartLoadToken) {
-        this.cart.set([]);
-      }
-    } finally {
-      if (token === this.cartLoadToken) {
-        this.cartBootstrapped.set(true);
-      }
-    }
-  }
-
-  private async persistCart(shopId: string, cart: readonly CartItem[]): Promise<void> {
-    try {
-      if (cart.length === 0) {
-        await this.cartStorage.clearCart(shopId);
-        return;
-      }
-
-      await this.cartStorage.saveCart(shopId, cart);
-    } catch {
-      // Ignore persistence errors; cart remains in memory.
-    }
   }
 
   private getEventNotificationKey(eventType: string): string {
@@ -1612,80 +1376,8 @@ export class NewSalePageComponent {
     }, 1500);
   }
 
-  private beginPreviewRequest(): number {
-    const requestId = ++this.previewRequestState.latestRequestId;
-    this.isPreviewLoading.set(true);
-    this.previewError.set('');
-    return requestId;
-  }
-
-  private finishPreviewRequest(
-    requestId: number,
-    preview: SalePreviewDto | null,
-    failed = false,
-    errorMessage = 'sales.newSale.previewError',
-    oldPreview: SalePreviewDto | null = this.checkoutPreview()
-  ): void {
-    if (requestId !== this.previewRequestState.latestRequestId) {
-      return;
-    }
-
-    if (preview === null) {
-      this.isPreviewLoading.set(false);
-      this.previewError.set(failed ? errorMessage : '');
-      if (failed) {
-        this.checkoutPreview.set(null);
-      }
-      return;
-    }
-
-    this.detectAndHighlightChangedRows(oldPreview, preview);
-    this.checkoutPreview.set(preview);
-    this.revalidateDiscountsAgainstPreview();
-    this.isPreviewLoading.set(false);
-  }
-
-  private extractPreviewErrorMessage(error: unknown): string {
-    if (typeof error !== 'object' || error === null) {
-      return 'sales.newSale.previewError';
-    }
-
-    const errorLike = error as { error?: { detail?: unknown; title?: unknown; errors?: unknown } };
-    const detail = errorLike.error?.detail;
-    if (typeof detail === 'string' && detail.trim()) {
-      return detail;
-    }
-
-    const errors = errorLike.error?.errors;
-    if (Array.isArray(errors)) {
-      const firstDescription = errors
-        .map((entry) => (typeof entry === 'object' && entry !== null
-          ? (entry as { description?: unknown }).description
-          : null))
-        .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
-
-      if (firstDescription) {
-        return firstDescription;
-      }
-    }
-
-    const title = errorLike.error?.title;
-    if (typeof title === 'string' && title.trim()) {
-      return title;
-    }
-
-    return 'sales.newSale.previewError';
-  }
-
-  private clearPreviewState(): void {
-    this.previewRequestState.latestRequestId += 1;
-    this.checkoutPreview.set(null);
-    this.isPreviewLoading.set(false);
-    this.previewError.set('');
-  }
-
   private resetTransientState(): void {
-    this.cart.set([]);
+    this.cartState.onClearCart();
     this.searchInput.set('');
     this.customerNameSuggestions.set([]);
     this.customerForm.reset();
@@ -1693,8 +1385,7 @@ export class NewSalePageComponent {
     this.selectedCustomerName.set(null);
     this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
     this.paymentSplitError.set('');
-    this.checkoutPreview.set(null);
-    this.previewError.set('');
+    this.salePreview.clearPreviewState();
   }
 
   onDone(): void {
@@ -1793,18 +1484,26 @@ export class NewSalePageComponent {
   private async refreshOfflinePreview(cart: readonly CartItem[]): Promise<void> {
     const shopId = this.activeShopId();
     if (!shopId) {
-      this.clearPreviewState();
+      this.salePreview.clearPreviewState();
       return;
     }
 
-    const requestId = this.beginPreviewRequest();
+    const requestId = this.salePreview.beginPreviewRequest();
 
     try {
       const rules = await this.offlineSnapshotDb.getUsableDiscountRules(shopId);
       const preview = this.buildOfflinePreview(cart, rules);
-      this.finishPreviewRequest(requestId, preview);
+      this.salePreview.finishPreviewRequest(requestId, preview, {
+        onPreviewApplied: (nextPreview, oldPreview) => {
+          this.detectAndHighlightChangedRows(oldPreview, nextPreview);
+          this.revalidateDiscountsAgainstPreview();
+        },
+      });
     } catch {
-      this.finishPreviewRequest(requestId, null, true, 'sales.newSale.previewError');
+      this.salePreview.finishPreviewRequest(requestId, null, {
+        failed: true,
+        errorMessage: 'sales.newSale.previewError',
+      });
     }
   }
 
