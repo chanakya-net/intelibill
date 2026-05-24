@@ -1,0 +1,60 @@
+<form class="payment-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+  <label>
+    <span>{{ 'suppliers.paymentAmount' | transloco }}</span>
+    <p-inputgroup [pt]="currencyGroupPt">
+      <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+      <p-inputNumber
+        formControlName="amount"
+        mode="decimal"
+        [min]="0.01"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+        [fluid]="true"
+        [pt]="currencyInputPt"
+      ></p-inputNumber>
+    </p-inputgroup>
+  </label>
+
+  <label>
+    <span>{{ 'suppliers.paymentDate' | transloco }}</span>
+    <p-datepicker
+      formControlName="paymentDate"
+      dateFormat="dd/mm/yy"
+      [maxDate]="maxDate"
+      appendTo="body"
+    ></p-datepicker>
+  </label>
+
+  <label>
+    <span>{{ 'suppliers.paymentNotes' | transloco }}</span>
+    <input pInputText type="text" formControlName="notes" />
+  </label>
+
+  @if (serverError) {
+    <p class="error-message">{{ serverError | transloco }}</p>
+  }
+
+  <div class="actions">
+    <button
+      pButton
+      type="button"
+      [label]="'common.cancel' | transloco"
+      severity="secondary"
+      [disabled]="submitting"
+      (click)="onCancel()"
+    ></button>
+    <button
+      pButton
+      type="submit"
+      [label]="'suppliers.recordPayment' | transloco"
+      [disabled]="submitting"
+    ></button>
+  </div>
+
+  @if (submitting) {
+    <div class="submit-overlay">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+</form>
+
