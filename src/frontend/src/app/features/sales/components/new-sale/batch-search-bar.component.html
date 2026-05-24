@@ -1,0 +1,45 @@
+<div class="flex gap-2 items-start flex-wrap">
+  <div class="flex-1 min-w-48">
+    <p-autocomplete
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchTermChanged($event)"
+      [suggestions]="searchSuggestions"
+      (completeMethod)="onComplete($event)"
+      [placeholder]="'inventory.searchPlaceholder' | transloco"
+      appendTo="body"
+      [fluid]="true"
+      (keyup.enter)="onEnterKey()"
+    ></p-autocomplete>
+    <div class="flex flex-col gap-2">
+      <p-button
+        type="button"
+        icon="pi pi-camera"
+        severity="secondary"
+        text="true"
+        [attr.aria-label]="'inventory.openScanner' | transloco"
+        (click)="openScanner()"
+      ></p-button>
+    </div>
+  </div>
+
+  <p-button
+    [label]="'sales.newSale.search' | transloco"
+    icon="pi pi-search"
+    (click)="emitSearch()"
+    [disabled]="loading"
+  />
+
+  <p-button
+    type="button"
+    styleClass="hidden"
+    [label]="'sales.newSale.openPicker' | transloco"
+    (click)="openPicker.emit()"
+  />
+</div>
+
+@if (loading) {
+  <div class="flex items-center gap-2 mt-3 text-sm text-slate-500">
+    <p-progressSpinner styleClass="h-4 w-4" strokeWidth="6" />
+    <span>{{ 'sales.newSale.searching' | transloco }}</span>
+  </div>
+}

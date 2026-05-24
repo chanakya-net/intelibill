@@ -1,0 +1,91 @@
+<div class="summary-box flex-1">
+  <div class="flex justify-between text-sm text-slate-600">
+    <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
+    <span>₹{{ computedSubtotal | number:'1.2-2' }}</span>
+  </div>
+  <div class="flex justify-between text-sm text-slate-500">
+    <span>{{ 'sales.newSale.tax' | transloco }}</span>
+    <span>₹{{ totalTaxAmount | number:'1.2-2' }}</span>
+  </div>
+
+  <div class="sale-discount-row mt-2">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        @if (configuredSaleDiscountPercent !== null) {
+          <p-tag
+            severity="info"
+            [value]="'sales.newSale.discounts.configuredSalePercent' | transloco:{ percent: configuredSaleDiscountPercent }"
+          />
+        }
+
+        @if (saleDiscountType !== 0 && saleDiscountValue > 0) {
+          <p-tag
+            severity="secondary"
+            [value]="saleDiscountType === 1
+              ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: saleDiscountValue })
+              : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (saleDiscountValue | number:'1.0-2') })"
+          />
+        }
+      </div>
+
+      <p-button
+        size="small"
+        severity="secondary"
+        [text]="true"
+        icon="pi pi-pencil"
+        [label]="'sales.newSale.discounts.editSale' | transloco"
+        [disabled]="loading || !isDiscountEditorEnabled()"
+        (click)="toggleEditor()"
+      />
+    </div>
+
+    @if (preview !== null && !isSaleDiscountEligible) {
+      <p class="text-xs text-slate-500 mt-1">{{ 'sales.newSale.discounts.saleNotEligible' | transloco }}</p>
+    }
+
+    @if (isDiscountEditorOpen) {
+      <div class="discount-editor mt-2">
+        <p-select
+          [options]="instantDiscountTypeOptions"
+          optionValue="value"
+          optionLabel="labelKey"
+          [ngModel]="saleDiscountType"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="onDiscountTypeChanged($event)"
+        >
+          <ng-template pTemplate="selectedItem" let-opt>
+            {{ opt?.labelKey | transloco }}
+          </ng-template>
+          <ng-template pTemplate="item" let-opt>
+            {{ opt.labelKey | transloco }}
+          </ng-template>
+        </p-select>
+
+        <p-inputNumber
+          [ngModel]="saleDiscountValue"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="onDiscountValueChanged($event)"
+          [min]="0"
+          [suffix]="saleDiscountType === 1 ? '%' : ''"
+          [placeholder]="'sales.newSale.discounts.value' | transloco"
+          [useGrouping]="false"
+          [maxFractionDigits]="2"
+        />
+      </div>
+    }
+
+    @if (saleDiscountError) {
+      <p class="error-hint mt-1">{{ saleDiscountError | transloco }}</p>
+    }
+  </div>
+
+  <div class="flex justify-between text-sm text-slate-500">
+    <span>{{ 'sales.newSale.discount' | transloco }}</span>
+    <span>₹{{ totalDiscountAmount | number:'1.2-2' }}</span>
+  </div>
+
+  <div class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1">
+    <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
+    <span>₹{{ totalAmount | number:'1.2-2' }}</span>
+  </div>
+</div>

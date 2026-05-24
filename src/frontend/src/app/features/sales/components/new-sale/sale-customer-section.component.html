@@ -1,0 +1,26 @@
+<div class="flex gap-4 flex-wrap">
+  <div class="flex flex-col gap-1 flex-1 min-w-48">
+    <label class="text-xs text-slate-500">{{ 'sales.newSale.customerName' | transloco }}</label>
+    <p-autocomplete
+      [formControl]="customerNameControl"
+      [suggestions]="customerNameSuggestions"
+      (completeMethod)="onCustomerNameSearch($event)"
+      (onSelect)="onCustomerSelect($event.value)"
+      [placeholder]="'sales.newSale.walkIn' | transloco"
+      appendTo="body"
+      [fluid]="true"
+    />
+  </div>
+  <div class="flex flex-col gap-1 flex-1 min-w-48">
+    <label class="text-xs text-slate-500">{{ 'sales.newSale.customerPhone' | transloco }}</label>
+    <input
+      pInputText
+      type="tel"
+      [formControl]="customerPhoneControl"
+      placeholder="+91 98765 43210"
+    />
+  </div>
+</div>
+@if (isOfflineMode) {
+  <p class="text-xs text-slate-500 mt-2">{{ 'sales.newSale.offline.cachedCustomerOnlyNote' | transloco }}</p>
+}

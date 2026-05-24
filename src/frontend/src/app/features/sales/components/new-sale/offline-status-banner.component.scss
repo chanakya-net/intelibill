@@ -1,0 +1,42 @@
+.offline-status-banner {
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5f5;
+  background: #eff6ff;
+  padding: 0.75rem;
+  color: #1e40af;
+}
+
+.offline-status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.offline-status-details {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.offline-status-detail {
+  color: #0f172a;
+  font-size: 0.875rem;
+}
+
+.offline-status-needs-review {
+  color: #7c2d12;
+}
+
+.offline-status-warning {
+  color: #92400e;
+  font-size: 0.8125rem;
+  margin: 0.35rem 0 0;
+}
+
+.offline-status-blocked {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
