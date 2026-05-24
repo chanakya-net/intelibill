@@ -1,11 +1,11 @@
 import { Injectable } from '@angular/core';
 
-import { NewSalePageCoordinatorCoreService } from './new-sale-page.coordinator.core.service';
+import { NewSalePageOfflineFlowService } from './new-sale-page.offline-flow.service';
 
 /**
  * Thin composition layer for the New Sale page.
  *
- * Business responsibilities live in focused coordinator helpers/services.
+ * Business responsibilities live in focused page-flow services.
  */
 @Injectable()
-export class NewSalePageCoordinatorService extends NewSalePageCoordinatorCoreService {}
+export class NewSalePageCoordinatorService extends NewSalePageOfflineFlowService {}
