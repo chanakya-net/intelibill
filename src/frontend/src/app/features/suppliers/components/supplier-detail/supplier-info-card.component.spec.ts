@@ -40,6 +40,7 @@ describe('SupplierInfoCardComponent', () => {
       name: 'Fresh Foods',
       contactPersonName: 'Ramesh',
       contactPersonPhone: '+919999999999',
+      gstNumber: '27AAPFU0939F1ZV',
       address: '42 MG Road',
       city: 'Bengaluru',
       state: 'Karnataka',
@@ -52,6 +53,6 @@ describe('SupplierInfoCardComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Fresh Foods');
+    expect(fixture.nativeElement.textContent).toContain('27AAPFU0939F1ZV');
   });
 });
-

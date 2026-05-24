@@ -14,20 +14,24 @@
     </div>
   </header>
 
-  <div class="supplier-info-card__grid">
-    <div class="info-row">
-      <span class="label">{{ 'suppliers.contactPerson' | transloco }}:</span>
-      <span class="value">{{ supplier.contactPersonName || '-' }}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">{{ 'suppliers.contactPhone' | transloco }}:</span>
-      <span class="value">{{ supplier.contactPersonPhone || '-' }}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">{{ 'suppliers.city' | transloco }}:</span>
-      <span class="value">{{ supplier.city || '-' }}</span>
-    </div>
-    <div class="info-row">
+	  <div class="supplier-info-card__grid">
+	    <div class="info-row">
+	      <span class="label">{{ 'suppliers.contactPerson' | transloco }}:</span>
+	      <span class="value">{{ supplier.contactPersonName || '-' }}</span>
+	    </div>
+	    <div class="info-row">
+	      <span class="label">{{ 'suppliers.contactPhone' | transloco }}:</span>
+	      <span class="value">{{ supplier.contactPersonPhone || '-' }}</span>
+	    </div>
+	    <div class="info-row">
+	      <span class="label">GSTIN:</span>
+	      <span class="value">{{ supplier.gstNumber || '-' }}</span>
+	    </div>
+	    <div class="info-row">
+	      <span class="label">{{ 'suppliers.city' | transloco }}:</span>
+	      <span class="value">{{ supplier.city || '-' }}</span>
+	    </div>
+	    <div class="info-row">
       <span class="label">{{ 'suppliers.state' | transloco }}:</span>
       <span class="value">{{ supplier.state || '-' }}</span>
     </div>
@@ -41,4 +45,3 @@
     </div>
   </div>
 </section>
-

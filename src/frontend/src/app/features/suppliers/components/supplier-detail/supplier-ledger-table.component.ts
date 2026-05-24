@@ -16,6 +16,7 @@ type LedgerRow = {
   readonly entryTypeClass: string;
   readonly isPayment: boolean;
   readonly displayAmount: number;
+  readonly balance: number;
   readonly entryDate: string;
   readonly notes: string | null;
 };

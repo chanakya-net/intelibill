@@ -40,7 +40,8 @@ export class SupplierDetailComponent {
 
   protected readonly tableEntries = computed(() => {
     this.currentLang(); // re-run on language change
-    return this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => {
+    const currentBalanceDue = this.currentSupplier()?.balanceDue ?? 0;
+    const rows = this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => {
       const isPayment = entry.entryType === 2 || entry.entryType === 'PAYMENT_MADE';
       return {
         ...entry,
@@ -49,6 +50,15 @@ export class SupplierDetailComponent {
         isPayment,
         displayAmount: isPayment ? -Math.abs(entry.amount) : entry.amount,
       };
+    });
+
+    const sorted = [...rows].sort((a, b) => (b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1);
+
+    let runningBalance = currentBalanceDue;
+    return sorted.map((row) => {
+      const balance = runningBalance;
+      runningBalance = runningBalance - row.displayAmount;
+      return { ...row, balance };
     });
   });
 
