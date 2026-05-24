@@ -1,7 +1,7 @@
 <p-card class="dashboard-primary-chart-card">
   <ng-template pTemplate="header">
     <div class="dashboard-chart-header">
-      <span class="kpi-section-title">{{ title }}</span>
+      <span class="kpi-section-title">{{ title | transloco }}</span>
       <p-select
         [options]="chartTypeOptions"
         optionLabel="label"
@@ -18,7 +18,7 @@
   }
 
   @if (!loading && chartData) {
-    <p-chart [type]="renderChartType" [data]="chartData" [options]="chartOptions || {}"></p-chart>
+    <p-chart [type]="renderChartType" [data]="translatedChartData()" [options]="chartOptions || {}"></p-chart>
   }
 
   @if (!loading && !chartData) {

@@ -33,15 +33,6 @@
     </p-select>
   </label>
 
-	  <app-dashboard-chart
-	    [chartData]="selectedChartData()"
-	    [chartType]="selectedChartType()"
-	    [title]="selectedChartTitle()"
-	    [loading]="loading()"
-	    [chartOptions]="selectedChartOptions()"
-	    (chartTypeChange)="onChartTypeChange($event)">
-	  </app-dashboard-chart>
-
   @if (loading() && !data()) {
     <div class="dashboard-loading"><p-progressSpinner></p-progressSpinner></div>
   }
@@ -59,6 +50,15 @@
   }
 
   @if (data(); as dashboard) {
+    <app-dashboard-chart
+      [chartData]="selectedChartData()"
+      [chartType]="selectedChartType()"
+      [title]="selectedChartTitle()"
+      [loading]="loading()"
+      [chartOptions]="selectedChartOptions()"
+      (chartTypeChange)="onChartTypeChange($event)">
+    </app-dashboard-chart>
+
     <div class="dashboard-freshness-badge">
       <div class="freshness-item"><span class="pi pi-clock"></span><span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}:</span><span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span></div>
       <div class="freshness-item"><span class="pi pi-calendar"></span><span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}:</span><span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span></div>

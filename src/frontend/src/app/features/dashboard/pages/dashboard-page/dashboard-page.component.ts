@@ -42,30 +42,30 @@ const PRESETS: { labelKey: string; value: DashboardPreset }[] = [
 ];
 
 const SALES_CHART_LABELS: SalesChartLabels = {
-  salesBooked: 'Sales Booked',
-  netSalesBooked: 'Net Sales',
-  profitBeforeTax: 'Profit Before Tax',
-  profitAfterTax: 'Profit After Tax',
+  salesBooked: 'dashboard.salesBooked',
+  netSalesBooked: 'dashboard.netSalesBooked',
+  profitBeforeTax: 'dashboard.profitBeforeTax',
+  profitAfterTax: 'dashboard.profitAfterTax',
 };
 
 const PAYMENT_MIX_CHART_LABELS: PaymentMixChartLabels = {
-  cash: 'Cash',
-  upi: 'UPI',
-  card: 'Card',
-  credit: 'Credit',
+  cash: 'dashboard.paymentMixCash',
+  upi: 'dashboard.paymentMixUpi',
+  card: 'dashboard.paymentMixCard',
+  credit: 'dashboard.paymentMixCredit',
 };
 
 const CHART_TITLES: Record<DashboardMetric, string> = {
-  sales: 'Sales Trend',
-  expense: 'Expenses',
-  paymentMix: 'Payment Behavior',
-  profit: 'Profit',
+  sales: 'dashboard.salesTrendTitle',
+  expense: 'dashboard.sectionExpenses',
+  paymentMix: 'dashboard.paymentMixTitle',
+  profit: 'dashboard.profitTrendTitle',
 };
 
 const EXPENSE_CHART_LABELS = {
-  expenseRecorded: 'Expense Recorded',
-  expenseCorrection: 'Expense Correction',
-  netExpense: 'Net Expense',
+  expenseRecorded: 'dashboard.expenseRecorded',
+  expenseCorrection: 'dashboard.expenseCorrection',
+  netExpense: 'dashboard.netExpense',
 };
 
 type SalesChartLabels = {
@@ -131,7 +131,7 @@ export class DashboardPageComponent implements OnInit {
     SALES_CHART_LABELS,
   ));
 
-  readonly profitChartData = computed<ChartData | null>(() => buildProfitTrendChartData(this.data()?.profitTrendSeries, 'Profit After Tax'));
+  readonly profitChartData = computed<ChartData | null>(() => buildProfitTrendChartData(this.data()?.profitTrendSeries, 'dashboard.profitAfterTax'));
 
   readonly paymentMixTrendChartData = computed<ChartData | null>(() => buildPaymentMixTrendChartData(this.data()?.paymentMixTrendSeries, PAYMENT_MIX_CHART_LABELS));
 
@@ -158,7 +158,7 @@ export class DashboardPageComponent implements OnInit {
         EXPENSE_CHART_LABELS.expenseCorrection,
         EXPENSE_CHART_LABELS.netExpense,
       ],
-      datasets: [{ label: 'Expenses', data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense] }],
+      datasets: [{ label: 'dashboard.sectionExpenses', data: [dashboard.expenseRecorded, dashboard.expenseCorrection, dashboard.netExpense] }],
     };
   });
 

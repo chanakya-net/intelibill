@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { vi } from 'vitest';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { DashboardChartComponent } from './dashboard-chart.component';
 import { DashboardChartType } from '../utils/dashboard-chart-builders';
@@ -11,7 +12,7 @@ describe('DashboardChartComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [DashboardChartComponent],
+      imports: [DashboardChartComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
     });
 
     fixture = TestBed.createComponent(DashboardChartComponent);
