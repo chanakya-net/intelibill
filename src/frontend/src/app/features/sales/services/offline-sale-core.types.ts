@@ -1,4 +1,4 @@
-import { InstantDiscountRequest } from './sale.service';
+import type { InstantDiscountRequest } from './sale.models';
 
 export type OfflineSaleQueueStatus = 'Pending' | 'Syncing' | 'Synced' | 'SyncedWithWarnings' | 'NeedsReview' | 'Failed';
 

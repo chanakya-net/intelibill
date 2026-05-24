@@ -12,7 +12,8 @@ import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offl
 import { ShopService } from '../../../shops/services/shop.service';
 import { OfflineQueuedSalePayload } from '../../services/offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from '../../services/offline-sales-queue-indexeddb.service';
-import { SaleDto, SaleService } from '../../services/sale.service';
+import { SaleService } from '../../services/sale.service';
+import type { SaleDto } from '../../services/sale.models';
 import { SaleInvoicePrintPageComponent } from './sale-invoice-print-page.component';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;

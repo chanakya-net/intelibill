@@ -6,7 +6,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { SaleInvoiceA4Component } from './sale-invoice-a4.component';
-import { SaleDto, SaleItemDto } from '../services/sale.service';
+import type { SaleDto, SaleItemDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;

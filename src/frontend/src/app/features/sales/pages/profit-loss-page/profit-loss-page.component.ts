@@ -13,7 +13,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { SalesFacade } from '../../state/sales.facade';
-import { ProfitLossReportItemDto, ProfitLossReportRowType } from '../../services/sale.service';
+import type { ProfitLossReportItemDto, ProfitLossReportRowType } from '../../services/sale.models';
 import { TableFilterBarComponent } from '../../../../shared/components/table-filter-bar/table-filter-bar.component';
 
 @Component({

@@ -1,5 +1,5 @@
 import { salesAdapter, salesReducer } from './sales.reducer';
-import { SaleListItemDto } from '../services/sale.service';
+import type { SaleListItemDto } from '../services/sale.models';
 import {
   selectAllSales,
   selectErrorMessage,

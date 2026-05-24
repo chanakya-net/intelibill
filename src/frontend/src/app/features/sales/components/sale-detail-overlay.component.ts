@@ -18,16 +18,15 @@ import { TextareaModule } from 'primeng/textarea';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SalesFacade } from '../state/sales.facade';
-import {
-  PAYMENT_METHOD_VALUES,
+import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../services/sale.models';
+import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
   SaleItemDto,
   SaleReturnCondition,
-  SALE_RETURN_CONDITIONS,
   SaleReturnDto,
   VoidSaleReturnRequest,
-} from '../services/sale.service';
+} from '../services/sale.models';
 
 interface ReturnLineDraft {
   readonly saleItemId: string;

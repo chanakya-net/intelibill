@@ -13,7 +13,7 @@ import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
 
-import { SaleListItemDto } from '../services/sale.service';
+import type { SaleListItemDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';

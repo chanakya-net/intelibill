@@ -32,17 +32,16 @@ import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { AvailableBatchDto, InventoryService } from '../../inventory/services/inventory.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
-import {
+import { NO_DISCOUNT, PAYMENT_METHOD_VALUES } from '../services/sale.models';
+import type {
   InstantDiscountRequest,
-  NO_DISCOUNT,
   PreviewSaleRequest,
   RecordSaleItemRequest,
   RecordSaleRequest,
   SalePreviewDto,
   SalePreviewLineDto,
-  PAYMENT_METHOD_VALUES,
-  SaleService,
-} from '../services/sale.service';
+} from '../services/sale.models';
+import { SaleService } from '../services/sale.service';
 import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
 import { OfflineSalePricingInput, OfflineSalePricingLineInput } from '../services/offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';

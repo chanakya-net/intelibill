@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { SaleInvoiceThermalComponent } from './sale-invoice-thermal.component';
-import { SaleDto, SaleItemDto, SaleReturnDto } from '../services/sale.service';
+import type { SaleDto, SaleItemDto, SaleReturnDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
