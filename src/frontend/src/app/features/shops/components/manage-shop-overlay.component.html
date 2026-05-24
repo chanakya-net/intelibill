@@ -1,21 +1,8 @@
 <section class="manage-shop-overlay" aria-modal="true" role="dialog">
   <div class="overlay-backdrop"></div>
-
   <article class="overlay-card" [class.card-busy]="isSubmitting() || isLoadingDetails()">
     <header class="overlay-header">
-      <button
-        pButton
-        type="button"
-        icon="pi pi-times"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        class="overlay-close"
-        [disabled]="isSubmitting()"
-        [attr.aria-label]="'common.close' | transloco"
-        (click)="onClose()"
-      ></button>
-
+      <button pButton type="button" icon="pi pi-times" severity="secondary" [text]="true" [rounded]="true" class="overlay-close" [disabled]="isSubmitting()" [attr.aria-label]="'common.close' | transloco" (click)="onClose()"></button>
       <p class="overlay-kicker">{{ 'shops.shopManagement' | transloco }}</p>
       <h2>{{ 'shops.manageShopDetails' | transloco }}</h2>
       <p>{{ 'shops.manageShopDescription' | transloco }}</p>
@@ -23,82 +10,15 @@
 
     <p-stepper [(value)]="activeStep" class="overlay-stepper">
       <p-step-list>
-        <p-step [value]="1">
-          <ng-template #content let-value="value">
-            <span
-              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
-              [ngClass]="{
-                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
-                'border-surface': value > activeStep()
-              }"
-              [class.cursor-pointer]="value < activeStep()"
-              role="button"
-              tabindex="0"
-              (click)="onStepIconClick(value)"
-              (keydown.enter)="onStepIconClick(value)"
-              (keydown.space)="onStepIconClick(value)"
-            >
-              <i class="pi pi-shop"></i>
-            </span>
-          </ng-template>
-        </p-step>
-        <p-step [value]="2">
-          <ng-template #content let-value="value">
-            <span
-              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
-              [ngClass]="{
-                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
-                'border-surface': value > activeStep()
-              }"
-              [class.cursor-pointer]="value < activeStep()"
-              role="button"
-              tabindex="0"
-              (click)="onStepIconClick(value)"
-              (keydown.enter)="onStepIconClick(value)"
-              (keydown.space)="onStepIconClick(value)"
-            >
-              <i class="pi pi-credit-card"></i>
-            </span>
-          </ng-template>
-        </p-step>
-        <p-step [value]="3">
-          <ng-template #content let-value="value">
-            <span
-              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
-              [ngClass]="{
-                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
-                'border-surface': value > activeStep()
-              }"
-              [class.cursor-pointer]="value < activeStep()"
-              role="button"
-              tabindex="0"
-              (click)="onStepIconClick(value)"
-              (keydown.enter)="onStepIconClick(value)"
-              (keydown.space)="onStepIconClick(value)"
-            >
-              <i class="pi pi-wifi"></i>
-            </span>
-          </ng-template>
-        </p-step>
-        <p-step [value]="4">
-          <ng-template #content let-value="value">
-            <span
-              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
-              [ngClass]="{
-                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
-                'border-surface': value > activeStep()
-              }"
-              [class.cursor-pointer]="value < activeStep()"
-              role="button"
-              tabindex="0"
-              (click)="onStepIconClick(value)"
-              (keydown.enter)="onStepIconClick(value)"
-              (keydown.space)="onStepIconClick(value)"
-            >
-              <i class="pi pi-check"></i>
-            </span>
-          </ng-template>
-        </p-step>
+        @for (step of stepIcons; track step.value) {
+          <p-step [value]="step.value">
+            <ng-template #content let-value="value">
+              <span class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center" [ngClass]="{ 'bg-primary text-primary-contrast border-primary': value <= activeStep(), 'border-surface': value > activeStep() }" [class.cursor-pointer]="value < activeStep()" role="button" tabindex="0" (click)="onStepIconClick(value)" (keydown.enter)="onStepIconClick(value)" (keydown.space)="onStepIconClick(value)">
+                <i [class]="step.icon"></i>
+              </span>
+            </ng-template>
+          </p-step>
+        }
       </p-step-list>
 
       <p-step-panels>
@@ -107,151 +27,18 @@
             <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
               <div class="field-wrap space-y-1.5">
                 <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
-                <select
-                  id="manage-shop-id"
-                  formControlName="shopId"
-                  class="shop-select"
-                  [disabled]="isSubmitting() || isLoadingDetails()"
-                  (change)="onShopSelectionChange()"
-                >
+                <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
                   @for (shop of shops; track shop.shopId) {
-                    <option [value]="shop.shopId">
-                      {{ shop.shopName }} ({{ shop.role }})
-                    </option>
+                    <option [value]="shop.shopId">{{ shop.shopName }} ({{ shop.role }})</option>
                   }
                 </select>
               </div>
 
               @if (!isSelectedShopOwner()) {
-                <p class="owner-hint">
-                  {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
-                  {{ 'shops.onlyOwnersCanSave' | transloco }}
-                </p>
+                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
               }
 
-              <div class="field-wrap space-y-1.5">
-                <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
-                <input
-                  id="shop-name"
-                  type="text"
-                  pInputText
-                  formControlName="name"
-                  autocomplete="organization"
-                  class="w-full"
-                  [class.ng-invalid]="form.controls.name.invalid && form.controls.name.touched"
-                />
-                @if (form.controls.name.hasError('required') && form.controls.name.touched) {
-                  <p class="field-error">{{ 'shops.validation.shopNameRequired' | transloco }}</p>
-                }
-              </div>
-
-              <div class="field-wrap space-y-1.5">
-                <label for="shop-address">{{ 'shops.address' | transloco }}</label>
-                <input
-                  id="shop-address"
-                  type="text"
-                  pInputText
-                  formControlName="address"
-                  autocomplete="street-address"
-                  class="w-full"
-                  [class.ng-invalid]="form.controls.address.invalid && form.controls.address.touched"
-                />
-                @if (form.controls.address.hasError('required') && form.controls.address.touched) {
-                  <p class="field-error">{{ 'shops.validation.addressRequired' | transloco }}</p>
-                }
-              </div>
-
-              <div class="field-grid">
-                <div class="field-wrap space-y-1.5">
-                  <label for="shop-city">{{ 'shops.city' | transloco }}</label>
-                  <input
-                    id="shop-city"
-                    type="text"
-                    pInputText
-                    formControlName="city"
-                    autocomplete="address-level2"
-                    class="w-full"
-                    [class.ng-invalid]="form.controls.city.invalid && form.controls.city.touched"
-                  />
-                  @if (form.controls.city.hasError('required') && form.controls.city.touched) {
-                    <p class="field-error">{{ 'shops.validation.cityRequired' | transloco }}</p>
-                  }
-                </div>
-
-                <div class="field-wrap space-y-1.5">
-                  <label for="shop-state">{{ 'shops.state' | transloco }}</label>
-                  <input
-                    id="shop-state"
-                    type="text"
-                    pInputText
-                    formControlName="state"
-                    autocomplete="address-level1"
-                    class="w-full"
-                    [class.ng-invalid]="form.controls.state.invalid && form.controls.state.touched"
-                  />
-                  @if (form.controls.state.hasError('required') && form.controls.state.touched) {
-                    <p class="field-error">{{ 'shops.validation.stateRequired' | transloco }}</p>
-                  }
-                </div>
-              </div>
-
-              <div class="field-wrap space-y-1.5">
-                <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
-                <input
-                  id="shop-pincode"
-                  type="text"
-                  pInputText
-                  formControlName="pincode"
-                  autocomplete="postal-code"
-                  class="w-full"
-                  [class.ng-invalid]="form.controls.pincode.invalid && form.controls.pincode.touched"
-                />
-                @if (form.controls.pincode.hasError('required') && form.controls.pincode.touched) {
-                  <p class="field-error">{{ 'shops.validation.pincodeRequired' | transloco }}</p>
-                }
-              </div>
-
-              <div class="field-grid">
-                <div class="field-wrap space-y-1.5">
-                  <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
-                  <input
-                    id="shop-contact-person"
-                    type="text"
-                    pInputText
-                    formControlName="contactPerson"
-                    autocomplete="name"
-                    class="w-full"
-                  />
-                </div>
-
-                <div class="field-wrap space-y-1.5">
-                  <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
-                  <input
-                    id="shop-mobile"
-                    type="text"
-                    pInputText
-                    formControlName="mobileNumber"
-                    autocomplete="tel"
-                    class="w-full"
-                  />
-                </div>
-              </div>
-
-              <div class="field-wrap space-y-1.5">
-                <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
-                <input
-                  id="shop-gst"
-                  type="text"
-                  pInputText
-                  formControlName="gstNumber"
-                  class="w-full"
-                  [placeholder]="'shops.placeholders.gst' | transloco"
-                  [class.ng-invalid]="form.controls.gstNumber.invalid && form.controls.gstNumber.touched"
-                />
-                @if (form.controls.gstNumber.hasError('pattern') && form.controls.gstNumber.touched) {
-                  <p class="field-error">{{ 'shops.validation.gstInvalid' | transloco }}</p>
-                }
-              </div>
+              <app-shop-basic-info-form [initialValues]="selectedShopDetails()" [disabled]="isSubmitting() || isLoadingDetails()" (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
 
               @if (serverError()) {
                 <p class="server-error">{{ serverError() | transloco }}</p>
@@ -259,29 +46,9 @@
 
               <div class="flex pt-4 justify-end gap-2">
                 @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
-                  <button
-                    pButton
-                    type="button"
-                    [label]="'shops.nextStep' | transloco"
-                    icon="pi pi-arrow-right"
-                    iconPos="right"
-                    severity="secondary"
-                    [text]="true"
-                    [disabled]="isSubmitting() || isLoadingDetails()"
-                    (click)="onContinueToOfflineBilling()"
-                  ></button>
+                  <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
                 }
-
-                <button
-                  pButton
-                  type="submit"
-                  [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)"
-                  [loading]="isSubmitting()"
-                  [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
-                  icon="pi pi-arrow-right"
-                  iconPos="right"
-                  class="save-button"
-                ></button>
+                <button pButton type="submit" [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)" [loading]="isSubmitting()" [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" icon="pi pi-arrow-right" iconPos="right" class="save-button"></button>
               </div>
             </form>
           </ng-template>
@@ -291,48 +58,19 @@
           <ng-template #content>
             <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
               <p class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</p>
-
               @if (!isSelectedShopOwner()) {
-                <p class="owner-hint">
-                  {{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}.
-                  {{ 'shops.onlyOwnersCanSave' | transloco }}
-                </p>
+                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
               }
-
               <app-bank-account-form [form]="bankForm" idPrefix="manage"></app-bank-account-form>
-
               @if (serverError()) {
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
-
               <div class="flex pt-4 justify-between">
                 <div class="flex gap-2">
-                  <p-button
-                    type="button"
-                    [label]="'shops.previousStep' | transloco"
-                    icon="pi pi-arrow-left"
-                    severity="secondary"
-                    [text]="true"
-                    [disabled]="isSubmitting() || isLoadingDetails()"
-                    (onClick)="onPreviousStep()"
-                  />
-                  <p-button
-                    type="button"
-                    [label]="'shops.skipBankDetails' | transloco"
-                    severity="secondary"
-                    [text]="true"
-                    [disabled]="isSubmitting()"
-                    (onClick)="onSkipBankDetails()"
-                  />
+                  <p-button type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onPreviousStep()" />
+                  <p-button type="button" [label]="'shops.skipBankDetails' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting()" (onClick)="onSkipBankDetails()" />
                 </div>
-                <button
-                  pButton
-                  type="submit"
-                  [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)"
-                  [loading]="isSubmitting()"
-                  [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()"
-                  class="save-button"
-                ></button>
+                <button pButton type="submit" [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)" [loading]="isSubmitting()" [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" class="save-button"></button>
               </div>
             </form>
           </ng-template>
@@ -345,101 +83,45 @@
                 <div class="offline-card">
                   <h3 class="text-lg font-semibold mb-1">{{ 'offlineSalesDevice.title' | transloco }}</h3>
                   <p class="text-sm text-muted">{{ 'offlineSalesDevice.description' | transloco }}</p>
-
                   @if (!networkStatus.canReachApi()) {
-                    <p class="owner-hint mt-3">
-                      {{ 'offlineSalesDevice.apiUnreachable' | transloco }}
-                    </p>
+                    <p class="owner-hint mt-3">{{ 'offlineSalesDevice.apiUnreachable' | transloco }}</p>
                   }
-
                   <div class="field-wrap space-y-1.5 mt-4">
                     <label for="offline-device-label">{{ 'offlineSalesDevice.deviceLabel' | transloco }}</label>
-                    <input
-                      id="offline-device-label"
-                      type="text"
-                      pInputText
-                      class="w-full"
-                      [disabled]="isSubmitting() || isLoadingDetails()"
-                      [placeholder]="'offlineSalesDevice.deviceLabelPlaceholder' | transloco"
-                      [ngModel]="offlineDeviceLabel()"
-                      (ngModelChange)="offlineDeviceLabel.set($event)"
-                    />
+                    <input id="offline-device-label" type="text" pInputText class="w-full" [disabled]="isSubmitting() || isLoadingDetails()" [placeholder]="'offlineSalesDevice.deviceLabelPlaceholder' | transloco" [ngModel]="offlineDeviceLabel()" (ngModelChange)="offlineDeviceLabel.set($event)" />
                     <div class="flex justify-end pt-2">
-                      <p-button
-                        type="button"
-                        [label]="'offlineSalesDevice.saveLabel' | transloco"
-                        severity="secondary"
-                        [text]="true"
-                        [disabled]="isSubmitting() || isLoadingDetails()"
-                        (onClick)="onSaveOfflineDeviceLabel()"
-                      />
+                      <p-button type="button" [label]="'offlineSalesDevice.saveLabel' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onSaveOfflineDeviceLabel()" />
                     </div>
                   </div>
-
                   <div class="offline-status mt-4">
-                    <div class="status-row">
-                      <span class="status-label">{{ 'offlineSalesDevice.status' | transloco }}</span>
-                      <span class="status-value">
-                        @switch (offlineReadinessState()) {
-                          @case ('enabled') { {{ 'offlineSalesDevice.statusEnabled' | transloco }} }
-                          @default { {{ 'offlineSalesDevice.statusNeedsSetup' | transloco }} }
-                        }
-                      </span>
-                    </div>
-
+                    <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.status' | transloco }}</span><span class="status-value">@switch (offlineReadinessState()) {@case ('enabled') { {{ 'offlineSalesDevice.statusEnabled' | transloco }} } @default { {{ 'offlineSalesDevice.statusNeedsSetup' | transloco }} }}</span></div>
                     @if (offlineSnapshotAgeLabel()) {
-                      <div class="status-row">
-                        <span class="status-label">{{ 'offlineSalesDevice.snapshotAge' | transloco }}</span>
-                        <span class="status-value">{{ offlineSnapshotAgeLabel() }}</span>
-                      </div>
+                      <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.snapshotAge' | transloco }}</span><span class="status-value">{{ offlineSnapshotAgeLabel() }}</span></div>
                     }
-
                     @if (offlineInvoiceRemainingCount() !== null) {
-                      <div class="status-row">
-                        <span class="status-label">{{ 'offlineSalesDevice.invoiceRemaining' | transloco }}</span>
-                        <span class="status-value">{{ offlineInvoiceRemainingCount() }}</span>
-                      </div>
+                      <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.invoiceRemaining' | transloco }}</span><span class="status-value">{{ offlineInvoiceRemainingCount() }}</span></div>
                     }
                   </div>
-
                   @if (offlineEnablementErrorKey()) {
                     <p class="server-error mt-4">{{ offlineEnablementErrorKey() | transloco }}</p>
                   }
-
                   <div class="flex pt-4 justify-between">
-                    <p-button
-                      type="button"
-                      [label]="'shops.previousStep' | transloco"
-                      icon="pi pi-arrow-left"
-                      severity="secondary"
-                      [text]="true"
-                      [disabled]="isSubmitting() || isLoadingDetails()"
-                      (onClick)="onPreviousStep()"
-                    />
-                    <button
-                      pButton
-                      type="button"
-                      [label]="isOfflineEnablePending() ? ('offlineSalesDevice.enabling' | transloco) : ('offlineSalesDevice.enable' | transloco)"
-                      [loading]="isOfflineEnablePending()"
-                      [disabled]="!canEnableOfflineBilling() || isOfflineEnablePending()"
-                      class="save-button"
-                      (click)="onEnableOfflineBilling()"
-                    ></button>
+                    <p-button type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onPreviousStep()" />
+                    <button pButton type="button" [label]="isOfflineEnablePending() ? ('offlineSalesDevice.enabling' | transloco) : ('offlineSalesDevice.enable' | transloco)" [loading]="isOfflineEnablePending()" [disabled]="!canEnableOfflineBilling() || isOfflineEnablePending()" class="save-button" (click)="onEnableOfflineBilling()"></button>
                   </div>
                 </div>
               }
 
+              @if (selectedShopDetails()?.logoUrl !== undefined) {
+                <app-shop-logo-upload [currentLogoUrl]="selectedShopDetails()?.logoUrl ?? null" [disabled]="isSubmitting() || isLoadingDetails()"></app-shop-logo-upload>
+              }
+
+              @if (selectedShopDetails()?.members !== undefined) {
+                <app-shop-members-table [members]="selectedShopDetails()?.members ?? []" [currentUserRole]="selectedShopRole()" [disabled]="isSubmitting() || isLoadingDetails()"></app-shop-members-table>
+              }
+
               <div class="flex justify-end pt-2">
-                <button
-                  pButton
-                  type="button"
-                  [label]="'shops.nextStep' | transloco"
-                  icon="pi pi-arrow-right"
-                  iconPos="right"
-                  class="save-button"
-                  [disabled]="isSubmitting() || isLoadingDetails()"
-                  (click)="activeStep.set(4)"
-                ></button>
+                <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" class="save-button" [disabled]="isSubmitting() || isLoadingDetails()" (click)="activeStep.set(4)"></button>
               </div>
             </div>
           </ng-template>
@@ -448,30 +130,13 @@
         <p-step-panel [value]="4">
           <ng-template #content>
             <div class="flex flex-col items-center gap-4 py-8">
-              <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
-                <i class="pi pi-check text-3xl"></i>
-              </span>
+              <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600"><i class="pi pi-check text-3xl"></i></span>
               <div class="text-center">
                 <h3 class="text-lg font-semibold mb-1">{{ 'shops.saveShopChanges' | transloco }}</h3>
                 <p class="text-sm text-muted">{{ 'shops.manageShopDescription' | transloco }}</p>
               </div>
-              <button
-                pButton
-                type="button"
-                [label]="'shops.previousStep' | transloco"
-                icon="pi pi-arrow-left"
-                severity="secondary"
-                [text]="true"
-                (click)="onPreviousStep()"
-              ></button>
-              <button
-                pButton
-                type="button"
-                [label]="'shops.done' | transloco"
-                icon="pi pi-check"
-                class="save-button mt-2"
-                (click)="onDone()"
-              ></button>
+              <button pButton type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" (click)="onPreviousStep()"></button>
+              <button pButton type="button" [label]="'shops.done' | transloco" icon="pi pi-check" class="save-button mt-2" (click)="onDone()"></button>
             </div>
           </ng-template>
         </p-step-panel>
@@ -479,9 +144,7 @@
     </p-stepper>
 
     @if (isSubmitting() || isLoadingDetails()) {
-      <div class="submit-overlay">
-        <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
-      </div>
+      <div class="submit-overlay"><p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner></div>
     }
   </article>
 </section>
