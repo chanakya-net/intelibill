@@ -53,4 +53,23 @@ describe('SalePaymentSectionComponent', () => {
     expect(dueSpy).toHaveBeenCalledWith(11);
     expect(submitSpy).toHaveBeenCalled();
   });
+
+  it('disables due amount input when requested', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.dueAmountDisabled = true;
+    component.canUseCredit = false;
+    component.paymentMethods = methods;
+    fixture.detectChanges();
+
+    const inputGroups = fixture.nativeElement.querySelectorAll('.p-inputgroup');
+    const dueInput = inputGroups[1].querySelector('input.p-inputnumber-input') as HTMLInputElement;
+
+    expect(inputGroups.length).toBe(2);
+    expect(dueInput.disabled).toBe(true);
+  });
 });

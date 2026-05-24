@@ -42,6 +42,7 @@ export class SalePaymentSectionComponent {
   @Input() currencyGroupPt: any;
   @Input() currencyAddonPt: any;
   @Input() canUseCredit = true;
+  @Input() dueAmountDisabled = false;
   @Input() paymentSplitError = '';
   @Input() isSubmitting = false;
   @Input() cartLength = 0;

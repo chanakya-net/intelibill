@@ -143,6 +143,7 @@
         [currencyGroupPt]="currencyGroupPt"
         [currencyAddonPt]="currencyAddonPt"
         [canUseCredit]="canUseCredit()"
+        [dueAmountDisabled]="!isOfflineMode() && !canUseCredit()"
         [paymentSplitError]="paymentSplitError()"
         [isSubmitting]="isOfflineMode() ? isOfflineSubmitting() : isSubmitting()"
         [cartLength]="cart().length"
