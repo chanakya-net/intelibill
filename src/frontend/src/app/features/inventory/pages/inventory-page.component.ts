@@ -18,9 +18,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddProductOverlayComponent } from '../components/add-product-overlay.component';
 import { EditItemOverlayComponent } from '../components/edit-item-overlay.component';
+import { InventoryFilterBarComponent } from '../components/inventory-filter-bar.component';
+import { InventoryTableComponent } from '../components/inventory-table.component';
 import type { Item } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
-import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import {
   selectInventoryErrorMessage,
   selectInventoryItems,
@@ -29,6 +30,8 @@ import {
   selectInventoryLoadingItems,
   selectInventorySubmitting,
 } from '../state/inventory.selectors';
+
+type ItemStatusFilter = 'all' | 'active' | 'inactive';
 
 @Component({
   selector: 'app-inventory-page',
@@ -47,7 +50,8 @@ import {
     TableModule,
     AddProductOverlayComponent,
     EditItemOverlayComponent,
-    TableFilterBarComponent,
+    InventoryFilterBarComponent,
+    InventoryTableComponent,
     TranslocoPipe,
   ],
   templateUrl: './inventory-page.component.html',
@@ -58,23 +62,30 @@ export class InventoryPageComponent {
   private readonly authService = inject(AuthService);
 
   readonly items = this.store.selectSignal(selectInventoryItems);
-  readonly tableItems = computed(() => [...this.items()]);
+  readonly searchValue = signal('');
+  readonly statusFilter = signal<ItemStatusFilter>('all');
   readonly filteredItems = computed(() => {
     const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.items()];
-    return this.items().filter(
+    const statusFiltered =
+      this.statusFilter() === 'all' ? [...this.items()] : this.items().filter((i) => i.isActive === (this.statusFilter() === 'active'));
+
+    if (!q) {
+      return statusFiltered;
+    }
+
+    return statusFiltered.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
         i.barcode.toLowerCase().includes(q) ||
         i.uom.toLowerCase().includes(q),
     );
   });
+
   readonly isLoadingItems = this.store.selectSignal(selectInventoryLoadingItems);
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectInventoryLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectInventoryLastMutationSucceeded);
-  protected readonly searchValue = signal('');
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -83,9 +94,7 @@ export class InventoryPageComponent {
       return '';
     }
 
-    const activeShop =
-      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
-      session.shops.find((shop) => shop.isDefault);
+    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId) ?? session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
   readonly canManageInventory = computed(() => {
@@ -129,28 +138,6 @@ export class InventoryPageComponent {
     this.showAddProductOverlay.set(true);
   }
 
-  productInitials(name: string): string {
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-
-  productAvatarColor(name: string): string {
-    const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-  }
-
-  stockSeverity(stock: number): 'danger' | 'warn' | 'success' {
-    if (stock <= 5) return 'danger';
-    if (stock < 50) return 'warn';
-    return 'success';
-  }
-
   onCloseAddProduct(): void {
     if (this.isSubmitting()) {
       return;
@@ -176,5 +163,9 @@ export class InventoryPageComponent {
     }
 
     this.showEditItemOverlay.set(false);
+  }
+
+  onStatusFilterChange(statusFilter: ItemStatusFilter): void {
+    this.statusFilter.set(statusFilter);
   }
 }

@@ -1,0 +1,53 @@
+<p-dialog
+  [visible]="visible"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="false"
+  [style]="{ width: 'min(560px, 95vw)' }"
+>
+  <ng-template pTemplate="header">
+    <h2 class="dialog-title">{{ 'discounts.disableDialog.title' | transloco }}</h2>
+  </ng-template>
+
+  <div class="dialog-content space-y-3">
+    <p>{{ 'discounts.disableDialog.description' | transloco }}</p>
+    <div class="field-wrap space-y-1.5">
+      <label for="discounts-disable-reason">{{ 'discounts.disableDialog.reasonLabel' | transloco }}</label>
+      <textarea
+        id="discounts-disable-reason"
+        pInputTextarea
+        rows="3"
+        class="w-full"
+        [placeholder]="'discounts.disableDialog.reasonPlaceholder' | transloco"
+        [disabled]="disableSubmitting"
+        [ngModel]="disableReason"
+        (ngModelChange)="onReasonChange($event)"
+        data-testid="discounts-disable-reason"
+      ></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="dialog-footer">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [text]="true"
+        [label]="'common.cancel' | transloco"
+        [disabled]="disableSubmitting"
+        (click)="onCloseRequested()"
+        data-testid="discounts-disable-cancel"
+      ></button>
+      <button
+        pButton
+        type="button"
+        severity="danger"
+        [label]="disableSubmitting ? ('discounts.disableDialog.disabling' | transloco) : ('discounts.disableDialog.confirm' | transloco)"
+        [disabled]="disableSubmitting"
+        (click)="onConfirm()"
+        data-testid="discounts-disable-confirm"
+      ></button>
+    </div>
+  </ng-template>
+</p-dialog>

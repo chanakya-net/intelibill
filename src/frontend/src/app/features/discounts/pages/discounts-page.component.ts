@@ -5,15 +5,14 @@ import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
-import { TextareaModule } from 'primeng/textarea';
 
 import { DiscountRuleEditorDialogComponent } from '../components/discount-rule-editor-dialog.component';
+import { DiscountsTableComponent } from '../components/discounts-table.component';
+import { DiscountsDisableDialogComponent } from '../components/discounts-disable-dialog.component';
 import {
   DiscountRuleDto,
   DiscountRuleListItemDto,
@@ -39,14 +38,13 @@ interface SelectOption<T> {
     TranslocoPipe,
     ButtonModule,
     CardModule,
-    DialogModule,
     InputTextModule,
     ProgressSpinnerModule,
     SelectModule,
-    TableModule,
     TagModule,
-    TextareaModule,
+    DiscountsTableComponent,
     DiscountRuleEditorDialogComponent,
+    DiscountsDisableDialogComponent,
   ],
   templateUrl: './discounts-page.component.html',
   styleUrl: './discounts-page.component.scss',

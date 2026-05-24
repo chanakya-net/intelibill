@@ -1,0 +1,45 @@
+<div class="inventory-filter-bar">
+  <div class="mobile-search-bar">
+    <p-iconfield iconPosition="left" class="mobile-search-field">
+      <p-inputicon>
+        <i class="pi pi-search"></i>
+      </p-inputicon>
+      <input
+        pInputText
+        type="text"
+        [value]="searchValue"
+        (input)="onSearchChange($any($event.target).value)"
+        [placeholder]="'inventory.nameOrBarcode' | transloco"
+        class="w-full pr-10"
+      />
+      @if (searchValue) {
+        <p-inputicon iconPosition="right" class="cursor-pointer" (click)="clearSearch()">
+          <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+        </p-inputicon>
+      }
+    </p-iconfield>
+  </div>
+
+  <label for="inventory-status-filter" class="sr-only">{{ 'common.status' | transloco }}</label>
+  <span class="sr-only" data-status-filter-value>{{ statusFilter }}</span>
+  <p-select
+    inputId="inventory-status-filter"
+    [options]="statusOptions"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="statusFilter"
+    (ngModelChange)="onStatusChange($event)"
+    [ngModelOptions]="{ standalone: true }"
+    class="w-full"
+    appendTo="body"
+  >
+    <ng-template #selectedItem let-option>
+      @if (option) {
+        {{ option.label | transloco }}
+      }
+    </ng-template>
+    <ng-template #item let-option>
+      {{ option.label | transloco }}
+    </ng-template>
+  </p-select>
+</div>
