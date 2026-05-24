@@ -23,11 +23,11 @@ export class SaleCustomerSectionComponent implements OnInit {
   @Input({ required: true }) customerNameControl!: FormControl<string>;
   @Input({ required: true }) customerPhoneControl!: FormControl<string>;
   @Input() customerNameSuggestions: string[] = [];
+  @Input() customers: readonly CustomerDto[] = [];
   @Input() isOfflineMode = false;
 
   @Output() customerSelected = new EventEmitter<CustomerDto | null>();
   @Output() searchCustomers = new EventEmitter<string>();
-  @Output() customerSuggestionSelected = new EventEmitter<string>();
 
   ngOnInit(): void {
     this.customerNameControl.valueChanges.subscribe((value) => {
@@ -42,6 +42,13 @@ export class SaleCustomerSectionComponent implements OnInit {
   }
 
   onCustomerSelect(value: string): void {
-    this.customerSuggestionSelected.emit(value);
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      this.customerSelected.emit(null);
+      return;
+    }
+
+    const matches = this.customers.filter((customer) => customer.name.trim().toLowerCase() === normalized);
+    this.customerSelected.emit(matches.length === 1 ? matches[0] ?? null : null);
   }
 }

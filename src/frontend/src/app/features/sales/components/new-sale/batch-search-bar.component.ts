@@ -56,6 +56,10 @@ export class BatchSearchBarComponent {
     this.emitSearch();
   }
 
+  onOpenPicker(): void {
+    this.openPicker.emit();
+  }
+
   openScanner(): void {
     this.cameraOpen.emit();
   }

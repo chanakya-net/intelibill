@@ -122,6 +122,25 @@ export class NewSalePageComponent {
   private isSyncingPaymentControls = false;
   readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
   readonly selectedCustomer = signal<CustomerDto | null>(null);
+  readonly customerSelectionPool = computed<readonly CustomerDto[]>(() => {
+    if (this.isOfflineMode()) {
+      return this.offlineCustomers().map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: null,
+      }));
+    }
+
+    return this.customers()
+      .filter((customer) => customer.isActive)
+      .map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: customer.address,
+      }));
+  });
   readonly syncStatus = computed<SyncStatus>(() => ({
     snapshotAgeHours: this.snapshotAgeHours(),
     offlineInvoiceRemaining: this.offlineInvoiceRemaining(),
@@ -630,48 +649,17 @@ export class NewSalePageComponent {
     if (!normalizedName) {
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
       return;
     }
 
-    if (this.isOfflineMode()) {
-      const matches = this.offlineCustomers().filter(
-        (c) => c.name.trim().toLowerCase() === normalizedName
-      );
-      if (matches.length !== 1) {
-        this.selectedCustomerId.set(null);
-        this.selectedCustomerName.set(null);
-        return;
-      }
-      const [offlineCustomer] = matches;
-      this.selectedCustomerId.set(offlineCustomer.customerId);
-      this.selectedCustomerName.set(normalizedName);
-      this.customerForm.patchValue(
-        { customerName: offlineCustomer.name, customerPhone: offlineCustomer.phoneNumber },
-        { emitEvent: false }
-      );
+    const customer = this.customerSelectionPool().find((candidate) => candidate.name.trim().toLowerCase() === normalizedName);
+    if (!customer) {
+      this.onCustomerSectionSelected(null);
       return;
     }
 
-    const matches = this.customers().filter(
-      (customer) => customer.isActive && customer.name.trim().toLowerCase() === normalizedName
-    );
-
-    if (matches.length !== 1) {
-      this.selectedCustomerId.set(null);
-      this.selectedCustomerName.set(null);
-      return;
-    }
-
-    const [customer] = matches;
-    this.selectedCustomerId.set(customer.customerId);
-    this.selectedCustomerName.set(normalizedName);
-    this.customerForm.patchValue(
-      {
-        customerName: customer.name,
-        customerPhone: customer.phoneNumber,
-      },
-      { emitEvent: false }
-    );
+    this.onCustomerSectionSelected(customer);
   }
 
   onCustomerSectionNameChanged(value: string | null): void {
@@ -705,9 +693,17 @@ export class NewSalePageComponent {
     if (!customer) {
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
       return;
     }
 
+    this.customerForm.patchValue(
+      {
+        customerName: customer.name,
+        customerPhone: customer.phoneNumber,
+      },
+      { emitEvent: false }
+    );
     this.selectedCustomerId.set(customer.customerId);
     this.selectedCustomerName.set(customer.name.trim().toLowerCase());
   }
