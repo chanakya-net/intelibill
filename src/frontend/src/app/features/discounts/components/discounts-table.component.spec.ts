@@ -36,6 +36,9 @@ describe('DiscountsTableComponent', () => {
 
   it('renders list rows from input data', () => {
     fixture.detectChanges();
-    expect(component.listItems).toHaveLength(1);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.textContent).toContain('New Customer');
+    expect(host.textContent).toContain('discounts.ruleType.SalePercentage');
   });
 });

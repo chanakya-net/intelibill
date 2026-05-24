@@ -15,13 +15,18 @@ describe('SuppliersFilterBarComponent', () => {
 
     fixture = TestBed.createComponent(SuppliersFilterBarComponent);
     component = fixture.componentInstance;
-    component.searchValue = '';
-    component.statusFilter = 'all';
+    component.searchValue = 'acme';
+    component.statusFilter = 'active';
   });
 
   it('renders with provided inputs', () => {
     fixture.detectChanges();
-    expect(component.searchValue).toBe('');
-    expect(component.statusFilter).toBe('all');
+    const host = fixture.nativeElement as HTMLElement;
+    const searchInput = host.querySelector('input[type="text"]') as HTMLInputElement;
+    const statusValue = host.querySelector('[data-status-filter-value]') as HTMLElement | null;
+    const renderedSearchValue = searchInput.getAttribute('ng-reflect-model') ?? searchInput.value;
+
+    expect(renderedSearchValue).toBe('acme');
+    expect(statusValue?.textContent).toBe('active');
   });
 });

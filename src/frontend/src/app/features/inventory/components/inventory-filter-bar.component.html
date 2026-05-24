@@ -7,8 +7,8 @@
       <input
         pInputText
         type="text"
-        [ngModel]="searchValue"
-        (ngModelChange)="onSearchChange($event)"
+        [value]="searchValue"
+        (input)="onSearchChange($any($event.target).value)"
         [placeholder]="'inventory.nameOrBarcode' | transloco"
         class="w-full pr-10"
       />
@@ -21,13 +21,15 @@
   </div>
 
   <label for="inventory-status-filter" class="sr-only">{{ 'common.status' | transloco }}</label>
+  <span class="sr-only" data-status-filter-value>{{ statusFilter }}</span>
   <p-select
     inputId="inventory-status-filter"
     [options]="statusOptions"
     optionLabel="label"
     optionValue="value"
-    [ngModel]="statusFilter"
+    [(ngModel)]="statusFilter"
     (ngModelChange)="onStatusChange($event)"
+    [ngModelOptions]="{ standalone: true }"
     class="w-full"
     appendTo="body"
   >

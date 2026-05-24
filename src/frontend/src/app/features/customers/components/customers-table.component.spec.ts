@@ -32,6 +32,9 @@ describe('CustomersTableComponent', () => {
 
   it('renders rows from input data', () => {
     fixture.detectChanges();
-    expect(component.customers).toHaveLength(1);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.textContent).toContain('Alice');
+    expect(host.textContent).toContain('9999999999');
   });
 });

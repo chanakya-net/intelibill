@@ -36,6 +36,10 @@ describe('InventoryTableComponent', () => {
 
   it('renders rows from input data', () => {
     fixture.detectChanges();
-    expect(component.items).toHaveLength(1);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.textContent).toContain('Paracetamol');
+    expect(host.textContent).toContain('123');
+    expect(host.textContent).toContain('PCS');
   });
 });

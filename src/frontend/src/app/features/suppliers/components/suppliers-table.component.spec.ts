@@ -39,6 +39,9 @@ describe('SuppliersTableComponent', () => {
 
   it('renders with supplied rows', () => {
     fixture.detectChanges();
-    expect(component.suppliers).toHaveLength(1);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.textContent).toContain('Acme');
+    expect(host.textContent).toContain('Delhi');
   });
 });
