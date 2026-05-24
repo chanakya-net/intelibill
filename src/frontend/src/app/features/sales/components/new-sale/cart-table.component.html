@@ -53,7 +53,7 @@
             }
             <p class="price-line final">
               <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
-              <span>₹{{ getLineTotal(item) | number:'1.2-2' }}</span>
+              <span>₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
             </p>
           </div>
 

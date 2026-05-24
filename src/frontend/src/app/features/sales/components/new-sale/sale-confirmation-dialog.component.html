@@ -8,8 +8,13 @@
   [style]="{ width: '450px' }"
 >
   <div class="flex flex-col items-center py-4 text-center">
-    <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
-    <h2 class="text-xl font-bold mb-2">{{ 'sales.newSale.confirmation.success' | transloco }}</h2>
+    <i [ngClass]="saleResult?.isOffline ? 'pi pi-clock text-6xl text-amber-500 mb-4' : 'pi pi-check-circle text-6xl text-green-500 mb-4'"></i>
+    <h2 class="text-xl font-bold mb-2">
+      {{ (saleResult?.isOffline ? 'sales.newSale.offline.confirmation.queued' : 'sales.newSale.confirmation.success') | transloco }}
+    </h2>
+    @if (saleResult?.isOffline) {
+      <p class="text-slate-600 mb-4">{{ 'sales.newSale.offline.confirmation.description' | transloco }}</p>
+    }
 
     @if (saleResult; as sale) {
       <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
@@ -23,12 +28,20 @@
         </div>
       </div>
 
-      <p-button
-        [label]="printButtonLabel | transloco"
-        icon="pi pi-file"
-        [outlined]="true"
-        (click)="onPrint()"
-      />
+      <div class="grid grid-cols-2 gap-3 w-full mb-4">
+        <p-button
+          [label]="printA4ButtonLabel | transloco"
+          icon="pi pi-file"
+          [outlined]="true"
+          (click)="onPrintA4()"
+        />
+        <p-button
+          [label]="printThermalButtonLabel | transloco"
+          icon="pi pi-print"
+          [outlined]="true"
+          (click)="onPrintThermal()"
+        />
+      </div>
     }
 
     <p-button

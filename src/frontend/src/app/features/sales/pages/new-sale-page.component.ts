@@ -810,7 +810,7 @@ export class NewSalePageComponent {
     void this.onSubmit();
   }
 
-  onOnlineConfirmationPrintRequested(): void {
+  onOnlineConfirmationPrintA4Requested(): void {
     const sale = this.saleConfirmationResult();
     if (!sale) {
       return;
@@ -819,8 +819,21 @@ export class NewSalePageComponent {
     this.printA4(sale.saleId);
   }
 
-  onOfflineConfirmationPrintRequested(): void {
+  onOnlineConfirmationPrintThermalRequested(): void {
+    const sale = this.saleConfirmationResult();
+    if (!sale) {
+      return;
+    }
+
+    this.printThermal(sale.saleId);
+  }
+
+  onOfflineConfirmationPrintA4Requested(): void {
     this.printOfflineA4();
+  }
+
+  onOfflineConfirmationPrintThermalRequested(): void {
+    this.printOfflineThermal();
   }
 
   getPaymentMethodLabel(paymentMethod: number): PaymentMethod {

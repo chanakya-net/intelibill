@@ -24,16 +24,22 @@ export class SaleConfirmationDialogComponent {
   @Input() titleKey = 'sales.newSale.confirmation.title';
   @Input() saleTypeLabel = 'sales.invoice.invoiceNumber';
   @Input() doneButtonLabel = 'sales.invoice.done';
-  @Input() printButtonLabel = 'sales.invoice.printA4';
+  @Input() printA4ButtonLabel = 'sales.invoice.printA4';
+  @Input() printThermalButtonLabel = 'sales.invoice.printThermal';
 
   @Output() closed = new EventEmitter<void>();
-  @Output() printRequested = new EventEmitter<void>();
+  @Output() printA4Requested = new EventEmitter<void>();
+  @Output() printThermalRequested = new EventEmitter<void>();
 
   onClose(): void {
     this.closed.emit();
   }
 
-  onPrint(): void {
-    this.printRequested.emit();
+  onPrintA4(): void {
+    this.printA4Requested.emit();
+  }
+
+  onPrintThermal(): void {
+    this.printThermalRequested.emit();
   }
 }

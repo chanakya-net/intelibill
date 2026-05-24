@@ -75,4 +75,23 @@ describe('CartTableComponent', () => {
 
     expect(spy).toHaveBeenCalledWith('line-1');
   });
+
+  it('renders per-unit final price in breakdown', () => {
+    TestBed.configureTestingModule({
+      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.cartItems = [item as never];
+    fixture.componentInstance.hasTax = () => true;
+    fixture.componentInstance.getUnitSubtotal = () => 50;
+    fixture.componentInstance.getUnitTaxAmount = () => 9;
+    fixture.componentInstance.getUnitFinalPrice = () => 59;
+    fixture.componentInstance.getLineTotal = () => 118;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(text).toContain('₹59.00');
+    expect(text).toContain('₹118.00');
+  });
 });

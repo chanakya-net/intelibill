@@ -35,15 +35,36 @@ describe('SaleConfirmationDialogComponent', () => {
     const component = fixture.componentInstance;
 
     const closeSpy = vi.fn();
-    const printSpy = vi.fn();
+    const printA4Spy = vi.fn();
+    const printThermalSpy = vi.fn();
 
     component.closed.subscribe(closeSpy);
-    component.printRequested.subscribe(printSpy);
+    component.printA4Requested.subscribe(printA4Spy);
+    component.printThermalRequested.subscribe(printThermalSpy);
 
     component.onClose();
-    component.onPrint();
+    component.onPrintA4();
+    component.onPrintThermal();
 
     expect(closeSpy).toHaveBeenCalled();
-    expect(printSpy).toHaveBeenCalled();
+    expect(printA4Spy).toHaveBeenCalled();
+    expect(printThermalSpy).toHaveBeenCalled();
+  });
+
+  it('renders offline queued state copy and icon', () => {
+    TestBed.configureTestingModule({
+      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.saleResult = { ...sale, isOffline: true };
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    const icon = fixture.nativeElement.querySelector('i') as HTMLElement;
+    expect(text).toContain('sales.newSale.offline.confirmation.queued');
+    expect(text).toContain('sales.newSale.offline.confirmation.description');
+    expect(icon.className).toContain('pi-clock');
   });
 });

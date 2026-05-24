@@ -19,6 +19,9 @@
       [formControl]="customerPhoneControl"
       placeholder="+91 98765 43210"
     />
+    @if (customerPhoneControl.touched && customerPhoneControl.errors?.['pattern']) {
+      <p class="error-hint">{{ 'sales.newSale.invalidPhone' | transloco }}</p>
+    }
   </div>
 </div>
 @if (isOfflineMode) {

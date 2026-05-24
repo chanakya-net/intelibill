@@ -177,7 +177,8 @@
   [saleResult]="saleConfirmationResult()"
   [titleKey]="'sales.newSale.confirmation.title'"
   (closed)="onDone()"
-  (printRequested)="onOnlineConfirmationPrintRequested()"
+  (printA4Requested)="onOnlineConfirmationPrintA4Requested()"
+  (printThermalRequested)="onOnlineConfirmationPrintThermalRequested()"
 />
 
 <app-sale-confirmation-dialog
@@ -186,7 +187,9 @@
   [titleKey]="'sales.newSale.offline.confirmation.title'"
   [saleTypeLabel]="'sales.invoice.invoiceNumber'"
   [doneButtonLabel]="'common.done'"
-  [printButtonLabel]="'sales.invoice.printA4'"
+  [printA4ButtonLabel]="'sales.invoice.printA4'"
+  [printThermalButtonLabel]="'sales.invoice.printThermal'"
   (closed)="onOfflineDone()"
-  (printRequested)="onOfflineConfirmationPrintRequested()"
+  (printA4Requested)="onOfflineConfirmationPrintA4Requested()"
+  (printThermalRequested)="onOfflineConfirmationPrintThermalRequested()"
 />

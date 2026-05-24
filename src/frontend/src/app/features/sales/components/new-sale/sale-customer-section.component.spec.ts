@@ -52,4 +52,40 @@ describe('SaleCustomerSectionComponent', () => {
     expect(searchSpy).toHaveBeenCalledWith('ali');
     expect(selectSpy).toHaveBeenCalledWith('Alice');
   });
+
+  it('emits customerSelected when suggestion selected', () => {
+    TestBed.configureTestingModule({
+      imports: [SaleCustomerSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SaleCustomerSectionComponent);
+    const component = fixture.componentInstance;
+    const selectedSpy = vi.fn();
+    component.selectedCustomer = customer;
+    component.customerNameControl = new FormControl('', { nonNullable: true });
+    component.customerPhoneControl = new FormControl('', { nonNullable: true });
+    component.customerSelected.subscribe(selectedSpy);
+
+    component.onCustomerSelect(customer.name);
+
+    expect(selectedSpy).toHaveBeenCalledWith(customer);
+  });
+
+  it('shows invalid phone validation message', () => {
+    TestBed.configureTestingModule({
+      imports: [SaleCustomerSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SaleCustomerSectionComponent);
+    const component = fixture.componentInstance;
+    component.customerNameControl = new FormControl('', { nonNullable: true });
+    component.customerPhoneControl = new FormControl('abc', {
+      nonNullable: true,
+      validators: [() => ({ pattern: true })],
+    });
+    component.customerPhoneControl.markAsTouched();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('sales.newSale.invalidPhone');
+  });
 });

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { InputTextModule } from 'primeng/inputtext';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -18,7 +18,7 @@ export interface CustomerDto {
   imports: [CommonModule, ReactiveFormsModule, AutoCompleteModule, InputTextModule, TranslocoPipe],
   templateUrl: './sale-customer-section.component.html',
 })
-export class SaleCustomerSectionComponent {
+export class SaleCustomerSectionComponent implements OnInit {
   @Input() selectedCustomer: CustomerDto | null = null;
   @Input({ required: true }) customerNameControl!: FormControl<string>;
   @Input({ required: true }) customerPhoneControl!: FormControl<string>;
@@ -29,11 +29,20 @@ export class SaleCustomerSectionComponent {
   @Output() searchCustomers = new EventEmitter<string>();
   @Output() customerSuggestionSelected = new EventEmitter<string>();
 
+  ngOnInit(): void {
+    this.customerNameControl.valueChanges.subscribe((value) => {
+      if (!value.trim()) {
+        this.customerSelected.emit(null);
+      }
+    });
+  }
+
   onCustomerNameSearch(event: AutoCompleteCompleteEvent): void {
     this.searchCustomers.emit(event.query);
   }
 
   onCustomerSelect(value: string): void {
     this.customerSuggestionSelected.emit(value);
+    this.customerSelected.emit(this.selectedCustomer);
   }
 }
