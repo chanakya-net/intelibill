@@ -1,76 +1,53 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
-import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
-import { ButtonModule } from 'primeng/button';
+import { DecimalPipe } from '@angular/common';
+import { Component, Input } from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { CardModule } from 'primeng/card';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
 
 import {
+  AdjustmentRowDto,
   InventoryAdjustmentDirection,
-  InventoryAdjustmentHistoryItem,
-  InventoryAdjustmentReason,
 } from '../../services/inventory.models';
-
-interface ReasonOption {
-  readonly label: string;
-  readonly value: InventoryAdjustmentReason;
-}
 
 @Component({
   selector: 'app-adjustment-summary',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, TranslocoPipe, ButtonModule, CardModule, TableModule, TagModule],
+  imports: [CardModule, DecimalPipe, TranslocoPipe],
   templateUrl: './adjustment-summary.component.html',
 })
 export class AdjustmentSummaryComponent {
-  private readonly translocoService = inject(TranslocoService);
-
-  @Input() rows: InventoryAdjustmentHistoryItem[] = [];
+  @Input() rows: AdjustmentRowDto[] = [];
   @Input() loading = false;
-  @Input() canVoidAdjustments = false;
-  @Output() readonly voidRequested = new EventEmitter<InventoryAdjustmentHistoryItem>();
 
-  private readonly allReasonOptions: ReasonOption[] = [
-    { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' },
-    { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' },
-    { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' },
-    { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' },
-    {
-      label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
-      value: 'StockCountCorrection',
-    },
-    { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
-    { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' },
-    {
-      label: this.translate('inventory.adjustmentReason.returnRestockCorrection'),
-      value: 'ReturnRestockCorrection',
-    },
-    { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
-  ];
+  get totalRows(): number {
+    return this.rows.length;
+  }
 
-  reasonLabel(reason: InventoryAdjustmentReason): string {
-    return this.allReasonOptions.find((opt) => opt.value === reason)?.label ?? reason;
+  get increaseQuantity(): number {
+    return this.rows
+      .filter((row) => row.direction === 'Increase')
+      .reduce((sum, row) => sum + row.quantity, 0);
+  }
+
+  get decreaseQuantity(): number {
+    return this.rows
+      .filter((row) => row.direction === 'Decrease')
+      .reduce((sum, row) => sum + row.quantity, 0);
+  }
+
+  get netQuantity(): number {
+    return this.increaseQuantity - this.decreaseQuantity;
+  }
+
+  get reasonLabel(): string {
+    return this.totalRows === 1 ? '1 adjustment' : `${this.totalRows} adjustments`;
+  }
+
+  get directionLabel(): string {
+    if (this.increaseQuantity === 0 && this.decreaseQuantity === 0) return 'No net movement';
+    return `${this.increaseQuantity > 0 ? '+' : ''}${this.netQuantity.toFixed(2)}`;
   }
 
   directionSeverity(direction: InventoryAdjustmentDirection): 'success' | 'danger' {
     return direction === 'Increase' ? 'success' : 'danger';
-  }
-
-  statusSeverity(adjustment: InventoryAdjustmentHistoryItem): 'success' | 'danger' {
-    return adjustment.isVoided ? 'danger' : 'success';
-  }
-
-  canVoidAdjustment(adjustment: InventoryAdjustmentHistoryItem): boolean {
-    return this.canVoidAdjustments && !adjustment.isVoided;
-  }
-
-  onVoidRequested(adjustment: InventoryAdjustmentHistoryItem): void {
-    if (!this.canVoidAdjustment(adjustment)) return;
-    this.voidRequested.emit(adjustment);
-  }
-
-  private translate(key: string): string {
-    return this.translocoService.translate(key);
   }
 }
