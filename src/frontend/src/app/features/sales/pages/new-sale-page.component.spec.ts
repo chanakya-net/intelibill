@@ -16,6 +16,7 @@ import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
 import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
+import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SaleService } from '../services/sale.service';
 import type { SalePreviewDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
@@ -1974,8 +1975,8 @@ describe('NewSalePageComponent', () => {
         expect.objectContaining({
           pricingInput: expect.objectContaining({
             customerId: null,
-            customerName: null,
-            customerPhone: null,
+            customerName: 'Manual Offline Customer',
+            customerPhone: '+919876543210',
           }),
         }),
       );
@@ -2499,10 +2500,13 @@ describe('NewSalePageComponent', () => {
 
     it('staleWarningCount advances while the page stays open', () => {
       vi.useFakeTimers();
+      vi.spyOn(TestBed.inject(OfflineSaleStateService), 'refreshSnapshot').mockResolvedValue(undefined);
+
+      const completedAt = new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString();
       const fixture = TestBed.createComponent(NewSalePageComponent);
       const component = fixture.componentInstance;
 
-      component.snapshotCompletedAt.set(new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString());
+      component.snapshotCompletedAt.set(completedAt);
       expect(component.staleWarningCount()).toBe(0);
 
       vi.advanceTimersByTime(31 * 60 * 1000);

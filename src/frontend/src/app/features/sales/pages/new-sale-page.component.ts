@@ -24,9 +24,6 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
-import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
-import { OfflineCustomerLiteSnapshot, OfflineSalesSnapshotIndexedDbService, OfflineSellableBatchSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
-import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
@@ -40,12 +37,8 @@ import type {
   SalePreviewDto,
   SalePreviewLineDto,
 } from '../services/sale.models';
-import { SaleService } from '../services/sale.service';
-import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
-import { OfflineSalePricingInput, OfflineSalePricingLineInput } from '../services/offline-sale-core.types';
-import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
-import { calculateOfflineFrozenSale } from '../services/offline-sale-pricing-calculator';
 import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SalesFacade } from '../state/sales.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
@@ -84,6 +77,7 @@ const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
 export class NewSalePageComponent {
   private readonly cartRetentionMs = 5 * 60 * 1000;
   private readonly offlineClockIntervalMs = 60 * 1000;
+  private readonly nowTick = signal(Date.now());
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
@@ -96,10 +90,7 @@ export class NewSalePageComponent {
   private readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly networkStatus = inject(NetworkStatusService);
-  private readonly offlineFinalization = inject(OfflineSaleFinalizationService);
-  private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
-  private readonly offlineSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
-  private readonly offlineQueueDb = inject(OfflineSalesQueueIndexedDbService);
+  private readonly offlineSaleState = inject(OfflineSaleStateService);
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = this.cartState.cart;
@@ -107,7 +98,7 @@ export class NewSalePageComponent {
   readonly searchSuggestions = signal<string[]>([]);
   readonly isSearchingBatches = signal(false);
   readonly batchSearchError = signal('');
-  readonly availableBatches = signal<AvailableBatchDto[]>([]);
+  readonly availableBatches = signal<readonly AvailableBatchDto[]>([]);
   readonly showBatchPicker = signal(false);
   readonly selectedBatch = signal<AvailableBatchDto | null>(null);
   readonly selectedCustomerId = signal<string | null>(null);
@@ -150,19 +141,16 @@ export class NewSalePageComponent {
   readonly cartBootstrapped = this.cartState.cartBootstrapped;
 
   // Offline mode signals
-  readonly deviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
-  readonly snapshotCompletedAt = signal<string | null>(null);
-  readonly offlinePendingCount = signal<number>(0);
-  readonly offlineNeedsReviewCount = signal<number>(0);
-  readonly offlineInvoiceRemaining = signal<number>(0);
+  readonly deviceSettings = this.offlineSaleState.offlineDeviceSettings;
+  readonly snapshotCompletedAt = this.offlineSaleState.snapshotCompletedAt;
+  readonly offlinePendingCount = this.offlineSaleState.offlinePendingCount;
+  readonly offlineNeedsReviewCount = this.offlineSaleState.offlineNeedsReviewCount;
+  readonly offlineInvoiceRemaining = this.offlineSaleState.offlineInvoiceRemaining;
+  readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
+  readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
   readonly isOfflineSubmitting = signal(false);
-  readonly offlineSubmitError = signal('');
   readonly offlineConfirmation = signal<{ invoiceNumber: string; grandTotal: number; clientSaleId: string } | null>(null);
   readonly showOfflineConfirmation = signal(false);
-  private offlineCatalogCache = signal<readonly OfflineSellableBatchSnapshot[] | null>(null);
-  private offlineCatalogCacheKey = signal<string | null>(null);
-  private readonly offlineCachedCustomers = signal<readonly OfflineCustomerLiteSnapshot[]>([]);
-  private readonly nowTick = signal(Date.now());
 
   readonly subtotalAmount = computed(() => {
     const preview = this.checkoutPreview();
@@ -209,31 +197,31 @@ export class NewSalePageComponent {
     return !!settings?.enabled;
   });
 
-  readonly snapshotAgeMs = computed(() => {
+  private snapshotAgeMs(): number | null {
     const completedAt = this.snapshotCompletedAt();
-    this.nowTick();
     if (!completedAt) return null;
-    const ms = Date.now() - Date.parse(completedAt);
+    const nowMs = this.nowTick();
+    const ms = nowMs - Date.parse(completedAt);
     return Number.isFinite(ms) ? ms : null;
-  });
+  }
 
-  readonly staleWarningCount = computed(() => {
+  staleWarningCount(): number {
     const ageMs = this.snapshotAgeMs();
     if (ageMs === null || ageMs <= 0) return 0;
     return Math.floor(ageMs / STALE_INTERVAL_4H);
-  });
+  }
 
-  readonly isSnapshotTooOld = computed(() => {
+  isSnapshotTooOld(): boolean {
     const ageMs = this.snapshotAgeMs();
     if (ageMs === null) return false;
     return ageMs > MAX_OFFLINE_AGE_MS;
-  });
+  }
 
-  readonly snapshotAgeHours = computed(() => {
+  snapshotAgeHours(): number | null {
     const ageMs = this.snapshotAgeMs();
     if (ageMs === null) return null;
     return Math.floor(ageMs / (60 * 60 * 1000));
-  });
+  }
 
   readonly canCreateNewCustomer = computed(() => !this.isOfflineMode());
 
@@ -254,10 +242,12 @@ export class NewSalePageComponent {
   });
 
   constructor() {
-    const offlineClockId = window.setInterval(() => {
+    const offlineClockId = setInterval(() => {
       this.nowTick.set(Date.now());
     }, this.offlineClockIntervalMs);
-    this.destroyRef.onDestroy(() => window.clearInterval(offlineClockId));
+    this.destroyRef.onDestroy(() => {
+      clearInterval(offlineClockId);
+    });
 
     this.customersFacade.loadCustomers();
     this.salesFacade.clearError();
@@ -395,22 +385,8 @@ export class NewSalePageComponent {
 
     // Load device settings and snapshot info reactively
     effect(() => {
-      const shopId = this.activeShopId();
-      if (!shopId) {
-        this.deviceSettings.set(null);
-        this.snapshotCompletedAt.set(null);
-        this.offlineCatalogCache.set(null);
-        this.offlineCatalogCacheKey.set(null);
-        this.offlineCachedCustomers.set([]);
-        return;
-      }
-      const settings = this.deviceSettingsStorage.loadSettings(shopId);
-      this.deviceSettings.set(settings);
-      this.offlineCatalogCache.set(null);
-      this.offlineCatalogCacheKey.set(null);
-      if (settings?.enabled) {
-        void this.refreshOfflineState(shopId, settings.deviceId);
-      }
+      this.activeShopId();
+      void this.offlineSaleState.refreshSnapshot();
     });
 
     // Schedule preview whenever cart changes (after bootstrap). Item-level discount
@@ -511,7 +487,7 @@ export class NewSalePageComponent {
     const query = event.query.trim().toLowerCase();
 
     if (this.isOfflineMode()) {
-      const filtered = this.offlineCachedCustomers()
+      const filtered = this.offlineCustomers()
         .filter((c) => !query || c.name.toLowerCase().includes(query))
         .map((c) => c.name.trim())
         .filter((name) => name.length > 0);
@@ -538,7 +514,7 @@ export class NewSalePageComponent {
     }
 
     if (this.isOfflineMode()) {
-      const matches = this.offlineCachedCustomers().filter(
+      const matches = this.offlineCustomers().filter(
         (c) => c.name.trim().toLowerCase() === normalizedName
       );
       if (matches.length !== 1) {
@@ -1368,33 +1344,6 @@ export class NewSalePageComponent {
     this.router.navigate(['/sales']);
   }
 
-  private async refreshOfflineState(shopId: string, deviceId: string): Promise<void> {
-    const snapshotInfo = await this.offlineSnapshotDb.getUsableSnapshotInfo(shopId);
-    this.snapshotCompletedAt.set(snapshotInfo?.completedAt ?? null);
-
-    const settings = this.resolveOfflineSettings(shopId);
-    if (settings?.lastReservedLease) {
-      this.offlineInvoiceRemaining.set(settings.lastReservedLease.remainingCount);
-    } else {
-      this.offlineInvoiceRemaining.set(0);
-    }
-
-    try {
-      const customers = await this.offlineSnapshotDb.getUsableCustomers(shopId);
-      this.offlineCachedCustomers.set(customers);
-    } catch {
-      // non-fatal
-    }
-
-    try {
-      const counts = await this.offlineQueueDb.getStatusCounts(shopId, deviceId);
-      this.offlinePendingCount.set(counts.Pending + counts.Syncing);
-      this.offlineNeedsReviewCount.set(counts.NeedsReview);
-    } catch {
-      // non-fatal
-    }
-  }
-
   private async searchOfflineCatalog(term: string): Promise<void> {
     this.isSearchingBatches.set(true);
     this.batchSearchError.set('');
@@ -1402,42 +1351,11 @@ export class NewSalePageComponent {
     this.showBatchPicker.set(false);
 
     try {
-      const shopId = this.activeShopId();
-      const cacheKey = `${shopId}:${this.snapshotCompletedAt() ?? ''}`;
-      let catalog = this.offlineCatalogCache();
-      if (!catalog || this.offlineCatalogCacheKey() !== cacheKey) {
-        catalog = await this.offlineSnapshotDb.getUsableBatches(shopId);
-        this.offlineCatalogCache.set(catalog);
-        this.offlineCatalogCacheKey.set(cacheKey);
-      }
-
-      const q = term.toLowerCase();
-      const matched = catalog.filter(
-        (b) =>
-          b.itemName.toLowerCase().includes(q) ||
-          b.barcode.toLowerCase().startsWith(q)
-      );
-
-      if (matched.length === 0) {
+      const batches = await this.offlineSaleState.searchOfflineCatalog(term);
+      if (batches.length === 0) {
         this.batchSearchError.set('sales.newSale.noBatchesFound');
         return;
       }
-
-      const batches: AvailableBatchDto[] = matched.map((b) => ({
-        barcode: b.barcode,
-        itemName: b.itemName,
-        batchNumber: b.batchNumber,
-        inventoryBatchId: b.batchId,
-        quantity: b.quantity,
-        costPrice: b.costPrice,
-        salesPrice: b.salesPrice,
-        mrp: b.mrp,
-        taxRatePercent: b.taxRatePercent,
-        taxIncluded: b.taxIncluded,
-        purchaseTaxIncluded: b.purchaseTaxIncluded,
-        hsnCode: b.hsnCode ?? null,
-        expiryDate: b.expiryDate ?? null,
-      }));
 
       this.availableBatches.set(batches);
       this.showBatchPicker.set(true);
@@ -1458,8 +1376,15 @@ export class NewSalePageComponent {
     const requestId = this.salePreview.beginPreviewRequest();
 
     try {
-      const rules = await this.offlineSnapshotDb.getUsableDiscountRules(shopId);
-      const preview = this.buildOfflinePreview(cart, rules);
+      const preview = await this.offlineSaleState.buildOfflinePreview(cart, {
+        paymentMethod: this.paymentForm.controls.paymentMethod.value,
+        paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
+        customerId: this.selectedCustomerId(),
+        customerName: this.customerForm.controls.customerName.value.trim() || null,
+        customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
+        saleDiscountType: this.saleDiscountType(),
+        saleDiscountValue: this.saleDiscountValue(),
+      });
       this.salePreview.finishPreviewRequest(requestId, preview, {
         onPreviewApplied: (nextPreview, oldPreview) => {
           this.detectAndHighlightChangedRows(oldPreview, nextPreview);
@@ -1474,279 +1399,57 @@ export class NewSalePageComponent {
     }
   }
 
-  private buildOfflinePreview(
-    cart: readonly CartItem[],
-    rules: readonly {
-      readonly ruleId: string;
-      readonly ruleType: string;
-      readonly inventoryBatchId?: string | null;
-      readonly percentage: number;
-      readonly thresholdAmount?: number | null;
-    }[],
-  ): SalePreviewDto {
-    const pricing = calculateOfflineFrozenSale({
-      soldAt: new Date().toISOString(),
-      paymentMethod: this.paymentForm.controls.paymentMethod.value,
-      paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
-      customerId: this.selectedCustomerId(),
-      customerName: this.customerForm.controls.customerName.value.trim() || null,
-      customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
-      saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
-      lines: cart.map((item) => ({
-        clientLineId: item.clientLineKey,
-        inventoryBatchId: item.inventoryBatchId,
-        itemId: item.inventoryBatchId,
-        barcode: item.barcode,
-        itemName: item.itemName,
-        batchNumber: item.batchNumber,
-        quantity: item.quantity,
-        salesPrice: item.salesPrice,
-        mrp: item.mrp,
-        costPrice: item.costPrice,
-        taxRatePercent: item.taxRatePercent,
-        taxIncluded: item.taxIncluded,
-        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
-        hsnCode: item.hsnCode ?? null,
-      })),
-      rules,
-    });
-
-    const configuredRuleByBatchId = new Map(
-      rules
-        .filter((rule) => rule.ruleType === 'BatchPercentage' && rule.inventoryBatchId && rule.percentage > 0)
-        .map((rule) => [rule.inventoryBatchId!, rule])
-    );
-    const saleLevelEligibleSubtotal = this.roundAmount(
-      pricing.lines.reduce((sum, line) => sum + (line.preTaxAmount - line.itemDiscountAmount), 0)
-    );
-
-    return {
-      totalAmount: pricing.totals.grandTotal,
-      totalTaxableAmount: this.roundAmount(pricing.lines.reduce((sum, line) => sum + line.taxableAmount, 0)),
-      totalTaxAmount: pricing.totals.totalTax,
-      totalDiscountAmount: pricing.totals.totalDiscount,
-      saleLevelEligibleSubtotal,
-      configuredSaleRule: null,
-      lines: pricing.lines.map((line) => {
-        const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
-        const preTaxMargin = Math.max(0, line.preTaxAmount - (line.costPrice * line.quantity));
-        const maxAllowedItemDiscountFlat = this.roundAmount(preTaxMargin);
-        const maxAllowedItemDiscountPercent = line.preTaxAmount > 0
-          ? this.roundAmount((preTaxMargin * 100) / line.preTaxAmount)
-          : 0;
-
-        return {
-          itemId: line.itemId,
-          barcode: line.barcode,
-          itemName: line.itemName,
-          inventoryBatchId: line.inventoryBatchId,
-          batchNumber: line.batchNumber,
-          quantity: line.quantity,
-          costPrice: line.costPrice,
-          salesPrice: line.salesPrice,
-          mrp: line.mrp,
-          taxRatePercent: line.taxRatePercent,
-          isPriceIncludingTax: line.taxIncluded,
-          preTaxAmountBeforeDiscount: line.preTaxAmount,
-          itemDiscountAmount: line.itemDiscountAmount,
-          saleDiscountAmount: line.saleDiscountAmount,
-          taxableAmount: line.taxableAmount,
-          taxAmount: line.taxAmount,
-          lineTotalAmount: line.lineTotal,
-          maxAllowedItemDiscountFlat,
-          maxAllowedItemDiscountPercent,
-          configuredBatchRuleId: configuredRule?.ruleId ?? null,
-          configuredBatchRulePercentage: configuredRule?.percentage ?? null,
-          hasClientPriceMismatch: false,
-          clientLineKey: line.clientLineId,
-        };
-      }),
-      infos: [],
-      warnings: [],
-    };
-  }
-
   private async onOfflineSubmit(): Promise<void> {
     if (this.isOfflineSubmitting()) return;
 
-    const shopId = this.activeShopId();
-    const settings = this.resolveOfflineSettings(shopId);
-    if (!settings?.enabled || !settings.deviceId) {
-      this.paymentSplitError.set('sales.newSale.offline.blockDeviceNotEnabled');
-      return;
-    }
-
-    const snapshotCompletedAt = await this.resolveOfflineSnapshotCompletedAt(shopId);
-    if (!snapshotCompletedAt) {
-      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotStale');
-      return;
-    }
-
-    const snapshotAgeMs = Date.now() - Date.parse(snapshotCompletedAt);
-    if (!Number.isFinite(snapshotAgeMs)) {
-      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotStale');
-      return;
-    }
-
-    if (snapshotAgeMs > MAX_OFFLINE_AGE_MS) {
-      this.paymentSplitError.set('sales.newSale.offline.blockSnapshotTooOld');
-      return;
-    }
-
-    if (!this.hasUsableOfflineInvoiceLease(settings)) {
-      this.paymentSplitError.set('sales.newSale.offline.blockInvoiceUnavailable');
-      return;
-    }
-
-    const hasGrace = await this.authService.canUseOfflineSalesAuthGrace();
-    if (!hasGrace) {
-      this.paymentSplitError.set('sales.newSale.offline.blockAuthGraceInvalid');
-      return;
-    }
-
-    const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
-    const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
-    const totalAmount = this.roundAmount(this.totalAmount());
-
-    if (
-      !Number.isFinite(paidAmount) ||
-      !Number.isFinite(dueAmount) ||
-      paidAmount < 0 ||
-      dueAmount < 0 ||
-      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
-    ) {
-      this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
-      return;
-    }
-
-    const paymentMethod = this.paymentForm.controls.paymentMethod.value;
-    const offlineCustomer = await this.resolveOfflineCustomer(shopId);
-    if ((paymentMethod === 4 || dueAmount > 0) && !offlineCustomer) {
-      this.paymentSplitError.set('sales.newSale.offline.blockDueRequiresCustomer');
-      return;
-    }
-
     this.isOfflineSubmitting.set(true);
-    this.offlineSubmitError.set('');
     this.paymentSplitError.set('');
 
     try {
-      const customerName = offlineCustomer?.name ?? null;
-      const customerPhone = offlineCustomer?.phoneNumber ?? null;
-
-      const lines: OfflineSalePricingLineInput[] = this.cart().map((item) => ({
-        clientLineId: item.clientLineKey,
-        inventoryBatchId: item.inventoryBatchId,
-        itemId: item.inventoryBatchId,
-        barcode: item.barcode,
-        itemName: item.itemName,
-        batchNumber: item.batchNumber,
-        quantity: item.quantity,
-        salesPrice: item.salesPrice,
-        mrp: item.mrp,
-        costPrice: item.costPrice,
-        taxRatePercent: item.taxRatePercent,
-        taxIncluded: item.taxIncluded,
-        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
-        hsnCode: item.hsnCode ?? null,
-      }));
-
-      const pricingInput: OfflineSalePricingInput = {
-        soldAt: new Date().toISOString(),
+      const result = await this.offlineSaleState.submitOfflineSale({
         paymentMethod: this.paymentForm.controls.paymentMethod.value,
-        paidAmount,
-        customerId: offlineCustomer?.customerId ?? null,
-        customerName,
-        customerPhone,
-        saleDiscount: { type: this.saleDiscountType() as 0 | 1 | 2, value: this.saleDiscountValue() },
-        lines,
-        rules: [],
-      };
-
-      const fiscalYear = settings.lastReservedLease?.fiscalYear ?? new Date().getFullYear().toString();
-      const request: OfflineFinalizeRequest = {
-        shopId,
-        deviceId: settings.deviceId,
-        fiscalYear,
-        pricingInput,
-        maxSnapshotAgeMs: MAX_OFFLINE_AGE_MS,
-      };
-
-      const result = await this.offlineFinalization.finalizeAndQueue(request);
+        paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
+        dueAmount: this.toFiniteAmount(this.paymentForm.controls.dueAmount.value),
+        totalAmount: this.roundAmount(this.totalAmount()),
+        customerId: this.selectedCustomerId(),
+        customerName: this.customerForm.controls.customerName.value.trim() || null,
+        customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
+        selectedCustomerId: this.selectedCustomerId(),
+        saleDiscountType: this.saleDiscountType(),
+        saleDiscountValue: this.saleDiscountValue(),
+        lines: this.cart().map((item) => ({
+          clientLineId: item.clientLineKey,
+          inventoryBatchId: item.inventoryBatchId,
+          itemId: item.inventoryBatchId,
+          barcode: item.barcode,
+          itemName: item.itemName,
+          batchNumber: item.batchNumber,
+          quantity: item.quantity,
+          salesPrice: item.salesPrice,
+          mrp: item.mrp,
+          costPrice: item.costPrice,
+          taxRatePercent: item.taxRatePercent,
+          taxIncluded: item.taxIncluded,
+          itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+          hsnCode: item.hsnCode ?? null,
+        })),
+      });
 
       if (result.ok) {
-        this.updateOfflineInvoiceLeaseCount(shopId, result.remainingInvoiceCount);
         this.offlineConfirmation.set({
-          invoiceNumber: result.payload.invoiceNumber,
-          grandTotal: result.payload.pricing.totals.grandTotal,
-          clientSaleId: result.payload.clientSaleId,
+          invoiceNumber: result.confirmation.invoiceNumber,
+          grandTotal: result.confirmation.grandTotal,
+          clientSaleId: result.confirmation.clientSaleId,
         });
         this.showOfflineConfirmation.set(true);
         this.resetTransientState();
-        this.offlineCatalogCache.set(null);
-        this.offlineCatalogCacheKey.set(null);
-        await this.refreshOfflineState(shopId, settings.deviceId);
+        await this.offlineSaleState.refreshSnapshot();
       } else {
-        const reasonKey: Record<typeof result.reason, string> = {
-          SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
-          MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
-          INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',
-          MISSING_DUE_CUSTOMER: 'sales.newSale.offline.blockDueRequiresCustomer',
-          INVOICE_UNAVAILABLE: 'sales.newSale.offline.blockInvoiceUnavailable',
-        };
-        this.paymentSplitError.set(reasonKey[result.reason]);
+        this.paymentSplitError.set(result.errorKey);
       }
     } finally {
       this.isOfflineSubmitting.set(false);
     }
-  }
-
-  private resolveOfflineSettings(shopId: string): OfflineSalesDeviceSettings | null {
-    const current = this.deviceSettings();
-    if (current?.shopId === shopId) {
-      return current;
-    }
-
-    const loaded = this.deviceSettingsStorage.loadSettings(shopId);
-    this.deviceSettings.set(loaded);
-    return loaded;
-  }
-
-  private async resolveOfflineSnapshotCompletedAt(shopId: string): Promise<string | null> {
-    const current = this.snapshotCompletedAt();
-    if (current) {
-      return current;
-    }
-
-    const snapshotInfo = await this.offlineSnapshotDb.getUsableSnapshotInfo(shopId);
-    const completedAt = snapshotInfo?.completedAt ?? null;
-    this.snapshotCompletedAt.set(completedAt);
-    return completedAt;
-  }
-
-  private hasUsableOfflineInvoiceLease(settings: OfflineSalesDeviceSettings): boolean {
-    const lease = settings.lastReservedLease;
-    if (!lease || lease.remainingCount <= 0) {
-      return false;
-    }
-
-    const expiresAtMs = Date.parse(lease.expiresAt);
-    return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
-  }
-
-  private async resolveOfflineCustomer(shopId: string): Promise<OfflineCustomerLiteSnapshot | null> {
-    const selectedCustomerId = this.selectedCustomerId();
-    if (!selectedCustomerId) {
-      return null;
-    }
-
-    let customers = this.offlineCachedCustomers();
-    if (customers.length === 0) {
-      customers = await this.offlineSnapshotDb.getUsableCustomers(shopId);
-      this.offlineCachedCustomers.set(customers);
-    }
-
-    return customers.find((customer) => customer.customerId === selectedCustomerId) ?? null;
   }
 
   printA4(saleId: string): void {
@@ -1773,23 +1476,5 @@ export class NewSalePageComponent {
     }
 
     window.open(`/sales/${confirmation.clientSaleId}/print?template=thermal&offline=1`, '_blank');
-  }
-
-  private updateOfflineInvoiceLeaseCount(shopId: string, remainingCount: number): void {
-    const updated = this.deviceSettingsStorage.updateSettings(shopId, (current) => ({
-      ...current,
-      lastReservedLease: current.lastReservedLease
-        ? {
-            ...current.lastReservedLease,
-            remainingCount,
-          }
-        : null,
-    }));
-
-    if (updated) {
-      this.deviceSettings.set(updated);
-    }
-
-    this.offlineInvoiceRemaining.set(remainingCount);
   }
 }
