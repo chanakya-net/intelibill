@@ -1,0 +1,68 @@
+import { TestBed } from '@angular/core/testing';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { NewSalePageComponent } from '../../../app/features/sales/pages/new-sale-page.component';
+import { setupNewSalePageTestBed } from './test-helpers';
+
+describe('new-sale-page: batch search bar', () => {
+  let deps: ReturnType<typeof setupNewSalePageTestBed>['deps'];
+
+  beforeEach(() => {
+    deps = setupNewSalePageTestBed().deps;
+  });
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  it('updates search term via input event', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    const vm = component.vm;
+
+    component.onBatchSearchTermChanged('oreo');
+    expect(vm.searchInput()).toBe('oreo');
+  });
+
+  it('shows batch picker when multiple batches returned', () => {
+    deps.inventoryService.getAvailableBatchesBySearchTerm.mockReturnValueOnce({
+      subscribe: ({ next }: any) =>
+        next([
+          {
+            barcode: 'A',
+            itemName: 'Oreo',
+            batchNumber: 'B-01',
+            inventoryBatchId: 'batch-1',
+            quantity: 10,
+            salesPrice: 50,
+            mrp: 60,
+            taxRatePercent: 18,
+            taxIncluded: true,
+            expiryDate: null,
+          },
+          {
+            barcode: 'B',
+            itemName: 'Biscuit',
+            batchNumber: 'B-02',
+            inventoryBatchId: 'batch-2',
+            quantity: 10,
+            salesPrice: 50,
+            mrp: 60,
+            taxRatePercent: 18,
+            taxIncluded: true,
+            expiryDate: null,
+          },
+        ]),
+    } as any);
+
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    const vm = component.vm;
+
+    vm.searchInput.set('b');
+    void vm.onBarcodeSearch();
+
+    expect(vm.showBatchPicker()).toBe(true);
+    expect(vm.availableBatches().length).toBe(2);
+  });
+});

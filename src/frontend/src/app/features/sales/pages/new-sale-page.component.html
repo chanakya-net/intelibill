@@ -8,21 +8,21 @@
       [label]="'common.cancel' | transloco"
       severity="secondary"
       [outlined]="true"
-      (click)="onCancel()"
+      (click)="vm.onCancel()"
     />
   </header>
 
-  @if (showUpdateNotification()) {
+  @if (vm.showUpdateNotification()) {
     <div class="update-notification">
       <i class="pi pi-info-circle"></i>
-      <span>{{ updateNotificationText() | transloco }}</span>
+      <span>{{ vm.updateNotificationText() | transloco }}</span>
     </div>
   }
 
-  <app-offline-status-banner [isOffline]="isOfflineMode()" [syncStatus]="syncStatus()" />
+  <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
 
-  @if (serverError()) {
-    <p class="error">{{ serverError() }}</p>
+  @if (vm.serverError()) {
+    <p class="error">{{ vm.serverError() }}</p>
   }
 
   <div class="new-sale-body">
@@ -32,9 +32,9 @@
       </ng-template>
 
       <app-batch-search-bar
-        [searchTerm]="searchInput()"
-        [loading]="isSearchingBatches()"
-        [searchSuggestions]="searchSuggestions()"
+        [searchTerm]="vm.searchInput()"
+        [loading]="vm.isSearchingBatches()"
+        [searchSuggestions]="vm.searchSuggestions()"
         (searchTermChanged)="onBatchSearchTermChanged($event)"
         (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
         (suggestionSelected)="onSearchSuggestionSelected($event)"
@@ -43,15 +43,15 @@
         (cameraOpen)="openScanner()"
       />
 
-      @if (batchSearchError()) {
-        <p class="error mt-2">{{ batchSearchError().startsWith('sales.') ? (batchSearchError() | transloco) : batchSearchError() }}</p>
+      @if (vm.batchSearchError()) {
+        <p class="error mt-2">{{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}</p>
       }
 
       <app-batch-picker-dialog
-        [visible]="showBatchPicker()"
-        [batches]="availableBatches()"
-        [loading]="isSearchingBatches()"
-        [quantity]="batchPickerQuantity()"
+        [visible]="vm.showBatchPicker()"
+        [batches]="vm.availableBatches()"
+        [loading]="vm.isSearchingBatches()"
+        [quantity]="vm.batchPickerQuantity()"
         (batchSelected)="onBatchPickerBatchSelected($event)"
         (closed)="onBatchPickerClosed()"
         (quantityChanged)="onBatchQuantityChanged($event)"
@@ -59,7 +59,7 @@
     </p-card>
 
     <app-barcode-scanner-dialog
-      [visible]="isScannerOpen()"
+      [visible]="vm.isScannerOpen()"
       (visibleChange)="onScannerVisibilityChange($event)"
       (detected)="onScannedBarcode($event)"
     />
@@ -67,39 +67,39 @@
     <p-card>
       <ng-template pTemplate="header">
         <div class="card-header-row">
-          <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ cart().length }})</div>
+          <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length }})</div>
           <p-button
             [label]="'common.clear' | transloco"
             icon="pi pi-trash"
             severity="secondary"
             [text]="true"
-            [disabled]="cart().length === 0"
+            [disabled]="vm.cart().length === 0"
             (click)="onClearCart()"
           />
         </div>
       </ng-template>
 
       <app-cart-table
-        [cartItems]="cart()"
-        [highlightedRowKeys]="highlightedRowKeys()"
-        [checkoutPreview]="checkoutPreview()"
-        [saleDiscountType]="saleDiscountType()"
-        [saleDiscountError]="saleDiscountError()"
-        [isLineDiscountEditorOpen]="isLineDiscountEditorOpenFn"
-        [hasTax]="hasTaxFn"
-        [canIncrease]="canIncreaseFn"
-        [getLineSubtotal]="getLineSubtotalFn"
-        [getLineTaxAmount]="getLineTaxAmountFn"
-        [getLineTotal]="getLineTotalFn"
-        [getUnitSubtotal]="getUnitSubtotalFn"
-        [getUnitTaxAmount]="getUnitTaxAmountFn"
-        [getUnitFinalPrice]="getUnitFinalPriceFn"
-        [getPreviewLine]="getPreviewLineFn"
-        [getCartItemHsnError]="getCartItemHsnErrorFn"
-        [getCartItemTaxError]="getCartItemTaxErrorFn"
-        [getCartItemDiscountError]="getCartItemDiscountErrorFn"
-        [instantDiscountTypeOptions]="instantDiscountTypeOptions"
-        [totalAmount]="totalAmount()"
+        [cartItems]="vm.cart()"
+        [highlightedRowKeys]="vm.highlightedRowKeys()"
+        [checkoutPreview]="vm.checkoutPreview()"
+        [saleDiscountType]="vm.saleDiscountType()"
+        [saleDiscountError]="vm.saleDiscountError()"
+        [isLineDiscountEditorOpen]="vm.isLineDiscountEditorOpenFn"
+        [hasTax]="vm.hasTaxFn"
+        [canIncrease]="vm.canIncreaseFn"
+        [getLineSubtotal]="vm.getLineSubtotalFn"
+        [getLineTaxAmount]="vm.getLineTaxAmountFn"
+        [getLineTotal]="vm.getLineTotalFn"
+        [getUnitSubtotal]="vm.getUnitSubtotalFn"
+        [getUnitTaxAmount]="vm.getUnitTaxAmountFn"
+        [getUnitFinalPrice]="vm.getUnitFinalPriceFn"
+        [getPreviewLine]="vm.getPreviewLineFn"
+        [getCartItemHsnError]="vm.getCartItemHsnErrorFn"
+        [getCartItemTaxError]="vm.getCartItemTaxErrorFn"
+        [getCartItemDiscountError]="vm.getCartItemDiscountErrorFn"
+        [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+        [totalAmount]="vm.totalAmount()"
         (quantityChanged)="onCartTableQuantityChanged($event)"
         (itemRemoved)="onCartTableItemRemoved($event)"
         (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
@@ -116,12 +116,12 @@
       </ng-template>
 
       <app-sale-customer-section
-        [selectedCustomer]="selectedCustomer()"
-        [customerNameControl]="customerForm.controls.customerName"
-        [customerPhoneControl]="customerForm.controls.customerPhone"
-        [customerNameSuggestions]="customerNameSuggestions()"
-        [customers]="customerSelectionPool()"
-        [isOfflineMode]="isOfflineMode()"
+        [selectedCustomer]="vm.selectedCustomer()"
+        [customerNameControl]="vm.customerForm.controls.customerName"
+        [customerPhoneControl]="vm.customerForm.controls.customerPhone"
+        [customerNameSuggestions]="vm.customerNameSuggestions()"
+        [customers]="vm.customerSelectionPool()"
+        [isOfflineMode]="vm.isOfflineMode()"
         (customerSelected)="onCustomerSectionSelected($event)"
         (searchCustomers)="onCustomerSectionSearchCustomers($event)"
       />
@@ -133,20 +133,20 @@
       </ng-template>
 
       <app-sale-payment-section
-        [paymentMethods]="paymentMethodsForSelection()"
-        [selectedMethod]="selectedPaymentMethod()"
-        [paidAmount]="paymentForm.controls.paidAmount.value"
-        [dueAmount]="paymentForm.controls.dueAmount.value"
-        [isOfflineMode]="isOfflineMode()"
-        [totalAmount]="totalAmount()"
-        [currencyInputPt]="currencyInputPt"
-        [currencyGroupPt]="currencyGroupPt"
-        [currencyAddonPt]="currencyAddonPt"
-        [canUseCredit]="canUseCredit()"
-        [dueAmountDisabled]="!isOfflineMode() && !canUseCredit()"
-        [paymentSplitError]="paymentSplitError()"
-        [isSubmitting]="isOfflineMode() ? isOfflineSubmitting() : isSubmitting()"
-        [cartLength]="cart().length"
+        [paymentMethods]="vm.paymentMethodsForSelection()"
+        [selectedMethod]="vm.selectedPaymentMethod()"
+        [paidAmount]="vm.paymentForm.controls.paidAmount.value"
+        [dueAmount]="vm.paymentForm.controls.dueAmount.value"
+        [isOfflineMode]="vm.isOfflineMode()"
+        [totalAmount]="vm.totalAmount()"
+        [currencyInputPt]="vm.currencyInputPt"
+        [currencyGroupPt]="vm.currencyGroupPt"
+        [currencyAddonPt]="vm.currencyAddonPt"
+        [canUseCredit]="vm.canUseCredit()"
+        [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
+        [paymentSplitError]="vm.paymentSplitError()"
+        [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
+        [cartLength]="vm.cart().length"
         (methodChanged)="onPaymentMethodChanged($event)"
         (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
         (dueAmountChanged)="onPaymentDueAmountChanged($event)"
@@ -154,19 +154,19 @@
       />
 
       <app-cart-checkout-summary
-        [preview]="checkoutPreview()"
-        [loading]="isPreviewLoading()"
-        [totalAmount]="totalAmount()"
-        [subtotalAmount]="subtotalAmount()"
-        [totalTaxAmount]="totalTaxAmount()"
-        [totalDiscountAmount]="totalDiscountAmount()"
-        [saleDiscountType]="saleDiscountType()"
-        [saleDiscountValue]="saleDiscountValue()"
-        [isSaleDiscountEligible]="isSaleDiscountEligible()"
-        [isDiscountEditorOpen]="isSaleDiscountEditorOpen()"
-        [instantDiscountTypeOptions]="instantDiscountTypeOptions"
-        [saleDiscountError]="saleDiscountError()"
-        (saleDiscountEditorToggled)="toggleSaleDiscountEditor()"
+        [preview]="vm.checkoutPreview()"
+        [loading]="vm.isPreviewLoading()"
+        [totalAmount]="vm.totalAmount()"
+        [subtotalAmount]="vm.subtotalAmount()"
+        [totalTaxAmount]="vm.totalTaxAmount()"
+        [totalDiscountAmount]="vm.totalDiscountAmount()"
+        [saleDiscountType]="vm.saleDiscountType()"
+        [saleDiscountValue]="vm.saleDiscountValue()"
+        [isSaleDiscountEligible]="vm.isSaleDiscountEligible()"
+        [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
+        [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+        [saleDiscountError]="vm.saleDiscountError()"
+        (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
         (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
         (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
       />
@@ -175,23 +175,23 @@
 </section>
 
 <app-sale-confirmation-dialog
-  [visible]="showConfirmation()"
-  [saleResult]="saleConfirmationResult()"
+  [visible]="vm.showConfirmation()"
+  [saleResult]="vm.saleConfirmationResult()"
   [titleKey]="'sales.newSale.confirmation.title'"
-  (closed)="onDone()"
-  (printA4Requested)="onOnlineConfirmationPrintA4Requested()"
-  (printThermalRequested)="onOnlineConfirmationPrintThermalRequested()"
+  (closed)="vm.onDone()"
+  (printA4Requested)="vm.onOnlineConfirmationPrintA4Requested()"
+  (printThermalRequested)="vm.onOnlineConfirmationPrintThermalRequested()"
 />
 
 <app-sale-confirmation-dialog
-  [visible]="showOfflineConfirmation()"
-  [saleResult]="offlineSaleConfirmationResult()"
+  [visible]="vm.showOfflineConfirmation()"
+  [saleResult]="vm.offlineSaleConfirmationResult()"
   [titleKey]="'sales.newSale.offline.confirmation.title'"
   [saleTypeLabel]="'sales.invoice.invoiceNumber'"
   [doneButtonLabel]="'common.done'"
   [printA4ButtonLabel]="'sales.invoice.printA4'"
   [printThermalButtonLabel]="'sales.invoice.printThermal'"
-  (closed)="onOfflineDone()"
-  (printA4Requested)="onOfflineConfirmationPrintA4Requested()"
-  (printThermalRequested)="onOfflineConfirmationPrintThermalRequested()"
+  (closed)="vm.onOfflineDone()"
+  (printA4Requested)="vm.onOfflineConfirmationPrintA4Requested()"
+  (printThermalRequested)="vm.onOfflineConfirmationPrintThermalRequested()"
 />
