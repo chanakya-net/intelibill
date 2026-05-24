@@ -957,7 +957,12 @@
     "sectionExpenses": "Expense Details",
     "sectionPaymentBehavior": "Payment Behavior",
     "sectionStockRisk": "Stock Risk",
-    "sectionReceivables": "Receivables"
+    "sectionReceivables": "Receivables",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "Discount Rules",

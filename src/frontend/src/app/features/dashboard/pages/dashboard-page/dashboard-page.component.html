@@ -41,7 +41,7 @@
       <label class="combo-field">
         <span>Chart Type</span>
         <p-select
-          [options]="chartTypeOptions"
+          [options]="chartTypeOptions()"
           optionLabel="label"
           optionValue="value"
           [ngModel]="selectedChartType()"
@@ -151,16 +151,14 @@
     }
 
     <div class="dashboard-primary-layout">
-      <p-card class="dashboard-primary-chart-card">
-        <ng-template pTemplate="header">
-          <span class="kpi-section-title">{{ selectedChartTitle() }}</span>
-        </ng-template>
-        @if (selectedChartData()) {
+      @if (selectedChartData()) {
+        <p-card class="dashboard-primary-chart-card">
+          <ng-template pTemplate="header">
+            <span class="kpi-section-title">{{ selectedChartTitle() }}</span>
+          </ng-template>
           <p-chart [type]="selectedPrimeChartType()" [data]="selectedChartData()" [options]="selectedChartOptions()"></p-chart>
-        } @else {
-          <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
-        }
-      </p-card>
+        </p-card>
+      }
     </div>
 
     <!-- Sales KPIs -->

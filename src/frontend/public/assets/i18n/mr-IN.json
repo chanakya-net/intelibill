@@ -957,7 +957,12 @@
     "sectionExpenses": "खर्च तपशील",
     "sectionPaymentBehavior": "पेमेंट वर्तन",
     "sectionStockRisk": "स्टॉक जोखीम",
-    "sectionReceivables": "प्राप्य"
+    "sectionReceivables": "प्राप्य",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "सवलत नियम",

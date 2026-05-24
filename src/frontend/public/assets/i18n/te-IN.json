@@ -957,7 +957,12 @@
     "sectionExpenses": "ఖర్చు వివరాలు",
     "sectionPaymentBehavior": "చెల్లింపు ప్రవర్తన",
     "sectionStockRisk": "స్టాక్ రిస్క్",
-    "sectionReceivables": "స్వీకరించదగినవి"
+    "sectionReceivables": "స్వీకరించదగినవి",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "తగ్గింపు నియమాలు",

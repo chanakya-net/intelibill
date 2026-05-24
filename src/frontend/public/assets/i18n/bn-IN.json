@@ -957,7 +957,12 @@
     "sectionExpenses": "খরচ বিবরণ",
     "sectionPaymentBehavior": "পেমেন্ট আচরণ",
     "sectionStockRisk": "স্টক ঝুঁকি",
-    "sectionReceivables": "প্রাপ্য"
+    "sectionReceivables": "প্রাপ্য",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "ছাড়ের নিয়ম",

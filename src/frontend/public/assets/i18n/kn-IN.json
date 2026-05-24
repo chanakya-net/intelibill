@@ -957,7 +957,12 @@
     "sectionExpenses": "ವೆಚ್ಚದ ವಿವರಗಳು",
     "sectionPaymentBehavior": "ಪಾವತಿ ನಡವಳಿಕೆ",
     "sectionStockRisk": "ಸ್ಟಾಕ್ ಅಪಾಯ",
-    "sectionReceivables": "ಕರಾರುಗಳು"
+    "sectionReceivables": "ಕರಾರುಗಳು",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "ರಿಯಾಯಿತಿ ನಿಯಮಗಳು",

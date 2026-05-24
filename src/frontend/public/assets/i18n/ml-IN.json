@@ -957,7 +957,12 @@
     "sectionExpenses": "ചെലവ് വിശദാംശങ്ങൾ",
     "sectionPaymentBehavior": "പേയ്മെൻ്റ് പെരുമാറ്റം",
     "sectionStockRisk": "സ്റ്റോക്ക് റിസ്ക്",
-    "sectionReceivables": "ലഭിക്കേണ്ടവ"
+    "sectionReceivables": "ലഭിക്കേണ്ടവ",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "കിഴിവ് നിയമങ്ങൾ",

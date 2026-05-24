@@ -957,7 +957,12 @@
     "sectionExpenses": "व्यय विवरण",
     "sectionPaymentBehavior": "भुगतान व्यवहार",
     "sectionStockRisk": "स्टॉक जोखिम",
-    "sectionReceivables": "प्राप्य"
+    "sectionReceivables": "प्राप्य",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut"
   },
   "discounts": {
     "title": "छूट नियम",

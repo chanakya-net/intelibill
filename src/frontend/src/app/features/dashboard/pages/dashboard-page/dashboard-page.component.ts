@@ -178,13 +178,13 @@ export class DashboardPageComponent implements OnInit {
     { label: this.transloco.translate('dashboard.paymentMixTitle'), value: 'paymentMix' },
   ]);
 
-  readonly chartTypeOptions: SelectOption<DashboardChartType>[] = [
-    { label: 'Column Bar', value: 'bar' },
-    { label: 'Column Bar Stacked', value: 'stackedBar' },
-    { label: 'Line', value: 'line' },
-    { label: 'Pie', value: 'pie' },
-    { label: 'Donut', value: 'doughnut' },
-  ];
+  readonly chartTypeOptions = computed<SelectOption<DashboardChartType>[]>(() => [
+    { label: this.transloco.translate('dashboard.chartTypeBar'), value: 'bar' },
+    { label: this.transloco.translate('dashboard.chartTypeStackedBar'), value: 'stackedBar' },
+    { label: this.transloco.translate('dashboard.chartTypeLine'), value: 'line' },
+    { label: this.transloco.translate('dashboard.chartTypePie'), value: 'pie' },
+    { label: this.transloco.translate('dashboard.chartTypeDoughnut'), value: 'doughnut' },
+  ]);
 
   readonly selectedPreset = toSignal(this.facade.selectedPreset$, { initialValue: 'last30' as DashboardPreset });
   readonly activeStartDate = toSignal(this.facade.startDate$, { initialValue: '' });
