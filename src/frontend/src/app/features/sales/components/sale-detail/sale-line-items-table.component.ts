@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, computed } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { TableModule } from 'primeng/table';
 import { SaleItemDto } from '../../services/sale.models';
@@ -14,7 +14,7 @@ export class SaleLineItemsTableComponent {
   @Input({ required: true }) items: readonly SaleItemDto[] = [];
   @Input() currency = 'INR';
 
-  protected readonly inferredTaxIncludedForMissingItems = computed(() => {
+  protected get inferredTaxIncludedForMissingItems(): boolean {
     const hasItems = this.items.length > 0;
     if (!hasItems) {
       return true;
@@ -31,7 +31,7 @@ export class SaleLineItemsTableComponent {
     const includedDelta = Math.abs(includedTaxTotal - totalTax);
     const excludedDelta = Math.abs(excludedTaxTotal - totalTax);
     return includedDelta <= excludedDelta;
-  });
+  }
 
   getUnitSubtotal(item: SaleItemDto): number {
     if (item.taxRatePercent <= 0 || !this.isPriceIncludingTax(item)) {
@@ -54,7 +54,11 @@ export class SaleLineItemsTableComponent {
       return item.isPriceIncludingTax;
     }
 
-    return this.inferredTaxIncludedForMissingItems();
+    return this.inferredTaxIncludedForMissingItems;
+  }
+
+  isFullyReturned(item: SaleItemDto): boolean {
+    return item.returnableQuantity <= 0;
   }
 
   protected getLineTaxAmountForMode(item: SaleItemDto, isPriceIncludingTax: boolean): number {

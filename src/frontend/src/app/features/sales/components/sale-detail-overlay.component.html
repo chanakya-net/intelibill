@@ -1,1 +1,258 @@
-<p-dialog [visible]="visible" (visibleChange)="onClose()" [modal]="true" [style]="{ width: '92vw', maxWidth: '860px' }" [draggable]="false" [resizable]="false" [closeOnEscape]="true" [header]="'sales.detail.title' | transloco" > @if (isLoading()) { <div class="flex justify-center py-8"> <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" /> </div> } @if (!isLoading() && sale()) { <div class="flex flex-col gap-4"> <div class="grid grid-cols-2 gap-3 text-sm"> <div> <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.invoiceNumber' | transloco }}</p> <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p> </div> <div> <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.date' | transloco }}</p> <p class="text-slate-700">{{ sale()!.soldAt | date:'dd MMM yyyy, h:mm a' }}</p> </div> </div> <p-divider /> <app-sale-line-items-table [items]="$any(sale()!.items)" currency="INR" /> @if (sale()!.returns.length > 0) { <p-divider /> <div class="flex flex-col gap-2"> <div class="flex items-center justify-between"> <h3 class="text-sm font-semibold text-slate-700">{{ 'sales.returns.history' | transloco }}</h3> </div> <p-table [value]="$any(sale()!.returns)" styleClass="p-datatable-sm"> <ng-template pTemplate="header"> <tr> <th>{{ 'sales.returns.col.returnNumber' | transloco }}</th> <th>{{ 'sales.returns.col.date' | transloco }}</th> <th>{{ 'sales.returns.col.refund' | transloco }}</th> <th>{{ 'sales.returns.col.status' | transloco }}</th> <th class="w-24">{{ 'sales.returns.col.action' | transloco }}</th> </tr> </ng-template> <ng-template pTemplate="body" let-returnRecord> <tr [class.opacity-60]="returnRecord.isVoided"> <td> <div class="flex flex-col"> <span class="font-medium text-slate-700">{{ returnRecord.returnNumber }}</span> @if (returnRecord.isVoided && returnRecord.voidReason) { <span class="text-xs text-slate-500">{{ 'sales.returns.col.voidReason' | transloco }} {{ returnRecord.voidReason }}</span> } </div> </td> <td>{{ returnRecord.returnedAt | date:'dd MMM yyyy, h:mm a' }}</td> <td>₹{{ returnRecord.totalRefundAmount | number:'1.2-2' }}</td> <td> <p-tag [severity]="returnStatusSeverity(returnRecord)" [value]="returnStatusLabel(returnRecord)" /> </td> <td> @if (canSubmitReturns() && !returnRecord.isVoided) { <p-button icon="pi pi-ban" severity="danger" [text]="true" [rounded]="true" [attr.aria-label]="'Void ' + returnRecord.returnNumber" (click)="openVoidReturn(returnRecord)" /> } </td> </tr> </ng-template> </p-table> </div> } <app-sale-summary-panel [sale]="sale()!" currency="INR" /> </div> } <ng-template pTemplate="footer"> @if (canPreviewReturns()) { <p-button [label]="'sales.invoice.returnItems' | transloco" icon="pi pi-undo" severity="warn" [outlined]="true" (click)="openReturnPreview()" /> } @if (sale()) { <p-button [label]="'sales.invoice.printA4' | transloco" icon="pi pi-print" [outlined]="true" (click)="printA4()" /> <p-button [label]="'sales.invoice.printThermal' | transloco" icon="pi pi-print" [outlined]="true" (click)="printThermal()" /> } <p-button [label]="'sales.invoice.close' | transloco" severity="secondary" (click)="onClose()" /> </ng-template> </p-dialog> <p-dialog [visible]="showVoidReturn()" (visibleChange)="closeVoidReturn()" [modal]="true" [style]="{ width: '92vw', maxWidth: '520px' }" [draggable]="false" [resizable]="false" [header]="'sales.returns.void.title' | transloco" > @if (selectedReturnToVoid()) { <div class="flex flex-col gap-4"> <div> <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.void.returnLabel' | transloco }}</p> <p class="font-bold text-slate-800">{{ selectedReturnToVoid()!.returnNumber }}</p> </div> <label class="flex flex-col gap-1 text-sm"> <span class="font-medium text-slate-600">{{ 'sales.returns.void.reason' | transloco }}</span> <textarea pInputTextarea rows="3" [ngModel]="voidReason()" (ngModelChange)="updateVoidReason($event)" ></textarea> </label> @if (validationMessages().length > 0) { <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"> @for (message of validationMessages(); track message) { <p>{{ message }}</p> } </div> } @if (previewError()) { <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div> } </div> } <ng-template pTemplate="footer"> <p-button [label]="'sales.returns.void.submit' | transloco" icon="pi pi-ban" severity="danger" [loading]="isSubmitting()" [disabled]="isSubmitting()" (click)="submitVoidReturn()" /> <p-button [label]="'common.cancel' | transloco" severity="secondary" (click)="closeVoidReturn()" /> </ng-template> </p-dialog> <p-dialog [visible]="showReturnPreview()" (visibleChange)="closeReturnPreview()" [modal]="true" [style]="{ width: '94vw', maxWidth: '980px' }" [draggable]="false" [resizable]="false" [header]="'sales.returns.preview.title' | transloco" > @if (sale()) { <div class="flex flex-col gap-4"> <div class="flex items-start justify-between gap-3"> <div> <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.preview.invoice' | transloco }}</p> <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p> </div> <p-tag [severity]="hasFinancialAccess() ? 'success' : 'secondary'" [value]="(hasFinancialAccess() ? 'sales.returns.preview.financialPreview' : 'sales.returns.preview.operationalPreview') | transloco" /> </div> <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm"> <ng-template pTemplate="header"> <tr> <th style="width: 3rem"></th> <th>{{ 'sales.returns.preview.col.item' | transloco }}</th> <th style="width: 4rem">{{ 'sales.returns.preview.col.sold' | transloco }}</th> <th style="width: 5rem">{{ 'sales.returns.preview.col.returned' | transloco }}</th> <th style="width: 5.5rem">{{ 'sales.returns.preview.col.returnable' | transloco }}</th> <th style="width: 6rem">{{ 'sales.returns.preview.col.returnQty' | transloco }}</th> <th style="width: 9rem">{{ 'sales.returns.preview.col.condition' | transloco }}</th> @if (hasFinancialAccess()) { <th style="width: 7rem">{{ 'sales.returns.preview.col.refund' | transloco }}</th> } <th style="width: 10rem">{{ 'sales.returns.preview.col.notes' | transloco }}</th> </tr> </ng-template> <ng-template pTemplate="body" let-item> <tr [class.opacity-60]="isFullyReturned(item)"> <td> <p-checkbox [binary]="true" [ngModel]="getDraft(item.saleItemId)?.selected ?? false" [disabled]="isFullyReturned(item)" (ngModelChange)="toggleReturnLine(item, $event)" /> </td> <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td> <td>{{ item.quantity }}</td> <td>{{ item.returnedQuantity }}</td> <td>{{ item.returnableQuantity }}</td> <td> <p-inputNumber [min]="0" [max]="item.returnableQuantity" [inputStyle]="{'width': '100%'}" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.quantity ?? 0" (ngModelChange)="updateReturnQuantity(item, $event)" /> </td> <td> <p-select [options]="returnConditionOptions" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-full" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.condition ?? null" (ngModelChange)="updateReturnCondition(item, $event)" placeholder="Required" /> </td> @if (hasFinancialAccess()) { <td> <p-inputNumber [min]="0" [max]="getMaxRefundAmount(item, getDraft(item.saleItemId)?.quantity ?? item.returnableQuantity)" [inputStyle]="{'width': '100%'}" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.approvedRefundAmount ?? null" (ngModelChange)="updateRefundAmount(item, $event)" /> @if (getDraft(item.saleItemId)?.selected) { <p class="mt-1 text-xs text-slate-400">Max {{ getMaxRefundAmount(item, getDraft(item.saleItemId)?.quantity ?? item.returnableQuantity) | currency: 'INR' : 'symbol' : '1.2-2' }}</p> } </td> } <td> <textarea pInputTextarea rows="2" class="w-full" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.notes ?? ''" (ngModelChange)="updateNotes(item, $event)" ></textarea> </td> </tr> </ng-template> </p-table> @if (hasFinancialAccess()) { <div class="grid grid-cols-1 md:grid-cols-2 gap-3 rounded border border-slate-200 p-3"> <label class="flex flex-col gap-1 text-sm"> <span class="font-medium text-slate-600">{{ 'sales.returns.preview.dueReductionOverride' | transloco }}</span> <input pInputText type="number" min="0" [ngModel]="dueReductionOverrideAmount()" (ngModelChange)="updateDueReductionOverride($event)" /> </label> <label class="flex flex-col gap-1 text-sm"> <span class="font-medium text-slate-600">{{ 'sales.returns.preview.overrideReason' | transloco }}</span> <input pInputText type="text" [ngModel]="dueOverrideReason()" (ngModelChange)="updateDueOverrideReason($event)" /> </label> </div> } @if (validationMessages().length > 0) { <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"> @for (message of validationMessages(); track message) { <p>{{ message }}</p> } </div> } @if (previewError()) { <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div> } @if (returnPreview()) { <div class="rounded border border-slate-200"> <div class="border-b border-slate-200 px-3 py-2"> <p class="font-semibold text-slate-800">{{ 'sales.returns.preview.calculatedEffects' | transloco }}</p> </div> <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 text-sm"> @for (line of returnPreview()!.lines; track line.saleItemId) { <div class="rounded border border-slate-100 p-3"> <div class="flex justify-between gap-2"> <span class="font-medium text-slate-700">{{ getPreviewItemName(line.saleItemId) }}</span> <p-tag [severity]="line.willRestock ? 'success' : 'warn'" [value]="line.willRestock ? 'Restock' : 'No restock'" /> </div> <p class="mt-1 text-slate-500">Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable {{ line.returnableQuantity }}</p> @if (line.financial && returnPreview()!.hasFinancialAccess) { <p class="mt-2 font-medium text-slate-700"> Refund {{ line.financial.approvedRefundAmount | currency:'INR':'symbol':'1.2-2' }} <span class="text-slate-400">/ max {{ line.financial.maxRefundAmount | currency:'INR':'symbol':'1.2-2' }}</span> </p> } </div> } </div> @if (returnPreview()!.financial && returnPreview()!.hasFinancialAccess) { <div class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm"> <div> <p class="text-slate-500">Total refund</p> <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.totalRefundAmount | currency:'INR':'symbol':'1.2-2' }}</p> </div> <div> <p class="text-slate-500">Due reduction</p> <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.dueReductionAmount | currency:'INR':'symbol':'1.2-2' }}</p> </div> <div> <p class="text-slate-500">Payout</p> <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.payoutAmount | currency:'INR':'symbol':'1.2-2' }}</p> </div> <div> <p class="text-slate-500">Tax effect</p> <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.totalTaxAmount | currency:'INR':'symbol':'1.2-2' }}</p> </div> </div> } </div> } @if (returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0) { <label class="flex flex-col gap-1 text-sm"> <span class="font-medium text-slate-600">{{ 'sales.returns.preview.payoutMethod' | transloco }}</span> <p-select [options]="refundPayoutMethodOptions" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-44" [ngModel]="payoutMethod()" (ngModelChange)="updatePayoutMethod($event)" placeholder="Required" /> </label> } @if (dueReductionOverrideAmount() !== null) { <div class="flex items-center gap-2 text-sm text-slate-700"> <p-checkbox inputId="due-override-confirm" [binary]="true" [ngModel]="dueOverrideConfirmed()" (ngModelChange)="updateDueOverrideConfirmed($event)" /> <label for="due-override-confirm">{{ 'sales.returns.preview.confirmDueOverride' | transloco }}</label> </div> } @if (returnPreview()?.warnings?.length) { <div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"> <p class="font-semibold mb-1">{{ 'sales.returns.preview.warnings' | transloco }}</p> @for (warning of returnPreview()!.warnings; track warning.code + warning.message) { <p>{{ warning.message }}</p> } </div> } </div> } <ng-template pTemplate="footer"> <p-button [label]="'sales.returns.preview.previewBtn' | transloco" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" /> @if (canSubmitReturns()) { <p-button [label]="'sales.returns.preview.recordBtn' | transloco" icon="pi pi-check" severity="success" [disabled]="!returnPreview() || isSubmitting()" [loading]="isSubmitting()" (click)="submitReturn()" /> } <p-button [label]="'common.close' | transloco" severity="secondary" (click)="closeReturnPreview()" /> </ng-template> </p-dialog> 
+<p-dialog [visible]="visible" (visibleChange)="onClose()" [modal]="true" [style]="{ width: '92vw', maxWidth: '860px' }" [draggable]="false" [resizable]="false" [closeOnEscape]="true" [header]="'sales.detail.title' | transloco">
+  @if (isLoading()) {
+    <div class="flex justify-center py-8">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
+    </div>
+  }
+  @if (!isLoading() && sale()) {
+    <div class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.invoiceNumber' | transloco }}</p>
+          <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.date' | transloco }}</p>
+          <p class="text-slate-700">{{ sale()!.soldAt | date:'dd MMM yyyy, h:mm a' }}</p>
+        </div>
+      </div>
+      <p-divider />
+      <app-sale-line-items-table [items]="$any(sale()!.items)" currency="INR" />
+      @if (sale()!.returns.length > 0) {
+        <p-divider />
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700">{{ 'sales.returns.history' | transloco }}</h3>
+          </div>
+          <p-table [value]="$any(sale()!.returns)" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'sales.returns.col.returnNumber' | transloco }}</th>
+                <th>{{ 'sales.returns.col.date' | transloco }}</th>
+                <th>{{ 'sales.returns.col.refund' | transloco }}</th>
+                <th>{{ 'sales.returns.col.status' | transloco }}</th>
+                <th class="w-24">{{ 'sales.returns.col.action' | transloco }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-returnRecord>
+              <tr [class.opacity-60]="returnRecord.isVoided">
+                <td>
+                  <div class="flex flex-col">
+                    <span class="font-medium text-slate-700">{{ returnRecord.returnNumber }}</span>
+                    @if (returnRecord.isVoided && returnRecord.voidReason) {
+                      <span class="text-xs text-slate-500">{{ 'sales.returns.col.voidReason' | transloco }} {{ returnRecord.voidReason }}</span>
+                    }
+                  </div>
+                </td>
+                <td>{{ returnRecord.returnedAt | date:'dd MMM yyyy, h:mm a' }}</td>
+                <td>₹{{ returnRecord.totalRefundAmount | number:'1.2-2' }}</td>
+                <td>
+                  <p-tag [severity]="returnStatusSeverity(returnRecord)" [value]="returnStatusLabel(returnRecord)" />
+                </td>
+                <td>
+                  @if (canSubmitReturns() && !returnRecord.isVoided) {
+                    <p-button icon="pi pi-ban" severity="danger" [text]="true" [rounded]="true" [attr.aria-label]="'Void ' + returnRecord.returnNumber" (click)="openVoidReturn(returnRecord)" />
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      }
+      <app-sale-summary-panel [sale]="sale()!" currency="INR" />
+    </div>
+  }
+  <ng-template pTemplate="footer">
+    @if (canPreviewReturns()) {
+      <p-button [label]="'sales.invoice.returnItems' | transloco" icon="pi pi-undo" severity="warn" [outlined]="true" (click)="openReturnPreview()" />
+    }
+    @if (sale()) {
+      <p-button [label]="'sales.invoice.printA4' | transloco" icon="pi pi-print" [outlined]="true" (click)="printA4()" />
+      <p-button [label]="'sales.invoice.printThermal' | transloco" icon="pi pi-print" [outlined]="true" (click)="printThermal()" />
+    }
+    <p-button [label]="'sales.invoice.close' | transloco" severity="secondary" (click)="onClose()" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="showVoidReturn()" (visibleChange)="closeVoidReturn()" [modal]="true" [style]="{ width: '92vw', maxWidth: '520px' }" [draggable]="false" [resizable]="false" [header]="'sales.returns.void.title' | transloco">
+  @if (selectedReturnToVoid()) {
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.void.returnLabel' | transloco }}</p>
+        <p class="font-bold text-slate-800">{{ selectedReturnToVoid()!.returnNumber }}</p>
+      </div>
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="font-medium text-slate-600">{{ 'sales.returns.void.reason' | transloco }}</span>
+        <textarea pInputTextarea rows="3" [ngModel]="voidReason()" (ngModelChange)="updateVoidReason($event)"></textarea>
+      </label>
+      @if (validationMessages().length > 0) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          @for (message of validationMessages(); track message) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      }
+      @if (previewError()) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
+      }
+    </div>
+  }
+  <ng-template pTemplate="footer">
+    <p-button [label]="'sales.returns.void.submit' | transloco" icon="pi pi-ban" severity="danger" [loading]="isSubmitting()" [disabled]="isSubmitting()" (click)="submitVoidReturn()" />
+    <p-button [label]="'common.cancel' | transloco" severity="secondary" (click)="closeVoidReturn()" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="showReturnPreview()" (visibleChange)="closeReturnPreview()" [modal]="true" [style]="{ width: '94vw', maxWidth: '980px' }" [draggable]="false" [resizable]="false" [header]="'sales.returns.preview.title' | transloco">
+  @if (sale()) {
+    <div class="flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.preview.invoice' | transloco }}</p>
+          <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
+        </div>
+        <p-tag [severity]="hasFinancialAccess() ? 'success' : 'secondary'" [value]="(hasFinancialAccess() ? 'sales.returns.preview.financialPreview' : 'sales.returns.preview.operationalPreview') | transloco" />
+      </div>
+      <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 3rem"></th>
+            <th>{{ 'sales.returns.preview.col.item' | transloco }}</th>
+            <th style="width: 4rem">{{ 'sales.returns.preview.col.sold' | transloco }}</th>
+            <th style="width: 5rem">{{ 'sales.returns.preview.col.returned' | transloco }}</th>
+            <th style="width: 5.5rem">{{ 'sales.returns.preview.col.returnable' | transloco }}</th>
+            <th style="width: 6rem">{{ 'sales.returns.preview.col.returnQty' | transloco }}</th>
+            <th style="width: 9rem">{{ 'sales.returns.preview.col.condition' | transloco }}</th>
+            @if (hasFinancialAccess()) { <th style="width: 7rem">{{ 'sales.returns.preview.col.refund' | transloco }}</th> }
+            <th style="width: 10rem">{{ 'sales.returns.preview.col.notes' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          <tr [class.opacity-60]="isFullyReturned(item)">
+            <td>
+              <p-checkbox [binary]="true" [ngModel]="getDraft(item.saleItemId)?.selected ?? false" [disabled]="isFullyReturned(item)" (ngModelChange)="toggleReturnLine(item, $event)" />
+            </td>
+            <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.returnedQuantity }}</td>
+            <td>{{ item.returnableQuantity }}</td>
+            <td>
+              <p-inputNumber [min]="0" [max]="item.returnableQuantity" [inputStyle]="{ width: '100%' }" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.quantity ?? 0" (ngModelChange)="updateReturnQuantity(item, $event)" />
+            </td>
+            <td>
+              <p-select [options]="returnConditionOptions" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-full" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.condition ?? null" (ngModelChange)="updateReturnCondition(item, $event)" placeholder="Required" />
+            </td>
+            @if (hasFinancialAccess()) {
+              <td>
+                <p-inputNumber [min]="0" [max]="getMaxRefundAmount(item, getDraft(item.saleItemId)?.quantity ?? item.returnableQuantity)" [inputStyle]="{ width: '100%' }" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.approvedRefundAmount ?? null" (ngModelChange)="updateRefundAmount(item, $event)" />
+                @if (getDraft(item.saleItemId)?.selected) {
+                  <p class="mt-1 text-xs text-slate-400">Max {{ getMaxRefundAmount(item, getDraft(item.saleItemId)?.quantity ?? item.returnableQuantity) | currency: 'INR' : 'symbol' : '1.2-2' }}</p>
+                }
+              </td>
+            }
+            <td>
+              <textarea pInputTextarea rows="2" class="w-full" [disabled]="!getDraft(item.saleItemId)?.selected || isFullyReturned(item)" [ngModel]="getDraft(item.saleItemId)?.notes ?? ''" (ngModelChange)="updateNotes(item, $event)"></textarea>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      @if (hasFinancialAccess()) {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 rounded border border-slate-200 p-3">
+          <label class="flex flex-col gap-1 text-sm">
+            <span class="font-medium text-slate-600">{{ 'sales.returns.preview.dueReductionOverride' | transloco }}</span>
+            <input pInputText type="number" min="0" [ngModel]="dueReductionOverrideAmount()" (ngModelChange)="updateDueReductionOverride($event)" />
+          </label>
+          <label class="flex flex-col gap-1 text-sm">
+            <span class="font-medium text-slate-600">{{ 'sales.returns.preview.overrideReason' | transloco }}</span>
+            <input pInputText type="text" [ngModel]="dueOverrideReason()" (ngModelChange)="updateDueOverrideReason($event)" />
+          </label>
+        </div>
+      }
+
+      @if (validationMessages().length > 0) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          @for (message of validationMessages(); track message) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      }
+      @if (previewError()) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
+      }
+
+      @if (returnPreview()) {
+        <div class="rounded border border-slate-200">
+          <div class="border-b border-slate-200 px-3 py-2">
+            <p class="font-semibold text-slate-800">{{ 'sales.returns.preview.calculatedEffects' | transloco }}</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 text-sm">
+            @for (line of returnPreview()!.lines; track line.saleItemId) {
+              <div class="rounded border border-slate-100 p-3">
+                <div class="flex justify-between gap-2">
+                  <span class="font-medium text-slate-700">{{ getPreviewItemName(line.saleItemId) }}</span>
+                  <p-tag [severity]="line.willRestock ? 'success' : 'warn'" [value]="line.willRestock ? 'Restock' : 'No restock'" />
+                </div>
+                <p class="mt-1 text-slate-500">Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable {{ line.returnableQuantity }}</p>
+                @if (line.financial && returnPreview()!.hasFinancialAccess) {
+                  <p class="mt-2 font-medium text-slate-700"> Refund {{ line.financial.approvedRefundAmount | currency:'INR':'symbol':'1.2-2' }} <span class="text-slate-400">/ max {{ line.financial.maxRefundAmount | currency:'INR':'symbol':'1.2-2' }}</span> </p>
+                }
+              </div>
+            }
+          </div>
+          @if (returnPreview()!.financial && returnPreview()!.hasFinancialAccess) {
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm">
+              <div>
+                <p class="text-slate-500">Total refund</p>
+                <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.totalRefundAmount | currency:'INR':'symbol':'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Due reduction</p>
+                <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.dueReductionAmount | currency:'INR':'symbol':'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Payout</p>
+                <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.payoutAmount | currency:'INR':'symbol':'1.2-2' }}</p>
+              </div>
+              <div>
+                <p class="text-slate-500">Tax effect</p>
+                <p class="font-bold text-slate-800">{{ returnPreview()!.financial!.totalTaxAmount | currency:'INR':'symbol':'1.2-2' }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0) {
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="font-medium text-slate-600">{{ 'sales.returns.preview.payoutMethod' | transloco }}</span>
+          <p-select [options]="refundPayoutMethodOptions" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-44" [ngModel]="payoutMethod()" (ngModelChange)="updatePayoutMethod($event)" placeholder="Required" />
+        </label>
+      }
+
+      @if (dueReductionOverrideAmount() !== null) {
+        <div class="flex items-center gap-2 text-sm text-slate-700">
+          <p-checkbox inputId="due-override-confirm" [binary]="true" [ngModel]="dueOverrideConfirmed()" (ngModelChange)="updateDueOverrideConfirmed($event)" />
+          <label for="due-override-confirm">{{ 'sales.returns.preview.confirmDueOverride' | transloco }}</label>
+        </div>
+      }
+
+      @if (returnPreview()?.warnings?.length) {
+        <div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <p class="font-semibold mb-1">{{ 'sales.returns.preview.warnings' | transloco }}</p>
+          @for (warning of returnPreview()!.warnings; track warning.code + warning.message) {
+            <p>{{ warning.message }}</p>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button [label]="'sales.returns.preview.previewBtn' | transloco" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" />
+    @if (canSubmitReturns()) {
+      <p-button [label]="'sales.returns.preview.recordBtn' | transloco" icon="pi pi-check" severity="success" [disabled]="!returnPreview() || isSubmitting()" [loading]="isSubmitting()" (click)="submitReturn()" />
+    }
+    <p-button [label]="'common.close' | transloco" severity="secondary" (click)="closeReturnPreview()" />
+  </ng-template>
+</p-dialog>

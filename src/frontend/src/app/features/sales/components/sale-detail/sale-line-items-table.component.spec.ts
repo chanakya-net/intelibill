@@ -54,7 +54,7 @@ describe('SaleLineItemsTableComponent', () => {
     expect(text).toContain('Soap');
     expect(text).toContain('Brush');
     expect(text).toContain('₹110.00');
-    expect(text).toContain('₹20.00');
+    expect(text).toContain('₹22.00');
     expect(text).toContain('-₹20.00');
   });
 });

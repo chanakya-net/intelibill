@@ -15,7 +15,7 @@ export class SaleSummaryPanelComponent {
   @Input() currency = 'INR';
 
   subtotalAmount(): number {
-    return this.sale.totalAmount - this.sale.totalTaxAmount;
+    return this.sale.totalBeforeDiscount - this.sale.totalTaxAmount;
   }
 
   hasDiscount(): boolean {
