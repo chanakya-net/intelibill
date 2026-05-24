@@ -1,0 +1,1711 @@
+import { computed, DestroyRef, effect, inject, Injectable, Injector, runInInjectionContext, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+
+import { AuthService } from '../../../core/auth/auth.service';
+import { NetworkStatusService } from '../../../core/services/network-status.service';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
+import { CustomersFacade } from '../../customers/state/customers.facade';
+import { InventoryService } from '../../inventory/services/inventory.service';
+import { AvailableBatchDto } from '../../inventory/services/inventory.models';
+import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
+import { NO_DISCOUNT, PAYMENT_METHOD_VALUES, PaymentMethod } from '../services/sale.models';
+import type {
+  InstantDiscountRequest,
+  PreviewSaleRequest,
+  RecordSaleItemRequest,
+  RecordSaleRequest,
+  SalePreviewDto,
+  SalePreviewLineDto,
+} from '../services/sale.models';
+import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { OfflineSaleStateService } from '../services/offline-sale-state.service';
+import { SalePreviewService } from '../services/sale-preview.service';
+import { SalesFacade } from '../state/sales.facade';
+import {
+  CartQuantityChangedEvent,
+  CartLineTextEvent,
+  CartLineNumberEvent,
+} from '../components/new-sale/cart-table.component';
+import { CustomerDto } from '../components/new-sale/sale-customer-section.component';
+import { PaymentMethodOption } from '../components/new-sale/sale-payment-section.component';
+import { CreateSaleResponse } from '../components/new-sale/sale-confirmation-dialog.component';
+import { SyncStatus } from '../components/new-sale/offline-status-banner.component';
+
+const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
+const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
+
+@Injectable()
+export class NewSalePageCoordinatorService {
+  private readonly cartRetentionMs = 5 * 60 * 1000;
+  private readonly offlineClockIntervalMs = 60 * 1000;
+  private readonly nowTick = signal(Date.now());
+  private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly customersFacade = inject(CustomersFacade);
+  private readonly salesFacade = inject(SalesFacade);
+  private readonly cartState = inject(SaleCartStateService);
+  private readonly salePreview = inject(SalePreviewService);
+  private readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly networkStatus = inject(NetworkStatusService);
+  private readonly offlineSaleState = inject(OfflineSaleStateService);
+
+  readonly paymentMethods = PAYMENT_METHOD_VALUES;
+  readonly cart = this.cartState.cart;
+  readonly searchInput = signal('');
+  readonly searchSuggestions = signal<string[]>([]);
+  readonly isSearchingBatches = signal(false);
+  readonly batchSearchError = signal('');
+  readonly availableBatches = signal<readonly AvailableBatchDto[]>([]);
+  readonly showBatchPicker = signal(false);
+  readonly selectedBatch = signal<AvailableBatchDto | null>(null);
+  readonly selectedCustomerId = signal<string | null>(null);
+  readonly selectedCustomerName = signal<string | null>(null);
+  readonly customerNameSuggestions = signal<string[]>([]);
+  readonly isScannerOpen = signal(false);
+  readonly isWalkIn = signal(true);
+  readonly paymentSplitError = signal('');
+  readonly lastEditedPaymentField = signal<'paid' | 'due'>('due');
+  private isSyncingPaymentControls = false;
+  readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
+  readonly selectedCustomer = signal<CustomerDto | null>(null);
+  readonly customerSelectionPool = computed<readonly CustomerDto[]>(() => {
+    if (this.isOfflineMode()) {
+      return this.offlineCustomers().map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: null,
+      }));
+    }
+
+    return this.customers()
+      .filter((customer) => customer.isActive)
+      .map((customer) => ({
+        customerId: customer.customerId,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        address: customer.address,
+      }));
+  });
+  readonly syncStatus = computed<SyncStatus>(() => ({
+    snapshotAgeHours: this.snapshotAgeHours(),
+    offlineInvoiceRemaining: this.offlineInvoiceRemaining(),
+    pendingSyncCount: this.offlinePendingCount(),
+    needsReviewCount: this.offlineNeedsReviewCount(),
+    staleWarningCount: this.staleWarningCount(),
+    isSnapshotTooOld: this.isSnapshotTooOld(),
+    isOfflineEligible: this.isOfflineEligible(),
+  }));
+
+  readonly checkoutPreview = this.salePreview.checkoutPreview;
+  readonly isPreviewLoading = this.salePreview.isPreviewLoading;
+  readonly previewError = this.salePreview.previewError;
+
+  // Discounts (cashier instant override). Configured discounts come from preview DTO.
+  readonly isSaleDiscountEditorOpen = signal(false);
+  readonly saleDiscountType = signal<0 | 1 | 2>(0);
+  readonly saleDiscountValue = signal(0);
+  readonly saleDiscountError = signal('');
+
+  readonly openLineDiscountEditorByKey = signal<Record<string, boolean>>({});
+  readonly cartItemDiscountErrorByKey = signal<Record<string, string>>({});
+  readonly cartItemHsnErrorByKey = signal<Record<string, string>>({});
+  readonly cartItemTaxErrorByKey = signal<Record<string, string>>({});
+
+  // Shop realtime updates
+  readonly highlightedRowKeys = signal<Set<string>>(new Set());
+  readonly showUpdateNotification = signal(false);
+  readonly updateNotificationText = signal('');
+  readonly showConfirmation = signal(false);
+
+  readonly isSubmitting = this.salesFacade.submitting;
+  readonly serverError = this.salesFacade.errorMessage;
+  readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
+  readonly lastMutationType = this.salesFacade.lastMutationType;
+  readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
+  readonly customers = this.customersFacade.allCustomers;
+  readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
+  readonly cartBootstrapped = this.cartState.cartBootstrapped;
+
+  // Offline mode signals
+  readonly deviceSettings = this.offlineSaleState.offlineDeviceSettings;
+  readonly snapshotCompletedAt = this.offlineSaleState.snapshotCompletedAt;
+  readonly offlinePendingCount = this.offlineSaleState.offlinePendingCount;
+  readonly offlineNeedsReviewCount = this.offlineSaleState.offlineNeedsReviewCount;
+  readonly offlineInvoiceRemaining = this.offlineSaleState.offlineInvoiceRemaining;
+  readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
+  readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
+  readonly isOfflineSubmitting = signal(false);
+  readonly offlineConfirmation = signal<{ invoiceNumber: string; grandTotal: number; clientSaleId: string } | null>(null);
+  readonly showOfflineConfirmation = signal(false);
+
+  readonly subtotalAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalAmount - preview.totalTaxAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0);
+  });
+  readonly totalTaxAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalTaxAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0);
+  });
+  readonly totalAmount = computed(() => {
+    const preview = this.checkoutPreview();
+    if (preview !== null) {
+      return preview.totalAmount;
+    }
+    return this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
+  });
+
+  readonly saleConfirmationResult = computed<CreateSaleResponse | null>(() => {
+    const sale = this.lastRecordedSale();
+    if (!sale) {
+      return null;
+    }
+
+    return {
+      saleId: sale.saleId,
+      invoiceNumber: sale.invoiceNumber,
+      totalAmount: sale.totalAmount,
+      isOffline: false,
+      printTemplate: 'a4',
+    };
+  });
+
+  readonly offlineSaleConfirmationResult = computed<CreateSaleResponse | null>(() => {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return null;
+    }
+
+    return {
+      saleId: confirmation.clientSaleId,
+      invoiceNumber: confirmation.invoiceNumber,
+      totalAmount: confirmation.grandTotal,
+      isOffline: true,
+      printTemplate: 'a4',
+    };
+  });
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
+
+  readonly instantDiscountTypeOptions: { value: 0 | 1 | 2; labelKey: string }[] = [
+    { value: 0, labelKey: 'sales.newSale.discounts.none' },
+    { value: 1, labelKey: 'sales.newSale.discounts.percent' },
+    { value: 2, labelKey: 'sales.newSale.discounts.flat' },
+  ];
+
+  readonly canUseCredit = computed(() => !!this.selectedCustomerId());
+  readonly canSelectCreditPaymentMethod = computed(() => this.isOfflineMode() || this.canUseCredit());
+  readonly paymentMethodsForSelection = computed(() =>
+    this.paymentMethods.filter((method) => method.value !== 4 || this.canSelectCreditPaymentMethod())
+  );
+  readonly selectedPaymentMethod = computed(() =>
+    this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value)
+  );
+
+  readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
+  readonly batchPickerQuantity = signal(1);
+
+  readonly isLineDiscountEditorOpenFn = (itemId: string): boolean => this.isLineDiscountEditorOpen(itemId);
+  readonly hasTaxFn = (item: CartItem): boolean => this.hasTax(item);
+  readonly canIncreaseFn = (item: CartItem): boolean => this.canIncreaseCartItem(item);
+  readonly getLineSubtotalFn = (item: CartItem): number => this.getLineSubtotal(item);
+  readonly getLineTaxAmountFn = (item: CartItem): number => this.getLineTaxAmount(item);
+  readonly getLineTotalFn = (item: CartItem): number => this.getLineTotal(item);
+  readonly getUnitSubtotalFn = (item: CartItem): number => this.getUnitSubtotal(item);
+  readonly getUnitTaxAmountFn = (item: CartItem): number => this.getUnitTaxAmount(item);
+  readonly getUnitFinalPriceFn = (item: CartItem): number => this.getUnitFinalPrice(item);
+  readonly getPreviewLineFn = (itemId: string) => this.getPreviewLine(itemId);
+  readonly getCartItemHsnErrorFn = (itemId: string) => this.getCartItemHsnError(itemId);
+  readonly getCartItemTaxErrorFn = (itemId: string) => this.getCartItemTaxError(itemId);
+  readonly getCartItemDiscountErrorFn = (itemId: string) => this.getCartItemDiscountError(itemId);
+
+  readonly isOfflineMode = computed(() => !this.networkStatus.canReachApi());
+
+  readonly isOfflineEligible = computed(() => {
+    const settings = this.deviceSettings();
+    return !!settings?.enabled;
+  });
+
+  private snapshotAgeMs(): number | null {
+    const completedAt = this.snapshotCompletedAt();
+    if (!completedAt) return null;
+    const nowMs = this.nowTick();
+    const ms = nowMs - Date.parse(completedAt);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  staleWarningCount(): number {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null || ageMs <= 0) return 0;
+    return Math.floor(ageMs / STALE_INTERVAL_4H);
+  }
+
+  isSnapshotTooOld(): boolean {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null) return false;
+    return ageMs > MAX_OFFLINE_AGE_MS;
+  }
+
+  snapshotAgeHours(): number | null {
+    const ageMs = this.snapshotAgeMs();
+    if (ageMs === null) return null;
+    return Math.floor(ageMs / (60 * 60 * 1000));
+  }
+
+  readonly canCreateNewCustomer = computed(() => !this.isOfflineMode());
+
+  readonly batchPickerForm = this.fb.nonNullable.group({
+    batchNumber: ['', Validators.required],
+    quantity: [1, [Validators.required, Validators.min(1)]],
+  });
+
+  readonly customerForm = this.fb.nonNullable.group({
+    customerName: ['', Validators.maxLength(180)],
+    customerPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
+  });
+
+  readonly paymentForm = this.fb.nonNullable.group({
+    paymentMethod: [1, Validators.required],
+    paidAmount: [0, [Validators.required, Validators.min(0)]],
+    dueAmount: [0, [Validators.required, Validators.min(0)]],
+  });
+
+  private initialized = false;
+
+  onInit(): void {
+    if (this.initialized) {
+      return;
+    }
+    this.initialized = true;
+
+    const offlineClockId = setInterval(() => {
+      this.nowTick.set(Date.now());
+    }, this.offlineClockIntervalMs);
+    this.destroyRef.onDestroy(() => {
+      clearInterval(offlineClockId);
+    });
+
+    this.customersFacade.loadCustomers();
+    this.salesFacade.clearError();
+    this.salesFacade.clearMutationStatus();
+
+    this.customerForm.controls.customerName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        const typedName = value.trim().toLowerCase();
+        const selectedName = this.selectedCustomerName();
+
+        if (!typedName || !selectedName || typedName !== selectedName) {
+          this.selectedCustomerId.set(null);
+          this.selectedCustomerName.set(null);
+          this.selectedCustomer.set(null);
+          if (!this.isOfflineMode()) {
+            this.enforceNoCustomerCreditRestrictions();
+          }
+        }
+      });
+
+    this.paymentForm.controls.paidAmount.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        if (this.isSyncingPaymentControls) {
+          return;
+        }
+
+        this.lastEditedPaymentField.set('paid');
+        this.syncPaymentSplitFromPaid(value);
+      });
+
+    this.paymentForm.controls.dueAmount.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        if (this.isSyncingPaymentControls) {
+          return;
+        }
+
+        this.lastEditedPaymentField.set('due');
+        this.syncPaymentSplitFromDue(value);
+      });
+
+    const handlePreviewApplied = (preview: SalePreviewDto, oldPreview: SalePreviewDto | null): void => {
+      this.detectAndHighlightChangedRows(oldPreview, preview);
+      this.revalidateDiscountsAgainstPreview();
+    };
+
+    this.salePreview.refreshOnlinePreview({
+      destroyRef: this.destroyRef,
+      getCart: () => this.cart(),
+      getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
+      onPreviewApplied: handlePreviewApplied,
+    });
+
+    this.salePreview.refreshOnServerUpdate({
+      destroyRef: this.destroyRef,
+      getCart: () => this.cart(),
+      getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
+      onPreviewApplied: handlePreviewApplied,
+    });
+
+    // Subscribe to server updates and trigger immediate preview refresh (no debounce)
+    this.shopUpdatesService.updates$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((update) => {
+        const cart = this.cart();
+        if (cart.length === 0) {
+          return;
+        }
+
+        // Show notification for incoming update
+        this.updateNotificationText.set(`sales.newSale.shopUpdate.${this.getEventNotificationKey(update.eventType)}`);
+        this.showUpdateNotification.set(true);
+        setTimeout(() => this.showUpdateNotification.set(false), 2000);
+
+        // Immediately trigger preview refresh for server updates
+        this.salePreview.triggerServerUpdateRefresh();
+      });
+
+    // Connect to shop updates on initialization
+    void this.shopUpdatesService.startConnection();
+
+    runInInjectionContext(this.injector, () => {
+      effect(() => {
+        if (this.lastMutationSucceeded()) {
+          const type = this.lastMutationType();
+          if (type === 'record-sale') {
+            this.showConfirmation.set(true);
+            this.resetTransientState();
+            return;
+          } else {
+            this.salesFacade.clearMutationStatus();
+            this.router.navigate(['/sales']);
+          }
+        }
+      });
+
+      effect(() => {
+        const total = this.totalAmount();
+        if (this.lastEditedPaymentField() === 'paid') {
+          this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
+        } else {
+          this.syncPaymentSplitFromDue(this.paymentForm.controls.dueAmount.value, total);
+        }
+      });
+
+      effect(() => {
+        const dueControl = this.paymentForm.controls.dueAmount;
+
+        if (this.isOfflineMode() || this.canUseCredit()) {
+          if (dueControl.disabled) {
+            dueControl.enable({ emitEvent: false });
+          }
+          return;
+        }
+
+        this.enforceNoCustomerCreditRestrictions();
+      });
+
+      effect(() => {
+        this.activeShopId();
+        void this.cartState.loadPersistedCart(this.cartRetentionMs, (row) => {
+          this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
+        });
+      });
+
+      effect(() => {
+        this.activeShopId();
+        this.cart();
+        if (!this.cartBootstrapped()) {
+          return;
+        }
+
+        void this.cartState.persistCart();
+      });
+
+      // Load device settings and snapshot info reactively
+      effect(() => {
+        this.activeShopId();
+        void this.offlineSaleState.refreshSnapshot();
+      });
+
+      // Schedule preview whenever cart changes (after bootstrap). Item-level discount
+      // edits always go through cart mutations, so they reach this effect automatically.
+      effect(() => {
+        const cart = this.cart();
+        this.isOfflineMode();
+        this.isOfflineEligible();
+        this.snapshotCompletedAt();
+        this.saleDiscountType();
+        this.saleDiscountValue();
+        if (!this.cartBootstrapped()) {
+          return;
+        }
+        const hasOverrideErrors = this.revalidateLineOverrides(cart);
+        if (cart.length === 0) {
+          this.salePreview.clearPreviewState();
+          return;
+        }
+        if (hasOverrideErrors) {
+          this.salePreview.markPreviewInvalid('sales.newSale.overrides.invalid');
+          return;
+        }
+        this.salePreview.clearPreviewError();
+        if (this.isOfflineMode()) {
+          if (this.isOfflineEligible()) {
+            void this.refreshOfflinePreview(cart);
+          } else {
+            this.salePreview.clearPreviewState();
+          }
+          return;
+        }
+        this.salePreview.triggerPreview();
+      });
+    });
+  }
+
+  onDestroy(): void {
+    void this.shopUpdatesService.stopConnection();
+  }
+
+  async onBarcodeSearch(): Promise<void> {
+    const searchTerm = this.searchInput().trim();
+    if (!searchTerm) return;
+
+    if (this.isOfflineMode() && this.isOfflineEligible()) {
+      await this.searchOfflineCatalog(searchTerm);
+      return;
+    }
+
+    this.batchSearchError.set('');
+    this.isSearchingBatches.set(true);
+    this.availableBatches.set([]);
+
+    this.inventoryService.getAvailableBatchesBySearchTerm(searchTerm).subscribe({
+      next: (batches) => {
+        this.isSearchingBatches.set(false);
+        const list = [...batches];
+        if (list.length === 0) {
+          this.batchSearchError.set('sales.newSale.noBatchesFound');
+          return;
+        }
+        if (list.length === 1) {
+          const result = this.cartState.addBatchToCart(list[0], 1);
+          if (!result.added) {
+            this.batchSearchError.set('sales.newSale.exceedsStock');
+            return;
+          }
+          if (result.addedLineKey && !this.isOfflineMode()) {
+            this.applyProductDefaultsForLine(result.addedLineKey, list[0].itemName, list[0].barcode);
+          }
+          this.resetSearchAndPickerState();
+        } else {
+          this.availableBatches.set(list);
+          this.showBatchPicker.set(true);
+        }
+      },
+      error: (err) => {
+        this.isSearchingBatches.set(false);
+        this.batchSearchError.set(err.error?.detail || 'sales.newSale.searchError');
+      },
+    });
+  }
+
+  onBatchSearchTermChanged(value: string): void {
+    this.searchInput.set((value ?? '').toString());
+  }
+
+  onBatchSearchSuggestionFilter(value: string): void {
+    this.onFilterSearch({ query: value } as AutoCompleteCompleteEvent);
+  }
+
+  onBatchSearchRequested(value: string): void {
+    this.searchInput.set((value ?? '').toString());
+    void this.onBarcodeSearch();
+  }
+
+  onOpenBatchPicker(): void {
+    if (this.availableBatches().length > 0) {
+      this.showBatchPicker.set(true);
+    }
+  }
+
+  onBatchQuantityChanged(quantity: number | null): void {
+    const normalized = Number(quantity ?? 1);
+    this.batchPickerForm.patchValue({ quantity: Number.isFinite(normalized) ? Math.max(1, normalized) : 1 });
+    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
+  }
+
+  onBatchPickerBatchSelected(batch: AvailableBatchDto): void {
+    const normalizedQuantity = Number.isFinite(Number(this.batchPickerQuantity())) ? Math.max(1, Math.trunc(Number(this.batchPickerQuantity()))) : 1;
+    this.selectedBatch.set(batch);
+    this.batchPickerForm.patchValue({
+      batchNumber: batch.batchNumber,
+      quantity: normalizedQuantity,
+    });
+    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
+    this.onAddToCart();
+  }
+
+  onBatchPickerClosed(): void {
+    this.showBatchPicker.set(false);
+    this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
+    this.batchPickerQuantity.set(1);
+    this.batchSearchError.set('');
+  }
+
+  onFilterSearch(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.trim();
+    if (!query) {
+      this.searchSuggestions.set([]);
+      return;
+    }
+
+    const names = this.catalogSync.filterByName(query).map((e) => e.name);
+    const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
+    const merged = [...new Set([...names, ...barcodes])];
+    this.searchSuggestions.set(merged.slice(0, 20));
+  }
+
+  onBatchSearchSuggestions(query: string): void {
+    this.onFilterSearch({ query } as AutoCompleteCompleteEvent);
+  }
+
+  onSearchSuggestionSelected(value: string): void {
+    this.searchInput.set(value?.trim() ?? '');
+  }
+
+  onFilterCustomerName(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.trim().toLowerCase();
+
+    if (this.isOfflineMode()) {
+      const filtered = this.offlineCustomers()
+        .filter((c) => !query || c.name.toLowerCase().includes(query))
+        .map((c) => c.name.trim())
+        .filter((name) => name.length > 0);
+      this.customerNameSuggestions.set([...new Set(filtered)].slice(0, 20));
+      return;
+    }
+
+    const activeCustomers = this.customers().filter((customer) => customer.isActive);
+    const filteredNames = activeCustomers
+      .filter((customer) => !query || customer.name.toLowerCase().includes(query))
+      .map((customer) => customer.name.trim())
+      .filter((name) => name.length > 0);
+
+    const uniqueNames = [...new Set(filteredNames)];
+    this.customerNameSuggestions.set(uniqueNames.slice(0, 20));
+  }
+
+  onCustomerSuggestionSelected(name: string): void {
+    const normalizedName = name.trim().toLowerCase();
+    if (!normalizedName) {
+      this.selectedCustomerId.set(null);
+      this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
+      return;
+    }
+
+    const customer = this.customerSelectionPool().find((candidate) => candidate.name.trim().toLowerCase() === normalizedName);
+    if (!customer) {
+      this.onCustomerSectionSelected(null);
+      return;
+    }
+
+    this.onCustomerSectionSelected(customer);
+  }
+
+  onCustomerSectionNameChanged(value: string | null): void {
+    const nextValue = (value ?? '').toString();
+    if (this.customerForm.controls.customerName.value === nextValue) {
+      return;
+    }
+
+    this.customerForm.controls.customerName.setValue(nextValue, { emitEvent: false });
+  }
+
+  onCustomerSectionPhoneChanged(value: string | null): void {
+    const nextValue = (value ?? '').toString();
+    if (this.customerForm.controls.customerPhone.value === nextValue) {
+      return;
+    }
+
+    this.customerForm.controls.customerPhone.setValue(nextValue, { emitEvent: false });
+  }
+
+  onCustomerSectionSearchCustomers(query: string): void {
+    this.onFilterCustomerName({ query } as AutoCompleteCompleteEvent);
+  }
+
+  onCustomerSectionSuggestionSelected(name: string): void {
+    this.onCustomerSuggestionSelected(name);
+  }
+
+  onCustomerSectionSelected(customer: CustomerDto | null): void {
+    this.selectedCustomer.set(customer);
+    if (!customer) {
+      this.selectedCustomerId.set(null);
+      this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
+      return;
+    }
+
+    this.customerForm.patchValue(
+      {
+        customerName: customer.name,
+        customerPhone: customer.phoneNumber,
+      },
+      { emitEvent: false }
+    );
+    this.selectedCustomerId.set(customer.customerId);
+    this.selectedCustomerName.set(customer.name.trim().toLowerCase());
+  }
+
+  openScanner(): void {
+    this.isScannerOpen.set(true);
+  }
+
+  onScannerVisibilityChange(visible: boolean): void {
+    this.isScannerOpen.set(visible);
+  }
+
+  onScannedBarcode(detection: BarcodeDetection): void {
+    const barcode = detection.value.trim();
+    if (!barcode) {
+      return;
+    }
+
+    this.searchInput.set(barcode);
+    this.isScannerOpen.set(false);
+    void this.onBarcodeSearch();
+  }
+
+  onSelectBatch(batch: AvailableBatchDto): void {
+    this.selectedBatch.set(batch);
+    this.batchPickerForm.patchValue({ batchNumber: batch.batchNumber, quantity: 1 });
+  }
+
+  onCartTableQuantityChanged(event: CartQuantityChangedEvent): void {
+    const index = this.cart().findIndex((item) => item.clientLineKey === event.itemId);
+    if (index < 0) {
+      return;
+    }
+
+    const item = this.cart()[index];
+    const target = Math.max(1, Math.trunc(Number(event.qty ?? item.quantity)));
+    if (!Number.isFinite(target)) {
+      return;
+    }
+
+    if (target > item.quantity) {
+      const canIncrease = target - item.quantity;
+      for (let i = 0; i < canIncrease; i += 1) {
+        this.onIncreaseCartItem(index);
+      }
+      return;
+    }
+
+    if (target < item.quantity) {
+      const canDecrease = item.quantity - target;
+      for (let i = 0; i < canDecrease; i += 1) {
+        this.onDecreaseCartItem(index);
+      }
+    }
+  }
+
+  onCartTableItemRemoved(itemId: string): void {
+    const index = this.cart().findIndex((item) => item.clientLineKey === itemId);
+    if (index < 0) {
+      return;
+    }
+
+    this.onRemoveCartItem(index);
+  }
+
+  onCartTableHsnCodeChange(event: CartLineTextEvent): void {
+    this.onCartItemHsnCodeChange(event.itemId, event.value);
+  }
+
+  onCartTableTaxRateChange(event: CartLineNumberEvent): void {
+    this.onCartItemTaxRateChange(event.itemId, event.value);
+  }
+
+  onCartTableDiscountTypeChange(event: CartLineNumberEvent): void {
+    this.onCartItemDiscountTypeChange(event.itemId, event.value as 0 | 1 | 2);
+  }
+
+  onCartTableDiscountValueChange(event: CartLineTextEvent): void {
+    this.onCartItemDiscountValueChange(event.itemId, Number(event.value ?? 0));
+  }
+
+  onCartTableLineDiscountEditorToggled(itemId: string): void {
+    this.toggleLineDiscountEditor(itemId);
+  }
+
+  onPaymentMethodChanged(method: PaymentMethod): void {
+    const nextValue = this.getPaymentMethodValue(method);
+    this.paymentForm.controls.paymentMethod.setValue(nextValue, { emitEvent: true });
+  }
+
+  onPaymentPaidAmountChanged(value: number | null): void {
+    this.paymentForm.controls.paidAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+  }
+
+  onPaymentDueAmountChanged(value: number | null): void {
+    this.paymentForm.controls.dueAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+  }
+
+  onPaymentSubmitRequested(): void {
+    void this.onSubmit();
+  }
+
+  onOnlineConfirmationPrintA4Requested(): void {
+    const sale = this.saleConfirmationResult();
+    if (!sale) {
+      return;
+    }
+
+    this.printA4(sale.saleId);
+  }
+
+  onOnlineConfirmationPrintThermalRequested(): void {
+    const sale = this.saleConfirmationResult();
+    if (!sale) {
+      return;
+    }
+
+    this.printThermal(sale.saleId);
+  }
+
+  onOfflineConfirmationPrintA4Requested(): void {
+    this.printOfflineA4();
+  }
+
+  onOfflineConfirmationPrintThermalRequested(): void {
+    this.printOfflineThermal();
+  }
+
+  getPaymentMethodLabel(paymentMethod: number): PaymentMethod {
+    return (PAYMENT_METHOD_VALUES.find((candidate) => candidate.value === paymentMethod)?.label as PaymentMethod) ?? 'Cash';
+  }
+
+  private getPaymentMethodValue(method: PaymentMethod): number {
+    return PAYMENT_METHOD_VALUES.find((candidate) => candidate.label === method)?.value ?? 1;
+  }
+
+  onAddToCart(): void {
+    if (this.batchPickerForm.invalid) {
+      this.batchPickerForm.markAllAsTouched();
+      return;
+    }
+    const batch = this.selectedBatch();
+    if (!batch) return;
+
+    const qty = this.batchPickerForm.controls.quantity.value;
+    if (qty > batch.quantity) {
+      this.batchPickerForm.controls.quantity.setErrors({ exceedsStock: true });
+      return;
+    }
+
+    const result = this.cartState.addBatchToCart(batch, qty);
+    if (!result.added) {
+      this.batchPickerForm.controls.quantity.setErrors({ exceedsStock: true });
+      this.batchSearchError.set('sales.newSale.exceedsStock');
+      return;
+    }
+
+    if (result.addedLineKey && !this.isOfflineMode()) {
+      this.applyProductDefaultsForLine(result.addedLineKey, batch.itemName, batch.barcode);
+    }
+
+    this.resetSearchAndPickerState();
+  }
+
+  onIncreaseCartItem(index: number): void {
+    this.cartState.onIncreaseCartItem(index);
+  }
+
+  onDecreaseCartItem(index: number): void {
+    this.cartState.onDecreaseCartItem(index);
+  }
+
+  canIncreaseCartItem(item: CartItem): boolean {
+    return this.cartState.canIncreaseCartItem(item);
+  }
+
+  onRemoveCartItem(index: number): void {
+    this.cartState.onRemoveCartItem(index);
+  }
+
+  onClearCart(): void {
+    this.cartState.onClearCart();
+  }
+
+  hasTax(item: CartItem): boolean {
+    return this.cartState.hasTax(item);
+  }
+
+  getLineSubtotal(item: CartItem): number {
+    return this.cartState.getLineSubtotal(item);
+  }
+
+  getLineTaxAmount(item: CartItem): number {
+    return this.cartState.getLineTaxAmount(item);
+  }
+
+  getLineTotal(item: CartItem): number {
+    return this.cartState.getLineTotal(item);
+  }
+
+  getUnitSubtotal(item: CartItem): number {
+    return this.cartState.getUnitSubtotal(item);
+  }
+
+  getUnitTaxAmount(item: CartItem): number {
+    return this.cartState.getUnitTaxAmount(item);
+  }
+
+  getUnitFinalPrice(item: CartItem): number {
+    return this.cartState.getUnitFinalPrice(item);
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.isSubmitting()) return;
+    if (this.isOfflineSubmitting()) return;
+    if (this.cart().length === 0) return;
+    if (this.paymentForm.invalid) {
+      this.paymentForm.markAllAsTouched();
+      return;
+    }
+
+    this.paymentSplitError.set('');
+
+    // OFFLINE BRANCH
+    if (this.isOfflineMode()) {
+      if (this.isOfflineEligible()) {
+        const blockingErrorKey = this.getBlockingCartValidationErrorKey(this.cart());
+        if (blockingErrorKey) {
+          this.paymentSplitError.set(blockingErrorKey);
+          return;
+        }
+        await this.onOfflineSubmit();
+      } else {
+        this.paymentSplitError.set('sales.newSale.offline.blockDeviceNotEnabled');
+      }
+      return;
+    }
+
+    if (this.checkoutPreview() === null) {
+      this.paymentSplitError.set(this.previewError() || 'sales.newSale.previewRequired');
+      return;
+    }
+
+    const blockingErrorKey = this.getBlockingCartValidationErrorKey(this.cart());
+    if (blockingErrorKey) {
+      this.paymentSplitError.set(blockingErrorKey);
+      return;
+    }
+
+    const items: RecordSaleItemRequest[] = this.cart().map((item) => ({
+      barcode: item.barcode,
+      batchNumber: item.batchNumber,
+      itemName: item.itemName,
+      quantity: item.quantity,
+      costPrice: item.costPrice,
+      salesPrice: item.salesPrice,
+      mrp: item.mrp,
+      taxRatePercent: item.taxRatePercent,
+      isPriceIncludingTax: item.taxIncluded,
+      inventoryBatchId: item.inventoryBatchId,
+      clientLineKey: item.clientLineKey,
+      itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue } satisfies InstantDiscountRequest,
+      hsnCode: item.hsnCode ?? null,
+    }));
+
+    const customerName = this.customerForm.controls.customerName.value.trim() || null;
+    const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
+    const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
+    const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
+    const totalAmount = this.roundAmount(this.totalAmount());
+
+    if (
+      !Number.isFinite(paidAmount) ||
+      !Number.isFinite(dueAmount) ||
+      paidAmount < 0 ||
+      dueAmount < 0 ||
+      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+    ) {
+      this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
+      return;
+    }
+
+    if (dueAmount > 0 && !this.selectedCustomerId()) {
+      this.paymentSplitError.set('sales.newSale.customerRequiredForDue');
+      return;
+    }
+
+    if (this.paymentForm.controls.paymentMethod.value === 4 && !this.canUseCredit()) {
+      this.paymentSplitError.set('sales.newSale.creditRequiresCustomerPhone');
+      return;
+    }
+
+    const request: RecordSaleRequest = {
+      idempotencyKey: this.createSaleIdempotencyKey(),
+      customerId: this.selectedCustomerId(),
+      customerName,
+      customerPhone,
+      paymentMethod: this.paymentForm.controls.paymentMethod.value,
+      paidAmount,
+      dueAmount,
+      items,
+      saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+    };
+
+    this.salesFacade.recordSale(request);
+  }
+
+  private createSaleIdempotencyKey(): string {
+    if (globalThis.crypto?.randomUUID) {
+      return `sale-${globalThis.crypto.randomUUID()}`;
+    }
+
+    return `sale-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  onCancel(): void {
+    this.router.navigate(['/sales']);
+  }
+
+  toggleSaleDiscountEditor(): void {
+    this.isSaleDiscountEditorOpen.update((v) => !v);
+  }
+
+  onSaleDiscountTypeChange(type: 0 | 1 | 2): void {
+    this.saleDiscountError.set('');
+    const preview = this.checkoutPreview();
+    if (preview) {
+      const limits = this.getSaleDiscountLimits();
+      if (!limits.isEligible || (type === 1 && limits.maxPercent <= 0) || (type === 2 && limits.maxFlat <= 0)) {
+        this.saleDiscountType.set(0);
+        this.saleDiscountValue.set(0);
+        return;
+      }
+    }
+
+    this.saleDiscountType.set(type);
+    if (type === 0) {
+      this.saleDiscountValue.set(0);
+      return;
+    }
+
+    // Re-validate current value under new type.
+    this.onSaleDiscountValueChange(this.saleDiscountValue());
+  }
+
+  onSaleDiscountValueChange(value: number | null | undefined): void {
+    const normalized = this.roundAmount(Math.max(0, Number(value ?? 0)));
+    const type = this.saleDiscountType();
+
+    if (type === 0) {
+      this.saleDiscountValue.set(0);
+      this.saleDiscountError.set('');
+      return;
+    }
+
+    const preview = this.checkoutPreview();
+    if (!preview) {
+      if (type === 1 && normalized > 100) {
+        this.saleDiscountError.set('sales.newSale.discounts.exceedsMaxPercent');
+        return;
+      }
+      this.saleDiscountError.set('');
+      this.saleDiscountValue.set(normalized);
+      return;
+    }
+
+    const limits = this.getSaleDiscountLimits();
+    if (!limits.isEligible) {
+      this.saleDiscountError.set('sales.newSale.discounts.saleNotEligible');
+      this.saleDiscountValue.set(0);
+      return;
+    }
+
+    const maxAllowed = type === 1 ? limits.maxPercent : limits.maxFlat;
+    if (normalized > maxAllowed) {
+      this.saleDiscountError.set(
+        type === 1 ? 'sales.newSale.discounts.exceedsMaxPercent' : 'sales.newSale.discounts.exceedsMaxFlat'
+      );
+      return; // block invalid input
+    }
+
+    this.saleDiscountError.set('');
+    this.saleDiscountValue.set(normalized);
+  }
+
+  isSaleDiscountEligible(): boolean {
+    return this.getSaleDiscountLimits().isEligible;
+  }
+
+  getPreviewLine(clientLineKey: string): SalePreviewLineDto | null {
+    const preview = this.checkoutPreview();
+    if (!preview || !clientLineKey) return null;
+    return preview.lines.find((l) => l.clientLineKey === clientLineKey) ?? null;
+  }
+
+  toggleLineDiscountEditor(clientLineKey: string): void {
+    if (!clientLineKey) return;
+    this.openLineDiscountEditorByKey.update((current) => ({
+      ...current,
+      [clientLineKey]: !current[clientLineKey],
+    }));
+  }
+
+  isLineDiscountEditorOpen(clientLineKey: string): boolean {
+    return Boolean(this.openLineDiscountEditorByKey()[clientLineKey]);
+  }
+
+  getCartItemDiscountError(clientLineKey: string): string {
+    return this.cartItemDiscountErrorByKey()[clientLineKey] ?? '';
+  }
+
+  getCartItemHsnError(clientLineKey: string): string {
+    return this.cartItemHsnErrorByKey()[clientLineKey] ?? '';
+  }
+
+  getCartItemTaxError(clientLineKey: string): string {
+    return this.cartItemTaxErrorByKey()[clientLineKey] ?? '';
+  }
+
+  onCartItemDiscountTypeChange(clientLineKey: string, type: 0 | 1 | 2): void {
+    if (!clientLineKey) return;
+
+    this.cartItemDiscountErrorByKey.update((current) => ({ ...current, [clientLineKey]: '' }));
+
+    const limits = this.getLineDiscountLimits(clientLineKey);
+    const isAllowed =
+      type === 0 ||
+      (type === 1 && limits.maxPercent > 0) ||
+      (type === 2 && limits.maxFlat > 0) ||
+      !Number.isFinite(type);
+
+    const nextType = isAllowed ? type : 0;
+    this.cartState.setItemDiscountType(clientLineKey, nextType);
+
+    if (nextType === 0) {
+      return;
+    }
+
+    const current = this.cart().find((x) => x.clientLineKey === clientLineKey);
+    this.onCartItemDiscountValueChange(clientLineKey, current?.itemDiscountValue ?? 0);
+  }
+
+  onCartItemDiscountValueChange(clientLineKey: string, value: number | null | undefined): void {
+    if (!clientLineKey) return;
+    const normalized = this.roundAmount(Math.max(0, Number(value ?? 0)));
+
+    const item = this.cart().find((x) => x.clientLineKey === clientLineKey);
+    if (!item) return;
+
+    if (item.itemDiscountType === 0) {
+      this.cartItemDiscountErrorByKey.update((current) => ({ ...current, [clientLineKey]: '' }));
+      this.cartState.setItemDiscountValue(clientLineKey, 0);
+      return;
+    }
+
+    const limits = this.getLineDiscountLimits(clientLineKey);
+    const maxAllowed = item.itemDiscountType === 1 ? limits.maxPercent : limits.maxFlat;
+    if (Number.isFinite(maxAllowed) && normalized > maxAllowed) {
+      this.cartItemDiscountErrorByKey.update((current) => ({
+        ...current,
+        [clientLineKey]:
+          item.itemDiscountType === 1
+            ? 'sales.newSale.discounts.exceedsMaxPercent'
+            : 'sales.newSale.discounts.exceedsMaxFlat',
+      }));
+      return; // block invalid input
+    }
+
+    this.cartItemDiscountErrorByKey.update((current) => ({ ...current, [clientLineKey]: '' }));
+    this.cartState.setItemDiscountValue(clientLineKey, normalized);
+  }
+
+  onCartItemHsnCodeChange(clientLineKey: string, value: string | null | undefined): void {
+    if (!clientLineKey) return;
+    this.cartState.setItemHsnCode(clientLineKey, this.normalizeHsnCode(value));
+  }
+
+  onCartItemTaxRateChange(clientLineKey: string, value: number | null | undefined): void {
+    if (!clientLineKey) return;
+    const raw = Number(value ?? 0);
+    const normalized = Number.isFinite(raw) ? this.roundAmount(raw) : 0;
+    this.cartState.setItemTaxRatePercent(clientLineKey, normalized);
+  }
+
+  private getLineDiscountLimits(clientLineKey: string): { maxFlat: number; maxPercent: number } {
+    const preview = this.checkoutPreview();
+    const line = preview?.lines.find((l) => l.clientLineKey === clientLineKey) ?? null;
+    if (!line) {
+      return { maxFlat: Number.POSITIVE_INFINITY, maxPercent: 100 };
+    }
+
+    const baseMaxFlat = Math.max(0, Number(line.maxAllowedItemDiscountFlat ?? 0));
+    const baseMaxPercent = Math.max(0, Number(line.maxAllowedItemDiscountPercent ?? 0));
+
+    if (line.configuredBatchRulePercentage == null) {
+      return { maxFlat: baseMaxFlat, maxPercent: baseMaxPercent };
+    }
+
+    const configuredPercent = Math.max(0, Number(line.configuredBatchRulePercentage));
+    const configuredAmount = this.roundAmount((Number(line.preTaxAmountBeforeDiscount) * configuredPercent) / 100);
+
+    return {
+      maxFlat: Math.min(baseMaxFlat, configuredAmount),
+      maxPercent: Math.min(baseMaxPercent, configuredPercent),
+    };
+  }
+
+  private revalidateDiscountsAgainstPreview(): void {
+    this.revalidateSaleDiscountAgainstPreview();
+    this.revalidateLineDiscountsAgainstPreview();
+  }
+
+  private revalidateSaleDiscountAgainstPreview(): void {
+    const type = this.saleDiscountType();
+    if (type === 0) {
+      this.saleDiscountValue.set(0);
+      this.saleDiscountError.set('');
+      return;
+    }
+
+    const limits = this.getSaleDiscountLimits();
+    const maxAllowed = type === 1 ? limits.maxPercent : limits.maxFlat;
+    const isAllowed = limits.isEligible && maxAllowed > 0;
+    if (!isAllowed) {
+      this.saleDiscountType.set(0);
+      this.saleDiscountValue.set(0);
+      this.saleDiscountError.set('');
+      return;
+    }
+
+    const normalized = this.roundAmount(Math.max(0, Number(this.saleDiscountValue() ?? 0)));
+    if (normalized > maxAllowed) {
+      // Clamp down to the new max so stale higher values cannot be submitted.
+      this.saleDiscountValue.set(this.roundAmount(maxAllowed));
+    }
+    this.saleDiscountError.set('');
+  }
+
+  private revalidateLineDiscountsAgainstPreview(): void {
+    const cart = this.cart();
+    if (cart.length === 0) {
+      this.cartItemDiscountErrorByKey.set({});
+      return;
+    }
+
+    const updatesByKey: Record<
+      string,
+      { nextType: 0 | 1 | 2; nextValue: number; nextError: string } | undefined
+    > = {};
+
+    for (const item of cart) {
+      const key = item.clientLineKey;
+      if (!key) continue;
+
+      const currentType = (item.itemDiscountType ?? 0) as 0 | 1 | 2;
+      if (currentType === 0) {
+        updatesByKey[key] = { nextType: 0, nextValue: 0, nextError: '' };
+        continue;
+      }
+
+      const limits = this.getLineDiscountLimits(key);
+      const maxAllowed = currentType === 1 ? limits.maxPercent : limits.maxFlat;
+      const isAllowed = Number.isFinite(maxAllowed) ? maxAllowed > 0 : true;
+
+      if (!isAllowed) {
+        updatesByKey[key] = { nextType: 0, nextValue: 0, nextError: '' };
+        continue;
+      }
+
+      const normalized = this.roundAmount(Math.max(0, Number(item.itemDiscountValue ?? 0)));
+      if (Number.isFinite(maxAllowed) && normalized > maxAllowed) {
+        updatesByKey[key] = {
+          nextType: currentType,
+          nextValue: this.roundAmount(maxAllowed),
+          nextError: '',
+        };
+        continue;
+      }
+
+      updatesByKey[key] = { nextType: currentType, nextValue: normalized, nextError: '' };
+    }
+
+    let needsCartUpdate = false;
+    let needsErrorUpdate = false;
+
+    for (const item of cart) {
+      const key = item.clientLineKey;
+      const update = updatesByKey[key];
+      if (!update) continue;
+      if (item.itemDiscountType !== update.nextType || item.itemDiscountValue !== update.nextValue) {
+        needsCartUpdate = true;
+      }
+      if ((this.cartItemDiscountErrorByKey()[key] ?? '') !== update.nextError) {
+        needsErrorUpdate = true;
+      }
+    }
+
+    if (needsErrorUpdate) {
+      this.cartItemDiscountErrorByKey.update((current) => {
+        const next = { ...current };
+        for (const [key, update] of Object.entries(updatesByKey)) {
+          if (!update) continue;
+          next[key] = update.nextError;
+        }
+        return next;
+      });
+    }
+
+    if (needsCartUpdate) {
+      this.cartState.applyDiscountAdjustments(
+        Object.entries(updatesByKey)
+          .filter((entry): entry is [string, { nextType: 0 | 1 | 2; nextValue: number; nextError: string }] => !!entry[1])
+          .map(([clientLineKey, update]) => ({
+            clientLineKey,
+            nextType: update.nextType,
+            nextValue: update.nextValue,
+          }))
+      );
+    }
+  }
+
+  private revalidateLineOverrides(cart: readonly CartItem[]): boolean {
+    if (cart.length === 0) {
+      this.cartItemHsnErrorByKey.set({});
+      this.cartItemTaxErrorByKey.set({});
+      return false;
+    }
+
+    const hsnErrors: Record<string, string> = {};
+    const taxErrors: Record<string, string> = {};
+
+    for (const item of cart) {
+      const key = item.clientLineKey;
+      if (!key) continue;
+
+      const normalizedHsn = this.normalizeHsnCode(item.hsnCode);
+      if (!this.isValidHsnCode(normalizedHsn)) {
+        hsnErrors[key] = 'sales.newSale.hsnInvalid';
+      }
+
+      if (!this.isValidTaxRatePercent(item.taxRatePercent)) {
+        taxErrors[key] = 'sales.newSale.taxRateInvalid';
+      }
+    }
+
+    this.cartItemHsnErrorByKey.set(hsnErrors);
+    this.cartItemTaxErrorByKey.set(taxErrors);
+    return Object.keys(hsnErrors).length > 0 || Object.keys(taxErrors).length > 0;
+  }
+
+  private getBlockingCartValidationErrorKey(cart: readonly CartItem[]): string | null {
+    const hasOverrideErrors = this.revalidateLineOverrides(cart);
+    if (hasOverrideErrors) {
+      return 'sales.newSale.overrides.fixErrors';
+    }
+
+    if (this.saleDiscountError() || Object.values(this.cartItemDiscountErrorByKey()).some((v) => !!v)) {
+      return 'sales.newSale.discounts.fixErrors';
+    }
+
+    return null;
+  }
+
+  private isValidHsnCode(value: string | null): boolean {
+    if (!value) return true;
+    return /^\d{4,8}$/.test(value);
+  }
+
+  private isValidTaxRatePercent(value: number): boolean {
+    if (!Number.isFinite(value)) {
+      return false;
+    }
+    if (value < 0 || value > 100) {
+      return false;
+    }
+    return Math.abs(value - this.roundAmount(value)) < 0.0001;
+  }
+
+  private normalizeHsnCode(value: string | null | undefined): string | null {
+    const trimmed = (value ?? '').trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private getSaleDiscountLimits(): { isEligible: boolean; maxFlat: number; maxPercent: number } {
+    const preview = this.checkoutPreview();
+    if (!preview) {
+      return { isEligible: false, maxFlat: 0, maxPercent: 0 };
+    }
+
+    const eligibleSubtotal = Math.max(0, Number(preview.saleLevelEligibleSubtotal ?? 0));
+    if (eligibleSubtotal <= 0) {
+      return { isEligible: false, maxFlat: 0, maxPercent: 0 };
+    }
+
+    const totalCapacity = preview.lines.reduce((sum, line) => {
+      const preTax = Number(line.preTaxAmountBeforeDiscount ?? 0);
+      const itemDiscount = Number(line.itemDiscountAmount ?? 0);
+      const taxableAfterItem = preTax - itemDiscount;
+      const costTotal = Number(line.costPrice ?? 0) * Number(line.quantity ?? 0);
+      return sum + Math.max(0, taxableAfterItem - costTotal);
+    }, 0);
+
+    let maxFlat = this.roundAmount(Math.max(0, totalCapacity));
+    let maxPercent = maxFlat > 0 ? this.roundAmount((maxFlat * 100) / eligibleSubtotal) : 0;
+
+    const configured = preview.configuredSaleRule;
+    if (configured && Number.isFinite(Number(configured.percentage))) {
+      const configuredPercent = Math.max(0, Number(configured.percentage));
+      const configuredAmount = this.roundAmount((eligibleSubtotal * configuredPercent) / 100);
+      maxFlat = Math.min(maxFlat, configuredAmount);
+      maxPercent = Math.min(maxPercent, configuredPercent);
+    }
+
+    return { isEligible: maxFlat > 0, maxFlat, maxPercent };
+  }
+
+  private syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
+    const paidControl = this.paymentForm.controls.paidAmount;
+    const dueControl = this.paymentForm.controls.dueAmount;
+    const normalizedPaid = this.normalizeAmount(rawPaid, total);
+    const normalizedDue = this.roundAmount(total - normalizedPaid);
+
+    this.isSyncingPaymentControls = true;
+    try {
+      if (!this.areAmountsEqual(Number(paidControl.value ?? 0), normalizedPaid)) {
+        paidControl.setValue(normalizedPaid, { emitEvent: false });
+      }
+
+      if (!this.areAmountsEqual(Number(dueControl.value ?? 0), normalizedDue)) {
+        dueControl.setValue(normalizedDue, { emitEvent: false });
+      }
+    } finally {
+      this.isSyncingPaymentControls = false;
+    }
+  }
+
+  private syncPaymentSplitFromDue(rawDue: number | null, total = this.totalAmount()): void {
+    const paidControl = this.paymentForm.controls.paidAmount;
+    const dueControl = this.paymentForm.controls.dueAmount;
+    const normalizedDue = this.normalizeAmount(rawDue, total);
+    const normalizedPaid = this.roundAmount(total - normalizedDue);
+
+    this.isSyncingPaymentControls = true;
+    try {
+      if (!this.areAmountsEqual(Number(dueControl.value ?? 0), normalizedDue)) {
+        dueControl.setValue(normalizedDue, { emitEvent: false });
+      }
+
+      if (!this.areAmountsEqual(Number(paidControl.value ?? 0), normalizedPaid)) {
+        paidControl.setValue(normalizedPaid, { emitEvent: false });
+      }
+    } finally {
+      this.isSyncingPaymentControls = false;
+    }
+  }
+
+  private normalizeAmount(value: number | null | undefined, total: number): number {
+    return this.roundAmount(Math.max(0, Math.min(Number(value ?? 0), total)));
+  }
+
+  private toFiniteAmount(value: number | null | undefined): number {
+    const amount = Number(value ?? 0);
+    return Number.isFinite(amount) ? this.roundAmount(amount) : Number.NaN;
+  }
+
+  private roundAmount(value: number): number {
+    return Number(value.toFixed(2));
+  }
+
+  private areAmountsEqual(left: number, right: number): boolean {
+    return this.roundAmount(left) === this.roundAmount(right);
+  }
+
+  private enforceNoCustomerCreditRestrictions(): void {
+    const dueControl = this.paymentForm.controls.dueAmount;
+
+    if (this.paymentForm.controls.paymentMethod.value === 4) {
+      this.paymentForm.controls.paymentMethod.setValue(1);
+    }
+
+    if (Number(this.paymentForm.getRawValue().dueAmount ?? 0) !== 0) {
+      this.lastEditedPaymentField.set('due');
+      this.syncPaymentSplitFromDue(0);
+    }
+
+    if (dueControl.enabled) {
+      dueControl.disable({ emitEvent: false });
+    }
+  }
+
+  private resetSearchAndPickerState(): void {
+    this.showBatchPicker.set(false);
+    this.selectedBatch.set(null);
+    this.searchInput.set('');
+    this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
+    this.availableBatches.set([]);
+    this.batchSearchError.set('');
+  }
+
+  private applyProductDefaultsForLine(clientLineKey: string, itemName: string, barcode: string): void {
+    const normalizedName = itemName?.trim();
+    const normalizedBarcode = barcode?.trim();
+    if (!normalizedName && !normalizedBarcode) {
+      return;
+    }
+
+    this.inventoryService.getProductDetailsByNameOrBarcode(normalizedName, normalizedBarcode).subscribe({
+      next: (details) => {
+        const resolvedHsn = this.normalizeHsnCode(details.hsnCode);
+        if (!resolvedHsn) {
+          return;
+        }
+        this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
+      },
+      error: () => undefined,
+    });
+  }
+
+  private getEventNotificationKey(eventType: string): string {
+    const keyMap: Record<string, string> = {
+      'PricingChanged': 'pricingUpdated',
+      'ItemApplicabilityChanged': 'itemUpdated',
+      'DiscountRuleChanged': 'discountUpdated',
+      'InventoryBatchVoided': 'inventoryUpdated',
+    };
+    return keyMap[eventType] ?? 'updated';
+  }
+
+  private detectAndHighlightChangedRows(
+    oldPreview: SalePreviewDto | null,
+    newPreview: SalePreviewDto
+  ): void {
+    const highlightedKeys = new Set<string>();
+
+    if (!oldPreview) {
+      // If no previous preview, highlight all rows
+      newPreview.lines.forEach((line) => {
+        if (line.clientLineKey) {
+          highlightedKeys.add(line.clientLineKey);
+        }
+      });
+    } else {
+      // Compare each line with old preview and detect changes
+      const oldLinesByKey = new Map(
+        oldPreview.lines.map((line) => [line.clientLineKey, line])
+      );
+
+      newPreview.lines.forEach((newLine) => {
+        if (!newLine.clientLineKey) return;
+
+        const oldLine = oldLinesByKey.get(newLine.clientLineKey);
+        if (!oldLine) {
+          highlightedKeys.add(newLine.clientLineKey);
+          return;
+        }
+
+        // Check if pricing or discount changed
+        if (
+          newLine.lineTotalAmount !== oldLine.lineTotalAmount ||
+          newLine.itemDiscountAmount !== oldLine.itemDiscountAmount ||
+          newLine.saleDiscountAmount !== oldLine.saleDiscountAmount ||
+          newLine.salesPrice !== oldLine.salesPrice ||
+          newLine.taxAmount !== oldLine.taxAmount
+        ) {
+          highlightedKeys.add(newLine.clientLineKey);
+        }
+      });
+    }
+
+    this.highlightedRowKeys.set(highlightedKeys);
+
+    // Auto-clear highlights after 1.5 seconds (fade transition)
+    setTimeout(() => {
+      this.highlightedRowKeys.set(new Set());
+    }, 1500);
+  }
+
+  private resetTransientState(): void {
+    this.cartState.onClearCart();
+    this.searchInput.set('');
+    this.customerNameSuggestions.set([]);
+    this.customerForm.reset();
+    this.selectedCustomerId.set(null);
+    this.selectedCustomerName.set(null);
+    this.paymentForm.reset({ paymentMethod: 1, paidAmount: 0, dueAmount: 0 });
+    this.paymentSplitError.set('');
+    this.salePreview.clearPreviewState();
+  }
+
+  onDone(): void {
+    this.showConfirmation.set(false);
+    this.salesFacade.clearLastRecordedSale();
+    this.salesFacade.clearMutationStatus();
+    this.router.navigate(['/sales']);
+  }
+
+  onOfflineDone(): void {
+    this.showOfflineConfirmation.set(false);
+    this.offlineConfirmation.set(null);
+    this.router.navigate(['/sales']);
+  }
+
+  private async searchOfflineCatalog(term: string): Promise<void> {
+    this.isSearchingBatches.set(true);
+    this.batchSearchError.set('');
+    this.availableBatches.set([]);
+    this.showBatchPicker.set(false);
+
+    try {
+      const batches = await this.offlineSaleState.searchOfflineCatalog(term);
+      if (batches.length === 0) {
+        this.batchSearchError.set('sales.newSale.noBatchesFound');
+        return;
+      }
+
+      this.availableBatches.set(batches);
+      this.showBatchPicker.set(true);
+    } catch {
+      this.batchSearchError.set('sales.newSale.searchError');
+    } finally {
+      this.isSearchingBatches.set(false);
+    }
+  }
+
+  private async refreshOfflinePreview(cart: readonly CartItem[]): Promise<void> {
+    const shopId = this.activeShopId();
+    if (!shopId) {
+      this.salePreview.clearPreviewState();
+      return;
+    }
+
+    const requestId = this.salePreview.beginPreviewRequest();
+
+    try {
+      const preview = await this.offlineSaleState.buildOfflinePreview(cart, {
+        paymentMethod: this.paymentForm.controls.paymentMethod.value,
+        paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
+        customerId: this.selectedCustomerId(),
+        customerName: this.customerForm.controls.customerName.value.trim() || null,
+        customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
+        saleDiscountType: this.saleDiscountType(),
+        saleDiscountValue: this.saleDiscountValue(),
+      });
+      this.salePreview.finishPreviewRequest(requestId, preview, {
+        onPreviewApplied: (nextPreview, oldPreview) => {
+          this.detectAndHighlightChangedRows(oldPreview, nextPreview);
+          this.revalidateDiscountsAgainstPreview();
+        },
+      });
+    } catch {
+      this.salePreview.finishPreviewRequest(requestId, null, {
+        failed: true,
+        errorMessage: 'sales.newSale.previewError',
+      });
+    }
+  }
+
+  private async onOfflineSubmit(): Promise<void> {
+    if (this.isOfflineSubmitting()) return;
+
+    this.isOfflineSubmitting.set(true);
+    this.paymentSplitError.set('');
+
+    try {
+      const result = await this.offlineSaleState.submitOfflineSale({
+        paymentMethod: this.paymentForm.controls.paymentMethod.value,
+        paidAmount: this.toFiniteAmount(this.paymentForm.controls.paidAmount.value),
+        dueAmount: this.toFiniteAmount(this.paymentForm.controls.dueAmount.value),
+        totalAmount: this.roundAmount(this.totalAmount()),
+        customerId: this.selectedCustomerId(),
+        customerName: this.customerForm.controls.customerName.value.trim() || null,
+        customerPhone: this.customerForm.controls.customerPhone.value.trim() || null,
+        selectedCustomerId: this.selectedCustomerId(),
+        saleDiscountType: this.saleDiscountType(),
+        saleDiscountValue: this.saleDiscountValue(),
+        lines: this.cart().map((item) => ({
+          clientLineId: item.clientLineKey,
+          inventoryBatchId: item.inventoryBatchId,
+          itemId: item.inventoryBatchId,
+          barcode: item.barcode,
+          itemName: item.itemName,
+          batchNumber: item.batchNumber,
+          quantity: item.quantity,
+          salesPrice: item.salesPrice,
+          mrp: item.mrp,
+          costPrice: item.costPrice,
+          taxRatePercent: item.taxRatePercent,
+          taxIncluded: item.taxIncluded,
+          itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+          hsnCode: item.hsnCode ?? null,
+        })),
+      });
+
+      if (result.ok) {
+        this.offlineConfirmation.set({
+          invoiceNumber: result.confirmation.invoiceNumber,
+          grandTotal: result.confirmation.grandTotal,
+          clientSaleId: result.confirmation.clientSaleId,
+        });
+        this.showOfflineConfirmation.set(true);
+        this.resetTransientState();
+        await this.offlineSaleState.refreshSnapshot();
+      } else {
+        this.paymentSplitError.set(result.errorKey);
+      }
+    } finally {
+      this.isOfflineSubmitting.set(false);
+    }
+  }
+
+  printA4(saleId: string): void {
+    window.open(`/sales/${saleId}/print?template=a4`, '_blank');
+  }
+
+  printThermal(saleId: string): void {
+    window.open(`/sales/${saleId}/print?template=thermal`, '_blank');
+  }
+
+  printOfflineA4(): void {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return;
+    }
+
+    window.open(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`, '_blank');
+  }
+
+  printOfflineThermal(): void {
+    const confirmation = this.offlineConfirmation();
+    if (!confirmation) {
+      return;
+    }
+
+    window.open(`/sales/${confirmation.clientSaleId}/print?template=thermal&offline=1`, '_blank');
+  }
+}
