@@ -13,6 +13,7 @@ import { SaleItemDto } from '../../services/sale.models';
 export class SaleLineItemsTableComponent {
   @Input({ required: true }) items: readonly SaleItemDto[] = [];
   @Input() currency = 'INR';
+  @Input() totalTaxAmount: number | null = null;
 
   protected get inferredTaxIncludedForMissingItems(): boolean {
     const hasItems = this.items.length > 0;
@@ -25,7 +26,7 @@ export class SaleLineItemsTableComponent {
       return true;
     }
 
-    const totalTax = this.items.reduce((sum, item) => sum + item.taxAmount, 0);
+    const totalTax = this.totalTaxAmount ?? this.items.reduce((sum, item) => sum + item.taxAmount, 0);
     const includedTaxTotal = this.items.reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, true), 0);
     const excludedTaxTotal = this.items.reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, false), 0);
     const includedDelta = Math.abs(includedTaxTotal - totalTax);
