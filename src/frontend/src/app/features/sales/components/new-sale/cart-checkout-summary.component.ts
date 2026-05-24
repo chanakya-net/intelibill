@@ -14,6 +14,7 @@ import { SalePreviewDto } from '../../../../features/sales/services/sale.models'
   standalone: true,
   imports: [CommonModule, FormsModule, ButtonModule, TagModule, SelectModule, InputNumberModule, TranslocoPipe],
   templateUrl: './cart-checkout-summary.component.html',
+  styleUrl: './cart-checkout-summary.component.scss',
 })
 export class CartCheckoutSummaryComponent {
   @Input() preview: SalePreviewDto | null = null;

@@ -1,0 +1,19 @@
+.summary-box {
+  background: #fafafa;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.sale-discount-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.discount-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  align-items: center;
+}

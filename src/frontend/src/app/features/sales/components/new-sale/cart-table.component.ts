@@ -47,6 +47,7 @@ export interface InstantDiscountOption {
     TranslocoPipe,
   ],
   templateUrl: './cart-table.component.html',
+  styleUrl: './cart-table.component.scss',
 })
 export class CartTableComponent {
   @Input() cartItems: CartItem[] = [];

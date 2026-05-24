@@ -22,6 +22,7 @@ import { AvailableBatchDto } from '../../../inventory/services/inventory.models'
     TranslocoPipe,
   ],
   templateUrl: './batch-picker-dialog.component.html',
+  styleUrl: './batch-picker-dialog.component.scss',
 })
 export class BatchPickerDialogComponent {
   @Input() visible = false;
