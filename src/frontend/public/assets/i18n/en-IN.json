@@ -962,7 +962,8 @@
     "sectionExpenses": "Expense Details",
     "sectionPaymentBehavior": "Payment Behavior",
     "sectionStockRisk": "Stock Risk",
-    "sectionReceivables": "Receivables"
+    "sectionReceivables": "Receivables",
+    "metricLabel": "Metric"
   },
   "discounts": {
     "title": "Discount Rules",

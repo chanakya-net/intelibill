@@ -38,7 +38,7 @@ describe('DashboardChartComponent', () => {
   });
 
   it('supports donut chart type', () => {
-    component.chartType = 'doughnut';
+    fixture.componentRef.setInput('chartType', 'doughnut');
     fixture.detectChanges();
 
     const chart = fixture.debugElement.query(By.css('p-chart'));

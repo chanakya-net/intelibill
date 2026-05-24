@@ -7,9 +7,11 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
-import { 
+import {
   ChartData,
   DashboardChartType,
+  PaymentMixChartLabels,
+  SalesChartLabels,
   buildPaymentMixDonutChartData,
   buildPaymentMixTrendChartData,
   buildProfitTrendChartData,
@@ -66,20 +68,6 @@ const EXPENSE_CHART_LABELS = {
   expenseRecorded: 'dashboard.expenseRecorded',
   expenseCorrection: 'dashboard.expenseCorrection',
   netExpense: 'dashboard.netExpense',
-};
-
-type SalesChartLabels = {
-  salesBooked: string;
-  netSalesBooked: string;
-  profitBeforeTax: string;
-  profitAfterTax: string;
-};
-
-type PaymentMixChartLabels = {
-  cash: string;
-  upi: string;
-  card: string;
-  credit: string;
 };
 
 type MetricOption = {
@@ -172,8 +160,8 @@ export class DashboardPageComponent implements OnInit {
         legend: { display: showLegend, position: 'bottom' as const },
         tooltip: {
           callbacks: {
-            label: (context: { dataset: { label?: string }; parsed?: { y?: number }; parsedValue?: number }) => {
-              const value = context.parsed?.y ?? context.parsedValue ?? 0;
+            label: (context: { dataset: { label?: string }; parsed?: number | { y?: number } }) => {
+              const value = typeof context.parsed === 'number' ? context.parsed : (context.parsed?.y ?? 0);
               const prefix = context.dataset.label ? `${context.dataset.label}: ` : '';
               return `${prefix}${currencyFormatter.format(value)}`;
             },

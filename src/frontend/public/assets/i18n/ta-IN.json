@@ -962,7 +962,8 @@
     "sectionExpenses": "செலவு விவரங்கள்",
     "sectionPaymentBehavior": "பணம் செலுத்தும் நடத்தை",
     "sectionStockRisk": "பங்கு ஆபத்து",
-    "sectionReceivables": "பெறத்தக்கவை"
+    "sectionReceivables": "பெறத்தக்கவை",
+    "metricLabel": "அளவீடு"
   },
   "discounts": {
     "title": "தள்ளுபடி விதிகள்",

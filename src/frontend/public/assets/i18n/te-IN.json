@@ -962,7 +962,8 @@
     "sectionExpenses": "ఖర్చు వివరాలు",
     "sectionPaymentBehavior": "చెల్లింపు ప్రవర్తన",
     "sectionStockRisk": "స్టాక్ రిస్క్",
-    "sectionReceivables": "స్వీకరించదగినవి"
+    "sectionReceivables": "స్వీకరించదగినవి",
+    "metricLabel": "మెట్రిక్"
   },
   "discounts": {
     "title": "తగ్గింపు నియమాలు",

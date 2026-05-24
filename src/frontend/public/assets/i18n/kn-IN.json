@@ -962,7 +962,8 @@
     "sectionExpenses": "ವೆಚ್ಚದ ವಿವರಗಳು",
     "sectionPaymentBehavior": "ಪಾವತಿ ನಡವಳಿಕೆ",
     "sectionStockRisk": "ಸ್ಟಾಕ್ ಅಪಾಯ",
-    "sectionReceivables": "ಕರಾರುಗಳು"
+    "sectionReceivables": "ಕರಾರುಗಳು",
+    "metricLabel": "ಮೆಟ್ರಿಕ್"
   },
   "discounts": {
     "title": "ರಿಯಾಯಿತಿ ನಿಯಮಗಳು",

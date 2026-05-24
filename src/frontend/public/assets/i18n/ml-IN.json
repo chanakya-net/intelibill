@@ -962,7 +962,8 @@
     "sectionExpenses": "ചെലവ് വിശദാംശങ്ങൾ",
     "sectionPaymentBehavior": "പേയ്മെൻ്റ് പെരുമാറ്റം",
     "sectionStockRisk": "സ്റ്റോക്ക് റിസ്ക്",
-    "sectionReceivables": "ലഭിക്കേണ്ടവ"
+    "sectionReceivables": "ലഭിക്കേണ്ടവ",
+    "metricLabel": "മെട്രിക്"
   },
   "discounts": {
     "title": "കിഴിവ് നിയമങ്ങൾ",

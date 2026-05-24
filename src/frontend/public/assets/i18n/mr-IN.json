@@ -962,7 +962,8 @@
     "sectionExpenses": "खर्च तपशील",
     "sectionPaymentBehavior": "पेमेंट वर्तन",
     "sectionStockRisk": "स्टॉक जोखीम",
-    "sectionReceivables": "प्राप्य"
+    "sectionReceivables": "प्राप्य",
+    "metricLabel": "मेट्रिक"
   },
   "discounts": {
     "title": "सवलत नियम",

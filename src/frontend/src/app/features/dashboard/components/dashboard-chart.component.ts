@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject, input } from '@angular/core';
+import { Component, EventEmitter, Output, computed, inject, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
@@ -29,20 +29,22 @@ const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
   styleUrl: './dashboard-chart.component.scss',
 })
 export class DashboardChartComponent {
-  chartData = input<ChartData | null>(null);
-  @Input() chartType: DashboardChartType = 'bar';
-  @Input() loading = false;
-  @Input() title = '';
-  @Input() chartOptions: Record<string, unknown> | null = null;
+  readonly chartData = input<ChartData | null>(null);
+  readonly chartType = input<DashboardChartType>('bar');
+  readonly loading = input(false);
+  readonly title = input('');
+  readonly chartOptions = input<Record<string, unknown> | null>(null);
 
-  @Output() chartTypeChange = new EventEmitter<DashboardChartType>();
+  @Output() readonly chartTypeChange = new EventEmitter<DashboardChartType>();
   private readonly transloco = inject(TranslocoService);
 
   readonly chartTypeOptions: ChartTypeOption[] = CHART_TYPE_OPTIONS;
   readonly translatedChartData = computed<ChartData | null>(() => this.translateChartData(this.chartData()));
 
   get renderChartType(): 'bar' | 'line' | 'pie' | 'doughnut' {
-    return this.chartType === 'stackedBar' ? 'bar' : this.chartType;
+    const type = this.chartType();
+    if (type === 'stackedBar') return 'bar';
+    return type;
   }
 
   onChartTypeChange(next: DashboardChartType): void {

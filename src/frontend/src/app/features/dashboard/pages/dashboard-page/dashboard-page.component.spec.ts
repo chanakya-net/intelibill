@@ -93,6 +93,17 @@ interface TestFacade {
   applyRange: ReturnType<typeof vi.fn>;
 }
 
+function createFixture(dto: DashboardDto | null, errorMessage = '') {
+  const facade = createFacade(dto, errorMessage);
+  TestBed.configureTestingModule({
+    imports: [DashboardPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+    providers: [{ provide: DashboardFacade, useValue: facade }],
+  });
+  const fixture = TestBed.createComponent(DashboardPageComponent);
+  fixture.detectChanges();
+  return fixture;
+}
+
 describe('DashboardPageComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
@@ -230,5 +241,40 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.metricOptions().map((option) => option.value)).not.toContain('profit');
+  });
+
+  it('shows alert ribbon when alerts are present', () => {
+    const fixture = createFixture(makeOwnerDto({
+      alerts: [{ alertType: 'CriticalStock', priority: 1 }, { alertType: 'RunningLowStock', priority: 3 }],
+    }));
+    const alerts = fixture.debugElement.queryAll(By.css('.dashboard-alert'));
+    expect(alerts).toHaveLength(2);
+  });
+
+  it('shows no-activity hint when hasNoSalesActivity is true', () => {
+    const fixture = createFixture(makeOwnerDto({ hasNoSalesActivity: true }));
+    const noActivity = fixture.debugElement.query(By.css('.dashboard-no-activity'));
+    expect(noActivity).not.toBeNull();
+  });
+
+  it('shows stale data warning when error and data both present', () => {
+    const fixture = createFixture(makeOwnerDto(), 'Network timeout');
+    const warning = fixture.debugElement.query(By.css('.dashboard-stale-warning'));
+    expect(warning).not.toBeNull();
+  });
+
+  it('shows error panel when no data and error present', () => {
+    const fixture = createFixture(null, 'Network timeout');
+    const error = fixture.debugElement.query(By.css('.dashboard-error'));
+    expect(error).not.toBeNull();
+  });
+
+  it('toggleSection collapses section when toggled twice', () => {
+    const fixture = createFixture(makeOwnerDto());
+    const component = fixture.componentInstance;
+    component.toggleSection('expenses');
+    expect(component.sectionExpanded().expenses).toBe(true);
+    component.toggleSection('expenses');
+    expect(component.sectionExpanded().expenses).toBe(false);
   });
 });

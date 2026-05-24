@@ -962,7 +962,8 @@
     "sectionExpenses": "व्यय विवरण",
     "sectionPaymentBehavior": "भुगतान व्यवहार",
     "sectionStockRisk": "स्टॉक जोखिम",
-    "sectionReceivables": "प्राप्य"
+    "sectionReceivables": "प्राप्य",
+    "metricLabel": "मेट्रिक"
   },
   "discounts": {
     "title": "छूट नियम",

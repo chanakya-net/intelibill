@@ -962,7 +962,8 @@
     "sectionExpenses": "ખર્ચ વિગતો",
     "sectionPaymentBehavior": "ચુકવણી વર્તન",
     "sectionStockRisk": "સ્ટોક જોખમ",
-    "sectionReceivables": "પ્રાપ્ય"
+    "sectionReceivables": "પ્રાપ્ય",
+    "metricLabel": "મેટ્રિક"
   },
   "discounts": {
     "title": "છૂટ નિયમો",
