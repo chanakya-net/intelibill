@@ -23,19 +23,20 @@ const paymentMixLabels = {
   credit: 'dashboard.paymentMixCredit',
 };
 
-describe('dashboard chart builders', () => {
-  it('buildSalesTrendChartData maps sales+profit trend points', () => {
-    const result = buildSalesTrendChartData(makeSalesTrendPoints(), makeProfitTrendPoints(), {
-      salesBooked: 'Sales',
-      netSalesBooked: 'Net Sales',
-      profitBeforeTax: 'Profit Before Tax',
-      profitAfterTax: 'Profit After Tax',
-    });
+	describe('dashboard chart builders', () => {
+	  it('buildSalesTrendChartData maps sales+profit trend points', () => {
+	    const salesTrend = makeSalesTrendPoints();
+	    const result = buildSalesTrendChartData(salesTrend, makeProfitTrendPoints(), {
+	      salesBooked: 'Sales',
+	      netSalesBooked: 'Net Sales',
+	      profitBeforeTax: 'Profit Before Tax',
+	      profitAfterTax: 'Profit After Tax',
+	    });
 
-    expect(result).not.toBeNull();
-    expect(result?.labels).toEqual(['May 1', 'May 2']);
-    expect(result?.datasets).toHaveLength(4);
-  });
+	    expect(result).not.toBeNull();
+	    expect(result?.labels).toEqual(salesTrend.map((point) => formatTrendDateLabel(point.date)));
+	    expect(result?.datasets).toHaveLength(4);
+	  });
 
   it('buildSalesTrendChartData requires both trend series', () => {
     expect(buildSalesTrendChartData([], [], {
@@ -59,16 +60,17 @@ describe('dashboard chart builders', () => {
     });
   });
 
-  it('builds payment mix trend chart for positive data', () => {
-    const result = buildPaymentMixTrendChartData([
-      { date: '2026-05-01', cash: 10, upi: 20, card: 0, credit: 5 },
-      { date: '2026-05-02', cash: 8, upi: 12, card: 1, credit: 9 },
-    ], paymentMixLabels);
+	  it('builds payment mix trend chart for positive data', () => {
+	    const trend = [
+	      { date: '2026-05-01', cash: 10, upi: 20, card: 0, credit: 5 },
+	      { date: '2026-05-02', cash: 8, upi: 12, card: 1, credit: 9 },
+	    ];
+	    const result = buildPaymentMixTrendChartData(trend, paymentMixLabels);
 
-    expect(result?.labels).toEqual(['May 1', 'May 2']);
-    expect(result?.datasets).toHaveLength(4);
-    expect(result?.datasets[0]?.data).toEqual([10, 8]);
-  });
+	    expect(result?.labels).toEqual(trend.map((point) => formatTrendDateLabel(point.date)));
+	    expect(result?.datasets).toHaveLength(4);
+	    expect(result?.datasets[0]?.data).toEqual([10, 8]);
+	  });
 
   it('builds payment mix donut chart from aggregate values', () => {
     const result = buildPaymentMixDonutChartData(

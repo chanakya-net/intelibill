@@ -4,10 +4,10 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DashboardDateRangeComponent } from '../../components/dashboard-date-range.component';
-import { DashboardPageComponent } from './dashboard-page.component';
-import { DashboardFacade } from '../../state/dashboard.facade';
-import { DashboardDto } from '../../services/dashboard.service';
+	import { DashboardDateRangeComponent } from '../../components/dashboard-date-range.component';
+	import { DashboardPageComponent } from './dashboard-page.component';
+	import { DashboardFacade } from '../../state/dashboard.facade';
+	import { DashboardDto } from '../../models/dashboard-dto';
 
 const makeOwnerDto = (overrides: Partial<DashboardDto> = {}): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
