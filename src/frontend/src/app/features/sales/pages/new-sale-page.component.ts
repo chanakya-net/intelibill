@@ -425,18 +425,14 @@ export class NewSalePageComponent {
       }
       const hasOverrideErrors = this.revalidateLineOverrides(cart);
       if (cart.length === 0) {
-        this.checkoutPreview.set(null);
-        this.isPreviewLoading.set(false);
-        this.previewError.set('');
+        this.salePreview.clearPreviewState();
         return;
       }
       if (hasOverrideErrors) {
-        this.checkoutPreview.set(null);
-        this.isPreviewLoading.set(false);
-        this.previewError.set('sales.newSale.overrides.invalid');
+        this.salePreview.markPreviewInvalid('sales.newSale.overrides.invalid');
         return;
       }
-      this.previewError.set('');
+      this.salePreview.clearPreviewError();
       if (this.isOfflineMode()) {
         if (this.isOfflineEligible()) {
           void this.refreshOfflinePreview(cart);
@@ -900,17 +896,7 @@ export class NewSalePageComponent {
       !Number.isFinite(type);
 
     const nextType = isAllowed ? type : 0;
-    this.cart.update((items) =>
-      items.map((item) =>
-        item.clientLineKey === clientLineKey
-          ? {
-              ...item,
-              itemDiscountType: nextType,
-              itemDiscountValue: nextType === 0 ? 0 : item.itemDiscountValue,
-            }
-          : item
-      )
-    );
+    this.cartState.setItemDiscountType(clientLineKey, nextType);
 
     if (nextType === 0) {
       return;
@@ -929,9 +915,7 @@ export class NewSalePageComponent {
 
     if (item.itemDiscountType === 0) {
       this.cartItemDiscountErrorByKey.update((current) => ({ ...current, [clientLineKey]: '' }));
-      this.cart.update((items) =>
-        items.map((row) => (row.clientLineKey === clientLineKey ? { ...row, itemDiscountValue: 0 } : row))
-      );
+      this.cartState.setItemDiscountValue(clientLineKey, 0);
       return;
     }
 
@@ -949,32 +933,19 @@ export class NewSalePageComponent {
     }
 
     this.cartItemDiscountErrorByKey.update((current) => ({ ...current, [clientLineKey]: '' }));
-    this.cart.update((items) =>
-      items.map((row) =>
-        row.clientLineKey === clientLineKey ? { ...row, itemDiscountValue: normalized } : row
-      )
-    );
+    this.cartState.setItemDiscountValue(clientLineKey, normalized);
   }
 
   onCartItemHsnCodeChange(clientLineKey: string, value: string | null | undefined): void {
     if (!clientLineKey) return;
-    const normalized = this.normalizeHsnCode(value);
-    this.cart.update((items) =>
-      items.map((row) =>
-        row.clientLineKey === clientLineKey ? { ...row, hsnCode: normalized } : row
-      )
-    );
+    this.cartState.setItemHsnCode(clientLineKey, this.normalizeHsnCode(value));
   }
 
   onCartItemTaxRateChange(clientLineKey: string, value: number | null | undefined): void {
     if (!clientLineKey) return;
     const raw = Number(value ?? 0);
     const normalized = Number.isFinite(raw) ? this.roundAmount(raw) : 0;
-    this.cart.update((items) =>
-      items.map((row) =>
-        row.clientLineKey === clientLineKey ? { ...row, taxRatePercent: normalized } : row
-      )
-    );
+    this.cartState.setItemTaxRatePercent(clientLineKey, normalized);
   }
 
   private getLineDiscountLimits(clientLineKey: string): { maxFlat: number; maxPercent: number } {
@@ -1102,16 +1073,14 @@ export class NewSalePageComponent {
     }
 
     if (needsCartUpdate) {
-      this.cart.update((items) =>
-        items.map((item) => {
-          const key = item.clientLineKey;
-          const update = updatesByKey[key];
-          if (!update) return item;
-          if (item.itemDiscountType === update.nextType && item.itemDiscountValue === update.nextValue) {
-            return item;
-          }
-          return { ...item, itemDiscountType: update.nextType, itemDiscountValue: update.nextValue };
-        })
+      this.cartState.applyDiscountAdjustments(
+        Object.entries(updatesByKey)
+          .filter((entry): entry is [string, { nextType: 0 | 1 | 2; nextValue: number; nextError: string }] => !!entry[1])
+          .map(([clientLineKey, update]) => ({
+            clientLineKey,
+            nextType: update.nextType,
+            nextValue: update.nextValue,
+          }))
       );
     }
   }
@@ -1307,13 +1276,7 @@ export class NewSalePageComponent {
         if (!resolvedHsn) {
           return;
         }
-        this.cart.update((items) =>
-          items.map((item) =>
-            item.clientLineKey === clientLineKey && !this.normalizeHsnCode(item.hsnCode)
-              ? { ...item, hsnCode: resolvedHsn }
-              : item
-          )
-        );
+        this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
       },
       error: () => undefined,
     });

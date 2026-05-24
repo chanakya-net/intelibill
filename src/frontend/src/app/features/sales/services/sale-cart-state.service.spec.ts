@@ -76,6 +76,64 @@ describe('SaleCartStateService', () => {
     expect(service.cart()).toHaveLength(0);
   });
 
+  it('updates cart item discount, hsn, and tax overrides', () => {
+    const service = setup();
+    service.addBatchToCart(makeBatch(), 1);
+    const [item] = service.cart();
+
+    service.setItemDiscountType(item.clientLineKey, 1);
+    service.setItemDiscountValue(item.clientLineKey, 12.5);
+    service.setItemHsnCode(item.clientLineKey, '1234');
+    service.setItemTaxRatePercent(item.clientLineKey, 5);
+
+    expect(service.cart()[0]).toMatchObject({
+      itemDiscountType: 1,
+      itemDiscountValue: 12.5,
+      hsnCode: '1234',
+      taxRatePercent: 5,
+    });
+
+    service.setItemDiscountType(item.clientLineKey, 0);
+    expect(service.cart()[0]).toMatchObject({
+      itemDiscountType: 0,
+      itemDiscountValue: 0,
+    });
+  });
+
+  it('applies preview revalidation adjustments and only patches missing hsn codes', () => {
+    const service = setup();
+    service.addBatchToCart(makeBatch({ inventoryBatchId: 'batch-1' }), 1);
+    service.addBatchToCart(makeBatch({ inventoryBatchId: 'batch-2', batchNumber: 'B-2' }), 1);
+    const [firstItem, secondItem] = service.cart();
+
+    service.setItemHsnCode(firstItem.clientLineKey, '5678');
+    service.applyDiscountAdjustments([
+      {
+        clientLineKey: firstItem.clientLineKey,
+        nextType: 2,
+        nextValue: 15,
+      },
+      {
+        clientLineKey: secondItem.clientLineKey,
+        nextType: 1,
+        nextValue: 5,
+      },
+    ]);
+    service.applyResolvedHsnCodeIfMissing(firstItem.clientLineKey, '9999');
+    service.applyResolvedHsnCodeIfMissing(secondItem.clientLineKey, '1234');
+
+    expect(service.cart()[0]).toMatchObject({
+      itemDiscountType: 2,
+      itemDiscountValue: 15,
+      hsnCode: '5678',
+    });
+    expect(service.cart()[1]).toMatchObject({
+      itemDiscountType: 1,
+      itemDiscountValue: 5,
+      hsnCode: '1234',
+    });
+  });
+
   it('loads persisted cart and persists changes', async () => {
     const service = setup();
     const stored: CartItem[] = [{

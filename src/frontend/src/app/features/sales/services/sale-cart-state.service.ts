@@ -11,6 +11,12 @@ export interface AddBatchResult {
   readonly addedLineKey: string | null;
 }
 
+export interface CartDiscountAdjustment {
+  readonly clientLineKey: string;
+  readonly nextType: 0 | 1 | 2;
+  readonly nextValue: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SaleCartStateService {
   private readonly cartStorage = inject(SalesCartIndexedDbService);
@@ -169,6 +175,83 @@ export class SaleCartStateService {
     this.cart.set([]);
   }
 
+  setItemDiscountType(clientLineKey: string, type: 0 | 1 | 2): void {
+    this.updateItem(clientLineKey, (item) => ({
+      ...item,
+      itemDiscountType: type,
+      itemDiscountValue: type === 0 ? 0 : item.itemDiscountValue,
+    }));
+  }
+
+  setItemDiscountValue(clientLineKey: string, value: number): void {
+    this.updateItem(clientLineKey, (item) => ({ ...item, itemDiscountValue: value }));
+  }
+
+  setItemHsnCode(clientLineKey: string, value: string | null | undefined): void {
+    const normalized = this.normalizeHsnCode(value);
+    this.updateItem(clientLineKey, (item) => ({ ...item, hsnCode: normalized }));
+  }
+
+  setItemTaxRatePercent(clientLineKey: string, value: number): void {
+    this.updateItem(clientLineKey, (item) => ({ ...item, taxRatePercent: value }));
+  }
+
+  applyDiscountAdjustments(adjustments: readonly CartDiscountAdjustment[]): void {
+    if (adjustments.length === 0) {
+      return;
+    }
+
+    const adjustmentsByKey = new Map(
+      adjustments.map((adjustment) => [adjustment.clientLineKey, adjustment] as const),
+    );
+
+    this.cart.update((items) => {
+      let changed = false;
+      const nextItems = items.map((item) => {
+        const adjustment = adjustmentsByKey.get(item.clientLineKey);
+        if (!adjustment) {
+          return item;
+        }
+        if (
+          item.itemDiscountType === adjustment.nextType &&
+          item.itemDiscountValue === adjustment.nextValue
+        ) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          itemDiscountType: adjustment.nextType,
+          itemDiscountValue: adjustment.nextValue,
+        };
+      });
+
+      return changed ? nextItems : items;
+    });
+  }
+
+  applyResolvedHsnCodeIfMissing(clientLineKey: string, value: string | null | undefined): void {
+    const normalized = this.normalizeHsnCode(value);
+    if (!normalized) {
+      return;
+    }
+
+    this.cart.update((items) => {
+      let changed = false;
+      const nextItems = items.map((item) => {
+        if (item.clientLineKey !== clientLineKey || this.normalizeHsnCode(item.hsnCode)) {
+          return item;
+        }
+
+        changed = true;
+        return { ...item, hsnCode: normalized };
+      });
+
+      return changed ? nextItems : items;
+    });
+  }
+
   hasTax(item: CartItem): boolean {
     return item.taxRatePercent > 0;
   }
@@ -225,6 +308,26 @@ export class SaleCartStateService {
   private normalizeHsnCode(value: string | null | undefined): string | null {
     const trimmed = (value ?? '').trim();
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private updateItem(clientLineKey: string, mutate: (item: CartItem) => CartItem): void {
+    if (!clientLineKey) {
+      return;
+    }
+
+    this.cart.update((items) => {
+      let changed = false;
+      const nextItems = items.map((item) => {
+        if (item.clientLineKey !== clientLineKey) {
+          return item;
+        }
+
+        changed = true;
+        return mutate(item);
+      });
+
+      return changed ? nextItems : items;
+    });
   }
 
   private roundAmount(value: number): number {

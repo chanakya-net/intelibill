@@ -169,6 +169,28 @@ describe('SalePreviewService', () => {
     expect(service.checkoutPreview()).toBeNull();
   });
 
+  it('marks preview invalid and ignores stale responses', () => {
+    const service = setup();
+    const requestId = service.beginPreviewRequest();
+
+    service.markPreviewInvalid('sales.newSale.overrides.invalid');
+    service.finishPreviewRequest(requestId, makePreview());
+
+    expect(service.checkoutPreview()).toBeNull();
+    expect(service.isPreviewLoading()).toBe(false);
+    expect(service.previewError()).toBe('sales.newSale.overrides.invalid');
+  });
+
+  it('clears preview errors without mutating the component state directly', () => {
+    const service = setup();
+
+    service.markPreviewInvalid('sales.newSale.overrides.invalid');
+    service.clearPreviewError();
+
+    expect(service.previewError()).toBe('');
+    expect(service.checkoutPreview()).toBeNull();
+  });
+
   it('extracts preview error details from backend payloads', () => {
     const service = setup();
     const detailError = { error: { detail: 'Pricing invalid.' } };

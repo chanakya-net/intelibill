@@ -202,6 +202,17 @@ export class SalePreviewService {
     this.previewError.set('');
   }
 
+  clearPreviewError(): void {
+    this.previewError.set('');
+  }
+
+  markPreviewInvalid(errorMessage: string): void {
+    this.previewRequestState.latestRequestId += 1;
+    this.checkoutPreview.set(null);
+    this.isPreviewLoading.set(false);
+    this.previewError.set(errorMessage);
+  }
+
   private buildPreviewRequestStream(options: PreviewSetupOptions): Observable<PreviewRequestResult | null> {
     const cart = options.getCart();
     if (cart.length === 0) {
