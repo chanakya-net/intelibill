@@ -1,0 +1,122 @@
+:host {
+  ::ng-deep .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+}
+
+.ledger-table-card {
+  border: 1px solid #fdba74;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  overflow: hidden;
+}
+
+.table-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-color-secondary);
+}
+
+.total-row td {
+  font-weight: 700;
+}
+
+.entry-type {
+  white-space: nowrap;
+}
+
+::ng-deep .payment-made-row td {
+  background-color: #dcfce7 !important;
+}
+
+/* Mobile timeline — hidden on desktop */
+.mobile-ledger-container {
+  display: none;
+}
+
+.desktop-ledger {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .mobile-ledger-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .desktop-ledger {
+    display: none;
+  }
+
+  .mobile-search-field {
+    width: 100%;
+  }
+
+  .ledger-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ledger-entry-card {
+    display: flex;
+    gap: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #fdba74;
+    border-radius: 0.75rem;
+    background: linear-gradient(160deg, #ffffff, #fff7ed);
+
+    &--payment {
+      background: linear-gradient(160deg, #ffffff, #f0fdf4);
+      border-color: #86efac;
+    }
+  }
+
+  .ledger-entry-date {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #78716c;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.04em;
+    align-self: center;
+  }
+
+  .ledger-entry-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ledger-entry-notes {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #57534e;
+  }
+
+  .ledger-total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border-top: 2px solid #fdba74;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+}
+

@@ -1,0 +1,44 @@
+<section class="supplier-info-card" aria-label="supplier information">
+  <header class="supplier-info-card__header">
+    <div class="supplier-info-card__title">
+      <h3 class="supplier-info-card__name">{{ supplier.name }}</h3>
+      <div class="supplier-info-card__tags">
+        <p-tag
+          [severity]="supplier.isActive ? 'success' : 'danger'"
+          [value]="(supplier.isActive ? 'common.active' : 'common.inactive') | transloco"
+        />
+        @if (supplier.isPreferred) {
+          <p-tag severity="info" [value]="'suppliers.preferred' | transloco" />
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="supplier-info-card__grid">
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.contactPerson' | transloco }}:</span>
+      <span class="value">{{ supplier.contactPersonName || '-' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.contactPhone' | transloco }}:</span>
+      <span class="value">{{ supplier.contactPersonPhone || '-' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.city' | transloco }}:</span>
+      <span class="value">{{ supplier.city || '-' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.state' | transloco }}:</span>
+      <span class="value">{{ supplier.state || '-' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.pin' | transloco }}:</span>
+      <span class="value">{{ supplier.pin || '-' }}</span>
+    </div>
+    <div class="info-row supplier-info-card__address">
+      <span class="label">{{ 'suppliers.address' | transloco }}:</span>
+      <span class="value">{{ supplier.address || '-' }}</span>
+    </div>
+  </div>
+</section>
+

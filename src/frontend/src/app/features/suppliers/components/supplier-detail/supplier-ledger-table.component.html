@@ -1,0 +1,174 @@
+@if (loading) {
+  <div class="loading">
+    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+  </div>
+}
+
+@if (!loading) {
+  <!-- Mobile timeline list (≤640px) -->
+  <div class="mobile-ledger-container">
+    <p-iconfield iconPosition="left" class="mobile-search-field">
+      <p-inputicon>
+        <i class="pi pi-search"></i>
+      </p-inputicon>
+      <input
+        pInputText
+        type="text"
+        [(ngModel)]="searchValue"
+        [placeholder]="'suppliers.searchLedger' | transloco"
+        class="w-full"
+      />
+    </p-iconfield>
+    <div class="ledger-timeline">
+      @for (entry of filteredEntries(); track entry.id) {
+        <div class="ledger-entry-card" [class.ledger-entry-card--payment]="entry.isPayment">
+          <div class="ledger-entry-date">{{ entry.entryDate }}</div>
+          <div class="ledger-entry-body">
+            <span class="entry-type" [ngClass]="entry.entryTypeClass">
+              {{ entry.entryTypeLabel }}
+            </span>
+            <p-badge
+              [value]="formatSignedAmount(entry.displayAmount)"
+              [severity]="amountSeverity(entry.displayAmount)"
+            />
+            @if (entry.notes) {
+              <p class="ledger-entry-notes">{{ entry.notes }}</p>
+            }
+          </div>
+        </div>
+      }
+      @if (filteredEntries().length === 0) {
+        <div class="empty-state">
+          <p>{{ 'suppliers.noEntriesFound' | transloco }}</p>
+        </div>
+      }
+      @if (filteredEntries().length > 0) {
+        <div class="ledger-total-row">
+          <span>{{ 'suppliers.totalAmount' | transloco }}</span>
+          <strong>{{ totalAmount() | currency: 'INR' : 'symbol' : '1.0-2' }}</strong>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Desktop table -->
+  <div class="ledger-table-card desktop-ledger">
+    <p-table
+      #ledgerTable
+      [value]="entries"
+      dataKey="id"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [paginator]="entries.length > 10"
+      [globalFilterFields]="['entryTypeLabel', 'displayAmount', 'entryDate', 'notes']"
+      [sortField]="'entryDate'"
+      [sortOrder]="-1"
+      [tableStyle]="{ 'min-width': '56rem' }"
+      showGridlines
+      class="p-datatable-sm"
+    >
+      <ng-template pTemplate="caption">
+        <div class="table-caption">
+          <p-button
+            [label]="'common.clear' | transloco"
+            [outlined]="true"
+            icon="pi pi-filter-slash"
+            (click)="clearFilters(ledgerTable)"
+          />
+          <p-iconfield iconPosition="left">
+            <p-inputicon>
+              <i class="pi pi-search"></i>
+            </p-inputicon>
+            <input
+              pInputText
+              type="text"
+              [(ngModel)]="searchValue"
+              (input)="ledgerTable.filterGlobal(searchValue(), 'contains')"
+              [placeholder]="'suppliers.searchLedger' | transloco"
+            />
+          </p-iconfield>
+        </div>
+      </ng-template>
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="entryTypeLabel" style="min-width: 12rem">
+            <div class="flex items-center justify-between">
+              {{ 'suppliers.entryType' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="entryTypeLabel" />
+                <p-columnFilter type="text" field="entryTypeLabel" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="displayAmount" style="min-width: 10rem">
+            <div class="flex items-center justify-between">
+              {{ 'suppliers.amount' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="displayAmount" />
+                <p-columnFilter
+                  type="numeric"
+                  field="displayAmount"
+                  display="menu"
+                  currency="INR"
+                />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="entryDate" style="min-width: 10rem">
+            <div class="flex items-center justify-between">
+              {{ 'suppliers.entryDate' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="entryDate" />
+                <p-columnFilter type="text" field="entryDate" display="menu" />
+              </div>
+            </div>
+          </th>
+          <th pSortableColumn="notes" style="min-width: 12rem">
+            <div class="flex items-center justify-between">
+              {{ 'suppliers.notes' | transloco }}
+              <div class="flex items-center gap-1">
+                <p-sortIcon field="notes" />
+                <p-columnFilter type="text" field="notes" display="menu" />
+              </div>
+            </div>
+          </th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-entry>
+        <tr [ngClass]="{ 'payment-made-row': entry.isPayment }">
+          <td>
+            <span class="entry-type" [ngClass]="entry.entryTypeClass">
+              {{ entry.entryTypeLabel }}
+            </span>
+          </td>
+          <td>
+            <p-badge
+              [value]="formatSignedAmount(entry.displayAmount)"
+              [severity]="amountSeverity(entry.displayAmount)"
+            />
+          </td>
+          <td>{{ entry.entryDate }}</td>
+          <td>{{ entry.notes || '-' }}</td>
+        </tr>
+      </ng-template>
+      @if (entries.length > 0) {
+        <ng-template pTemplate="footer">
+          <tr class="total-row">
+            <td colspan="3">{{ 'suppliers.totalAmount' | transloco }}</td>
+            <td>{{ totalAmount() | currency: 'INR' : 'symbol' : '1.0-2' }}</td>
+          </tr>
+        </ng-template>
+      }
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td [attr.colspan]="4">
+            <div class="empty-state">
+              <p>{{ 'suppliers.noEntriesFound' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+}
+
