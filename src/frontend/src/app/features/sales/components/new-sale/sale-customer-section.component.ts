@@ -43,6 +43,5 @@ export class SaleCustomerSectionComponent implements OnInit {
 
   onCustomerSelect(value: string): void {
     this.customerSuggestionSelected.emit(value);
-    this.customerSelected.emit(this.selectedCustomer);
   }
 }

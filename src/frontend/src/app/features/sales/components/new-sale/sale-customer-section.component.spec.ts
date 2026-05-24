@@ -53,7 +53,7 @@ describe('SaleCustomerSectionComponent', () => {
     expect(selectSpy).toHaveBeenCalledWith('Alice');
   });
 
-  it('emits customerSelected when suggestion selected', () => {
+  it('does not emit stale selected customer when suggestion selected', () => {
     TestBed.configureTestingModule({
       imports: [SaleCustomerSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -68,7 +68,7 @@ describe('SaleCustomerSectionComponent', () => {
 
     component.onCustomerSelect(customer.name);
 
-    expect(selectedSpy).toHaveBeenCalledWith(customer);
+    expect(selectedSpy).not.toHaveBeenCalled();
   });
 
   it('shows invalid phone validation message', () => {

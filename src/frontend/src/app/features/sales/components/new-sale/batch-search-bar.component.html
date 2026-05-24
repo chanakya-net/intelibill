@@ -5,6 +5,7 @@
       (ngModelChange)="onSearchTermChanged($event)"
       [suggestions]="searchSuggestions"
       (completeMethod)="onComplete($event)"
+      (onSelect)="onSuggestionSelected($event.value)"
       [placeholder]="'inventory.searchPlaceholder' | transloco"
       appendTo="body"
       [fluid]="true"

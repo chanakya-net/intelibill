@@ -33,6 +33,7 @@ export class BatchSearchBarComponent {
   @Output() openPicker = new EventEmitter<void>();
   @Output() searchTermChanged = new EventEmitter<string>();
   @Output() suggestionFilter = new EventEmitter<string>();
+  @Output() suggestionSelected = new EventEmitter<string>();
   @Output() cameraOpen = new EventEmitter<void>();
 
   emitSearch(): void {
@@ -45,6 +46,10 @@ export class BatchSearchBarComponent {
 
   onComplete(event: AutoCompleteCompleteEvent): void {
     this.suggestionFilter.emit(event.query);
+  }
+
+  onSuggestionSelected(value: string): void {
+    this.suggestionSelected.emit(value);
   }
 
   onEnterKey(): void {

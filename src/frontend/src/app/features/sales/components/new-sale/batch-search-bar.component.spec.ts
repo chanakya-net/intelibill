@@ -52,4 +52,19 @@ describe('BatchSearchBarComponent', () => {
 
     expect(spy).toHaveBeenCalledWith('milk');
   });
+
+  it('emits selected search suggestions', () => {
+    TestBed.configureTestingModule({
+      imports: [BatchSearchBarComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(BatchSearchBarComponent);
+    const component = fixture.componentInstance;
+    const spy = vi.fn();
+
+    component.suggestionSelected.subscribe(spy);
+    component.onSuggestionSelected('barcode-1');
+
+    expect(spy).toHaveBeenCalledWith('barcode-1');
+  });
 });

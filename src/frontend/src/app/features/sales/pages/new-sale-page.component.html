@@ -37,6 +37,7 @@
         [searchSuggestions]="searchSuggestions()"
         (searchTermChanged)="onBatchSearchTermChanged($event)"
         (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
+        (suggestionSelected)="onSearchSuggestionSelected($event)"
         (search)="onBatchSearchRequested($event)"
         (openPicker)="onOpenBatchPicker()"
         (cameraOpen)="openScanner()"
