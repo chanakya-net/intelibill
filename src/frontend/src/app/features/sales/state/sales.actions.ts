@@ -1,6 +1,6 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import {
+import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
   RecordSaleRequest,
@@ -9,7 +9,7 @@ import {
   ProfitLossReportItemDto,
   SaleReturnPreviewDto,
   VoidSaleReturnRequest,
-} from '../services/sale.service';
+} from '../services/sale.models';
 
 export type SaleMutationType = 'record-sale' | 'record-return' | 'void-return';
 

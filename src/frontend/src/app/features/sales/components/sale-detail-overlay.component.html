@@ -13,73 +13,34 @@
       <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
     </div>
   }
-
   @if (!isLoading() && sale()) {
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.invoiceNumber' | transloco }}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+            {{ 'sales.detail.invoiceNumber' | transloco }}
+          </p>
           <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
         </div>
         <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.date' | transloco }}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+            {{ 'sales.detail.date' | transloco }}
+          </p>
           <p class="text-slate-700">{{ sale()!.soldAt | date:'dd MMM yyyy, h:mm a' }}</p>
         </div>
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.payment' | transloco }}</p>
-          <p-tag [severity]="paymentMethodSeverity(sale()!.paymentMethod)" [value]="paymentMethodLabel(sale()!.paymentMethod)" />
-        </div>
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.total' | transloco }}</p>
-          <p class="font-bold text-orange-600 text-base">₹{{ sale()!.totalAmount | number:'1.2-2' }}</p>
-        </div>
       </div>
-
       <p-divider />
-
-      <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>{{ 'inventory.name' | transloco }}</th>
-            <th>{{ 'sales.detail.qty' | transloco }}</th>
-            <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
-            <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
-            <th>{{ 'sales.detail.returned' | transloco }}</th>
-            <th>{{ 'sales.detail.returnable' | transloco }}</th>
-            <th>{{ 'sales.detail.itemTotal' | transloco }}</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-item>
-          <tr [class.opacity-60]="isFullyReturned(item)">
-            <td>{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>
-              <div class="flex flex-col">
-                <span>₹{{ getUnitSubtotal(item) | number:'1.2-2' }}</span>
-              </div>
-            </td>
-            <td>₹{{ getLineTaxAmount(item) | number:'1.2-2' }} ({{ item.taxRatePercent | number:'1.0-2' }}%)</td>
-            <td>{{ item.returnedQuantity }}</td>
-            <td>{{ item.returnableQuantity }}</td>
-            <td>
-              <div class="flex flex-col">
-                <span>₹{{ getLineTotal(item) | number:'1.2-2' }}</span>
-                @if (item.savingsAmount > 0) {
-                  <span class="text-xs text-green-600">-₹{{ item.savingsAmount | number:'1.2-2' }}</span>
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-
+      <app-sale-line-items-table
+        [items]="$any(sale()!.items)"
+        [totalTaxAmount]="sale()!.totalTaxAmount"
+        currency="INR"
+      />
       @if (sale()!.returns.length > 0) {
         <p-divider />
         <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-slate-700">{{ 'sales.returns.history' | transloco }}</h3>
           </div>
-
           <p-table [value]="$any(sale()!.returns)" styleClass="p-datatable-sm">
             <ng-template pTemplate="header">
               <tr>
@@ -96,14 +57,19 @@
                   <div class="flex flex-col">
                     <span class="font-medium text-slate-700">{{ returnRecord.returnNumber }}</span>
                     @if (returnRecord.isVoided && returnRecord.voidReason) {
-                      <span class="text-xs text-slate-500">{{ 'sales.returns.col.voidReason' | transloco }} {{ returnRecord.voidReason }}</span>
+                      <span class="text-xs text-slate-500">
+                        {{ 'sales.returns.col.voidReason' | transloco }} {{ returnRecord.voidReason }}
+                      </span>
                     }
                   </div>
                 </td>
                 <td>{{ returnRecord.returnedAt | date:'dd MMM yyyy, h:mm a' }}</td>
                 <td>₹{{ returnRecord.totalRefundAmount | number:'1.2-2' }}</td>
                 <td>
-                  <p-tag [severity]="returnStatusSeverity(returnRecord)" [value]="returnStatusLabel(returnRecord)" />
+                  <p-tag
+                    [severity]="returnStatusSeverity(returnRecord)"
+                    [value]="returnStatusLabel(returnRecord)"
+                  />
                 </td>
                 <td>
                   @if (canSubmitReturns() && !returnRecord.isVoided) {
@@ -122,38 +88,7 @@
           </p-table>
         </div>
       }
-
-      <div class="pt-2 border-t border-slate-100">
-        @if (sale()!.totalDiscountAmount > 0) {
-          <div class="flex justify-between items-center py-1">
-            <span class="text-sm text-slate-500">{{ 'sales.detail.beforeDiscount' | transloco }}</span>
-            <span class="font-medium text-slate-700">₹{{ sale()!.totalBeforeDiscount | number:'1.2-2' }}</span>
-          </div>
-          <div class="flex justify-between items-center py-1">
-            <span class="text-sm text-green-600">{{ 'sales.detail.discount' | transloco }}</span>
-            <span class="font-medium text-green-600">-₹{{ sale()!.totalDiscountAmount | number:'1.2-2' }}</span>
-          </div>
-        } @else {
-          <div class="flex justify-between items-center py-1">
-            <span class="text-sm text-slate-500">{{ 'sales.detail.price' | transloco }}</span>
-            <span class="font-medium text-slate-700">₹{{ subtotalAmount() | number:'1.2-2' }}</span>
-          </div>
-        }
-        <div class="flex justify-between items-center py-1">
-          <span class="text-sm text-slate-500">{{ 'sales.detail.taxAmount' | transloco }}</span>
-          <span class="font-medium text-slate-700">₹{{ sale()!.totalTaxAmount | number:'1.2-2' }}</span>
-        </div>
-        <div class="flex justify-between items-center py-2 mt-1 border-t border-slate-200">
-          <span class="text-sm font-semibold text-slate-700">{{ 'sales.detail.total' | transloco }}</span>
-          <span class="text-lg font-bold text-orange-600">₹{{ sale()!.totalAmount | number:'1.2-2' }}</span>
-        </div>
-        @if (sale()!.totalDiscountAmount > 0) {
-          <div class="flex justify-between items-center py-1 px-2 mt-1 rounded bg-green-50">
-            <span class="text-sm font-medium text-green-700">{{ 'sales.detail.totalSavings' | transloco }}</span>
-            <span class="font-bold text-green-700">₹{{ sale()!.totalDiscountAmount | number:'1.2-2' }}</span>
-          </div>
-        }
-      </div>
+      <app-sale-summary-panel [sale]="sale()!" currency="INR" />
     </div>
   }
 
@@ -189,294 +124,17 @@
   </ng-template>
 </p-dialog>
 
-<p-dialog
+<app-sale-void-return-dialog
   [visible]="showVoidReturn()"
   (visibleChange)="closeVoidReturn()"
-  [modal]="true"
-  [style]="{ width: '92vw', maxWidth: '520px' }"
-  [draggable]="false"
-  [resizable]="false"
-  [header]="'sales.returns.void.title' | transloco"
->
-  @if (selectedReturnToVoid()) {
-    <div class="flex flex-col gap-4">
-      <div>
-        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.void.returnLabel' | transloco }}</p>
-        <p class="font-bold text-slate-800">{{ selectedReturnToVoid()!.returnNumber }}</p>
-      </div>
+  [sale]="sale()"
+  [saleReturn]="selectedReturnToVoid()"
+/>
 
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="font-medium text-slate-600">{{ 'sales.returns.void.reason' | transloco }}</span>
-        <textarea
-          pInputTextarea
-          rows="3"
-          [ngModel]="voidReason()"
-          (ngModelChange)="updateVoidReason($event)"
-        ></textarea>
-      </label>
-
-      @if (validationMessages().length > 0) {
-        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          @for (message of validationMessages(); track message) {
-            <p>{{ message }}</p>
-          }
-        </div>
-      }
-
-      @if (previewError()) {
-        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
-      }
-    </div>
-  }
-
-  <ng-template pTemplate="footer">
-    <p-button
-      [label]="'sales.returns.void.submit' | transloco"
-      icon="pi pi-ban"
-      severity="danger"
-      [loading]="isSubmitting()"
-      [disabled]="isSubmitting()"
-      (click)="submitVoidReturn()"
-    />
-    <p-button [label]="'common.cancel' | transloco" severity="secondary" (click)="closeVoidReturn()" />
-  </ng-template>
-</p-dialog>
-
-<p-dialog
+<app-sale-return-preview-dialog
   [visible]="showReturnPreview()"
   (visibleChange)="closeReturnPreview()"
-  [modal]="true"
-  [style]="{ width: '94vw', maxWidth: '980px' }"
-  [draggable]="false"
-  [resizable]="false"
-  [header]="'sales.returns.preview.title' | transloco"
->
-  @if (sale()) {
-    <div class="flex flex-col gap-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.returns.preview.invoice' | transloco }}</p>
-          <p class="font-bold text-slate-800">{{ sale()!.invoiceNumber }}</p>
-        </div>
-        <p-tag [severity]="hasFinancialAccess() ? 'success' : 'secondary'" [value]="(hasFinancialAccess() ? 'sales.returns.preview.financialPreview' : 'sales.returns.preview.operationalPreview') | transloco" />
-      </div>
+  [sale]="sale()"
+  currency="INR"
+/>
 
-      <p-table [value]="$any(sale()!.items)" styleClass="p-datatable-sm">
-        <ng-template pTemplate="header">
-          <tr>
-            <th style="width: 3rem"></th>
-            <th>{{ 'sales.returns.preview.col.item' | transloco }}</th>
-            <th style="width: 4rem">{{ 'sales.returns.preview.col.sold' | transloco }}</th>
-            <th style="width: 5rem">{{ 'sales.returns.preview.col.returned' | transloco }}</th>
-            <th style="width: 5.5rem">{{ 'sales.returns.preview.col.returnable' | transloco }}</th>
-            <th style="width: 6rem">{{ 'sales.returns.preview.col.returnQty' | transloco }}</th>
-            <th style="width: 9rem">{{ 'sales.returns.preview.col.condition' | transloco }}</th>
-            @if (hasFinancialAccess()) {
-              <th style="width: 7rem">{{ 'sales.returns.preview.col.refund' | transloco }}</th>
-            }
-            <th style="width: 10rem">{{ 'sales.returns.preview.col.notes' | transloco }}</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-item>
-          @let draft = getDraft(item.saleItemId);
-          <tr [class.opacity-60]="isFullyReturned(item)">
-            <td>
-              <p-checkbox
-                [binary]="true"
-                [ngModel]="draft?.selected ?? false"
-                [disabled]="isFullyReturned(item)"
-                (ngModelChange)="toggleReturnLine(item, $event)"
-              />
-            </td>
-            <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>{{ item.returnedQuantity }}</td>
-            <td>{{ item.returnableQuantity }}</td>
-            <td>
-              <p-inputNumber
-                [min]="0"
-                [max]="item.returnableQuantity"
-                [inputStyle]="{'width': '100%'}"
-                [disabled]="!draft?.selected || isFullyReturned(item)"
-                [ngModel]="draft?.quantity ?? 0"
-                (ngModelChange)="updateReturnQuantity(item, $event)"
-              />
-            </td>
-            <td>
-              <p-select
-                [options]="returnConditionOptions"
-                optionLabel="label"
-                optionValue="value"
-                appendTo="body"
-                styleClass="w-full"
-                [disabled]="!draft?.selected || isFullyReturned(item)"
-                [ngModel]="draft?.condition ?? null"
-                (ngModelChange)="updateReturnCondition(item, $event)"
-                placeholder="Required"
-              />
-            </td>
-            @if (hasFinancialAccess()) {
-              <td>
-                <p-inputNumber
-                  [min]="0"
-                  [max]="getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity)"
-                  [inputStyle]="{'width': '100%'}"
-                  [disabled]="!draft?.selected || isFullyReturned(item)"
-                  [ngModel]="draft?.approvedRefundAmount ?? null"
-                  (ngModelChange)="updateRefundAmount(item, $event)"
-                />
-                @if (draft?.selected) {
-                  <p class="mt-1 text-xs text-slate-400">Max ₹{{ getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity) | number:'1.2-2' }}</p>
-                }
-              </td>
-            }
-            <td>
-              <textarea
-                pInputTextarea
-                rows="2"
-                class="w-full"
-                [disabled]="!draft?.selected || isFullyReturned(item)"
-                [ngModel]="draft?.notes ?? ''"
-                (ngModelChange)="updateNotes(item, $event)"
-              ></textarea>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-
-      @if (hasFinancialAccess()) {
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 rounded border border-slate-200 p-3">
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600">{{ 'sales.returns.preview.dueReductionOverride' | transloco }}</span>
-            <input
-              pInputText
-              type="number"
-              min="0"
-              [ngModel]="dueReductionOverrideAmount()"
-              (ngModelChange)="updateDueReductionOverride($event)"
-            />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600">{{ 'sales.returns.preview.overrideReason' | transloco }}</span>
-            <input
-              pInputText
-              type="text"
-              [ngModel]="dueOverrideReason()"
-              (ngModelChange)="updateDueOverrideReason($event)"
-            />
-          </label>
-        </div>
-      }
-
-      @if (validationMessages().length > 0) {
-        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          @for (message of validationMessages(); track message) {
-            <p>{{ message }}</p>
-          }
-        </div>
-      }
-
-      @if (previewError()) {
-        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ previewError() }}</div>
-      }
-
-      @if (returnPreview()) {
-        <div class="rounded border border-slate-200">
-          <div class="border-b border-slate-200 px-3 py-2">
-            <p class="font-semibold text-slate-800">{{ 'sales.returns.preview.calculatedEffects' | transloco }}</p>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 text-sm">
-            @for (line of returnPreview()!.lines; track line.saleItemId) {
-              <div class="rounded border border-slate-100 p-3">
-                <div class="flex justify-between gap-2">
-                  <span class="font-medium text-slate-700">{{ getPreviewItemName(line.saleItemId) }}</span>
-                  <p-tag [severity]="line.willRestock ? 'success' : 'warn'" [value]="line.willRestock ? 'Restock' : 'No restock'" />
-                </div>
-                <p class="mt-1 text-slate-500">Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable {{ line.returnableQuantity }}</p>
-                @if (line.financial && returnPreview()!.hasFinancialAccess) {
-                  <p class="mt-2 font-medium text-slate-700">
-                    Refund ₹{{ line.financial.approvedRefundAmount | number:'1.2-2' }}
-                    <span class="text-slate-400">/ max ₹{{ line.financial.maxRefundAmount | number:'1.2-2' }}</span>
-                  </p>
-                }
-              </div>
-            }
-          </div>
-
-          @if (returnPreview()!.financial && returnPreview()!.hasFinancialAccess) {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm">
-              <div>
-                <p class="text-slate-500">Total refund</p>
-                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.totalRefundAmount | number:'1.2-2' }}</p>
-              </div>
-              <div>
-                <p class="text-slate-500">Due reduction</p>
-                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.dueReductionAmount | number:'1.2-2' }}</p>
-              </div>
-              <div>
-                <p class="text-slate-500">Payout</p>
-                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.payoutAmount | number:'1.2-2' }}</p>
-              </div>
-              <div>
-                <p class="text-slate-500">Tax effect</p>
-                <p class="font-bold text-slate-800">₹{{ returnPreview()!.financial!.totalTaxAmount | number:'1.2-2' }}</p>
-              </div>
-            </div>
-          }
-        </div>
-      }
-
-      @if (returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0) {
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="font-medium text-slate-600">{{ 'sales.returns.preview.payoutMethod' | transloco }}</span>
-          <p-select
-            [options]="refundPayoutMethodOptions"
-            optionLabel="label"
-            optionValue="value"
-            appendTo="body"
-            styleClass="w-44"
-            [ngModel]="payoutMethod()"
-            (ngModelChange)="updatePayoutMethod($event)"
-            placeholder="Required"
-          />
-        </label>
-      }
-
-      @if (dueReductionOverrideAmount() !== null) {
-        <div class="flex items-center gap-2 text-sm text-slate-700">
-          <p-checkbox
-            inputId="due-override-confirm"
-            [binary]="true"
-            [ngModel]="dueOverrideConfirmed()"
-            (ngModelChange)="updateDueOverrideConfirmed($event)"
-          />
-          <label for="due-override-confirm">{{ 'sales.returns.preview.confirmDueOverride' | transloco }}</label>
-        </div>
-      }
-
-      @if (returnPreview()?.warnings?.length) {
-        <div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          <p class="font-semibold mb-1">{{ 'sales.returns.preview.warnings' | transloco }}</p>
-          @for (warning of returnPreview()!.warnings; track warning.code + warning.message) {
-            <p>{{ warning.message }}</p>
-          }
-        </div>
-      }
-    </div>
-  }
-
-  <ng-template pTemplate="footer">
-    <p-button [label]="'sales.returns.preview.previewBtn' | transloco" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" />
-    @if (canSubmitReturns()) {
-      <p-button
-        [label]="'sales.returns.preview.recordBtn' | transloco"
-        icon="pi pi-check"
-        severity="success"
-        [disabled]="!returnPreview() || isSubmitting()"
-        [loading]="isSubmitting()"
-        (click)="submitReturn()"
-      />
-    }
-    <p-button [label]="'common.close' | transloco" severity="secondary" (click)="closeReturnPreview()" />
-  </ng-template>
-</p-dialog>

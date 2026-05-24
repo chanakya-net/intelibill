@@ -1,22 +1,12 @@
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
-import { FormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
-import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
-import { InputNumberModule } from 'primeng/inputnumber';
+import { CardModule } from 'primeng/card';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
@@ -27,16 +17,18 @@ import { ToastModule } from 'primeng/toast';
 import { finalize } from 'rxjs';
 
 import {
-  AdjustInventoryBatchRequest,
+  AdjustmentRowDto,
   InventoryAdjustmentDirection,
   InventoryAdjustmentHistoryItem,
   InventoryAdjustmentHistoryQuery,
   InventoryAdjustmentReason,
   InventoryBatchDto,
-  InventoryService,
-} from '../../services/inventory.service';
+  InventoryBatchOption,
+} from '../../services/inventory.models';
+import { InventoryService } from '../../services/inventory.service';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
+import { AdjustmentRowFormComponent } from '../../components/adjustments/adjustment-row-form.component';
+import { AdjustmentSummaryComponent } from '../../components/adjustments/adjustment-summary.component';
 
 interface SelectOption<T extends string | boolean> {
   readonly label: string;
@@ -49,21 +41,20 @@ interface SelectOption<T extends string | boolean> {
   imports: [
     DatePipe,
     DecimalPipe,
-    FormsModule,
     ReactiveFormsModule,
     TranslocoPipe,
-    AutoCompleteModule,
     ButtonModule,
-    CardModule,
     CheckboxModule,
     DialogModule,
-    InputNumberModule,
+    CardModule,
     InputTextModule,
     SelectModule,
     TableModule,
     TagModule,
     TextareaModule,
     ToastModule,
+    AdjustmentRowFormComponent,
+    AdjustmentSummaryComponent,
   ],
   providers: [MessageService],
   templateUrl: './inventory-adjustments-page.component.html',
@@ -78,11 +69,7 @@ export class InventoryAdjustmentsPageComponent {
 
   readonly adjustments = signal<InventoryAdjustmentHistoryItem[]>([]);
   readonly batches = signal<InventoryBatchDto[]>([]);
-  readonly batchSuggestions = signal<InventoryBatchDto[]>([]);
-  readonly selectedBatch = signal<InventoryBatchDto | null>(null);
-  readonly selectedAdjustment = signal<InventoryAdjustmentHistoryItem | null>(null);
   readonly loading = signal(false);
-  readonly loadingBatches = signal(false);
   readonly saving = signal(false);
   readonly voidSaving = signal(false);
   readonly isAdjustmentDialogOpen = signal(false);
@@ -90,6 +77,16 @@ export class InventoryAdjustmentsPageComponent {
   readonly totalCount = signal(0);
   readonly pageNumber = signal(1);
   readonly pageSize = signal(20);
+  readonly selectedAdjustment = signal<InventoryAdjustmentHistoryItem | null>(null);
+  readonly adjustmentSummaryRows = computed(() => this.adjustments().map((adjustment) => ({
+    batchId: adjustment.batchId,
+    direction: adjustment.direction,
+    reason: adjustment.reason,
+    quantity: adjustment.quantity,
+    performedAt: adjustment.performedAt,
+    notes: adjustment.notes,
+  })));
+
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
     const session = this.session();
@@ -99,80 +96,53 @@ export class InventoryAdjustmentsPageComponent {
       session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
-  readonly canCreateAdjustments = computed(() => {
-    const role = this.activeShopRole().toLowerCase();
-    return role === 'owner' || role === 'manager';
-  });
+  readonly canCreateAdjustments = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
   readonly canVoidAdjustments = computed(() => this.activeShopRole().toLowerCase() === 'owner');
-  private readonly adjustmentDirectionValue = signal<InventoryAdjustmentDirection>('Decrease');
 
   readonly availableBatches = computed(() => this.batches().filter((batch) => !batch.isVoided));
   readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-  readonly selectedBatchDecreaseBlocked = computed(() => {
-    const batch = this.selectedBatch();
-    return (
-      !!batch &&
-      batch.quantity <= 0 &&
-      this.adjustmentDirectionValue() === 'Decrease'
-    );
-  });
-  readonly selectedBatchLabel = computed(() => {
-    const batch = this.selectedBatch();
-    return batch
-      ? `${batch.itemName} · ${batch.batchNumber} · ${this.translate('inventory.quantity')}: ${batch.quantity}`
-      : '';
-  });
 
-  readonly directionOptions = signal<SelectOption<InventoryAdjustmentDirection>[]>([
-    { label: this.translate('inventory.adjustmentDirection.decrease'), value: 'Decrease' },
-    { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' },
-  ]);
-  private readonly decreaseReasonOptions: SelectOption<InventoryAdjustmentReason>[] = [
-    { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' },
-    { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' },
-    { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' },
-    { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' },
-    {
-      label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
-      value: 'StockCountCorrection',
-    },
-    { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
-  ];
-  private readonly increaseReasonOptions: SelectOption<InventoryAdjustmentReason>[] = [
-    { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' },
-    {
-      label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
-      value: 'StockCountCorrection',
-    },
-    {
-      label: this.translate('inventory.adjustmentReason.returnRestockCorrection'),
-      value: 'ReturnRestockCorrection',
-    },
-    { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
-  ];
-
-  readonly reasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() => {
-    const direction =
-      this.filterForm.controls.direction.value ?? this.adjustmentForm.controls.direction.value;
-    return direction === 'Increase' ? this.increaseReasonOptions : this.decreaseReasonOptions;
-  });
-  readonly adjustmentReasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() =>
-    this.adjustmentForm.controls.direction.value === 'Increase'
-      ? this.increaseReasonOptions
-      : this.decreaseReasonOptions,
+  readonly adjustmentBatchOptions = computed<InventoryBatchOption[]>(() =>
+    this.availableBatches().map((batch) => ({
+      id: batch.id,
+      label: `${batch.batchNumber} · ${batch.itemName}`,
+      itemName: batch.itemName,
+      batchNumber: batch.batchNumber,
+      barcode: batch.barcode,
+      quantity: batch.quantity,
+    })),
   );
+
   readonly itemOptions = computed(() => {
     const seen = new Map<string, SelectOption<string>>();
-    for (const batch of this.availableBatches()) {
-      seen.set(batch.itemId, { label: batch.itemName, value: batch.itemId });
-    }
+    for (const batch of this.availableBatches()) seen.set(batch.itemId, { label: batch.itemName, value: batch.itemId });
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
   });
+
   readonly batchOptions = computed(() =>
     this.availableBatches()
       .map((batch) => ({ label: `${batch.batchNumber} · ${batch.itemName}`, value: batch.id }))
       .sort((a, b) => a.label.localeCompare(b.label)),
   );
+
+  readonly reasonOptionsByDirection: { Decrease: SelectOption<InventoryAdjustmentReason>[]; Increase: SelectOption<InventoryAdjustmentReason>[] } = {
+    Decrease: [
+      { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' }, { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' }, { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' }, { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' }, { label: this.translate('inventory.adjustmentReason.stockCountCorrection'), value: 'StockCountCorrection' }, { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
+    ],
+    Increase: [
+      { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' }, { label: this.translate('inventory.adjustmentReason.stockCountCorrection'), value: 'StockCountCorrection' }, { label: this.translate('inventory.adjustmentReason.returnRestockCorrection'), value: 'ReturnRestockCorrection' }, { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
+    ],
+  };
+
+  readonly directionOptions = signal<SelectOption<InventoryAdjustmentDirection>[]>([
+    { label: this.translate('inventory.adjustmentDirection.decrease'), value: 'Decrease' },
+    { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' },
+  ]);
+
+  readonly reasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() => {
+    const direction = this.filterForm.controls.direction.value;
+    return direction === 'Increase' ? this.reasonOptionsByDirection.Increase : this.reasonOptionsByDirection.Decrease;
+  });
 
   readonly filterForm = this.formBuilder.group({
     itemId: [''],
@@ -184,32 +154,11 @@ export class InventoryAdjustmentsPageComponent {
     includeVoided: [false],
   });
 
-  readonly adjustmentForm = this.formBuilder.nonNullable.group({
-    direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
-    reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
-    quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]],
-    performedAt: [''],
-    notes: [''],
-  });
-
   readonly voidForm = this.formBuilder.nonNullable.group({
-    reason: ['', [Validators.required, this.notBlankValidator(), Validators.maxLength(500)]],
+    reason: ['', [Validators.required, (control: AbstractControl<string>) => (control.value.trim().length === 0 ? { required: true } : null), Validators.maxLength(500)]],
   });
 
   constructor() {
-    this.adjustmentForm.controls.direction.valueChanges.subscribe((direction) => {
-      this.adjustmentDirectionValue.set(direction);
-      const options = direction === 'Increase' ? this.increaseReasonOptions : this.decreaseReasonOptions;
-      if (!options.some((option) => option.value === this.adjustmentForm.controls.reason.value)) {
-        this.adjustmentForm.controls.reason.setValue(options[0].value);
-      }
-      this.updateQuantityValidators();
-    });
-
-    this.adjustmentForm.controls.reason.valueChanges.subscribe(() => {
-      this.updateNotesValidators();
-    });
-
     this.loadHistory();
     this.loadBatches();
   }
@@ -239,19 +188,17 @@ export class InventoryAdjustmentsPageComponent {
           this.pageNumber.set(response.pageNumber);
           this.pageSize.set(response.pageSize);
         },
-        error: () => this.showError('inventory.loadAdjustmentsError'),
+        error: () =>
+          this.messageService.add({ severity: 'error', summary: this.translocoService.translate('inventory.loadAdjustmentsError'), life: 3500 }),
       });
   }
 
   loadBatches(): void {
-    this.loadingBatches.set(true);
-    this.inventoryService
-      .getInventoryBatches()
-      .pipe(finalize(() => this.loadingBatches.set(false)))
-      .subscribe({
-        next: (batches) => this.batches.set([...batches]),
-        error: () => this.showError('inventory.loadBatchesError'),
-      });
+    this.inventoryService.getInventoryBatches().subscribe({
+      next: (batches) => this.batches.set([...batches]),
+      error: () =>
+        this.messageService.add({ severity: 'error', summary: this.translocoService.translate('inventory.loadBatchesError'), life: 3500 }),
+    });
   }
 
   onApplyFilters(): void {
@@ -259,15 +206,7 @@ export class InventoryAdjustmentsPageComponent {
   }
 
   onClearFilters(): void {
-    this.filterForm.reset({
-      itemId: '',
-      batchId: '',
-      direction: null,
-      reason: null,
-      from: '',
-      to: '',
-      includeVoided: false,
-    });
+    this.filterForm.reset({ itemId: '', batchId: '', direction: null, reason: null, from: '', to: '', includeVoided: false });
     this.loadHistory(1);
   }
 
@@ -278,85 +217,31 @@ export class InventoryAdjustmentsPageComponent {
 
   openNewAdjustment(): void {
     if (!this.canCreateAdjustments()) return;
-
-    this.selectedBatch.set(null);
-    this.batchSuggestions.set(this.availableBatches().slice(0, 15));
-    this.adjustmentForm.reset({
-      direction: 'Decrease',
-      reason: 'Damaged',
-      quantity: 1,
-      performedAt: '',
-      notes: '',
-    });
-    this.adjustmentDirectionValue.set('Decrease');
-    this.updateQuantityValidators();
-    this.updateNotesValidators();
     this.isAdjustmentDialogOpen.set(true);
   }
 
-  onBatchSearch(event: AutoCompleteCompleteEvent | { query: string }): void {
-    const query = event.query.trim().toLowerCase();
-    const matches = this.availableBatches()
-      .filter(
-        (batch) =>
-          batch.itemName.toLowerCase().includes(query) ||
-          batch.barcode.toLowerCase().includes(query) ||
-          batch.batchNumber.toLowerCase().includes(query),
-      )
-      .slice(0, 15);
-    this.batchSuggestions.set(matches);
-  }
-
-  onSelectBatch(batch: InventoryBatchDto): void {
-    this.selectedBatch.set(batch);
-    this.updateQuantityValidators();
-  }
-
-  onSaveAdjustment(): void {
-    const batch = this.selectedBatch();
-    if (!batch || this.adjustmentForm.invalid || this.saving()) return;
-
+  onSaveAdjustment({ batchId, ...payload }: AdjustmentRowDto): void {
+    if (this.saving()) return;
     this.saving.set(true);
-    const formValue = this.adjustmentForm.getRawValue();
-    const payload: AdjustInventoryBatchRequest = {
-      direction: formValue.direction,
-      reason: formValue.reason,
-      quantity: formValue.quantity,
-      performedAt: this.toIsoTimestamp(formValue.performedAt),
-      notes: this.nullable(formValue.notes),
-    };
-
     this.inventoryService
-      .adjustInventoryBatch(batch.id, payload)
+      .adjustInventoryBatch(batchId, payload)
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
-          this.showSuccess('inventory.batchAdjusted');
+          this.messageService.add({
+            severity: 'success',
+            summary: this.translocoService.translate('inventory.batchAdjusted'),
+            life: 3000,
+          });
           this.isAdjustmentDialogOpen.set(false);
           this.loadHistory(1);
           this.loadBatches();
         },
         error: (err) => {
-          const detail = err.error?.detail || this.translate('inventory.adjustBatchError');
+          const detail = err.error?.detail || this.translocoService.translate('inventory.adjustBatchError');
           this.messageService.add({ severity: 'error', summary: 'Error', detail });
         },
       });
-  }
-
-  reasonLabel(reason: InventoryAdjustmentReason): string {
-    return (
-      [...this.decreaseReasonOptions, ...this.increaseReasonOptions].find(
-        (option) => option.value === reason,
-      )?.label ?? reason
-    );
-  }
-
-  directionSeverity(direction: InventoryAdjustmentDirection): 'success' | 'danger' {
-    return direction === 'Increase' ? 'success' : 'danger';
-  }
-
-  statusSeverity(adjustment: InventoryAdjustmentHistoryItem): 'success' | 'danger' {
-    return adjustment.isVoided ? 'danger' : 'success';
   }
 
   canVoidAdjustment(adjustment: InventoryAdjustmentHistoryItem): boolean {
@@ -365,7 +250,6 @@ export class InventoryAdjustmentsPageComponent {
 
   onOpenVoidAdjustment(adjustment: InventoryAdjustmentHistoryItem): void {
     if (!this.canVoidAdjustment(adjustment)) return;
-
     this.selectedAdjustment.set(adjustment);
     this.voidForm.reset({ reason: '' });
     this.isVoidDialogOpen.set(true);
@@ -386,97 +270,25 @@ export class InventoryAdjustmentsPageComponent {
       .pipe(finalize(() => this.voidSaving.set(false)))
       .subscribe({
         next: () => {
-          this.showSuccess('inventory.adjustmentVoided');
+          this.messageService.add({
+            severity: 'success',
+            summary: this.translocoService.translate('inventory.adjustmentVoided'),
+            life: 3000,
+          });
           this.isVoidDialogOpen.set(false);
           this.selectedAdjustment.set(null);
           this.loadHistory(1);
         },
         error: (err) => {
-          const detail = err.error?.detail || this.translate('inventory.voidAdjustmentError');
+          const detail = err.error?.detail || this.translocoService.translate('inventory.voidAdjustmentError');
           this.messageService.add({ severity: 'error', summary: 'Error', detail });
         },
       });
   }
 
-  private updateQuantityValidators(): void {
-    const validators: ValidatorFn[] = [
-      Validators.required,
-      Validators.min(0.01),
-      this.maxFractionDigits(2),
-      this.decreaseBlockedValidator(),
-    ];
-    const batch = this.selectedBatch();
-    if (batch && this.adjustmentForm.controls.direction.value === 'Decrease' && batch.quantity > 0) {
-      validators.push(Validators.max(batch.quantity));
-    }
-    this.adjustmentForm.controls.quantity.setValidators(validators);
-    this.adjustmentForm.controls.quantity.updateValueAndValidity({ emitEvent: false });
-  }
-
-  private updateNotesValidators(): void {
-    const reason = this.adjustmentForm.controls.reason.value;
-    const validators =
-      reason === 'OtherLoss' || reason === 'OtherGain'
-        ? [Validators.required, Validators.maxLength(500)]
-        : [Validators.maxLength(500)];
-    this.adjustmentForm.controls.notes.setValidators(validators);
-    this.adjustmentForm.controls.notes.updateValueAndValidity({ emitEvent: false });
-  }
-
-  private decreaseBlockedValidator(): ValidatorFn {
-    return (): ValidationErrors | null => {
-      const batch = this.selectedBatch();
-      return batch &&
-        batch.quantity <= 0 &&
-        this.adjustmentForm?.controls.direction.value === 'Decrease'
-        ? { decreaseFromEmptyBatch: true }
-        : null;
-    };
-  }
-
-  private maxFractionDigits(digits: number): ValidatorFn {
-    return (control: AbstractControl<number>): ValidationErrors | null => {
-      const value = control.value;
-      if (value === null || value === undefined) return null;
-      const decimalPart = value.toString().split('.')[1];
-      return decimalPart && decimalPart.length > digits
-        ? { maxFractionDigits: { requiredDigits: digits } }
-        : null;
-    };
-  }
-
-  private notBlankValidator(): ValidatorFn {
-    return (control: AbstractControl<string>): ValidationErrors | null => {
-      return control.value.trim().length === 0 ? { required: true } : null;
-    };
-  }
-
   private nullable(value: string | null | undefined): string | null {
     const normalized = value?.trim() ?? '';
     return normalized.length > 0 ? normalized : null;
-  }
-
-  private toIsoTimestamp(value: string): string | null {
-    const normalized = value.trim();
-    if (!normalized) return null;
-    const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? normalized : formatUtcIsoInstant(date);
-  }
-
-  private showSuccess(messageKey: string): void {
-    this.messageService.add({
-      severity: 'success',
-      summary: this.translate(messageKey),
-      life: 3000,
-    });
-  }
-
-  private showError(messageKey: string): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: this.translate(messageKey),
-      life: 3500,
-    });
   }
 
   private translate(key: string): string {

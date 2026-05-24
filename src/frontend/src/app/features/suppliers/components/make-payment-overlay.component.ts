@@ -1,44 +1,20 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
-
-import { ButtonModule } from 'primeng/button';
-import { DatePickerModule } from 'primeng/datepicker';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { InputGroupModule } from 'primeng/inputgroup';
-import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
-import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import type { MakePaymentRequest } from '../services/supplier-ledger.service';
+import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment-form.component';
 
 @Component({
   selector: 'app-make-payment-overlay',
   standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    InputNumberModule,
-    InputTextModule,
-    DatePickerModule,
-    ButtonModule,
-    ProgressSpinnerModule,
-    TranslocoPipe,
-    InputGroupModule,
-    InputGroupAddonModule,
-  ],
+  imports: [SupplierPaymentFormComponent, TranslocoPipe],
   templateUrl: './make-payment-overlay.component.html',
   styleUrl: './make-payment-overlay.component.scss',
 })
 export class MakePaymentOverlayComponent implements OnInit {
-  private readonly formBuilder = inject(FormBuilder);
   private readonly suppliersFacade = inject(SuppliersFacade);
-
-  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
-  readonly currencyAddonPt = CURRENCY_ADDON_PT;
-  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly isSubmitting = this.suppliersFacade.isSubmitting;
   readonly serverError = this.suppliersFacade.errorMessage;
@@ -47,12 +23,6 @@ export class MakePaymentOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly today = new Date();
-
-  readonly form = this.formBuilder.nonNullable.group({
-    amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
-    paymentDate: [new Date(), [Validators.required]],
-    notes: ['', [Validators.maxLength(500)]],
-  });
 
   ngOnInit(): void {
     this.suppliersFacade.clearError();
@@ -66,29 +36,9 @@ export class MakePaymentOverlayComponent implements OnInit {
     this.closeRequested.emit();
   }
 
-  onSubmit(): void {
-    if (this.isSubmitting()) {
-      return;
-    }
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+  onPaymentSubmitted(payload: MakePaymentRequest): void {
     this.suppliersFacade.clearError();
     this.suppliersFacade.clearMutationStatus();
-    this.suppliersFacade.makePayment(this.supplier.supplierId, {
-      amount: this.form.controls.amount.value!,
-      paymentDate: this.toIsoDateString(this.form.controls.paymentDate.value),
-      notes: this.nullableTrimmed(this.form.controls.notes.value),
-    });
-  }
-
-  private toIsoDateString(date: Date): string {
-    return formatLocalIsoDate(date);
-  }
-
-  private nullableTrimmed(value: string): string | null {
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
+    this.suppliersFacade.makePayment(this.supplier.supplierId, payload);
   }
 }

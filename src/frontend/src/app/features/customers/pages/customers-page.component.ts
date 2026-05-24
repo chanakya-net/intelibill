@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -11,21 +11,24 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TableModule } from 'primeng/table';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
 import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
+import { CustomersFilterBarComponent } from '../components/customers-filter-bar.component';
+import { CustomersTableComponent } from '../components/customers-table.component';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
-import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
+
+type CustomerStatusFilter = 'all' | 'active' | 'inactive';
 
 @Component({
   selector: 'app-customers-page',
@@ -42,15 +45,16 @@ import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
     InputIconModule,
     InputTextModule,
     ProgressSpinnerModule,
-    TableModule,
     DialogModule,
     InputNumberModule,
     InputGroupModule,
     InputGroupAddonModule,
     SkeletonModule,
+    TableModule,
     AddCustomerOverlayComponent,
     EditCustomerOverlayComponent,
-    TableFilterBarComponent,
+    CustomersFilterBarComponent,
+    CustomersTableComponent,
     DateOnlyPipe,
     TranslocoPipe,
   ],
@@ -67,18 +71,24 @@ export class CustomersPageComponent {
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly customers = this.customersFacade.allCustomers;
-  readonly tableCustomers = computed(() => [...this.customers()]);
   readonly searchValue = signal('');
+  readonly statusFilter = signal<CustomerStatusFilter>('all');
   readonly filteredCustomers = computed(() => {
     const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.customers()];
-    return this.customers().filter(
+    const filtered = this.statusFilter() === 'all' ? [...this.customers()] : this.customers().filter((c) => c.isActive === (this.statusFilter() === 'active'));
+
+    if (!q) {
+      return filtered;
+    }
+
+    return filtered.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.phoneNumber.toLowerCase().includes(q) ||
         (c.address ?? '').toLowerCase().includes(q),
     );
   });
+
   readonly isLoading = this.customersFacade.loadingCustomers;
   readonly serverError = this.customersFacade.errorMessage;
   readonly lastMutationType = this.customersFacade.lastMutationType;
@@ -100,22 +110,6 @@ export class CustomersPageComponent {
     paymentDate: [formatLocalIsoDate(new Date()), Validators.required],
     notes: ['', Validators.maxLength(255)],
   });
-
-  customerInitials(name: string): string {
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-
-  customerAvatarColor(name: string): string {
-    const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-  }
 
   constructor() {
     this.customersFacade.loadCustomers();
@@ -221,6 +215,10 @@ export class CustomersPageComponent {
 
   paymentTagLabel(entryType: number): string {
     return entryType === 2 ? 'customers.account.paymentReceived' : 'customers.account.saleDue';
+  }
+
+  onStatusFilterChange(statusFilter: CustomerStatusFilter): void {
+    this.statusFilter.set(statusFilter);
   }
 
   private loadCustomerAccount(customerId: string): void {

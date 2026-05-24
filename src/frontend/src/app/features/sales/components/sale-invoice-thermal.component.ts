@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { SaleDto, SaleItemDto } from '../services/sale.service';
+import type { SaleDto, SaleItemDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
 
 @Component({

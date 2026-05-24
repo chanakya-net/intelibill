@@ -912,6 +912,11 @@
     "cashCollected": "പണം ശേഖരിച്ചു",
     "profitBeforeTax": "നികുതിക്ക് മുമ്പുള്ള ലാഭം",
     "profitAfterTax": "നികുതിക്ക് ശേഷമുള്ള ലാഭം",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "ചെലവ് രേഖപ്പെടുത്തി",
     "expenseCorrection": "ചെലവ് തിരുത്തൽ",
     "netExpense": "മൊത്തം ചെലവ്",
@@ -957,7 +962,13 @@
     "sectionExpenses": "ചെലവ് വിശദാംശങ്ങൾ",
     "sectionPaymentBehavior": "പേയ്മെൻ്റ് പെരുമാറ്റം",
     "sectionStockRisk": "സ്റ്റോക്ക് റിസ്ക്",
-    "sectionReceivables": "ലഭിക്കേണ്ടവ"
+    "sectionReceivables": "ലഭിക്കേണ്ടവ",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "മെട്രിക്"
   },
   "discounts": {
     "title": "കിഴിവ് നിയമങ്ങൾ",

@@ -4,29 +4,20 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
-import { OfflineQueuedSaleRecord, OfflineQueueSyncResult, OfflineSaleQueueStatus } from './offline-sale-core.types';
+import { OfflineQueuedSaleRecord, OfflineQueueSyncResult } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
-import { OfflineSaleSyncRequest, OfflineSaleSyncResultDto, SaleService } from './sale.service';
-
-const SYNC_BATCH_SIZE = 50;
-
-export interface OfflineSalesVisibleQueueCounts {
-  readonly pending: number;
-  readonly syncing: number;
-  readonly failed: number;
-  readonly warning: number;
-  readonly needsReview: number;
-  readonly totalVisible: number;
-}
-
-export interface OfflineSalesSyncRunResult {
-  readonly attemptedCount: number;
-  readonly syncedCount: number;
-  readonly warningCount: number;
-  readonly needsReviewCount: number;
-  readonly failedCount: number;
-  readonly skippedReason?: 'NO_ACTIVE_SHOP' | 'NO_DEVICE' | 'API_UNREACHABLE' | 'NOT_RETRYABLE';
-}
+import { SaleService } from './sale.service';
+import type { OfflineSaleSyncResultDto } from './sale.models';
+import {
+  OFFLINE_SALES_SYNC_BATCH_SIZE,
+  addOfflineSyncResultToTotals,
+  buildSyncRequestFromQueuedSale,
+  isOfflineSaleSyncRetryable,
+  mapOfflineSyncResult,
+  mapToVisibleQueueCounts,
+  OfflineSalesSyncRunResult,
+  OfflineSalesVisibleQueueCounts,
+} from '../utils/offline-sale-sync.mapper';
 
 const EMPTY_COUNTS: OfflineSalesVisibleQueueCounts = {
   pending: 0,
@@ -138,7 +129,7 @@ export class OfflineSalesQueueSyncService {
 
     const run = this.queueDb.getQueuedSale(shopId, deviceId, clientSaleId)
       .then((record) => {
-        if (!record || !this.isRetryable(record.status)) {
+        if (!record || !isOfflineSaleSyncRetryable(record.status)) {
           return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'NOT_RETRYABLE' } satisfies OfflineSalesSyncRunResult;
         }
 
@@ -208,7 +199,7 @@ export class OfflineSalesQueueSyncService {
     }
 
     const counts = await this.queueDb.getStatusCounts(shopId, settings.deviceId);
-    const visible = this.toVisibleCounts(counts);
+    const visible = mapToVisibleQueueCounts(counts);
     this.visibleCounts.set(visible);
     return visible;
   }
@@ -230,8 +221,8 @@ export class OfflineSalesQueueSyncService {
       failedCount: 0,
     };
 
-    for (let start = 0; start < records.length; start += SYNC_BATCH_SIZE) {
-      const batch = records.slice(start, start + SYNC_BATCH_SIZE);
+    for (let start = 0; start < records.length; start += OFFLINE_SALES_SYNC_BATCH_SIZE) {
+      const batch = records.slice(start, start + OFFLINE_SALES_SYNC_BATCH_SIZE);
       const marked: OfflineQueuedSaleRecord[] = [];
 
       for (const record of batch) {
@@ -245,14 +236,14 @@ export class OfflineSalesQueueSyncService {
       try {
         const response = await firstValueFrom(this.saleService.syncOfflineSales({
           deviceId,
-          sales: marked.map((record) => this.toSyncRequest(record)),
+          sales: marked.map((record) => buildSyncRequestFromQueuedSale(record)),
         }));
         const byClientSaleId = new Map(response.results.map((result) => [result.clientSaleId, result]));
 
         for (const record of marked) {
           const result = byClientSaleId.get(record.clientSaleId);
           const applied = await this.applyBackendResult(shopId, deviceId, record, result);
-          this.addResultToTotals(totals, applied.status);
+          addOfflineSyncResultToTotals(totals, applied.status);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Offline sale sync failed.';
@@ -281,119 +272,9 @@ export class OfflineSalesQueueSyncService {
     record: OfflineQueuedSaleRecord,
     result: OfflineSaleSyncResultDto | undefined,
   ): Promise<OfflineQueueSyncResult> {
-    const mapped = this.toQueueSyncResult(result);
+    const mapped = mapOfflineSyncResult(result);
     await this.queueDb.applySyncResult(shopId, deviceId, record.clientSaleId, mapped);
     return mapped;
-  }
-
-  private toQueueSyncResult(result: OfflineSaleSyncResultDto | undefined): OfflineQueueSyncResult {
-    if (!result) {
-      return {
-        status: 'Failed',
-        errorCode: 'offline_sync.result_missing',
-        errorMessage: 'Offline sale sync did not return a result for this sale.',
-      };
-    }
-
-    const status = this.normalizeStatus(result.status);
-    const firstError = result.errors[0];
-    return {
-      status,
-      warnings: result.warnings ?? [],
-      errorCode: firstError?.code ?? null,
-      errorMessage: firstError?.message ?? null,
-      serverSaleId: result.saleId ?? null,
-    };
-  }
-
-  private normalizeStatus(status: string): OfflineQueueSyncResult['status'] {
-    const normalized = status.trim().toLowerCase();
-
-    if (normalized === 'created' || normalized === 'duplicate' || normalized === 'synced') return 'Synced';
-    if (normalized === 'syncedwithwarnings') return 'SyncedWithWarnings';
-    if (normalized === 'needsreview') return 'NeedsReview';
-    if (normalized === 'failed') return 'Failed';
-
-    return 'Failed';
-  }
-
-  private toSyncRequest(record: OfflineQueuedSaleRecord): OfflineSaleSyncRequest {
-    const payload = record.payload;
-    const totals = payload.pricing.totals;
-    return {
-      clientSaleId: payload.clientSaleId,
-      invoiceNumber: payload.invoiceNumber,
-      soldAt: payload.soldAt,
-      customerId: payload.customerId,
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      paymentMethod: payload.paymentMethod,
-      paidAmount: totals.paidAmount,
-      dueAmount: totals.dueAmount,
-      subtotalBeforeDiscount: totals.totalBeforeDiscount,
-      totalBeforeDiscount: totals.totalBeforeDiscount,
-      totalDiscountAmount: totals.totalDiscount,
-      totalTaxAmount: totals.totalTax,
-      totalAmount: totals.grandTotal,
-      saleDiscountOverrideType: payload.pricing.saleDiscountOverrideType ?? 0,
-      saleDiscountOverrideValue: payload.pricing.saleDiscountOverrideValue ?? 0,
-      configuredSaleRuleId: payload.pricing.configuredSaleRuleId ?? null,
-      configuredSaleRuleType: payload.pricing.configuredSaleRuleType ?? null,
-      configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
-      configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
-      items: payload.pricing.lines.map((line) => ({
-        barcode: line.barcode,
-        batchNumber: line.batchNumber,
-        itemName: line.itemName,
-        quantity: line.quantity,
-        costPrice: line.costPrice,
-        salesPrice: line.salesPrice,
-        mrp: line.mrp,
-        taxRatePercent: line.taxRatePercent,
-        isPriceIncludingTax: line.taxIncluded,
-        inventoryBatchId: line.inventoryBatchId,
-        preTaxAmountBeforeDiscount: line.preTaxAmount,
-        itemDiscountAmount: line.itemDiscountAmount,
-        saleDiscountAmount: line.saleDiscountAmount,
-        taxableAmount: line.taxableAmount,
-        taxAmount: line.taxAmount,
-        totalAmount: line.lineTotal,
-        configuredBatchRuleId: line.configuredRuleId,
-        configuredBatchRulePercentage: line.configuredRulePercentage ?? null,
-        itemDiscountOverrideType: line.itemDiscountOverrideType ?? 0,
-        itemDiscountOverrideValue: line.itemDiscountOverrideValue ?? 0,
-        hsnCode: line.hsnCode,
-      })),
-    };
-  }
-
-  private toVisibleCounts(counts: Record<OfflineSaleQueueStatus, number>): OfflineSalesVisibleQueueCounts {
-    const visible = {
-      pending: counts.Pending,
-      syncing: counts.Syncing,
-      failed: counts.Failed,
-      warning: counts.SyncedWithWarnings,
-      needsReview: counts.NeedsReview,
-    };
-
-    return {
-      ...visible,
-      totalVisible: visible.pending + visible.syncing + visible.failed + visible.warning + visible.needsReview,
-    };
-  }
-
-  private addResultToTotals(
-    totals: { syncedCount: number; warningCount: number; needsReviewCount: number; failedCount: number },
-    status: OfflineQueueSyncResult['status'],
-  ): void {
-    if (status === 'Synced') totals.syncedCount += 1;
-    else if (status === 'SyncedWithWarnings') totals.warningCount += 1;
-    else if (status === 'NeedsReview') totals.needsReviewCount += 1;
-    else totals.failedCount += 1;
-  }
-
-  private isRetryable(status: OfflineSaleQueueStatus): boolean {
-    return status === 'Pending' || status === 'Failed';
   }
 
   private buildLockKey(shopId: string, deviceId: string): string {

@@ -6,11 +6,9 @@
       <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
     </div>
   </header>
-
   @if (listError()) {
     <p class="error">{{ listError() | transloco }}</p>
   }
-
   <div class="discounts-grid">
     <p-card class="list-card">
       <ng-template pTemplate="header">
@@ -117,81 +115,20 @@
         />
       </div>
 
-      @if (listLoading()) {
-        <div class="loading">
-          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-        </div>
-      }
-
-      @if (!listLoading()) {
-        <p-table
-          [value]="$any(listItems())"
-          [scrollable]="true"
-          class="p-datatable-sm"
-          data-testid="discounts-table"
-        >
-          <ng-template pTemplate="header">
-            <tr>
-              <th>{{ 'discounts.fields.name' | transloco }}</th>
-              <th>{{ 'discounts.fields.ruleType' | transloco }}</th>
-              <th>{{ 'discounts.fields.isActive' | transloco }}</th>
-              <th>{{ 'discounts.fields.startsAt' | transloco }}</th>
-              <th>{{ 'discounts.fields.endsAt' | transloco }}</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-item>
-            <tr
-              class="row-click"
-              [class.row-selected]="item.id === selectedRuleId()"
-              role="button"
-              tabindex="0"
-              (click)="onSelectRule(item.id)"
-              (keydown.enter)="onSelectRule(item.id)"
-              (keydown.space)="onSelectRule(item.id)"
-              [attr.data-testid]="'discounts-row-' + item.id"
-            >
-              <td>{{ item.name }}</td>
-              <td>{{ ('discounts.ruleType.' + item.ruleType) | transloco }}</td>
-              <td>
-                <p-tag
-                  [value]="listStatusKey(item) | transloco"
-                  [severity]="listStatusSeverity(item)"
-                ></p-tag>
-              </td>
-              <td>{{ formatDate(item.startsAt) }}</td>
-              <td>{{ formatDate(item.endsAt) }}</td>
-            </tr>
-          </ng-template>
-        </p-table>
-
-        <div class="pagination">
-          <button
-            pButton
-            type="button"
-            severity="secondary"
-            [text]="true"
-            icon="pi pi-angle-left"
-            [disabled]="pageNumber() <= 1 || listLoading()"
-            (click)="pageNumber.set(pageNumber() - 1)"
-            [attr.aria-label]="'discounts.pagination.prev' | transloco"
-          ></button>
-          <p class="page-info">
-            {{ 'discounts.pagination.pageInfo' | transloco: { page: pageNumber(), pageSize: pageSize(), total: totalCount() } }}
-          </p>
-          <button
-            pButton
-            type="button"
-            severity="secondary"
-            [text]="true"
-            icon="pi pi-angle-right"
-            [disabled]="pageNumber() * pageSize() >= totalCount() || listLoading()"
-            (click)="pageNumber.set(pageNumber() + 1)"
-            [attr.aria-label]="'discounts.pagination.next' | transloco"
-          ></button>
-        </div>
-      }
+      <app-discounts-table
+        [listItems]="listItems()"
+        [listLoading]="listLoading()"
+        [selectedRuleId]="selectedRuleId()"
+        [totalCount]="totalCount()"
+        [pageNumber]="pageNumber()"
+        [pageSize]="pageSize()"
+        [statusKey]="listStatusKey.bind(this)"
+        [statusSeverity]="listStatusSeverity.bind(this)"
+        [formatDate]="formatDate"
+        (selectRule)="onSelectRule($event)"
+        (pageChange)="pageNumber.set($event)"
+      />
     </p-card>
-
     <p-card class="detail-card">
       <ng-template pTemplate="header">
         <div class="card-header">
@@ -221,17 +158,14 @@
           </div>
         </div>
       </ng-template>
-
       @if (detailError()) {
         <p class="error">{{ detailError() | transloco }}</p>
       }
-
       @if (detailLoading()) {
         <div class="loading">
           <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
         </div>
       }
-
       @if (!detailLoading() && selectedRule()) {
         <div class="detail-header">
           <div>
@@ -243,7 +177,6 @@
             [severity]="detailStatusSeverity(selectedRule())"
           ></p-tag>
         </div>
-
         <div class="detail-grid">
           <div class="detail-field">
             <p class="label">{{ 'discounts.detail.validity' | transloco }}</p>
@@ -341,6 +274,7 @@
             </div>
           </div>
         </div>
+
       }
 
       @if (!detailLoading() && !selectedRule()) {
@@ -352,59 +286,14 @@
     </p-card>
   </div>
 
-  <p-dialog
+  <app-discounts-disable-dialog
     [visible]="showDisableDialog()"
-    [modal]="true"
-    [dismissableMask]="true"
-    [closable]="false"
-    [style]="{ width: 'min(560px, 95vw)' }"
-  >
-    <ng-template pTemplate="header">
-      <h2 class="dialog-title">{{ 'discounts.disableDialog.title' | transloco }}</h2>
-    </ng-template>
-
-    <div class="dialog-content space-y-3">
-      <p>{{ 'discounts.disableDialog.description' | transloco }}</p>
-      <div class="field-wrap space-y-1.5">
-        <label for="discounts-disable-reason">{{ 'discounts.disableDialog.reasonLabel' | transloco }}</label>
-        <textarea
-          id="discounts-disable-reason"
-          pInputTextarea
-          rows="3"
-          class="w-full"
-          [placeholder]="'discounts.disableDialog.reasonPlaceholder' | transloco"
-          [disabled]="disableSubmitting()"
-          [ngModel]="disableReason()"
-          (ngModelChange)="disableReason.set($event)"
-          data-testid="discounts-disable-reason"
-        ></textarea>
-      </div>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <div class="dialog-footer">
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [text]="true"
-          [label]="'common.cancel' | transloco"
-          [disabled]="disableSubmitting()"
-          (click)="onCloseDisableDialog()"
-          data-testid="discounts-disable-cancel"
-        ></button>
-        <button
-          pButton
-          type="button"
-          severity="danger"
-          [label]="disableSubmitting() ? ('discounts.disableDialog.disabling' | transloco) : ('discounts.disableDialog.confirm' | transloco)"
-          [disabled]="disableSubmitting()"
-          (click)="onConfirmDisable()"
-          data-testid="discounts-disable-confirm"
-        ></button>
-      </div>
-    </ng-template>
-  </p-dialog>
+    [disableSubmitting]="disableSubmitting()"
+    [disableReason]="disableReason()"
+    (closeRequested)="onCloseDisableDialog()"
+    (disableReasonChange)="disableReason.set($event)"
+    (confirm)="onConfirmDisable()"
+  />
 
   <app-discount-rule-editor-dialog (saved)="onRuleSaved($event)"></app-discount-rule-editor-dialog>
 </section>

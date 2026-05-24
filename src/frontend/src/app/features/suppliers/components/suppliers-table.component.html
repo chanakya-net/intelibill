@@ -1,0 +1,266 @@
+<div class="mobile-grid-container">
+  <div class="supplier-list flex flex-col gap-3 px-1">
+    @for (supplier of suppliers; track supplier.supplierId) {
+      <p-card
+        class="supplier-card-item cursor-pointer"
+        [class.opacity-50]="!supplier.isActive"
+        (click)="onOpenSupplierDetail(supplier)"
+        [pt]="{
+          root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+          body: { class: 'p-3' },
+          content: { class: 'p-0' }
+        }"
+      >
+        <div class="flex items-center gap-4">
+          <!-- Left: Avatar -->
+          <p-avatar
+            [label]="supplierInitials(supplier.name)"
+            [style]="{'background-color': supplierAvatarColor(supplier.name), 'color': '#ffffff'}"
+            shape="circle"
+            size="large"
+            class="shadow-sm flex-shrink-0"
+          />
+
+          <!-- Center: Info -->
+          <div class="flex-1 flex flex-col gap-1 min-w-0">
+            <div class="font-bold text-slate-800 text-base truncate leading-tight">
+              {{ supplier.name }}
+            </div>
+            <div class="flex items-center gap-2">
+              @if (supplier.city) {
+                <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                  {{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}
+                </span>
+                <span class="text-slate-300">•</span>
+              }
+              <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
+                <div class="flex items-center gap-1.5 px-1">
+                  <span class="status-dot" [class.active]="supplier.isActive"></span>
+                  <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+                </div>
+              </p-tag>
+            </div>
+          </div>
+
+          <!-- Right: Balance & Actions -->
+          <div class="flex flex-col items-end gap-3">
+            <p-button
+              [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
+              [title]="getBalanceLabel(supplier)"
+              severity="info"
+              [text]="true"
+              size="small"
+              (click)="$event.stopPropagation(); onOpenSupplierDetail(supplier)"
+              class="p-0 h-auto text-[11px] font-extrabold"
+            />
+
+            <div class="flex gap-1.5">
+              @if (canManageSuppliers) {
+                <p-button
+                  icon="pi pi-pencil"
+                  [outlined]="true"
+                  severity="secondary"
+                  [pt]="{
+                    root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                  }"
+                  (click)="$event.stopPropagation(); onOpenEditSupplier(supplier)"
+                  [attr.aria-label]="'suppliers.editSupplier' | transloco"
+                />
+              }
+              @if (canMakePayment) {
+                <p-button
+                  icon="pi pi-wallet"
+                  [outlined]="true"
+                  severity="success"
+                  [pt]="{
+                    root: { class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50' }
+                  }"
+                  (click)="$event.stopPropagation(); onOpenMakePayment(supplier)"
+                  [attr.aria-label]="'suppliers.makePayment' | transloco"
+                />
+              }
+            </div>
+          </div>
+        </div>
+      </p-card>
+    }
+
+    @if (suppliers.length === 0) {
+      <div class="mobile-empty-state">
+        <h2 class="text-xl font-bold text-slate-700">{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+        <p class="text-slate-500">{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Desktop table -->
+<div class="suppliers-table-card desktop-table">
+  <p-table
+    [value]="tableSuppliers"
+    [globalFilterFields]="['name','contactPersonName','contactPersonPhone','city','state']"
+    [sortField]="'name'"
+    [sortOrder]="1"
+    class="p-datatable-sm"
+    [scrollable]="true"
+    scrollHeight="calc(100vh - 280px)"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="name">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.name' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="name" />
+              <p-columnFilter type="text" field="name" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="contactPersonName">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.contactPerson' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="contactPersonName" />
+              <p-columnFilter type="text" field="contactPersonName" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="contactPersonPhone">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.contactPhone' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="contactPersonPhone" />
+              <p-columnFilter type="text" field="contactPersonPhone" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="city">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.city' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="city" />
+              <p-columnFilter type="text" field="city" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="state">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.state' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="state" />
+              <p-columnFilter type="text" field="state" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="pin">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.pin' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="pin" />
+              <p-columnFilter type="text" field="pin" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="balanceDue">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.balance' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="balanceDue" />
+              <p-columnFilter type="numeric" field="balanceDue" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="isActive">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.status' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="isActive" />
+              <p-columnFilter type="boolean" field="isActive" display="menu" />
+            </div>
+          </div>
+        </th>
+        <th pSortableColumn="isPreferred">
+          <div class="flex items-center justify-between">
+            {{ 'suppliers.preferred' | transloco }}
+            <div class="flex items-center gap-1">
+              <p-sortIcon field="isPreferred" />
+              <p-columnFilter type="boolean" field="isPreferred" display="menu" />
+            </div>
+          </div>
+        </th>
+        @if (canManageSuppliers || canMakePayment) {
+          <th>{{ 'suppliers.actions' | transloco }}</th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-supplier>
+      <tr>
+        <td>{{ supplier.name }}</td>
+        <td>{{ supplier.contactPersonName || '-' }}</td>
+        <td>{{ supplier.contactPersonPhone || '-' }}</td>
+        <td>{{ supplier.city }}</td>
+        <td>{{ supplier.state }}</td>
+        <td>{{ supplier.pin }}</td>
+        <td>
+          <p-button
+            type="button"
+            [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
+            [title]="getBalanceLabel(supplier)"
+            severity="info"
+            text
+            size="small"
+            (click)="onOpenSupplierDetail(supplier)"
+            class="balance-button"
+          ></p-button>
+        </td>
+        <td>
+          <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
+            <div class="flex items-center gap-1.5 px-1">
+              <span class="status-dot" [class.active]="supplier.isActive"></span>
+              <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+            </div>
+          </p-tag>
+        </td>
+        <td>
+          <p-tag [severity]="supplier.isPreferred ? 'info' : 'warn'" [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"></p-tag>
+        </td>
+        @if (canManageSuppliers || canMakePayment) {
+          <td>
+            <div class="flex gap-2">
+              @if (canManageSuppliers) {
+                <p-button
+                  type="button"
+                  [label]="'suppliers.editSupplier' | transloco"
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  (click)="onOpenEditSupplier(supplier)"
+                ></p-button>
+              }
+              @if (canMakePayment) {
+                <p-button
+                  type="button"
+                  [label]="'suppliers.makePayment' | transloco"
+                  icon="pi pi-wallet"
+                  size="small"
+                  severity="success"
+                  (click)="onOpenMakePayment(supplier)"
+                ></p-button>
+              }
+            </div>
+          </td>
+        }
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td [attr.colspan]="9 + (canManageSuppliers || canMakePayment ? 1 : 0)">
+          <div class="empty-state">
+            <h2>{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+            <p>{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

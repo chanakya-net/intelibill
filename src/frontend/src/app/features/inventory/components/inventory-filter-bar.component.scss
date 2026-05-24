@@ -1,0 +1,18 @@
+:host {
+  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mobile-search-bar {
+  width: 100%;
+}
+
+.mobile-search-field {
+  width: 100%;
+}
+
+:host ::ng-deep .p-select {
+  width: 100%;
+}

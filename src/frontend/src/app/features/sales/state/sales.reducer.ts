@@ -1,7 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto } from '../services/sale.service';
+import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto } from '../services/sale.models';
 import { SaleMutationType, SalesActions } from './sales.actions';
 
 export const salesFeatureKey = 'sales';

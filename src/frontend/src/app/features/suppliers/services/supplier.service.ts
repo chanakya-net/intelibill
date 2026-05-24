@@ -10,6 +10,7 @@ export interface Supplier {
   readonly name: string;
   readonly contactPersonName: string | null;
   readonly contactPersonPhone: string | null;
+  readonly gstNumber?: string | null;
   readonly address: string;
   readonly city: string;
   readonly state: string;

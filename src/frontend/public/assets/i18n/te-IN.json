@@ -912,6 +912,11 @@
     "cashCollected": "నగదు సేకరించారు",
     "profitBeforeTax": "పన్నుకు ముందు లాభం",
     "profitAfterTax": "పన్ను తర్వాత లాభం",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "ఖర్చు నమోదు చేయబడింది",
     "expenseCorrection": "ఖర్చు దిద్దుబాటు",
     "netExpense": "నికర వ్యయం",
@@ -957,7 +962,13 @@
     "sectionExpenses": "ఖర్చు వివరాలు",
     "sectionPaymentBehavior": "చెల్లింపు ప్రవర్తన",
     "sectionStockRisk": "స్టాక్ రిస్క్",
-    "sectionReceivables": "స్వీకరించదగినవి"
+    "sectionReceivables": "స్వీకరించదగినవి",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "మెట్రిక్"
   },
   "discounts": {
     "title": "తగ్గింపు నియమాలు",

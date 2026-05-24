@@ -9,9 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { API_BASE_URL } from '../../../../core/auth/auth.constants';
 import {
+  AdjustmentRowDto,
   InventoryAdjustmentHistoryItem,
   InventoryBatchDto,
-} from '../../services/inventory.service';
+} from '../../services/inventory.models';
 import { InventoryAdjustmentsPageComponent } from './inventory-adjustments-page.component';
 
 describe('InventoryAdjustmentsPageComponent', () => {
@@ -184,7 +185,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
     ]);
   });
 
-  it('renders desktop table and mobile cards for loaded history', () => {
+  it('renders summary component with loaded history', () => {
     fixture.detectChanges();
     flushInitialLoad();
     fixture.detectChanges();
@@ -323,7 +324,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
     );
   });
 
-  it('renders owner void action and void metadata', () => {
+  it('renders owner void action and void metadata via summary component', () => {
     fixture.detectChanges();
     flushInitialLoad();
     component.adjustments.set([
@@ -396,38 +397,22 @@ describe('InventoryAdjustmentsPageComponent', () => {
     req.flush({ items: [], totalCount: 41, pageNumber: 3, pageSize: 20 });
   });
 
-  it('searches batches locally and blocks decrease from zero-quantity batches', () => {
+  it('creates an adjustment and refreshes history when form emits rowChange', () => {
     fixture.detectChanges();
     flushInitialLoad();
 
     component.openNewAdjustment();
-    component.onBatchSearch({ query: 'sug' });
-    expect(component.batchSuggestions().map((batch) => batch.id)).toEqual(['batch-empty']);
+    expect(component.isAdjustmentDialogOpen()).toBe(true);
 
-    component.onSelectBatch(batches[1]);
-    expect(component.selectedBatchDecreaseBlocked()).toBe(true);
-    expect(component.adjustmentForm.invalid).toBe(true);
-
-    component.adjustmentForm.controls.direction.setValue('Increase');
-    expect(component.selectedBatchDecreaseBlocked()).toBe(false);
-    expect(component.adjustmentForm.valid).toBe(true);
-  });
-
-  it('creates an adjustment and refreshes history', () => {
-    fixture.detectChanges();
-    flushInitialLoad();
-
-    component.openNewAdjustment();
-    component.onSelectBatch(batches[0]);
-    component.adjustmentForm.patchValue({
+    const dto: AdjustmentRowDto = {
+      batchId: 'batch-1',
       direction: 'Decrease',
       reason: 'Damaged',
       quantity: 2,
-      performedAt: '2026-05-05T08:30',
+      performedAt: new Date('2026-05-05T08:30').toISOString(),
       notes: 'Damaged while unloading',
-    });
-
-    component.onSaveAdjustment();
+    };
+    component.onSaveAdjustment(dto);
 
     const adjustReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/batch-1/adjust`);
     expect(adjustReq.request.method).toBe('POST');
@@ -461,5 +446,15 @@ describe('InventoryAdjustmentsPageComponent', () => {
     const refreshBatchesReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
     refreshBatchesReq.flush(batches);
     expect(component.isAdjustmentDialogOpen()).toBe(false);
+  });
+
+  it('computes adjustmentBatchOptions from available batches', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+
+    const opts = component.adjustmentBatchOptions();
+    expect(opts.map((o) => o.id)).toEqual(['batch-1', 'batch-empty']);
+    expect(opts[0].itemName).toBe('Rice');
+    expect(opts[0].barcode).toBe('111');
   });
 });

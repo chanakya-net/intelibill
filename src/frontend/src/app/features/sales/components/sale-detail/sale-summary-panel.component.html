@@ -1,0 +1,54 @@
+<div class="pt-2 border-t border-slate-100">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 text-sm">
+    <div>
+      <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.newSale.customerName' | transloco }}</p>
+      <p class="text-slate-700">{{ sale.customerName || ('sales.invoice.walkInCustomer' | transloco) }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.newSale.customerPhone' | transloco }}</p>
+      <p class="text-slate-700">{{ sale.customerPhone || '-' }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">{{ 'sales.detail.payment' | transloco }}</p>
+      <p-tag [severity]="paymentMethodSeverity()" [value]="paymentMethodLabel()" />
+    </div>
+  </div>
+
+  <div class="flex justify-between items-center py-1">
+    @if (hasDiscount()) {
+      <span class="text-sm text-slate-500">{{ 'sales.detail.beforeDiscount' | transloco }}</span>
+      <span class="font-medium text-slate-700">
+        {{ sale.totalBeforeDiscount | currency: currency : 'symbol' : '1.2-2' }}
+      </span>
+    } @else {
+      <span class="text-sm text-slate-500">{{ 'sales.detail.price' | transloco }}</span>
+      <span class="font-medium text-slate-700">
+        {{ subtotalAmount() | currency: currency : 'symbol' : '1.2-2' }}
+      </span>
+    }
+  </div>
+
+  @if (hasDiscount()) {
+    <div class="flex justify-between items-center py-1">
+      <span class="text-sm text-green-600">{{ 'sales.detail.discount' | transloco }}</span>
+      <span class="font-medium text-green-600">-{{ sale.totalDiscountAmount | currency: currency : 'symbol' : '1.2-2' }}</span>
+    </div>
+  }
+
+  <div class="flex justify-between items-center py-1">
+    <span class="text-sm text-slate-500">{{ 'sales.detail.taxAmount' | transloco }}</span>
+    <span class="font-medium text-slate-700">{{ sale.totalTaxAmount | currency: currency : 'symbol' : '1.2-2' }}</span>
+  </div>
+
+  <div class="flex justify-between items-center py-2 mt-1 border-t border-slate-200">
+    <span class="text-sm font-semibold text-slate-700">{{ 'sales.detail.total' | transloco }}</span>
+    <span class="text-lg font-bold text-orange-600">{{ sale.totalAmount | currency: currency : 'symbol' : '1.2-2' }}</span>
+  </div>
+
+  @if (hasDiscount()) {
+    <div class="flex justify-between items-center py-1 px-2 mt-1 rounded bg-green-50">
+      <span class="text-sm font-medium text-green-700">{{ 'sales.detail.totalSavings' | transloco }}</span>
+      <span class="font-bold text-green-700">{{ sale.totalDiscountAmount | currency: currency : 'symbol' : '1.2-2' }}</span>
+    </div>
+  }
+</div>

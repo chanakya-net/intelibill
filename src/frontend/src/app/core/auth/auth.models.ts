@@ -88,3 +88,5 @@ export interface ApiErrorPayload {
   readonly detail?: string;
   readonly errors?: Record<string, string[]>;
 }
+
+export type BootstrapSessionStatus = 'READY' | 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'REFRESH_FAILED';

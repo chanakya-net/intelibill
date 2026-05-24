@@ -13,7 +13,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { RootState } from '../../../core/state/app.state';
 import { InventoryActions } from '../state/inventory.actions';
 import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state/inventory.selectors';
-import { Item } from '../services/inventory.service';
+import type { Item } from '../services/inventory.models';
 
 @Component({
   selector: 'app-edit-item-overlay',

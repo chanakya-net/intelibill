@@ -1,0 +1,86 @@
+:host {
+  display: block;
+}
+
+.mobile-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.desktop-table {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .mobile-grid-container {
+    display: none;
+  }
+
+  .desktop-table {
+    display: block;
+  }
+}
+
+.inventory-table-card {
+  border: 1px solid #fdba74;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  overflow: hidden;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #292524;
+}
+
+.empty-state p {
+  margin: 0.4rem 0 0;
+  color: #57534e;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  display: inline-block;
+
+  &.active {
+    background-color: #22c55e;
+  }
+}
+
+:host ::ng-deep {
+  .p-tag {
+    padding: 0.15rem 0.5rem;
+  }
+
+  .p-datatable-thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff7ed !important;
+  }
+}
+
+.product-card-item {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}

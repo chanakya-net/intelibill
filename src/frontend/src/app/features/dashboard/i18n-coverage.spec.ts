@@ -15,6 +15,11 @@ const I18N_DIR = join(process.cwd(), 'public/assets/i18n');
 const INTENTIONAL_SAME_IN_HI = new Set([
   'paymentMixUpi', // UPI is an acronym used as-is in Hindi
   'presetCustom', // "Custom" is used as-is across all Indian locales
+  'chartTypeBar', // Chart type labels are technical terms used as-is
+  'chartTypeStackedBar',
+  'chartTypeLine',
+  'chartTypePie',
+  'chartTypeDoughnut',
 ]);
 
 function loadJson(file: string): Record<string, unknown> {

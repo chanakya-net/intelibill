@@ -20,7 +20,10 @@ import { MakePaymentOverlayComponent } from '../components/make-payment-overlay.
 import { SupplierDetailComponent } from '../components/supplier-detail.component';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
-import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
+import { SuppliersFilterBarComponent } from '../components/suppliers-filter-bar.component';
+import { SuppliersTableComponent } from '../components/suppliers-table.component';
+
+type SupplierStatusFilter = 'all' | 'active' | 'inactive';
 
 @Component({
   selector: 'app-suppliers-page',
@@ -41,7 +44,8 @@ import { TableFilterBarComponent } from '../../../shared/components/table-filter
     EditSupplierOverlayComponent,
     MakePaymentOverlayComponent,
     SupplierDetailComponent,
-    TableFilterBarComponent,
+    SuppliersFilterBarComponent,
+    SuppliersTableComponent,
     TranslocoPipe,
   ],
   templateUrl: './suppliers-page.component.html',
@@ -53,18 +57,25 @@ export class SuppliersPageComponent {
 
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly userSuppliers = computed(() => this.suppliers().filter((s) => !s.isSystem));
-  readonly tableSuppliers = computed(() => [...this.userSuppliers()]);
   readonly searchValue = signal('');
+  readonly statusFilter = signal<SupplierStatusFilter>('all');
   readonly filteredSuppliers = computed(() => {
     const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.userSuppliers()];
-    return this.userSuppliers().filter(
+    const statusFiltered =
+      this.statusFilter() === 'all' ? [...this.userSuppliers()] : this.userSuppliers().filter((s) => s.isActive === (this.statusFilter() === 'active'));
+
+    if (!q) {
+      return statusFiltered;
+    }
+
+    return statusFiltered.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         (s.city ?? '').toLowerCase().includes(q) ||
         (s.contactPersonName ?? '').toLowerCase().includes(q),
     );
   });
+
   readonly isLoading = this.suppliersFacade.isLoading;
   readonly serverError = this.suppliersFacade.errorMessage;
   readonly lastMutationType = this.suppliersFacade.lastMutationType;
@@ -91,39 +102,6 @@ export class SuppliersPageComponent {
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
   readonly canMakePayment = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
-
-  supplierInitials(name: string): string {
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-
-  supplierAvatarColor(name: string): string {
-    const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-  }
-
-  getBalanceLabel(supplier: Supplier): string {
-    if (supplier.balanceDue > 0) {
-      return `Amount Due: ${this.formatCurrency(supplier.balanceDue)}`;
-    }
-    if (supplier.balanceDue < 0) {
-      return `Extra Payment: ${this.formatCurrency(Math.abs(supplier.balanceDue))}`;
-    }
-    return 'No Balance';
-  }
-
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  }
 
   constructor() {
     this.suppliersFacade.load();
@@ -204,5 +182,9 @@ export class SuppliersPageComponent {
     this.showDetailModal.set(false);
     this.detailSupplierId.set(null);
     this.detailSupplier.set(null);
+  }
+
+  onStatusFilterChange(statusFilter: SupplierStatusFilter): void {
+    this.statusFilter.set(statusFilter);
   }
 }

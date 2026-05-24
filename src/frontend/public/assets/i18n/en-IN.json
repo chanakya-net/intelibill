@@ -912,6 +912,11 @@
     "cashCollected": "Cash Collected",
     "profitBeforeTax": "Profit Before Tax",
     "profitAfterTax": "Profit After Tax",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "Expense Recorded",
     "expenseCorrection": "Expense Correction",
     "netExpense": "Net Expense",
@@ -957,7 +962,13 @@
     "sectionExpenses": "Expense Details",
     "sectionPaymentBehavior": "Payment Behavior",
     "sectionStockRisk": "Stock Risk",
-    "sectionReceivables": "Receivables"
+    "sectionReceivables": "Receivables",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
+    "metricLabel": "Metric"
   },
   "discounts": {
     "title": "Discount Rules",

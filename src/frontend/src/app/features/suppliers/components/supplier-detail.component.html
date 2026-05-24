@@ -1,0 +1,19 @@
+<p-dialog
+  [(visible)]="isOpen"
+  (visibleChange)="onVisibilityChange($event)"
+  [header]="'suppliers.ledgerEntries' | transloco"
+  [modal]="true"
+  [style]="{ width: '100%', maxWidth: '1120px' }"
+  [draggable]="false"
+>
+  <div class="ledger-content">
+    @if (currentSupplier()) {
+      <app-supplier-info-card [supplier]="currentSupplier()!" />
+    }
+
+    <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
+
+    <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+  </div>
+</p-dialog>
+

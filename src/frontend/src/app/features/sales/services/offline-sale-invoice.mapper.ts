@@ -1,4 +1,4 @@
-import { SaleDto } from './sale.service';
+import type { SaleDto } from './sale.models';
 import { OfflineQueuedSalePayload } from './offline-sale-core.types';
 
 export function mapOfflineQueuedSaleToSaleDto(payload: OfflineQueuedSalePayload): SaleDto {

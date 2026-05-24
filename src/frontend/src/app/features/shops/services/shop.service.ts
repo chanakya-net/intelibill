@@ -18,6 +18,19 @@ export interface CreateShopRequest {
   readonly gstNumber?: string;
 }
 
+export type UpdateShopRequest = CreateShopRequest;
+export type ShopRole = string;
+
+export interface ShopMemberDto {
+  readonly userId: string;
+  readonly fullName?: string;
+  readonly firstName?: string;
+  readonly lastName?: string;
+  readonly email?: string | null;
+  readonly phoneNumber?: string | null;
+  readonly role: ShopRole;
+}
+
 export interface ShopDetails {
   readonly shopId: string;
   readonly name: string;
@@ -33,7 +46,11 @@ export interface ShopDetails {
   readonly bankAccountType: string | null;
   readonly ifscCode: string | null;
   readonly accountHolderName: string | null;
+  readonly logoUrl?: string | null;
+  readonly members?: readonly ShopMemberDto[] | null;
 }
+
+export type ShopDetailsDto = ShopDetails;
 
 export interface UpdateBankDetailsRequest {
   readonly bankName?: string;
