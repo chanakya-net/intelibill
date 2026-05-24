@@ -4,10 +4,10 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-	import { DashboardDateRangeComponent } from '../../components/dashboard-date-range.component';
-	import { DashboardPageComponent } from './dashboard-page.component';
-	import { DashboardFacade } from '../../state/dashboard.facade';
-	import { DashboardDto } from '../../models/dashboard-dto';
+import { DashboardDateRangeComponent } from '../../components/dashboard-date-range.component';
+import { DashboardPageComponent } from './dashboard-page.component';
+import { DashboardFacade } from '../../state/dashboard.facade';
+import { DashboardDto } from '../../models/dashboard-dto';
 
 const makeOwnerDto = (overrides: Partial<DashboardDto> = {}): DashboardDto => ({
   generatedAt: '2026-04-29T10:00:00Z',
@@ -173,7 +173,7 @@ describe('DashboardPageComponent', () => {
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    const sections = fixture.debugElement.queryAll(By.css('.dashboard-section')); 
+    const sections = fixture.debugElement.queryAll(By.css('.dashboard-section'));
     expect(sections.length).toBeLessThan(2);
   });
 
@@ -219,7 +219,7 @@ describe('DashboardPageComponent', () => {
     expect(fixture.componentInstance.selectedChartType()).toBe('bar');
   });
 
-  it('includes profit metric option', () => {
+  it('does not expose standalone profit metric option', () => {
     const facade = createFacade(makeOwnerDto());
     TestBed.configureTestingModule({
       imports: [DashboardPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
@@ -229,6 +229,6 @@ describe('DashboardPageComponent', () => {
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.metricOptions().map((option) => option.value)).toContain('profit');
+    expect(fixture.componentInstance.metricOptions().map((option) => option.value)).not.toContain('profit');
   });
 });

@@ -14,12 +14,12 @@
   align-items: center;
 }
 
-:host ::ng-deep .dashboard-chart-card .p-chart {
+:host ::ng-deep .dashboard-primary-chart-card .p-chart {
   min-height: 300px;
 }
 
 @media (max-width: 768px) {
-  :host ::ng-deep .dashboard-chart-card .p-chart {
+  :host ::ng-deep .dashboard-primary-chart-card .p-chart {
     min-height: 220px;
   }
 }

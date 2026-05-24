@@ -2,7 +2,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { DASHBOARD_ENDPOINTS } from '../../../core/auth/auth.constants';
 export type {
   DashboardAlertDto,
   DashboardDto,
@@ -15,6 +14,7 @@ export type {
   StockShortageItemDto,
 } from '../models/dashboard-dto';
 import type { DashboardDto } from '../models/dashboard-dto';
+import { DASHBOARD_ENDPOINTS } from '../../../core/auth/auth.constants';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {

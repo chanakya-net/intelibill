@@ -89,7 +89,6 @@ type MetricOption = {
 
 const METRIC_OPTIONS: ReadonlyArray<MetricOption> = [
   { labelKey: 'dashboard.salesTrendTitle', value: 'sales' },
-  { labelKey: 'dashboard.profitAfterTax', value: 'profit' },
   { labelKey: 'dashboard.sectionExpenses', value: 'expense' },
   { labelKey: 'dashboard.paymentMixTitle', value: 'paymentMix' },
 ];

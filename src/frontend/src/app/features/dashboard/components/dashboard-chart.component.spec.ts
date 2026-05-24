@@ -17,10 +17,10 @@ describe('DashboardChartComponent', () => {
 
     fixture = TestBed.createComponent(DashboardChartComponent);
     component = fixture.componentInstance;
-    component.chartData = {
+    fixture.componentRef.setInput('chartData', {
       labels: ['A', 'B'],
       datasets: [{ data: [1, 2] }],
-    };
+    });
     fixture.detectChanges();
   });
 
@@ -41,6 +41,9 @@ describe('DashboardChartComponent', () => {
     component.chartType = 'doughnut';
     fixture.detectChanges();
 
-    expect(component.chartType).toBe('doughnut');
+    const chart = fixture.debugElement.query(By.css('p-chart'));
+    expect(component.renderChartType).toBe('doughnut');
+    expect(chart).not.toBeNull();
+    expect(chart?.componentInstance.type).toBe('doughnut');
   });
 });

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
@@ -8,12 +8,17 @@ import { SelectModule } from 'primeng/select';
 import { ChartData, DashboardChartType } from '../utils/dashboard-chart-builders';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
-const CHART_TYPE_OPTIONS = [
-  { label: 'Column Bar', value: 'bar' as const },
-  { label: 'Column Bar Stacked', value: 'stackedBar' as const },
-  { label: 'Line', value: 'line' as const },
-  { label: 'Pie', value: 'pie' as const },
-  { label: 'Donut', value: 'doughnut' as const },
+type ChartTypeOption = {
+  labelKey: string;
+  value: DashboardChartType;
+};
+
+const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
+  { labelKey: 'dashboard.chartTypeBar', value: 'bar' as const },
+  { labelKey: 'dashboard.chartTypeStackedBar', value: 'stackedBar' as const },
+  { labelKey: 'dashboard.chartTypeLine', value: 'line' as const },
+  { labelKey: 'dashboard.chartTypePie', value: 'pie' as const },
+  { labelKey: 'dashboard.chartTypeDoughnut', value: 'doughnut' as const },
 ];
 
 @Component({
@@ -24,7 +29,7 @@ const CHART_TYPE_OPTIONS = [
   styleUrl: './dashboard-chart.component.scss',
 })
 export class DashboardChartComponent {
-  @Input() chartData: ChartData | null = null;
+  chartData = input<ChartData | null>(null);
   @Input() chartType: DashboardChartType = 'bar';
   @Input() loading = false;
   @Input() title = '';
@@ -33,8 +38,8 @@ export class DashboardChartComponent {
   @Output() chartTypeChange = new EventEmitter<DashboardChartType>();
   private readonly transloco = inject(TranslocoService);
 
-  readonly chartTypeOptions = CHART_TYPE_OPTIONS;
-  readonly translatedChartData = computed<ChartData | null>(() => this.translateChartData(this.chartData));
+  readonly chartTypeOptions: ChartTypeOption[] = CHART_TYPE_OPTIONS;
+  readonly translatedChartData = computed<ChartData | null>(() => this.translateChartData(this.chartData()));
 
   get renderChartType(): 'bar' | 'line' | 'pie' | 'doughnut' {
     return this.chartType === 'stackedBar' ? 'bar' : this.chartType;
