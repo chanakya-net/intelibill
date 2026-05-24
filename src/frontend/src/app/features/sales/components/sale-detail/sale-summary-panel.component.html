@@ -14,15 +14,19 @@
     </div>
   </div>
 
-	  <div class="flex justify-between items-center py-1">
-	    @if (hasDiscount()) {
-	      <span class="text-sm text-slate-500">{{ 'sales.detail.beforeDiscount' | transloco }}</span>
-	      <span class="font-medium text-slate-700">{{ sale.totalBeforeDiscount | currency: currency : 'symbol' : '1.2-2' }}</span>
-	    } @else {
-	      <span class="text-sm text-slate-500">{{ 'sales.detail.price' | transloco }}</span>
-	      <span class="font-medium text-slate-700">{{ subtotalAmount() | currency: currency : 'symbol' : '1.2-2' }}</span>
-	    }
-	  </div>
+  <div class="flex justify-between items-center py-1">
+    @if (hasDiscount()) {
+      <span class="text-sm text-slate-500">{{ 'sales.detail.beforeDiscount' | transloco }}</span>
+      <span class="font-medium text-slate-700">
+        {{ sale.totalBeforeDiscount | currency: currency : 'symbol' : '1.2-2' }}
+      </span>
+    } @else {
+      <span class="text-sm text-slate-500">{{ 'sales.detail.price' | transloco }}</span>
+      <span class="font-medium text-slate-700">
+        {{ subtotalAmount() | currency: currency : 'symbol' : '1.2-2' }}
+      </span>
+    }
+  </div>
 
   @if (hasDiscount()) {
     <div class="flex justify-between items-center py-1">

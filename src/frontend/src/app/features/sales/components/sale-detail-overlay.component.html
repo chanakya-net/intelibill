@@ -123,40 +123,82 @@
             <th style="width: 5.5rem">{{ 'sales.returns.preview.col.returnable' | transloco }}</th>
             <th style="width: 6rem">{{ 'sales.returns.preview.col.returnQty' | transloco }}</th>
             <th style="width: 9rem">{{ 'sales.returns.preview.col.condition' | transloco }}</th>
-            @if (hasFinancialAccess()) { <th style="width: 7rem">{{ 'sales.returns.preview.col.refund' | transloco }}</th> }
+            @if (hasFinancialAccess()) {
+              <th style="width: 7rem">
+                {{ 'sales.returns.preview.col.refund' | transloco }}
+              </th>
+            }
             <th style="width: 10rem">{{ 'sales.returns.preview.col.notes' | transloco }}</th>
           </tr>
-	        </ng-template>
-	        <ng-template pTemplate="body" let-item>
-	          @let draft = getDraft(item.saleItemId);
-	          <tr [class.opacity-60]="isFullyReturned(item)">
-	            <td>
-	              <p-checkbox [binary]="true" [ngModel]="draft?.selected ?? false" [disabled]="isFullyReturned(item)" (ngModelChange)="toggleReturnLine(item, $event)" />
-	            </td>
-	            <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
-	            <td>{{ item.quantity }}</td>
-	            <td>{{ item.returnedQuantity }}</td>
-	            <td>{{ item.returnableQuantity }}</td>
-	            <td>
-	              <p-inputNumber [min]="0" [max]="item.returnableQuantity" [inputStyle]="{ width: '100%' }" [disabled]="!draft?.selected || isFullyReturned(item)" [ngModel]="draft?.quantity ?? 0" (ngModelChange)="updateReturnQuantity(item, $event)" />
-	            </td>
-	            <td>
-	              <p-select [options]="returnConditionOptions" optionLabel="label" optionValue="value" appendTo="body" styleClass="w-full" [disabled]="!draft?.selected || isFullyReturned(item)" [ngModel]="draft?.condition ?? null" (ngModelChange)="updateReturnCondition(item, $event)" placeholder="Required" />
-	            </td>
-	            @if (hasFinancialAccess()) {
-	              <td>
-	                <p-inputNumber [min]="0" [max]="getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity)" [inputStyle]="{ width: '100%' }" [disabled]="!draft?.selected || isFullyReturned(item)" [ngModel]="draft?.approvedRefundAmount ?? null" (ngModelChange)="updateRefundAmount(item, $event)" />
-	                @if (draft?.selected) {
-	                  <p class="mt-1 text-xs text-slate-400">Max {{ getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity) | currency: 'INR' : 'symbol' : '1.2-2' }}</p>
-	                }
-	              </td>
-	            }
-	            <td>
-	              <textarea pInputTextarea rows="2" class="w-full" [disabled]="!draft?.selected || isFullyReturned(item)" [ngModel]="draft?.notes ?? ''" (ngModelChange)="updateNotes(item, $event)"></textarea>
-	            </td>
-	          </tr>
-	        </ng-template>
-	      </p-table>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          @let draft = getDraft(item.saleItemId);
+          <tr [class.opacity-60]="isFullyReturned(item)">
+            <td>
+              <p-checkbox
+                [binary]="true"
+                [ngModel]="draft?.selected ?? false"
+                [disabled]="isFullyReturned(item)"
+                (ngModelChange)="toggleReturnLine(item, $event)"
+              />
+            </td>
+            <td class="font-medium">{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.returnedQuantity }}</td>
+            <td>{{ item.returnableQuantity }}</td>
+            <td>
+              <p-inputNumber
+                [min]="0"
+                [max]="item.returnableQuantity"
+                [inputStyle]="{ width: '100%' }"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.quantity ?? 0"
+                (ngModelChange)="updateReturnQuantity(item, $event)"
+              />
+            </td>
+            <td>
+              <p-select
+                [options]="returnConditionOptions"
+                optionLabel="label"
+                optionValue="value"
+                appendTo="body"
+                styleClass="w-full"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.condition ?? null"
+                (ngModelChange)="updateReturnCondition(item, $event)"
+                placeholder="Required"
+              />
+            </td>
+            @if (hasFinancialAccess()) {
+              <td>
+                <p-inputNumber
+                  [min]="0"
+                  [max]="getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity)"
+                  [inputStyle]="{ width: '100%' }"
+                  [disabled]="!draft?.selected || isFullyReturned(item)"
+                  [ngModel]="draft?.approvedRefundAmount ?? null"
+                  (ngModelChange)="updateRefundAmount(item, $event)"
+                />
+                @if (draft?.selected) {
+                  <p class="mt-1 text-xs text-slate-400">
+                    Max {{ getMaxRefundAmount(item, draft?.quantity ?? item.returnableQuantity) | currency: 'INR' : 'symbol' : '1.2-2' }}
+                  </p>
+                }
+              </td>
+            }
+            <td>
+              <textarea
+                pInputTextarea
+                rows="2"
+                class="w-full"
+                [disabled]="!draft?.selected || isFullyReturned(item)"
+                [ngModel]="draft?.notes ?? ''"
+                (ngModelChange)="updateNotes(item, $event)"
+              ></textarea>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
 
       @if (hasFinancialAccess()) {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 rounded border border-slate-200 p-3">
@@ -248,7 +290,6 @@
       }
     </div>
   }
-
   <ng-template pTemplate="footer">
     <p-button [label]="'sales.returns.preview.previewBtn' | transloco" icon="pi pi-calculator" [loading]="isPreviewLoading()" (click)="previewReturn()" />
     @if (canSubmitReturns()) {
