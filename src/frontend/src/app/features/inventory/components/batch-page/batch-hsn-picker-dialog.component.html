@@ -1,0 +1,32 @@
+@if (visible) {
+  @if (hsnResult) {
+    <section class="hsn-picker-card">
+      <p class="eyebrow hsn-picker-label">{{ 'hsn.suggestion' | transloco }}</p>
+      <p-autocomplete
+        class="hsn-picker-input"
+        [(ngModel)]="pickerHsnCode"
+        [ngModelOptions]="{ standalone: true }"
+        [suggestions]="filteredHsnOptions()"
+        [dropdown]="true"
+        (completeMethod)="filterHsn($event)"
+        appendTo="body"
+      ></p-autocomplete>
+      <p-autocomplete
+        class="hsn-picker-input"
+        [suggestions]="filteredTaxOptions()"
+        [(ngModel)]="pickerTaxRate"
+        [ngModelOptions]="{ standalone: true }"
+        [dropdown]="true"
+        (completeMethod)="filterTax($event)"
+        appendTo="body"
+      ></p-autocomplete>
+      <button
+        pButton
+        type="button"
+        [label]="'hsn.apply' | transloco"
+        [disabled]="!pickerHsnCode || !pickerTaxRate"
+        (click)="apply()"
+      ></button>
+    </section>
+  }
+}

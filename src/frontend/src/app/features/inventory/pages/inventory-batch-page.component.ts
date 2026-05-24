@@ -1,16 +1,7 @@
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
-import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
-import { InputGroupModule } from 'primeng/inputgroup';
-import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { InputTextModule } from 'primeng/inputtext';
-import { SelectModule } from 'primeng/select';
-import { TextareaModule } from 'primeng/textarea';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
@@ -23,43 +14,27 @@ import {
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
   AddInventoryBatchSucceededRow,
-  HsnLookupResult,
   InventoryService,
 } from '../services/inventory.service';
-import {
-  InventoryDraftIndexedDbService,
-  InventoryInboundDraftRow,
-} from '../../../core/storage/inventory-draft-indexeddb.service';
+import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { AudioService } from '../../../core/services/audio.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
-import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
-import {
-  CURRENCY_ADDON_PT,
-  CURRENCY_INPUT_GROUP_PT,
-  CURRENCY_INPUT_NUMBER_PT,
-  CURRENCY_SELECT_PT,
-} from '../../../shared/primeng-pt.config';
-import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import { BatchDraftStateService } from '../services/batch-draft-state.service';
+import { BatchRowFormComponent } from '../components/batch-page/batch-row-form.component';
+import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-results.component';
 
 @Component({
   selector: 'app-inventory-batch-page',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    FormsModule,
     TranslocoPipe,
     BarcodeScannerDialogComponent,
-    AutoCompleteModule,
+    BatchRowFormComponent,
+    BatchSaveResultsComponent,
     ButtonModule,
-    InputGroupAddonModule,
-    InputGroupModule,
-    InputNumberModule,
-    InputTextModule,
-    SelectModule,
-    TextareaModule,
     TableModule,
     ToastModule,
     ProgressSpinnerModule,
@@ -69,278 +44,88 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
   styleUrl: './inventory-batch-page.component.scss',
 })
 export class InventoryBatchPageComponent {
-  private readonly formBuilder = inject(FormBuilder);
+  @ViewChild(BatchRowFormComponent) batchRowForm!: BatchRowFormComponent;
+
+  private readonly draftState = inject(BatchDraftStateService);
+  private readonly inventoryService = inject(InventoryService);
   private readonly authService = inject(AuthService);
   private readonly audioService = inject(AudioService);
-  private readonly inventoryService = inject(InventoryService);
-  private readonly draftStorage = inject(InventoryDraftIndexedDbService);
+  private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
-  private readonly catalogSync = inject(ProductCatalogSyncService);
-  private readonly suppliersFacade = inject(SuppliersFacade);
-  private readonly destroyRef = inject(DestroyRef);
+  readonly catalogSync = inject(ProductCatalogSyncService);
 
   readonly isSaving = signal(false);
   readonly isScannerOpen = signal(false);
-  readonly hsnResult = signal<HsnLookupResult | null>(null);
-  readonly isLoadingHsn = signal(false);
-  readonly selectedHsnCode = signal<string | null>(null);
-  pickerHsnCode: string | null = null;
-  pickerTaxRate: string | null = null;
-  readonly pickerOpen = signal(false);
-  readonly pickerHsnOptions = computed(() => [...(this.hsnResult()?.hsnCodes ?? [])]);
-  readonly pickerTaxOptions = computed(() => (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage));
-  readonly filteredPickerHsnOptions = signal<string[]>([]);
-  readonly filteredPickerTaxOptions = signal<string[]>([]);
-  readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
-  readonly loadingDraft = signal(false);
-  readonly loadingProduct = signal(false);
+  readonly highlightedRowId = signal<string | null>(null);
   readonly scannerLastAction = signal('');
   readonly scannerSessionCount = signal(0);
-  readonly nameSuggestions = signal<string[]>([]);
-  readonly barcodeSuggestions = signal<string[]>([]);
-  readonly highlightedRowId = signal<string | null>(null);
-  readonly supplierSuggestions = signal<string[]>([]);
-  readonly taxModeOptions = signal([
-    { label: 'With Tax', value: true },
-    { label: 'Without Tax', value: false },
-  ]);
+
+  readonly pendingRows = this.draftState.pendingRows;
+  readonly loadingDraft = this.draftState.loadingDraft;
   readonly suppliers = this.suppliersFacade.suppliers;
-
-  // Shared PT configurations
-  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
-  readonly currencyAddonPt = CURRENCY_ADDON_PT;
-  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
-  readonly currencySelectPt = CURRENCY_SELECT_PT;
-
-  // PassThrough configurations for PrimeNG components
-  readonly editButtonPt = {
-    root: {
-      class: 'edit-row-button',
-    },
-  };
-  readonly removeButtonPt = {
-    root: {
-      class: 'remove-row-button',
-    },
-  };
-  readonly cameraButtonPt = {
-    root: {
-      class: 'camera-button',
-    },
-  };
-  readonly barcodeAutocomplePt = {
-    root: {
-      class: 'barcode-autocomplete',
-    },
-  };
-  readonly barcodeInputGroupPt = {
-    root: {
-      class: 'barcode-input-group',
-    },
-  };
-  readonly cameraddonPt = {
-    root: {
-      class: 'camera-addon',
-    },
-  };
-
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly tableRows = computed(() => [...this.pendingRows()]);
   readonly failedClientRowIds = computed(() => {
-    const summary = this.saveSummary();
-    if (!summary) {
-      return new Set<string>();
-    }
-
-    return new Set(summary.failed.map((row) => row.clientRowId));
+    const s = this.saveSummary();
+    return s ? new Set(s.failed.map((r) => r.clientRowId)) : new Set<string>();
   });
   readonly failedRowErrorTextById = computed(() => {
-    const summary = this.saveSummary();
-    if (!summary) {
-      return new Map<string, string>();
-    }
-
-    const entries = summary.failed.map((row) => [
-      row.clientRowId,
-      row.errors.map((error) => error.description).join(', '),
-    ] as const);
-
-    return new Map<string, string>(entries);
+    const s = this.saveSummary();
+    if (!s) return new Map<string, string>();
+    return new Map(s.failed.map((r) => [r.clientRowId, r.errors.map((e) => e.description).join(', ')] as const));
   });
 
-  readonly form = this.formBuilder.nonNullable.group({
-    itemName: ['', [Validators.required, Validators.maxLength(180)]],
-    barcode: ['', [Validators.required, Validators.maxLength(120)]],
-    itemDescription: ['', [Validators.maxLength(320)]],
-    uom: ['', [Validators.required, Validators.maxLength(40)]],
-    batchNumber: ['', [Validators.required, Validators.maxLength(80)]],
-    quantity: [1, [Validators.required, Validators.min(0.0001)]],
-    totalPurchaseCost: [0, [Validators.required, Validators.min(0)]],
-    mrp: [0, [Validators.required, Validators.min(0)]],
-    salesPrice: [0, [Validators.required, Validators.min(0)]],
-    taxRatePercent: [0, [Validators.required, Validators.min(0)]],
-    taxIncluded: [true, [Validators.required]],
-    expiryDate: [''],
-    manufacturingDate: [''],
-    supplierName: [''],
-    referenceNumber: ['', [Validators.maxLength(120)]],
-    notes: ['', [Validators.maxLength(320)]],
-  });
+  readonly editButtonPt = { root: { class: 'edit-row-button' } };
+  readonly removeButtonPt = { root: { class: 'remove-row-button' } };
 
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
-  private clearHsnSelectionOnNextItemNameChange = false;
 
   constructor() {
-    this.form.controls.itemName.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => {
-        if (this.clearHsnSelectionOnNextItemNameChange && value.trim().length > 0) {
-          this.clearHsnSelection();
-        }
-      });
-
     effect(() => {
       const shopId = this.activeShopId();
       if (!shopId) {
-        this.pendingRows.set([]);
+        this.draftState.pendingRows.set([]);
         return;
       }
-
       this.suppliersFacade.load();
-      void this.loadDraftRows(shopId);
+      void this.draftState.loadDraft(shopId).then(() => {
+        if (this.draftState.pendingRows().length > 0) {
+          this.showInfo('inventory.draftLoaded');
+        }
+      });
     });
-
-    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
   }
 
-  onFilterName(event: AutoCompleteCompleteEvent): void {
-    this.nameSuggestions.set(this.catalogSync.filterByName(event.query).map((e) => e.name));
+  onRowAdded(row: InventoryInboundDraftRow): void {
+    this.saveSummary.set(null);
+    void this.draftState.saveDraftRow(row);
+    this.flashRow(row.clientRowId);
   }
 
-  onFilterBarcode(event: AutoCompleteCompleteEvent): void {
-    this.barcodeSuggestions.set(
-      this.catalogSync.filterByBarcode(event.query).map((e) => e.barcode),
-    );
+  onRemoveRow(clientRowId: string): void {
+    this.saveSummary.set(null);
+    void this.draftState.removeDraftRow(clientRowId);
   }
 
-  onNameSelected(name: string): void {
-    const entry = this.catalogSync.findByName(name);
-    if (entry) {
-      this.form.controls.barcode.setValue(entry.barcode);
-      void this.fetchProductDetails({ lookupHsnIfMissing: true });
-    }
+  onEditRow(clientRowId: string): void {
+    const row = this.pendingRows().find((r) => r.clientRowId === clientRowId);
+    if (!row) return;
+    this.saveSummary.set(null);
+    void this.draftState.removeDraftRow(clientRowId);
+    this.batchRowForm?.populateFromRow(row, this.getSupplierDisplayName(row.supplierId));
   }
 
-  onBarcodeSelected(barcode: string): void {
-    const entry = this.catalogSync.findByBarcode(barcode);
-    if (entry) {
-      this.form.controls.itemName.setValue(entry.name);
-    }
-    void this.fetchProductDetails();
+  onClearAll(): void {
+    this.saveSummary.set(null);
+    void this.draftState.clearDraft(this.activeShopId());
   }
 
-  onBarcodeFocusOut(): void {
-    void this.fetchProductDetails();
-  }
-
-  async onItemNameBlur(): Promise<void> {
-    if (this.loadingProduct()) {
-      return;
-    }
-    const itemName = this.form.controls.itemName.value.trim();
-    if (itemName.length < 3) {
-      return;
-    }
-
-    this.isLoadingHsn.set(true);
-    try {
-      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
-
-      // If product details finished loading while the HSN lookup was in-flight (e.g. name
-      // selected from autocomplete triggers both), the chip is already populated — skip.
-      if (this.selectedHsnCode()) {
-        return;
-      }
-
-      this.hsnResult.set(result);
-
-      if (result.hsnCodes.length === 1 && result.taxScenarios.length === 1) {
-        this.applyHsnSelection(result.hsnCodes[0], result.taxScenarios[0].taxPercentage);
-        return;
-      }
-
-      if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
-        this.pickerHsnCode = result.hsnCodes[0] ?? null;
-        this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
-        this.filteredPickerHsnOptions.set([...result.hsnCodes]);
-        this.filteredPickerTaxOptions.set(result.taxScenarios.map((s) => s.taxPercentage));
-        this.pickerOpen.set(true);
-      }
-    } catch {
-      // Silent lookup failure. Leave the form editable without surfacing an error.
-    } finally {
-      this.isLoadingHsn.set(false);
-    }
-  }
-
-  applyHsnSelection(hsnCode: string, taxPercentage: string): void {
-    const taxRatePercent = Number.parseFloat(taxPercentage.replace('%', '').trim());
-    this.selectedHsnCode.set(hsnCode);
-    this.form.controls.taxRatePercent.setValue(taxRatePercent);
-    this.pickerOpen.set(false);
-    this.clearHsnSelectionOnNextItemNameChange = true;
-  }
-
-  dismissPicker(): void {
-    this.pickerOpen.set(false);
-  }
-
-  clearHsnSelection(): void {
-    this.hsnResult.set(null);
-    this.isLoadingHsn.set(false);
-    this.selectedHsnCode.set(null);
-    this.pickerOpen.set(false);
-    this.clearHsnSelectionOnNextItemNameChange = false;
-  }
-
-  async onChangeHsnClick(): Promise<void> {
-    this.selectedHsnCode.set(null);
-    this.pickerOpen.set(false);
-    this.clearHsnSelectionOnNextItemNameChange = false;
-    const itemName = this.form.controls.itemName.value.trim();
-    if (itemName.length < 3) {
-      return;
-    }
-    this.isLoadingHsn.set(true);
-    try {
-      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
-      this.hsnResult.set(result);
-      if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
-        this.pickerHsnCode = result.hsnCodes[0] ?? null;
-        this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
-        this.filteredPickerHsnOptions.set([...result.hsnCodes]);
-        this.filteredPickerTaxOptions.set(result.taxScenarios.map((s) => s.taxPercentage));
-        this.pickerOpen.set(true);
-      }
-    } finally {
-      this.isLoadingHsn.set(false);
-    }
-  }
-
-  filterPickerHsn(event: AutoCompleteCompleteEvent): void {
-    const filter = (event.query ?? '').toLowerCase();
-    this.filteredPickerHsnOptions.set(
-      this.pickerHsnOptions().filter((hsn) => hsn.toLowerCase().includes(filter)),
-    );
-  }
-
-  filterPickerTax(event: AutoCompleteCompleteEvent): void {
-    const filter = (event.query ?? '').toLowerCase();
-    this.filteredPickerTaxOptions.set(
-      this.pickerTaxOptions().filter((taxPercentage) => taxPercentage.toLowerCase().includes(filter)),
-    );
+  onSaveAll(): void {
+    if (this.isSaving() || this.pendingRows().length === 0) return;
+    this.isSaving.set(true);
+    void this.saveRowsInChunks();
   }
 
   openScanner(): void {
@@ -356,141 +141,36 @@ export class InventoryBatchPageComponent {
 
   async handleScannedBarcode(detection: BarcodeDetection): Promise<void> {
     const barcode = detection.value.trim();
-    if (!barcode) {
-      return;
-    }
+    if (!barcode) return;
 
-    this.scannerSessionCount.update((count) => count + 1);
+    this.scannerSessionCount.update((c) => c + 1);
 
-    const mergedRow = await this.incrementExistingRowQuantity(barcode);
+    const mergedRow = await this.draftState.incrementRowQuantity(barcode);
     if (mergedRow) {
+      this.saveSummary.set(null);
+      this.flashRow(mergedRow.clientRowId);
       this.scannerLastAction.set('inventory.scannerActionIncremented');
       this.showScannerToast('inventory.scannerMerged', barcode, mergedRow.quantity);
       void this.audioService.beep();
       return;
     }
 
-    const catalogEntry = this.catalogSync.findByBarcode(barcode);
-    this.form.controls.barcode.setValue(barcode);
-    this.form.controls.barcode.markAsDirty();
-
-    if (catalogEntry) {
-      this.form.controls.itemName.setValue(catalogEntry.name);
-    }
-
-    await this.fetchProductDetails({ showInfoToast: false, showErrorToast: false });
-
-    if (this.canAutoAddScannedRow() && this.tryAddScannedRow()) {
+    const result = await this.batchRowForm?.handleBarcode(barcode);
+    if (result === 'added') {
       this.scannerLastAction.set('inventory.scannerActionAdded');
       this.showScannerToast('inventory.scannerAdded', barcode, 1);
       void this.audioService.beep();
       return;
     }
 
-    this.form.markAllAsTouched();
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
     this.isScannerOpen.set(false);
   }
 
-  private async fetchProductDetails(options?: { showInfoToast?: boolean; showErrorToast?: boolean; lookupHsnIfMissing?: boolean }): Promise<void> {
-    const showInfoToast = options?.showInfoToast ?? true;
-    const showErrorToast = options?.showErrorToast ?? true;
-    const lookupHsnIfMissing = options?.lookupHsnIfMissing ?? false;
-    const itemName = this.form.controls.itemName.value?.trim();
-    const barcode = this.form.controls.barcode.value?.trim();
-
-    // Barcode-driven lookup should still call API even when local catalog misses itemName.
-    if (!barcode) {
-      return;
-    }
-
-    this.loadingProduct.set(true);
-
-    let hsnApplied = false;
-    try {
-      const details = await this.inventoryService
-        .getProductDetailsByNameOrBarcode(itemName || undefined, barcode)
-        .toPromise();
-
-      if (details) {
-        const patch = this.buildProductDetailsPatch(details);
-
-        if (Object.keys(patch).length > 0) {
-          this.form.patchValue(patch);
-          if (showInfoToast) {
-            this.showInfo('inventory.productDetailsLoaded');
-          }
-        }
-
-        if (details.hsnCode) {
-          this.hsnResult.set(null);
-          this.selectedHsnCode.set(details.hsnCode);
-          this.pickerOpen.set(false);
-          this.clearHsnSelectionOnNextItemNameChange = true;
-          hsnApplied = true;
-        }
-      }
-    } catch (error) {
-      if (showErrorToast) {
-        this.showError('inventory.productDetailsLoadError');
-      }
-    } finally {
-      this.loadingProduct.set(false);
-    }
-
-    if (lookupHsnIfMissing && !hsnApplied && !this.selectedHsnCode()) {
-      await this.onItemNameBlur();
-    }
-  }
-
-  private canAutoAddScannedRow(): boolean {
-    const itemName = this.form.controls.itemName.value.trim();
-    const barcode = this.form.controls.barcode.value.trim();
-    const uom = this.form.controls.uom.value.trim();
-    const totalPurchaseCost = Number(this.form.controls.totalPurchaseCost.value);
-    const mrp = Number(this.form.controls.mrp.value);
-    const salesPrice = Number(this.form.controls.salesPrice.value);
-
-    return (
-      itemName.length > 0
-      && barcode.length > 0
-      && uom.length > 0
-      && totalPurchaseCost > 0
-      && mrp > 0
-      && salesPrice > 0
-    );
-  }
-
-  private showInfo(messageKey: string): void {
-    this.messageService.add({
-      severity: 'info',
-      summary: this.translate(messageKey),
-      life: 2500,
-    });
-  }
-
-  onFilterSupplier(event: AutoCompleteCompleteEvent): void {
-    const normalized = event.query.trim().toLowerCase();
-    const matches = this.suppliers()
-      .filter((supplier) => supplier.name.toLowerCase().includes(normalized))
-      .slice(0, 15)
-      .map((supplier) => supplier.name);
-
-    this.supplierSuggestions.set(matches);
-  }
-
-  onSupplierSelected(selection: string): void {
-    const supplier = this.findSupplierByName(selection);
-    if (supplier) {
-      this.form.controls.supplierName.setValue(supplier.name);
-    }
-  }
-
-  onAddRow(): void {
-    if (!this.tryAddScannedRow()) {
-      this.form.markAllAsTouched();
-    }
+  getSupplierDisplayName(supplierId: string | null): string {
+    if (!supplierId) return '-';
+    return this.suppliers().find((s) => s.supplierId === supplierId)?.name ?? supplierId;
   }
 
   pendingRowInitials(name: string): string {
@@ -500,74 +180,10 @@ export class InventoryBatchPageComponent {
   }
 
   pendingRowAvatarColor(name: string): string {
-    const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
-    ];
+    const colors = ['#b45309', '#0369a1', '#15803d', '#7c3aed', '#be185d', '#c2410c', '#0f766e', '#1d4ed8'];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
-  }
-
-  onRemoveRow(clientRowId: string): void {
-    const updatedRows = this.pendingRows().filter((row) => row.clientRowId !== clientRowId);
-    this.saveSummary.set(null);
-    this.pendingRows.set(updatedRows);
-    void this.persistRows(this.activeShopId(), updatedRows);
-  }
-
-  onEditRow(clientRowId: string): void {
-    const row = this.pendingRows().find((candidate) => candidate.clientRowId === clientRowId);
-    if (!row) {
-      return;
-    }
-
-    this.form.setValue({
-      itemName: row.itemName,
-      barcode: row.barcode,
-      itemDescription: row.itemDescription ?? '',
-      uom: row.uom,
-      batchNumber: row.batchNumber,
-      quantity: row.quantity,
-      totalPurchaseCost: row.totalPurchaseCost,
-      mrp: row.mrp,
-      salesPrice: row.salesPrice,
-      taxRatePercent: row.taxRatePercent,
-      taxIncluded: row.taxIncluded,
-      expiryDate: row.expiryDate ?? '',
-      manufacturingDate: row.manufacturingDate ?? '',
-      supplierName:
-        this.getSupplierDisplayName(row.supplierId) === '-'
-          ? ''
-          : this.getSupplierDisplayName(row.supplierId),
-      referenceNumber: row.referenceNumber ?? '',
-      notes: row.notes ?? '',
-    });
-
-    this.selectedHsnCode.set(row.hsnCode ?? null);
-    this.clearHsnSelectionOnNextItemNameChange = row.hsnCode != null;
-
-    const updatedRows = this.pendingRows().filter(
-      (candidate) => candidate.clientRowId !== clientRowId,
-    );
-    this.saveSummary.set(null);
-    this.pendingRows.set(updatedRows);
-    void this.persistRows(this.activeShopId(), updatedRows);
-  }
-
-  onClearAll(): void {
-    this.saveSummary.set(null);
-    this.pendingRows.set([]);
-    void this.draftStorage.clearRows(this.activeShopId());
-  }
-
-  onSaveAll(): void {
-    if (this.isSaving() || this.pendingRows().length === 0) {
-      return;
-    }
-
-    this.isSaving.set(true);
-    void this.saveRowsInChunks();
   }
 
   private async saveRowsInChunks(): Promise<void> {
@@ -575,77 +191,44 @@ export class InventoryBatchPageComponent {
     const chunkSize = 100;
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
-
     try {
-      for (let index = 0; index < rows.length; index += chunkSize) {
-        const chunk = rows.slice(index, index + chunkSize);
-        const payload = this.mapRowsToRequest(chunk);
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
         const response = await firstValueFrom(
-          this.inventoryService.addInventoryBatch({ items: payload }),
+          this.inventoryService.addInventoryBatch({ items: this.mapRowsToRequest(chunk) }),
         );
-
         succeeded.push(...response.succeeded);
         failed.push(...response.failed);
       }
-
       const summary: AddInventoryBatchResponse = {
-        requestedCount: rows.length,
-        successCount: succeeded.length,
-        failedCount: failed.length,
-        succeeded,
-        failed,
+        requestedCount: rows.length, successCount: succeeded.length,
+        failedCount: failed.length, succeeded, failed,
       };
-
       this.saveSummary.set(summary);
       if (summary.failedCount === 0) {
-        this.pendingRows.set([]);
-        await this.draftStorage.clearRows(this.activeShopId());
+        await this.draftState.clearDraft(this.activeShopId());
         this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
         return;
       }
-
-      const failedIds = new Set(summary.failed.map((row) => row.clientRowId));
-      const remainingRows = rows.filter((row) => failedIds.has(row.clientRowId));
-      this.pendingRows.set(remainingRows);
-      await this.persistRows(this.activeShopId(), remainingRows);
+      const failedIds = new Set(summary.failed.map((r) => r.clientRowId));
+      await this.draftState.replaceRows(this.activeShopId(), rows.filter((r) => failedIds.has(r.clientRowId)));
       this.showWarn('inventory.savedPartial');
     } catch (error) {
-      const succeededIds = new Set(succeeded.map((row) => row.clientRowId));
-      const failedIds = new Set(failed.map((row) => row.clientRowId));
-      const remainingRows = rows.filter(
-        (row) => !succeededIds.has(row.clientRowId) || failedIds.has(row.clientRowId),
+      const succeededIds = new Set(succeeded.map((r) => r.clientRowId));
+      const failedIds = new Set(failed.map((r) => r.clientRowId));
+      await this.draftState.replaceRows(
+        this.activeShopId(),
+        rows.filter((r) => !succeededIds.has(r.clientRowId) || failedIds.has(r.clientRowId)),
       );
-
-      this.pendingRows.set(remainingRows);
-      await this.persistRows(this.activeShopId(), remainingRows);
-
       if (succeeded.length > 0 || failed.length > 0) {
-        this.saveSummary.set({
-          requestedCount: rows.length,
-          successCount: succeeded.length,
-          failedCount: failed.length,
-          succeeded,
-          failed,
-        });
+        this.saveSummary.set({ requestedCount: rows.length, successCount: succeeded.length, failedCount: failed.length, succeeded, failed });
       }
-
       const apiErrors = this.extractApiErrors(error);
-      const hasBatchLimitError = apiErrors.some(
-        (apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded',
-      );
-
-      if (hasBatchLimitError) {
+      if (apiErrors.some((e) => e['code'] === 'Inventory.BatchLimitExceeded' || e['Code'] === 'Inventory.BatchLimitExceeded')) {
         this.showWarn('inventory.batchLimitReached');
       } else {
-        const firstDetail = apiErrors
-          .map((apiError) => this.getErrorDescription(apiError))
-          .find((detail) => detail.length > 0);
-
-        if (firstDetail) {
-          this.showErrorWithDetail('inventory.saveFailed', firstDetail);
-        } else {
-          this.showError('inventory.saveFailed');
-        }
+        const detail = apiErrors.map((e) => String(e['description'] ?? e['Description'] ?? '')).find((d) => d.length > 0);
+        detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');
       }
     } finally {
       this.isSaving.set(false);
@@ -653,361 +236,33 @@ export class InventoryBatchPageComponent {
   }
 
   private mapRowsToRequest(rows: readonly InventoryInboundDraftRow[]): readonly AddInventoryBatchRowRequest[] {
-    return rows.map((row) => ({
-      clientRowId: row.clientRowId,
-      itemName: row.itemName,
-      barcode: row.barcode,
-      itemDescription: row.itemDescription,
-      hsnCode: row.hsnCode,
-      uom: row.uom,
-      batchNumber: row.batchNumber,
-      quantity: row.quantity,
-      totalPurchaseCost: row.totalPurchaseCost,
-      mrp: row.mrp,
-      salesPrice: row.salesPrice,
-      taxRatePercent: row.taxRatePercent,
-      taxIncluded: row.taxIncluded,
-      purchaseTaxIncluded: row.taxIncluded,
-      expiryDate: row.expiryDate,
-      manufacturingDate: row.manufacturingDate,
-      supplierId: row.supplierId,
-      referenceNumber: row.referenceNumber,
-      notes: row.notes,
-      performedAt: new Date().toISOString(),
+    return rows.map((r) => ({
+      clientRowId: r.clientRowId, itemName: r.itemName, barcode: r.barcode,
+      itemDescription: r.itemDescription, hsnCode: r.hsnCode, uom: r.uom,
+      batchNumber: r.batchNumber, quantity: r.quantity, totalPurchaseCost: r.totalPurchaseCost,
+      mrp: r.mrp, salesPrice: r.salesPrice, taxRatePercent: r.taxRatePercent,
+      taxIncluded: r.taxIncluded, purchaseTaxIncluded: r.taxIncluded,
+      expiryDate: r.expiryDate, manufacturingDate: r.manufacturingDate,
+      supplierId: r.supplierId, referenceNumber: r.referenceNumber,
+      notes: r.notes, performedAt: new Date().toISOString(),
     }));
-  }
-
-  private async loadDraftRows(shopId: string): Promise<void> {
-    this.loadingDraft.set(true);
-    try {
-      const rows = await this.draftStorage.loadRows(shopId);
-      this.pendingRows.set(rows);
-      if (rows.length > 0) {
-        this.showInfo('inventory.draftLoaded');
-      }
-    } finally {
-      this.loadingDraft.set(false);
-    }
-  }
-
-  private async persistRows(
-    shopId: string,
-    rows: readonly InventoryInboundDraftRow[],
-  ): Promise<void> {
-    if (!shopId) {
-      return;
-    }
-
-    if (rows.length === 0) {
-      await this.draftStorage.clearRows(shopId);
-      return;
-    }
-
-    await this.draftStorage.saveRows(shopId, rows);
-  }
-
-  private buildProductDetailsPatch(details: {
-    name: string;
-    description: string;
-    uom: string;
-    costPrice: number;
-    mrp: number;
-    salesPrice: number;
-    supplierName: string | null;
-    hsnCode: string | null;
-    taxIncluded: boolean | null;
-    taxRatePercent: number | null;
-  }): Partial<{
-    itemName: string;
-    itemDescription: string;
-    uom: string;
-    totalPurchaseCost: number;
-    mrp: number;
-    salesPrice: number;
-    supplierName: string;
-    hsnCode: string;
-    taxIncluded: boolean;
-    taxRatePercent: number;
-  }> {
-    const patch: Partial<{
-      itemName: string;
-      itemDescription: string;
-      uom: string;
-      totalPurchaseCost: number;
-      mrp: number;
-      salesPrice: number;
-      supplierName: string;
-      hsnCode: string;
-      taxIncluded: boolean;
-      taxRatePercent: number;
-    }> = {};
-
-    const currentItemName = this.form.controls.itemName.value.trim();
-    if (!currentItemName && !this.form.controls.itemName.dirty && details.name) {
-      patch.itemName = details.name;
-    }
-
-    if (!this.form.controls.itemDescription.dirty) {
-      patch.itemDescription = details.description || '';
-    }
-
-    if (!this.form.controls.uom.dirty) {
-      patch.uom = details.uom;
-    }
-
-    if (!this.form.controls.totalPurchaseCost.dirty) {
-      patch.totalPurchaseCost = Number((details.costPrice * Number(this.form.controls.quantity.value)).toFixed(2));
-    }
-
-    if (!this.form.controls.mrp.dirty) {
-      patch.mrp = details.mrp;
-    }
-
-    if (!this.form.controls.salesPrice.dirty) {
-      patch.salesPrice = details.salesPrice;
-    }
-
-    if (!this.form.controls.supplierName.dirty && details.supplierName) {
-      patch.supplierName = details.supplierName;
-    }
-
-    if (!this.form.controls.taxIncluded.dirty && details.taxIncluded !== null) {
-      patch.taxIncluded = details.taxIncluded;
-    }
-
-    if (!this.form.controls.taxRatePercent.dirty && details.taxRatePercent !== null) {
-      patch.taxRatePercent = details.taxRatePercent;
-    }
-
-    return patch;
-  }
-
-  private nullable(value: string): string | null {
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
-  }
-
-  private resolveSupplierId(value: string): string | null {
-    const normalized = value.trim();
-    if (!normalized) {
-      return null;
-    }
-
-    return this.findSupplierByName(normalized)?.supplierId ?? null;
-  }
-
-  getSupplierDisplayName(supplierId: string | null): string {
-    if (!supplierId) {
-      return '-';
-    }
-
-    return (
-      this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId
-    );
-  }
-
-  private findSupplierByName(name: string): Supplier | undefined {
-    const normalized = name.trim().toLowerCase();
-    return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
-  }
-
-  private async incrementExistingRowQuantity(
-    barcode: string,
-  ): Promise<InventoryInboundDraftRow | null> {
-    const matchingRow = this.pendingRows().find((row) => row.barcode === barcode);
-    if (!matchingRow) {
-      return null;
-    }
-
-    const updatedRow = {
-      ...matchingRow,
-      quantity: Number((matchingRow.quantity + 1).toFixed(3)),
-    } satisfies InventoryInboundDraftRow;
-    const updatedRows = this.pendingRows().map((row) =>
-      row.clientRowId === matchingRow.clientRowId ? updatedRow : row,
-    );
-
-    this.saveSummary.set(null);
-    this.pendingRows.set(updatedRows);
-    this.flashRow(updatedRow.clientRowId);
-    await this.persistRows(this.activeShopId(), updatedRows);
-    return updatedRow;
-  }
-
-  private tryAddScannedRow(): boolean {
-    const row = this.buildDraftRow();
-    if (!row) {
-      return false;
-    }
-
-    const updatedRows = [...this.pendingRows(), row];
-    this.saveSummary.set(null);
-    this.pendingRows.set(updatedRows);
-    this.flashRow(row.clientRowId);
-    void this.persistRows(this.activeShopId(), updatedRows);
-    this.resetForm();
-    return true;
-  }
-
-  private buildDraftRow(): InventoryInboundDraftRow | null {
-    if (this.form.invalid) {
-      return null;
-    }
-
-    const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
-
-      return {
-      clientRowId: this.createRowId(),
-      itemName: this.form.controls.itemName.value.trim(),
-      barcode: this.form.controls.barcode.value.trim(),
-      itemDescription: this.nullable(this.form.controls.itemDescription.value),
-      uom: this.form.controls.uom.value.trim(),
-      batchNumber: this.form.controls.batchNumber.value.trim(),
-      quantity: Number(this.form.controls.quantity.value),
-      totalPurchaseCost: Number(this.form.controls.totalPurchaseCost.value),
-      mrp: Number(this.form.controls.mrp.value),
-      salesPrice: Number(this.form.controls.salesPrice.value),
-      taxRatePercent: Number(this.form.controls.taxRatePercent.value),
-      taxIncluded: this.form.controls.taxIncluded.value,
-      purchaseTaxIncluded: this.form.controls.taxIncluded.value,
-      hsnCode: this.selectedHsnCode(),
-      expiryDate: this.nullable(this.form.controls.expiryDate.value),
-      manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
-      supplierId,
-      referenceNumber: this.nullable(this.form.controls.referenceNumber.value),
-      notes: this.nullable(this.form.controls.notes.value),
-      performedAt: new Date().toISOString(),
-    };
-  }
-
-  private resetForm(): void {
-    this.form.reset({
-      itemName: '',
-      barcode: '',
-      itemDescription: '',
-      uom: '',
-      batchNumber: '',
-      quantity: 1,
-      totalPurchaseCost: 0,
-      mrp: 0,
-      salesPrice: 0,
-      taxRatePercent: 0,
-      taxIncluded: true,
-      expiryDate: '',
-      manufacturingDate: '',
-      supplierName: '',
-      referenceNumber: '',
-      notes: '',
-    });
-
-    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
-    this.clearHsnSelection();
   }
 
   private flashRow(clientRowId: string): void {
     this.highlightedRowId.set(clientRowId);
-    if (this.highlightTimer) {
-      clearTimeout(this.highlightTimer);
-    }
-
-    this.highlightTimer = setTimeout(() => {
-      this.highlightedRowId.set(null);
-      this.highlightTimer = null;
-    }, 1600);
-  }
-
-  private generateBatchNumber(): string {
-    const date = formatLocalIsoDate(new Date()).replace(/-/g, '');
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let suffix = '';
-    for (let i = 0; i < 5; i++) {
-      suffix += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return `BN-${date}-${suffix}`;
-  }
-
-  private createRowId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-  }
-
-  private showSuccess(messageKey: string, successCount: number, requestedCount: number): void {
-    this.messageService.add({
-      severity: 'success',
-      summary: this.translate(messageKey),
-      detail: `${successCount}/${requestedCount}`,
-      life: 3000,
-    });
-  }
-
-  private showWarn(messageKey: string): void {
-    this.messageService.add({
-      severity: 'warn',
-      summary: this.translate(messageKey),
-      life: 3000,
-    });
-  }
-
-  private showError(messageKey: string): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: this.translate(messageKey),
-      life: 3500,
-    });
-  }
-
-  private showErrorWithDetail(messageKey: string, detail: string): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: this.translate(messageKey),
-      detail,
-      life: 3500,
-    });
+    if (this.highlightTimer) clearTimeout(this.highlightTimer);
+    this.highlightTimer = setTimeout(() => { this.highlightedRowId.set(null); this.highlightTimer = null; }, 1600);
   }
 
   private extractApiErrors(error: unknown): readonly Record<string, unknown>[] {
-    if (!error || typeof error !== 'object') {
-      return [];
-    }
-
-    const candidate = (error as { error?: unknown }).error;
-    if (!candidate || typeof candidate !== 'object') {
-      return [];
-    }
-
-    const rawErrors = (candidate as { errors?: unknown }).errors;
-    if (!Array.isArray(rawErrors)) {
-      return [];
-    }
-
-    return rawErrors.filter(
-      (entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object',
-    );
+    const errors = (error as { error?: { errors?: unknown[] } })?.error?.errors;
+    return Array.isArray(errors) ? errors.filter((e): e is Record<string, unknown> => !!e && typeof e === 'object') : [];
   }
 
-  private getErrorCode(apiError: Record<string, unknown>): string {
-    const code = apiError['code'] ?? apiError['Code'];
-    return typeof code === 'string' ? code : '';
-  }
-
-  private getErrorDescription(apiError: Record<string, unknown>): string {
-    const description = apiError['description'] ?? apiError['Description'];
-    return typeof description === 'string' ? description : '';
-  }
-
-  private showScannerToast(summaryKey: string, barcode: string, quantity: number): void {
-    this.messageService.add({
-      severity: 'success',
-      summary: this.translate(summaryKey),
-      detail: `${barcode} • Qty ${quantity}`,
-      life: 2200,
-    });
-  }
-
-  private translate(key: string): string {
-    return this.translocoService.translate(key);
-  }
+  private showInfo(key: string): void { this.messageService.add({ severity: 'info', summary: this.translocoService.translate(key), life: 2500 }); }
+  private showSuccess(key: string, s: number, r: number): void { this.messageService.add({ severity: 'success', summary: this.translocoService.translate(key), detail: `${s}/${r}`, life: 3000 }); }
+  private showWarn(key: string): void { this.messageService.add({ severity: 'warn', summary: this.translocoService.translate(key), life: 3000 }); }
+  private showError(key: string): void { this.messageService.add({ severity: 'error', summary: this.translocoService.translate(key), life: 3500 }); }
+  private showErrorWithDetail(key: string, detail: string): void { this.messageService.add({ severity: 'error', summary: this.translocoService.translate(key), detail, life: 3500 }); }
+  private showScannerToast(key: string, barcode: string, qty: number): void { this.messageService.add({ severity: 'success', summary: this.translocoService.translate(key), detail: `${barcode} • Qty ${qty}`, life: 2200 }); }
 }

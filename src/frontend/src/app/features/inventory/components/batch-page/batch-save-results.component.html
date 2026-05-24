@@ -1,0 +1,53 @@
+@if (summary) {
+  <section class="save-results-section">
+    @if (summary.successCount > 0) {
+      <h3 class="save-results-heading save-results-heading--success">
+        {{ 'inventory.batch.saveSuccess' | transloco: { count: summary.successCount } }}
+      </h3>
+      <p-table [value]="$any(summary.succeeded)" styleClass="save-results-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.batch.columns.itemName' | transloco }}</th>
+            <th>{{ 'inventory.batch.columns.barcode' | transloco }}</th>
+            <th>{{ 'inventory.batch.columns.batchNumber' | transloco }}</th>
+            <th>{{ 'inventory.batch.columns.quantity' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.result.itemName }}</td>
+            <td>{{ row.result.barcode }}</td>
+            <td>{{ row.result.batchNumber }}</td>
+            <td>{{ row.result.batchQuantity }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+
+    @if (summary.failedCount > 0) {
+      <h3 class="save-results-heading save-results-heading--error">
+        {{ 'inventory.batch.saveFailed' | transloco: { count: summary.failedCount } }}
+      </h3>
+      <p-table [value]="$any(summary.failed)" styleClass="save-results-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.batch.columns.itemName' | transloco }}</th>
+            <th>{{ 'inventory.batch.columns.barcode' | transloco }}</th>
+            <th>{{ 'inventory.batch.columns.errors' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>{{ row.itemName }}</td>
+            <td>{{ row.barcode }}</td>
+            <td>
+              @for (err of row.errors; track err.code) {
+                <span>{{ err.description }}</span>
+              }
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </section>
+}
