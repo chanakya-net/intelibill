@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
-import { SaleService, SaleDto, SaleListItemDto, ProfitLossReportItemDto, PreviewSaleRequest, SalePreviewDto } from './sale.service';
+import { SaleService } from './sale.service';
+import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, PreviewSaleRequest, SalePreviewDto } from './sale.models';
 
 describe('SaleService', () => {
   function setup(): { service: SaleService; http: HttpTestingController } {

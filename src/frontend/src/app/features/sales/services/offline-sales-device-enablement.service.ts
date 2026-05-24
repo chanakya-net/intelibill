@@ -8,7 +8,8 @@ import { InvoiceLeaseIndexedDbService, type InvoiceLeaseSnapshot } from '../../.
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
-import { SaleService, type InvoiceLeaseDto } from './sale.service';
+import { SaleService } from './sale.service';
+import type { InvoiceLeaseDto } from './sale.models';
 
 export type OfflineSalesEnablementResult =
   | { readonly ok: true; readonly settings: OfflineSalesDeviceSettings; readonly lease: InvoiceLeaseSnapshot }

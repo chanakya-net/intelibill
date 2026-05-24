@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
-import { SaleListItemDto } from '../services/sale.service';
+import type { SaleListItemDto } from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import { SalesFacade } from './sales.facade';
 import {

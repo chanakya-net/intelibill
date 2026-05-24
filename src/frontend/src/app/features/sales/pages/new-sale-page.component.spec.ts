@@ -16,7 +16,8 @@ import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { OfflineSaleFinalizationService } from '../services/offline-sale-finalization.service';
 import { OfflineSalesQueueIndexedDbService } from '../services/offline-sales-queue-indexeddb.service';
-import { SaleService, SalePreviewDto } from '../services/sale.service';
+import { SaleService } from '../services/sale.service';
+import type { SalePreviewDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { NewSalePageComponent } from './new-sale-page.component';
 

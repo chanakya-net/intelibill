@@ -1,7 +1,7 @@
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, VoidSaleReturnRequest } from '../services/sale.service';
+import type { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, VoidSaleReturnRequest } from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import * as SalesSelectors from './sales.selectors';
 

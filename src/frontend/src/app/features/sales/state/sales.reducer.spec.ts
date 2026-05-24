@@ -1,6 +1,6 @@
 import { SalesActions } from './sales.actions';
 import { salesReducer, SalesState } from './sales.reducer';
-import { SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.service';
+import type { SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.models';
 
 const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleListItemDto => ({
   saleId: id,

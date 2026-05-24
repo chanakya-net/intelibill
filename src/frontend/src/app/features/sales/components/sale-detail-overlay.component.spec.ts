@@ -8,7 +8,7 @@ import { vi } from 'vitest';
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { SaleDto, SaleReturnDto, SaleReturnPreviewDto } from '../services/sale.service';
+import type { SaleDto, SaleReturnDto, SaleReturnPreviewDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from './sale-detail-overlay.component';
 

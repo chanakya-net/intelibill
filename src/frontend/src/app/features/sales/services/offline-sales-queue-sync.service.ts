@@ -6,7 +6,8 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { OfflineQueuedSaleRecord, OfflineQueueSyncResult, OfflineSaleQueueStatus } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
-import { OfflineSaleSyncRequest, OfflineSaleSyncResultDto, SaleService } from './sale.service';
+import { SaleService } from './sale.service';
+import type { OfflineSaleSyncRequest, OfflineSaleSyncResultDto } from './sale.models';
 
 const SYNC_BATCH_SIZE = 50;
 
