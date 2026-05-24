@@ -1,65 +1,37 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnDestroy, Output, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, EventEmitter, Output, ViewChild, computed, inject, signal } from '@angular/core';
+import { finalize } from 'rxjs';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { EMPTY, Subject, debounceTime, finalize, switchMap, takeUntil } from 'rxjs';
-
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DialogModule } from 'primeng/dialog';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { SelectModule } from 'primeng/select';
-import { TagModule } from 'primeng/tag';
-import { TextareaModule } from 'primeng/textarea';
-
-import { InventoryService } from '../../inventory/services/inventory.service';
-import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
-import {
-  CreateDiscountRuleRequest,
-  DiscountRuleDto,
-  DiscountRulePreviewDto,
-  DiscountRuleType,
-  DiscountService,
-  PreviewDiscountRuleRequest,
-  ReplaceDiscountRuleRequest,
-} from '../services/discount.service';
+import { CreateDiscountRuleRequest, DiscountRuleDto, DiscountRulePreviewDto, DiscountService, PreviewDiscountRuleRequest, ReplaceDiscountRuleRequest } from '../services/discount.service';
 import { formatUtcIsoInstant } from '../../../shared/utils/date-time.util';
-import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
-
-type DiscountEditorMode = 'create' | 'edit';
-
-interface SelectOption<T> {
-  readonly label: string;
-  readonly value: T;
-}
-
+import { DiscountConditions, DiscountConditionsFormComponent, DiscountEditorMode } from './discount-rule-editor/discount-conditions-form.component';
+import { DiscountTargetItemsComponent } from './discount-rule-editor/discount-target-items.component';
 @Component({
   selector: 'app-discount-rule-editor-dialog',
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     TranslocoPipe,
     ButtonModule,
     CardModule,
     DialogModule,
-    InputTextModule,
-    InputNumberModule,
-    SelectModule,
-    TagModule,
-    TextareaModule,
-    DateOnlyPipe,
+    DiscountConditionsFormComponent,
+    DiscountTargetItemsComponent,
   ],
   templateUrl: './discount-rule-editor-dialog.component.html',
   styleUrl: './discount-rule-editor-dialog.component.scss',
 })
-export class DiscountRuleEditorDialogComponent implements OnDestroy {
+export class DiscountRuleEditorDialogComponent {
   private readonly discountService = inject(DiscountService);
-  private readonly inventoryService = inject(InventoryService);
-  private readonly formBuilder = inject(FormBuilder);
-  private readonly destroy$ = new Subject<void>();
-  private readonly batchSearch$ = new Subject<string>();
+
+  @ViewChild(DiscountConditionsFormComponent)
+  private readonly conditionsForm?: DiscountConditionsFormComponent;
+
+  @ViewChild(DiscountTargetItemsComponent)
+  private readonly targetItemsForm?: DiscountTargetItemsComponent;
 
   @Output() readonly saved = new EventEmitter<DiscountRuleDto>();
   @Output() readonly closed = new EventEmitter<void>();
@@ -67,123 +39,22 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
   readonly visible = signal(false);
   readonly mode = signal<DiscountEditorMode>('create');
   readonly editingRule = signal<DiscountRuleDto | null>(null);
-  readonly batchSearchTerm = signal('');
-  readonly batchSearchResults = signal<readonly AvailableBatchDto[]>([]);
-  readonly batchSearchNoResults = signal(false);
-  readonly selectedBatchLabel = signal('');
-  readonly searchLoading = signal(false);
   readonly previewLoading = signal(false);
   readonly saveLoading = signal(false);
   readonly submitErrorKey = signal('');
   readonly submitErrorMessage = signal('');
   readonly preview = signal<DiscountRulePreviewDto | null>(null);
-
-  readonly batchSearchMinCharsRequired = computed(() => this.batchSearchTerm().trim().length < 3);
-
-  readonly form = this.formBuilder.group({
-    ruleType: this.formBuilder.nonNullable.control<DiscountRuleType>('BatchPercentage', [
-      Validators.required,
-    ]),
-    name: this.formBuilder.nonNullable.control('', [Validators.required, Validators.maxLength(200)]),
-    description: this.formBuilder.nonNullable.control(''),
-    inventoryBatchId: this.formBuilder.nonNullable.control('', [Validators.maxLength(64)]),
-    percentage: this.formBuilder.nonNullable.control(10, [
-      Validators.required,
-      Validators.min(0.01),
-      Validators.max(100),
-    ]),
-    thresholdAmount: this.formBuilder.control<number | null>(null),
-    startsAt: this.formBuilder.nonNullable.control(''),
-    endsAt: this.formBuilder.nonNullable.control(''),
-    belowCostConfirmed: this.formBuilder.nonNullable.control(false),
-    belowCostConfirmationReason: this.formBuilder.nonNullable.control(''),
-    disabledReason: this.formBuilder.nonNullable.control(''),
-  });
-
-  readonly ruleTypeOptions: SelectOption<DiscountRuleType>[] = [
-    { label: 'discounts.editor.ruleType.batchPercentage', value: 'BatchPercentage' },
-    { label: 'discounts.editor.ruleType.salePercentage', value: 'SalePercentage' },
-    { label: 'discounts.editor.ruleType.saleThresholdPercentage', value: 'SaleThresholdPercentage' },
-  ];
+  readonly conditions = signal<DiscountConditions>({ ruleType: 'BatchPercentage', name: '', description: null, percentage: 10, thresholdAmount: null, startsAt: '', endsAt: '', belowCostConfirmed: false, belowCostConfirmationReason: '', disabledReason: '' });
+  readonly selectedItemIds = signal<readonly string[]>([]);
 
   readonly titleKey = computed(() =>
     this.mode() === 'create' ? 'discounts.editor.createTitle' : 'discounts.editor.editTitle',
   );
-
   readonly saveLabelKey = computed(() =>
     this.mode() === 'create' ? 'discounts.editor.actions.create' : 'discounts.editor.actions.replace',
   );
-
-  readonly isBatchRule = computed(() => this.form.controls.ruleType.value === 'BatchPercentage');
-  readonly isThresholdRule = computed(() => this.form.controls.ruleType.value === 'SaleThresholdPercentage');
+  readonly isBatchRule = computed(() => this.conditions().ruleType === 'BatchPercentage');
   readonly shouldAskBelowCostReason = computed(() => (this.preview()?.belowCostSample.length ?? 0) > 0);
-
-  constructor() {
-    this.form.controls.ruleType.valueChanges.subscribe(() => this.syncDynamicValidators());
-    this.form.controls.belowCostConfirmed.valueChanges.subscribe(() => this.syncDynamicValidators());
-    this.syncDynamicValidators();
-
-    // Setup debounced batch search
-    this.batchSearch$
-      .pipe(
-        debounceTime(300),
-        switchMap((searchTerm) => {
-          const trimmed = searchTerm.trim();
-          if (trimmed.length < 3) {
-            this.batchSearchResults.set([]);
-            this.batchSearchNoResults.set(false);
-            this.searchLoading.set(false);
-            return EMPTY;
-          }
-
-          this.searchLoading.set(true);
-          this.batchSearchNoResults.set(false);
-
-          this.form.controls.inventoryBatchId.setValue('');
-          this.selectedBatchLabel.set('');
-
-          return this.inventoryService.getAvailableBatchesBySearchTerm(trimmed).pipe(
-            finalize(() => this.searchLoading.set(false)),
-            takeUntil(this.destroy$),
-          );
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (batches) => {
-          if (batches.length === 1) {
-            this.batchSearchResults.set([]);
-            this.batchSearchNoResults.set(false);
-            this.onSelectBatch(batches[0]);
-            return;
-          }
-
-          if (batches.length === 0) {
-            this.batchSearchResults.set([]);
-            this.batchSearchNoResults.set(true);
-            this.form.controls.inventoryBatchId.setValue('');
-            this.selectedBatchLabel.set('');
-            return;
-          }
-
-          this.batchSearchResults.set(batches);
-          this.batchSearchNoResults.set(false);
-          this.clearSubmitError();
-        },
-        error: () => {
-          this.batchSearchResults.set([]);
-          this.batchSearchNoResults.set(false);
-          this.setSubmitErrorKey('discounts.errors.batchSearchFailed');
-        },
-      });
-
-    // Debounced stream handles search term updates via onBatchSearchTermChange.
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 
   open(mode: DiscountEditorMode, rule: DiscountRuleDto | null = null): void {
     this.mode.set(mode);
@@ -191,31 +62,9 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
     this.visible.set(true);
     this.clearSubmitError();
     this.preview.set(null);
-    this.batchSearchResults.set([]);
-    this.batchSearchTerm.set('');
-    this.selectedBatchLabel.set('');
-    this.batchSearchNoResults.set(false);
 
-    this.form.reset({
-      ruleType: rule?.ruleType ?? 'BatchPercentage',
-      name: rule?.name ?? '',
-      description: rule?.description ?? '',
-      inventoryBatchId: rule?.inventoryBatchId ?? '',
-      percentage: rule?.percentage ?? 10,
-      thresholdAmount: rule?.thresholdAmount ?? null,
-      startsAt: this.toInputValue(rule?.startsAt ?? null),
-      endsAt: this.toInputValue(rule?.endsAt ?? null),
-      belowCostConfirmed: rule?.belowCostConfirmed ?? false,
-      belowCostConfirmationReason: rule?.belowCostConfirmationReason ?? '',
-      disabledReason: rule?.disabledReason ?? '',
-    });
-
-    if (rule?.inventoryBatchId) {
-      this.batchSearchTerm.set(rule.inventoryBatchId);
-      this.selectedBatchLabel.set(rule.inventoryBatchId);
-    }
-
-    this.syncDynamicValidators();
+    this.conditions.set(this.toConditions(rule));
+    this.selectedItemIds.set(rule?.ruleType === 'BatchPercentage' && rule.inventoryBatchId ? [rule.inventoryBatchId] : []);
   }
 
   close(): void {
@@ -227,31 +76,12 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
     this.closed.emit();
   }
 
-  onBatchSearchTermChange(rawValue: string): void {
-    const searchTerm = rawValue;
-    const trimmed = searchTerm.trim();
-    const selectedLabel = this.selectedBatchLabel();
-
-    this.batchSearchTerm.set(searchTerm);
-
-    if (selectedLabel && trimmed !== selectedLabel.trim()) {
-      this.form.controls.inventoryBatchId.setValue('');
-      this.selectedBatchLabel.set('');
-    }
-
-    if (!selectedLabel) {
-      this.form.controls.inventoryBatchId.setValue('');
-    }
-
-    this.batchSearch$.next(searchTerm);
+  onConditionsChange(next: DiscountConditions): void {
+    this.conditions.set(next);
   }
 
-  onSelectBatch(batch: AvailableBatchDto): void {
-    this.form.controls.inventoryBatchId.setValue(batch.inventoryBatchId);
-    this.batchSearchTerm.set(`${batch.itemName} · ${batch.batchNumber}`);
-    this.selectedBatchLabel.set(`${batch.itemName} · ${batch.batchNumber}`);
-    this.batchSearchResults.set([]);
-    this.batchSearchNoResults.set(false);
+  onTargetSelectionChange(ids: readonly string[]): void {
+    this.selectedItemIds.set(ids);
   }
 
   onPreviewRule(): void {
@@ -290,15 +120,15 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
             return;
           }
 
-          if (preview.belowCostSample.length > 0 && !this.form.controls.belowCostConfirmed.value) {
+          if (preview.belowCostSample.length > 0 && !this.conditions().belowCostConfirmed) {
             this.setSubmitErrorKey('discounts.editor.errors.belowCostConfirmationRequired');
             return;
           }
 
           if (
             preview.belowCostSample.length > 0 &&
-            this.form.controls.belowCostConfirmed.value &&
-            !this.form.controls.belowCostConfirmationReason.value.trim()
+            this.conditions().belowCostConfirmed &&
+            !this.conditions().belowCostConfirmationReason
           ) {
             this.setSubmitErrorKey('discounts.editor.errors.belowCostReasonRequired');
             return;
@@ -307,7 +137,7 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
           this.saveLoading.set(true);
           if (this.mode() === 'create') {
             this.discountService
-              .createDiscountRule(this.buildCreateRequest())
+              .createDiscountRule(this.buildSaveBase())
               .pipe(finalize(() => this.saveLoading.set(false)))
               .subscribe({
                 next: (rule) => {
@@ -341,10 +171,12 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
   }
 
   private validateFormForPreview(): boolean {
-    this.syncDynamicValidators();
+    const conditionsValid = this.conditionsForm?.isValid() ?? this.isConditionsSignalValid();
+    const targetValid = !this.isBatchRule() || (this.targetItemsForm?.isValid() ?? this.selectedItemIds().length > 0);
 
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
+    if (!conditionsValid || !targetValid) {
+      this.conditionsForm?.markAllAsTouched();
+      this.targetItemsForm?.markAllAsTouched();
       this.setSubmitErrorKey('discounts.editor.errors.fixValidation');
       return false;
     }
@@ -352,101 +184,79 @@ export class DiscountRuleEditorDialogComponent implements OnDestroy {
     return true;
   }
 
-  private buildPreviewRequest(): PreviewDiscountRuleRequest {
-    return {
-      ruleType: this.form.controls.ruleType.value,
-      percentage: this.form.controls.percentage.value,
-      thresholdAmount:
-        this.form.controls.ruleType.value === 'SaleThresholdPercentage'
-          ? this.form.controls.thresholdAmount.value
-          : null,
-      inventoryBatchId:
-        this.form.controls.ruleType.value === 'BatchPercentage'
-          ? this.emptyStringToNull(this.form.controls.inventoryBatchId.value)
-          : null,
-      startsAt: this.toOutputValue(this.form.controls.startsAt.value),
-      endsAt: this.toOutputValue(this.form.controls.endsAt.value),
-      belowCostConfirmed: this.form.controls.belowCostConfirmed.value,
-    };
-  }
+  private isConditionsSignalValid(): boolean { const c=this.conditions(); return !!c.name.trim() && c.name.length<=200 && !Number.isNaN(c.percentage) && c.percentage>0 && c.percentage<=100 && (!(c.ruleType==='SaleThresholdPercentage' && (!c.thresholdAmount||c.thresholdAmount<=0)) && (!this.isBatchRule() || !!this.selectedItemIds()[0])); }
 
-  private buildCreateRequest(): CreateDiscountRuleRequest {
-    return this.buildSaveBase();
+  private buildPreviewRequest(): PreviewDiscountRuleRequest {
+    const conditions = this.conditions();
+
+    return {
+      ruleType: conditions.ruleType,
+      percentage: conditions.percentage,
+      thresholdAmount:
+        conditions.ruleType === 'SaleThresholdPercentage' ? conditions.thresholdAmount : null,
+      inventoryBatchId: this.isBatchRule() ? this.selectedItemIds()[0] ?? null : null,
+      startsAt: this.toOutputValue(conditions.startsAt),
+      endsAt: this.toOutputValue(conditions.endsAt),
+      belowCostConfirmed: conditions.belowCostConfirmed,
+    };
   }
 
   private buildReplaceRequest(): ReplaceDiscountRuleRequest {
     return {
       ...this.buildSaveBase(),
-      disabledReason: this.emptyStringToNull(this.form.controls.disabledReason.value),
+      disabledReason: this.emptyStringToNull(this.conditions().disabledReason),
     };
   }
 
   private buildSaveBase(): CreateDiscountRuleRequest {
+    const conditions = this.conditions();
+
     return {
-      ruleType: this.form.controls.ruleType.value,
-      name: this.form.controls.name.value.trim(),
-      description: this.emptyStringToNull(this.form.controls.description.value),
-      inventoryBatchId:
-        this.form.controls.ruleType.value === 'BatchPercentage'
-          ? this.emptyStringToNull(this.form.controls.inventoryBatchId.value)
-          : null,
-      percentage: this.form.controls.percentage.value,
+      ruleType: conditions.ruleType,
+      name: conditions.name,
+      description: conditions.description,
+      inventoryBatchId: this.isBatchRule() ? this.selectedItemIds()[0] ?? null : null,
+      percentage: conditions.percentage,
       thresholdAmount:
-        this.form.controls.ruleType.value === 'SaleThresholdPercentage'
-          ? this.form.controls.thresholdAmount.value
-          : null,
-      startsAt: this.toOutputValue(this.form.controls.startsAt.value),
-      endsAt: this.toOutputValue(this.form.controls.endsAt.value),
-      belowCostConfirmed: this.form.controls.belowCostConfirmed.value,
-      belowCostConfirmationReason: this.emptyStringToNull(
-        this.form.controls.belowCostConfirmationReason.value,
-      ),
-  };
+        conditions.ruleType === 'SaleThresholdPercentage' ? conditions.thresholdAmount : null,
+      startsAt: this.toOutputValue(conditions.startsAt),
+      endsAt: this.toOutputValue(conditions.endsAt),
+      belowCostConfirmed: conditions.belowCostConfirmed,
+      belowCostConfirmationReason: this.emptyStringToNull(conditions.belowCostConfirmationReason),
+    };
   }
 
-  private syncDynamicValidators(): void {
-    const batchId = this.form.controls.inventoryBatchId;
-    const thresholdAmount = this.form.controls.thresholdAmount;
-    const confirmationReason = this.form.controls.belowCostConfirmationReason;
-
-    if (this.form.controls.ruleType.value === 'BatchPercentage') {
-      batchId.setValidators([Validators.required, Validators.maxLength(64)]);
-    } else {
-      batchId.clearValidators();
-    }
-
-    if (this.form.controls.ruleType.value === 'SaleThresholdPercentage') {
-      thresholdAmount.setValidators([Validators.required, Validators.min(0.01)]);
-    } else {
-      thresholdAmount.clearValidators();
-    }
-
-    confirmationReason.setValidators([Validators.maxLength(500)]);
-
-    batchId.updateValueAndValidity({ emitEvent: false });
-    thresholdAmount.updateValueAndValidity({ emitEvent: false });
-    confirmationReason.updateValueAndValidity({ emitEvent: false });
+  private toConditions(rule: DiscountRuleDto | null): DiscountConditions {
+    return {
+      ruleType: rule?.ruleType ?? 'BatchPercentage',
+      name: rule?.name ?? '',
+      description: rule?.description ?? null,
+      percentage: rule?.percentage ?? 10,
+      thresholdAmount: rule?.thresholdAmount ?? null,
+      startsAt: this.toInputValue(rule?.startsAt ?? null),
+      endsAt: this.toInputValue(rule?.endsAt ?? null),
+      belowCostConfirmed: rule?.belowCostConfirmed ?? false,
+      belowCostConfirmationReason: rule?.belowCostConfirmationReason ?? '',
+      disabledReason: rule?.disabledReason ?? '',
+    };
   }
 
-  private emptyStringToNull(value: string): string | null {
-    return value.trim() === '' ? null : value;
+  private emptyStringToNull(value: string | null | undefined): string | null {
+    const next = value?.trim();
+    return next === '' || next === undefined ? null : next;
   }
 
   private toInputValue(value: string | null): string {
     if (!value) return '';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    const pad = (part: number): string => String(part).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-      date.getHours(),
-    )}:${pad(date.getMinutes())}`;
+    const pad=(p:number)=>String(p).padStart(2,'0'); return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
-  private toOutputValue(value: string): string | null {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const date = new Date(trimmed);
-    if (Number.isNaN(date.getTime())) return trimmed;
+  private toOutputValue(value: string | null): string | null {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
     return formatUtcIsoInstant(date);
   }
 
