@@ -42,6 +42,7 @@ describe('SaleSummaryPanelComponent', () => {
     expect(text).toContain('+919999111222');
     expect(text).toContain('Cash');
     expect(text).toContain('Before Discount');
+    expect(text).toContain('₹240.00');
     expect(text).toContain('Tax Amount');
     expect(text).toContain('Grand Total');
     expect(text).toContain('Discount');
