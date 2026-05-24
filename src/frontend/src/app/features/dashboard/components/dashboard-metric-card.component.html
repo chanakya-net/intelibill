@@ -1,0 +1,15 @@
+<p-card>
+  <div class="kpi-card">
+    <span class="kpi-label">{{ label | transloco }}</span>
+    @if (loading) {
+      <span class="kpi-value">—</span>
+    } @else {
+      <span class="kpi-value">{{ valueText }}</span>
+      @if (hasDelta) {
+        <span class="kpi-comparison" [class]="directionClass">
+          {{ directionIcon }} {{ deltaText }}
+        </span>
+      }
+    }
+  </div>
+</p-card>

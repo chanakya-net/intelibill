@@ -1,0 +1,27 @@
+<p-card class="dashboard-primary-chart-card">
+  <ng-template pTemplate="header">
+    <div class="dashboard-chart-header">
+      <span class="kpi-section-title">{{ title }}</span>
+      <p-select
+        [options]="chartTypeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="chartType"
+        (ngModelChange)="onChartTypeChange($event)"
+        appendTo="body"
+      ></p-select>
+    </div>
+  </ng-template>
+
+  @if (loading) {
+    <p-progressSpinner strokeWidth="4"></p-progressSpinner>
+  }
+
+  @if (!loading && chartData) {
+    <p-chart [type]="renderChartType" [data]="chartData" [options]="chartOptions || {}"></p-chart>
+  }
+
+  @if (!loading && !chartData) {
+    <p class="kpi-empty">{{ 'dashboard.noActivity' | transloco }}</p>
+  }
+</p-card>

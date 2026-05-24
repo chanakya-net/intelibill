@@ -1,0 +1,45 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { vi } from 'vitest';
+
+import { DashboardChartComponent } from './dashboard-chart.component';
+import { DashboardChartType } from '../utils/dashboard-chart-builders';
+
+describe('DashboardChartComponent', () => {
+  let fixture: ComponentFixture<DashboardChartComponent>;
+  let component: DashboardChartComponent;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DashboardChartComponent],
+    });
+
+    fixture = TestBed.createComponent(DashboardChartComponent);
+    component = fixture.componentInstance;
+    component.chartData = {
+      labels: ['A', 'B'],
+      datasets: [{ data: [1, 2] }],
+    };
+    fixture.detectChanges();
+  });
+
+  it('renders chart when data exists', () => {
+    expect(fixture.debugElement.query(By.css('p-chart'))).not.toBeNull();
+  });
+
+  it('emits chartTypeChange from select action', () => {
+    const onChange = vi.fn();
+    component.chartTypeChange.subscribe(onChange);
+
+    component.onChartTypeChange('doughnut');
+
+    expect(onChange).toHaveBeenCalledWith('doughnut' as DashboardChartType);
+  });
+
+  it('supports donut chart type', () => {
+    component.chartType = 'doughnut';
+    fixture.detectChanges();
+
+    expect(component.chartType).toBe('doughnut');
+  });
+});
