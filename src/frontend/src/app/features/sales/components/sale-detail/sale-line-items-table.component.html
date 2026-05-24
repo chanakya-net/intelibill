@@ -1,0 +1,31 @@
+<p-table [value]="$any(items)" styleClass="p-datatable-sm">
+  <ng-template pTemplate="header">
+    <tr>
+      <th>{{ 'inventory.name' | transloco }}</th>
+      <th>{{ 'sales.detail.qty' | transloco }}</th>
+      <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
+      <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
+      <th>{{ 'sales.detail.returned' | transloco }}</th>
+      <th>{{ 'sales.detail.returnable' | transloco }}</th>
+      <th>{{ 'sales.detail.itemTotal' | transloco }}</th>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="body" let-item>
+    <tr [class.opacity-60]="isFullyReturned(item)">
+      <td>{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</td>
+      <td>{{ item.quantity }}</td>
+      <td><span>{{ getUnitSubtotal(item) | currency: currency : 'symbol' : '1.2-2' }}</span></td>
+      <td>{{ getLineTaxAmount(item) | currency: currency : 'symbol' : '1.2-2' }} ({{ item.taxRatePercent | number:'1.0-2' }}%)</td>
+      <td>{{ item.returnedQuantity }}</td>
+      <td>{{ item.returnableQuantity }}</td>
+      <td>
+        <div class="flex flex-col">
+          <span>{{ getLineTotal(item) | currency: currency : 'symbol' : '1.2-2' }}</span>
+          @if (item.savingsAmount > 0) {
+            <span class="text-xs text-green-600">-{{ item.savingsAmount | currency: currency : 'symbol' : '1.2-2' }}</span>
+          }
+        </div>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>

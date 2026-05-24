@@ -6,6 +6,25 @@ export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = 
   { value: 4, label: 'Credit' },
 ];
 
+export function getPaymentMethodLabel(method: number): string {
+  return PAYMENT_METHOD_VALUES.find((entry) => entry.value === method)?.label ?? 'Unknown';
+}
+
+export function getPaymentMethodSeverity(method: number): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+  switch (method) {
+    case 1:
+      return 'success';
+    case 2:
+      return 'info';
+    case 3:
+      return 'warn';
+    case 4:
+      return 'danger';
+    default:
+      return 'secondary';
+  }
+}
+
 export type InstantDiscountType = 0 | 1 | 2; // 0=None, 1=Percentage, 2=Flat
 
 export interface InstantDiscountRequest {
