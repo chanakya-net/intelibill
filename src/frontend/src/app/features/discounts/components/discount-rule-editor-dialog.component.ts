@@ -184,7 +184,16 @@ export class DiscountRuleEditorDialogComponent {
     return true;
   }
 
-  private isConditionsSignalValid(): boolean { const c=this.conditions(); return !!c.name.trim() && c.name.length<=200 && !Number.isNaN(c.percentage) && c.percentage>0 && c.percentage<=100 && (!(c.ruleType==='SaleThresholdPercentage' && (!c.thresholdAmount||c.thresholdAmount<=0)) && (!this.isBatchRule() || !!this.selectedItemIds()[0])); }
+  private isConditionsSignalValid(): boolean {
+    const conditions = this.conditions();
+    const hasName = conditions.name.trim().length > 0;
+    const isPercentageValid = conditions.percentage > 0 && conditions.percentage <= 100;
+    const thresholdAmount = conditions.thresholdAmount;
+    const isThresholdRule = conditions.ruleType === 'SaleThresholdPercentage';
+    const isThresholdAmountValid = !isThresholdRule || (!!thresholdAmount && thresholdAmount > 0);
+
+    return hasName && conditions.name.length <= 200 && isPercentageValid && isThresholdAmountValid;
+  }
 
   private buildPreviewRequest(): PreviewDiscountRuleRequest {
     const conditions = this.conditions();

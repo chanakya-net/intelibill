@@ -31,7 +31,6 @@
 
       @if (isBatchRule()) {
         <app-discount-target-items
-          [allItems]="[]"
           [selectedItemIds]="selectedItemIds()"
           (selectionChange)="onTargetSelectionChange($event)"
         ></app-discount-target-items>

@@ -1,6 +1,7 @@
+import { Component, DestroyRef, EventEmitter, Input, Output, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
@@ -50,6 +51,7 @@ const createDefaultConditions = (): DiscountConditions => ({
 })
 export class DiscountConditionsFormComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private suppressConditionEmit = false;
 
   @Input() set initialConditions(value: DiscountConditions | null) {
@@ -89,9 +91,17 @@ export class DiscountConditionsFormComponent {
   readonly isThresholdRule = computed(() => this.form.controls.ruleType.value === 'SaleThresholdPercentage');
 
   constructor() {
-    this.form.controls.ruleType.valueChanges.subscribe(() => this.syncDynamicValidators());
-    this.form.controls.belowCostConfirmed.valueChanges.subscribe(() => this.syncDynamicValidators());
-    this.form.valueChanges.subscribe(() => this.emitConditions());
+    this.form.controls.ruleType.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncDynamicValidators());
+
+    this.form.controls.belowCostConfirmed.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncDynamicValidators());
+
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.emitConditions());
     this.syncDynamicValidators();
   }
 

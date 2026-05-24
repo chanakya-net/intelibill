@@ -7,10 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { InventoryService } from '../../../inventory/services/inventory.service';
-import { AvailableBatchDto, Item } from '../../../inventory/services/inventory.models';
+import { AvailableBatchDto } from '../../../inventory/services/inventory.models';
 import { DateOnlyPipe } from '../../../../shared/pipes/date-only.pipe';
-
-type ItemDto = Item;
 
 @Component({
   selector: 'app-discount-target-items',
@@ -24,7 +22,6 @@ export class DiscountTargetItemsComponent implements OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
   private readonly inventoryService = inject(InventoryService);
 
-  @Input() allItems: readonly ItemDto[] = [];
   @Input() set selectedItemIds(value: readonly string[]) {
     const selectedId = value[0] ?? '';
     this.form.controls.inventoryBatchId.setValue(selectedId, { emitEvent: false });
