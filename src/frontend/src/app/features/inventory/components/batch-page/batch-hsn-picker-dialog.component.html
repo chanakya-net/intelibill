@@ -1,0 +1,51 @@
+<div class="hsn-selection-block">
+  @if (state.selectedHsnCode()) {
+    <div class="hsn-chip">
+      <span>
+        {{
+          'hsn.chip'
+            | transloco: {
+                hsnCode: state.selectedHsnCode(),
+                taxPercentage: state.form.controls.taxRatePercent.value
+              }
+        }}
+      </span>
+      <button pButton type="button" [text]="true" size="small" class="hsn-chip-change" (click)="state.onChangeHsnClick()">
+        {{ 'hsn.change' | transloco }}
+      </button>
+    </div>
+  }
+
+  @if (state.pickerOpen()) {
+    @if (state.hsnResult()) {
+      <section class="hsn-picker-card">
+        <p class="eyebrow hsn-picker-label">{{ 'hsn.suggestion' | transloco }}</p>
+        <p-autocomplete
+          class="hsn-picker-input"
+          [(ngModel)]="state.pickerHsnCode"
+          [ngModelOptions]="{ standalone: true }"
+          [suggestions]="state.filteredPickerHsnOptions()"
+          [dropdown]="true"
+          (completeMethod)="state.filterPickerHsn($event)"
+          appendTo="body"
+        ></p-autocomplete>
+        <p-autocomplete
+          class="hsn-picker-input"
+          [(ngModel)]="state.pickerTaxRate"
+          [ngModelOptions]="{ standalone: true }"
+          [suggestions]="state.filteredPickerTaxOptions()"
+          [dropdown]="true"
+          (completeMethod)="state.filterPickerTax($event)"
+          appendTo="body"
+        ></p-autocomplete>
+        <button
+          pButton
+          type="button"
+          [label]="'hsn.apply' | transloco"
+          [disabled]="!state.pickerHsnCode || !state.pickerTaxRate"
+          (click)="state.applyHsnSelection(state.pickerHsnCode!, state.pickerTaxRate!)"
+        ></button>
+      </section>
+    }
+  }
+</div>

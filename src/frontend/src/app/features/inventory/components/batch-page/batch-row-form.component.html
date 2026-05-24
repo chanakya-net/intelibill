@@ -1,0 +1,194 @@
+<div class="form-card">
+  <form class="row-form" [formGroup]="state.form" (ngSubmit)="submit()">
+    <label class="item-name-field">
+      <div class="item-name-label-row">
+        <span>{{ 'inventory.name' | transloco }}</span>
+        @if (state.isLoadingHsn()) {
+          <div class="hsn-loading">
+            <p-progressSpinner [style]="{ width: '1.25rem', height: '1.25rem' }" strokeWidth="6"></p-progressSpinner>
+            <span>{{ 'hsn.loading' | transloco }}</span>
+          </div>
+        }
+      </div>
+      <p-autocomplete
+        class="item-name-autocomplete"
+        formControlName="itemName"
+        [suggestions]="state.nameSuggestions()"
+        (completeMethod)="onNameFilter($event)"
+        (onSelect)="state.onNameSelected($event.value)"
+        (focusout)="state.onItemNameBlur()"
+        appendTo="body"
+        [fluid]="true"
+      ></p-autocomplete>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.barcode' | transloco }}</span>
+      <div class="barcode-field-wrapper" [style.position]="'relative'">
+        <p-inputgroup class="barcode-input-group">
+          <p-autocomplete
+            class="barcode-autocomplete"
+            formControlName="barcode"
+            [suggestions]="state.barcodeSuggestions()"
+            (completeMethod)="onBarcodeFilter($event)"
+            (onSelect)="state.onBarcodeSelected($event.value)"
+            (focusout)="state.onBarcodeFocusOut()"
+            appendTo="body"
+            [fluid]="true"
+          ></p-autocomplete>
+          <p-inputgroup-addon class="camera-addon">
+            <button
+              pButton
+              type="button"
+              icon="pi pi-camera"
+              severity="secondary"
+              text
+              class="camera-button"
+              (click)="scannerRequested.emit()"
+              [attr.aria-label]="'inventory.openScanner' | transloco"
+            ></button>
+          </p-inputgroup-addon>
+        </p-inputgroup>
+        @if (state.loadingProduct()) {
+          <div class="barcode-loading-overlay">
+            <p-progressSpinner [style]="{ width: '1.5rem', height: '1.5rem' }" strokeWidth="6"></p-progressSpinner>
+          </div>
+        }
+      </div>
+    </label>
+
+    <app-batch-hsn-picker-dialog />
+
+    <label>
+      <span>{{ 'inventory.supplierIdOptional' | transloco }}</span>
+      <p-autocomplete
+        formControlName="supplierName"
+        [suggestions]="state.supplierSuggestions()"
+        (completeMethod)="onSupplierFilter($event)"
+        (onSelect)="state.onSupplierSelected($event.value)"
+        appendTo="body"
+        [fluid]="true"
+      ></p-autocomplete>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.description' | transloco }}</span>
+      <input pInputText type="text" formControlName="itemDescription" />
+    </label>
+
+    <label>
+      <span>{{ 'inventory.uom' | transloco }}</span>
+      <input pInputText type="text" formControlName="uom" />
+    </label>
+
+    <label>
+      <span>{{ 'inventory.batchNumber' | transloco }}</span>
+      <input pInputText type="text" formControlName="batchNumber" />
+    </label>
+
+    <label>
+      <span>{{ 'inventory.quantity' | transloco }}</span>
+      <p-inputNumber
+        formControlName="quantity"
+        [min]="0.0001"
+        mode="decimal"
+        [maxFractionDigits]="3"
+        [fluid]="true"
+      ></p-inputNumber>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.totalPurchaseCost' | transloco }}</span>
+      <p-inputgroup>
+        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputNumber
+          formControlName="totalPurchaseCost"
+          [min]="0"
+          mode="decimal"
+          [maxFractionDigits]="2"
+          [fluid]="true"
+        ></p-inputNumber>
+      </p-inputgroup>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.mrp' | transloco }}</span>
+      <p-inputgroup>
+        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputNumber
+          formControlName="mrp"
+          [min]="0"
+          mode="decimal"
+          [maxFractionDigits]="2"
+          [fluid]="true"
+        ></p-inputNumber>
+      </p-inputgroup>
+    </label>
+
+    <label class="sales-price-field">
+      <span>{{ 'inventory.perUnitSalesPrice' | transloco }}</span>
+      <p-inputgroup>
+        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputNumber
+          formControlName="salesPrice"
+          [min]="0"
+          mode="decimal"
+          [maxFractionDigits]="2"
+          [fluid]="true"
+          placeholder="ex: 200"
+          [minFractionDigits]="2"
+        ></p-inputNumber>
+        <p-select
+          formControlName="taxIncluded"
+          [options]="state.taxModeOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+          appendTo="body"
+        ></p-select>
+      </p-inputgroup>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
+      <p-inputNumber
+        formControlName="taxRatePercent"
+        [min]="0"
+        mode="decimal"
+        [maxFractionDigits]="2"
+        [fluid]="true"
+      ></p-inputNumber>
+    </label>
+
+    <label>
+      <span>{{ 'inventory.expiryDate' | transloco }}</span>
+      <input pInputText type="date" formControlName="expiryDate" />
+    </label>
+
+    <label>
+      <span>{{ 'inventory.manufacturingDate' | transloco }}</span>
+      <input pInputText type="date" formControlName="manufacturingDate" />
+    </label>
+
+    <label>
+      <span>{{ 'inventory.referenceNumber' | transloco }}</span>
+      <input pInputText type="text" formControlName="referenceNumber" />
+    </label>
+
+    <label class="notes-field">
+      <span>{{ 'inventory.notes' | transloco }}</span>
+      <textarea pInputTextarea rows="2" formControlName="notes"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button
+        pButton
+        type="submit"
+        [label]="'inventory.addRow' | transloco"
+        icon="pi pi-plus"
+        severity="success"
+        [disabled]="state.form.invalid"
+      ></button>
+    </div>
+  </form>
+</div>

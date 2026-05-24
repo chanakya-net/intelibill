@@ -1,0 +1,88 @@
+<button
+  type="button"
+  class="mobile-menu-trigger"
+  [attr.aria-expanded]="isMobileMenuOpen()"
+  aria-label="Mobile navigation"
+  (click)="onToggleMobileMenu()"
+>
+  <i
+    class="pi"
+    [class.pi-bars]="!isMobileMenuOpen()"
+    [class.pi-times]="isMobileMenuOpen()"
+    aria-hidden="true"
+  ></i>
+</button>
+
+@if (isMobileMenuOpen()) {
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    @for (item of menuItems; track item) {
+      <div class="mobile-nav-section">
+        @if (item.items?.length) {
+          <button
+            type="button"
+            class="mobile-nav-section-toggle"
+            (click)="onMobileNavItemClick(item)"
+          >
+            <span class="mobile-nav-section-label">{{ item.label }}</span>
+            <i
+              class="pi pi-chevron-down mobile-nav-section-chevron"
+              [class.rotated]="isMobileSectionExpanded(item.label ?? '')"
+              aria-hidden="true"
+            ></i>
+          </button>
+
+          @if (isMobileSectionExpanded(item.label ?? '')) {
+            <div class="mobile-nav-section-items">
+              @for (sub of item.items; track sub) {
+                <button
+                  type="button"
+                  class="mobile-nav-item"
+                  [disabled]="sub.disabled ?? false"
+                  (click)="onMobileNavItemClick(sub, item)"
+                >
+                  <i [class]="sub.icon" aria-hidden="true"></i>
+                  <span>{{ sub.label }}</span>
+                  @if (sub.items?.length) {
+                    <i
+                      class="pi pi-chevron-down mobile-nav-chevron"
+                      [class.rotated]="expandedMobileSectionLabel() === sub.label"
+                      aria-hidden="true"
+                    ></i>
+                  }
+                </button>
+
+                @if (sub.items?.length && expandedMobileSectionLabel() === sub.label) {
+                  <div class="mobile-nav-subitems">
+                    @for (nested of sub.items; track nested) {
+                      <button
+                        type="button"
+                        class="mobile-nav-subitem"
+                        [disabled]="nested.disabled ?? false"
+                        (click)="onMobileNavItemClick(nested, sub)"
+                      >
+                        @if (nested.icon) {
+                          <i [class]="nested.icon" aria-hidden="true"></i>
+                        }
+                        <span>{{ nested.label }}</span>
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
+        } @else {
+          <button
+            type="button"
+            class="mobile-nav-item"
+            [disabled]="item.disabled ?? false"
+            (click)="onMobileNavItemClick(item)"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+          </button>
+        }
+      </div>
+    }
+  </nav>
+}
