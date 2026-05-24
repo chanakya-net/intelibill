@@ -1,5 +1,4 @@
-import { Component, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
-import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
+import { Component, ViewChild, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
@@ -8,7 +7,6 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AudioService } from '../../../core/services/audio.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
-import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 import {
   AddInventoryBatchFailedRow,
@@ -16,11 +14,11 @@ import {
   AddInventoryBatchRowRequest,
   AddInventoryBatchSucceededRow,
 } from '../services/inventory.models';
+import { BatchDraftStateService } from '../services/batch-draft-state.service';
+import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
-import { BatchDraftStateService } from '../services/batch-draft-state.service';
-import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { BatchRowFormComponent } from '../components/batch-page/batch-row-form.component';
 import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-results.component';
 
@@ -40,15 +38,16 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
   encapsulation: ViewEncapsulation.None,
 })
 export class InventoryBatchPageComponent {
+  @ViewChild(BatchRowFormComponent) batchRowForm!: BatchRowFormComponent;
+
   private readonly authService = inject(AuthService);
   private readonly audioService = inject(AudioService);
-  private readonly inventoryService = inject(InventoryService);
   private readonly draftState = inject(BatchDraftStateService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly messageService = inject(MessageService);
   private readonly rowFormState = inject(BatchRowFormStateService);
   private readonly suppliersFacade = inject(SuppliersFacade);
-  private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
-  private readonly catalogSync = inject(ProductCatalogSyncService);
 
   readonly isSaving = signal(false);
   readonly isScannerOpen = signal(false);
@@ -56,24 +55,12 @@ export class InventoryBatchPageComponent {
   readonly scannerLastAction = signal('');
   readonly scannerSessionCount = signal(0);
   readonly highlightedRowId = signal<string | null>(null);
-  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  readonly pendingRows = this.draftState.pendingRows;
   readonly loadingDraft = this.draftState.loadingDraft;
-  readonly form = this.rowFormState.form;
-  readonly loadingProduct = this.rowFormState.loadingProduct;
-  readonly isLoadingHsn = this.rowFormState.isLoadingHsn;
-  readonly selectedHsnCode = this.rowFormState.selectedHsnCode;
-  readonly hsnResult = this.rowFormState.hsnResult;
-  readonly pickerOpen = this.rowFormState.pickerOpen;
-  readonly nameSuggestions = this.rowFormState.nameSuggestions;
-  readonly barcodeSuggestions = this.rowFormState.barcodeSuggestions;
-  readonly supplierSuggestions = this.rowFormState.supplierSuggestions;
-  readonly taxModeOptions = this.rowFormState.taxModeOptions;
-  readonly filteredPickerHsnOptions = this.rowFormState.filteredPickerHsnOptions;
-  readonly filteredPickerTaxOptions = this.rowFormState.filteredPickerTaxOptions;
-  readonly suppliers = this.rowFormState.suppliers;
+  readonly pendingRows = this.draftState.pendingRows;
+
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     effect(() => {
@@ -84,91 +71,9 @@ export class InventoryBatchPageComponent {
       }
 
       this.rowFormState.resetForm();
-      this.suppliersFacadeLoad();
+      this.suppliersFacade.load();
       void this.loadDraftRows(shopId);
     });
-  }
-
-  onFilterName(event: AutoCompleteCompleteEvent): void {
-    this.rowFormState.onFilterName(event);
-  }
-
-  onFilterBarcode(event: AutoCompleteCompleteEvent): void {
-    this.rowFormState.onFilterBarcode(event);
-  }
-
-  onNameSelected(name: string): void {
-    this.rowFormState.onNameSelected(name);
-  }
-
-  onBarcodeSelected(barcode: string): void {
-    this.rowFormState.onBarcodeSelected(barcode);
-  }
-
-  onBarcodeFocusOut(): void {
-    this.rowFormState.onBarcodeFocusOut();
-  }
-
-  async onItemNameBlur(): Promise<void> {
-    await this.rowFormState.onItemNameBlur();
-  }
-
-  async fetchProductDetails(
-    options?: { showInfoToast?: boolean; showErrorToast?: boolean; lookupHsnIfMissing?: boolean },
-  ): Promise<void> {
-    const result = await this.rowFormState.fetchProductDetails({
-      lookupHsnIfMissing: options?.lookupHsnIfMissing,
-    });
-
-    if (result.patched && options?.showInfoToast !== false) {
-      this.showInfo('inventory.productDetailsLoaded');
-    }
-
-    if (result.error && options?.showErrorToast !== false) {
-      this.showError('inventory.productDetailsLoadError');
-    }
-  }
-
-  applyHsnSelection(hsnCode: string, taxPercentage: string): void {
-    this.rowFormState.applyHsnSelection(hsnCode, taxPercentage);
-  }
-
-  dismissPicker(): void {
-    this.rowFormState.dismissPicker();
-  }
-
-  clearHsnSelection(): void {
-    this.rowFormState.clearHsnSelection();
-  }
-
-  async onChangeHsnClick(): Promise<void> {
-    await this.rowFormState.onChangeHsnClick();
-  }
-
-  filterPickerHsn(event: AutoCompleteCompleteEvent): void {
-    this.rowFormState.filterPickerHsn(event);
-  }
-
-  filterPickerTax(event: AutoCompleteCompleteEvent): void {
-    this.rowFormState.filterPickerTax(event);
-  }
-
-  onFilterSupplier(event: AutoCompleteCompleteEvent): void {
-    this.rowFormState.onFilterSupplier(event);
-  }
-
-  onSupplierSelected(selection: string): void {
-    this.rowFormState.onSupplierSelected(selection);
-  }
-
-  onAddRow(): void {
-    const row = this.rowFormState.buildDraftRow();
-    if (!row) {
-      this.rowFormState.form.markAllAsTouched();
-      return;
-    }
-
-    void this.persistDraftRow(row);
   }
 
   onRowSubmitted(row: InventoryInboundDraftRow): void {
@@ -182,9 +87,7 @@ export class InventoryBatchPageComponent {
 
   onEditRow(clientRowId: string): void {
     const row = this.pendingRows().find((candidate) => candidate.clientRowId === clientRowId);
-    if (!row) {
-      return;
-    }
+    if (!row) return;
 
     this.saveSummary.set(null);
     this.rowFormState.loadDraftRow(row);
@@ -197,9 +100,7 @@ export class InventoryBatchPageComponent {
   }
 
   onSaveAll(): void {
-    if (this.isSaving() || this.pendingRows().length === 0) {
-      return;
-    }
+    if (this.isSaving() || this.pendingRows().length === 0) return;
 
     this.isSaving.set(true);
     void this.saveRowsInChunks();
@@ -218,14 +119,12 @@ export class InventoryBatchPageComponent {
 
   async handleScannedBarcode(detection: BarcodeDetection): Promise<void> {
     const barcode = detection.value.trim();
-    if (!barcode) {
-      return;
-    }
+    if (!barcode) return;
 
     this.scannerSessionCount.update((count) => count + 1);
-
     const mergedRow = await this.draftState.incrementRowQuantity(this.activeShopId(), barcode);
     if (mergedRow) {
+      this.saveSummary.set(null);
       this.flashRow(mergedRow.clientRowId);
       this.scannerLastAction.set('inventory.scannerActionIncremented');
       this.showScannerToast('inventory.scannerMerged', barcode, mergedRow.quantity);
@@ -233,50 +132,29 @@ export class InventoryBatchPageComponent {
       return;
     }
 
-    const catalogEntry = this.catalogSync.findByBarcode(barcode);
-    this.rowFormState.form.controls.barcode.setValue(barcode);
-    this.rowFormState.form.controls.barcode.markAsDirty();
-
-    if (catalogEntry) {
-      this.rowFormState.form.controls.itemName.setValue(catalogEntry.name);
+    const row = await this.rowFormState.prepareScannedRow(barcode);
+    if (row) {
+      await this.persistDraftRow(row);
+      this.flashRow(row.clientRowId);
+      this.scannerLastAction.set('inventory.scannerActionAdded');
+      this.showScannerToast('inventory.scannerAdded', barcode, 1);
+      void this.audioService.beep();
+      return;
     }
 
-    await this.fetchProductDetails({ showInfoToast: false, showErrorToast: false });
-
-    if (this.rowFormState.canAutoAddScannedRow()) {
-      const row = this.rowFormState.buildDraftRow();
-      if (row) {
-        await this.persistDraftRow(row);
-        this.flashRow(row.clientRowId);
-        this.scannerLastAction.set('inventory.scannerActionAdded');
-        this.showScannerToast('inventory.scannerAdded', barcode, 1);
-        void this.audioService.beep();
-        return;
-      }
-    }
-
-    this.rowFormState.form.markAllAsTouched();
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
     this.isScannerOpen.set(false);
   }
 
-  getSupplierDisplayName(supplierId: string | null): string {
-    return this.rowFormState.getSupplierDisplayName(supplierId);
-  }
-
   private async loadDraftRows(shopId: string): Promise<void> {
     const rows = await this.draftState.loadDraftRows(shopId);
-    if (rows.length > 0) {
-      this.showInfo('inventory.draftLoaded');
-    }
+    if (rows.length > 0) this.showInfo('inventory.draftLoaded');
   }
 
   private async persistDraftRow(row: InventoryInboundDraftRow): Promise<void> {
     const shopId = this.activeShopId();
-    if (!shopId) {
-      return;
-    }
+    if (!shopId) return;
 
     this.saveSummary.set(null);
     await this.draftState.addRow(shopId, row);
@@ -285,27 +163,20 @@ export class InventoryBatchPageComponent {
 
   private async saveRowsInChunks(): Promise<void> {
     const rows = [...this.pendingRows()];
-    const chunkSize = 100;
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
 
     try {
-      for (let index = 0; index < rows.length; index += chunkSize) {
-        const chunk = rows.slice(index, index + chunkSize);
-        const payload = this.mapRowsToRequest(chunk);
-        const response = await firstValueFrom(this.inventoryService.addInventoryBatch({ items: payload }));
+      for (let index = 0; index < rows.length; index += 100) {
+        const chunk = rows.slice(index, index + 100);
+        const response = await firstValueFrom(
+          this.inventoryService.addInventoryBatch({ items: this.mapRowsToRequest(chunk) }),
+        );
         succeeded.push(...response.succeeded);
         failed.push(...response.failed);
       }
 
-      const summary: AddInventoryBatchResponse = {
-        requestedCount: rows.length,
-        successCount: succeeded.length,
-        failedCount: failed.length,
-        succeeded,
-        failed,
-      };
-
+      const summary = this.buildSaveSummary(rows.length, succeeded, failed);
       this.saveSummary.set(summary);
       if (summary.failedCount === 0) {
         this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
@@ -313,45 +184,39 @@ export class InventoryBatchPageComponent {
         return;
       }
 
-      const failedIds = new Set(summary.failed.map((row) => row.clientRowId));
-      const remainingRows = rows.filter((row) => failedIds.has(row.clientRowId));
-      await this.draftState.savePendingRows(this.activeShopId(), remainingRows);
+      await this.keepRows(rows, new Set(summary.failed.map((row) => row.clientRowId)));
       this.showWarn('inventory.savedPartial');
     } catch (error) {
       const succeededIds = new Set(succeeded.map((row) => row.clientRowId));
       const failedIds = new Set(failed.map((row) => row.clientRowId));
-      const remainingRows = rows.filter(
-        (row) => !succeededIds.has(row.clientRowId) || failedIds.has(row.clientRowId),
-      );
-
-      await this.draftState.savePendingRows(this.activeShopId(), remainingRows);
+      await this.keepRows(rows, new Set(rows.filter((row) => !succeededIds.has(row.clientRowId) || failedIds.has(row.clientRowId)).map((row) => row.clientRowId)));
 
       if (succeeded.length > 0 || failed.length > 0) {
-        this.saveSummary.set({
-          requestedCount: rows.length,
-          successCount: succeeded.length,
-          failedCount: failed.length,
-          succeeded,
-          failed,
-        });
+        this.saveSummary.set(this.buildSaveSummary(rows.length, succeeded, failed));
       }
 
       const apiErrors = this.extractApiErrors(error);
-      const hasBatchLimitError = apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded');
-
-      if (hasBatchLimitError) {
+      if (apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')) {
         this.showWarn('inventory.batchLimitReached');
       } else {
-        const firstDetail = apiErrors.map((apiError) => this.getErrorDescription(apiError)).find((detail) => detail.length > 0);
-        if (firstDetail) {
-          this.showErrorWithDetail('inventory.saveFailed', firstDetail);
-        } else {
-          this.showError('inventory.saveFailed');
-        }
+        const detail = apiErrors.map((apiError) => this.getErrorDescription(apiError)).find(Boolean);
+        detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');
       }
     } finally {
       this.isSaving.set(false);
     }
+  }
+
+  private async keepRows(rows: readonly InventoryInboundDraftRow[], keepIds: ReadonlySet<string>): Promise<void> {
+    await this.draftState.savePendingRows(this.activeShopId(), rows.filter((row) => keepIds.has(row.clientRowId)));
+  }
+
+  private buildSaveSummary(
+    requestedCount: number,
+    succeeded: readonly AddInventoryBatchSucceededRow[],
+    failed: readonly AddInventoryBatchFailedRow[],
+  ): AddInventoryBatchResponse {
+    return { requestedCount, successCount: succeeded.length, failedCount: failed.length, succeeded, failed };
   }
 
   private mapRowsToRequest(rows: readonly InventoryInboundDraftRow[]): readonly AddInventoryBatchRowRequest[] {
@@ -379,77 +244,34 @@ export class InventoryBatchPageComponent {
     }));
   }
 
-  private suppliersFacadeLoad(): void {
-    this.suppliersFacade.load();
+  private showInfo(key: string): void { this.notify('info', key, 2500); }
+
+  private showWarn(key: string): void { this.notify('warn', key, 3000); }
+
+  private showError(key: string): void { this.notify('error', key, 3500); }
+
+  private showErrorWithDetail(key: string, detail: string): void { this.notify('error', key, 3500, detail); }
+
+  private showSuccess(key: string, successCount: number, requestedCount: number): void {
+    this.notify('success', key, 3000, `${successCount}/${requestedCount}`);
   }
 
-  private showInfo(messageKey: string): void {
-    this.messageService.add({
-      severity: 'info',
-      summary: this.translate(messageKey),
-      life: 2500,
-    });
+  private showScannerToast(key: string, barcode: string, quantity: number): void {
+    this.notify('success', key, 2200, `${barcode} • Qty ${quantity}`);
   }
 
-  private showWarn(messageKey: string): void {
-    this.messageService.add({
-      severity: 'warn',
-      summary: this.translate(messageKey),
-      life: 3000,
-    });
-  }
-
-  private showError(messageKey: string): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: this.translate(messageKey),
-      life: 3500,
-    });
-  }
-
-  private showErrorWithDetail(messageKey: string, detail: string): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: this.translate(messageKey),
-      detail,
-      life: 3500,
-    });
-  }
-
-  private showSuccess(messageKey: string, successCount: number, requestedCount: number): void {
-    this.messageService.add({
-      severity: 'success',
-      summary: this.translate(messageKey),
-      detail: `${successCount}/${requestedCount}`,
-      life: 3000,
-    });
-  }
-
-  private showScannerToast(summaryKey: string, barcode: string, quantity: number): void {
-    this.messageService.add({
-      severity: 'success',
-      summary: this.translate(summaryKey),
-      detail: `${barcode} • Qty ${quantity}`,
-      life: 2200,
-    });
+  private notify(severity: 'info' | 'success' | 'warn' | 'error', key: string, life: number, detail?: string): void {
+    this.messageService.add({ severity, summary: this.translocoService.translate(key), detail, life });
   }
 
   private extractApiErrors(error: unknown): readonly Record<string, unknown>[] {
-    if (!error || typeof error !== 'object') {
-      return [];
-    }
-
+    if (!error || typeof error !== 'object') return [];
     const candidate = (error as { error?: unknown }).error;
-    if (!candidate || typeof candidate !== 'object') {
-      return [];
-    }
-
+    if (!candidate || typeof candidate !== 'object') return [];
     const rawErrors = (candidate as { errors?: unknown }).errors;
-    if (!Array.isArray(rawErrors)) {
-      return [];
-    }
-
-    return rawErrors.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object');
+    return Array.isArray(rawErrors)
+      ? rawErrors.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+      : [];
   }
 
   private getErrorCode(apiError: Record<string, unknown>): string {
@@ -462,16 +284,9 @@ export class InventoryBatchPageComponent {
     return typeof description === 'string' ? description : '';
   }
 
-  private translate(key: string): string {
-    return this.translocoService.translate(key);
-  }
-
   private flashRow(clientRowId: string): void {
     this.highlightedRowId.set(clientRowId);
-    if (this.highlightTimer) {
-      clearTimeout(this.highlightTimer);
-    }
-
+    if (this.highlightTimer) clearTimeout(this.highlightTimer);
     this.highlightTimer = setTimeout(() => {
       this.highlightedRowId.set(null);
       this.highlightTimer = null;

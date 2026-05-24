@@ -37,18 +37,48 @@ import { BatchRowFormStateService } from '../../services/batch-row-form-state.se
 })
 export class BatchRowFormComponent {
   readonly state = inject(BatchRowFormStateService);
+  readonly form = this.state.form;
 
   @Output() readonly rowSubmitted = new EventEmitter<InventoryInboundDraftRow>();
+  @Output() readonly rowAdded = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly scannerRequested = new EventEmitter<void>();
+  @Output() readonly scanRequested = new EventEmitter<void>();
 
   submit(): void {
+    this.tryAddRow();
+  }
+
+  tryAddRow(): boolean {
     const row = this.state.buildDraftRow();
     if (!row) {
       this.state.form.markAllAsTouched();
-      return;
+      return false;
     }
 
     this.rowSubmitted.emit(row);
+    this.rowAdded.emit(row);
+    this.state.resetForm();
+    return true;
+  }
+
+  populateFromRow(row: InventoryInboundDraftRow): void {
+    this.state.loadDraftRow(row);
+  }
+
+  resetForm(): void {
+    this.state.resetForm();
+  }
+
+  async handleBarcode(barcode: string): Promise<'added' | 'review'> {
+    const row = await this.state.prepareScannedRow(barcode);
+    if (!row) {
+      return 'review';
+    }
+
+    this.rowSubmitted.emit(row);
+    this.rowAdded.emit(row);
+    this.state.resetForm();
+    return 'added';
   }
 
   onNameFilter(event: AutoCompleteCompleteEvent): void {
@@ -61,5 +91,10 @@ export class BatchRowFormComponent {
 
   onSupplierFilter(event: AutoCompleteCompleteEvent): void {
     this.state.onFilterSupplier(event);
+  }
+
+  requestScanner(): void {
+    this.scannerRequested.emit();
+    this.scanRequested.emit();
   }
 }

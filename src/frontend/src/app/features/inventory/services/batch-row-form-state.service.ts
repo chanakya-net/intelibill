@@ -289,6 +289,29 @@ export class BatchRowFormStateService {
     );
   }
 
+  async prepareScannedRow(barcode: string): Promise<InventoryInboundDraftRow | null> {
+    const normalizedBarcode = barcode.trim();
+    if (!normalizedBarcode) {
+      return null;
+    }
+
+    const catalogEntry = this.catalogSync.findByBarcode(normalizedBarcode);
+    this.form.controls.barcode.setValue(normalizedBarcode);
+    this.form.controls.barcode.markAsDirty();
+
+    if (catalogEntry) {
+      this.form.controls.itemName.setValue(catalogEntry.name);
+    }
+
+    await this.fetchProductDetails();
+    if (this.canAutoAddScannedRow()) {
+      return this.buildDraftRow();
+    }
+
+    this.form.markAllAsTouched();
+    return null;
+  }
+
   buildDraftRow(): InventoryInboundDraftRow | null {
     if (this.form.invalid) {
       return null;
