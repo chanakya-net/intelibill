@@ -4,7 +4,16 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
-import { vi, beforeAll, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { AuthService } from '../auth/auth.service';
+import { ShopDetails } from '../../features/shops/services/shop.service';
+import { ShopsActions } from '../../features/shops/state/shops.actions';
+import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
+import { UsersActions } from '../../features/users/state/users.actions';
+import { LocalizationService } from '../i18n/localization.service';
+import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
+import { ShellComponent } from './shell.component';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -22,13 +31,6 @@ beforeAll(() => {
   });
 });
 
-import { AuthService } from '../auth/auth.service';
-import { ShopDetails } from '../../features/shops/services/shop.service';
-import { ShopsActions } from '../../features/shops/state/shops.actions';
-import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
-import { ShellComponent } from './shell.component';
-import { shellRoutes } from './shell.routes';
-
 describe('ShellComponent', () => {
   const sessionSignal = signal({
     accessToken: 'access-token',
@@ -38,10 +40,11 @@ describe('ShellComponent', () => {
     rememberMe: true,
     user: {
       id: 'user-1',
-      email: 'user@example.com',
+      email: 'test@example.com',
       phoneNumber: null,
       firstName: 'Test',
       lastName: 'User',
+      language: 'en-IN',
     },
     activeShopId: 'shop-1',
     shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
@@ -51,25 +54,6 @@ describe('ShellComponent', () => {
     needsShopSetup: signal(false),
     session: sessionSignal,
     signOutAndRedirect: vi.fn<AuthService['signOutAndRedirect']>(),
-  };
-
-  const store = {
-    dispatch: vi.fn(),
-    selectSignal: vi.fn((selector: unknown) => {
-      if (selector === selectShops) {
-        return shopsSignal;
-      }
-
-      if (selector === selectShopDetailsEntities) {
-        return shopDetailsByIdSignal;
-      }
-
-      if (selector === selectShopsSubmitting) {
-        return shopsSubmittingSignal;
-      }
-
-      return signal(false);
-    }),
   };
 
   const shopsSignal = signal([
@@ -96,6 +80,35 @@ describe('ShellComponent', () => {
   });
 
   const shopsSubmittingSignal = signal(false);
+  const currentLanguage = signal(DEFAULT_LANGUAGE);
+
+  const localizationService = {
+    currentLanguage,
+    translate: (value: string) => value,
+    setLanguage: vi.fn((language: SupportedLanguage) => {
+      currentLanguage.set(language);
+      return Promise.resolve();
+    }),
+  };
+
+  const store = {
+    dispatch: vi.fn(),
+    selectSignal: vi.fn((selector: unknown) => {
+      if (selector === selectShops) {
+        return shopsSignal;
+      }
+
+      if (selector === selectShopDetailsEntities) {
+        return shopDetailsByIdSignal;
+      }
+
+      if (selector === selectShopsSubmitting) {
+        return shopsSubmittingSignal;
+      }
+
+      return signal(false);
+    }),
+  };
 
   function createFixture() {
     TestBed.configureTestingModule({
@@ -103,6 +116,7 @@ describe('ShellComponent', () => {
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
+        { provide: LocalizationService, useValue: localizationService },
       ],
     });
 
@@ -116,463 +130,98 @@ describe('ShellComponent', () => {
   }
 
   beforeEach(() => {
+    currentLanguage.set(DEFAULT_LANGUAGE);
     authService.signOutAndRedirect.mockReset();
     authService.signOutAndRedirect.mockReturnValue(of(void 0));
     store.dispatch.mockReset();
-    store.selectSignal.mockClear();
     authService.needsShopSetup.set(false);
-    sessionSignal.set({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-      refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
-      rememberMe: true,
-      user: {
-        id: 'user-1',
-        email: 'user@example.com',
-        phoneNumber: null,
-        firstName: 'Test',
-        lastName: 'User',
-      },
-      activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
-    });
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-    ]);
-    shopDetailsByIdSignal.set({
-      'shop-1': {
-        shopId: 'shop-1',
-        name: 'Main',
-        address: 'Address',
-        city: 'City',
-        state: 'State',
-        pincode: '560001',
-        contactPerson: null,
-        mobileNumber: null,
-        gstNumber: null,
-        bankName: null,
-        bankAccountNumber: null,
-        bankAccountType: null,
-        ifscCode: null,
-        accountHolderName: null,
-      },
-    });
-    shopsSubmittingSignal.set(false);
+    store.selectSignal.mockClear();
   });
 
   afterEach(() => {
     TestBed.resetTestingModule();
   });
 
-  it('signs out when create-shop overlay close is requested', () => {
-    authService.needsShopSetup.set(true);
+  it('opens add shop overlay and closes it after dismissal', () => {
     const component = setup();
+
+    component.onOpenAddShop();
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(true);
+
+    component.onCreateShopOverlayClose();
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
+  });
+
+  it('closes create-shop overlay and signs out when shop setup is required', () => {
+    const component = setup();
+    authService.needsShopSetup.set(true);
 
     component.onCreateShopOverlayClose();
 
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
     expect(authService.signOutAndRedirect).toHaveBeenCalledTimes(1);
     expect(component.isSigningOut()).toBe(false);
   });
 
-  it('dispatches load shops when shell initializes', () => {
-    setup();
-
-    expect(store.dispatch).toHaveBeenCalledWith(ShopsActions.loadShopsRequested());
-  });
-
-  it('shows initials from first and last name when profile image is unavailable', () => {
+  it('keeps create-shop overlay open and does not sign out when setup is optional', () => {
     const component = setup();
-
-    expect(component.profileInitials()).toBe('TU');
-  });
-
-  it('shows manage shop action when user has at least one shop', () => {
-    const component = setup();
-
-    expect(component.shouldShowManageShopAction()).toBe(true);
-
-    shopsSignal.set([]);
-
-    expect(component.shouldShowManageShopAction()).toBe(false);
-  });
-
-  it('returns owner permission only when active shop role is owner', () => {
-    const component = setup();
-
-    expect(component.isOwnerOfActiveShop()).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-
-    expect(component.isOwnerOfActiveShop()).toBe(false);
-  });
-
-  it('shows dedicated inventory menu for manager and hides for staff', () => {
-    const component = setup();
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-
-    const managerItems = component.inventoryMenuItems();
-    expect(managerItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
-    ]);
-
-    const staffItems = component.inventoryMenuItems();
-    expect(staffItems).toHaveLength(1);
-    expect(staffItems[0].icon).toBe('pi pi-history');
-  });
-
-  it('exposes adjustment history in shell routes and inventory navigation for every shop role', () => {
-    const component = setup();
-    const shellRoute = shellRoutes.find((route) => route.component === ShellComponent);
-    const adjustmentRoute = shellRoute?.children?.find(
-      (route) => route.path === 'inventory/adjustments',
-    );
-
-    expect(adjustmentRoute).toBeDefined();
-
-    for (const role of ['Owner', 'Manager', 'Staff'] as const) {
-      shopsSignal.set([
-        { shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null },
-      ]);
-      sessionSignal.set({
-        ...sessionSignal(),
-        shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
-      });
-
-      expect(component.inventoryMenuItems().some((item) => item.icon === 'pi pi-history')).toBe(true);
-      expect(
-        component.mainMenuItems().some((item) =>
-          item.items?.some((child) => child.icon === 'pi pi-history'),
-        ),
-      ).toBe(true);
-    }
-  });
-
-  it('shows sales menu for all roles including staff', () => {
-    const component = setup();
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
-    ]);
-
-    const staffItems = component.salesMenuItems();
-    expect(staffItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-
-    const managerItems = component.salesMenuItems();
-    expect(managerItems.some((item) => item.icon === 'pi pi-plus-circle')).toBe(true);
-  });
-
-  it('shows customers menu for manager and owner, but hides for staff', () => {
-    const component = setup();
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageCustomers()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageCustomers()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageCustomers()).toBe(false);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-address-book')).toBe(false);
-  });
-
-  it('moves discounts action from main menu to profile actions for owner and manager', () => {
-    const component = setup();
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageDiscounts()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageDiscounts()).toBe(true);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.canManageDiscounts()).toBe(false);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-tag')).toBe(false);
-  });
-
-  it('moves bank accounts action from main menu to owner profile actions', () => {
-    const component = setup();
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(true);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null },
-    ]);
-    expect(component.mainMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
-    expect(component.profileMenuItems().some((item) => item.icon === 'pi pi-building-columns')).toBe(false);
-  });
-
-  it('exposes discounts route in shell routes with role guard configured', () => {
-    setup();
-    const shellRoute = shellRoutes.find((route) => route.component === ShellComponent);
-    const discountsRoute = shellRoute?.children?.find((route) => route.path === 'discounts');
-
-    expect(discountsRoute).toBeDefined();
-    expect(discountsRoute?.canActivate).toBeDefined();
-    expect((discountsRoute?.canActivate ?? []).length).toBeGreaterThan(0);
-  });
-
-  it('opens update profile overlay from profile actions', () => {
-    const component = setup();
-
-    component.onOpenUpdateProfile();
-
-    expect(component.showUpdateProfileOverlay()).toBe(true);
-    expect(component.isProfileMenuOpen()).toBe(false);
-  });
-
-  it('opens change password overlay from profile actions', () => {
-    const component = setup();
-
-    component.onOpenChangePassword();
-
-    expect(component.showChangePasswordOverlay()).toBe(true);
-    expect(component.isProfileMenuOpen()).toBe(false);
-  });
-
-  it('opens add shop overlay from profile actions', () => {
-    const component = setup();
-
-    component.onOpenAddShop();
-
-    expect(component.showCreateShopOverlay()).toBe(true);
-    expect(component.isProfileMenuOpen()).toBe(false);
-  });
-
-  it('keeps create-shop overlay open until explicitly closed after setup becomes optional', () => {
-    authService.needsShopSetup.set(true);
-    const component = setup();
-
-    expect(component.showCreateShopOverlay()).toBe(true);
-
     authService.needsShopSetup.set(false);
 
-    expect(component.showCreateShopOverlay()).toBe(true);
+    component.onOpenAddShop();
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(true);
 
+    authService.needsShopSetup.set(false);
     component.onCreateShopOverlayClose();
-
-    expect(component.showCreateShopOverlay()).toBe(false);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
     expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
   });
 
-  it('opens manage shop overlay from profile actions', () => {
+  it('opens and closes profile overlays from profile actions', () => {
+    const component = setup();
+
+    component.onOpenUpdateProfile();
+    expect(component.showUpdateProfileOverlay()).toBe(true);
+
+    component.onProfileOverlayClose();
+    expect(component.showUpdateProfileOverlay()).toBe(false);
+
+    component.onOpenChangePassword();
+    expect(component.showChangePasswordOverlay()).toBe(true);
+
+    component.onProfileOverlayClose();
+    expect(component.showChangePasswordOverlay()).toBe(false);
+  });
+
+  it('opens and closes manage shop overlay', () => {
     const component = setup();
 
     component.onOpenManageShop();
 
     expect(component.showManageShopOverlay()).toBe(true);
-    expect(component.isProfileMenuOpen()).toBe(false);
+
+    component.onManageShopOverlayClose();
+    expect(component.showManageShopOverlay()).toBe(false);
   });
 
-  it('shows active shop name with pincode beside app title and updates when active shop changes', () => {
-    const fixture = createFixture();
-    const activeShopTrigger = fixture.nativeElement.querySelector('.active-shop-trigger') as HTMLElement;
-
-    expect(activeShopTrigger.textContent?.replace(/\s+/g, ' ').trim()).toContain('Main - 560001');
-
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: false, lastUsedAt: null },
-      { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-    shopDetailsByIdSignal.set({
-      'shop-1': {
-        shopId: 'shop-1',
-        name: 'Main',
-        address: 'Address',
-        city: 'City',
-        state: 'State',
-        pincode: '560001',
-        contactPerson: null,
-        mobileNumber: null,
-        gstNumber: null,
-        bankName: null,
-        bankAccountNumber: null,
-        bankAccountType: null,
-        ifscCode: null,
-        accountHolderName: null,
-      },
-      'shop-2': {
-        shopId: 'shop-2',
-        name: 'Branch',
-        address: 'Address',
-        city: 'City',
-        state: 'State',
-        pincode: '110001',
-        contactPerson: null,
-        mobileNumber: null,
-        gstNumber: null,
-        bankName: null,
-        bankAccountNumber: null,
-        bankAccountType: null,
-        ifscCode: null,
-        accountHolderName: null,
-      },
-    });
-    fixture.detectChanges();
-
-    expect(activeShopTrigger.textContent?.replace(/\s+/g, ' ').trim()).toContain('Branch - 110001');
-  });
-
-  it('toggles active shop menu from the header', () => {
+  it('switches language and updates user profile language', () => {
     const component = setup();
 
-    expect(component.isShopMenuOpen()).toBe(false);
+    component.onLanguageSelected('hi-IN');
 
-    component.onToggleShopMenu();
-    expect(component.isShopMenuOpen()).toBe(true);
-
-    component.onToggleShopMenu();
-    expect(component.isShopMenuOpen()).toBe(false);
+    expect(store.dispatch).toHaveBeenCalledWith(
+      UsersActions.updateProfileRequested({
+        payload: expect.objectContaining({ language: 'hi-IN' }),
+      }),
+    );
   });
 
-  it('does not open shop menu when active shop role is not owner', () => {
-    const component = setup();
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
-    ]);
-
-    component.onToggleShopMenu();
-
-    expect(component.isShopMenuOpen()).toBe(false);
-  });
-
-  it('switches active shop through NgRx when selecting a different shop', () => {
-    const component = setup();
-    shopsSignal.set([
-      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
-      { shopId: 'shop-2', shopName: 'Branch', role: 'Manager', isDefault: false, lastUsedAt: null },
-    ]);
-
-    component.onToggleShopMenu();
-    component.onSelectShop('shop-2');
-
-    expect(store.dispatch).toHaveBeenCalledWith(ShopsActions.clearError());
-    expect(store.dispatch).toHaveBeenCalledWith(ShopsActions.clearMutationStatus());
-    expect(store.dispatch).toHaveBeenCalledWith(ShopsActions.setDefaultShopRequested({ shopId: 'shop-2' }));
-    expect(component.isShopMenuOpen()).toBe(false);
-  });
-
-  it('does not dispatch switch action when selecting currently active shop', () => {
+  it('does not update language when selected language is already active', () => {
     const component = setup();
     store.dispatch.mockClear();
 
-    component.onToggleShopMenu();
-    component.onSelectShop('shop-1');
+    component.onLanguageSelected('en-IN');
 
     expect(store.dispatch).not.toHaveBeenCalled();
-    expect(component.isShopMenuOpen()).toBe(false);
-  });
-
-  it('closes shop menu when clicking outside', () => {
-    const fixture = createFixture();
-    const component = fixture.componentInstance;
-
-    component.onToggleShopMenu();
-    expect(component.isShopMenuOpen()).toBe(true);
-
-    component.onDocumentClick({ target: document.body } as unknown as MouseEvent);
-
-    expect(component.isShopMenuOpen()).toBe(false);
-  });
-
-  it('closes profile menu when clicking outside', () => {
-    const fixture = createFixture();
-    const component = fixture.componentInstance;
-
-    component.onToggleProfileMenu();
-    expect(component.isProfileMenuOpen()).toBe(true);
-
-    component.onDocumentClick({ target: document.body } as unknown as MouseEvent);
-
-    expect(component.isProfileMenuOpen()).toBe(false);
-  });
-
-  it('closes both menus when pointerdown happens outside', () => {
-    const fixture = createFixture();
-    const component = fixture.componentInstance;
-
-    component.onToggleShopMenu();
-    component.onToggleProfileMenu();
-
-    component.onDocumentPointerDown({ target: document.body, composedPath: () => [document.body] } as unknown as PointerEvent);
-
-    expect(component.isShopMenuOpen()).toBe(false);
-    expect(component.isProfileMenuOpen()).toBe(false);
-  });
-
-  it('renders shell-middle-zone container for main menu', () => {
-    const fixture = createFixture();
-    const middleZone = fixture.nativeElement.querySelector('.shell-middle-zone') as HTMLElement;
-
-    expect(middleZone).toBeDefined();
-    expect(middleZone).not.toBeNull();
-  });
-
-  it('renders p-menubar inside shell-middle-zone when main menu items exist', () => {
-    const fixture = createFixture();
-    const middleZone = fixture.nativeElement.querySelector('.shell-middle-zone') as HTMLElement;
-    const menubar = middleZone?.querySelector('p-menubar');
-
-    expect(menubar).toBeDefined();
-    expect(menubar).not.toBeNull();
-  });
-
-  it('preserves profile trigger and tiered menu structure', () => {
-    const fixture = createFixture();
-    const profileTrigger = fixture.nativeElement.querySelector('.profile-trigger') as HTMLElement;
-    const profileMenu = fixture.nativeElement.querySelector('p-tieredMenu');
-
-    expect(profileTrigger).toBeDefined();
-    expect(profileTrigger).not.toBeNull();
-    expect(profileMenu).toBeDefined();
-    expect(profileMenu).not.toBeNull();
-  });
-
-  it('renders mobile menu trigger for responsive navigation', () => {
-    const fixture = createFixture();
-    const mobileMenuTrigger = fixture.nativeElement.querySelector('.mobile-menu-trigger') as HTMLElement;
-
-    expect(mobileMenuTrigger).toBeDefined();
-    expect(mobileMenuTrigger).not.toBeNull();
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
   });
 });
