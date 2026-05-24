@@ -17,7 +17,7 @@ import { finalize } from 'rxjs';
 import { AdjustInventoryBatchRequest, BatchFilters, InventoryAdjustmentDirection, InventoryAdjustmentReason, InventoryBatchDto, UpdateInventoryBatchRequest } from '../../services/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
-import { BatchesTableComponent } from '../../components/batches-list/batches-table.component';
+import { BatchesTableComponent, BatchTableAction } from '../../components/batches-list/batches-table.component';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { Supplier } from '../../../suppliers/services/supplier.service';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT, CURRENCY_SELECT_PT } from '../../../../shared/primeng-pt.config';
@@ -119,13 +119,18 @@ export class InventoryBatchesListPageComponent {
     this.loadBatches();
   }
   onFiltersChange(filters: BatchFilters): void { this.batchFilters.set(filters); }
-  onBatchTableAction(event: string): void {
-    const parsed = this.parseBatchAction(event);
-    const batch = this.batches().find((entry) => entry.id === parsed.batchId);
+  onBatchTableAction(event: BatchTableAction): void {
+    const batch = this.batches().find((entry) => entry.id === event.batchId);
     if (!batch) return;
-    if (parsed.action === 'edit') return this.onEditBatch(batch);
-    if (parsed.action === 'adjust') return this.onAdjustBatch(batch);
-    if (parsed.action === 'void') return this.onVoidBatch(batch.id);
+    if (event.action === 'edit') return this.onEditBatch(batch);
+    if (event.action === 'adjust') return this.onAdjustBatch(batch);
+    if (event.action === 'void') return this.onVoidBatch(batch.id);
+    this.onEditBatch(batch);
+  }
+
+  onBatchTableSelect(batchId: string): void {
+    const batch = this.batches().find((entry) => entry.id === batchId);
+    if (!batch) return;
     this.onEditBatch(batch);
   }
   loadBatches(): void {
@@ -272,12 +277,6 @@ export class InventoryBatchesListPageComponent {
     if (includeDayEnd) date.setHours(23, 59, 59, 999);
     else date.setHours(0, 0, 0, 0);
     return date.getTime();
-  }
-  private parseBatchAction(raw: string): { action: 'edit' | 'adjust' | 'void' | null; batchId: string } {
-    const separator = raw.indexOf(':');
-    if (separator === -1) return { action: null, batchId: raw };
-    const action = raw.slice(0, separator);
-    return { action: action === 'edit' || action === 'adjust' || action === 'void' ? action : null, batchId: raw.slice(separator + 1) };
   }
   private showSuccess(messageKey: string): void {
     this.messageService.add({ severity: 'success', summary: this.translate(messageKey), life: 3000 });

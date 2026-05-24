@@ -9,6 +9,11 @@ import { TableModule } from 'primeng/table';
 
 import type { InventoryBatchDto } from '../../services/inventory.models';
 
+export interface BatchTableAction {
+  action: 'edit' | 'adjust' | 'void';
+  batchId: string;
+}
+
 @Component({
   selector: 'app-batches-table',
   standalone: true,
@@ -20,17 +25,18 @@ export class BatchesTableComponent {
   @Input({ required: true }) batches: InventoryBatchDto[] = [];
   @Input() loading = false;
   @Output() batchClicked = new EventEmitter<string>();
+  @Output() batchAction = new EventEmitter<BatchTableAction>();
 
-  onRowAction(action: string, batchId: string): void {
-    this.batchClicked.emit(`${action}:${batchId}`);
+  onRowAction(action: 'edit' | 'adjust' | 'void', batchId: string): void {
+    this.batchAction.emit({ action, batchId });
   }
 
-  onRowSelect(batchId: string | null | undefined): void {
-    if (!batchId) {
+  onRowSelect(batch: InventoryBatchDto | null | undefined): void {
+    if (!batch || batch.isVoided) {
       return;
     }
 
-    this.batchClicked.emit(batchId);
+    this.batchClicked.emit(batch.id);
   }
 
   productInitials(name: string): string {

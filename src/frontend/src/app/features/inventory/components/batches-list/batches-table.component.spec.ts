@@ -45,12 +45,30 @@ describe('BatchesTableComponent', () => {
   });
 
   it('should emit batch action payload', () => {
-    const events: string[] = [];
-    component.batchClicked.subscribe((value) => events.push(value));
+    const events: Array<{ action: 'edit' | 'adjust' | 'void'; batchId: string }> = [];
+    component.batchAction.subscribe((value) => events.push(value));
 
     component.onRowAction('edit', 'b1');
 
-    expect(events).toEqual(['edit:b1']);
+    expect(events).toEqual([{ action: 'edit', batchId: 'b1' }]);
+  });
+
+  it('should emit batch clicked when non-voided row selected', () => {
+    const events: string[] = [];
+    component.batchClicked.subscribe((value) => events.push(value));
+
+    component.onRowSelect(mockBatches[0]);
+
+    expect(events).toEqual(['b1']);
+  });
+
+  it('should ignore selection for voided batch rows', () => {
+    const events: string[] = [];
+    component.batchClicked.subscribe((value) => events.push(value));
+
+    component.onRowSelect({ ...mockBatches[0], id: 'b2', isVoided: true });
+
+    expect(events).toHaveLength(0);
   });
 
   it('should build initials from product name', () => {

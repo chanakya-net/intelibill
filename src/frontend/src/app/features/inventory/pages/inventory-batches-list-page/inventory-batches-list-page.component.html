@@ -15,7 +15,8 @@
   <app-batches-table
     [batches]="filteredBatches()"
     [loading]="loading()"
-    (batchClicked)="onBatchTableAction($event)"
+    (batchClicked)="onBatchTableSelect($event)"
+    (batchAction)="onBatchTableAction($event)"
   />
 </section>
 

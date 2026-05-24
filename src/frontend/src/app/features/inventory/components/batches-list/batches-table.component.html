@@ -174,7 +174,7 @@
     </ng-template>
 
     <ng-template pTemplate="body" let-batch>
-      <tr [class.opacity-50]="batch.isVoided" (click)="onRowSelect(batch.id)" class="cursor-pointer">
+      <tr [class.opacity-50]="batch.isVoided" (click)="onRowSelect(batch)" class="cursor-pointer">
         <td>{{ batch.itemName }}</td>
         <td>{{ batch.barcode }}</td>
         <td>{{ batch.batchNumber }}</td>
