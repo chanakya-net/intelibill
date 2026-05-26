@@ -15,6 +15,11 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 
+export type PrepareScannedRowResult =
+  | { status: 'added'; row: InventoryInboundDraftRow }
+  | { status: 'missingPricing' }
+  | { status: 'review' };
+
 @Injectable({ providedIn: 'root' })
 export class BatchRowFormStateService {
   private readonly formBuilder = inject(FormBuilder);
@@ -281,10 +286,21 @@ export class BatchRowFormStateService {
     return itemName.length > 0 && barcode.length > 0 && uom.length > 0 && mrp > 0 && salesPrice > 0;
   }
 
-  async prepareScannedRow(barcode: string): Promise<InventoryInboundDraftRow | null> {
+  hasScannedRowWithMissingPricing(): boolean {
+    const itemName = this.form.controls.itemName.value.trim();
+    const barcode = this.form.controls.barcode.value.trim();
+    const uom = this.form.controls.uom.value.trim();
+    const mrp = Number(this.form.controls.mrp.value);
+    const salesPrice = Number(this.form.controls.salesPrice.value);
+
+    if (itemName.length === 0 || barcode.length === 0 || uom.length === 0) return false;
+    return !Number.isFinite(mrp) || !Number.isFinite(salesPrice) || mrp <= 0 || salesPrice <= 0;
+  }
+
+  async prepareScannedRow(barcode: string): Promise<PrepareScannedRowResult> {
     const normalizedBarcode = barcode.trim();
     if (!normalizedBarcode) {
-      return null;
+      return { status: 'review' };
     }
 
     const catalogEntry = this.catalogSync.findByBarcode(normalizedBarcode);
@@ -297,11 +313,15 @@ export class BatchRowFormStateService {
 
     await this.fetchProductDetails();
     if (this.canAutoAddScannedRow()) {
-      return this.buildDraftRow();
+      const row = this.buildDraftRow();
+      return row ? { status: 'added', row } : { status: 'review' };
     }
 
-    this.form.markAllAsTouched();
-    return null;
+    if (this.hasScannedRowWithMissingPricing()) {
+      return { status: 'missingPricing' };
+    }
+
+    return { status: 'review' };
   }
 
   buildDraftRow(): InventoryInboundDraftRow | null {

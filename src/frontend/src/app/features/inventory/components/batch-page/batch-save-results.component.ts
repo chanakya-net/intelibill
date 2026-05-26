@@ -5,7 +5,6 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
-import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import type { AddInventoryBatchResponse } from '../../services/inventory.models';
 import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-draft-indexeddb.service';
 
@@ -17,7 +16,6 @@ import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-dra
 })
 export class BatchSaveResultsComponent {
   private readonly draftState = inject(BatchDraftStateService);
-  private readonly suppliersFacade = inject(SuppliersFacade);
 
   @Input() saveSummary: AddInventoryBatchResponse | null = null;
   @Input() isSaving = false;
@@ -27,8 +25,6 @@ export class BatchSaveResultsComponent {
   @Output() readonly removeRow = new EventEmitter<string>();
   @Output() readonly clearAll = new EventEmitter<void>();
   @Output() readonly saveAll = new EventEmitter<void>();
-
-  readonly suppliers = this.suppliersFacade.suppliers;
 
   failedClientRowIds(): Set<string> {
     if (!this.saveSummary) {
@@ -68,14 +64,6 @@ export class BatchSaveResultsComponent {
     }
 
     return colors[Math.abs(hash) % colors.length];
-  }
-
-  getSupplierDisplayName(supplierId: string | null): string {
-    if (!supplierId) {
-      return '-';
-    }
-
-    return this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId;
   }
 
   pendingRows(): InventoryInboundDraftRow[] {

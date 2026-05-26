@@ -6,7 +6,7 @@
     "start": "NODE_NO_WARNINGS=1 ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
+    "test": "node ./scripts/test-runner.mjs",
     "serve:ssr:INVENTORY": "node dist/INVENTORY/server/server.mjs"
   },
   "private": true,

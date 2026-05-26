@@ -388,7 +388,7 @@
     "edit": "संपादित करा",
     "remove": "काढा",
     "noPendingRows": "कोणत्याही प्रलंबित पंक्ती नाहीत",
-    "noPendingRowsDescription": "इनबाउंड पंक्ती जोडण्यासाठी वरील फॉर्म वापरा.",
+    "noPendingRowsDescription": "Add the first product above.",
     "savedSuccess": "पंक्ती यशस्वीरित्या जतन केल्या.",
     "savedPartial": "कुछ पंक्तियाँ सहेजी गईं। विफल पंक्तियाँ ठीक करें और पुनः प्रयास करें।",
     "saveFailed": "आत्ता पंक्ती जतन करणे अशक्य. कृपया पुन्हा प्रयत्न करा.",

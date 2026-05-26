@@ -2,10 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
-import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { BatchSaveResultsComponent } from './batch-save-results.component';
 
 describe('BatchSaveResultsComponent', () => {
@@ -14,21 +13,14 @@ describe('BatchSaveResultsComponent', () => {
     loadingDraft: signal(false),
   };
 
-  const suppliersFacade = {
-    suppliers: signal<any[]>([]),
-    load: vi.fn(),
-  };
-
-  function setup() {
+  function setup(isSaving = false) {
     TestBed.configureTestingModule({
       imports: [BatchSaveResultsComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [
-        { provide: BatchDraftStateService, useValue: draftState },
-        { provide: SuppliersFacade, useValue: suppliersFacade },
-      ],
+      providers: [{ provide: BatchDraftStateService, useValue: draftState }],
     });
 
     const fixture = TestBed.createComponent(BatchSaveResultsComponent);
+    fixture.componentInstance.isSaving = isSaving;
     fixture.componentInstance.saveSummary = {
       requestedCount: 1,
       successCount: 0,
@@ -83,6 +75,36 @@ describe('BatchSaveResultsComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Row failed');
   });
 
+  it('desktop table shows only Product Name, Quantity, Sales Price, Actions columns', () => {
+    const fixture = setup();
+    const headers = fixture.debugElement.queryAll(By.css('.desktop-pending-table th'));
+    const headerTexts = headers.map((h) => h.nativeElement.textContent?.trim());
+
+    expect(headerTexts.length).toBe(4);
+    // In test, Transloco shows keys without translating
+    expect(headerTexts.some((t) => t?.includes('inventory.name'))).toBe(true);
+    expect(headerTexts.some((t) => t?.includes('inventory.quantity'))).toBe(true);
+    expect(headerTexts.some((t) => t?.includes('inventory.salesPrice'))).toBe(true);
+    expect(headerTexts.some((t) => t?.includes('inventory.actions'))).toBe(true);
+  });
+
+  it('desktop table displays error text under Product Name', () => {
+    const fixture = setup();
+    const productCell = fixture.debugElement.query(By.css('.desktop-pending-table td'));
+
+    expect(productCell).not.toBeNull();
+    expect(productCell.nativeElement.textContent).toContain('Milk');
+    expect(productCell.nativeElement.textContent).toContain('Row failed');
+  });
+
+  it('empty state colspan matches simplified column count', () => {
+    draftState.pendingRows.set([]);
+    const fixture = setup();
+
+    const emptyTd = fixture.debugElement.query(By.css('.desktop-pending-table td[colspan]'));
+    expect(emptyTd?.nativeElement.getAttribute('colspan')).toBe('4');
+  });
+
   it('emits row actions and footer actions', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
@@ -95,9 +117,10 @@ describe('BatchSaveResultsComponent', () => {
     component.clearAll.subscribe(() => clearCount++);
     component.saveAll.subscribe(() => saveCount++);
 
-    const rowActionButtons = fixture.debugElement.queryAll(By.css('.pending-row-actions button'));
-    rowActionButtons[0].triggerEventHandler('click');
-    rowActionButtons[1].triggerEventHandler('click');
+    const desktopActionButtons = fixture.debugElement.queryAll(By.css('.desktop-pending-table .row-actions button'));
+    expect(desktopActionButtons.length).toBe(2);
+    desktopActionButtons[0].triggerEventHandler('click');
+    desktopActionButtons[1].triggerEventHandler('click');
     fixture.debugElement.queryAll(By.css('.table-actions button'))[0].triggerEventHandler('click');
     fixture.debugElement.queryAll(By.css('.table-actions button'))[1].triggerEventHandler('click');
 
@@ -105,5 +128,14 @@ describe('BatchSaveResultsComponent', () => {
     expect(removals).toEqual(['row-1']);
     expect(clearCount).toBe(1);
     expect(saveCount).toBe(1);
+  });
+
+  it('desktop actions buttons respect isSaving state', () => {
+    const fixture = setup(true);
+    const buttons = fixture.debugElement.queryAll(By.css('.desktop-pending-table .row-actions button'));
+
+    buttons.forEach((btn) => {
+      expect(btn.nativeElement.disabled).toBe(true);
+    });
   });
 });

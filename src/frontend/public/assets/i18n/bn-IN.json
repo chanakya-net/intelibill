@@ -388,7 +388,7 @@
     "edit": "সম্পাদনা",
     "remove": "সরান",
     "noPendingRows": "কোনো মুলতুবি সারি নেই",
-    "noPendingRowsDescription": "সারি যোগ করতে উপরের ফর্ম ব্যবহার করুন।",
+    "noPendingRowsDescription": "Add the first product above.",
     "savedSuccess": "সারি সফলভাবে সংরক্ষিত হয়েছে।",
     "savedPartial": "কিছু সারি সংরক্ষিত হয়েছে। ব্যর্থ সারি ঠিক করুন এবং আবার চেষ্টা করুন।",
     "saveFailed": "এখন সারি সংরক্ষণ করা যাচ্ছে না। অনুগ্রহ করে আবার চেষ্টা করুন।",

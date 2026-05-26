@@ -388,7 +388,7 @@
     "edit": "Edit",
     "remove": "Remove",
     "noPendingRows": "No pending rows",
-    "noPendingRowsDescription": "Use the form above to add inbound rows.",
+    "noPendingRowsDescription": "Add the first product above.",
     "savedSuccess": "Saved rows successfully.",
     "savedPartial": "Some rows were saved. Fix failed rows and retry.",
     "saveFailed": "Unable to save rows right now. Please retry.",
