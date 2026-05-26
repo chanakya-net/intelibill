@@ -388,7 +388,7 @@
     "edit": "સંપાદિત કરો",
     "remove": "દૂર કરો",
     "noPendingRows": "કોઈ બાકી પંક્તિઓ નથી",
-    "noPendingRowsDescription": "Add the first product above.",
+    "noPendingRowsDescription": "ઇનબાઉન્ડ પંક્તિઓ ઉમેરવા ઉપરના ફૉર્મનો ઉપયોગ કરો.",
     "savedSuccess": "પંક્તિઓ સફળતાપૂર્વક સાચવાઈ.",
     "savedPartial": "કેટલીક પંક્તિઓ સાચવાઈ. નિષ્ફળ પંક્તિઓ સુધારો અને ફરી પ્રયાસ કરો.",
     "saveFailed": "અત્યારે પંક્તિઓ સાચવી શકાઈ નહીં. કૃપા કરી ફરી પ્રયાસ કરો.",

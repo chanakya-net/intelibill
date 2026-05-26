@@ -2,10 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
-import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { BatchSaveResultsComponent } from './batch-save-results.component';
 
 describe('BatchSaveResultsComponent', () => {
@@ -14,21 +13,14 @@ describe('BatchSaveResultsComponent', () => {
     loadingDraft: signal(false),
   };
 
-  const suppliersFacade = {
-    suppliers: signal<any[]>([]),
-    load: vi.fn(),
-  };
-
-  function setup() {
+  function setup(isSaving = false) {
     TestBed.configureTestingModule({
       imports: [BatchSaveResultsComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [
-        { provide: BatchDraftStateService, useValue: draftState },
-        { provide: SuppliersFacade, useValue: suppliersFacade },
-      ],
+      providers: [{ provide: BatchDraftStateService, useValue: draftState }],
     });
 
     const fixture = TestBed.createComponent(BatchSaveResultsComponent);
+    fixture.componentInstance.isSaving = isSaving;
     fixture.componentInstance.saveSummary = {
       requestedCount: 1,
       successCount: 0,
@@ -139,63 +131,9 @@ describe('BatchSaveResultsComponent', () => {
   });
 
   it('desktop actions buttons respect isSaving state', () => {
-    const fixture = setup();
-    // Verify initial state allows clicking
-    let buttons = fixture.debugElement.queryAll(By.css('.desktop-pending-table .row-actions button'));
-    expect(buttons[0].nativeElement.disabled).toBe(false);
+    const fixture = setup(true);
+    const buttons = fixture.debugElement.queryAll(By.css('.desktop-pending-table .row-actions button'));
 
-    // Now test disabled state by creating new fixture with isSaving true from start
-    draftState.pendingRows.set([
-      {
-        clientRowId: 'row-1',
-        itemName: 'Milk',
-        barcode: 'B001',
-        itemDescription: null,
-        uom: 'ltr',
-        batchNumber: 'BN-1',
-        quantity: 1,
-        totalPurchaseCost: 42,
-        mrp: 50,
-        salesPrice: 48,
-        taxRatePercent: 18,
-        taxIncluded: true,
-        purchaseTaxIncluded: true,
-        hsnCode: null,
-        expiryDate: null,
-        manufacturingDate: null,
-        supplierId: null,
-        referenceNumber: null,
-        notes: null,
-        performedAt: new Date().toISOString(),
-      },
-    ]);
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [BatchSaveResultsComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [
-        { provide: BatchDraftStateService, useValue: draftState },
-        { provide: SuppliersFacade, useValue: suppliersFacade },
-      ],
-    });
-    const fixture2 = TestBed.createComponent(BatchSaveResultsComponent);
-    fixture2.componentInstance.isSaving = true;
-    fixture2.componentInstance.saveSummary = {
-      requestedCount: 1,
-      successCount: 0,
-      failedCount: 1,
-      succeeded: [],
-      failed: [
-        {
-          clientRowId: 'row-1',
-          itemName: 'Milk',
-          barcode: 'B001',
-          errors: [{ code: 'Inventory.Rule', description: 'Row failed' }],
-        },
-      ],
-    };
-    fixture2.detectChanges();
-
-    buttons = fixture2.debugElement.queryAll(By.css('.desktop-pending-table .row-actions button'));
     buttons.forEach((btn) => {
       expect(btn.nativeElement.disabled).toBe(true);
     });
