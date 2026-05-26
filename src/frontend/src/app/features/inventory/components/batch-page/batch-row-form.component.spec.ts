@@ -96,6 +96,22 @@ describe('BatchRowFormComponent', () => {
     expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).toBeNull();
   });
 
+  it('toggles optional details via icon button', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    const button = fixture.debugElement.query(By.css('.optional-details-toggle'));
+
+    expect(button).toBeTruthy();
+
+    button.triggerEventHandler('click');
+    fixture.detectChanges();
+    expect(component.optionalDetailsExpanded()).toBe(true);
+
+    button.triggerEventHandler('click');
+    fixture.detectChanges();
+    expect(component.optionalDetailsExpanded()).toBe(false);
+  });
+
   it('blocks manual add when MRP or sales price is missing', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
