@@ -77,6 +77,7 @@ describe('BatchRowFormStateService', () => {
     expect(result.patched).toBe(true);
     expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith('Milk', 'B001');
     expect(state.form.controls.itemDescription.value).toBe('Fresh milk pack');
+    expect(state.form.controls.uom.value).toBe('ltr');
     expect(state.selectedHsnCode()).toBe('0401');
   });
 
@@ -124,5 +125,43 @@ describe('BatchRowFormStateService', () => {
 
     expect(state.selectedHsnCode()).toBeNull();
     expect(state.pickerOpen()).toBe(false);
+  });
+
+  it('defaults UOM to PCS and resets back to PCS', () => {
+    const state = setup();
+    expect(state.form.controls.uom.value).toBe('PCS');
+
+    state.form.controls.uom.setValue('ltr');
+    state.resetForm();
+
+    expect(state.form.controls.uom.value).toBe('PCS');
+  });
+
+  it('can auto-add scanned row without purchase cost', () => {
+    const state = setup();
+    state.form.controls.itemName.setValue('Milk');
+    state.form.controls.barcode.setValue('B001');
+    state.form.controls.uom.setValue('PCS');
+    state.form.controls.totalPurchaseCost.setValue(0);
+    state.form.controls.mrp.setValue(50);
+    state.form.controls.salesPrice.setValue(48);
+
+    expect(state.canAutoAddScannedRow()).toBe(true);
+  });
+
+  it('requires MRP and sales price before auto-adding scanned row', () => {
+    const state = setup();
+    state.form.controls.itemName.setValue('Milk');
+    state.form.controls.barcode.setValue('B001');
+    state.form.controls.uom.setValue('PCS');
+    state.form.controls.totalPurchaseCost.setValue(0);
+
+    state.form.controls.mrp.setValue(0);
+    state.form.controls.salesPrice.setValue(48);
+    expect(state.canAutoAddScannedRow()).toBe(false);
+
+    state.form.controls.mrp.setValue(50);
+    state.form.controls.salesPrice.setValue(0);
+    expect(state.canAutoAddScannedRow()).toBe(false);
   });
 });

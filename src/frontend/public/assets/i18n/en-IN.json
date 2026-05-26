@@ -418,7 +418,12 @@
     "noItemsFound": "No products added yet",
     "noItemsDescription": "Use Add New Product to create your first product in this shop.",
     "noAdjustments": "No adjustments found",
-    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here."
+    "noAdjustmentsDescription": "Adjustments matching your current filters will appear here.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "Payment Behavior",
     "sectionStockRisk": "Stock Risk",
     "sectionReceivables": "Receivables",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "Metric"
   },
   "discounts": {

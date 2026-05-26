@@ -418,7 +418,12 @@
     "noItemsFound": "ഇനിയും ഉൽപ്പന്നങ്ങൾ ചേർത്തിട്ടില്ല",
     "noItemsDescription": "ഈ ഷോപ്പിൽ നിങ്ങളുടെ ആദ്യ ഉൽപ്പന്നം സൃഷ്ടിക്കാൻ പുതിയ ഉൽപ്പന്നം ചേർക്കുക ഉപയോഗിക്കുക.",
     "noAdjustments": "ക്രമീകരണങ്ങൾ ഒന്നും കണ്ടെത്തിയില്ല",
-    "noAdjustmentsDescription": "നിങ്ങളുടെ നിലവിലെ ഫിൽറ്ററുകളോട് പൊരുത്തപ്പെടുന്ന ക്രമീകരണങ്ങൾ ഇവിടെ കാണിക്കും."
+    "noAdjustmentsDescription": "നിങ്ങളുടെ നിലവിലെ ഫിൽറ്ററുകളോട് പൊരുത്തപ്പെടുന്ന ക്രമീകരണങ്ങൾ ഇവിടെ കാണിക്കും.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "പേയ്മെൻ്റ് പെരുമാറ്റം",
     "sectionStockRisk": "സ്റ്റോക്ക് റിസ്ക്",
     "sectionReceivables": "ലഭിക്കേണ്ടവ",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "മെട്രിക്"
   },
   "discounts": {

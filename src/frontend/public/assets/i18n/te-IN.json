@@ -418,7 +418,12 @@
     "noItemsFound": "ఇప్పటివరకు ఉత్పత్తులు జోడించబడలేదు",
     "noItemsDescription": "ఈ షాప్‌లో మీ మొదటి ఉత్పత్తిని సృష్టించడానికి కొత్త ఉత్పత్తి జోడించండి ను ఉపయోగించండి.",
     "noAdjustments": "ఏ సర్దుబాట్లు కనుగొనబడలేదు",
-    "noAdjustmentsDescription": "మీ ప్రస్తుత ఫిల్టర్లకు సరిపోయే సర్దుబాట్లు ఇక్కడ కనిపిస్తాయి."
+    "noAdjustmentsDescription": "మీ ప్రస్తుత ఫిల్టర్లకు సరిపోయే సర్దుబాట్లు ఇక్కడ కనిపిస్తాయి.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "చెల్లింపు ప్రవర్తన",
     "sectionStockRisk": "స్టాక్ రిస్క్",
     "sectionReceivables": "స్వీకరించదగినవి",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "మెట్రిక్"
   },
   "discounts": {

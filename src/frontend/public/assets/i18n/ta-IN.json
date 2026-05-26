@@ -418,7 +418,12 @@
     "noItemsFound": "இன்னும் பொருட்கள் சேர்க்கப்படவில்லை",
     "noItemsDescription": "இந்த கடையில் உங்கள் முதல் பொருளை உருவாக்க புதிய பொருள் சேர்க்க பயன்பாட்டை பயன்படுத்தவும்.",
     "noAdjustments": "எந்த சரிசெய்தல்களும் கிடைக்கவில்லை",
-    "noAdjustmentsDescription": "உங்கள் தற்போதைய வடிகட்டல்களுக்கு பொருந்தும் சரிசெய்தல்கள் இங்கே தோன்றும்."
+    "noAdjustmentsDescription": "உங்கள் தற்போதைய வடிகட்டல்களுக்கு பொருந்தும் சரிசெய்தல்கள் இங்கே தோன்றும்.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "பணம் செலுத்தும் நடத்தை",
     "sectionStockRisk": "பங்கு ஆபத்து",
     "sectionReceivables": "பெறத்தக்கவை",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "அளவீடு"
   },
   "discounts": {

@@ -418,7 +418,12 @@
     "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
     "noItemsDescription": "इस दुकान का पहला उत्पाद बनाने के लिए नया उत्पाद जोड़ें का उपयोग करें।",
     "noAdjustments": "कोई समायोजन नहीं मिला",
-    "noAdjustmentsDescription": "आपके वर्तमान फ़िल्टर से मेल खाने वाले समायोजन यहां दिखाई देंगे।"
+    "noAdjustmentsDescription": "आपके वर्तमान फ़िल्टर से मेल खाने वाले समायोजन यहां दिखाई देंगे।",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -912,11 +917,11 @@
     "cashCollected": "नकद संग्रह",
     "profitBeforeTax": "कर से पहले लाभ",
     "profitAfterTax": "कर के बाद लाभ",
-    "chartTypeBar": "स्तंभ चार्ट",
-    "chartTypeStackedBar": "स्टैक्ड कॉलम चार्ट",
-    "chartTypeLine": "लाइन चार्ट",
-    "chartTypePie": "पाई चार्ट",
-    "chartTypeDoughnut": "डोनट चार्ट",
+    "chartTypeBar": "Column Bar",
+    "chartTypeStackedBar": "Column Bar Stacked",
+    "chartTypeLine": "Line",
+    "chartTypePie": "Pie",
+    "chartTypeDoughnut": "Donut",
     "expenseRecorded": "व्यय दर्ज",
     "expenseCorrection": "व्यय सुधार",
     "netExpense": "शुद्ध व्यय",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "भुगतान व्यवहार",
     "sectionStockRisk": "स्टॉक जोखिम",
     "sectionReceivables": "प्राप्य",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "मेट्रिक"
   },
   "discounts": {
