@@ -418,7 +418,12 @@
     "noItemsFound": "এখনও কোনো পণ্য যোগ করা হয়নি",
     "noItemsDescription": "এই শপে প্রথম পণ্য তৈরির জন্য নতুন পণ্য যোগ করুন ব্যবহার করুন।",
     "noAdjustments": "কোনো সমন্বয় পাওয়া যায়নি",
-    "noAdjustmentsDescription": "আপনার বর্তমান ফিল্টারের সাথে মেলে এমন সমন্বয় এখানে দেখাবে।"
+    "noAdjustmentsDescription": "আপনার বর্তমান ফিল্টারের সাথে মেলে এমন সমন্বয় এখানে দেখাবে।",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "পেমেন্ট আচরণ",
     "sectionStockRisk": "স্টক ঝুঁকি",
     "sectionReceivables": "প্রাপ্য",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "মেট্রিক"
   },
   "discounts": {

@@ -57,35 +57,6 @@
       </div>
     </label>
 
-    <app-batch-hsn-picker-dialog />
-
-    <label>
-      <span>{{ 'inventory.supplierIdOptional' | transloco }}</span>
-      <p-autocomplete
-        formControlName="supplierName"
-        [suggestions]="state.supplierSuggestions()"
-        (completeMethod)="onSupplierFilter($event)"
-        (onSelect)="state.onSupplierSelected($event.value)"
-        appendTo="body"
-        [fluid]="true"
-      ></p-autocomplete>
-    </label>
-
-    <label>
-      <span>{{ 'inventory.description' | transloco }}</span>
-      <input pInputText type="text" formControlName="itemDescription" />
-    </label>
-
-    <label>
-      <span>{{ 'inventory.uom' | transloco }}</span>
-      <input pInputText type="text" formControlName="uom" />
-    </label>
-
-    <label>
-      <span>{{ 'inventory.batchNumber' | transloco }}</span>
-      <input pInputText type="text" formControlName="batchNumber" />
-    </label>
-
     <label>
       <span>{{ 'inventory.quantity' | transloco }}</span>
       <p-inputNumber
@@ -98,87 +69,151 @@
     </label>
 
     <label>
-      <span>{{ 'inventory.totalPurchaseCost' | transloco }}</span>
-      <p-inputgroup>
-        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-        <p-inputNumber
-          formControlName="totalPurchaseCost"
-          [min]="0"
-          mode="decimal"
-          [maxFractionDigits]="2"
-          [fluid]="true"
-        ></p-inputNumber>
-      </p-inputgroup>
+      <span>{{ 'inventory.uom' | transloco }}</span>
+      <input pInputText type="text" formControlName="uom" />
     </label>
 
-    <label>
-      <span>{{ 'inventory.mrp' | transloco }}</span>
-      <p-inputgroup>
-        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-        <p-inputNumber
-          formControlName="mrp"
-          [min]="0"
-          mode="decimal"
-          [maxFractionDigits]="2"
-          [fluid]="true"
-        ></p-inputNumber>
-      </p-inputgroup>
-    </label>
+    <div class="optional-details-toggle-row">
+      <div class="optional-details-toggle-text">
+        <div class="optional-details-toggle-heading">{{ 'inventory.optionalDetailsHeading' | transloco }}</div>
+        <div class="optional-details-toggle-summary">{{ 'inventory.optionalDetailsSummary' | transloco }}</div>
+      </div>
+      <button
+        pButton
+        type="button"
+        text
+        severity="secondary"
+        class="optional-details-toggle"
+        [icon]="optionalDetailsExpanded() ? 'pi pi-minus' : 'pi pi-plus'"
+        (click)="toggleOptionalDetails()"
+        [attr.aria-expanded]="optionalDetailsExpanded()"
+        [attr.aria-controls]="'batch-row-form-optional-details'"
+        [attr.aria-label]="
+          (optionalDetailsExpanded() ? 'inventory.optionalDetailsCollapseLabel' : 'inventory.optionalDetailsExpandLabel')
+            | transloco
+        "
+      ></button>
+    </div>
 
-    <label class="sales-price-field">
-      <span>{{ 'inventory.perUnitSalesPrice' | transloco }}</span>
-      <p-inputgroup>
-        <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-        <p-inputNumber
-          formControlName="salesPrice"
-          [min]="0"
-          mode="decimal"
-          [maxFractionDigits]="2"
-          [fluid]="true"
-          placeholder="ex: 200"
-          [minFractionDigits]="2"
-        ></p-inputNumber>
-        <p-select
-          formControlName="taxIncluded"
-          [options]="state.taxModeOptions()"
-          optionLabel="label"
-          optionValue="value"
-          [fluid]="true"
-          appendTo="body"
-        ></p-select>
-      </p-inputgroup>
-    </label>
+    @if (optionalDetailsExpanded()) {
+      <div
+        id="batch-row-form-optional-details"
+        class="optional-details"
+        role="region"
+        [attr.aria-label]="'inventory.optionalDetailsHeading' | transloco"
+      >
+        <app-batch-hsn-picker-dialog />
 
-    <label>
-      <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
-      <p-inputNumber
-        formControlName="taxRatePercent"
-        [min]="0"
-        mode="decimal"
-        [maxFractionDigits]="2"
-        [fluid]="true"
-      ></p-inputNumber>
-    </label>
+        <label>
+          <span>{{ 'inventory.supplierIdOptional' | transloco }}</span>
+          <p-autocomplete
+            formControlName="supplierName"
+            [suggestions]="state.supplierSuggestions()"
+            (completeMethod)="onSupplierFilter($event)"
+            (onSelect)="state.onSupplierSelected($event.value)"
+            appendTo="body"
+            [fluid]="true"
+          ></p-autocomplete>
+        </label>
 
-    <label>
-      <span>{{ 'inventory.expiryDate' | transloco }}</span>
-      <input pInputText type="date" formControlName="expiryDate" />
-    </label>
+        <label>
+          <span>{{ 'inventory.description' | transloco }}</span>
+          <input pInputText type="text" formControlName="itemDescription" />
+        </label>
 
-    <label>
-      <span>{{ 'inventory.manufacturingDate' | transloco }}</span>
-      <input pInputText type="date" formControlName="manufacturingDate" />
-    </label>
+        <label>
+          <span>{{ 'inventory.batchNumber' | transloco }}</span>
+          <input pInputText type="text" formControlName="batchNumber" />
+        </label>
 
-    <label>
-      <span>{{ 'inventory.referenceNumber' | transloco }}</span>
-      <input pInputText type="text" formControlName="referenceNumber" />
-    </label>
+        <label>
+          <span>{{ 'inventory.totalPurchaseCost' | transloco }}</span>
+          <p-inputgroup>
+            <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="totalPurchaseCost"
+              [min]="0"
+              mode="decimal"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+            ></p-inputNumber>
+          </p-inputgroup>
+        </label>
 
-    <label class="notes-field">
-      <span>{{ 'inventory.notes' | transloco }}</span>
-      <textarea pInputTextarea rows="2" formControlName="notes"></textarea>
-    </label>
+        <label>
+          <span>{{ 'inventory.mrp' | transloco }}</span>
+          <p-inputgroup>
+            <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="mrp"
+              [min]="0"
+              mode="decimal"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+            ></p-inputNumber>
+          </p-inputgroup>
+        </label>
+
+        <label class="sales-price-field">
+          <span>{{ 'inventory.perUnitSalesPrice' | transloco }}</span>
+          <p-inputgroup>
+            <p-inputgroup-addon>{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="salesPrice"
+              [min]="0"
+              mode="decimal"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              placeholder="ex: 200"
+              [minFractionDigits]="2"
+            ></p-inputNumber>
+            <p-select
+              formControlName="taxIncluded"
+              [options]="state.taxModeOptions()"
+              optionLabel="label"
+              optionValue="value"
+              [fluid]="true"
+              appendTo="body"
+            ></p-select>
+          </p-inputgroup>
+        </label>
+
+        @if (pricingGuardVisible()) {
+          <p class="pricing-guard">{{ 'inventory.pricingGuard' | transloco }}</p>
+        }
+
+        <label>
+          <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
+          <p-inputNumber
+            formControlName="taxRatePercent"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+          ></p-inputNumber>
+        </label>
+
+        <label>
+          <span>{{ 'inventory.expiryDate' | transloco }}</span>
+          <input pInputText type="date" formControlName="expiryDate" />
+        </label>
+
+        <label>
+          <span>{{ 'inventory.manufacturingDate' | transloco }}</span>
+          <input pInputText type="date" formControlName="manufacturingDate" />
+        </label>
+
+        <label>
+          <span>{{ 'inventory.referenceNumber' | transloco }}</span>
+          <input pInputText type="text" formControlName="referenceNumber" />
+        </label>
+
+        <label class="notes-field">
+          <span>{{ 'inventory.notes' | transloco }}</span>
+          <textarea pInputTextarea rows="2" formControlName="notes"></textarea>
+        </label>
+      </div>
+    }
 
     <div class="form-actions">
       <button

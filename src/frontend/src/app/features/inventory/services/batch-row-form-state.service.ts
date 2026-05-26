@@ -47,7 +47,7 @@ export class BatchRowFormStateService {
     itemName: ['', [Validators.required, Validators.maxLength(180)]],
     barcode: ['', [Validators.required, Validators.maxLength(120)]],
     itemDescription: ['', [Validators.maxLength(320)]],
-    uom: ['', [Validators.required, Validators.maxLength(40)]],
+    uom: ['PCS', [Validators.required, Validators.maxLength(40)]],
     batchNumber: ['', [Validators.required, Validators.maxLength(80)]],
     quantity: [1, [Validators.required, Validators.min(0.0001)]],
     totalPurchaseCost: [0, [Validators.required, Validators.min(0)]],
@@ -275,18 +275,10 @@ export class BatchRowFormStateService {
     const itemName = this.form.controls.itemName.value.trim();
     const barcode = this.form.controls.barcode.value.trim();
     const uom = this.form.controls.uom.value.trim();
-    const totalPurchaseCost = Number(this.form.controls.totalPurchaseCost.value);
     const mrp = Number(this.form.controls.mrp.value);
     const salesPrice = Number(this.form.controls.salesPrice.value);
 
-    return (
-      itemName.length > 0 &&
-      barcode.length > 0 &&
-      uom.length > 0 &&
-      totalPurchaseCost > 0 &&
-      mrp > 0 &&
-      salesPrice > 0
-    );
+    return itemName.length > 0 && barcode.length > 0 && uom.length > 0 && mrp > 0 && salesPrice > 0;
   }
 
   async prepareScannedRow(barcode: string): Promise<InventoryInboundDraftRow | null> {
@@ -375,7 +367,7 @@ export class BatchRowFormStateService {
       itemName: '',
       barcode: '',
       itemDescription: '',
-      uom: '',
+      uom: 'PCS',
       batchNumber: '',
       quantity: 1,
       totalPurchaseCost: 0,
@@ -438,7 +430,7 @@ export class BatchRowFormStateService {
       patch.itemDescription = details.description || '';
     }
 
-    if (!this.form.controls.uom.dirty) {
+    if (!this.form.controls.uom.dirty && details.uom?.trim().length) {
       patch.uom = details.uom;
     }
 

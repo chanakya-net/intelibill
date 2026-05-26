@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Output, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
@@ -39,16 +39,53 @@ export class BatchRowFormComponent {
   readonly state = inject(BatchRowFormStateService);
   readonly form = this.state.form;
 
+  readonly optionalDetailsExpanded = signal(false);
+  readonly pricingGuardVisible = signal(false);
+
   @Output() readonly rowSubmitted = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly rowAdded = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly scannerRequested = new EventEmitter<void>();
   @Output() readonly scanRequested = new EventEmitter<void>();
+
+  toggleOptionalDetails(): void {
+    this.optionalDetailsExpanded.update((value) => !value);
+  }
+
+  expandOptionalDetails(): void {
+    this.optionalDetailsExpanded.set(true);
+  }
+
+  collapseOptionalDetails(): void {
+    this.optionalDetailsExpanded.set(false);
+  }
+
+  hasMissingRequiredPricing(): boolean {
+    const mrp = Number(this.form.controls.mrp.value);
+    const salesPrice = Number(this.form.controls.salesPrice.value);
+    return mrp <= 0 || salesPrice <= 0;
+  }
+
+  showPricingGuard(): void {
+    this.pricingGuardVisible.set(true);
+  }
+
+  clearPricingGuard(): void {
+    this.pricingGuardVisible.set(false);
+  }
 
   submit(): void {
     this.tryAddRow();
   }
 
   tryAddRow(): boolean {
+    if (this.hasMissingRequiredPricing()) {
+      this.expandOptionalDetails();
+      this.form.controls.mrp.markAsTouched();
+      this.form.controls.salesPrice.markAsTouched();
+      this.showPricingGuard();
+      return false;
+    }
+
     const row = this.state.buildDraftRow();
     if (!row) {
       this.state.form.markAllAsTouched();
@@ -58,15 +95,21 @@ export class BatchRowFormComponent {
     this.rowSubmitted.emit(row);
     this.rowAdded.emit(row);
     this.state.resetForm();
+    this.clearPricingGuard();
+    this.collapseOptionalDetails();
     return true;
   }
 
   populateFromRow(row: InventoryInboundDraftRow): void {
     this.state.loadDraftRow(row);
+    this.expandOptionalDetails();
+    this.clearPricingGuard();
   }
 
   resetForm(): void {
     this.state.resetForm();
+    this.clearPricingGuard();
+    this.collapseOptionalDetails();
   }
 
   async handleBarcode(barcode: string): Promise<'added' | 'review'> {
@@ -78,6 +121,8 @@ export class BatchRowFormComponent {
     this.rowSubmitted.emit(row);
     this.rowAdded.emit(row);
     this.state.resetForm();
+    this.clearPricingGuard();
+    this.collapseOptionalDetails();
     return 'added';
   }
 

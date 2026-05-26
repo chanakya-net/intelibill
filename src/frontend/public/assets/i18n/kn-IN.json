@@ -418,7 +418,12 @@
     "noItemsFound": "ಇನ್ನೂ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ",
     "noItemsDescription": "ಈ ಅಂಗಡಿಯಲ್ಲಿ ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಲು ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ ಬಳಸಿ.",
     "noAdjustments": "ಯಾವುದೇ ಸರಿಹೊಂದింపುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
-    "noAdjustmentsDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಫಿಲ್ಟರ್‌ಗಳಿಗೆ ಹೊಂದುವ ಸರಿಹೊಂದింపುಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ."
+    "noAdjustmentsDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಫಿಲ್ಟರ್‌ಗಳಿಗೆ ಹೊಂದುವ ಸರಿಹೊಂದింపುಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "ಪಾವತಿ ನಡವಳಿಕೆ",
     "sectionStockRisk": "ಸ್ಟಾಕ್ ಅಪಾಯ",
     "sectionReceivables": "ಕರಾರುಗಳು",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "ಮೆಟ್ರಿಕ್"
   },
   "discounts": {

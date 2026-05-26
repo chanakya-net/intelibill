@@ -88,6 +88,97 @@ describe('BatchRowFormComponent', () => {
     expect((emitted[0] as { itemName: string }).itemName).toBe('Milk');
   });
 
+  it('starts with optional details collapsed', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    expect(component.optionalDetailsExpanded()).toBe(false);
+    expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).toBeNull();
+  });
+
+  it('blocks manual add when MRP or sales price is missing', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    const submitted: unknown[] = [];
+    component.rowSubmitted.subscribe((row) => submitted.push(row));
+
+    component.state.form.controls.itemName.setValue('Milk');
+    component.state.form.controls.barcode.setValue('B001');
+    component.state.form.controls.mrp.setValue(0);
+    component.state.form.controls.salesPrice.setValue(0);
+
+    fixture.debugElement.query(By.css('form')).triggerEventHandler('ngSubmit');
+    fixture.detectChanges();
+
+    expect(submitted).toHaveLength(0);
+    expect(component.optionalDetailsExpanded()).toBe(true);
+    expect(component.pricingGuardVisible()).toBe(true);
+    expect(component.state.form.controls.mrp.touched).toBe(true);
+    expect(component.state.form.controls.salesPrice.touched).toBe(true);
+    expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('.pricing-guard'))).not.toBeNull();
+  });
+
+  it('collapses optional details and clears pricing guard after successful add', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    const submitted: unknown[] = [];
+    component.rowSubmitted.subscribe((row) => submitted.push(row));
+
+    component.state.form.controls.itemName.setValue('Milk');
+    component.state.form.controls.barcode.setValue('B001');
+
+    fixture.debugElement.query(By.css('form')).triggerEventHandler('ngSubmit');
+    fixture.detectChanges();
+
+    expect(component.pricingGuardVisible()).toBe(true);
+    expect(component.optionalDetailsExpanded()).toBe(true);
+
+    component.state.form.controls.mrp.setValue(50);
+    component.state.form.controls.salesPrice.setValue(48);
+
+    fixture.debugElement.query(By.css('form')).triggerEventHandler('ngSubmit');
+    fixture.detectChanges();
+
+    expect(submitted).toHaveLength(1);
+    expect(component.pricingGuardVisible()).toBe(false);
+    expect(component.optionalDetailsExpanded()).toBe(false);
+    expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).toBeNull();
+  });
+
+  it('expands optional details when populating from an existing row', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    component.populateFromRow({
+      clientRowId: 'row-1',
+      itemName: 'Milk',
+      barcode: 'B001',
+      itemDescription: null,
+      uom: 'PCS',
+      batchNumber: 'BN-1',
+      quantity: 1,
+      totalPurchaseCost: 0,
+      mrp: 50,
+      salesPrice: 48,
+      taxRatePercent: 18,
+      taxIncluded: true,
+      purchaseTaxIncluded: true,
+      hsnCode: null,
+      expiryDate: null,
+      manufacturingDate: null,
+      supplierId: null,
+      referenceNumber: null,
+      notes: null,
+      performedAt: new Date().toISOString(),
+    });
+
+    fixture.detectChanges();
+
+    expect(component.optionalDetailsExpanded()).toBe(true);
+    expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).not.toBeNull();
+  });
+
   it('emits scannerRequested when the camera button is clicked', () => {
     const fixture = setup();
     const component = fixture.componentInstance;

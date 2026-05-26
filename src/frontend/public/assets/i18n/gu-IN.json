@@ -418,7 +418,12 @@
     "noItemsFound": "હજી કોઈ ઉત્પાદન ઉમેરાયું નથી",
     "noItemsDescription": "આ દુકાનમાં તમારું પ્રથમ ઉત્પાદન બનાવવા નવું ઉત્પાદન ઉમેરો વાપરો.",
     "noAdjustments": "કોઈ સમાયોજન મળ્યા નથી",
-    "noAdjustmentsDescription": "તમારા વર્તમાન ફિલ્ટર્સ સાથે મેળ ખાતા સમાયોજનો અહીં દેખાશે."
+    "noAdjustmentsDescription": "તમારા વર્તમાન ફિલ્ટર્સ સાથે મેળ ખાતા સમાયોજનો અહીં દેખાશે.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "ચુકવણી વર્તન",
     "sectionStockRisk": "સ્ટોક જોખમ",
     "sectionReceivables": "પ્રાપ્ય",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "મેટ્રિક"
   },
   "discounts": {

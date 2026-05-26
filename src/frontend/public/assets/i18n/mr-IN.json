@@ -418,7 +418,12 @@
     "noItemsFound": "अजून कोणतीही उत्पादने जोडलेली नाहीत",
     "noItemsDescription": "या दुकानात तुमचे पहिले उत्पादन तयार करण्यासाठी नवीन उत्पादन जोडा वापरा.",
     "noAdjustments": "कोणतेही समायोजन आढळले नाही",
-    "noAdjustmentsDescription": "तुमच्या सध्याच्या फिल्टरशी जुळणारी समायोजने येथे दिसतील."
+    "noAdjustmentsDescription": "तुमच्या सध्याच्या फिल्टरशी जुळणारी समायोजने येथे दिसतील.",
+    "optionalDetailsHeading": "Optional details",
+    "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
+    "optionalDetailsExpandLabel": "Expand optional details",
+    "optionalDetailsCollapseLabel": "Collapse optional details",
+    "pricingGuard": "Add MRP and Sales Price before adding this row."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -963,11 +968,6 @@
     "sectionPaymentBehavior": "पेमेंट वर्तन",
     "sectionStockRisk": "स्टॉक जोखीम",
     "sectionReceivables": "प्राप्य",
-    "chartTypeBar": "Column Bar",
-    "chartTypeStackedBar": "Column Bar Stacked",
-    "chartTypeLine": "Line",
-    "chartTypePie": "Pie",
-    "chartTypeDoughnut": "Donut",
     "metricLabel": "मेट्रिक"
   },
   "discounts": {
