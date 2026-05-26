@@ -132,10 +132,10 @@ export class InventoryBatchPageComponent {
       return;
     }
 
-    const row = await this.rowFormState.prepareScannedRow(barcode);
-    if (row) {
-      await this.persistDraftRow(row);
-      this.flashRow(row.clientRowId);
+    const scanResult = await this.rowFormState.prepareScannedRow(barcode);
+    if (scanResult.status === 'added') {
+      await this.persistDraftRow(scanResult.row);
+      this.flashRow(scanResult.row.clientRowId);
       this.scannerLastAction.set('inventory.scannerActionAdded');
       this.showScannerToast('inventory.scannerAdded', barcode, 1);
       void this.audioService.beep();
@@ -144,7 +144,9 @@ export class InventoryBatchPageComponent {
 
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
-    this.batchRowForm.showPricingReviewRequired();
+    if (scanResult.status === 'missingPricing') {
+      this.batchRowForm.showPricingReviewRequired();
+    }
     this.isScannerOpen.set(false);
   }
 

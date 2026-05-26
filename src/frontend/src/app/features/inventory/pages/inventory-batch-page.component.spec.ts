@@ -367,6 +367,7 @@ describe('InventoryBatchPageComponent', () => {
       barcode,
     );
     expect(component.pendingRows()).toHaveLength(0);
+    expect(component.batchRowForm.pricingGuardVisible()).toBe(false);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
     expect(addSpy).toHaveBeenCalledTimes(1);
@@ -398,6 +399,7 @@ describe('InventoryBatchPageComponent', () => {
       barcode,
     );
     expect(component.pendingRows()).toHaveLength(0);
+    expect(component.batchRowForm.pricingGuardVisible()).toBe(false);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
     expect(addSpy).toHaveBeenCalledTimes(1);
