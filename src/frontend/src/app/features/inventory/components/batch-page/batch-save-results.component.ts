@@ -70,14 +70,6 @@ export class BatchSaveResultsComponent {
     return colors[Math.abs(hash) % colors.length];
   }
 
-  getSupplierDisplayName(supplierId: string | null): string {
-    if (!supplierId) {
-      return '-';
-    }
-
-    return this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId;
-  }
-
   pendingRows(): InventoryInboundDraftRow[] {
     return [...this.draftState.pendingRows()];
   }

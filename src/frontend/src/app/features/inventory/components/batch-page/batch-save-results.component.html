@@ -87,9 +87,6 @@
       <ng-template pTemplate="header">
         <tr>
           <th>{{ 'inventory.name' | transloco }}</th>
-          <th>{{ 'inventory.barcode' | transloco }}</th>
-          <th>{{ 'inventory.batchNumber' | transloco }}</th>
-          <th>{{ 'inventory.supplier' | transloco }}</th>
           <th>{{ 'inventory.quantity' | transloco }}</th>
           <th>{{ 'inventory.salesPrice' | transloco }}</th>
           <th>{{ 'inventory.actions' | transloco }}</th>
@@ -103,9 +100,6 @@
               <small class="row-error-text">{{ rowErrorText }}</small>
             }
           </td>
-          <td>{{ row.barcode }}</td>
-          <td>{{ row.batchNumber }}</td>
-          <td>{{ getSupplierDisplayName(row.supplierId) }}</td>
           <td>{{ row.quantity }}</td>
           <td>{{ row.salesPrice }}</td>
           <td>
@@ -135,7 +129,7 @@
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="7">
+          <td colspan="4">
             <div class="empty-state">
               <h3>{{ 'inventory.noPendingRows' | transloco }}</h3>
               <p>{{ 'inventory.noPendingRowsDescription' | transloco }}</p>

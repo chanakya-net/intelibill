@@ -388,7 +388,7 @@
     "edit": "संपादित करें",
     "remove": "हटाएं",
     "noPendingRows": "कोई लंबित पंक्ति नहीं",
-    "noPendingRowsDescription": "पंक्तियाँ जोड़ने के लिए ऊपर दिए फॉर्म का उपयोग करें।",
+    "noPendingRowsDescription": "Add the first product above.",
     "savedSuccess": "पंक्तियाँ सफलतापूर्वक सहेजी गईं।",
     "savedPartial": "कुछ पंक्तियाँ सहेजी गईं। विफल पंक्तियाँ ठीक करें और पुनः प्रयास करें।",
     "saveFailed": "अभी पंक्तियाँ सहेजी नहीं जा सकतीं। कृपया फिर प्रयास करें।",
