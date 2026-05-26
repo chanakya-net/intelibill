@@ -300,7 +300,6 @@ export class BatchRowFormStateService {
       return this.buildDraftRow();
     }
 
-    this.form.markAllAsTouched();
     return null;
   }
 

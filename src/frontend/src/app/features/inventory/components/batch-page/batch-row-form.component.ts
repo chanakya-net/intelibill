@@ -73,16 +73,20 @@ export class BatchRowFormComponent {
     this.pricingGuardVisible.set(false);
   }
 
+  showPricingReviewRequired(): void {
+    this.expandOptionalDetails();
+    this.form.controls.mrp.markAsTouched();
+    this.form.controls.salesPrice.markAsTouched();
+    this.showPricingGuard();
+  }
+
   submit(): void {
     this.tryAddRow();
   }
 
   tryAddRow(): boolean {
     if (this.hasMissingRequiredPricing()) {
-      this.expandOptionalDetails();
-      this.form.controls.mrp.markAsTouched();
-      this.form.controls.salesPrice.markAsTouched();
-      this.showPricingGuard();
+      this.showPricingReviewRequired();
       return false;
     }
 
@@ -115,6 +119,7 @@ export class BatchRowFormComponent {
   async handleBarcode(barcode: string): Promise<'added' | 'review'> {
     const row = await this.state.prepareScannedRow(barcode);
     if (!row) {
+      this.showPricingReviewRequired();
       return 'review';
     }
 

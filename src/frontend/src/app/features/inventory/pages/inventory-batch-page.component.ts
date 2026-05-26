@@ -144,6 +144,7 @@ export class InventoryBatchPageComponent {
 
     this.scannerLastAction.set('inventory.scannerActionReview');
     this.showWarn('inventory.scannerNeedsReview');
+    this.batchRowForm.showPricingReviewRequired();
     this.isScannerOpen.set(false);
   }
 

@@ -255,7 +255,7 @@ describe('InventoryBatchPageComponent', () => {
     );
   });
 
-  it('stops scanner and waits for manual input when only name and barcode are available', async () => {
+  it('populates form, closes scanner, and shows pricing review guard when scanned product is missing pricing', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
     const barcode = createQrLikeBarcode();
@@ -276,6 +276,10 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.pendingRows()).toHaveLength(0);
     expect(component.batchRowForm.form.controls.itemName.value).toBe(productDetails.name);
     expect(component.batchRowForm.form.controls.barcode.value).toBe(barcode);
+    expect(component.batchRowForm.optionalDetailsExpanded()).toBe(true);
+    expect(component.batchRowForm.pricingGuardVisible()).toBe(true);
+    expect(component.batchRowForm.form.controls.mrp.touched).toBe(true);
+    expect(component.batchRowForm.form.controls.salesPrice.touched).toBe(true);
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
   });
