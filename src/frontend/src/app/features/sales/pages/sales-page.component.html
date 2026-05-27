@@ -5,7 +5,11 @@
       <h1>{{ 'sales.history.title' | transloco }}</h1>
       <p class="subtitle">{{ 'sales.history.subtitle' | transloco }}</p>
     </div>
-    <app-sales-export-toolbar />
+    <app-sales-export-toolbar
+      [startDate]="fromDate()"
+      [endDate]="toDate()"
+      [level]="reportLevel()"
+    />
   </header>
 
   @if (serverError()) {
@@ -221,7 +225,6 @@
                   [label]="'sales.history.actions.viewReceipt' | transloco"
                   icon="pi pi-arrow-right"
                   iconPos="right"
-                  link="true"
                   (click)="onViewSale(sale)"
                 ></button>
               </td>

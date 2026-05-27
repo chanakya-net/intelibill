@@ -3,17 +3,16 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { HttpResponse } from '@angular/common/http';
+import { of } from 'rxjs';
 
 import type { SaleHistoryStatus, SaleListItemDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sync.service';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
-import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';
+import { SalesExportService } from '../services/sales-export.service';
 import { SalesPageComponent } from './sales-page.component';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
-
-@Component({ selector: 'app-sales-export-toolbar', standalone: true, template: '' })
-class SalesExportToolbarStubComponent {}
 
 @Component({ selector: 'app-sale-detail-overlay', standalone: true, template: '' })
 class SaleDetailOverlayStubComponent {
@@ -37,6 +36,12 @@ describe('SalesPageComponent', () => {
     loadSales: vi.fn(),
     loadSaleDetail: vi.fn(),
     clearSaleDetail: vi.fn(),
+  };
+
+  const salesExportService = {
+    exportSales: vi.fn(),
+    extractFilename: vi.fn(),
+    triggerDownload: vi.fn(),
   };
 
   const offlineCountsSignal = signal({
@@ -83,6 +88,10 @@ describe('SalesPageComponent', () => {
     salesFacade.loadSales.mockReset();
     salesFacade.loadSaleDetail.mockReset();
     salesFacade.clearSaleDetail.mockReset();
+    salesExportService.exportSales.mockReset();
+    salesExportService.extractFilename.mockReset();
+    salesExportService.triggerDownload.mockReset();
+    salesExportService.extractFilename.mockReturnValue('sales-export.xlsx');
     offlineSalesQueueSync.cleanupSyncedRecords.mockClear();
     offlineSalesQueueSync.refreshActiveStatusCounts.mockClear();
     offlineSalesQueueSync.retryActiveShop.mockClear();
@@ -92,15 +101,16 @@ describe('SalesPageComponent', () => {
       providers: [
         { provide: SalesFacade, useValue: salesFacade },
         { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
+        { provide: SalesExportService, useValue: salesExportService },
       ],
     });
 
     TestBed.overrideComponent(SalesPageComponent, {
       remove: {
-        imports: [SalesExportToolbarComponent, SaleDetailOverlayComponent],
+        imports: [SaleDetailOverlayComponent],
       },
       add: {
-        imports: [SalesExportToolbarStubComponent, SaleDetailOverlayStubComponent],
+        imports: [SaleDetailOverlayStubComponent],
       },
     });
   });
@@ -163,6 +173,33 @@ describe('SalesPageComponent', () => {
     expect(salesFacade.loadSales.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'paid', page: 1 });
   });
 
+  it('exports the current report level and date range', () => {
+    const response = new HttpResponse({ status: 200, body: new Blob(['sales']) });
+    salesExportService.exportSales.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(SalesPageComponent);
+    const component = fixture.componentInstance;
+
+    const fromDate = new Date(2026, 4, 1);
+    const toDate = new Date(2026, 4, 13);
+    component.fromDate.set(fromDate);
+    component.toDate.set(toDate);
+    component.reportLevel.set('lineItems');
+    fixture.detectChanges();
+
+    const exportButton = fixture.nativeElement.querySelector('button[data-export-format="pdf"]') as HTMLButtonElement;
+    exportButton.click();
+    fixture.detectChanges();
+
+    expect(salesExportService.exportSales).toHaveBeenCalledWith({
+      format: 'pdf',
+      level: 'lineItems',
+      startDate: formatLocalIsoDate(fromDate),
+      endDate: formatLocalIsoDate(toDate),
+    });
+    expect(salesExportService.triggerDownload).toHaveBeenCalledWith(response.body!, 'sales-export.xlsx');
+  });
+
   it('clearFilters resets controls to defaults', () => {
     const fixture = TestBed.createComponent(SalesPageComponent);
     const component = fixture.componentInstance;
@@ -210,6 +247,7 @@ describe('SalesPageComponent', () => {
 
     const receiptButton = fixture.debugElement.query(By.css('.receipt-btn'));
     expect(receiptButton).toBeTruthy();
+    expect(receiptButton.nativeElement.tagName).toBe('BUTTON');
 
     receiptButton.triggerEventHandler('click');
     fixture.detectChanges();

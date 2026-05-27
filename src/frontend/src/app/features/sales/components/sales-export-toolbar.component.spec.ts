@@ -1,7 +1,6 @@
 import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Subject, of, throwError } from 'rxjs';
@@ -9,6 +8,7 @@ import { vi } from 'vitest';
 
 import { SalesExportService } from '../services/sales-export.service';
 import { SalesExportToolbarComponent } from './sales-export-toolbar.component';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
@@ -55,58 +55,60 @@ describe('SalesExportToolbarComponent', () => {
 
     expect(component.startDate().toDateString()).toBe(expectedStart.toDateString());
     expect(component.endDate().toDateString()).toBe(today.toDateString());
-    expect(component.exportLevel()).toBe('summary');
+    expect(component.level()).toBe('summary');
   });
 
-  it('updates export params from template ngModel bindings', async () => {
+  it('accepts controlled date and level inputs', async () => {
     const startDate = new Date('2026-05-01T12:00:00.000Z');
     const endDate = new Date('2026-05-13T12:00:00.000Z');
 
     const fixture = TestBed.createComponent(SalesExportToolbarComponent);
-    fixture.detectChanges();
-
-    const datePickers = fixture.debugElement.queryAll(By.css('p-datepicker'));
-    const levelSelect = fixture.debugElement.query(By.css('p-select'));
-
-    datePickers[0].triggerEventHandler('ngModelChange', startDate);
-    datePickers[1].triggerEventHandler('ngModelChange', endDate);
-    levelSelect.triggerEventHandler('ngModelChange', 'lineItems');
-
+    fixture.componentRef.setInput('startDate', startDate);
+    fixture.componentRef.setInput('endDate', endDate);
+    fixture.componentRef.setInput('level', 'lineItems');
     fixture.detectChanges();
 
     expect(fixture.componentInstance.startDate().toISOString()).toBe(startDate.toISOString());
     expect(fixture.componentInstance.endDate().toISOString()).toBe(endDate.toISOString());
-    expect(fixture.componentInstance.exportLevel()).toBe('lineItems');
+    expect(fixture.componentInstance.level()).toBe('lineItems');
   });
 
-  it('exports the selected level with requested format', () => {
+  it('exports the controlled values with requested format', () => {
     const response = new HttpResponse({ status: 200, body: new Blob(['sales']) });
     salesExportService.exportSales.mockReturnValue(of(response));
 
     const fixture = TestBed.createComponent(SalesExportToolbarComponent);
-    const component = fixture.componentInstance;
-    fixture.detectChanges();
-
     const startDate = new Date('2026-05-01T12:00:00.000Z');
     const endDate = new Date('2026-05-13T12:00:00.000Z');
-
-    const datePickers = fixture.debugElement.queryAll(By.css('p-datepicker'));
-    const levelSelect = fixture.debugElement.query(By.css('p-select'));
-
-    datePickers[0].triggerEventHandler('ngModelChange', startDate);
-    datePickers[1].triggerEventHandler('ngModelChange', endDate);
-    levelSelect.triggerEventHandler('ngModelChange', 'lineItems');
+    fixture.componentRef.setInput('startDate', startDate);
+    fixture.componentRef.setInput('endDate', endDate);
+    fixture.componentRef.setInput('level', 'lineItems');
     fixture.detectChanges();
 
-    component.exportToPdf();
+    fixture.componentInstance.exportToPdf();
 
     expect(salesExportService.exportSales).toHaveBeenCalledWith({
       format: 'pdf',
       level: 'lineItems',
-      startDate: '2026-05-01',
-      endDate: '2026-05-13',
+      startDate: formatLocalIsoDate(startDate),
+      endDate: formatLocalIsoDate(endDate),
     });
     expect(salesExportService.triggerDownload).toHaveBeenCalledWith(response.body!, 'sales-export.xlsx');
+  });
+
+  it('rejects invalid date ranges before exporting', () => {
+    const fixture = TestBed.createComponent(SalesExportToolbarComponent);
+    const transloco = TestBed.inject(TranslocoService);
+    fixture.componentRef.setInput('startDate', new Date('2026-05-13T12:00:00.000Z'));
+    fixture.componentRef.setInput('endDate', new Date('2026-05-01T12:00:00.000Z'));
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('button[data-export-format="xlsx"]') as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+
+    expect(salesExportService.exportSales).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.exportError()).toBe(transloco.translate('sales.export.validation.invalidDateRange'));
   });
 
   it('disables export controls while export is in progress', () => {

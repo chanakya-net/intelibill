@@ -2,49 +2,6 @@
   <h2 class="toolbar-heading">{{ 'sales.export.title' | transloco }}</h2>
 
   <div class="export-controls">
-    <div class="date-range-group">
-      <label class="label">{{ 'sales.export.dateRange' | transloco }}</label>
-      <p-datepicker
-        ngSkipHydration
-        [ngModel]="startDate()"
-        (ngModelChange)="startDate.set($event)"
-        [showIcon]="true"
-        dateFormat="dd/mm/yy"
-        [placeholder]="'sales.export.startDate' | transloco"
-        [disabled]="isExporting()"
-      />
-      <span class="text-slate-400">—</span>
-      <p-datepicker
-        ngSkipHydration
-        [ngModel]="endDate()"
-        (ngModelChange)="endDate.set($event)"
-        [showIcon]="true"
-        dateFormat="dd/mm/yy"
-        [placeholder]="'sales.export.endDate' | transloco"
-        [disabled]="isExporting()"
-      />
-    </div>
-
-    <div class="level-group">
-      <label class="label">{{ 'sales.export.level.label' | transloco }}</label>
-      <p-select
-        [ngModel]="exportLevel()"
-        (ngModelChange)="exportLevel.set($event)"
-        [options]="exportLevelOptions"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="w-40"
-        [disabled]="isExporting()"
-      >
-        <ng-template pTemplate="selectedItem" let-option>
-          {{ option.label | transloco }}
-        </ng-template>
-        <ng-template pTemplate="item" let-option>
-          {{ option.label | transloco }}
-        </ng-template>
-      </p-select>
-    </div>
-
     <div class="format-buttons">
       <button
         pButton
