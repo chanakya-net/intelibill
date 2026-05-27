@@ -10,7 +10,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Items.Queries.GetItems;
 public class GetItemsQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
+    private readonly IItemCatalogRepository _itemCatalogRepository = Substitute.For<IItemCatalogRepository>();
 
     [Fact]
     public async Task HandleAsync_WhenCallerNotInActiveShop_ReturnsForbidden()
@@ -18,7 +18,7 @@ public class GetItemsQueryHandlerTests
         var caller = User.CreateWithEmail("member@test.com", "hash", "Member", "One");
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
 
-        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository);
+        var handler = new GetItemsQueryHandler(_userRepository, _itemCatalogRepository);
         var result = await handler.HandleAsync(new GetItemsQuery(caller.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -84,10 +84,10 @@ public class GetItemsQueryHandlerTests
                 TotalStockValue: 1050m));
 
         ItemCatalogFilter? capturedFilter = null;
-        _itemRepository.GetCatalogAsync(Arg.Do<ItemCatalogFilter>(filter => capturedFilter = filter), Arg.Any<CancellationToken>())
+        _itemCatalogRepository.GetCatalogAsync(Arg.Do<ItemCatalogFilter>(filter => capturedFilter = filter), Arg.Any<CancellationToken>())
             .Returns(catalog);
 
-        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository);
+        var handler = new GetItemsQueryHandler(_userRepository, _itemCatalogRepository);
         var result = await handler.HandleAsync(
             new GetItemsQuery(manager.Id, shop.Id, Search: "rice", Status: "active", PageNumber: 0, PageSize: 250),
             CancellationToken.None);

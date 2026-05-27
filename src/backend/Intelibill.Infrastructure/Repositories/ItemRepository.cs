@@ -1,12 +1,13 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class ItemRepository(ApplicationDbContext context)
-    : RepositoryBase<Item>(context), IItemRepository
+    : RepositoryBase<Item>(context), IItemRepository, IItemCatalogRepository
 {
     private readonly ApplicationDbContext _context = context;
 
@@ -57,21 +58,45 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         ItemCatalogFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var items = await _context.Items
-            .AsNoTracking()
-            .Where(i => i.ShopId == filter.ShopId)
+        var normalizedSearch = filter.Search?.Trim();
+        var normalizedStatus = filter.Status?.Trim().ToLowerInvariant();
+
+        var catalogQuery = ApplyStatusFilter(
+            ApplySearchFilter(_context.Items.AsNoTracking().Where(i => i.ShopId == filter.ShopId), normalizedSearch),
+            normalizedStatus);
+
+        var totalCount = await catalogQuery.CountAsync(cancellationToken);
+
+        var pagedItems = await catalogQuery
             .OrderBy(i => i.Name)
             .ThenBy(i => i.Barcode)
+            .Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize)
             .ToListAsync(cancellationToken);
 
-        var inventories = await _context.Inventory
+        var itemIds = pagedItems.Select(item => item.Id).ToList();
+        if (itemIds.Count == 0)
+        {
+            return new ItemCatalogResultReadModel(
+                [],
+                totalCount,
+                new ItemCatalogSummaryReadModel(
+                    TotalItems: 0,
+                    ActiveItems: 0,
+                    InactiveItems: 0,
+                    RunningLowStockCount: 0,
+                    CriticalStockCount: 0,
+                    TotalStockValue: 0m));
+        }
+
+        var inventoryLookup = await _context.Inventory
             .AsNoTracking()
-            .Where(i => i.ShopId == filter.ShopId)
-            .ToListAsync(cancellationToken);
+            .Where(i => itemIds.Contains(i.ItemId))
+            .ToDictionaryAsync(i => i.ItemId, i => i, cancellationToken);
 
         var latestBatchPrices = await _context.InventoryBatches
             .AsNoTracking()
-            .Where(b => b.ShopId == filter.ShopId && !b.IsVoided)
+            .Where(b => !b.IsVoided && itemIds.Contains(b.ItemId))
             .OrderByDescending(b => b.CreatedAt)
             .ThenByDescending(b => b.Id)
             .Select(b => new
@@ -81,20 +106,17 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             })
             .ToListAsync(cancellationToken);
 
-        var inventoryLookup = inventories.ToDictionary(i => i.ItemId);
         var unitPriceLookup = latestBatchPrices
             .GroupBy(b => b.ItemId)
             .ToDictionary(g => g.Key, g => g.First().SalesPrice);
 
-        var catalog = items
+        var catalog = pagedItems
             .Select(item =>
             {
                 var currentStock = inventoryLookup.TryGetValue(item.Id, out var inventory)
                     ? inventory.Quantity
                     : 0m;
-                var reorderLevel = inventoryLookup.TryGetValue(item.Id, out var inventoryDetails)
-                    ? inventoryDetails.ReorderLevel
-                    : 0m;
+                var reorderLevel = inventory?.ReorderLevel ?? 0m;
                 var unitPrice = unitPriceLookup.GetValueOrDefault(item.Id, 0m);
                 var stockStatus = DeriveStockStatus(currentStock, reorderLevel);
 
@@ -114,64 +136,60 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     item.DefaultTaxRatePercent,
                     item.DefaultTaxIncluded);
             })
-            .Where(item => MatchesSearch(item, filter.Search))
-            .Where(item => MatchesStatus(item, filter.Status))
             .ToList();
 
-        var totalCount = catalog.Count;
-        var pagedItems = catalog
-            .Skip((filter.PageNumber - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToList();
+        var totalStockValue = 0m;
+        var runningLowStockCount = 0;
+        var criticalStockCount = 0;
+
+        foreach (var item in catalog)
+        {
+            totalStockValue += item.CurrentStockValue;
+
+            if (item.StockStatus == StockStatusRunningLow)
+                runningLowStockCount++;
+            else if (item.StockStatus == StockStatusCritical)
+                criticalStockCount++;
+        }
 
         var summary = new ItemCatalogSummaryReadModel(
-            TotalItems: items.Count,
-            ActiveItems: items.Count(item => item.IsActive),
-            InactiveItems: items.Count(item => !item.IsActive),
-            RunningLowStockCount: items.Count(item => DeriveStockStatus(
-                inventoryLookup.TryGetValue(item.Id, out var inventory) ? inventory.Quantity : 0m,
-                inventoryLookup.TryGetValue(item.Id, out var inventoryDetails) ? inventoryDetails.ReorderLevel : 0m) == StockStatusRunningLow),
-            CriticalStockCount: items.Count(item => DeriveStockStatus(
-                inventoryLookup.TryGetValue(item.Id, out var inventory) ? inventory.Quantity : 0m,
-                inventoryLookup.TryGetValue(item.Id, out var inventoryDetails) ? inventoryDetails.ReorderLevel : 0m) == StockStatusCritical),
-            TotalStockValue: items.Sum(item =>
-            {
-                var currentStock = inventoryLookup.TryGetValue(item.Id, out var inventory) ? inventory.Quantity : 0m;
-                var unitPrice = unitPriceLookup.GetValueOrDefault(item.Id, 0m);
-                return currentStock * unitPrice;
-            }));
+            TotalItems: catalog.Count,
+            ActiveItems: catalog.Count(item => item.IsActive),
+            InactiveItems: catalog.Count(item => !item.IsActive),
+            RunningLowStockCount: runningLowStockCount,
+            CriticalStockCount: criticalStockCount,
+            TotalStockValue: totalStockValue);
 
-        return new ItemCatalogResultReadModel(pagedItems, totalCount, summary);
+        return new ItemCatalogResultReadModel(catalog, totalCount, summary);
     }
 
-    private static bool MatchesSearch(ItemCatalogReadModel item, string? search)
+    private static IQueryable<Item> ApplySearchFilter(IQueryable<Item> query, string? search)
     {
         if (string.IsNullOrWhiteSpace(search))
-            return true;
+            return query;
 
-        var term = search.Trim();
-        return Contains(item.Name, term)
-            || Contains(item.Barcode, term)
-            || Contains(item.Description, term)
-            || Contains(item.Uom, term)
-            || Contains(item.HsnCode, term);
+        var pattern = $"%{search.ToLowerInvariant()}%";
+
+        return query.Where(i =>
+            EF.Functions.ILike(i.Name, pattern)
+            || EF.Functions.ILike(i.Barcode, pattern)
+            || (i.Description != null && EF.Functions.ILike(i.Description, pattern))
+            || (i.Uom != null && EF.Functions.ILike(i.Uom, pattern))
+            || (i.HsnCode != null && EF.Functions.ILike(i.HsnCode, pattern)));
     }
 
-    private static bool MatchesStatus(ItemCatalogReadModel item, string? status)
+    private static IQueryable<Item> ApplyStatusFilter(IQueryable<Item> query, string? status)
     {
-        if (string.IsNullOrWhiteSpace(status) || status.Equals("all", StringComparison.OrdinalIgnoreCase))
-            return true;
+        if (string.IsNullOrWhiteSpace(status) || status == "all")
+            return query;
 
-        return status.Trim().ToLowerInvariant() switch
+        return status switch
         {
-            "active" => item.IsActive,
-            "inactive" => !item.IsActive,
-            _ => true,
+            "active" => query.Where(i => i.IsActive),
+            "inactive" => query.Where(i => !i.IsActive),
+            _ => query.Where(_ => false),
         };
     }
-
-    private static bool Contains(string? value, string term) =>
-        !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 
     private const string StockStatusRunningLow = "runningLow";
     private const string StockStatusCritical = "critical";

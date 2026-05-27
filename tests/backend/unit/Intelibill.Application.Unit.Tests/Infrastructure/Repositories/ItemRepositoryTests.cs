@@ -1,12 +1,12 @@
 using System.Reflection;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 
-namespace Intelibill.Api.Unit.Tests.Infrastructure.Repositories;
+namespace Intelibill.Application.Unit.Tests.Infrastructure.Repositories;
 
 public sealed class ItemRepositoryTests
 {
@@ -63,6 +63,27 @@ public sealed class ItemRepositoryTests
         Assert.Equal(65m, catalogItem.UnitPrice);
         Assert.Equal(455m, catalogItem.CurrentStockValue);
         Assert.Equal(455m, result.Summary.TotalStockValue);
+    }
+
+    [Fact]
+    public async Task GetCatalogAsync_WhenStatusFilterIsUnknown_ReturnsNoItems()
+    {
+        await using var context = await CreateContextAsync();
+
+        var actorId = Guid.NewGuid();
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        var item = Item.Create(shop.Id, "Milk", null, "ltr", "B001", true, actorId);
+
+        await context.AddRangeAsync(shop, item);
+        await context.SaveChangesAsync();
+
+        var repository = new ItemRepository(context);
+        var result = await repository.GetCatalogAsync(new ItemCatalogFilter(shop.Id, null, "disabled", 1, 20));
+
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+        Assert.Equal(0, result.Summary.TotalItems);
+        Assert.Equal(0m, result.Summary.TotalStockValue);
     }
 
     private static async Task<ApplicationDbContext> CreateContextAsync()

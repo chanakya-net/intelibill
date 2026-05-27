@@ -7,7 +7,7 @@ namespace Intelibill.Application.Features.Items.Queries.GetItems;
 
 public sealed class GetItemsQueryHandler(
     IUserRepository userRepository,
-    IItemRepository itemRepository)
+    IItemCatalogRepository itemCatalogRepository)
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -25,7 +25,7 @@ public sealed class GetItemsQueryHandler(
         var pageNumber = query.PageNumber <= 0 ? 1 : query.PageNumber;
         var pageSize = query.PageSize <= 0 ? DefaultPageSize : Math.Min(query.PageSize, MaxPageSize);
 
-        var result = await itemRepository.GetCatalogAsync(
+        var result = await itemCatalogRepository.GetCatalogAsync(
             new ItemCatalogFilter(query.ActiveShopId, query.Search, query.Status, pageNumber, pageSize),
             cancellationToken);
 

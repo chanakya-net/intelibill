@@ -1,5 +1,6 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -75,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerLedgerEntryRepository, CustomerLedgerEntryRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IItemRepository, ItemRepository>();
+        services.AddScoped<IItemCatalogRepository, ItemRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IInventoryBatchRepository, InventoryBatchRepository>();
         services.AddScoped<IInventoryAdjustmentRepository, InventoryAdjustmentRepository>();
