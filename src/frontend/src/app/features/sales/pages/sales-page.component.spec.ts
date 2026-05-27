@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
@@ -97,7 +97,28 @@ describe('SalesPageComponent', () => {
     offlineSalesQueueSync.retryActiveShop.mockClear();
 
     TestBed.configureTestingModule({
-      imports: [SalesPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        SalesPageComponent,
+        TranslocoTestingModule.forRoot({
+          preloadLangs: true,
+          translocoConfig: {
+            availableLangs: ['en-IN'],
+            defaultLang: 'en-IN',
+            reRenderOnLangChange: true,
+          },
+          langs: {
+            'en-IN': {
+              sales: {
+                history: {
+                  actions: {
+                    viewReceipt: 'View Receipt',
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ],
       providers: [
         { provide: SalesFacade, useValue: salesFacade },
         { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
@@ -219,6 +240,9 @@ describe('SalesPageComponent', () => {
   });
 
   it('opens sale detail overlay from View Receipt action', () => {
+    const transloco = TestBed.inject(TranslocoService);
+    transloco.setActiveLang('en-IN');
+
     const fixture = TestBed.createComponent(SalesPageComponent);
     const component = fixture.componentInstance;
 
@@ -248,6 +272,9 @@ describe('SalesPageComponent', () => {
     const receiptButton = fixture.debugElement.query(By.css('.receipt-btn'));
     expect(receiptButton).toBeTruthy();
     expect(receiptButton.nativeElement.tagName).toBe('BUTTON');
+    expect(receiptButton.nativeElement.textContent).toContain('View Receipt');
+    expect(receiptButton.nativeElement.textContent).not.toContain('→');
+    expect(receiptButton.nativeElement.querySelector('.pi-arrow-right')).toBeTruthy();
 
     receiptButton.triggerEventHandler('click');
     fixture.detectChanges();
