@@ -16,7 +16,23 @@ if (runIndex !== -1) {
   const forwardedArgs = args.filter((_, index) => index !== runIndex && index !== runIndex + 1);
   commandArgs = ['test', '--include', includePath, '--watch=false', ...forwardedArgs];
 } else {
-  commandArgs = ['test', ...args];
+  const firstArg = args[0];
+  const looksLikeIncludePattern =
+    args.length === 1 &&
+    typeof firstArg === 'string' &&
+    firstArg.length > 0 &&
+    !firstArg.startsWith('-') &&
+    firstArg !== 'INVENTORY';
+
+  if (looksLikeIncludePattern) {
+    const includePath =
+      firstArg.includes('/') || firstArg.includes('*')
+        ? firstArg
+        : `**/*${firstArg}*.spec.ts`;
+    commandArgs = ['test', '--include', includePath, '--watch=false'];
+  } else {
+    commandArgs = ['test', ...args];
+  }
 }
 
 const result = spawnSync('ng', commandArgs, {

@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
 import { TagModule } from 'primeng/tag';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
@@ -12,13 +11,17 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
+import { DatePickerModule } from 'primeng/datepicker';
+import { SelectModule } from 'primeng/select';
 
 import type { SaleListItemDto } from '../services/sale.models';
+import type { SaleHistoryStatus, SalesHistoryQueryParams } from '../services/sale.models';
+import { getPaymentMethodLabel, getPaymentMethodSeverity } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';
-import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sync.service';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-sales-page',
@@ -27,7 +30,6 @@ import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sy
     CommonModule,
     FormsModule,
     ButtonModule,
-    CardModule,
     TagModule,
     IconFieldModule,
     InputIconModule,
@@ -35,9 +37,10 @@ import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sy
     TableModule,
     DialogModule,
     SkeletonModule,
+    DatePickerModule,
+    SelectModule,
     SaleDetailOverlayComponent,
     SalesExportToolbarComponent,
-    TableFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './sales-page.component.html',
@@ -48,51 +51,138 @@ export class SalesPageComponent {
   private readonly offlineSalesQueueSync = inject(OfflineSalesQueueSyncService);
 
   readonly sales = this.salesFacade.allSales;
+  readonly salesPagination = this.salesFacade.salesPagination;
+  readonly salesHistorySummary = this.salesFacade.salesHistorySummary;
   readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
   readonly hasOfflineQueueStatus = computed(() => this.offlineQueueCounts().totalVisible > 0);
   readonly isRetryingOfflineQueue = signal(false);
   readonly tableSales = computed(() => [...this.sales()]);
-  readonly searchValue = signal('');
-  readonly filteredSales = computed(() => {
-    const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.sales()];
-    return this.sales().filter(
-      (s) =>
-        s.invoiceNumber.toLowerCase().includes(q) ||
-        s.returnNumbers.some((returnNumber) => returnNumber.toLowerCase().includes(q)) ||
-        (s.customerName ?? '').toLowerCase().includes(q) ||
-        (s.customerPhone ?? '').toLowerCase().includes(q),
-    );
-  });
   readonly isLoading = this.salesFacade.loadingSales;
   readonly serverError = this.salesFacade.errorMessage;
   readonly showDetailOverlay = signal(false);
   readonly viewingSaleId = signal<string | null>(null);
 
+  readonly fromDate = signal<Date>(this.getDefaultFromDate());
+  readonly toDate = signal<Date>(this.getDefaultToDate());
+  readonly statusFilter = signal<SaleHistoryStatus | 'all'>('all');
+  readonly searchValue = signal('');
+  readonly reportLevel = signal<'summary' | 'lineItems'>('summary');
+  readonly pageNumber = signal(1);
+  readonly pageSize = signal(20);
+
+  readonly pageSizeOptions = [
+    { label: '10', value: 10 },
+    { label: '20', value: 20 },
+    { label: '50', value: 50 },
+  ];
+
+  readonly reportLevelOptions = [
+    { label: 'sales.history.reportLevel.summary', value: 'summary' as const },
+    { label: 'sales.history.reportLevel.lineItems', value: 'lineItems' as const },
+  ];
+
+  private readonly debouncedSearch = signal('');
+  private readonly lastAppliedFilterKey = signal<string>('');
+
+  readonly totalPages = computed(() => {
+    const total = this.salesPagination().totalCount;
+    const size = Math.max(1, this.pageSize());
+    return Math.max(1, Math.ceil(total / size));
+  });
+
+  readonly rangeStart = computed(() => {
+    const total = this.salesPagination().totalCount;
+    if (total === 0) return 0;
+    return (this.pageNumber() - 1) * this.pageSize() + 1;
+  });
+
+  readonly rangeEnd = computed(() => {
+    const total = this.salesPagination().totalCount;
+    if (total === 0) return 0;
+    return Math.min(total, this.pageNumber() * this.pageSize());
+  });
+
+  readonly paginationItems = computed(() => this.getPaginationItems(this.totalPages(), this.pageNumber()));
+
   constructor() {
-    this.salesFacade.loadSales();
+    effect((onCleanup) => {
+      const search = this.searchValue().trim();
+      const handle = setTimeout(() => this.debouncedSearch.set(search), 300);
+      onCleanup(() => clearTimeout(handle));
+    });
+
+    effect(() => {
+      const filterKey = this.getFilterKey();
+      if (filterKey === this.lastAppliedFilterKey()) {
+        return;
+      }
+
+      this.lastAppliedFilterKey.set(filterKey);
+      if (this.pageNumber() !== 1) {
+        this.pageNumber.set(1);
+      }
+    });
+
+    effect(() => {
+      const params = this.buildQueryParams();
+      this.salesFacade.loadSales(params);
+    });
+
     void this.offlineSalesQueueSync.cleanupSyncedRecords()
       .then(() => this.offlineSalesQueueSync.refreshActiveStatusCounts());
   }
 
   paymentMethodLabel(method: number): string {
-    switch (method) {
-      case 1: return 'Cash';
-      case 2: return 'UPI';
-      case 3: return 'Card';
-      case 4: return 'Credit';
-      default: return 'Unknown';
-    }
+    return getPaymentMethodLabel(method);
   }
 
   paymentMethodSeverity(method: number): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
-    switch (method) {
-      case 1: return 'success';
-      case 2: return 'info';
-      case 3: return 'warn';
-      case 4: return 'danger';
-      default: return 'secondary';
+    return getPaymentMethodSeverity(method);
+  }
+
+  statusLabelKey(status: SaleHistoryStatus): string {
+    switch (status) {
+      case 'paid':
+        return 'sales.history.status.paid';
+      case 'partiallyPaid':
+        return 'sales.history.status.partiallyPaid';
+      case 'refunded':
+      case 'returned':
+        return 'sales.history.status.refunded';
+      case 'unknown':
+      default:
+        return 'sales.history.status.unknown';
     }
+  }
+
+  statusSeverity(status: SaleHistoryStatus): 'success' | 'warn' | 'danger' | 'secondary' {
+    switch (status) {
+      case 'paid':
+        return 'success';
+      case 'partiallyPaid':
+        return 'warn';
+      case 'refunded':
+      case 'returned':
+        return 'danger';
+      case 'unknown':
+      default:
+        return 'secondary';
+    }
+  }
+
+  onPageChange(nextPage: number): void {
+    const clamped = Math.min(Math.max(1, nextPage), this.totalPages());
+    this.pageNumber.set(clamped);
+  }
+
+  clearFilters(): void {
+    this.fromDate.set(this.getDefaultFromDate());
+    this.toDate.set(this.getDefaultToDate());
+    this.statusFilter.set('all');
+    this.searchValue.set('');
+    this.reportLevel.set('summary');
+    this.pageNumber.set(1);
+    this.pageSize.set(20);
   }
 
   onViewSale(sale: SaleListItemDto): void {
@@ -113,5 +203,74 @@ export class SalesPageComponent {
     this.isRetryingOfflineQueue.set(true);
     void this.offlineSalesQueueSync.retryActiveShop()
       .finally(() => this.isRetryingOfflineQueue.set(false));
+  }
+
+  private buildQueryParams(): SalesHistoryQueryParams {
+    const status = this.statusFilter();
+    return {
+      from: formatLocalIsoDate(this.fromDate()),
+      to: formatLocalIsoDate(this.toDate()),
+      search: this.debouncedSearch() || undefined,
+      status: status === 'all' ? undefined : status,
+      page: this.pageNumber(),
+      pageSize: this.pageSize(),
+    };
+  }
+
+  private getFilterKey(): string {
+    const status = this.statusFilter();
+    return [
+      formatLocalIsoDate(this.fromDate()),
+      formatLocalIsoDate(this.toDate()),
+      status === 'all' ? 'all' : status,
+      this.debouncedSearch(),
+      this.pageSize(),
+    ].join('|');
+  }
+
+  private getDefaultFromDate(): Date {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  private getDefaultToDate(): Date {
+    const date = new Date();
+    date.setHours(23, 59, 59, 999);
+    return date;
+  }
+
+  private getPaginationItems(totalPages: number, currentPage: number): ReadonlyArray<number | 'ellipsis'> {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const items: Array<number | 'ellipsis'> = [];
+    const pushUnique = (value: number | 'ellipsis') => {
+      if (items.length === 0 || items[items.length - 1] !== value) {
+        items.push(value);
+      }
+    };
+
+    pushUnique(1);
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (start > 2) {
+      pushUnique('ellipsis');
+    }
+
+    for (let p = start; p <= end; p++) {
+      pushUnique(p);
+    }
+
+    if (end < totalPages - 1) {
+      pushUnique('ellipsis');
+    }
+
+    pushUnique(totalPages);
+    return items;
   }
 }
