@@ -23,10 +23,6 @@
     min-width: 14rem;
   }
 
-  > app-sales-export-toolbar {
-    flex: 0 1 auto;
-  }
-
   h1 {
     font-size: 1.5rem;
     font-weight: 800;
@@ -135,14 +131,47 @@
   }
 }
 
-.clear-filters-btn {
+.inline-export {
+  display: block;
+  flex: 0 1 auto;
+  margin-left: auto;
+  min-width: min(100%, 24rem);
+}
+
+:host ::ng-deep .inline-export .sales-export-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+:host ::ng-deep .inline-export .toolbar-heading {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+:host ::ng-deep .inline-export .export-controls {
+  flex: 0 1 auto;
+}
+
+:host ::ng-deep .inline-export .format-buttons {
+  gap: 0.45rem;
 }
 
 .filters-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #f1f5f9;
@@ -176,7 +205,28 @@
 }
 
 .search-field {
-  width: min(35rem, 100%);
+  display: block;
+  flex: 1 1 44rem;
+  max-width: 46rem;
+  min-width: 24rem;
+}
+
+:host ::ng-deep .search-field input {
+  width: 100%;
+}
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex: 1 1 46rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.clear-filters-btn {
+  flex: 0 0 auto;
 }
 
 .table-wrap {
@@ -196,6 +246,10 @@
 :host ::ng-deep .ledger-table .p-datatable-tbody > tr > td {
   border-color: #f1f5f9;
   vertical-align: top;
+}
+
+:host ::ng-deep .ledger-table .col-amount {
+  text-align: right;
 }
 
 .invoice-cell {
@@ -255,6 +309,8 @@
 
 .receipt-btn {
   font-weight: 900;
+  min-height: 2.5rem;
+  padding-block: 0.45rem;
 }
 
 .empty-cell {
@@ -357,13 +413,6 @@
 }
 
 @media (min-width: 1024px) {
-  .sales-ledger-header {
-    > app-sales-export-toolbar {
-      width: auto;
-      min-width: 520px;
-    }
-  }
-
   .kpi-row {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -382,6 +431,10 @@
     min-width: 100%;
   }
 
+  .inline-export {
+    flex-basis: 100%;
+  }
+
   .clear-filters-btn {
     width: 100%;
     margin-left: 0;
@@ -390,6 +443,16 @@
   .filters-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .search-actions {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 100%;
+  }
+
+  .search-field {
+    min-width: 100%;
   }
 
   .segmented {
