@@ -103,22 +103,42 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.Trim();
+            var amountMatch = decimal.TryParse(term, out var parsedAmount);
             query = query.Where(s =>
                 EF.Functions.ILike(s.InvoiceNumber, $"%{term}%")
                 || EF.Functions.ILike(s.CustomerName!, $"%{term}%")
-                || EF.Functions.ILike(s.CustomerPhone!, $"%{term}%"));
+                || EF.Functions.ILike(s.CustomerPhone!, $"%{term}%")
+                || _context.SaleReturns.Any(r =>
+                    r.ShopId == filter.ShopId
+                    && r.SaleId == s.Id
+                    && !r.IsVoided
+                    && EF.Functions.ILike(r.ReturnNumber, $"%{term}%"))
+                || (amountMatch && s.TotalAmount == parsedAmount));
         }
 
         var status = NormalizeStatus(filter.Status);
-        if (status is SaleHistoryStatus.Returned)
+        if (status is SaleHistoryStatus.Refunded)
         {
             query = query.Where(s =>
                 _context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided));
         }
-        else if (status is SaleHistoryStatus.NotReturned)
+        else if (status is SaleHistoryStatus.Paid)
         {
             query = query.Where(s =>
-                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided));
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount == 0m);
+        }
+        else if (status is SaleHistoryStatus.PartiallyPaid)
+        {
+            query = query.Where(s =>
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount > 0m);
+        }
+        else if (status is SaleHistoryStatus.Unknown)
+        {
+            query = query.Where(s =>
+                !_context.SaleReturns.Any(r => r.ShopId == filter.ShopId && r.SaleId == s.Id && !r.IsVoided)
+                && s.DueAmount < 0m);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -148,36 +168,59 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             .ToListAsync(cancellationToken);
 
         var saleIds = page.Select(x => x.Id).ToList();
-        var returnNumbersBySaleId = await _context.SaleReturns
+        var returnsBySaleId = await _context.SaleReturns
             .AsNoTracking()
             .Where(r => r.ShopId == filter.ShopId && saleIds.Contains(r.SaleId) && !r.IsVoided)
-            .Select(r => new { r.SaleId, r.ReturnNumber })
+            .Select(r => new { r.SaleId, r.ReturnNumber, r.TotalRefundAmount, r.DueReductionAmount })
             .ToListAsync(cancellationToken);
 
-        var lookup = returnNumbersBySaleId
+        var lookup = returnsBySaleId
             .GroupBy(x => x.SaleId)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.ReturnNumber).ToList());
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    ReturnNumbers: (IReadOnlyList<string>)g.Select(x => x.ReturnNumber).ToList(),
+                    RefundAmount: g.Sum(x => x.TotalRefundAmount),
+                    DueReductionAmount: g.Sum(x => x.DueReductionAmount)));
 
         var items = page
-            .Select(s => new SaleHistoryReadModel(
-                s.Id,
-                s.InvoiceNumber,
-                s.CustomerId,
-                s.PaymentMethod,
-                s.SoldAt,
-                s.PaidAmount,
-                s.DueAmount,
-                s.TotalBeforeDiscount,
-                s.TotalDiscountAmount,
-                s.TotalAmount,
-                s.TotalTaxAmount,
-                s.CustomerName,
-                s.CustomerPhone,
-                s.ItemCount,
-                lookup.GetValueOrDefault(s.Id, [])))
+            .Select(s =>
+            {
+                var hasActiveReturn = lookup.TryGetValue(s.Id, out var returnData);
+                return new SaleHistoryReadModel(
+                    s.Id,
+                    s.InvoiceNumber,
+                    s.CustomerId,
+                    s.PaymentMethod,
+                    s.SoldAt,
+                    s.PaidAmount,
+                    s.DueAmount,
+                    s.TotalBeforeDiscount,
+                    s.TotalDiscountAmount,
+                    s.TotalAmount,
+                    s.TotalTaxAmount,
+                    s.CustomerName,
+                    s.CustomerPhone,
+                    s.ItemCount,
+                    hasActiveReturn ? returnData.ReturnNumbers : [],
+                    DeriveStatus(s.DueAmount, hasActiveReturn),
+                    hasActiveReturn ? returnData.RefundAmount : 0m,
+                    hasActiveReturn ? returnData.DueReductionAmount : 0m);
+            })
             .ToList();
 
         return (items, totalCount);
+    }
+
+    private static string DeriveStatus(decimal dueAmount, bool hasActiveReturn)
+    {
+        if (hasActiveReturn)
+            return "refunded";
+        if (dueAmount > 0m)
+            return "partiallyPaid";
+        if (dueAmount == 0m)
+            return "paid";
+        return "unknown";
     }
 
     public async Task<SalesHistorySummaryReadModel> GetHistorySummaryAsync(
@@ -216,24 +259,23 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 
     private enum SaleHistoryStatus
     {
-        Returned,
-        NotReturned,
+        Refunded,
+        Paid,
+        PartiallyPaid,
+        Unknown,
     }
 
     private static SaleHistoryStatus? NormalizeStatus(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
-        {
             return null;
-        }
 
-        return status.Trim().Replace("_", "-", StringComparison.Ordinal).ToLowerInvariant() switch
+        return status.Trim().ToLowerInvariant() switch
         {
-            "returned" => SaleHistoryStatus.Returned,
-            "refunded" => SaleHistoryStatus.Returned,
-            "not-returned" => SaleHistoryStatus.NotReturned,
-            "notrefunded" => SaleHistoryStatus.NotReturned,
-            "not-refunded" => SaleHistoryStatus.NotReturned,
+            "refunded" or "returned" => SaleHistoryStatus.Refunded,
+            "paid" => SaleHistoryStatus.Paid,
+            "partiallypaid" => SaleHistoryStatus.PartiallyPaid,
+            "unknown" => SaleHistoryStatus.Unknown,
             _ => null,
         };
     }

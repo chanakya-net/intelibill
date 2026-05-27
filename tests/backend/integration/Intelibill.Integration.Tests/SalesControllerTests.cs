@@ -1406,6 +1406,248 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(118m, body.GetProperty("summary").GetProperty("periodSales").GetDecimal());
     }
 
+    // ======================= NEW: STATUS FIELDS & FILTERING =======================
+
+    private static async Task<Guid> RecordSaleAsync(
+        HttpClient client,
+        string token,
+        string barcode,
+        Guid batchId,
+        decimal paidAmount,
+        decimal dueAmount)
+    {
+        Guid? customerId = null;
+        if (dueAmount > 0)
+        {
+            customerId = await AddCustomerAsync(
+                client, token,
+                $"Due Customer {Guid.NewGuid():N}",
+                $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
+                true);
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId,
+            customerName = "Status Test Customer",
+            customerPhone = "+919000000001",
+            paymentMethod = (int)(dueAmount > 0 ? PaymentMethod.Credit : PaymentMethod.Cash),
+            paidAmount,
+            dueAmount,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("saleId").GetGuid();
+    }
+
+    [Fact]
+    public async Task GetSales_ItemsIncludeStatusAndRefundFields()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var saleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        await RecordSimpleReturnAsync(client, ownerToken, saleId, refundAmount: 118m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var sale = body.GetProperty("items").EnumerateArray()
+            .First(s => s.GetProperty("saleId").GetGuid() == saleId);
+
+        Assert.Equal("refunded", sale.GetProperty("status").GetString());
+        Assert.Equal(118m, sale.GetProperty("refundAmount").GetDecimal());
+        Assert.True(sale.TryGetProperty("dueReductionAmount", out _));
+    }
+
+    [Fact]
+    public async Task GetSales_StatusFilter_Paid_ReturnsOnlyPaidSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var paidSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        var partialSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 0m, dueAmount: 118m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=paid");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == paidSaleId);
+        Assert.DoesNotContain(items, s => s.GetProperty("saleId").GetGuid() == partialSaleId);
+        Assert.All(items, s => Assert.Equal("paid", s.GetProperty("status").GetString()));
+        Assert.Equal(body.GetProperty("items").GetArrayLength(), body.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetSales_StatusFilter_PartiallyPaid_ReturnsOnlyPartialSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var paidSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        var partialSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 0m, dueAmount: 118m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=partiallyPaid");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == partialSaleId);
+        Assert.DoesNotContain(items, s => s.GetProperty("saleId").GetGuid() == paidSaleId);
+        Assert.All(items, s => Assert.Equal("partiallyPaid", s.GetProperty("status").GetString()));
+    }
+
+    [Fact]
+    public async Task GetSales_StatusFilter_Refunded_ReturnsOnlyRefundedSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var paidSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        var refundedSaleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        await RecordSimpleReturnAsync(client, ownerToken, refundedSaleId, refundAmount: 118m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=refunded");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == refundedSaleId);
+        Assert.DoesNotContain(items, s => s.GetProperty("saleId").GetGuid() == paidSaleId);
+        Assert.All(items, s => Assert.Equal("refunded", s.GetProperty("status").GetString()));
+    }
+
+    [Fact]
+    public async Task GetSales_InvalidStatus_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=bogusStatus");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSales_Search_ByReturnNumber_ReturnsMatchingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var saleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+        await RecordSimpleReturnAsync(client, ownerToken, saleId, refundAmount: 118m);
+
+        // fetch the return number from GET /api/sales?status=refunded
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=refunded");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var listResponse = await client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var listBody = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var returnNumbers = listBody.GetProperty("items").EnumerateArray()
+            .First(s => s.GetProperty("saleId").GetGuid() == saleId)
+            .GetProperty("returnNumbers").EnumerateArray()
+            .Select(x => x.GetString()!)
+            .ToList();
+        Assert.NotEmpty(returnNumbers);
+        var returnNumber = returnNumbers[0];
+
+        using var searchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/sales?search={returnNumber}");
+        searchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var searchResponse = await client.SendAsync(searchRequest);
+
+        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+        var searchBody = await searchResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var searchItems = searchBody.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(searchItems, s => s.GetProperty("saleId").GetGuid() == saleId);
+    }
+
+    [Fact]
+    public async Task GetSales_Search_ByAmount_ReturnsMatchingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var saleId = await RecordSaleAsync(client, ownerToken, barcode, batchId, paidAmount: 118m, dueAmount: 0m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?search=118");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == saleId);
+    }
+
     [Fact]
     public async Task GetSales_Pagination_IsStableAndCapsPageSize()
     {

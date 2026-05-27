@@ -49,7 +49,10 @@ public sealed record SaleHistoryReadModel(
     string? CustomerName,
     string? CustomerPhone,
     int ItemCount,
-    IReadOnlyList<string> ReturnNumbers);
+    IReadOnlyList<string> ReturnNumbers,
+    string Status,
+    decimal RefundAmount,
+    decimal DueReductionAmount);
 
 public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,

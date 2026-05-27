@@ -30,6 +30,7 @@ graphify_analysis/
 graphify_analysis.*
 .graphify*
 .opencode/plugins/graphify.js
+.run-with-it/
 
 # Service worker
 ngsw-worker.js
