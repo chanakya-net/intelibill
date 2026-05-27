@@ -4,7 +4,16 @@ import { TestBed } from '@angular/core/testing';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
-import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, PreviewSaleRequest, SalePreviewDto } from './sale.models';
+import type {
+  SaleDto,
+  SaleListItemDto,
+  ProfitLossReportItemDto,
+  PreviewSaleRequest,
+  SalesHistoryQueryParams,
+  SalesHistoryResultDto,
+  SalesHistorySummaryDto,
+  SalePreviewDto,
+} from './sale.models';
 
 describe('SaleService', () => {
   function setup(): { service: SaleService; http: HttpTestingController } {
@@ -41,8 +50,16 @@ describe('SaleService', () => {
     warnings: [],
   });
 
-  it('sends GET request to list endpoint', () => {
+  it('sends GET request to list endpoint with history query params and maps response', () => {
     const { service, http } = setup();
+    const queryParams: SalesHistoryQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-12',
+      search: 'john',
+      status: 'refunded',
+      page: 2,
+      pageSize: 25,
+    };
     const sales: SaleListItemDto[] = [
       {
         saleId: 'sale-1',
@@ -60,6 +77,9 @@ describe('SaleService', () => {
         customerPhone: null,
         itemCount: 2,
         returnNumbers: [],
+        status: 'partiallyPaid',
+        refundAmount: 0,
+        dueReductionAmount: 0,
       },
       {
         saleId: 'sale-2',
@@ -77,20 +97,45 @@ describe('SaleService', () => {
         customerPhone: '9999999999',
         itemCount: 1,
         returnNumbers: ['RET-001'],
+        status: 'paid',
+        refundAmount: 25,
+        dueReductionAmount: 5,
       },
     ];
+    const summary: SalesHistorySummaryDto = {
+      periodSales: 995,
+      invoiceCount: 2,
+      refundAmount: 25,
+    };
+    const result: SalesHistoryResultDto = {
+      items: sales,
+      totalCount: 2,
+      pageNumber: 2,
+      pageSize: 25,
+      summary,
+    };
 
-    service.getSales().subscribe((result) => {
-      expect(result).toHaveLength(2);
-      expect(result[0].totalBeforeDiscount).toBe(500);
-      expect(result[0].totalDiscountAmount).toBe(0);
-      expect(result[1].totalBeforeDiscount).toBe(550);
-      expect(result[1].totalDiscountAmount).toBe(55);
+    service.getSales(queryParams).subscribe((response) => {
+      expect(response.items).toHaveLength(2);
+      expect(response.items[0].totalBeforeDiscount).toBe(500);
+      expect(response.items[0].totalDiscountAmount).toBe(0);
+      expect(response.items[1].totalBeforeDiscount).toBe(550);
+      expect(response.items[1].totalDiscountAmount).toBe(55);
+      expect(response.totalCount).toBe(2);
+      expect(response.pageNumber).toBe(2);
+      expect(response.pageSize).toBe(25);
+      expect(response.summary).toEqual(summary);
     });
 
-    const req = http.expectOne(SALE_ENDPOINTS.list);
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.list);
     expect(req.request.method).toBe('GET');
-    req.flush(sales);
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('to')).toBe('2026-05-12');
+    expect(req.request.params.get('search')).toBe('john');
+    expect(req.request.params.get('status')).toBe('refunded');
+    expect(req.request.params.get('page')).toBe('2');
+    expect(req.request.params.get('pageSize')).toBe('25');
+    req.flush(result);
     http.verify();
   });
 

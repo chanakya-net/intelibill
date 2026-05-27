@@ -1,11 +1,15 @@
-<section class="sales-page">
-  <header class="sales-header">
-    <div>
+<section class="sales-ledger-page">
+  <header class="sales-ledger-header">
+    <div class="header-text">
       <p class="eyebrow">{{ 'sales.history.eyebrow' | transloco }}</p>
       <h1>{{ 'sales.history.title' | transloco }}</h1>
       <p class="subtitle">{{ 'sales.history.subtitle' | transloco }}</p>
     </div>
-    <app-sales-export-toolbar />
+    <app-sales-export-toolbar
+      [startDate]="fromDate()"
+      [endDate]="toDate()"
+      [level]="reportLevel()"
+    />
   </header>
 
   @if (serverError()) {
@@ -39,248 +43,277 @@
     </section>
   }
 
-  @if (isLoading()) {
-    <!-- Mobile Skeleton -->
-    <div class="mobile-grid-container">
-      <div class="mobile-search-bar">
-        <p-skeleton width="100%" height="3rem" borderRadius="8px" />
+  <section class="ledger-panel">
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <p class="kpi-label">{{ 'sales.history.kpi.periodSales' | transloco }}</p>
+        <p class="kpi-value">₹{{ (salesHistorySummary()?.periodSales ?? 0) | number:'1.2-2' }}</p>
       </div>
-      <div class="sale-list flex flex-col gap-3 px-1">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <p-card [pt]="{
-            root: { class: 'border border-orange-50 shadow-none' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
-            <div class="flex items-center gap-3">
-              <div class="flex-1 flex flex-col gap-2">
-                <div class="flex items-center justify-between gap-2">
-                  <p-skeleton width="40%" height="1.25rem" />
-                  <p-skeleton width="20%" height="1.25rem" />
-                </div>
-                <div class="flex items-center gap-2">
-                  <p-skeleton width="30%" height="0.75rem" />
-                  <p-skeleton width="30%" height="0.75rem" />
-                </div>
-              </div>
-              <div class="text-right flex flex-col items-end gap-1">
-                <p-skeleton width="4rem" height="1.25rem" />
-                <p-skeleton width="3rem" height="0.75rem" />
-              </div>
-            </div>
-          </p-card>
-        }
+      <div class="kpi-card">
+        <p class="kpi-label">{{ 'sales.history.kpi.invoices' | transloco }}</p>
+        <p class="kpi-value">{{ salesHistorySummary()?.invoiceCount ?? 0 }}</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">{{ 'sales.history.kpi.refunds' | transloco }}</p>
+        <p class="kpi-value kpi-negative">₹{{ (salesHistorySummary()?.refundAmount ?? 0) | number:'1.2-2' }}</p>
       </div>
     </div>
 
-    <!-- Desktop Skeleton -->
-    <div class="sales-table-card desktop-table">
-      <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-        <p-skeleton width="200px" height="2.5rem" />
-        <p-skeleton width="100px" height="2.5rem" />
-      </div>
-      <p-table [value]="[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" class="p-datatable-sm">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>{{ 'sales.history.invoiceNumber' | transloco }}</th>
-            <th>{{ 'sales.history.date' | transloco }}</th>
-            <th>{{ 'sales.history.customer' | transloco }}</th>
-            <th>{{ 'sales.history.payment' | transloco }}</th>
-            <th>{{ 'sales.history.items' | transloco }}</th>
-            <th>{{ 'sales.history.total' | transloco }}</th>
-            <th></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body">
-          <tr>
-            <td><p-skeleton width="60%" /></td>
-            <td><p-skeleton width="80%" /></td>
-            <td><p-skeleton width="70%" /></td>
-            <td><p-skeleton width="50px" height="1.5rem" /></td>
-            <td><p-skeleton width="30%" /></td>
-            <td><p-skeleton width="50%" /></td>
-            <td><p-skeleton shape="circle" size="2rem" /></td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
-  }
-
-  @if (!isLoading()) {
-    <!-- Mobile Stacked List -->
-    <div class="mobile-grid-container">
-      <div class="mobile-search-bar">
-        <p-iconfield iconPosition="left" class="mobile-search-field">
-          <p-inputicon><i class="pi pi-search"></i></p-inputicon>
-          <input
-            pInputText
-            type="text"
-            [ngModel]="searchValue()"
-            (ngModelChange)="searchValue.set($event)"
-            [placeholder]="'sales.searchPlaceholder' | transloco"
-            class="w-full pr-10"
+    <div class="controls-row">
+      <div class="control-group">
+        <label class="control-label">{{ 'sales.history.controls.period' | transloco }}</label>
+        <div class="date-range">
+          <p-datepicker
+            ngSkipHydration
+            [ngModel]="fromDate()"
+            (ngModelChange)="fromDate.set($event)"
+            [showIcon]="true"
+            dateFormat="dd/mm/yy"
+            [placeholder]="'sales.history.controls.from' | transloco"
+            [disabled]="isLoading()"
           />
-          @if (searchValue()) {
-            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
-              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
-            </p-inputicon>
-          }
-        </p-iconfield>
+          <span class="date-sep">—</span>
+          <p-datepicker
+            ngSkipHydration
+            [ngModel]="toDate()"
+            (ngModelChange)="toDate.set($event)"
+            [showIcon]="true"
+            dateFormat="dd/mm/yy"
+            [placeholder]="'sales.history.controls.to' | transloco"
+            [disabled]="isLoading()"
+          />
+        </div>
       </div>
 
-      <div class="sale-list flex flex-col gap-3 px-1">
-        @for (sale of filteredSales(); track sale.saleId) {
-          <p-card class="sale-card-item" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200 cursor-pointer' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }" (click)="onViewSale(sale)">
-            <div class="flex items-center gap-3">
-              <div class="flex-1 flex flex-col gap-1 min-w-0">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-bold text-slate-800 text-base">{{ sale.invoiceNumber }}</span>
-                  <p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)"></p-tag>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-slate-500">
-                  @if (sale.customerName) {
-                    <span>{{ sale.customerName }}</span>
-                    <span class="text-slate-300">•</span>
-                  }
-                  <span>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</span>
-                  <span class="text-slate-300">•</span>
+      <div class="control-group">
+        <label class="control-label">{{ 'sales.history.controls.reportLevel' | transloco }}</label>
+        <p-select
+          [ngModel]="reportLevel()"
+          (ngModelChange)="reportLevel.set($event)"
+          [options]="reportLevelOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-56"
+          [disabled]="isLoading()"
+        >
+          <ng-template pTemplate="selectedItem" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+          <ng-template pTemplate="item" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
+
+      <button
+        pButton
+        type="button"
+        icon="pi pi-filter-slash"
+        class="clear-filters-btn"
+        outlined="true"
+        severity="secondary"
+        [label]="'sales.history.controls.clearFilters' | transloco"
+        (click)="clearFilters()"
+      ></button>
+    </div>
+
+    <div class="filters-row">
+      <div class="segmented" role="tablist" [attr.aria-label]="'sales.history.controls.status' | transloco">
+        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'all'" (click)="statusFilter.set('all')">
+          {{ 'sales.history.status.all' | transloco }}
+        </button>
+        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'paid'" (click)="statusFilter.set('paid')">
+          {{ 'sales.history.status.paid' | transloco }}
+        </button>
+        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'partiallyPaid'" (click)="statusFilter.set('partiallyPaid')">
+          {{ 'sales.history.status.partiallyPaid' | transloco }}
+        </button>
+        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'refunded'" (click)="statusFilter.set('refunded')">
+          {{ 'sales.history.status.refunded' | transloco }}
+        </button>
+        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'unknown'" (click)="statusFilter.set('unknown')">
+          {{ 'sales.history.status.unknown' | transloco }}
+        </button>
+      </div>
+
+      <p-iconfield iconPosition="left" class="search-field">
+        <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+        <input
+          pInputText
+          type="text"
+          [ngModel]="searchValue()"
+          (ngModelChange)="searchValue.set($event)"
+          [placeholder]="'sales.history.controls.searchPlaceholder' | transloco"
+        />
+      </p-iconfield>
+    </div>
+
+    <div class="table-wrap">
+      @if (isLoading()) {
+        <p-table [value]="[1, 2, 3, 4, 5]" class="p-datatable-sm ledger-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'sales.history.invoiceNumber' | transloco }}</th>
+              <th class="col-customer">{{ 'sales.history.customer' | transloco }}</th>
+              <th class="col-date">{{ 'sales.history.date' | transloco }}</th>
+              <th class="col-status">{{ 'sales.history.controls.status' | transloco }}</th>
+              <th class="col-amount">{{ 'sales.history.total' | transloco }}</th>
+              <th class="col-action"></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body">
+            <tr>
+              <td><p-skeleton width="10rem" /></td>
+              <td class="col-customer"><p-skeleton width="12rem" /></td>
+              <td class="col-date"><p-skeleton width="9rem" /></td>
+              <td class="col-status"><p-skeleton width="6rem" height="1.4rem" /></td>
+              <td class="col-amount"><p-skeleton width="7rem" /></td>
+              <td class="col-action"><p-skeleton width="6rem" /></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      } @else {
+        <p-table [value]="tableSales()" class="p-datatable-sm ledger-table" [rowHover]="true">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'sales.history.invoiceNumber' | transloco }}</th>
+              <th class="col-customer">{{ 'sales.history.customer' | transloco }}</th>
+              <th class="col-date">{{ 'sales.history.date' | transloco }}</th>
+              <th class="col-status">{{ 'sales.history.controls.status' | transloco }}</th>
+              <th class="col-amount">{{ 'sales.history.total' | transloco }}</th>
+              <th class="col-action"></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-sale>
+            <tr>
+              <td class="invoice-cell">
+                <div class="invoice-main">{{ sale.invoiceNumber }}</div>
+                <div class="invoice-sub">
+                  <p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)" />
+                  <span class="sep">•</span>
                   <span>{{ sale.itemCount }} {{ 'sales.history.items' | transloco }}</span>
+                  @if (sale.returnNumbers.length > 0) {
+                    <span class="sep">•</span>
+                    <span class="returns">{{ sale.returnNumbers.join(', ') }}</span>
+                  }
                 </div>
-              </div>
-              <div class="text-right">
-                <div class="font-bold text-orange-600 text-base">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
-                @if (sale.totalTaxAmount > 0) {
-                  <div class="text-xs text-slate-400">{{ 'sales.history.taxIncluded' | transloco }}: ₹{{ sale.totalTaxAmount | number:'1.2-2' }}</div>
+              </td>
+              <td class="col-customer">
+                {{ sale.customerName ?? ('sales.history.walkIn' | transloco) }}
+                @if (sale.customerPhone) {
+                  <div class="muted">{{ sale.customerPhone }}</div>
                 }
-                @if (sale.totalDiscountAmount > 0) {
-                  <div class="text-xs text-green-600">{{ 'sales.history.discount' | transloco }}: ₹{{ sale.totalDiscountAmount | number:'1.2-2' }}</div>
+              </td>
+              <td class="col-date">{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
+              <td class="col-status">
+                <p-tag [severity]="statusSeverity(sale.status)" [value]="statusLabelKey(sale.status) | transloco" />
+              </td>
+              <td class="col-amount amount-cell">
+                <div class="amount-main">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
+                @if (sale.status === 'partiallyPaid' && sale.dueAmount > 0) {
+                  <div class="amount-sub">{{ 'sales.history.amount.due' | transloco }}: ₹{{ sale.dueAmount | number:'1.2-2' }}</div>
                 }
-              </div>
-            </div>
-          </p-card>
-        }
+                @if ((sale.status === 'refunded' || sale.status === 'returned') && sale.refundAmount > 0) {
+                  <div class="amount-sub negative">{{ 'sales.history.amount.refund' | transloco }}: ₹{{ sale.refundAmount | number:'1.2-2' }}</div>
+                }
+              </td>
+              <td class="col-action">
+                <button
+                  pButton
+                  type="button"
+                  class="receipt-btn"
+                  [label]="'sales.history.actions.viewReceipt' | transloco"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  (click)="onViewSale(sale)"
+                ></button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="6" class="empty-cell">
+                <div class="empty-state">
+                  <i class="pi pi-receipt empty-icon"></i>
+                  <div>
+                    <div class="empty-title">{{ 'sales.history.noSales' | transloco }}</div>
+                    <div class="empty-subtitle">{{ 'sales.history.noSalesDescription' | transloco }}</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      }
+    </div>
 
-        @if (filteredSales().length === 0) {
-          <div class="mobile-empty-state text-center py-12">
-            <i class="pi pi-receipt text-5xl text-slate-300 mb-4"></i>
-            <h2 class="text-xl font-bold text-slate-700">{{ 'sales.history.noSales' | transloco }}</h2>
-            <p class="text-slate-500">{{ 'sales.history.noSalesDescription' | transloco }}</p>
-          </div>
-        }
+    <footer class="pagination-bar">
+      <div class="showing">
+        {{ 'sales.history.pagination.showing' | transloco: { start: rangeStart(), end: rangeEnd(), total: salesPagination().totalCount } }}
       </div>
-    </div>
 
-    <!-- Desktop Table -->
-    <div class="sales-table-card desktop-table">
-      <p-table
-        #salesTable
-        [value]="tableSales()"
-        [globalFilterFields]="['invoiceNumber', 'returnNumbers', 'soldAt', 'customerName', 'customerPhone', 'paymentMethod', 'itemCount', 'totalAmount']"
-        [scrollable]="true"
-        class="p-datatable-sm"
-      >
-        <ng-template pTemplate="caption">
-          <app-table-filter-bar
-            [table]="salesTable"
-            [searchValue]="searchValue()"
-            (searchValueChange)="searchValue.set($event)"
-            [placeholder]="'sales.history.search' | transloco"
-          />
-        </ng-template>
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="invoiceNumber">
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.invoiceNumber' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="invoiceNumber" />
-                  <p-columnFilter type="text" field="invoiceNumber" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="soldAt">
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.date' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="soldAt" />
-                  <p-columnFilter type="date" field="soldAt" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th>
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.customer' | transloco }}
-                <p-columnFilter type="text" field="customerName" display="menu" />
-              </div>
-            </th>
-            <th pSortableColumn="paymentMethod">
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.payment' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="paymentMethod" />
-                  <p-columnFilter type="numeric" field="paymentMethod" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="itemCount">
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.items' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="itemCount" />
-                  <p-columnFilter type="numeric" field="itemCount" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="totalAmount">
-              <div class="flex items-center justify-between">
-                {{ 'sales.history.total' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="totalAmount" />
-                  <p-columnFilter type="numeric" field="totalAmount" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-sale>
-          <tr>
-            <td class="font-medium">{{ sale.invoiceNumber }}</td>
-            <td>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
-            <td>
-              {{ sale.customerName ?? ('sales.history.walkIn' | transloco) }}
-            </td>
-            <td><p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)"></p-tag></td>
-            <td>{{ sale.itemCount }}</td>
-            <td>
-              <div class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
-              @if (sale.totalDiscountAmount > 0) {
-                <div class="text-xs text-green-600">{{ 'sales.history.discount' | transloco }}: ₹{{ sale.totalDiscountAmount | number:'1.2-2' }}</div>
-              }
-            </td>
-            <td>
-              <p-button
-                icon="pi pi-eye"
-                [outlined]="true"
-                severity="secondary"
-                (click)="onViewSale(sale)"
-                [attr.aria-label]="'sales.history.view' | transloco"
-              />
-            </td>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="7" class="text-center py-8 text-slate-500">{{ 'sales.history.noSales' | transloco }}</td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
-  }
+      <div class="page-size">
+        <span class="page-size-label">{{ 'sales.history.pagination.pageSize' | transloco }}</span>
+        <p-select
+          [ngModel]="pageSize()"
+          (ngModelChange)="pageSize.set($event)"
+          [options]="pageSizeOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-24"
+          [disabled]="isLoading()"
+        />
+      </div>
+
+      <nav class="pager" [attr.aria-label]="'sales.history.pagination.ariaLabel' | transloco">
+        <button
+          pButton
+          type="button"
+          outlined="true"
+          severity="secondary"
+          icon="pi pi-chevron-left"
+          class="pager-btn"
+          [disabled]="pageNumber() === 1"
+          (click)="onPageChange(pageNumber() - 1)"
+          [attr.aria-label]="'sales.history.pagination.prev' | transloco"
+        ></button>
+
+        <div class="page-status">
+          {{ 'sales.history.pagination.pageStatus' | transloco: { page: pageNumber(), totalPages: totalPages() } }}
+        </div>
+
+        <div class="page-buttons">
+          @for (item of paginationItems(); track item) {
+            @if (item === 'ellipsis') {
+              <span class="ellipsis">…</span>
+            } @else {
+              <button
+                type="button"
+                class="page-btn"
+                [class.active]="item === pageNumber()"
+                (click)="onPageChange(item)"
+                [attr.aria-label]="'sales.history.pagination.page' | transloco: { page: item }"
+              >
+                {{ item }}
+              </button>
+            }
+          }
+        </div>
+
+        <button
+          pButton
+          type="button"
+          outlined="true"
+          severity="secondary"
+          icon="pi pi-chevron-right"
+          class="pager-btn"
+          [disabled]="pageNumber() >= totalPages()"
+          (click)="onPageChange(pageNumber() + 1)"
+          [attr.aria-label]="'sales.history.pagination.next' | transloco"
+        ></button>
+      </nav>
+    </footer>
+  </section>
 
   <app-sale-detail-overlay
     [visible]="showDetailOverlay()"

@@ -620,6 +620,47 @@
       "noSalesDescription": "Record your first sale to see it here.",
       "taxIncluded": "Tax",
       "discount": "Saved",
+      "kpi": {
+        "periodSales": "Period sales",
+        "invoices": "Invoices",
+        "refunds": "Refunds"
+      },
+      "controls": {
+        "period": "Period",
+        "from": "From date",
+        "to": "To date",
+        "status": "Status",
+        "searchPlaceholder": "Search by invoice, customer…",
+        "reportLevel": "Report level",
+        "clearFilters": "Clear filters"
+      },
+      "reportLevel": {
+        "summary": "Summary",
+        "lineItems": "Line items"
+      },
+      "status": {
+        "all": "All",
+        "paid": "Paid",
+        "partiallyPaid": "Partially paid",
+        "refunded": "Refunded",
+        "unknown": "Unknown"
+      },
+      "actions": {
+        "viewReceipt": "View Receipt →"
+      },
+      "amount": {
+        "due": "Due",
+        "refund": "Refund"
+      },
+      "pagination": {
+        "ariaLabel": "Sales history pagination",
+        "showing": "Showing {{start}}-{{end}} of {{total}} sales",
+        "pageSize": "Rows",
+        "prev": "Previous page",
+        "next": "Next page",
+        "page": "Go to page {{page}}",
+        "pageStatus": "Page {{page}} of {{totalPages}}"
+      },
       "offlineQueue": {
         "ariaLabel": "Offline sales queue status",
         "eyebrow": "Offline queue",

@@ -620,16 +620,57 @@
       "noSalesDescription": "உங்கள் முதல் விற்பனையை பதிவு செய்யுங்கள்.",
       "taxIncluded": "வரி",
       "discount": "சேமித்தது",
+      "kpi": {
+        "periodSales": "காலகட்ட விற்பனை",
+        "invoices": "விலைப்பட்டியல்கள்",
+        "refunds": "திருப்பிக்கொடுப்புகள்"
+      },
+      "controls": {
+        "period": "காலகட்டம்",
+        "from": "தொடக்க தேதி",
+        "to": "இறுதி தேதி",
+        "status": "நிலை",
+        "searchPlaceholder": "விலைப்பட்டியல், வாடிக்கையாளர் மூலம் தேடுங்கள்…",
+        "reportLevel": "அறிக்கை நிலை",
+        "clearFilters": "வடிகட்டிகளை அழி"
+      },
+      "reportLevel": {
+        "summary": "சுருக்கம்",
+        "lineItems": "வரி உருப்படிகள்"
+      },
+      "status": {
+        "all": "அனைத்தும்",
+        "paid": "செலுத்தப்பட்டது",
+        "partiallyPaid": "பகுதியாக செலுத்தப்பட்டது",
+        "refunded": "திரும்பப்பெறப்பட்டது",
+        "unknown": "தெரியவில்லை"
+      },
+      "actions": {
+        "viewReceipt": "ரசீதைப் பாருங்கள் →"
+      },
+      "amount": {
+        "due": "நிலுவை",
+        "refund": "திருப்பிக்கொடுப்பு"
+      },
+      "pagination": {
+        "ariaLabel": "விற்பனை வரலாறு பக்கமாற்றம்",
+        "showing": "{{total}} விற்பனைகளில் {{start}}-{{end}} காட்டுகிறது",
+        "pageSize": "வரிசைகள்",
+        "prev": "முந்தைய பக்கம்",
+        "next": "அடுத்த பக்கம்",
+        "page": "{{page}} பக்கத்திற்கு செல்லுங்கள்",
+        "pageStatus": "{{totalPages}} இல் பக்கம் {{page}}"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ஆஃப்லைன் விற்பனை வரிசை நிலை",
+        "eyebrow": "ஆஃப்லைன் வரிசை",
+        "title": "ஒத்திசைவு நிலை",
+        "retry": "மீண்டும் முயற்சி",
+        "pending": "நிலுவையில்",
+        "syncing": "ஒத்திசைக்கிறது",
+        "failed": "தோல்வி",
+        "warnings": "எச்சரிக்கைகள்",
+        "needsReview": "மதிப்பாய்வு தேவை"
       }
     },
     "newSale": {

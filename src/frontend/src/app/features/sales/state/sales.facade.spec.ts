@@ -3,11 +3,13 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
-import type { SaleListItemDto } from '../services/sale.models';
+import type { SalesHistorySummaryDto, SalesHistoryQueryParams, SaleListItemDto } from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import { SalesFacade } from './sales.facade';
 import {
   selectAllSales,
+  selectSalesHistorySummary,
+  selectSalesPagination,
   selectErrorMessage,
   selectLastMutationSucceeded,
   selectLastMutationType,
@@ -29,6 +31,16 @@ describe('SalesFacade', () => {
   const mutationTypeSignal = signal<'record-sale' | 'record-return' | 'void-return' | null>(null);
   const selectedSaleSignal = signal(null);
   const returnPreviewSignal = signal(null);
+  const summarySignal = signal<SalesHistorySummaryDto | null>({
+    periodSales: 5000,
+    invoiceCount: 17,
+    refundAmount: 100,
+  });
+  const paginationSignal = signal({
+    totalCount: 17,
+    pageNumber: 2,
+    pageSize: 20,
+  });
 
   const store = {
     dispatch,
@@ -44,6 +56,8 @@ describe('SalesFacade', () => {
       if (selector === selectReturnPreview) return returnPreviewSignal;
       if (selector === selectLoadingReturnPreview) return boolSignal;
       if (selector === selectReturnPreviewErrorMessage) return returnPreviewErrorSignal;
+      if (selector === selectSalesHistorySummary) return summarySignal;
+      if (selector === selectSalesPagination) return paginationSignal;
       return signal(null);
     }),
   };
@@ -60,7 +74,23 @@ describe('SalesFacade', () => {
 
   it('loadSales dispatches loadSalesRequested', () => {
     facade.loadSales();
-    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadSalesRequested());
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadSalesRequested({}));
+  });
+
+  it('loadSales dispatches loadSalesRequested with query params', () => {
+    const queryParams: SalesHistoryQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-20',
+      search: 'john',
+      status: 'partiallyPaid',
+      page: 1,
+      pageSize: 30,
+    };
+
+    facade.loadSales(queryParams);
+    expect(dispatch).toHaveBeenCalledWith(
+      SalesActions.loadSalesRequested({ queryParams })
+    );
   });
 
   it('loadSaleDetail dispatches loadSaleDetailRequested', () => {

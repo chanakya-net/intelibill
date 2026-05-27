@@ -620,16 +620,57 @@
       "noSalesDescription": "અહીં જોવા માટે તમારું પ્રથમ વેચાણ નોંધો.",
       "taxIncluded": "કર",
       "discount": "બચત",
+      "kpi": {
+        "periodSales": "સમયગાળાનું વેચાણ",
+        "invoices": "ઇન્વૉઇસ",
+        "refunds": "નાણાં પરત"
+      },
+      "controls": {
+        "period": "સમયગાળો",
+        "from": "શરૂ તારીખ",
+        "to": "અંત તારીખ",
+        "status": "સ્ટેટસ",
+        "searchPlaceholder": "ઇન્વૉઇસ, ગ્રાહક દ્વારા શોધો…",
+        "reportLevel": "રિપોર્ટ સ્તર",
+        "clearFilters": "ફિલ્ટર સાફ કરો"
+      },
+      "reportLevel": {
+        "summary": "સારાંશ",
+        "lineItems": "લાઇન આઇટમ"
+      },
+      "status": {
+        "all": "બધા",
+        "paid": "ચૂકવેલ",
+        "partiallyPaid": "આંશિક ચૂકવેલ",
+        "refunded": "નાણાં પરત",
+        "unknown": "અજ્ઞાત"
+      },
+      "actions": {
+        "viewReceipt": "રિસિટ જુઓ →"
+      },
+      "amount": {
+        "due": "બાકી",
+        "refund": "નાણાં પરત"
+      },
+      "pagination": {
+        "ariaLabel": "વેચાણ ઇતિહાસ પૃષ્ઠ ક્રમ",
+        "showing": "{{total}} વેચાણમાંથી {{start}}-{{end}} બતાવી રહ્યા છે",
+        "pageSize": "પંક્તિ",
+        "prev": "આગળનું પૃષ્ઠ",
+        "next": "પછીનું પૃષ્ઠ",
+        "page": "પૃષ્ઠ {{page}} પર જાઓ",
+        "pageStatus": "{{totalPages}} માંથી પૃષ્ઠ {{page}}"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ઑફલાઇન વેચાણ કતાર સ્ટેટસ",
+        "eyebrow": "ઑફલાઇન કતાર",
+        "title": "સિંક સ્ટેટસ",
+        "retry": "ફરી પ્રયાસ",
+        "pending": "બાકી",
+        "syncing": "સિંક થઈ રહ્યું છે",
+        "failed": "નિષ્ફળ",
+        "warnings": "ચેતવણી",
+        "needsReview": "સમીક્ષા જરૂરી"
       }
     },
     "newSale": {

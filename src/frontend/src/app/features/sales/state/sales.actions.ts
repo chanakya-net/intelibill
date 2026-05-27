@@ -5,6 +5,8 @@ import type {
   RecordSaleReturnRequest,
   RecordSaleRequest,
   SaleDto,
+  SalesHistoryQueryParams,
+  SalesHistorySummaryDto,
   SaleListItemDto,
   ProfitLossReportItemDto,
   SaleReturnPreviewDto,
@@ -16,8 +18,14 @@ export type SaleMutationType = 'record-sale' | 'record-return' | 'void-return';
 export const SalesActions = createActionGroup({
   source: 'Sales',
   events: {
-    'Load Sales Requested': emptyProps(),
-    'Load Sales Succeeded': props<{ sales: readonly SaleListItemDto[] }>(),
+    'Load Sales Requested': props<{ queryParams?: SalesHistoryQueryParams }>(),
+    'Load Sales Succeeded': props<{
+      sales: readonly SaleListItemDto[];
+      totalCount: number;
+      pageNumber: number;
+      pageSize: number;
+      summary: SalesHistorySummaryDto;
+    }>(),
     'Load Sales Failed': props<{ errorMessage: string }>(),
 
     'Load Profit Loss Report Requested': emptyProps(),

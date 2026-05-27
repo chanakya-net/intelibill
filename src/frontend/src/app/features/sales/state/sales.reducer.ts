@@ -1,7 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto } from '../services/sale.models';
+import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, SalesHistorySummaryDto } from '../services/sale.models';
 import { SaleMutationType, SalesActions } from './sales.actions';
 
 export const salesFeatureKey = 'sales';
@@ -26,6 +26,10 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly profitLossReport: readonly ProfitLossReportItemDto[];
   readonly loadingProfitLossReport: boolean;
   readonly lastRecordedSale: SaleDto | null;
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly historySummary: SalesHistorySummaryDto | null;
 }
 
 const initialState: SalesState = salesAdapter.getInitialState({
@@ -42,6 +46,10 @@ const initialState: SalesState = salesAdapter.getInitialState({
   profitLossReport: [],
   loadingProfitLossReport: false,
   lastRecordedSale: null,
+  totalCount: 0,
+  pageNumber: 1,
+  pageSize: 0,
+  historySummary: null,
 });
 
 export const salesReducer = createReducer(
@@ -51,11 +59,17 @@ export const salesReducer = createReducer(
     loadingSales: true,
     errorMessage: '',
   })),
-  on(SalesActions.loadSalesSucceeded, (state, { sales }) =>
+  on(
+    SalesActions.loadSalesSucceeded,
+    (state, { sales, totalCount, pageNumber, pageSize, summary }) =>
     salesAdapter.setAll([...sales], {
       ...state,
       loadingSales: false,
       errorMessage: '',
+      totalCount,
+      pageNumber,
+      pageSize,
+      historySummary: summary,
     })
   ),
   on(SalesActions.loadSalesFailed, (state, { errorMessage }) => ({

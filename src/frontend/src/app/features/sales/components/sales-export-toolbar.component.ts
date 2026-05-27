@@ -1,12 +1,9 @@
 import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, input, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
-import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
-import { SelectModule } from 'primeng/select';
 
 import { SalesExportFormat, SalesExportParams, SalesExportService } from '../services/sales-export.service';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
@@ -14,7 +11,7 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 @Component({
   selector: 'app-sales-export-toolbar',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, DatePickerModule, SelectModule, TranslocoPipe],
+  imports: [CommonModule, ButtonModule, TranslocoPipe],
   templateUrl: './sales-export-toolbar.component.html',
   styleUrl: './sales-export-toolbar.component.scss',
 })
@@ -22,16 +19,11 @@ export class SalesExportToolbarComponent {
   private readonly exportService = inject(SalesExportService);
   private readonly translocoService = inject(TranslocoService);
 
+  readonly startDate = input<Date>(this.getDefaultStartDate());
+  readonly endDate = input<Date>(this.getDefaultEndDate());
+  readonly level = input<SalesExportParams['level']>('summary');
   readonly isExporting = signal(false);
   readonly exportError = signal('');
-  readonly startDate = signal<Date>(this.getDefaultStartDate());
-  readonly endDate = signal<Date>(this.getDefaultEndDate());
-  readonly exportLevel = signal<SalesExportParams['level']>('summary');
-
-  readonly exportLevelOptions = [
-    { label: 'sales.export.level.summary', value: 'summary' as const },
-    { label: 'sales.export.level.lineItems', value: 'lineItems' as const },
-  ];
 
   exportToExcel(): void {
     this.export('xlsx');
@@ -55,7 +47,7 @@ export class SalesExportToolbarComponent {
 
     const params: SalesExportParams = {
       format,
-      level: this.exportLevel(),
+      level: this.level(),
       startDate: this.formatIsoDate(this.startDate()),
       endDate: this.formatIsoDate(this.endDate()),
     };

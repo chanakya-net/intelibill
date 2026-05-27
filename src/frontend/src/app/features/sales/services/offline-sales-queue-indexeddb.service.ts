@@ -14,6 +14,14 @@ interface SavePendingInput {
 }
 
 const RESOLVED_STATUSES: readonly OfflineSaleQueueStatus[] = ['Synced'];
+const EMPTY_STATUS_COUNTS: Record<OfflineSaleQueueStatus, number> = {
+  Pending: 0,
+  Syncing: 0,
+  Synced: 0,
+  SyncedWithWarnings: 0,
+  NeedsReview: 0,
+  Failed: 0,
+};
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesQueueIndexedDbService {
@@ -44,11 +52,17 @@ export class OfflineSalesQueueIndexedDbService {
       syncAttempts: [],
     };
 
+    this.ensureIndexedDbAvailable();
+
     await this.putRecord(record);
     return record;
   }
 
   async getPendingSales(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
+    if (!shopId || !deviceId || !this.isIndexedDbAvailable()) {
+      return [];
+    }
+
     const records = await this.getAllByShopDevice(shopId, deviceId);
     return records
       .filter((record) => record.status === 'Pending')
@@ -56,6 +70,10 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async getRetryableSales(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
+    if (!shopId || !deviceId || !this.isIndexedDbAvailable()) {
+      return [];
+    }
+
     const records = await this.getAllByShopDevice(shopId, deviceId);
     return records
       .filter((record) => record.status === 'Pending' || record.status === 'Failed')
@@ -63,7 +81,7 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async getQueuedSale(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
-    if (!shopId || !deviceId || !clientSaleId) {
+    if (!shopId || !deviceId || !clientSaleId || !this.isIndexedDbAvailable()) {
       return null;
     }
 
@@ -71,6 +89,10 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async markSyncInProgress(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineQueuedSaleRecord | null> {
+    if (!shopId || !deviceId || !clientSaleId || !this.isIndexedDbAvailable()) {
+      return null;
+    }
+
     return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => ({
       ...current,
       status: 'Syncing',
@@ -86,6 +108,10 @@ export class OfflineSalesQueueIndexedDbService {
     clientSaleId: string,
     result: OfflineQueueSyncResult
   ): Promise<OfflineQueuedSaleRecord | null> {
+    if (!shopId || !deviceId || !clientSaleId || !this.isIndexedDbAvailable()) {
+      return null;
+    }
+
     return await this.updateRecord(shopId, deviceId, clientSaleId, (current) => ({
       ...current,
       status: result.status,
@@ -107,14 +133,11 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async getStatusCounts(shopId: string, deviceId: string): Promise<Record<OfflineSaleQueueStatus, number>> {
-    const base: Record<OfflineSaleQueueStatus, number> = {
-      Pending: 0,
-      Syncing: 0,
-      Synced: 0,
-      SyncedWithWarnings: 0,
-      NeedsReview: 0,
-      Failed: 0,
-    };
+    const base = { ...EMPTY_STATUS_COUNTS };
+    if (!shopId || !deviceId || !this.isIndexedDbAvailable()) {
+      return base;
+    }
+
     const records = await this.getAllByShopDevice(shopId, deviceId);
     for (const record of records) {
       base[record.status] += 1;
@@ -123,6 +146,10 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async deleteOldSyncedRecords(retainForMs: number = 3 * 24 * 60 * 60 * 1000): Promise<number> {
+    if (!this.isIndexedDbAvailable()) {
+      return 0;
+    }
+
     const database = await this.openDatabase();
     const all = await this.getAll(database);
     const now = Date.now();
@@ -172,6 +199,10 @@ export class OfflineSalesQueueIndexedDbService {
   }
 
   async getAllByShopDevice(shopId: string, deviceId: string): Promise<readonly OfflineQueuedSaleRecord[]> {
+    if (!shopId || !deviceId || !this.isIndexedDbAvailable()) {
+      return [];
+    }
+
     const database = await this.openDatabase();
     const all = await this.getAll(database);
     return all.filter((record) => record.shopId === shopId && record.deviceId === deviceId);
@@ -202,7 +233,19 @@ export class OfflineSalesQueueIndexedDbService {
     return `${shopId}::${deviceId}::${clientSaleId}`;
   }
 
+  private isIndexedDbAvailable(): boolean {
+    return typeof indexedDB !== 'undefined';
+  }
+
+  private ensureIndexedDbAvailable(): void {
+    if (!this.isIndexedDbAvailable()) {
+      throw new Error('IndexedDB is not available.');
+    }
+  }
+
   private async openDatabase(): Promise<IDBDatabase> {
+    this.ensureIndexedDbAvailable();
+
     return await new Promise((resolve, reject) => {
       const request = indexedDB.open(this.databaseName, this.databaseVersion);
 

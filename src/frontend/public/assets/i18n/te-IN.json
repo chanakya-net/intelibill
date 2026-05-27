@@ -620,16 +620,57 @@
       "noSalesDescription": "మొదటి అమ్మకం నమోదు చేయండి.",
       "taxIncluded": "పన్ను",
       "discount": "ఆదా",
+      "kpi": {
+        "periodSales": "కాల వ్యవధి అమ్మకాలు",
+        "invoices": "ఇన్వాయిస్‌లు",
+        "refunds": "వాపసు"
+      },
+      "controls": {
+        "period": "కాల వ్యవధి",
+        "from": "ప్రారంభ తేదీ",
+        "to": "ముగింపు తేదీ",
+        "status": "స్థితి",
+        "searchPlaceholder": "ఇన్వాయిస్, కస్టమర్ ద్వారా వెతకండి…",
+        "reportLevel": "నివేదిక స్థాయి",
+        "clearFilters": "ఫిల్టర్లు తొలగించు"
+      },
+      "reportLevel": {
+        "summary": "సారాంశం",
+        "lineItems": "వరుస అంశాలు"
+      },
+      "status": {
+        "all": "అన్నీ",
+        "paid": "చెల్లించారు",
+        "partiallyPaid": "పాక్షికంగా చెల్లించారు",
+        "refunded": "వాపసు చేశారు",
+        "unknown": "తెలియదు"
+      },
+      "actions": {
+        "viewReceipt": "రసీదు చూడండి →"
+      },
+      "amount": {
+        "due": "బకాయి",
+        "refund": "వాపసు"
+      },
+      "pagination": {
+        "ariaLabel": "అమ్మకాల చరిత్ర పేజినేషన్",
+        "showing": "{{total}} అమ్మకాలలో {{start}}-{{end}} చూపిస్తున్నాం",
+        "pageSize": "వరుసలు",
+        "prev": "మునుపటి పేజీ",
+        "next": "తదుపరి పేజీ",
+        "page": "పేజీ {{page}} కి వెళ్ళండి",
+        "pageStatus": "{{totalPages}} లో పేజీ {{page}}"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ఆఫ్‌లైన్ అమ్మకాల క్యూ స్థితి",
+        "eyebrow": "ఆఫ్‌లైన్ క్యూ",
+        "title": "సమకాలీకరణ స్థితి",
+        "retry": "మళ్ళీ ప్రయత్నించు",
+        "pending": "పెండింగ్",
+        "syncing": "సమకాలీకరిస్తోంది",
+        "failed": "విఫలం",
+        "warnings": "హెచ్చరికలు",
+        "needsReview": "సమీక్ష అవసరం"
       }
     },
     "newSale": {

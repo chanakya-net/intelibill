@@ -8,9 +8,11 @@ import {
   selectLoadingSales,
   selectReturnPreview,
   selectReturnPreviewErrorMessage,
+  selectSalesHistorySummary,
   selectSelectedSale,
   selectSubmitting,
   selectLastRecordedSale,
+  selectSalesPagination,
 } from './sales.selectors';
 
 const makeSale = (id: string): SaleListItemDto => ({
@@ -29,6 +31,9 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerPhone: null,
   itemCount: 2,
       returnNumbers: [],
+  status: 'partiallyPaid',
+  refundAmount: 0,
+  dueReductionAmount: 0,
 });
 
 function buildState(sales: SaleListItemDto[] = [], overrides = {}) {
@@ -91,5 +96,29 @@ describe('sales selectors', () => {
     const sale = { saleId: 's1' } as any;
     const state = buildState([], { lastRecordedSale: sale });
     expect(selectLastRecordedSale.projector(state)).toEqual(sale);
+  });
+
+  it('selectSalesPagination reflects sales pagination state', () => {
+    const state = buildState([], {
+      totalCount: 42,
+      pageNumber: 3,
+      pageSize: 15,
+    });
+
+    expect(selectSalesPagination.projector(state)).toEqual({
+      totalCount: 42,
+      pageNumber: 3,
+      pageSize: 15,
+    });
+  });
+
+  it('selectSalesHistorySummary reflects state', () => {
+    const summary = {
+      periodSales: 900,
+      invoiceCount: 2,
+      refundAmount: 40,
+    };
+    const state = buildState([], { historySummary: summary });
+    expect(selectSalesHistorySummary.projector(state)).toEqual(summary);
   });
 });

@@ -620,16 +620,57 @@
       "noSalesDescription": "अपनी पहली बिक्री दर्ज करें।",
       "taxIncluded": "कर",
       "discount": "बचाया",
+      "kpi": {
+        "periodSales": "अवधि की बिक्री",
+        "invoices": "इनवॉइस",
+        "refunds": "धनवापसी"
+      },
+      "controls": {
+        "period": "अवधि",
+        "from": "शुरुआत की तारीख",
+        "to": "अंत की तारीख",
+        "status": "स्थिति",
+        "searchPlaceholder": "इनवॉइस, ग्राहक द्वारा खोजें…",
+        "reportLevel": "रिपोर्ट स्तर",
+        "clearFilters": "फ़िल्टर हटाएं"
+      },
+      "reportLevel": {
+        "summary": "सारांश",
+        "lineItems": "लाइन आइटम"
+      },
+      "status": {
+        "all": "सभी",
+        "paid": "भुगतान किया",
+        "partiallyPaid": "आंशिक भुगतान",
+        "refunded": "वापस किया",
+        "unknown": "अज्ञात"
+      },
+      "actions": {
+        "viewReceipt": "रसीद देखें →"
+      },
+      "amount": {
+        "due": "बकाया",
+        "refund": "वापसी"
+      },
+      "pagination": {
+        "ariaLabel": "बिक्री इतिहास पृष्ठ संख्या",
+        "showing": "{{total}} बिक्री में से {{start}}-{{end}} दिखाया जा रहा है",
+        "pageSize": "पंक्तियाँ",
+        "prev": "पिछला पृष्ठ",
+        "next": "अगला पृष्ठ",
+        "page": "पृष्ठ {{page}} पर जाएं",
+        "pageStatus": "{{totalPages}} में से पृष्ठ {{page}}"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ऑफलाइन बिक्री कतार स्थिति",
+        "eyebrow": "ऑफलाइन कतार",
+        "title": "सिंक स्थिति",
+        "retry": "पुनः प्रयास",
+        "pending": "लंबित",
+        "syncing": "सिंक हो रहा है",
+        "failed": "विफल",
+        "warnings": "चेतावनी",
+        "needsReview": "समीक्षा आवश्यक"
       }
     },
     "newSale": {

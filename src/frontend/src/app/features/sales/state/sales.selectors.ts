@@ -27,3 +27,15 @@ export const selectReturnPreviewErrorMessage = salesFeature.selectReturnPreviewE
 export const selectProfitLossReport = salesFeature.selectProfitLossReport;
 export const selectLoadingProfitLossReport = salesFeature.selectLoadingProfitLossReport;
 export const selectLastRecordedSale = salesFeature.selectLastRecordedSale;
+export const selectSalesPagination = createSelector(
+  salesFeature.selectSalesState,
+  (salesState) => ({
+    totalCount: salesState.totalCount,
+    pageNumber: salesState.pageNumber,
+    pageSize: salesState.pageSize,
+  })
+);
+export const selectSalesHistorySummary = createSelector(
+  salesFeature.selectSalesState,
+  (salesState) => salesState.historySummary
+);

@@ -17,23 +17,8 @@
 .export-controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
-}
-
-.date-range-group,
-.level-group {
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.label {
-  font-size: 0.8rem;
-  color: #334155;
-  font-weight: 600;
-  white-space: nowrap;
+  gap: 0.75rem;
 }
 
 .format-buttons {

@@ -132,12 +132,19 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetSales(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSales(
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
-        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(
-            new GetSalesQuery(UserId!.Value, ActiveShopId!.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<SalesHistoryResultDto>>(
+            new GetSalesQuery(UserId!.Value, ActiveShopId!.Value, from, to, search, status, page, pageSize),
             cancellationToken);
         return result.ToActionResult(Ok);
     }

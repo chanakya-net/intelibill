@@ -620,16 +620,57 @@
       "noSalesDescription": "ನಿಮ್ಮ ಮೊದಲ ಮಾರಾಟ ದಾಖಲಿಸಿ.",
       "taxIncluded": "ತೆರಿಗೆ",
       "discount": "ಉಳಿಸಿದ",
+      "kpi": {
+        "periodSales": "ಅವಧಿಯ ಮಾರಾಟ",
+        "invoices": "ಇನ್ವಾಯ್ಸ್‌ಗಳು",
+        "refunds": "ಮರುಪಾವತಿ"
+      },
+      "controls": {
+        "period": "ಅವಧಿ",
+        "from": "ಪ್ರಾರಂಭ ದಿನಾಂಕ",
+        "to": "ಅಂತ್ಯ ದಿನಾಂಕ",
+        "status": "ಸ್ಥಿತಿ",
+        "searchPlaceholder": "ಇನ್ವಾಯ್ಸ್, ಗ್ರಾಹಕರ ಮೂಲಕ ಹುಡುಕಿ…",
+        "reportLevel": "ವರದಿ ಮಟ್ಟ",
+        "clearFilters": "ಫಿಲ್ಟರ್ ತೆರವು"
+      },
+      "reportLevel": {
+        "summary": "ಸಾರಾಂಶ",
+        "lineItems": "ಸಾಲು ಐಟಂಗಳು"
+      },
+      "status": {
+        "all": "ಎಲ್ಲಾ",
+        "paid": "ಪಾವತಿ ಮಾಡಲಾಗಿದೆ",
+        "partiallyPaid": "ಭಾಗಶಃ ಪಾವತಿ",
+        "refunded": "ಮರುಪಾವತಿ",
+        "unknown": "ಅಜ್ಞಾತ"
+      },
+      "actions": {
+        "viewReceipt": "ರಸೀದಿ ನೋಡಿ →"
+      },
+      "amount": {
+        "due": "ಬಾಕಿ",
+        "refund": "ಮರುಪಾವತಿ"
+      },
+      "pagination": {
+        "ariaLabel": "ಮಾರಾಟ ಇತಿಹಾಸ ಪುಟ ಸಂಖ್ಯೆ",
+        "showing": "{{total}} ಮಾರಾಟಗಳಲ್ಲಿ {{start}}-{{end}} ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+        "pageSize": "ಸಾಲುಗಳು",
+        "prev": "ಹಿಂದಿನ ಪುಟ",
+        "next": "ಮುಂದಿನ ಪುಟ",
+        "page": "ಪುಟ {{page}} ಗೆ ಹೋಗಿ",
+        "pageStatus": "{{totalPages}} ರಲ್ಲಿ ಪುಟ {{page}}"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ಆಫ್‌ಲೈನ್ ಮಾರಾಟ ಸರದಿ ಸ್ಥಿತಿ",
+        "eyebrow": "ಆಫ್‌ಲೈನ್ ಸರದಿ",
+        "title": "ಸಿಂಕ್ ಸ್ಥಿತಿ",
+        "retry": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+        "pending": "ಬಾಕಿ ಇದೆ",
+        "syncing": "ಸಿಂಕ್ ಆಗುತ್ತಿದೆ",
+        "failed": "ವಿಫಲ",
+        "warnings": "ಎಚ್ಚರಿಕೆಗಳು",
+        "needsReview": "ಪರಿಶೀಲನೆ ಅಗತ್ಯ"
       }
     },
     "newSale": {
