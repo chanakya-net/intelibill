@@ -75,7 +75,11 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
 
         var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
+        }
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;
     }
@@ -723,6 +727,33 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 	        Assert.Equal(expectedCriticalStock, barcodeSearchSummary.GetProperty("criticalStockCount").GetInt32());
 	        Assert.Equal(expectedTotalStockValue, barcodeSearchSummary.GetProperty("totalStockValue").GetDecimal());
 
+	        using var descriptionSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.InStockDescription)}");
+	        descriptionSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var descriptionSearchResponse = await client.SendAsync(descriptionSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, descriptionSearchResponse.StatusCode);
+	        var descriptionSearch = await descriptionSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, descriptionSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.InStockName, descriptionSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
+	        using var uomSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.ReorderUom)}");
+	        uomSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var uomSearchResponse = await client.SendAsync(uomSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, uomSearchResponse.StatusCode);
+	        var uomSearch = await uomSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, uomSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.ReorderName, uomSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
+	        using var hsnCodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockHsnCode)}");
+	        hsnCodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var hsnCodeSearchResponse = await client.SendAsync(hsnCodeSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, hsnCodeSearchResponse.StatusCode);
+	        var hsnCodeSearch = await hsnCodeSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, hsnCodeSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.OutOfStockName, hsnCodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
 	        foreach (var (status, expectedCount, expectedName) in new[]
 	        {
 	            ("active", 3, fixture.InStockName),
@@ -775,8 +806,22 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 dbItem.CreatedBy,
                 quantity: 10m,
                 reorderLevel: 5m,
-                new CatalogBatchSeed("B-OLD", 4m, 1m, 15m, 11m, new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero)),
-                new CatalogBatchSeed("B-NEW", 6m, 2m, 18m, 13m, new DateTimeOffset(2026, 5, 2, 0, 0, 0, TimeSpan.Zero)));
+                new CatalogBatchSeed(
+                    "B-OLD",
+                    4m,
+                    1m,
+                    15m,
+                    11m,
+                    new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero),
+                    UpdatedAt: new DateTimeOffset(2026, 5, 3, 0, 0, 0, TimeSpan.Zero)),
+                new CatalogBatchSeed(
+                    "B-NEW",
+                    6m,
+                    2m,
+                    18m,
+                    13m,
+                    new DateTimeOffset(2026, 5, 2, 0, 0, 0, TimeSpan.Zero),
+                    UpdatedAt: new DateTimeOffset(2026, 5, 2, 1, 0, 0, TimeSpan.Zero)));
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(name)}");
@@ -794,7 +839,15 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(122m, body.GetProperty("summary").GetProperty("totalStockValue").GetDecimal());
     }
 
-    private static async Task<Guid> AddItemAsync(HttpClient client, string token, string name, string barcode, bool isActive)
+    private static async Task<Guid> AddItemAsync(
+        HttpClient client,
+        string token,
+        string name,
+        string barcode,
+        bool isActive,
+        string? description = null,
+        string uom = "kg",
+        string? hsnCode = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -802,15 +855,19 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         {
             name,
             barcode,
-            description = (string?)null,
-            uom = "kg",
+            description,
+            uom,
             isActive,
-            hsnCode = (string?)null,
+            hsnCode,
             defaultTaxRatePercent = 0m,
         });
 
         var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
+        }
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("id").GetGuid();
@@ -872,9 +929,13 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var inactiveName = $"Delta Inactive {Guid.NewGuid():N}";
         var inactiveBarcode = $"CAT-4-{Guid.NewGuid():N}";
 
-        var inStockItemId = await AddItemAsync(client, ownerToken, inStockName, inStockBarcode, isActive: true);
-        var reorderItemId = await AddItemAsync(client, ownerToken, reorderName, reorderBarcode, isActive: true);
-        await AddItemAsync(client, ownerToken, outOfStockName, outOfStockBarcode, isActive: true);
+        var inStockDescription = $"premium alpha desc {Guid.NewGuid():N}";
+        var reorderUom = "bx";
+        var outOfStockHsnCode = "1234";
+
+        var inStockItemId = await AddItemAsync(client, ownerToken, inStockName, inStockBarcode, isActive: true, description: inStockDescription, uom: "kg");
+        var reorderItemId = await AddItemAsync(client, ownerToken, reorderName, reorderBarcode, isActive: true, uom: reorderUom);
+        await AddItemAsync(client, ownerToken, outOfStockName, outOfStockBarcode, isActive: true, hsnCode: outOfStockHsnCode);
         await AddItemAsync(client, ownerToken, inactiveName, inactiveBarcode, isActive: false);
 
         await using (var scope = _factory.Services.CreateAsyncScope())
@@ -908,10 +969,13 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             ownerToken,
             inStockName,
             inStockBarcode,
+            inStockDescription,
             reorderName,
             reorderBarcode,
+            reorderUom,
             outOfStockName,
             outOfStockBarcode,
+            outOfStockHsnCode,
             inactiveName,
             inactiveBarcode);
     }
@@ -923,10 +987,13 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         string OwnerToken,
         string InStockName,
         string InStockBarcode,
+        string InStockDescription,
         string ReorderName,
         string ReorderBarcode,
+        string ReorderUom,
         string OutOfStockName,
         string OutOfStockBarcode,
+        string OutOfStockHsnCode,
         string InactiveName,
         string InactiveBarcode);
 

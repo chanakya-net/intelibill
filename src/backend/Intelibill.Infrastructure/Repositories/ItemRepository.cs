@@ -88,7 +88,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     .FirstOrDefault() ?? 0m,
                 UnitPrice: _context.InventoryBatches
                     .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
-                    .OrderByDescending(batch => batch.UpdatedAt ?? batch.CreatedAt)
+                    .OrderByDescending(batch => batch.CreatedAt)
                     .ThenByDescending(batch => batch.Id)
                     .Select(batch => (decimal?)batch.SalesPrice)
                     .FirstOrDefault(),
@@ -132,7 +132,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     .FirstOrDefault() ?? 0m,
                 UnitPrice: _context.InventoryBatches
                     .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
-                    .OrderByDescending(batch => batch.UpdatedAt ?? batch.CreatedAt)
+                    .OrderByDescending(batch => batch.CreatedAt)
                     .ThenByDescending(batch => batch.Id)
                     .Select(batch => (decimal?)batch.SalesPrice)
                     .FirstOrDefault(),
@@ -175,7 +175,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
 
         return query.Where(i =>
             EF.Functions.ILike(i.Name, pattern)
-            || EF.Functions.ILike(i.Barcode, pattern));
+            || EF.Functions.ILike(i.Barcode, pattern)
+            || (i.Description != null && EF.Functions.ILike(i.Description, pattern))
+            || EF.Functions.ILike(i.Uom, pattern)
+            || (i.HsnCode != null && EF.Functions.ILike(i.HsnCode, pattern)));
     }
 
     private IQueryable<Item> ApplyStatusFilter(IQueryable<Item> query, string? status)
