@@ -13,9 +13,17 @@ export class SalesEffects {
   loadSales$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.loadSalesRequested),
-      switchMap(() =>
-        this.saleService.getSales().pipe(
-          map((sales) => SalesActions.loadSalesSucceeded({ sales })),
+      switchMap(({ queryParams }) =>
+        this.saleService.getSales(queryParams).pipe(
+          map(({ items, totalCount, pageNumber, pageSize, summary }) =>
+            SalesActions.loadSalesSucceeded({
+              sales: items,
+              totalCount,
+              pageNumber,
+              pageSize,
+              summary,
+            })
+          ),
           catchError((error) =>
             of(
               SalesActions.loadSalesFailed({

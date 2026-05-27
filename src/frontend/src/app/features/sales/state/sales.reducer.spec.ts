@@ -18,6 +18,9 @@ const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleLis
   customerPhone: null,
   itemCount: 2,
       returnNumbers: [],
+  status: 'not-returned',
+  refundAmount: 0,
+  dueReductionAmount: 0,
   ...overrides,
 }) as SaleListItemDto;
 
@@ -27,7 +30,7 @@ describe('salesReducer', () => {
   it('sets loading state when load sales is requested', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'existing error' },
-      SalesActions.loadSalesRequested()
+      SalesActions.loadSalesRequested({})
     );
 
     expect(next.loadingSales).toBe(true);
@@ -38,7 +41,17 @@ describe('salesReducer', () => {
     const sales = [makeSale('s1'), makeSale('s2')];
     const next = salesReducer(
       { ...initialState, loadingSales: true },
-      SalesActions.loadSalesSucceeded({ sales })
+      SalesActions.loadSalesSucceeded({
+        sales,
+        totalCount: 2,
+        pageNumber: 3,
+        pageSize: 25,
+        summary: {
+          periodSales: 1200,
+          invoiceCount: 2,
+          refundAmount: 50,
+        },
+      })
     );
 
     expect(next.loadingSales).toBe(false);
@@ -54,6 +67,30 @@ describe('salesReducer', () => {
 
     expect(next.loadingSales).toBe(false);
     expect(next.errorMessage).toBe('Failed to load sales');
+  });
+
+  it('stores pagination metadata and summary on load success', () => {
+    const sales = [makeSale('s1')];
+    const summary = {
+      periodSales: 995,
+      invoiceCount: 1,
+      refundAmount: 10,
+    };
+    const next = salesReducer(
+      { ...initialState, loadingSales: true },
+      SalesActions.loadSalesSucceeded({
+        sales,
+        totalCount: 12,
+        pageNumber: 2,
+        pageSize: 20,
+        summary,
+      })
+    );
+
+    expect(next.totalCount).toBe(12);
+    expect(next.pageNumber).toBe(2);
+    expect(next.pageSize).toBe(20);
+    expect(next.historySummary).toEqual(summary);
   });
 
   it('sets submitting on record sale requested', () => {

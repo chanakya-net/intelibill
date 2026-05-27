@@ -227,6 +227,31 @@ export interface SaleDto {
   readonly warnings: readonly string[];
 }
 
+export type SaleHistoryStatus = 'returned' | 'refunded' | 'not-returned' | 'notrefunded' | 'not-refunded';
+
+export interface SalesHistorySummaryDto {
+  readonly periodSales: number;
+  readonly invoiceCount: number;
+  readonly refundAmount: number;
+}
+
+export interface SalesHistoryResultDto {
+  readonly items: readonly SaleListItemDto[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly summary: SalesHistorySummaryDto;
+}
+
+export interface SalesHistoryQueryParams {
+  readonly from?: string;
+  readonly to?: string;
+  readonly search?: string;
+  readonly status?: SaleHistoryStatus;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
 export type SaleReturnCondition = 1 | 2;
 
 export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string }[] = [
@@ -320,6 +345,9 @@ export interface SaleListItemDto {
   readonly customerPhone: string | null;
   readonly itemCount: number;
   readonly returnNumbers: readonly string[];
+  readonly status: SaleHistoryStatus;
+  readonly refundAmount: number;
+  readonly dueReductionAmount: number;
 }
 
 export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';

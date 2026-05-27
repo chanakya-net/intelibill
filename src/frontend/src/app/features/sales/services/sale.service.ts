@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -8,13 +8,14 @@ import type {
   OfflineSalesSyncRequest,
   OfflineSalesSyncResponseDto,
   ProfitLossReportItemDto,
+  SalesHistoryQueryParams,
+  SalesHistoryResultDto,
   PreviewSaleRequest,
   PreviewSaleReturnRequest,
   RecordSaleRequest,
   RecordSaleReturnRequest,
   ReserveInvoiceLeaseRequest,
   SaleDto,
-  SaleListItemDto,
   SalePreviewDto,
   SaleReturnPreviewDto,
   VoidSaleReturnRequest,
@@ -42,8 +43,17 @@ export class SaleService {
     return this.http.post<SalePreviewDto>(SALE_ENDPOINTS.preview, request);
   }
 
-  getSales(): Observable<readonly SaleListItemDto[]> {
-    return this.http.get<readonly SaleListItemDto[]>(SALE_ENDPOINTS.list);
+  getSales(params?: SalesHistoryQueryParams): Observable<SalesHistoryResultDto> {
+    let requestParams = new HttpParams();
+
+    if (params?.from) requestParams = requestParams.set('from', params.from);
+    if (params?.to) requestParams = requestParams.set('to', params.to);
+    if (params?.search) requestParams = requestParams.set('search', params.search);
+    if (params?.status) requestParams = requestParams.set('status', params.status);
+    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+
+    return this.http.get<SalesHistoryResultDto>(SALE_ENDPOINTS.list, { params: requestParams });
   }
 
   getSaleById(saleId: string): Observable<SaleDto> {

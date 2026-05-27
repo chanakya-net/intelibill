@@ -6,6 +6,7 @@ import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
 import { SaleService } from '../services/sale.service';
+import type { SaleListItemDto, SalesHistoryQueryParams } from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import { SalesEffects } from './sales.effects';
 
@@ -23,7 +24,7 @@ describe('SalesEffects', () => {
     previewSaleReturn: vi.fn<SaleService['previewSaleReturn']>(),
   };
 
-  const makeSale = (id = 'sale-1') => ({
+  const makeSale = (id = 'sale-1'): SaleListItemDto => ({
     saleId: id,
     invoiceNumber: `INV-${id}`,
     customerId: null,
@@ -39,7 +40,10 @@ describe('SalesEffects', () => {
     customerPhone: null,
     itemCount: 1,
     returnNumbers: [],
-  });
+    status: 'not-returned',
+    refundAmount: 0,
+    dueReductionAmount: 0,
+  } as SaleListItemDto);
 
   const makeSaleDto = (id = 'sale-1') => ({
     saleId: id,
@@ -90,20 +94,49 @@ describe('SalesEffects', () => {
   });
 
   it('dispatches loadSalesSucceeded on load success', async () => {
+    const queryParams: SalesHistoryQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-20',
+      search: 'INV',
+      status: 'returned',
+      page: 1,
+      pageSize: 30,
+    } as const;
     const sales = [makeSale()];
-    saleService.getSales.mockReturnValue(of(sales));
+    saleService.getSales.mockReturnValue(
+      of({
+        items: sales,
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 30,
+        summary: {
+          periodSales: 1000,
+          invoiceCount: 1,
+          refundAmount: 0,
+        },
+      })
+    );
 
     const output = firstValueFrom(effects.loadSales$.pipe(take(1)));
-    actions$.next(SalesActions.loadSalesRequested());
+    actions$.next(SalesActions.loadSalesRequested({ queryParams }));
 
-    await expect(output).resolves.toEqual(SalesActions.loadSalesSucceeded({ sales }));
+    await expect(output).resolves.toEqual(
+      SalesActions.loadSalesSucceeded({
+        sales,
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 30,
+        summary: { periodSales: 1000, invoiceCount: 1, refundAmount: 0 },
+      })
+    );
+    expect(saleService.getSales).toHaveBeenCalledWith(queryParams);
   });
 
   it('dispatches loadSalesFailed on load failure', async () => {
     saleService.getSales.mockReturnValue(throwError(() => ({ error: { detail: 'Server error' } })));
 
     const output = firstValueFrom(effects.loadSales$.pipe(take(1)));
-    actions$.next(SalesActions.loadSalesRequested());
+    actions$.next(SalesActions.loadSalesRequested({}));
 
     await expect(output).resolves.toEqual(
       SalesActions.loadSalesFailed({ errorMessage: 'Server error' })
@@ -114,7 +147,7 @@ describe('SalesEffects', () => {
     saleService.getSales.mockReturnValue(throwError(() => ({})));
 
     const output = firstValueFrom(effects.loadSales$.pipe(take(1)));
-    actions$.next(SalesActions.loadSalesRequested());
+    actions$.next(SalesActions.loadSalesRequested({}));
 
     await expect(output).resolves.toEqual(
       SalesActions.loadSalesFailed({ errorMessage: 'Failed to load sales' })
