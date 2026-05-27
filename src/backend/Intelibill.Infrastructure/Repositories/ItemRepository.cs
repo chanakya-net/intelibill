@@ -65,7 +65,63 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             ApplySearchFilter(_context.Items.AsNoTracking().Where(i => i.ShopId == filter.ShopId), normalizedSearch),
             normalizedStatus);
 
-        var totalCount = await catalogQuery.CountAsync(cancellationToken);
+        var summaryQuery = catalogQuery
+            .Select(i => new
+            {
+                i.Id,
+                i.IsActive,
+                Quantity = _context.Inventory
+                    .Where(inv => inv.ItemId == i.Id)
+                    .Select(inv => (decimal?)inv.Quantity)
+                    .FirstOrDefault(),
+                ReorderLevel = _context.Inventory
+                    .Where(inv => inv.ItemId == i.Id)
+                    .Select(inv => (decimal?)inv.ReorderLevel)
+                    .FirstOrDefault(),
+                SalesPrice = _context.InventoryBatches
+                    .Where(b => b.ItemId == i.Id && !b.IsVoided)
+                    .OrderByDescending(b => b.CreatedAt)
+                    .ThenByDescending(b => b.Id)
+                    .Select(b => (decimal?)b.SalesPrice)
+                    .FirstOrDefault()
+            });
+
+        var summaryItems = await summaryQuery.ToListAsync(cancellationToken);
+
+        var totalCount = summaryItems.Count;
+        var activeCount = 0;
+        var inactiveCount = 0;
+        var runningLowStockCount = 0;
+        var criticalStockCount = 0;
+        var totalStockValue = 0m;
+
+        foreach (var item in summaryItems)
+        {
+            if (item.IsActive)
+                activeCount++;
+            else
+                inactiveCount++;
+
+            var currentStock = item.Quantity ?? 0m;
+            var reorderLevel = item.ReorderLevel ?? 0m;
+            var unitPrice = item.SalesPrice ?? 0m;
+
+            totalStockValue += currentStock * unitPrice;
+
+            var stockStatus = DeriveStockStatus(currentStock, reorderLevel);
+            if (stockStatus == StockStatusRunningLow)
+                runningLowStockCount++;
+            else if (stockStatus == StockStatusCritical)
+                criticalStockCount++;
+        }
+
+        var summary = new ItemCatalogSummaryReadModel(
+            TotalItems: totalCount,
+            ActiveItems: activeCount,
+            InactiveItems: inactiveCount,
+            RunningLowStockCount: runningLowStockCount,
+            CriticalStockCount: criticalStockCount,
+            TotalStockValue: totalStockValue);
 
         var pagedItems = await catalogQuery
             .OrderBy(i => i.Name)
@@ -77,16 +133,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         var itemIds = pagedItems.Select(item => item.Id).ToList();
         if (itemIds.Count == 0)
         {
-            return new ItemCatalogResultReadModel(
-                [],
-                totalCount,
-                new ItemCatalogSummaryReadModel(
-                    TotalItems: 0,
-                    ActiveItems: 0,
-                    InactiveItems: 0,
-                    RunningLowStockCount: 0,
-                    CriticalStockCount: 0,
-                    TotalStockValue: 0m));
+            return new ItemCatalogResultReadModel([], totalCount, summary);
         }
 
         var inventoryLookup = await _context.Inventory
@@ -137,28 +184,6 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     item.DefaultTaxIncluded);
             })
             .ToList();
-
-        var totalStockValue = 0m;
-        var runningLowStockCount = 0;
-        var criticalStockCount = 0;
-
-        foreach (var item in catalog)
-        {
-            totalStockValue += item.CurrentStockValue;
-
-            if (item.StockStatus == StockStatusRunningLow)
-                runningLowStockCount++;
-            else if (item.StockStatus == StockStatusCritical)
-                criticalStockCount++;
-        }
-
-        var summary = new ItemCatalogSummaryReadModel(
-            TotalItems: catalog.Count,
-            ActiveItems: catalog.Count(item => item.IsActive),
-            InactiveItems: catalog.Count(item => !item.IsActive),
-            RunningLowStockCount: runningLowStockCount,
-            CriticalStockCount: criticalStockCount,
-            TotalStockValue: totalStockValue);
 
         return new ItemCatalogResultReadModel(catalog, totalCount, summary);
     }
