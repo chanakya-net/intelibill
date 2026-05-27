@@ -1,23 +1,35 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { Store } from '@ngrx/store';
+import { catchError, map, of, switchMap, withLatestFrom } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { ShopsActions } from '../../shops/state/shops.actions';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryActions } from './inventory.actions';
+import { selectInventoryLatestQuery } from './inventory.selectors';
 
 @Injectable()
 export class InventoryEffects {
   private readonly actions$ = inject(Actions);
+  private readonly store = inject(Store);
   private readonly inventoryService = inject(InventoryService);
 
   readonly loadItems$ = createEffect(() =>
     this.actions$.pipe(
       ofType(InventoryActions.loadItemsRequested),
-      switchMap(() =>
-        this.inventoryService.getItems().pipe(
-          map((items) => InventoryActions.loadItemsSucceeded({ items })),
+      withLatestFrom(this.store.select(selectInventoryLatestQuery)),
+      switchMap(([{ query }, latestQuery]) =>
+        this.inventoryService.getItems(query ?? latestQuery).pipe(
+          map(({ items, totalCount, pageNumber, pageSize, summary }) =>
+            InventoryActions.loadItemsSucceeded({
+              items,
+              totalCount,
+              pageNumber,
+              pageSize,
+              summary,
+            })
+          ),
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               InventoryActions.loadItemsFailed({
@@ -48,6 +60,14 @@ export class InventoryEffects {
     )
   );
 
+  readonly reloadItemsAfterAdd$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(InventoryActions.addItemSucceeded),
+      withLatestFrom(this.store.select(selectInventoryLatestQuery)),
+      map(([, query]) => InventoryActions.loadItemsRequested({ query }))
+    )
+  );
+
   readonly updateItem$ = createEffect(() =>
     this.actions$.pipe(
       ofType(InventoryActions.updateItemRequested),
@@ -69,14 +89,16 @@ export class InventoryEffects {
   readonly reloadItemsAfterUpdate$ = createEffect(() =>
     this.actions$.pipe(
       ofType(InventoryActions.updateItemSucceeded),
-      map(() => InventoryActions.loadItemsRequested())
+      withLatestFrom(this.store.select(selectInventoryLatestQuery)),
+      map(([, query]) => InventoryActions.loadItemsRequested({ query }))
     )
   );
 
   readonly reloadItemsAfterShopSwitch$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopSucceeded, ShopsActions.setDefaultShopSucceeded),
-      map(() => InventoryActions.loadItemsRequested())
+      withLatestFrom(this.store.select(selectInventoryLatestQuery)),
+      map(([, query]) => InventoryActions.loadItemsRequested({ query }))
     )
   );
 }

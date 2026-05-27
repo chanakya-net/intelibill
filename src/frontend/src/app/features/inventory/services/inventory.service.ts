@@ -19,6 +19,8 @@ import type {
   InventoryAdjustmentHistoryQuery,
   InventoryAdjustmentHistoryResponse,
   InventoryBatchDto,
+  InventoryCatalogQuery,
+  InventoryCatalogResponse,
   Item,
   ProductDetailsDto,
   UpdateInventoryBatchRequest,
@@ -32,8 +34,14 @@ import type {
 export class InventoryService {
   private readonly http = inject(HttpClient);
 
-  getItems(): Observable<readonly Item[]> {
-    return this.http.get<readonly Item[]>(ITEM_ENDPOINTS.list);
+  getItems(query: InventoryCatalogQuery): Observable<InventoryCatalogResponse> {
+    const params = new HttpParams()
+      .set('search', query.search)
+      .set('status', query.status)
+      .set('pageNumber', query.pageNumber)
+      .set('pageSize', query.pageSize);
+
+    return this.http.get<InventoryCatalogResponse>(ITEM_ENDPOINTS.list, { params });
   }
 
   addItem(payload: AddItemRequest): Observable<Item> {

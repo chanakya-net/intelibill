@@ -1,7 +1,11 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import type { Item } from '../services/inventory.models';
+import type {
+  InventoryCatalogQuery,
+  InventoryCatalogSummary,
+  Item,
+} from '../services/inventory.models';
 import { InventoryActions, ItemMutationType } from './inventory.actions';
 
 export const inventoryFeatureKey = 'inventory';
@@ -16,6 +20,11 @@ export interface InventoryState extends EntityState<Item> {
   readonly errorMessage: string;
   readonly lastMutationType: ItemMutationType | null;
   readonly lastMutationSucceeded: boolean;
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly summary: InventoryCatalogSummary | null;
+  readonly latestQuery: InventoryCatalogQuery;
 }
 
 const initialState: InventoryState = inventoryAdapter.getInitialState({
@@ -24,20 +33,35 @@ const initialState: InventoryState = inventoryAdapter.getInitialState({
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
+  totalCount: 0,
+  pageNumber: 1,
+  pageSize: 20,
+  summary: null,
+  latestQuery: {
+    search: '',
+    status: 'all',
+    pageNumber: 1,
+    pageSize: 20,
+  },
 });
 
 export const inventoryReducer = createReducer(
   initialState,
-  on(InventoryActions.loadItemsRequested, (state) => ({
+  on(InventoryActions.loadItemsRequested, (state, { query }) => ({
     ...state,
     loadingItems: true,
     errorMessage: '',
+    latestQuery: query ?? state.latestQuery,
   })),
-  on(InventoryActions.loadItemsSucceeded, (state, { items }) =>
+  on(InventoryActions.loadItemsSucceeded, (state, { items, totalCount, pageNumber, pageSize, summary }) =>
     inventoryAdapter.setAll([...items], {
       ...state,
       loadingItems: false,
       errorMessage: '',
+      totalCount,
+      pageNumber,
+      pageSize,
+      summary,
     })
   ),
   on(InventoryActions.loadItemsFailed, (state, { errorMessage }) => ({
@@ -53,19 +77,13 @@ export const inventoryReducer = createReducer(
     lastMutationType: 'add-item',
     lastMutationSucceeded: false,
   })),
-  on(InventoryActions.addItemSucceeded, (state, { item }) => {
-    const orderedExisting = state.ids
-      .map((id) => state.entities[id as string])
-      .filter((existing): existing is Item => Boolean(existing));
-
-    return inventoryAdapter.setAll([item, ...orderedExisting], {
-      ...state,
-      submitting: false,
-      errorMessage: '',
-      lastMutationType: 'add-item',
-      lastMutationSucceeded: true,
-    });
-  }),
+  on(InventoryActions.addItemSucceeded, (state) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'add-item',
+    lastMutationSucceeded: true,
+  })),
   on(InventoryActions.addItemFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,

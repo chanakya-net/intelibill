@@ -6,9 +6,40 @@ export interface Item {
   readonly uom: string;
   readonly isActive: boolean;
   readonly currentStock: number;
+  readonly unitPrice: number;
+  readonly currentStockValue: number;
+  readonly reorderLevel: number;
+  readonly stockStatus: ItemStockStatus;
   readonly hsnCode: string | null;
   readonly defaultTaxRatePercent: number;
   readonly defaultTaxIncluded: boolean;
+}
+
+export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive';
+export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical';
+
+export interface InventoryCatalogQuery {
+  readonly search: string;
+  readonly status: ItemCatalogStatusFilter;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+}
+
+export interface InventoryCatalogSummary {
+  readonly totalItems: number;
+  readonly activeItems: number;
+  readonly inactiveItems: number;
+  readonly runningLowStockCount: number;
+  readonly criticalStockCount: number;
+  readonly totalStockValue: number;
+}
+
+export interface InventoryCatalogResponse {
+  readonly items: readonly Item[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly summary: InventoryCatalogSummary;
 }
 
 export interface AddItemRequest {
