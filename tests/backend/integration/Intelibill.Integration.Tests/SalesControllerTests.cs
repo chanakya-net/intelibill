@@ -1463,6 +1463,24 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task GetSales_NormalizesInvalidPaginationValues()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?page=0&pageSize=0");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, body.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(20, body.GetProperty("pageSize").GetInt32());
+    }
+
+    [Fact]
     public async Task GetSales_WithoutAuth_Returns401()
     {
         using var client = CreateClient();

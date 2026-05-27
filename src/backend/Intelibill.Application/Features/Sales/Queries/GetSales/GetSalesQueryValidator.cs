@@ -6,12 +6,6 @@ internal sealed class GetSalesQueryValidator : AbstractValidator<GetSalesQuery>
 {
     public GetSalesQueryValidator()
     {
-        RuleFor(x => x.Page)
-            .GreaterThan(0);
-
-        RuleFor(x => x.PageSize)
-            .GreaterThan(0);
-
         RuleFor(x => x)
             .Must(HaveValidDateRange)
             .WithErrorCode("Sales.History.InvalidDateRange")
@@ -23,4 +17,3 @@ internal sealed class GetSalesQueryValidator : AbstractValidator<GetSalesQuery>
         || !query.To.HasValue
         || query.From.Value <= query.To.Value;
 }
-
