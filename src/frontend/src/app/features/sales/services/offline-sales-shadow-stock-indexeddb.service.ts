@@ -16,11 +16,19 @@ export class OfflineSalesShadowStockIndexedDbService {
   private readonly storeName = 'shadow-stock';
 
   async getQuantity(shopId: string, deviceId: string, inventoryBatchId: string): Promise<number | null> {
+    if (!shopId || !deviceId || !inventoryBatchId || !this.isIndexedDbAvailable()) {
+      return null;
+    }
+
     const record = await this.getRecord(shopId, deviceId, inventoryBatchId);
     return record?.quantity ?? null;
   }
 
   async ensureQuantity(shopId: string, deviceId: string, inventoryBatchId: string, initialQuantity: number): Promise<number> {
+    if (!shopId || !deviceId || !inventoryBatchId || !this.isIndexedDbAvailable()) {
+      return Math.max(0, initialQuantity);
+    }
+
     const existing = await this.getRecord(shopId, deviceId, inventoryBatchId);
     if (existing) return existing.quantity;
 
@@ -37,6 +45,10 @@ export class OfflineSalesShadowStockIndexedDbService {
   }
 
   async reduceQuantity(shopId: string, deviceId: string, inventoryBatchId: string, quantity: number): Promise<number> {
+    if (!shopId || !deviceId || !inventoryBatchId || !this.isIndexedDbAvailable()) {
+      return 0;
+    }
+
     const current = await this.ensureQuantity(shopId, deviceId, inventoryBatchId, 0);
     const next = Math.max(0, current - Math.max(0, quantity));
 
@@ -76,7 +88,19 @@ export class OfflineSalesShadowStockIndexedDbService {
     return `${shopId}::${deviceId}::${inventoryBatchId}`;
   }
 
+  private isIndexedDbAvailable(): boolean {
+    return typeof indexedDB !== 'undefined';
+  }
+
+  private ensureIndexedDbAvailable(): void {
+    if (!this.isIndexedDbAvailable()) {
+      throw new Error('IndexedDB is not available.');
+    }
+  }
+
   private async openDatabase(): Promise<IDBDatabase> {
+    this.ensureIndexedDbAvailable();
+
     return await new Promise((resolve, reject) => {
       const request = indexedDB.open(this.databaseName, this.databaseVersion);
 

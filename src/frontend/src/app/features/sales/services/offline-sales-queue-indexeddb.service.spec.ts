@@ -97,6 +97,21 @@ describe('OfflineSalesQueueIndexedDbService', () => {
 
   });
 
+  it('no-ops cleanup and status reads when IndexedDB is unavailable', async () => {
+    vi.unstubAllGlobals();
+    service = new OfflineSalesQueueIndexedDbService();
+
+    await expect(service.deleteOldSyncedRecords()).resolves.toBe(0);
+    await expect(service.getStatusCounts('shop-1', 'device-1')).resolves.toEqual({
+      Pending: 0,
+      Syncing: 0,
+      Synced: 0,
+      SyncedWithWarnings: 0,
+      NeedsReview: 0,
+      Failed: 0,
+    });
+  });
+
   function makeInput(shopId: string, deviceId: string, clientSaleId: string, soldAt: string) {
     return {
       shopId,
