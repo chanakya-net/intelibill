@@ -6,6 +6,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import type { Item } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
@@ -14,6 +15,8 @@ import {
   selectInventoryLastMutationType,
   selectInventoryLoadingItems,
   selectInventorySubmitting,
+  selectInventoryPagination,
+  selectInventorySummary,
 } from '../state/inventory.selectors';
 import { InventoryPageComponent } from './inventory-page.component';
 
@@ -35,7 +38,7 @@ describe('InventoryPageComponent', () => {
     shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
   };
 
-  const itemsSignal = signal([
+  const itemsSignal = signal<Item[]>([
     {
       id: 'item-1',
       name: 'Milk',
@@ -44,6 +47,10 @@ describe('InventoryPageComponent', () => {
       uom: 'ltr',
       isActive: true,
       currentStock: 10,
+      unitPrice: 45,
+      currentStockValue: 450,
+      reorderLevel: 5,
+      stockStatus: 'inStock',
       hsnCode: '0401',
       defaultTaxRatePercent: 5,
       defaultTaxIncluded: false,
@@ -54,6 +61,15 @@ describe('InventoryPageComponent', () => {
   const errorSignal = signal('');
   const lastMutationTypeSignal = signal<'add-item' | 'update-item' | null>(null);
   const lastMutationSucceededSignal = signal(false);
+  const paginationSignal = signal({ totalCount: 1, pageNumber: 1, pageSize: 20 });
+  const summarySignal = signal({
+    totalItems: 1,
+    activeItems: 1,
+    inactiveItems: 0,
+    runningLowStockCount: 0,
+    criticalStockCount: 0,
+    totalStockValue: 450,
+  });
 
   const store = {
     dispatch: vi.fn(),
@@ -80,6 +96,14 @@ describe('InventoryPageComponent', () => {
 
       if (selector === selectInventoryLastMutationSucceeded) {
         return lastMutationSucceededSignal;
+      }
+
+      if (selector === selectInventoryPagination) {
+        return paginationSignal;
+      }
+
+      if (selector === selectInventorySummary) {
+        return summarySignal;
       }
 
       return signal(null);
@@ -114,6 +138,10 @@ describe('InventoryPageComponent', () => {
         uom: 'ltr',
         isActive: true,
         currentStock: 10,
+        unitPrice: 45,
+        currentStockValue: 450,
+        reorderLevel: 5,
+        stockStatus: 'inStock',
         hsnCode: '0401',
         defaultTaxRatePercent: 5,
         defaultTaxIncluded: false,
@@ -136,6 +164,7 @@ describe('InventoryPageComponent', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     TestBed.resetTestingModule();
   });
 
@@ -151,7 +180,16 @@ describe('InventoryPageComponent', () => {
   it('dispatches load items when page initializes', () => {
     TestBed.createComponent(InventoryPageComponent);
 
-    expect(store.dispatch).toHaveBeenCalledWith(InventoryActions.loadItemsRequested());
+    expect(store.dispatch).toHaveBeenCalledWith(
+      InventoryActions.loadItemsRequested({
+        query: {
+          search: '',
+          status: 'all',
+          pageNumber: 1,
+          pageSize: 20,
+        },
+      })
+    );
   });
 
   it('closes add overlay on successful add mutation', () => {
@@ -224,6 +262,89 @@ describe('InventoryPageComponent', () => {
     expect(component.showEditItemOverlay()).toBe(false);
   });
 
+  it('dispatches page query after debounced search change and resets to first page', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.pageNumber.set(3);
+    store.dispatch.mockClear();
+    component.onSearchChange('milk');
+    expect(store.dispatch).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(279);
+    expect(store.dispatch).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(component.pageNumber()).toBe(1);
+    expect(store.dispatch).toHaveBeenCalledWith(
+      InventoryActions.loadItemsRequested({
+        query: {
+          search: 'milk',
+          status: 'all',
+          pageNumber: 1,
+          pageSize: 20,
+        },
+      })
+    );
+  });
+
+  it('resets page to first when status filter changes', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    component.pageNumber.set(4);
+    store.dispatch.mockClear();
+
+    component.onStatusFilterChange('inStock');
+
+    expect(component.pageNumber()).toBe(1);
+    expect(store.dispatch).toHaveBeenCalledWith(
+      InventoryActions.loadItemsRequested({
+        query: {
+          search: '',
+          status: 'inStock',
+          pageNumber: 1,
+          pageSize: 20,
+        },
+      })
+    );
+  });
+
+  it('resets page to first when page size changes', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    component.pageNumber.set(3);
+    store.dispatch.mockClear();
+
+    component.onPageSizeChange(25);
+
+    expect(component.pageSize()).toBe(25);
+    expect(component.pageNumber()).toBe(1);
+    expect(store.dispatch).toHaveBeenCalledWith(
+      InventoryActions.loadItemsRequested({
+        query: {
+          search: '',
+          status: 'all',
+          pageNumber: 1,
+          pageSize: 25,
+        },
+      })
+    );
+  });
+
+  it('renders inventory summary cards from selectors', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.textContent).toContain('en.inventory.activeProducts');
+    expect(host.textContent).toContain('1 / 1');
+    expect(host.textContent).toContain('en.inventory.currentStockValue');
+    expect(host.textContent).toContain('450');
+    expect(host.textContent).toContain('en.inventory.lowStock');
+    expect(host.textContent).toContain('0');
+  });
+
   it('closes edit overlay on successful update mutation', () => {
     const fixture = TestBed.createComponent(InventoryPageComponent);
     const component = fixture.componentInstance;
@@ -252,15 +373,12 @@ describe('InventoryPageComponent', () => {
     expect(component.showEditItemOverlay()).toBe(true);
   });
 
-  it('filters mobile list when search value changes', () => {
+  it('renders summary footer values from pagination state', () => {
+    paginationSignal.set({ totalCount: 58, pageNumber: 2, pageSize: 20 });
     const fixture = TestBed.createComponent(InventoryPageComponent);
-    const component = fixture.componentInstance as unknown as {
-      searchValue: { set: (value: string) => void; (): string };
-      filteredItems: () => Array<{ id: string; name: string }>;
-    };
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
 
-    component.searchValue.set('milk');
-
-    expect(component.filteredItems().map((item) => item.name)).toEqual(['Milk']);
+    expect(host.textContent).toContain('en.inventory.paginationFooter');
   });
 });

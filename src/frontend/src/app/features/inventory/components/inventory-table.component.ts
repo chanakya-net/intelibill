@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { AvatarModule } from 'primeng/avatar';
 import { TagModule } from 'primeng/tag';
+import { PaginatorModule } from 'primeng/paginator';
 import { TableModule } from 'primeng/table';
 
 import type { Item } from '../services/inventory.models';
@@ -13,7 +14,7 @@ import type { Item } from '../services/inventory.models';
 @Component({
   selector: 'app-inventory-table',
   standalone: true,
-  imports: [CommonModule, AvatarModule, BadgeModule, ButtonModule, CardModule, TagModule, TableModule, TranslocoPipe],
+  imports: [CommonModule, AvatarModule, BadgeModule, ButtonModule, CardModule, PaginatorModule, TagModule, TableModule, TranslocoPipe],
   templateUrl: './inventory-table.component.html',
   styleUrl: './inventory-table.component.scss',
 })
@@ -21,9 +22,15 @@ export class InventoryTableComponent {
   @Input({ required: true }) items: readonly Item[] = [];
   @Input() canManageInventory = false;
   @Input() isSubmitting = false;
+  @Input() pageNumber = 1;
+  @Input() pageSize = 20;
+  @Input() totalCount = 0;
+  @Input() footerStart = 0;
+  @Input() footerEnd = 0;
 
   @Output() selectItem = new EventEmitter<Item>();
   @Output() editItem = new EventEmitter<Item>();
+  @Output() pageChange = new EventEmitter<{ page: number; rows: number }>();
 
   get tableItems(): Item[] {
     return [...this.items];
@@ -35,6 +42,20 @@ export class InventoryTableComponent {
 
   onEditItem(item: Item): void {
     this.editItem.emit(item);
+  }
+
+  onPageChange(event: any): void {
+    const rows = event.rows ?? this.pageSize;
+    const isPageSizeChange = rows !== this.pageSize;
+    const page = isPageSizeChange ? 1 : (event.page ?? 0) + 1;
+    this.pageChange.emit({ page, rows });
+  }
+
+  stockStatusSeverity(status: Item['stockStatus']): 'danger' | 'warn' | 'success' | 'secondary' {
+    if (status === 'inactive') return 'secondary';
+    if (status === 'critical') return 'danger';
+    if (status === 'runningLow') return 'warn';
+    return 'success';
   }
 
   productInitials(name: string): string {
@@ -57,5 +78,21 @@ export class InventoryTableComponent {
     if (stock <= 5) return 'danger';
     if (stock < 50) return 'warn';
     return 'success';
+  }
+
+  stockStatusLabelKey(stockStatus: Item['stockStatus']): string {
+    if (stockStatus === 'inactive') {
+      return 'inventory.inactive';
+    }
+
+    if (stockStatus === 'runningLow') {
+      return 'inventory.reorder';
+    }
+
+    if (stockStatus === 'critical') {
+      return 'inventory.outOfStock';
+    }
+
+    return 'inventory.inStock';
   }
 }

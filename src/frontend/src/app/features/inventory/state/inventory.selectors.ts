@@ -14,3 +14,10 @@ export const selectInventoryLastMutationSucceeded = createSelector(
   selectInventoryState,
   (state) => state.lastMutationSucceeded
 );
+export const selectInventoryPagination = createSelector(selectInventoryState, (state) => ({
+  totalCount: state.totalCount,
+  pageNumber: state.pageNumber,
+  pageSize: state.pageSize,
+}));
+export const selectInventorySummary = createSelector(selectInventoryState, (state) => state.summary);
+export const selectInventoryLatestQuery = createSelector(selectInventoryState, (state) => state.latestQuery);

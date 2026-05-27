@@ -1,13 +1,16 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class ItemRepository(ApplicationDbContext context)
-    : RepositoryBase<Item>(context), IItemRepository
+    : RepositoryBase<Item>(context), IItemRepository, IItemCatalogRepository
 {
+    private readonly ApplicationDbContext _context = context;
+
     public async Task<Item?> GetByBarcodeAsync(Guid shopId, string barcode, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.Barcode == barcode, cancellationToken);
 
@@ -50,4 +53,213 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             .Where(i => itemIds.Contains(i.Id))
             .ToListAsync(cancellationToken);
     }
+
+	    public async Task<ItemCatalogResultReadModel> GetCatalogAsync(
+	        ItemCatalogFilter filter,
+	        CancellationToken cancellationToken = default)
+	    {
+	        var normalizedSearch = filter.Search?.Trim();
+	        var normalizedStatus = filter.Status?.Trim().ToLowerInvariant();
+
+	        IQueryable<Item> shopItems = _context.Items
+	            .AsNoTracking()
+	            .Where(i => i.ShopId == filter.ShopId);
+
+	        var searchedItems = ApplySearchFilter(shopItems, normalizedSearch);
+	        var filteredItems = ApplyStatusFilter(searchedItems, normalizedStatus);
+
+	        var totalCount = await filteredItems.CountAsync(cancellationToken);
+
+	        var summaryRows = await shopItems
+	            .Select(item => new CatalogRow(
+	                item.Id,
+	                item.Name,
+	                item.Barcode,
+	                item.Description,
+                item.Uom,
+                item.IsActive,
+                CurrentStock: _context.Inventory
+                    .Where(inv => inv.ShopId == item.ShopId && inv.ItemId == item.Id)
+                    .Select(inv => (decimal?)inv.Quantity)
+                    .FirstOrDefault() ?? 0m,
+                ReorderLevel: _context.Inventory
+                    .Where(inv => inv.ShopId == item.ShopId && inv.ItemId == item.Id)
+                    .Select(inv => (decimal?)inv.ReorderLevel)
+                    .FirstOrDefault() ?? 0m,
+                UnitPrice: _context.InventoryBatches
+                    .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
+                    .OrderByDescending(batch => batch.CreatedAt)
+                    .ThenByDescending(batch => batch.Id)
+                    .Select(batch => (decimal?)batch.SalesPrice)
+                    .FirstOrDefault(),
+                CurrentStockValue: _context.InventoryBatches
+                    .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
+                    .Select(batch => (decimal?)(batch.Quantity * batch.SalesPrice))
+                    .Sum() ?? 0m,
+                item.HsnCode,
+                item.DefaultTaxRatePercent,
+                item.DefaultTaxIncluded))
+            .ToListAsync(cancellationToken);
+
+        var summary = new ItemCatalogSummaryReadModel(
+            TotalItems: summaryRows.Count,
+            ActiveItems: summaryRows.Count(r => r.IsActive),
+            InactiveItems: summaryRows.Count(r => !r.IsActive),
+            RunningLowStockCount: summaryRows.Count(r => r.IsActive && r.CurrentStock > 0m && r.CurrentStock <= r.ReorderLevel),
+            CriticalStockCount: summaryRows.Count(r => r.IsActive && r.CurrentStock <= 0m),
+            TotalStockValue: summaryRows.Sum(r => r.CurrentStockValue));
+
+        var pageRows = await filteredItems
+            .OrderBy(item => item.Name)
+            .ThenBy(item => item.Barcode)
+            .ThenBy(item => item.Id)
+            .Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .Select(item => new CatalogRow(
+                item.Id,
+                item.Name,
+                item.Barcode,
+                item.Description,
+                item.Uom,
+                item.IsActive,
+                CurrentStock: _context.Inventory
+                    .Where(inv => inv.ShopId == item.ShopId && inv.ItemId == item.Id)
+                    .Select(inv => (decimal?)inv.Quantity)
+                    .FirstOrDefault() ?? 0m,
+                ReorderLevel: _context.Inventory
+                    .Where(inv => inv.ShopId == item.ShopId && inv.ItemId == item.Id)
+                    .Select(inv => (decimal?)inv.ReorderLevel)
+                    .FirstOrDefault() ?? 0m,
+                UnitPrice: _context.InventoryBatches
+                    .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
+                    .OrderByDescending(batch => batch.CreatedAt)
+                    .ThenByDescending(batch => batch.Id)
+                    .Select(batch => (decimal?)batch.SalesPrice)
+                    .FirstOrDefault(),
+                CurrentStockValue: _context.InventoryBatches
+                    .Where(batch => batch.ShopId == item.ShopId && batch.ItemId == item.Id && !batch.IsVoided)
+                    .Select(batch => (decimal?)(batch.Quantity * batch.SalesPrice))
+                    .Sum() ?? 0m,
+                item.HsnCode,
+                item.DefaultTaxRatePercent,
+                item.DefaultTaxIncluded))
+            .ToListAsync(cancellationToken);
+
+        var catalog = pageRows
+            .Select(item => new ItemCatalogReadModel(
+                item.Id,
+                item.Name,
+                item.Barcode,
+                item.Description,
+                item.Uom,
+                item.IsActive,
+                item.CurrentStock,
+                item.UnitPrice,
+                item.CurrentStockValue,
+                item.ReorderLevel,
+                DeriveStockStatus(item.IsActive, item.CurrentStock, item.ReorderLevel),
+                item.HsnCode,
+                item.DefaultTaxRatePercent,
+                item.DefaultTaxIncluded))
+            .ToList();
+
+        return new ItemCatalogResultReadModel(catalog, totalCount, summary);
+    }
+
+    private static IQueryable<Item> ApplySearchFilter(IQueryable<Item> query, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+            return query;
+
+        var pattern = $"%{search.Trim()}%";
+
+        return query.Where(i =>
+            EF.Functions.ILike(i.Name, pattern)
+            || EF.Functions.ILike(i.Barcode, pattern)
+            || (i.Description != null && EF.Functions.ILike(i.Description, pattern))
+            || EF.Functions.ILike(i.Uom, pattern)
+            || (i.HsnCode != null && EF.Functions.ILike(i.HsnCode, pattern)));
+    }
+
+    private IQueryable<Item> ApplyStatusFilter(IQueryable<Item> query, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status) || status == "all")
+            return query;
+
+        return status switch
+        {
+            "active" => query.Where(i => i.IsActive),
+            "inactive" => query.Where(i => !i.IsActive),
+            "instock" => query.Where(i =>
+                i.IsActive
+                && (
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.Quantity)
+                        .FirstOrDefault() ?? 0m)
+                    >
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.ReorderLevel)
+                        .FirstOrDefault() ?? 0m)
+                )),
+            "runninglow" or "reorder" => query.Where(i =>
+                i.IsActive
+                && (
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.Quantity)
+                        .FirstOrDefault() ?? 0m) > 0m
+                )
+                && (
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.Quantity)
+                        .FirstOrDefault() ?? 0m)
+                    <=
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.ReorderLevel)
+                        .FirstOrDefault() ?? 0m)
+                )),
+            "critical" or "outofstock" => query.Where(i =>
+                i.IsActive
+                && (
+                    (_context.Inventory
+                        .Where(inv => inv.ShopId == i.ShopId && inv.ItemId == i.Id)
+                        .Select(inv => (decimal?)inv.Quantity)
+                        .FirstOrDefault() ?? 0m) <= 0m
+                )),
+            _ => query.Where(_ => false),
+        };
+    }
+
+    private static string DeriveStockStatus(bool isActive, decimal currentStock, decimal reorderLevel)
+    {
+        if (!isActive)
+            return "inactive";
+
+        if (currentStock <= 0m)
+            return "critical";
+
+        if (currentStock <= reorderLevel)
+            return "runningLow";
+
+        return "inStock";
+    }
+
+    private sealed record CatalogRow(
+        Guid Id,
+        string Name,
+        string Barcode,
+        string? Description,
+        string Uom,
+        bool IsActive,
+        decimal CurrentStock,
+        decimal ReorderLevel,
+        decimal? UnitPrice,
+        decimal CurrentStockValue,
+        string? HsnCode,
+        decimal DefaultTaxRatePercent,
+        bool DefaultTaxIncluded);
 }

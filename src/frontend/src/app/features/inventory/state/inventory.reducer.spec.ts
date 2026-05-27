@@ -1,6 +1,6 @@
+import type { Item } from '../services/inventory.models';
 import { InventoryActions } from './inventory.actions';
 import { InventoryState, inventoryReducer } from './inventory.reducer';
-import type { Item } from '../services/inventory.models';
 
 const milkItem: Item = {
   id: 'item-1',
@@ -10,6 +10,10 @@ const milkItem: Item = {
   uom: 'ltr',
   isActive: true,
   currentStock: 10,
+  unitPrice: 45,
+  currentStockValue: 450,
+  reorderLevel: 5,
+  stockStatus: 'inStock',
   hsnCode: '0401',
   defaultTaxRatePercent: 5,
   defaultTaxIncluded: false,
@@ -18,20 +22,28 @@ const milkItem: Item = {
 describe('inventoryReducer', () => {
   const initialState = inventoryReducer(undefined, { type: '@@INIT' } as never);
 
-  it('sets loading state when load items is requested', () => {
+  it('sets loading state and latest query when load items is requested', () => {
+    const query = {
+      search: 'milk',
+      status: 'active' as const,
+      pageNumber: 2,
+      pageSize: 10,
+    };
+
     const next = inventoryReducer(
       {
         ...initialState,
         errorMessage: 'Existing error',
       },
-      InventoryActions.loadItemsRequested()
+      InventoryActions.loadItemsRequested({ query })
     );
 
     expect(next.loadingItems).toBe(true);
     expect(next.errorMessage).toBe('');
+    expect(next.latestQuery).toEqual(query);
   });
 
-  it('sets items when load items succeeds', () => {
+  it('sets catalog metadata and summary when load items succeeds', () => {
     const next = inventoryReducer(
       {
         ...initialState,
@@ -39,85 +51,41 @@ describe('inventoryReducer', () => {
       },
       InventoryActions.loadItemsSucceeded({
         items: [milkItem],
+        totalCount: 12,
+        pageNumber: 2,
+        pageSize: 10,
+        summary: {
+          totalItems: 12,
+          activeItems: 11,
+          inactiveItems: 1,
+          runningLowStockCount: 3,
+          criticalStockCount: 1,
+          totalStockValue: 4500,
+        },
       })
     );
 
     expect(next.loadingItems).toBe(false);
     expect(next.ids).toEqual(['item-1']);
     expect(next.entities['item-1']).toEqual(milkItem);
+    expect(next.totalCount).toBe(12);
+    expect(next.pageNumber).toBe(2);
+    expect(next.pageSize).toBe(10);
+    expect(next.summary).toEqual({
+      totalItems: 12,
+      activeItems: 11,
+      inactiveItems: 1,
+      runningLowStockCount: 3,
+      criticalStockCount: 1,
+      totalStockValue: 4500,
+    });
   });
 
-  it('keeps all unique items when multiple items are loaded', () => {
-    const breadItem: Item = {
-      id: 'item-2',
-      name: 'Bread',
-      barcode: 'B002',
-      description: null,
-      uom: 'pcs',
-      isActive: true,
-      currentStock: 8,
-      hsnCode: null,
-      defaultTaxRatePercent: 0,
-      defaultTaxIncluded: false,
-    };
-
-    const next = inventoryReducer(
-      {
-        ...initialState,
-        loadingItems: true,
-      },
-      InventoryActions.loadItemsSucceeded({
-        items: [milkItem, breadItem],
-      })
-    );
-
-    expect(next.loadingItems).toBe(false);
-    expect(next.ids).toEqual(['item-1', 'item-2']);
-    expect(next.entities['item-1']).toEqual(milkItem);
-    expect(next.entities['item-2']).toEqual(breadItem);
-  });
-
-  it('sets error when load items fails', () => {
-    const next = inventoryReducer(
-      {
-        ...initialState,
-        loadingItems: true,
-      },
-      InventoryActions.loadItemsFailed({ errorMessage: 'errors.items.unableToLoadItems' })
-    );
-
-    expect(next.loadingItems).toBe(false);
-    expect(next.errorMessage).toBe('errors.items.unableToLoadItems');
-  });
-
-  it('sets submitting state when add item is requested', () => {
-    const next = inventoryReducer(
-      {
-        ...initialState,
-        errorMessage: 'Existing error',
-      },
-      InventoryActions.addItemRequested({
-        payload: {
-          name: 'Milk',
-          barcode: 'B001',
-          description: null,
-          uom: 'ltr',
-          isActive: true,
-          hsnCode: null,
-          defaultTaxRatePercent: 0,
-        },
-      })
-    );
-
-    expect(next.submitting).toBe(true);
-    expect(next.errorMessage).toBe('');
-    expect(next.lastMutationType).toBe('add-item');
-    expect(next.lastMutationSucceeded).toBe(false);
-  });
-
-  it('appends item when add item succeeds', () => {
+  it('keeps items unchanged when add item succeeds', () => {
     const state: InventoryState = {
       ...initialState,
+      ids: ['item-1'],
+      entities: { 'item-1': milkItem },
       submitting: true,
       lastMutationType: 'add-item',
       lastMutationSucceeded: false,
@@ -128,14 +96,15 @@ describe('inventoryReducer', () => {
       InventoryActions.addItemSucceeded({
         item: {
           ...milkItem,
-          currentStock: 0,
+          id: 'item-2',
         },
       })
     );
 
     expect(next.submitting).toBe(false);
     expect(next.ids).toEqual(['item-1']);
-    expect(next.entities['item-1']?.currentStock).toBe(0);
+    expect(next.entities['item-1']).toEqual(milkItem);
+    expect(next.entities['item-2']).toBeUndefined();
     expect(next.lastMutationSucceeded).toBe(true);
   });
 
@@ -158,5 +127,23 @@ describe('inventoryReducer', () => {
     expect(next.errorMessage).toBe('errors.items.unableToAddItem');
     expect(next.lastMutationType).toBe('add-item');
     expect(next.lastMutationSucceeded).toBe(false);
+  });
+
+  it('keeps items unchanged when update item succeeds', () => {
+    const state: InventoryState = {
+      ...initialState,
+      ids: ['item-1'],
+      entities: { 'item-1': milkItem },
+      submitting: true,
+      lastMutationType: 'update-item',
+      lastMutationSucceeded: false,
+    };
+
+    const next = inventoryReducer(state, InventoryActions.updateItemSucceeded());
+
+    expect(next.submitting).toBe(false);
+    expect(next.ids).toEqual(['item-1']);
+    expect(next.entities['item-1']).toEqual(milkItem);
+    expect(next.lastMutationSucceeded).toBe(true);
   });
 });

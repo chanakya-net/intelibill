@@ -33,7 +33,7 @@ public class ItemsControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.GetItems(CancellationToken.None);
+        var result = await _controller.GetItems(null, null, cancellationToken: CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -47,21 +47,37 @@ public class ItemsControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var items = (IReadOnlyList<ItemDto>)
-        [
-            new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, "0401", 5m, false),
-        ];
+        var resultDto = new ItemCatalogResultDto(
+            Items:
+            [
+                new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, 42m, 420m, 12m, "reorder", "0401", 5m, false),
+            ],
+            TotalCount: 1,
+            PageNumber: 1,
+            PageSize: 20,
+            Summary: new ItemCatalogSummaryDto(1, 1, 0, 1, 0, 420m));
 
-        _bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<ItemDto>>>(items.ToList()));
+        _bus.InvokeAsync<ErrorOr<ItemCatalogResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<ItemCatalogResultDto>>(resultDto));
 
-        var result = await _controller.GetItems(CancellationToken.None);
+        var result = await _controller.GetItems(
+            search: "milk",
+            status: "active",
+            pageNumber: 1,
+            pageSize: 20,
+            cancellationToken: CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(items, ok.Value);
+        Assert.Equal(resultDto, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
-            Arg.Is<GetItemsQuery>(q => q.UserId == userId && q.ActiveShopId == shopId),
+        await _bus.Received(1).InvokeAsync<ErrorOr<ItemCatalogResultDto>>(
+            Arg.Is<GetItemsQuery>(q =>
+                q.UserId == userId
+                && q.ActiveShopId == shopId
+                && q.Search == "milk"
+                && q.Status == "active"
+                && q.PageNumber == 1
+                && q.PageSize == 20),
             Arg.Any<CancellationToken>());
     }
 
@@ -139,6 +155,10 @@ public class ItemsControllerTests
             request.Uom,
             request.IsActive,
             0m,
+            0m,
+            0m,
+            0m,
+            "outOfStock",
             request.HsnCode,
             request.DefaultTaxRatePercent,
             false);

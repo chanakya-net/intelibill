@@ -423,7 +423,19 @@
     "optionalDetailsSummary": "Supplier, pricing, tax, dates, notes",
     "optionalDetailsExpandLabel": "Expand optional details",
     "optionalDetailsCollapseLabel": "Collapse optional details",
-    "pricingGuard": "Add MRP and Sales Price before adding this row."
+    "pricingGuard": "Add MRP and Sales Price before adding this row.",
+    "activeProducts": "Active Products",
+    "currentStockValue": "Current Stock Value",
+    "lowStock": "Low Stock",
+    "outOfStock": "Out of Stock",
+    "productCatalog": "Product Catalog",
+    "inStock": "In Stock",
+    "reorder": "Reorder",
+    "unitPrice": "Unit Price",
+    "showingProducts": "Showing {{start}} to {{end}} of {{total}} products",
+    "barcodeOrSku": "Barcode / SKU",
+    "nameOrBarcode": "Search by product name or barcode",
+    "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products"
   },
   "hsn": {
     "suggestion": "HSN Suggestion",

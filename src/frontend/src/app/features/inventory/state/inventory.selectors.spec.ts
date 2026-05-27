@@ -5,8 +5,11 @@ import {
   selectInventoryItems,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
+  selectInventoryLatestQuery,
   selectInventoryLoadingItems,
+  selectInventoryPagination,
   selectInventorySubmitting,
+  selectInventorySummary,
 } from './inventory.selectors';
 
 const itemOne: Item = {
@@ -17,6 +20,10 @@ const itemOne: Item = {
   uom: 'ltr',
   isActive: true,
   currentStock: 10,
+  unitPrice: 45,
+  currentStockValue: 450,
+  reorderLevel: 5,
+  stockStatus: 'inStock',
   hsnCode: '0401',
   defaultTaxRatePercent: 5,
   defaultTaxIncluded: false,
@@ -30,6 +37,10 @@ const itemTwo: Item = {
   uom: 'pcs',
   isActive: true,
   currentStock: 4,
+  unitPrice: 30,
+  currentStockValue: 120,
+  reorderLevel: 10,
+  stockStatus: 'runningLow',
   hsnCode: null,
   defaultTaxRatePercent: 0,
   defaultTaxIncluded: false,
@@ -47,6 +58,23 @@ describe('inventory selectors', () => {
     errorMessage: 'errors.items.unableToLoadItems',
     lastMutationType: 'add-item',
     lastMutationSucceeded: true,
+    totalCount: 2,
+    pageNumber: 3,
+    pageSize: 25,
+    summary: {
+      totalItems: 2,
+      activeItems: 2,
+      inactiveItems: 0,
+      runningLowStockCount: 1,
+      criticalStockCount: 0,
+      totalStockValue: 570,
+    },
+    latestQuery: {
+      search: 'milk',
+      status: 'active',
+      pageNumber: 3,
+      pageSize: 25,
+    },
   };
 
   const rootState = {
@@ -75,5 +103,21 @@ describe('inventory selectors', () => {
 
   it('selects last mutation status', () => {
     expect(selectInventoryLastMutationSucceeded(rootState as never)).toBe(true);
+  });
+
+  it('selects catalog pagination', () => {
+    expect(selectInventoryPagination(rootState as never)).toEqual({
+      totalCount: 2,
+      pageNumber: 3,
+      pageSize: 25,
+    });
+  });
+
+  it('selects catalog summary', () => {
+    expect(selectInventorySummary(rootState as never)).toEqual(inventoryState.summary);
+  });
+
+  it('selects latest query metadata', () => {
+    expect(selectInventoryLatestQuery(rootState as never)).toEqual(inventoryState.latestQuery);
   });
 });

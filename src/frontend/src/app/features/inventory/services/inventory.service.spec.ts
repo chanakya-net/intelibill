@@ -62,6 +62,10 @@ describe('InventoryService', () => {
       uom: 'packet',
       isActive: true,
       currentStock: 0,
+      unitPrice: 0,
+      currentStockValue: 0,
+      reorderLevel: 0,
+      stockStatus: 'critical',
       hsnCode: '0902',
       defaultTaxRatePercent: 5,
       defaultTaxIncluded: false,
@@ -70,31 +74,56 @@ describe('InventoryService', () => {
     http.verify();
   });
 
-  it('loads items from items endpoint', () => {
+  it('loads items from items endpoint with query params', () => {
     const { service, http } = setup();
 
-    service.getItems().subscribe((items) => {
-      expect(items).toHaveLength(1);
-      expect(items[0].name).toBe('Premium Tea');
+    service.getItems({ search: 'tea', status: 'active', pageNumber: 2, pageSize: 10 }).subscribe((response) => {
+      expect(response.items).toHaveLength(1);
+      expect(response.items[0].name).toBe('Premium Tea');
+      expect(response.totalCount).toBe(1);
+      expect(response.summary.totalItems).toBe(1);
     });
 
-    const request = http.expectOne(ITEM_ENDPOINTS.list);
+    const request = http.expectOne(
+      (req) => req.url === ITEM_ENDPOINTS.list && req.params.get('search') === 'tea'
+    );
     expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('search')).toBe('tea');
+    expect(request.request.params.get('status')).toBe('active');
+    expect(request.request.params.get('pageNumber')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
 
-    request.flush([
-      {
-        id: 'item-1',
-        name: 'Premium Tea',
-        barcode: 'ABC123',
-        description: null,
-        uom: 'packet',
-        isActive: true,
-        currentStock: 10,
-        hsnCode: '0902',
-        defaultTaxRatePercent: 5,
-        defaultTaxIncluded: false,
+    request.flush({
+      items: [
+        {
+          id: 'item-1',
+          name: 'Premium Tea',
+          barcode: 'ABC123',
+          description: null,
+          uom: 'packet',
+          isActive: true,
+          currentStock: 10,
+          unitPrice: 95,
+          currentStockValue: 950,
+          reorderLevel: 5,
+          stockStatus: 'inStock',
+          hsnCode: '0902',
+          defaultTaxRatePercent: 5,
+          defaultTaxIncluded: false,
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 10,
+      summary: {
+        totalItems: 1,
+        activeItems: 1,
+        inactiveItems: 0,
+        runningLowStockCount: 0,
+        criticalStockCount: 0,
+        totalStockValue: 950,
       },
-    ]);
+    });
 
     http.verify();
   });
