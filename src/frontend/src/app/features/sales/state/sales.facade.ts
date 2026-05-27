@@ -1,7 +1,18 @@
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import type { PreviewSaleReturnRequest, RecordSaleReturnRequest, RecordSaleRequest, SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, VoidSaleReturnRequest } from '../services/sale.models';
+import type {
+  PreviewSaleReturnRequest,
+  RecordSaleReturnRequest,
+  RecordSaleRequest,
+  SaleDto,
+  SaleListItemDto,
+  ProfitLossReportItemDto,
+  SalesHistoryQueryParams,
+  SalesHistorySummaryDto,
+  SaleReturnPreviewDto,
+  VoidSaleReturnRequest,
+} from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import * as SalesSelectors from './sales.selectors';
 
@@ -23,9 +34,15 @@ export class SalesFacade {
   readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossReport);
   readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
   readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedSale);
+  readonly salesPagination: Signal<{
+    totalCount: number;
+    pageNumber: number;
+    pageSize: number;
+  }> = this.store.selectSignal(SalesSelectors.selectSalesPagination);
+  readonly salesHistorySummary: Signal<SalesHistorySummaryDto | null> = this.store.selectSignal(SalesSelectors.selectSalesHistorySummary);
 
-  loadSales(): void {
-    this.store.dispatch(SalesActions.loadSalesRequested());
+  loadSales(params?: SalesHistoryQueryParams): void {
+    this.store.dispatch(SalesActions.loadSalesRequested(params ? { queryParams: params } : {}));
   }
 
   loadProfitLossReport(): void {
