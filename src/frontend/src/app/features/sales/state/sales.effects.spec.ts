@@ -40,7 +40,7 @@ describe('SalesEffects', () => {
     customerPhone: null,
     itemCount: 1,
     returnNumbers: [],
-    status: 'not-returned',
+    status: 'partiallyPaid',
     refundAmount: 0,
     dueReductionAmount: 0,
   } as SaleListItemDto);
@@ -98,7 +98,7 @@ describe('SalesEffects', () => {
       from: '2026-05-01',
       to: '2026-05-20',
       search: 'INV',
-      status: 'returned',
+      status: 'paid',
       page: 1,
       pageSize: 30,
     } as const;

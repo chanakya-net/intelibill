@@ -69,7 +69,10 @@ public sealed class GetSalesQueryHandler(
             s.CustomerName,
             s.CustomerPhone,
             s.ItemCount,
-            s.ReturnNumbers)).ToList();
+            s.ReturnNumbers,
+            s.Status,
+            s.RefundAmount,
+            s.DueReductionAmount)).ToList();
 
         return new SalesHistoryResultDto(
             Items: items,

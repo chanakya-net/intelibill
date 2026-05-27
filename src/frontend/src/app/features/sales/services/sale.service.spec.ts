@@ -56,7 +56,7 @@ describe('SaleService', () => {
       from: '2026-05-01',
       to: '2026-05-12',
       search: 'john',
-      status: 'returned',
+      status: 'refunded',
       page: 2,
       pageSize: 25,
     };
@@ -77,7 +77,7 @@ describe('SaleService', () => {
         customerPhone: null,
         itemCount: 2,
         returnNumbers: [],
-        status: 'returned',
+        status: 'partiallyPaid',
         refundAmount: 0,
         dueReductionAmount: 0,
       },
@@ -97,7 +97,7 @@ describe('SaleService', () => {
         customerPhone: '9999999999',
         itemCount: 1,
         returnNumbers: ['RET-001'],
-        status: 'not-returned',
+        status: 'paid',
         refundAmount: 25,
         dueReductionAmount: 5,
       },
@@ -132,7 +132,7 @@ describe('SaleService', () => {
     expect(req.request.params.get('from')).toBe('2026-05-01');
     expect(req.request.params.get('to')).toBe('2026-05-12');
     expect(req.request.params.get('search')).toBe('john');
-    expect(req.request.params.get('status')).toBe('returned');
+    expect(req.request.params.get('status')).toBe('refunded');
     expect(req.request.params.get('page')).toBe('2');
     expect(req.request.params.get('pageSize')).toBe('25');
     req.flush(result);
