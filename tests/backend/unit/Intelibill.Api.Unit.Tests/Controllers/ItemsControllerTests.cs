@@ -50,7 +50,7 @@ public class ItemsControllerTests
         var resultDto = new ItemCatalogResultDto(
             Items:
             [
-                new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, 42m, 420m, 12m, "runningLow", "0401", 5m, false),
+                new ItemDto(Guid.NewGuid(), "Milk", "B001", null, "ltr", true, 10m, 42m, 420m, 12m, "reorder", "0401", 5m, false),
             ],
             TotalCount: 1,
             PageNumber: 1,
@@ -158,7 +158,7 @@ public class ItemsControllerTests
             0m,
             0m,
             0m,
-            "critical",
+            "outOfStock",
             request.HsnCode,
             request.DefaultTaxRatePercent,
             false);

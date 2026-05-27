@@ -54,7 +54,7 @@ public class GetItemsQueryHandlerTests
                     42m,
                     1050m,
                     10m,
-                    "runningLow",
+                    "reorder",
                     "0401",
                     5m,
                     false),
@@ -69,7 +69,7 @@ public class GetItemsQueryHandlerTests
                     60m,
                     0m,
                     0m,
-                    "critical",
+                    "outOfStock",
                     null,
                     0m,
                     false),
@@ -110,7 +110,7 @@ public class GetItemsQueryHandlerTests
         Assert.Equal(42m, result.Value.Items[0].UnitPrice);
         Assert.Equal(1050m, result.Value.Items[0].CurrentStockValue);
         Assert.Equal(10m, result.Value.Items[0].ReorderLevel);
-        Assert.Equal("runningLow", result.Value.Items[0].StockStatus);
+        Assert.Equal("reorder", result.Value.Items[0].StockStatus);
 
         Assert.Equal(2, result.Value.Summary.TotalItems);
         Assert.Equal(2, result.Value.Summary.ActiveItems);

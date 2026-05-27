@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Domain.Common;
+using Intelibill.Domain.Entities;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -73,7 +75,11 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
 
         var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
+        }
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;
     }
@@ -586,6 +592,419 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal(HttpStatusCode.Unauthorized, detailsResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task GetItems_PaginatesAndReturnsShopSummaryAcrossAllFilteredItems()
+    {
+        using var client = CreateClient();
+        var fixture = await SeedCatalogAsync(client);
+
+        using var firstPageRequest = new HttpRequestMessage(HttpMethod.Get, "/api/items?pageNumber=1&pageSize=2");
+        firstPageRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+        var firstPageResponse = await client.SendAsync(firstPageRequest);
+        Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);
+
+        var firstPage = await firstPageResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, firstPage.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(2, firstPage.GetProperty("pageSize").GetInt32());
+        Assert.Equal(4, firstPage.GetProperty("totalCount").GetInt32());
+
+        var firstPageItems = firstPage.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(2, firstPageItems.Length);
+        Assert.Equal(fixture.InStockName, firstPageItems[0].GetProperty("name").GetString());
+        Assert.Equal("inStock", firstPageItems[0].GetProperty("stockStatus").GetString());
+        Assert.Equal(13m, firstPageItems[0].GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(122m, firstPageItems[0].GetProperty("currentStockValue").GetDecimal());
+
+        Assert.Equal(fixture.ReorderName, firstPageItems[1].GetProperty("name").GetString());
+        Assert.Equal("reorder", firstPageItems[1].GetProperty("stockStatus").GetString());
+        Assert.Equal(20m, firstPageItems[1].GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(40m, firstPageItems[1].GetProperty("currentStockValue").GetDecimal());
+
+        var summary = firstPage.GetProperty("summary");
+        Assert.Equal(4, summary.GetProperty("totalItems").GetInt32());
+        Assert.Equal(3, summary.GetProperty("activeItems").GetInt32());
+        Assert.Equal(1, summary.GetProperty("inactiveItems").GetInt32());
+        Assert.Equal(1, summary.GetProperty("runningLowStockCount").GetInt32());
+        Assert.Equal(1, summary.GetProperty("criticalStockCount").GetInt32());
+        Assert.Equal(162m, summary.GetProperty("totalStockValue").GetDecimal());
+
+        using var secondPageRequest = new HttpRequestMessage(HttpMethod.Get, "/api/items?pageNumber=2&pageSize=2");
+        secondPageRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+        var secondPageResponse = await client.SendAsync(secondPageRequest);
+        Assert.Equal(HttpStatusCode.OK, secondPageResponse.StatusCode);
+
+        var secondPage = await secondPageResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondPageItems = secondPage.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(2, secondPageItems.Length);
+        Assert.Equal(fixture.OutOfStockName, secondPageItems[0].GetProperty("name").GetString());
+        Assert.Equal("outOfStock", secondPageItems[0].GetProperty("stockStatus").GetString());
+        Assert.Null(ReadDecimalOrNull(secondPageItems[0].GetProperty("unitPrice")));
+
+        Assert.Equal(fixture.InactiveName, secondPageItems[1].GetProperty("name").GetString());
+        Assert.Equal("inactive", secondPageItems[1].GetProperty("stockStatus").GetString());
+        Assert.Null(ReadDecimalOrNull(secondPageItems[1].GetProperty("unitPrice")));
+    }
+
+    [Fact]
+    public async Task GetItems_NormalizesInvalidPaginationValues()
+    {
+        using var client = CreateClient();
+        var fixture = await SeedCatalogAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/items?pageNumber=0&pageSize=0");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, body.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(20, body.GetProperty("pageSize").GetInt32());
+        Assert.Equal(4, body.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetItems_CapsPageSizeAt100()
+    {
+        using var client = CreateClient();
+        var fixture = await SeedCatalogAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/items?pageSize=999");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(100, body.GetProperty("pageSize").GetInt32());
+        Assert.Equal(4, body.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+	    public async Task GetItems_SearchAndStatusFiltersOperateServerSide()
+	    {
+	        using var client = CreateClient();
+	        var fixture = await SeedCatalogAsync(client);
+	        const int expectedTotalItems = 4;
+	        const int expectedActiveItems = 3;
+	        const int expectedInactiveItems = 1;
+	        const int expectedRunningLowStock = 1;
+	        const int expectedCriticalStock = 1;
+	        const decimal expectedTotalStockValue = 162m;
+
+	        using var nameSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString("brav")}");
+	        nameSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var nameSearchResponse = await client.SendAsync(nameSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, nameSearchResponse.StatusCode);
+	        var nameSearch = await nameSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, nameSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.ReorderName, nameSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var nameSearchSummary = nameSearch.GetProperty("summary");
+	        Assert.Equal(expectedTotalItems, nameSearchSummary.GetProperty("totalItems").GetInt32());
+	        Assert.Equal(expectedActiveItems, nameSearchSummary.GetProperty("activeItems").GetInt32());
+	        Assert.Equal(expectedInactiveItems, nameSearchSummary.GetProperty("inactiveItems").GetInt32());
+	        Assert.Equal(expectedRunningLowStock, nameSearchSummary.GetProperty("runningLowStockCount").GetInt32());
+	        Assert.Equal(expectedCriticalStock, nameSearchSummary.GetProperty("criticalStockCount").GetInt32());
+	        Assert.Equal(expectedTotalStockValue, nameSearchSummary.GetProperty("totalStockValue").GetDecimal());
+
+	        using var barcodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockBarcode)}");
+	        barcodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var barcodeSearchResponse = await client.SendAsync(barcodeSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, barcodeSearchResponse.StatusCode);
+	        var barcodeSearch = await barcodeSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, barcodeSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.OutOfStockName, barcodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var barcodeSearchSummary = barcodeSearch.GetProperty("summary");
+	        Assert.Equal(expectedTotalItems, barcodeSearchSummary.GetProperty("totalItems").GetInt32());
+	        Assert.Equal(expectedActiveItems, barcodeSearchSummary.GetProperty("activeItems").GetInt32());
+	        Assert.Equal(expectedInactiveItems, barcodeSearchSummary.GetProperty("inactiveItems").GetInt32());
+	        Assert.Equal(expectedRunningLowStock, barcodeSearchSummary.GetProperty("runningLowStockCount").GetInt32());
+	        Assert.Equal(expectedCriticalStock, barcodeSearchSummary.GetProperty("criticalStockCount").GetInt32());
+	        Assert.Equal(expectedTotalStockValue, barcodeSearchSummary.GetProperty("totalStockValue").GetDecimal());
+
+	        using var descriptionSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.InStockDescription)}");
+	        descriptionSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var descriptionSearchResponse = await client.SendAsync(descriptionSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, descriptionSearchResponse.StatusCode);
+	        var descriptionSearch = await descriptionSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, descriptionSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.InStockName, descriptionSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
+	        using var uomSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.ReorderUom)}");
+	        uomSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var uomSearchResponse = await client.SendAsync(uomSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, uomSearchResponse.StatusCode);
+	        var uomSearch = await uomSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, uomSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.ReorderName, uomSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
+	        using var hsnCodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockHsnCode)}");
+	        hsnCodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+	        var hsnCodeSearchResponse = await client.SendAsync(hsnCodeSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, hsnCodeSearchResponse.StatusCode);
+	        var hsnCodeSearch = await hsnCodeSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, hsnCodeSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.OutOfStockName, hsnCodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+
+	        foreach (var (status, expectedCount, expectedName) in new[]
+	        {
+	            ("active", 3, fixture.InStockName),
+            ("inactive", 1, fixture.InactiveName),
+            ("inStock", 1, fixture.InStockName),
+            ("reorder", 1, fixture.ReorderName),
+            ("outOfStock", 1, fixture.OutOfStockName),
+        })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/items?status={Uri.EscapeDataString(status)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+
+            var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+	            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+	            Assert.Equal(expectedCount, body.GetProperty("totalCount").GetInt32());
+	            Assert.Equal(expectedCount, body.GetProperty("items").GetArrayLength());
+	            Assert.Contains(body.GetProperty("items").EnumerateArray(), item => item.GetProperty("name").GetString() == expectedName);
+	            var summary = body.GetProperty("summary");
+	            Assert.Equal(expectedTotalItems, summary.GetProperty("totalItems").GetInt32());
+	            Assert.Equal(expectedActiveItems, summary.GetProperty("activeItems").GetInt32());
+	            Assert.Equal(expectedInactiveItems, summary.GetProperty("inactiveItems").GetInt32());
+	            Assert.Equal(expectedRunningLowStock, summary.GetProperty("runningLowStockCount").GetInt32());
+	            Assert.Equal(expectedCriticalStock, summary.GetProperty("criticalStockCount").GetInt32());
+	            Assert.Equal(expectedTotalStockValue, summary.GetProperty("totalStockValue").GetDecimal());
+	        }
+	    }
+
+    [Fact]
+    public async Task GetItems_UsesLatestNonVoidedBatchPriceAndSumsAllBatchValue()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var name = $"Multi Batch {Guid.NewGuid():N}";
+        var barcode = $"MB-{Guid.NewGuid():N}";
+
+        var itemId = await AddItemAsync(client, ownerToken, name, barcode, isActive: true);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var dbItem = await db.Items.SingleAsync(i => i.Id == itemId);
+            await SeedInventoryAsync(
+                db,
+                dbItem.ShopId,
+                dbItem.Id,
+                dbItem.CreatedBy,
+                quantity: 10m,
+                reorderLevel: 5m,
+                new CatalogBatchSeed(
+                    "B-OLD",
+                    4m,
+                    1m,
+                    15m,
+                    11m,
+                    new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero),
+                    UpdatedAt: new DateTimeOffset(2026, 5, 3, 0, 0, 0, TimeSpan.Zero)),
+                new CatalogBatchSeed(
+                    "B-NEW",
+                    6m,
+                    2m,
+                    18m,
+                    13m,
+                    new DateTimeOffset(2026, 5, 2, 0, 0, 0, TimeSpan.Zero),
+                    UpdatedAt: new DateTimeOffset(2026, 5, 2, 1, 0, 0, TimeSpan.Zero)));
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(name)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var resultItem = body.GetProperty("items").EnumerateArray().Single();
+
+        Assert.Equal(13m, resultItem.GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(122m, resultItem.GetProperty("currentStockValue").GetDecimal());
+        Assert.Equal("inStock", resultItem.GetProperty("stockStatus").GetString());
+        Assert.Equal(122m, body.GetProperty("summary").GetProperty("totalStockValue").GetDecimal());
+    }
+
+    private static async Task<Guid> AddItemAsync(
+        HttpClient client,
+        string token,
+        string name,
+        string barcode,
+        bool isActive,
+        string? description = null,
+        string uom = "kg",
+        string? hsnCode = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            barcode,
+            description,
+            uom,
+            isActive,
+            hsnCode,
+            defaultTaxRatePercent = 0m,
+        });
+
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("id").GetGuid();
+    }
+
+    private static async Task SeedInventoryAsync(
+        ApplicationDbContext db,
+        Guid shopId,
+        Guid itemId,
+        Guid createdBy,
+        decimal quantity,
+        decimal reorderLevel,
+        params CatalogBatchSeed[] batches)
+    {
+        var inventory = Inventory.Create(shopId, itemId, quantity, reorderLevel, Math.Max(quantity, reorderLevel), createdBy).Value;
+        await db.Inventory.AddAsync(inventory);
+
+        foreach (var batchSeed in batches)
+        {
+            var batch = InventoryBatch.Create(
+                shopId,
+                itemId,
+                batchSeed.BatchNumber,
+                batchSeed.Quantity,
+                batchSeed.CostPrice,
+                batchSeed.Mrp,
+                batchSeed.SalesPrice,
+                0m,
+                false,
+                null,
+                null,
+                null,
+                createdBy).Value;
+
+            SetTimestamps(batch, batchSeed.CreatedAt, batchSeed.UpdatedAt);
+            await db.InventoryBatches.AddAsync(batch);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static void SetTimestamps(BaseEntity entity, DateTimeOffset createdAt, DateTimeOffset? updatedAt = null)
+    {
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.CreatedAt))!.SetValue(entity, createdAt);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.UpdatedAt))!.SetValue(entity, updatedAt);
+    }
+
+    private async Task<CatalogSeedData> SeedCatalogAsync(HttpClient client)
+    {
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var inStockName = $"Alpha In Stock {Guid.NewGuid():N}";
+        var inStockBarcode = $"CAT-1-{Guid.NewGuid():N}";
+        var reorderName = $"Bravo Reorder {Guid.NewGuid():N}";
+        var reorderBarcode = $"CAT-2-{Guid.NewGuid():N}";
+        var outOfStockName = $"Charlie Out {Guid.NewGuid():N}";
+        var outOfStockBarcode = $"CAT-3-{Guid.NewGuid():N}";
+        var inactiveName = $"Delta Inactive {Guid.NewGuid():N}";
+        var inactiveBarcode = $"CAT-4-{Guid.NewGuid():N}";
+
+        var inStockDescription = $"premium alpha desc {Guid.NewGuid():N}";
+        var reorderUom = "bx";
+        var outOfStockHsnCode = "1234";
+
+        var inStockItemId = await AddItemAsync(client, ownerToken, inStockName, inStockBarcode, isActive: true, description: inStockDescription, uom: "kg");
+        var reorderItemId = await AddItemAsync(client, ownerToken, reorderName, reorderBarcode, isActive: true, uom: reorderUom);
+        await AddItemAsync(client, ownerToken, outOfStockName, outOfStockBarcode, isActive: true, hsnCode: outOfStockHsnCode);
+        await AddItemAsync(client, ownerToken, inactiveName, inactiveBarcode, isActive: false);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var inStockItem = await db.Items.SingleAsync(item => item.Id == inStockItemId);
+            var reorderItem = await db.Items.SingleAsync(item => item.Id == reorderItemId);
+
+            await SeedInventoryAsync(
+                db,
+                inStockItem.ShopId,
+                inStockItem.Id,
+                inStockItem.CreatedBy,
+                quantity: 10m,
+                reorderLevel: 5m,
+                new CatalogBatchSeed("B-OLD", 4m, 1m, 15m, 11m, new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero)),
+                new CatalogBatchSeed("B-NEW", 6m, 2m, 18m, 13m, new DateTimeOffset(2026, 5, 2, 0, 0, 0, TimeSpan.Zero)));
+
+            await SeedInventoryAsync(
+                db,
+                reorderItem.ShopId,
+                reorderItem.Id,
+                reorderItem.CreatedBy,
+                quantity: 2m,
+                reorderLevel: 5m,
+                new CatalogBatchSeed("B-REORDER", 2m, 1m, 25m, 20m, new DateTimeOffset(2026, 5, 3, 0, 0, 0, TimeSpan.Zero)));
+        }
+
+        return new CatalogSeedData(
+            ownerToken,
+            inStockName,
+            inStockBarcode,
+            inStockDescription,
+            reorderName,
+            reorderBarcode,
+            reorderUom,
+            outOfStockName,
+            outOfStockBarcode,
+            outOfStockHsnCode,
+            inactiveName,
+            inactiveBarcode);
+    }
+
+    private static decimal? ReadDecimalOrNull(JsonElement element) =>
+        element.ValueKind == JsonValueKind.Null ? null : element.GetDecimal();
+
+    private sealed record CatalogSeedData(
+        string OwnerToken,
+        string InStockName,
+        string InStockBarcode,
+        string InStockDescription,
+        string ReorderName,
+        string ReorderBarcode,
+        string ReorderUom,
+        string OutOfStockName,
+        string OutOfStockBarcode,
+        string OutOfStockHsnCode,
+        string InactiveName,
+        string InactiveBarcode);
+
+    private sealed record CatalogBatchSeed(
+        string BatchNumber,
+        decimal Quantity,
+        decimal CostPrice,
+        decimal Mrp,
+        decimal SalesPrice,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset? UpdatedAt = null);
 
     private sealed class FakeExternalProductLookupService(ErrorOr<ExternalProductLookupResult?> result)
         : IExternalProductLookupService

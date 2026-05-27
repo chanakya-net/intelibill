@@ -61,8 +61,8 @@ public sealed class ItemRepositoryTests
 
         var catalogItem = Assert.Single(result.Items);
         Assert.Equal(65m, catalogItem.UnitPrice);
-        Assert.Equal(455m, catalogItem.CurrentStockValue);
-        Assert.Equal(455m, result.Summary.TotalStockValue);
+        Assert.Equal(355m, catalogItem.CurrentStockValue);
+        Assert.Equal(355m, result.Summary.TotalStockValue);
     }
 
     [Fact]
@@ -78,13 +78,17 @@ public sealed class ItemRepositoryTests
         await context.SaveChangesAsync();
 
         var repository = new ItemRepository(context);
-        var result = await repository.GetCatalogAsync(new ItemCatalogFilter(shop.Id, null, "disabled", 1, 20));
+	        var result = await repository.GetCatalogAsync(new ItemCatalogFilter(shop.Id, null, "disabled", 1, 20));
 
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
-        Assert.Equal(0, result.Summary.TotalItems);
-        Assert.Equal(0m, result.Summary.TotalStockValue);
-    }
+	        Assert.Empty(result.Items);
+	        Assert.Equal(0, result.TotalCount);
+	        Assert.Equal(1, result.Summary.TotalItems);
+	        Assert.Equal(1, result.Summary.ActiveItems);
+	        Assert.Equal(0, result.Summary.InactiveItems);
+	        Assert.Equal(0, result.Summary.RunningLowStockCount);
+	        Assert.Equal(1, result.Summary.CriticalStockCount);
+	        Assert.Equal(0m, result.Summary.TotalStockValue);
+	    }
 
     [Fact]
     public async Task GetCatalogAsync_ComputesSummaryOverAllItems_RegardlessOfPagination()
@@ -121,7 +125,7 @@ public sealed class ItemRepositoryTests
         Assert.Equal(2, result.Summary.ActiveItems);
         Assert.Equal(1, result.Summary.InactiveItems);
         Assert.Equal(1, result.Summary.RunningLowStockCount); // Milk 2 is running low (2 <= 5)
-        Assert.Equal(1, result.Summary.CriticalStockCount); // Milk 3 has no inventory record so stock is 0 (critical)
+        Assert.Equal(0, result.Summary.CriticalStockCount); // inactive items do not count as stock critical
         Assert.Equal(10m * 12m + 2m * 22m, result.Summary.TotalStockValue); // 120 + 44 = 164
     }
 
