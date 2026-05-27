@@ -82,7 +82,7 @@ describe('SalesFacade', () => {
       from: '2026-05-01',
       to: '2026-05-20',
       search: 'john',
-      status: 'returned',
+      status: 'partiallyPaid',
       page: 1,
       pageSize: 30,
     };

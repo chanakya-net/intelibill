@@ -1414,7 +1414,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         string barcode,
         Guid batchId,
         decimal paidAmount,
-        decimal dueAmount)
+        decimal dueAmount,
+        string customerName = "Status Test Customer",
+        string customerPhone = "+919000000001")
     {
         Guid? customerId = null;
         if (dueAmount > 0)
@@ -1432,8 +1434,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         {
             idempotencyKey = $"sale-{Guid.NewGuid():N}",
             customerId,
-            customerName = "Status Test Customer",
-            customerPhone = "+919000000001",
+            customerName,
+            customerPhone,
             paymentMethod = (int)(dueAmount > 0 ? PaymentMethod.Credit : PaymentMethod.Cash),
             paidAmount,
             dueAmount,
@@ -1572,6 +1574,63 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task GetSales_StatusFilter_Unknown_ReturnsOnlyUnknownSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var unknownSaleId = await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "Unknown Status Customer",
+            customerPhone: "909000000001");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var rowsUpdated = await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE sales
+                SET due_amount = -20.00
+                WHERE id = {unknownSaleId}
+                """);
+            Assert.Equal(1, rowsUpdated);
+        }
+
+        var paidSaleId = await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "Paid Status Customer",
+            customerPhone: "909000000002");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?status=unknown");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
+        Assert.Single(items);
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == unknownSaleId);
+        Assert.DoesNotContain(items, s => s.GetProperty("saleId").GetGuid() == paidSaleId);
+        Assert.All(items, s => Assert.Equal("unknown", s.GetProperty("status").GetString()));
+    }
+
+    [Fact]
     public async Task GetSales_InvalidStatus_ReturnsBadRequest()
     {
         using var client = CreateClient();
@@ -1622,6 +1681,143 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var searchItems = searchBody.GetProperty("items").EnumerateArray().ToList();
 
         Assert.Contains(searchItems, s => s.GetProperty("saleId").GetGuid() == saleId);
+    }
+
+    [Fact]
+    public async Task GetSales_Search_ByInvoiceNumber_ReturnsMatchingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var matchingSaleId = await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "Invoice Search Customer",
+            customerPhone: "918000000001");
+        await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "Invoice Other Customer",
+            customerPhone: "918000000002");
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var listResponse = await client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var listBody = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var invoiceNumber = listBody.GetProperty("items").EnumerateArray()
+            .First(s => s.GetProperty("saleId").GetGuid() == matchingSaleId)
+            .GetProperty("invoiceNumber")
+            .GetString()!;
+        Assert.NotEmpty(invoiceNumber);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sales?search={invoiceNumber}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == matchingSaleId);
+        Assert.Single(items);
+    }
+
+    [Fact]
+    public async Task GetSales_Search_ByCustomerName_ReturnsMatchingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var matchingSaleId = await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "CustomerSearchTarget",
+            customerPhone: "917000000001");
+        await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "CustomerSearchOther",
+            customerPhone: "917000000002");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?search=CustomerSearchTarget");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == matchingSaleId);
+        Assert.Single(items);
+    }
+
+    [Fact]
+    public async Task GetSales_Search_ByCustomerPhone_ReturnsMatchingSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var matchingSaleId = await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "PhoneSearchTarget",
+            customerPhone: "900000000001");
+        await RecordSaleAsync(
+            client,
+            ownerToken,
+            barcode,
+            batchId,
+            paidAmount: 118m,
+            dueAmount: 0m,
+            customerName: "PhoneSearchOther",
+            customerPhone: "900000000002");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?search=900000000001");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Contains(items, s => s.GetProperty("saleId").GetGuid() == matchingSaleId);
+        Assert.Single(items);
     }
 
     [Fact]

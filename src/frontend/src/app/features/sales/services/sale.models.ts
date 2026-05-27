@@ -227,7 +227,7 @@ export interface SaleDto {
   readonly warnings: readonly string[];
 }
 
-export type SaleHistoryStatus = 'returned' | 'refunded' | 'not-returned' | 'notrefunded' | 'not-refunded';
+export type SaleHistoryStatus = 'paid' | 'partiallyPaid' | 'refunded' | 'unknown' | 'returned';
 
 export interface SalesHistorySummaryDto {
   readonly periodSales: number;

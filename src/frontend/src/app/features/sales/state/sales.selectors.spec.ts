@@ -31,7 +31,7 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerPhone: null,
   itemCount: 2,
       returnNumbers: [],
-  status: 'not-returned',
+  status: 'partiallyPaid',
   refundAmount: 0,
   dueReductionAmount: 0,
 });
