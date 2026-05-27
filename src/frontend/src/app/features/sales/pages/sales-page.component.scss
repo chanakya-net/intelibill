@@ -24,7 +24,7 @@
   }
 
   > app-sales-export-toolbar {
-    width: 100%;
+    flex: 0 1 auto;
   }
 
   h1 {
@@ -136,7 +136,6 @@
 }
 
 .clear-filters-btn {
-  margin-left: auto;
 }
 
 .filters-row {
@@ -177,7 +176,7 @@
 }
 
 .search-field {
-  width: min(26rem, 100%);
+  width: min(35rem, 100%);
 }
 
 .table-wrap {

@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
@@ -97,7 +97,28 @@ describe('SalesPageComponent', () => {
     offlineSalesQueueSync.retryActiveShop.mockClear();
 
     TestBed.configureTestingModule({
-      imports: [SalesPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        SalesPageComponent,
+        TranslocoTestingModule.forRoot({
+          preloadLangs: true,
+          translocoConfig: {
+            availableLangs: ['en-IN'],
+            defaultLang: 'en-IN',
+            reRenderOnLangChange: true,
+          },
+          langs: {
+            'en-IN': {
+              sales: {
+                history: {
+                  actions: {
+                    viewReceipt: 'View Receipt',
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ],
       providers: [
         { provide: SalesFacade, useValue: salesFacade },
         { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
@@ -219,6 +240,9 @@ describe('SalesPageComponent', () => {
   });
 
   it('opens sale detail overlay from View Receipt action', () => {
+    const transloco = TestBed.inject(TranslocoService);
+    transloco.setActiveLang('en-IN');
+
     const fixture = TestBed.createComponent(SalesPageComponent);
     const component = fixture.componentInstance;
 
@@ -248,6 +272,9 @@ describe('SalesPageComponent', () => {
     const receiptButton = fixture.debugElement.query(By.css('.receipt-btn'));
     expect(receiptButton).toBeTruthy();
     expect(receiptButton.nativeElement.tagName).toBe('BUTTON');
+    expect(receiptButton.nativeElement.textContent).toContain('View Receipt');
+    expect(receiptButton.nativeElement.textContent).not.toContain('→');
+    expect(receiptButton.nativeElement.querySelector('.pi-arrow-right')).toBeTruthy();
 
     receiptButton.triggerEventHandler('click');
     fixture.detectChanges();
@@ -264,5 +291,61 @@ describe('SalesPageComponent', () => {
 
     const showing = fixture.nativeElement.querySelector('.showing');
     expect(showing).toBeTruthy();
+  });
+
+  describe('Layout regression coverage', () => {
+    it('header layout: sales-ledger-header exists with flex layout', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const header = fixture.nativeElement.querySelector('.sales-ledger-header');
+      expect(header).toBeTruthy();
+      const style = window.getComputedStyle(header);
+      expect(style.display).toBe('flex');
+    });
+
+    it('header layout: export toolbar does not default to width 100% (allows flex siblings)', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const toolbar = fixture.nativeElement.querySelector('app-sales-export-toolbar');
+      expect(toolbar).toBeTruthy();
+      const style = window.getComputedStyle(toolbar);
+      // Should not be forced to 100% width on desktop, allowing it to share flex row with title
+      expect(style.width).not.toBe('100%');
+    });
+
+    it('header layout: clear-filters-btn does not have margin-left auto on desktop', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const button = fixture.nativeElement.querySelector('.clear-filters-btn');
+      expect(button).toBeTruthy();
+      const style = window.getComputedStyle(button);
+      // Should not push button to right edge on desktop
+      expect(style.marginLeft).not.toBe('auto');
+    });
+
+    it('search-field element present with appropriate width', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const searchField = fixture.nativeElement.querySelector('.search-field');
+      expect(searchField).toBeTruthy();
+      expect(searchField.querySelector('input[type="text"]')).toBeTruthy();
+    });
+
+    it('filters-row contains segmented control and search-field without overflow', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const filtersRow = fixture.nativeElement.querySelector('.filters-row');
+      expect(filtersRow).toBeTruthy();
+
+      const segmented = filtersRow.querySelector('.segmented');
+      const searchField = filtersRow.querySelector('.search-field');
+      expect(segmented).toBeTruthy();
+      expect(searchField).toBeTruthy();
+    });
   });
 });
