@@ -620,16 +620,57 @@
       "noSalesDescription": "നിങ്ങളുടെ ആദ്യ വിൽപ്പന രേഖപ്പെടുത്തുക.",
       "taxIncluded": "നികുതി",
       "discount": "ലാഭം",
+      "kpi": {
+        "periodSales": "കാലയളവിലെ വിൽപ്പന",
+        "invoices": "ഇൻവോയ്സുകൾ",
+        "refunds": "തിരിച്ചടവ്"
+      },
+      "controls": {
+        "period": "കാലയളവ്",
+        "from": "ആരംഭ തീയതി",
+        "to": "അവസാന തീയതി",
+        "status": "നില",
+        "searchPlaceholder": "ഇൻവോയ്സ്, ഉപഭോക്താവ് എന്നിവ ഉപയോഗിച്ച് തിരയുക…",
+        "reportLevel": "റിപ്പോർട്ട് തലം",
+        "clearFilters": "ഫിൽട്ടർ മായ്ക്കുക"
+      },
+      "reportLevel": {
+        "summary": "സാരാംശം",
+        "lineItems": "ലൈൻ ഇനങ്ങൾ"
+      },
+      "status": {
+        "all": "എല്ലാം",
+        "paid": "അടച്ചത്",
+        "partiallyPaid": "ഭാഗികമായി അടച്ചത്",
+        "refunded": "തിരിച്ചടച്ചത്",
+        "unknown": "അജ്ഞാതം"
+      },
+      "actions": {
+        "viewReceipt": "രസീത് കാണുക →"
+      },
+      "amount": {
+        "due": "ബാക്കി",
+        "refund": "തിരിച്ചടവ്"
+      },
+      "pagination": {
+        "ariaLabel": "വിൽപ്പന ചരിത്ര പേജിനേഷൻ",
+        "showing": "{{total}} വിൽപ്പനകളിൽ {{start}}-{{end}} കാണിക്കുന്നു",
+        "pageSize": "വരികൾ",
+        "prev": "മുൻ പേജ്",
+        "next": "അടുത്ത പേജ്",
+        "page": "{{page}} പേജിലേക്ക് പോകുക",
+        "pageStatus": "{{totalPages}} ൽ {{page}} പേജ്"
+      },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ഓഫ്‌ലൈൻ വിൽപ്പന ക്യൂ നില",
+        "eyebrow": "ഓഫ്‌ലൈൻ ക്യൂ",
+        "title": "സിങ്ക് നില",
+        "retry": "വീണ്ടും ശ്രമിക്കുക",
+        "pending": "കാത്തിരിക്കുന്നു",
+        "syncing": "സിങ്ക് ആകുന്നു",
+        "failed": "പരാജയം",
+        "warnings": "മുന്നറിയിപ്പുകൾ",
+        "needsReview": "അവലോകനം ആവശ്യം"
       }
     },
     "newSale": {

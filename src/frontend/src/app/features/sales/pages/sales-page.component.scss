@@ -1,16 +1,27 @@
-.sales-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem;
+:host {
+  display: block;
 }
 
-.sales-header {
+.sales-ledger-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #fff7ed;
+  min-height: calc(100vh - 4rem);
+}
+
+.sales-ledger-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+
+  .header-text {
+    flex: 1 1 auto;
+    min-width: 14rem;
+  }
 
   > app-sales-export-toolbar {
     width: 100%;
@@ -18,28 +29,379 @@
 
   h1 {
     font-size: 1.5rem;
-    font-weight: 700;
-    color: #1e293b;
+    font-weight: 800;
+    color: #0f172a;
     margin: 0;
   }
+
   .eyebrow {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     color: #f97316;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     margin: 0;
   }
+
   .subtitle {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     color: #64748b;
     margin: 0.25rem 0 0;
   }
 }
 
 .error {
-  color: #dc2626;
+  color: #b91c1c;
   font-size: 0.875rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.ledger-panel {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.kpi-card {
+  border: 1px solid #ffedd5;
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(180deg, #fff7ed, #ffffff);
+}
+
+.kpi-label {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.kpi-value {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.kpi-negative {
+  color: #b91c1c;
+}
+
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 0.75rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 14rem;
+}
+
+.control-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .date-sep {
+    color: #94a3b8;
+    font-weight: 700;
+  }
+}
+
+.clear-filters-btn {
+  margin-left: auto;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 0.75rem;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.segmented-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &.active {
+    background: #0f172a;
+    color: #ffffff;
+  }
+}
+
+.search-field {
+  width: min(26rem, 100%);
+}
+
+.table-wrap {
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+:host ::ng-deep .ledger-table .p-datatable-thead > tr > th {
+  background: #fff7ed;
+  color: #0f172a;
+  font-weight: 900;
+  border-color: #ffedd5;
+}
+
+:host ::ng-deep .ledger-table .p-datatable-tbody > tr > td {
+  border-color: #f1f5f9;
+  vertical-align: top;
+}
+
+.invoice-cell {
+  .invoice-main {
+    font-weight: 900;
+    color: #0f172a;
+  }
+
+  .invoice-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 700;
+
+    .sep {
+      color: #cbd5e1;
+      font-weight: 900;
+    }
+
+    .returns {
+      color: #0f766e;
+      font-weight: 800;
+    }
+  }
+}
+
+.muted {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.amount-cell {
+  text-align: right;
+
+  .amount-main {
+    font-weight: 900;
+    color: #ea580c;
+  }
+
+  .amount-sub {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: #64748b;
+
+    &.negative {
+      color: #b91c1c;
+    }
+  }
+}
+
+.receipt-btn {
+  font-weight: 900;
+}
+
+.empty-cell {
+  padding: 1.5rem !important;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+  color: #475569;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  color: #cbd5e1;
+}
+
+.empty-title {
+  font-weight: 900;
+}
+
+.empty-subtitle {
+  color: #64748b;
+  margin-top: 0.125rem;
+}
+
+.pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.showing {
+  color: #475569;
+  font-weight: 800;
+  font-size: 0.875rem;
+}
+
+.page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .page-size-label {
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-status {
+  display: inline-flex;
+  align-items: center;
+  color: #475569;
+  font-weight: 900;
+  font-size: 0.875rem;
+  padding: 0 0.25rem;
+}
+
+.page-buttons {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.page-btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-weight: 900;
+  cursor: pointer;
+  min-width: 2.25rem;
+
+  &.active {
+    border-color: #ea580c;
+    background: #fff7ed;
+    color: #9a3412;
+  }
+}
+
+.ellipsis {
+  color: #94a3b8;
+  font-weight: 900;
+  padding: 0 0.25rem;
+}
+
+@media (min-width: 1024px) {
+  .sales-ledger-header {
+    > app-sales-export-toolbar {
+      width: auto;
+      min-width: 520px;
+    }
+  }
+
+  .kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .page-status {
+    display: none;
+  }
+
+  .page-buttons {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .control-group {
+    min-width: 100%;
+  }
+
+  .clear-filters-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segmented {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  :host ::ng-deep .ledger-table .col-customer,
+  :host ::ng-deep .ledger-table .col-date {
+    display: none;
+  }
 }
 
 .offline-queue-status {
@@ -47,7 +409,7 @@
   flex-direction: column;
   gap: 0.75rem;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 1rem;
   background: #ffffff;
 }
@@ -61,9 +423,9 @@
 
   h2 {
     margin: 0;
-    color: #1e293b;
+    color: #0f172a;
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 900;
   }
 }
 
@@ -71,7 +433,7 @@
   margin: 0 0 0.125rem;
   color: #64748b;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 900;
   text-transform: uppercase;
 }
 
@@ -86,9 +448,9 @@
   align-items: center;
   min-height: 2rem;
   padding: 0.375rem 0.625rem;
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 900;
   color: #334155;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -121,35 +483,5 @@
     color: #6d28d9;
     background: #f5f3ff;
     border-color: #ddd6fe;
-  }
-}
-
-.customer-link {
-  border: 0;
-  background: transparent;
-  color: #1d4ed8;
-  padding: 0;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.desktop-table {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .mobile-grid-container {
-    display: none;
-  }
-  .desktop-table {
-    display: block;
-  }
-
-  .sales-header {
-    > app-sales-export-toolbar {
-      width: auto;
-      min-width: 520px;
-    }
   }
 }
