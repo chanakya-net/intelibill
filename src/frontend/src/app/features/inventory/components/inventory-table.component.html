@@ -153,7 +153,13 @@
         <td><code class="text-xs text-slate-600 font-mono">{{ item.barcode }}</code></td>
         <td><span class="text-slate-500 font-medium uppercase tracking-wider text-xs">{{ item.uom }}</span></td>
         <td><span class="font-semibold text-slate-800">{{ item.currentStock }}</span></td>
-        <td>{{ 'common.currencySymbol' | transloco }}{{ item.unitPrice | number:'1.2-2' }}</td>
+        <td>
+          @if (item.unitPrice === null) {
+            <span class="text-slate-400">—</span>
+          } @else {
+            {{ 'common.currencySymbol' | transloco }}{{ item.unitPrice | number:'1.2-2' }}
+          }
+        </td>
         <td>{{ 'common.currencySymbol' | transloco }}{{ item.currentStockValue | number:'1.2-2' }}</td>
         <td>
           <div class="status-group">

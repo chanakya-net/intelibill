@@ -6,7 +6,7 @@ export interface Item {
   readonly uom: string;
   readonly isActive: boolean;
   readonly currentStock: number;
-  readonly unitPrice: number;
+  readonly unitPrice: number | null;
   readonly currentStockValue: number;
   readonly reorderLevel: number;
   readonly stockStatus: ItemStockStatus;
