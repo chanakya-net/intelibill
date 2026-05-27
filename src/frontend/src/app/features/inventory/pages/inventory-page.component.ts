@@ -124,14 +124,12 @@ export class InventoryPageComponent {
       if (mutationType === 'add-item' && this.showAddProductOverlay()) {
         this.showAddProductOverlay.set(false);
         this.store.dispatch(InventoryActions.clearMutationStatus());
-        this.loadItems();
       }
 
       if (mutationType === 'update-item' && this.showEditItemOverlay()) {
         this.showEditItemOverlay.set(false);
         this.selectedItemForEdit.set(null);
         this.store.dispatch(InventoryActions.clearMutationStatus());
-        this.loadItems();
       }
     });
   }

@@ -48,8 +48,8 @@ describe('InventoryFilterBarComponent', () => {
       'active',
       'inactive',
       'inStock',
-      'reorder',
-      'outOfStock',
+      'runningLow',
+      'critical',
     ]);
   });
 
@@ -57,8 +57,8 @@ describe('InventoryFilterBarComponent', () => {
     const spy = vi.spyOn(component.statusFilterChange, 'emit');
     fixture.detectChanges();
 
-    component.onStatusChange('outOfStock');
+    component.onStatusChange('critical');
 
-    expect(spy).toHaveBeenCalledWith('outOfStock');
+    expect(spy).toHaveBeenCalledWith('critical');
   });
 });

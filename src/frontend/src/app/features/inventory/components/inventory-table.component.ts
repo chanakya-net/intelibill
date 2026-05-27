@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { AvatarModule } from 'primeng/avatar';
 import { TagModule } from 'primeng/tag';
+import { PaginatorModule } from 'primeng/paginator';
 import { TableModule } from 'primeng/table';
 
 import type { Item } from '../services/inventory.models';
@@ -13,7 +14,7 @@ import type { Item } from '../services/inventory.models';
 @Component({
   selector: 'app-inventory-table',
   standalone: true,
-  imports: [CommonModule, AvatarModule, BadgeModule, ButtonModule, CardModule, TagModule, TableModule, TranslocoPipe],
+  imports: [CommonModule, AvatarModule, BadgeModule, ButtonModule, CardModule, PaginatorModule, TagModule, TableModule, TranslocoPipe],
   templateUrl: './inventory-table.component.html',
   styleUrl: './inventory-table.component.scss',
 })

@@ -73,6 +73,15 @@
       </div>
     }
   </div>
+
+  <p-paginator
+    class="mobile-paginator"
+    [rows]="pageSize"
+    [totalRecords]="totalCount"
+    [first]="(pageNumber - 1) * pageSize"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    (onPageChange)="onPageChange($event)"
+  />
 </div>
 
 <!-- Desktop table -->

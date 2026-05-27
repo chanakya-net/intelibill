@@ -31,8 +31,8 @@ export class InventoryFilterBarComponent {
     { label: 'inventory.active', value: 'active' },
     { label: 'inventory.inactive', value: 'inactive' },
     { label: 'inventory.inStock', value: 'inStock' },
-    { label: 'inventory.reorder', value: 'reorder' },
-    { label: 'inventory.outOfStock', value: 'outOfStock' },
+    { label: 'inventory.reorder', value: 'runningLow' },
+    { label: 'inventory.outOfStock', value: 'critical' },
   ];
 
   onSearchChange(value: string): void {

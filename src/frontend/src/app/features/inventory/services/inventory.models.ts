@@ -15,7 +15,7 @@ export interface Item {
   readonly defaultTaxIncluded: boolean;
 }
 
-export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'reorder' | 'outOfStock';
+export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'runningLow' | 'critical';
 export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical';
 
 export interface InventoryCatalogQuery {

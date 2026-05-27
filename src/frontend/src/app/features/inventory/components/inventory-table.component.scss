@@ -8,12 +8,20 @@
   gap: 0.75rem;
 }
 
+.mobile-paginator {
+  display: block;
+}
+
 .desktop-table {
   display: none;
 }
 
 @media (min-width: 1024px) {
   .mobile-grid-container {
+    display: none;
+  }
+
+  .mobile-paginator {
     display: none;
   }
 

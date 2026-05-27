@@ -70,4 +70,14 @@ describe('InventoryTableComponent', () => {
     expect(component.stockStatusLabelKey('runningLow')).toBe('inventory.reorder');
     expect(component.stockStatusLabelKey('critical')).toBe('inventory.outOfStock');
   });
+
+  it('renders mobile paginator for server-side page navigation', () => {
+    component.totalCount = 30;
+    component.pageNumber = 1;
+    component.pageSize = 10;
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const paginator = host.querySelector('.mobile-grid-container p-paginator');
+    expect(paginator).not.toBeNull();
+  });
 });
