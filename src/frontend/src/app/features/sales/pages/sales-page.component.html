@@ -5,11 +5,6 @@
       <h1>{{ 'sales.history.title' | transloco }}</h1>
       <p class="subtitle">{{ 'sales.history.subtitle' | transloco }}</p>
     </div>
-    <app-sales-export-toolbar
-      [startDate]="fromDate()"
-      [endDate]="toDate()"
-      [level]="reportLevel()"
-    />
   </header>
 
   @if (serverError()) {
@@ -105,16 +100,12 @@
         </p-select>
       </div>
 
-      <button
-        pButton
-        type="button"
-        icon="pi pi-filter-slash"
-        class="clear-filters-btn"
-        outlined="true"
-        severity="secondary"
-        [label]="'sales.history.controls.clearFilters' | transloco"
-        (click)="clearFilters()"
-      ></button>
+      <app-sales-export-toolbar
+        class="inline-export"
+        [startDate]="fromDate()"
+        [endDate]="toDate()"
+        [level]="reportLevel()"
+      />
     </div>
 
     <div class="filters-row">
@@ -136,16 +127,29 @@
         </button>
       </div>
 
-      <p-iconfield iconPosition="left" class="search-field">
-        <p-inputicon><i class="pi pi-search"></i></p-inputicon>
-        <input
-          pInputText
-          type="text"
-          [ngModel]="searchValue()"
-          (ngModelChange)="searchValue.set($event)"
-          [placeholder]="'sales.history.controls.searchPlaceholder' | transloco"
-        />
-      </p-iconfield>
+      <div class="search-actions">
+        <p-iconfield iconPosition="left" class="search-field">
+          <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [ngModel]="searchValue()"
+            (ngModelChange)="searchValue.set($event)"
+            [placeholder]="'sales.history.controls.searchPlaceholder' | transloco"
+          />
+        </p-iconfield>
+
+        <button
+          pButton
+          type="button"
+          icon="pi pi-filter-slash"
+          class="clear-filters-btn"
+          outlined="true"
+          severity="secondary"
+          [label]="'sales.history.controls.clearFilters' | transloco"
+          (click)="clearFilters()"
+        ></button>
+      </div>
     </div>
 
     <div class="table-wrap">

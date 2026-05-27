@@ -304,25 +304,29 @@ describe('SalesPageComponent', () => {
       expect(style.display).toBe('flex');
     });
 
-    it('header layout: export toolbar does not default to width 100% (allows flex siblings)', () => {
+    it('controls layout: export toolbar sits beside report level controls', () => {
       const fixture = TestBed.createComponent(SalesPageComponent);
       fixture.detectChanges();
 
-      const toolbar = fixture.nativeElement.querySelector('app-sales-export-toolbar');
+      const controlsRow = fixture.nativeElement.querySelector('.controls-row');
+      const toolbar = controlsRow.querySelector('app-sales-export-toolbar.inline-export');
       expect(toolbar).toBeTruthy();
       const style = window.getComputedStyle(toolbar);
-      // Should not be forced to 100% width on desktop, allowing it to share flex row with title
-      expect(style.width).not.toBe('100%');
+      expect(style.display).toBe('block');
     });
 
-    it('header layout: clear-filters-btn does not have margin-left auto on desktop', () => {
+    it('filters layout: clear filters is grouped with the search box', () => {
       const fixture = TestBed.createComponent(SalesPageComponent);
       fixture.detectChanges();
 
-      const button = fixture.nativeElement.querySelector('.clear-filters-btn');
+      const searchActions = fixture.nativeElement.querySelector('.search-actions');
+      expect(searchActions).toBeTruthy();
+
+      const searchField = searchActions.querySelector('.search-field');
+      const button = searchActions.querySelector('.clear-filters-btn');
+      expect(searchField).toBeTruthy();
       expect(button).toBeTruthy();
       const style = window.getComputedStyle(button);
-      // Should not push button to right edge on desktop
       expect(style.marginLeft).not.toBe('auto');
     });
 
@@ -343,9 +347,11 @@ describe('SalesPageComponent', () => {
       expect(filtersRow).toBeTruthy();
 
       const segmented = filtersRow.querySelector('.segmented');
-      const searchField = filtersRow.querySelector('.search-field');
+      const searchActions = filtersRow.querySelector('.search-actions');
       expect(segmented).toBeTruthy();
-      expect(searchField).toBeTruthy();
+      expect(searchActions).toBeTruthy();
+      expect(searchActions.querySelector('.search-field')).toBeTruthy();
+      expect(searchActions.querySelector('.clear-filters-btn')).toBeTruthy();
     });
   });
 });
