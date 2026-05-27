@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,6 +22,7 @@ import { EditItemOverlayComponent } from '../components/edit-item-overlay.compon
 import { InventoryFilterBarComponent } from '../components/inventory-filter-bar.component';
 import { InventoryTableComponent } from '../components/inventory-table.component';
 import type { Item } from '../services/inventory.models';
+import type { ItemCatalogStatusFilter } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
@@ -29,9 +31,9 @@ import {
   selectInventoryLastMutationType,
   selectInventoryLoadingItems,
   selectInventorySubmitting,
+  selectInventoryPagination,
+  selectInventorySummary,
 } from '../state/inventory.selectors';
-
-type ItemStatusFilter = 'all' | 'active' | 'inactive';
 
 @Component({
   selector: 'app-inventory-page',
@@ -53,6 +55,7 @@ type ItemStatusFilter = 'all' | 'active' | 'inactive';
     InventoryFilterBarComponent,
     InventoryTableComponent,
     TranslocoPipe,
+    DecimalPipe,
   ],
   templateUrl: './inventory-page.component.html',
   styleUrl: './inventory-page.component.scss',
@@ -63,22 +66,23 @@ export class InventoryPageComponent {
 
   readonly items = this.store.selectSignal(selectInventoryItems);
   readonly searchValue = signal('');
-  readonly statusFilter = signal<ItemStatusFilter>('all');
-  readonly filteredItems = computed(() => {
-    const q = this.searchValue().toLowerCase();
-    const statusFiltered =
-      this.statusFilter() === 'all' ? [...this.items()] : this.items().filter((i) => i.isActive === (this.statusFilter() === 'active'));
+  readonly statusFilter = signal<ItemCatalogStatusFilter>('all');
+  readonly pageNumber = signal(1);
+  readonly pageSize = signal(20);
 
-    if (!q) {
-      return statusFiltered;
-    }
+  readonly pagination = this.store.selectSignal(selectInventoryPagination);
+  readonly summary = this.store.selectSignal(selectInventorySummary);
 
-    return statusFiltered.filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.barcode.toLowerCase().includes(q) ||
-        i.uom.toLowerCase().includes(q),
-    );
+  readonly footerStart = computed(() => {
+    const total = this.pagination().totalCount;
+    if (total === 0) return 0;
+    return (this.pageNumber() - 1) * this.pageSize() + 1;
+  });
+
+  readonly footerEnd = computed(() => {
+    const total = this.pagination().totalCount;
+    const end = this.pageNumber() * this.pageSize();
+    return end > total ? total : end;
   });
 
   readonly isLoadingItems = this.store.selectSignal(selectInventoryLoadingItems);
@@ -105,8 +109,10 @@ export class InventoryPageComponent {
   readonly showEditItemOverlay = signal(false);
   readonly selectedItemForEdit = signal<Item | null>(null);
 
+  private searchTimeout: any;
+
   constructor() {
-    this.store.dispatch(InventoryActions.loadItemsRequested({}));
+    this.loadItems();
     this.store.dispatch(InventoryActions.clearMutationStatus());
 
     effect(() => {
@@ -126,6 +132,32 @@ export class InventoryPageComponent {
         this.store.dispatch(InventoryActions.clearMutationStatus());
       }
     });
+  }
+
+  loadItems(): void {
+    this.store.dispatch(
+      InventoryActions.loadItemsRequested({
+        query: {
+          search: this.searchValue(),
+          status: this.statusFilter(),
+          pageNumber: this.pageNumber(),
+          pageSize: this.pageSize(),
+        },
+      })
+    );
+  }
+
+  onSearchChange(value: string): void {
+    this.searchValue.set(value);
+
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+
+    this.searchTimeout = setTimeout(() => {
+      this.pageNumber.set(1);
+      this.loadItems();
+    }, 280);
   }
 
   onOpenAddProduct(): void {
@@ -165,7 +197,26 @@ export class InventoryPageComponent {
     this.showEditItemOverlay.set(false);
   }
 
-  onStatusFilterChange(statusFilter: ItemStatusFilter): void {
+  onStatusFilterChange(statusFilter: ItemCatalogStatusFilter): void {
     this.statusFilter.set(statusFilter);
+    this.pageNumber.set(1);
+    this.loadItems();
+  }
+
+  onPageSizeChange(pageSize: number): void {
+    this.pageSize.set(pageSize);
+    this.pageNumber.set(1);
+    this.loadItems();
+  }
+
+  onPageNumberChange(pageNumber: number): void {
+    this.pageNumber.set(pageNumber);
+    this.loadItems();
+  }
+
+  onTablePageChange(event: { page: number; rows: number }): void {
+    this.pageNumber.set(event.page);
+    this.pageSize.set(event.rows);
+    this.loadItems();
   }
 }
