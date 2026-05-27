@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { InventoryTableComponent } from './inventory-table.component';
 import { Item } from '../services/inventory.models';
@@ -45,5 +45,29 @@ describe('InventoryTableComponent', () => {
     expect(host.textContent).toContain('Paracetamol');
     expect(host.textContent).toContain('123');
     expect(host.textContent).toContain('PCS');
+    expect(host.textContent).toContain('en.inventory.barcodeOrSku');
+    expect(host.textContent).toContain('en.inventory.unitPrice');
+    expect(host.textContent).toContain('en.inventory.currentStock');
+    expect(host.textContent).toContain('en.inventory.currentStockValue');
+  });
+
+  it('emits page 1 when page size changes', () => {
+    const spy = vi.spyOn(component.pageChange, 'emit');
+    component.onPageChange({ page: 3, rows: 25 });
+
+    expect(spy).toHaveBeenCalledWith({ page: 1, rows: 25 });
+  });
+
+  it('emits navigated page when only page changes', () => {
+    const spy = vi.spyOn(component.pageChange, 'emit');
+    component.onPageChange({ page: 2, rows: 20 });
+
+    expect(spy).toHaveBeenCalledWith({ page: 3, rows: 20 });
+  });
+
+  it('maps stock status to translation keys', () => {
+    expect(component.stockStatusLabelKey('inStock')).toBe('inventory.inStock');
+    expect(component.stockStatusLabelKey('runningLow')).toBe('inventory.reorder');
+    expect(component.stockStatusLabelKey('critical')).toBe('inventory.outOfStock');
   });
 });

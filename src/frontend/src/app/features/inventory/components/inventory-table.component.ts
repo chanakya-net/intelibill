@@ -21,9 +21,15 @@ export class InventoryTableComponent {
   @Input({ required: true }) items: readonly Item[] = [];
   @Input() canManageInventory = false;
   @Input() isSubmitting = false;
+  @Input() pageNumber = 1;
+  @Input() pageSize = 20;
+  @Input() totalCount = 0;
+  @Input() footerStart = 0;
+  @Input() footerEnd = 0;
 
   @Output() selectItem = new EventEmitter<Item>();
   @Output() editItem = new EventEmitter<Item>();
+  @Output() pageChange = new EventEmitter<{ page: number; rows: number }>();
 
   get tableItems(): Item[] {
     return [...this.items];
@@ -35,6 +41,19 @@ export class InventoryTableComponent {
 
   onEditItem(item: Item): void {
     this.editItem.emit(item);
+  }
+
+  onPageChange(event: any): void {
+    const rows = event.rows ?? this.pageSize;
+    const isPageSizeChange = rows !== this.pageSize;
+    const page = isPageSizeChange ? 1 : (event.page ?? 0) + 1;
+    this.pageChange.emit({ page, rows });
+  }
+
+  stockStatusSeverity(status: string): 'danger' | 'warn' | 'success' | 'secondary' {
+    if (status === 'critical') return 'danger';
+    if (status === 'runningLow') return 'warn';
+    return 'success';
   }
 
   productInitials(name: string): string {
@@ -57,5 +76,17 @@ export class InventoryTableComponent {
     if (stock <= 5) return 'danger';
     if (stock < 50) return 'warn';
     return 'success';
+  }
+
+  stockStatusLabelKey(stockStatus: Item['stockStatus']): string {
+    if (stockStatus === 'runningLow') {
+      return 'inventory.reorder';
+    }
+
+    if (stockStatus === 'critical') {
+      return 'inventory.outOfStock';
+    }
+
+    return 'inventory.inStock';
   }
 }

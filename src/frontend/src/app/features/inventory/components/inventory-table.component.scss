@@ -23,9 +23,9 @@
 }
 
 .inventory-table-card {
-  border: 1px solid #fdba74;
-  border-radius: 1rem;
-  background: linear-gradient(160deg, #ffffff, #fff7ed);
+  border: 1px solid #f1f0ee;
+  border-radius: 8px; /* 8px or below under app control */
+  background: #ffffff;
   overflow: hidden;
 }
 
@@ -37,18 +37,27 @@
 }
 
 .empty-state {
-  padding: 2rem;
+  padding: 3rem 1.5rem;
   text-align: center;
+  
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #44403c;
+  }
+
+  p {
+    margin: 0.4rem 0 0;
+    font-size: 0.9rem;
+    color: #78716c;
+  }
 }
 
-.empty-state h2 {
-  margin: 0;
-  color: #292524;
-}
-
-.empty-state p {
-  margin: 0.4rem 0 0;
-  color: #57534e;
+.status-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .status-dot {
@@ -64,23 +73,60 @@
 }
 
 :host ::ng-deep {
-  .p-tag {
-    padding: 0.15rem 0.5rem;
-  }
+    .p-tag {
+      padding: 0.15rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 4px;
+      max-width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-  .p-datatable-thead > tr > th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #fff7ed !important;
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fafaf9 !important;
+      color: #57534e !important;
+      font-weight: 600 !important;
+      font-size: 0.85rem !important;
+      border-bottom: 2px solid #f1f0ee !important;
+      padding: 0.75rem 1rem !important;
+    }
+
+    .p-datatable-tbody > tr {
+      background-color: #ffffff;
+      color: #292524;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #fffbeb !important; /* warm highlight */
+      }
+
+      > td {
+        padding: 0.85rem 1rem !important;
+        border-bottom: 1px solid #f1f0ee !important;
+        font-size: 0.875rem;
+      }
+    }
+
+    .p-paginator {
+      background: #ffffff !important;
+      border-top: 1px solid #f1f0ee !important;
+      padding: 0.5rem !important;
+      border-radius: 0 0 8px 8px;
+    }
   }
 }
 
 .product-card-item {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.product-card-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgba(120, 113, 108, 0.15);
+  }
 }

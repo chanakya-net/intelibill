@@ -1,18 +1,74 @@
 :host {
   display: block;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+}
+
+.inventory-filter-bar {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
+  align-items: stretch;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
 }
 
 .mobile-search-bar {
-  width: 100%;
+  flex: 1;
 }
 
 .mobile-search-field {
   width: 100%;
 }
 
-:host ::ng-deep .p-select {
-  width: 100%;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+:host ::ng-deep {
+  .p-iconfield {
+    width: 100%;
+  }
+
+  .p-inputtext {
+    width: 100%;
+    border-radius: 8px !important; /* 8px or below under app control */
+    border-color: #e7e5e4;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+
+    &:focus {
+      border-color: #f97316 !important; /* warm orange */
+      box-shadow: 0 0 0 2px #ffedd5 !important;
+    }
+  }
+
+  .p-select {
+    width: 100%;
+    border-radius: 8px !important;
+    border-color: #e7e5e4;
+    height: 38px;
+    align-items: center;
+
+    @media (min-width: 768px) {
+      width: 14rem;
+    }
+
+    &:focus-within {
+      border-color: #f97316 !important;
+      box-shadow: 0 0 0 2px #ffedd5 !important;
+    }
+  }
 }
