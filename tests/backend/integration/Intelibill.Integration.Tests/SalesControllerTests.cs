@@ -223,6 +223,105 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     private static string FormatInvoiceNumber(string prefix, int number, int padding) =>
         $"{prefix}{number.ToString($"D{padding}", System.Globalization.CultureInfo.InvariantCulture)}";
 
+    private static async Task<Guid> SyncOfflineSaleAsync(
+        HttpClient client,
+        string token,
+        string deviceId,
+        string invoiceNumber,
+        DateTimeOffset soldAt,
+        string barcode,
+        Guid batchId)
+    {
+        using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        syncRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        syncRequest.Content = JsonContent.Create(new
+        {
+            deviceId,
+            sales = new[]
+            {
+                new
+                {
+                    clientSaleId = $"offline-{Guid.NewGuid():N}",
+                    invoiceNumber,
+                    soldAt,
+                    paymentMethod = (int)PaymentMethod.Cash,
+                    paidAmount = 118m,
+                    dueAmount = 0m,
+                    subtotalBeforeDiscount = 100m,
+                    totalBeforeDiscount = 118m,
+                    totalDiscountAmount = 0m,
+                    totalTaxAmount = 18m,
+                    totalAmount = 118m,
+                    saleDiscountOverrideType = (int)InstantDiscountType.None,
+                    saleDiscountOverrideValue = 0m,
+                    items = new[]
+                    {
+                        new
+                        {
+                            barcode,
+                            batchNumber = "B-001",
+                            itemName = "Test Item",
+                            quantity = 1m,
+                            costPrice = 80m,
+                            salesPrice = 100m,
+                            mrp = 120m,
+                            taxRatePercent = 18m,
+                            isPriceIncludingTax = false,
+                            inventoryBatchId = batchId,
+                            preTaxAmountBeforeDiscount = 100m,
+                            itemDiscountAmount = 0m,
+                            saleDiscountAmount = 0m,
+                            taxableAmount = 100m,
+                            taxAmount = 18m,
+                            totalAmount = 118m,
+                            itemDiscountOverrideType = (int)InstantDiscountType.None,
+                            itemDiscountOverrideValue = 0m,
+                        },
+                    },
+                },
+            },
+        });
+
+        var response = await client.SendAsync(syncRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var result = body.GetProperty("results").EnumerateArray().Single();
+        return result.GetProperty("saleId").GetGuid();
+    }
+
+    private async Task RecordSimpleReturnAsync(HttpClient client, string token, Guid saleId, decimal refundAmount)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+
+        using var recordReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Return one unit restockable",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = refundAmount,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+    }
+
     private static async Task<(Guid UserId, string Email, string Password)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId)
     {
         var email = $"member-{Guid.NewGuid():N}@test.com";
@@ -1196,9 +1295,189 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var listBody = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var sales = listBody.EnumerateArray().ToList();
+        var sales = listBody.GetProperty("items").EnumerateArray().ToList();
         Assert.NotEmpty(sales);
         Assert.Contains(sales, s => s.GetProperty("customerName").GetString() == "List Customer");
+        Assert.True(listBody.TryGetProperty("totalCount", out _));
+        Assert.Equal(1, listBody.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(20, listBody.GetProperty("pageSize").GetInt32());
+        Assert.True(listBody.TryGetProperty("summary", out _));
+    }
+
+    [Fact]
+    public async Task GetSales_DefaultDateRange_ExcludesOlderSales()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var lease = await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-filter");
+        var prefix = lease.GetProperty("prefix").GetString()!;
+        var padding = lease.GetProperty("numberPadding").GetInt32();
+        var startNumber = lease.GetProperty("rangeStart").GetInt32();
+
+        var oldInvoice = FormatInvoiceNumber(prefix, startNumber, padding);
+        var recentInvoice = FormatInvoiceNumber(prefix, startNumber + 1, padding);
+
+        await SyncOfflineSaleAsync(
+            client,
+            ownerToken,
+            deviceId: "device-filter",
+            invoiceNumber: oldInvoice,
+            soldAt: DateTimeOffset.UtcNow.AddDays(-40),
+            barcode,
+            batchId);
+
+        await SyncOfflineSaleAsync(
+            client,
+            ownerToken,
+            deviceId: "device-filter",
+            invoiceNumber: recentInvoice,
+            soldAt: DateTimeOffset.UtcNow.AddDays(-1),
+            barcode,
+            batchId);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.DoesNotContain(items, s => s.GetProperty("invoiceNumber").GetString() == oldInvoice);
+        Assert.Contains(items, s => s.GetProperty("invoiceNumber").GetString() == recentInvoice);
+        Assert.Equal(1, body.GetProperty("summary").GetProperty("invoiceCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetSales_Summary_IgnoresSearchAndStatus()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var lease = await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-summary");
+        var prefix = lease.GetProperty("prefix").GetString()!;
+        var padding = lease.GetProperty("numberPadding").GetInt32();
+        var startNumber = lease.GetProperty("rangeStart").GetInt32();
+
+        var invoiceA = FormatInvoiceNumber(prefix, startNumber, padding);
+        var invoiceB = FormatInvoiceNumber(prefix, startNumber + 1, padding);
+
+        await SyncOfflineSaleAsync(
+            client,
+            ownerToken,
+            deviceId: "device-summary",
+            invoiceNumber: invoiceA,
+            soldAt: DateTimeOffset.UtcNow.AddDays(-2),
+            barcode,
+            batchId);
+
+        var saleBId = await SyncOfflineSaleAsync(
+            client,
+            ownerToken,
+            deviceId: "device-summary",
+            invoiceNumber: invoiceB,
+            soldAt: DateTimeOffset.UtcNow.AddDays(-2),
+            barcode,
+            batchId);
+
+        await RecordSimpleReturnAsync(client, ownerToken, saleBId, refundAmount: 118m);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?search=does-not-match&status=returned");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(2, body.GetProperty("summary").GetProperty("invoiceCount").GetInt32());
+        Assert.Equal(118m, body.GetProperty("summary").GetProperty("refundAmount").GetDecimal());
+        Assert.Equal(118m, body.GetProperty("summary").GetProperty("periodSales").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GetSales_Pagination_IsStableAndCapsPageSize()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        var lease = await ReserveInvoiceLeaseAsync(client, ownerToken, deviceId: "device-page");
+        var prefix = lease.GetProperty("prefix").GetString()!;
+        var padding = lease.GetProperty("numberPadding").GetInt32();
+        var startNumber = lease.GetProperty("rangeStart").GetInt32();
+
+        for (var i = 0; i < 5; i++)
+        {
+            var invoice = FormatInvoiceNumber(prefix, startNumber + i, padding);
+            await SyncOfflineSaleAsync(
+                client,
+                ownerToken,
+                deviceId: "device-page",
+                invoiceNumber: invoice,
+                soldAt: DateTimeOffset.UtcNow.AddMinutes(-i),
+                barcode,
+                batchId);
+        }
+
+        using var request1 = new HttpRequestMessage(HttpMethod.Get, "/api/sales?page=1&pageSize=2");
+        request1.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response1 = await client.SendAsync(request1);
+        Assert.Equal(HttpStatusCode.OK, response1.StatusCode);
+        var body1 = await response1.Content.ReadFromJsonAsync<JsonElement>();
+        var page1 = body1.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("saleId").GetGuid()).ToList();
+
+        using var request2 = new HttpRequestMessage(HttpMethod.Get, "/api/sales?page=2&pageSize=2");
+        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response2 = await client.SendAsync(request2);
+        Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
+        var body2 = await response2.Content.ReadFromJsonAsync<JsonElement>();
+        var page2 = body2.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("saleId").GetGuid()).ToList();
+
+        Assert.Equal(5, body1.GetProperty("totalCount").GetInt32());
+        Assert.Equal(2, page1.Count);
+        Assert.Equal(2, page2.Count);
+        Assert.DoesNotContain(page2, id => page1.Contains(id));
+
+        using var capRequest = new HttpRequestMessage(HttpMethod.Get, "/api/sales?pageSize=999");
+        capRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var capResponse = await client.SendAsync(capRequest);
+        Assert.Equal(HttpStatusCode.OK, capResponse.StatusCode);
+        var capBody = await capResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(100, capBody.GetProperty("pageSize").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetSales_NormalizesInvalidPaginationValues()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales?page=0&pageSize=0");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, body.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(20, body.GetProperty("pageSize").GetInt32());
     }
 
     [Fact]

@@ -4,20 +4,17 @@ using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
-using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.GetSales;
 
-public class GetSalesQueryHandlerTests
+public sealed class GetSalesQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
-    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
 
-    private GetSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository);
+    private GetSalesQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
@@ -36,8 +33,9 @@ public class GetSalesQueryHandlerTests
 
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns((User?)null);
 
-        var handler = CreateHandler();
-        var result = await handler.Handle(new GetSalesQuery(userId, shopId), CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new GetSalesQuery(userId, shopId, From: null, To: null, Search: null, Status: null, Page: 1, PageSize: 20),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("User.NotFound", result.FirstError.Code);
@@ -52,8 +50,9 @@ public class GetSalesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns((Shop?)null);
 
-        var handler = CreateHandler();
-        var result = await handler.Handle(new GetSalesQuery(user.Id, shopId), CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new GetSalesQuery(user.Id, shopId, From: null, To: null, Search: null, Status: null, Page: 1, PageSize: 20),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.ShopNotFound.Code, result.FirstError.Code);
@@ -69,15 +68,16 @@ public class GetSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns((ShopMembership?)null);
 
-        var handler = CreateHandler();
-        var result = await handler.Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new GetSalesQuery(user.Id, shop.Id, From: null, To: null, Search: null, Status: null, Page: 1, PageSize: 20),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.MembershipNotFound.Code, result.FirstError.Code);
     }
 
     [Fact]
-    public async Task Handle_WhenNoSales_ReturnsEmptyList()
+    public async Task Handle_WhenNoSales_ReturnsEmptyPaginatedResult()
     {
         var user = MakeUser();
         var shop = MakeShop();
@@ -86,17 +86,26 @@ public class GetSalesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<Sale>());
 
-        var handler = CreateHandler();
-        var result = await handler.Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
+        _saleRepository.GetHistoryAsync(Arg.Any<SaleHistoryFilter>(), Arg.Any<CancellationToken>())
+            .Returns((Array.Empty<SaleHistoryReadModel>(), 0));
+        _saleRepository.GetHistorySummaryAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(0m, 0, 0m));
+
+        var result = await CreateHandler().Handle(
+            new GetSalesQuery(user.Id, shop.Id, From: null, To: null, Search: null, Status: null, Page: 1, PageSize: 20),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Empty(result.Value);
+        Assert.Empty(result.Value.Items);
+        Assert.Equal(0, result.Value.TotalCount);
+        Assert.Equal(1, result.Value.PageNumber);
+        Assert.Equal(20, result.Value.PageSize);
+        Assert.Equal(0, result.Value.Summary.InvoiceCount);
     }
 
     [Fact]
-    public async Task Handle_WhenSalesExist_CallsRepositoryWithCorrectShopId()
+    public async Task Handle_NormalizesPageAndCapsPageSize()
     {
         var user = MakeUser();
         var shop = MakeShop();
@@ -105,164 +114,19 @@ public class GetSalesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<Sale>());
 
-        var handler = CreateHandler();
-        await handler.Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
+        _saleRepository.GetHistoryAsync(Arg.Any<SaleHistoryFilter>(), Arg.Any<CancellationToken>())
+            .Returns((Array.Empty<SaleHistoryReadModel>(), 0));
+        _saleRepository.GetHistorySummaryAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(0m, 0, 0m));
 
-        await _saleRepository.Received(1).GetByShopAsync(shop.Id, Arg.Any<CancellationToken>());
+        await CreateHandler().Handle(
+            new GetSalesQuery(user.Id, shop.Id, From: null, To: null, Search: null, Status: null, Page: 0, PageSize: 999),
+            CancellationToken.None);
+
+        await _saleRepository.Received(1).GetHistoryAsync(
+            Arg.Is<SaleHistoryFilter>(f => f.ShopId == shop.Id && f.PageNumber == 1 && f.PageSize == 100),
+            Arg.Any<CancellationToken>());
     }
-
-    [Fact]
-    public async Task Handle_WhenSaleHasReturns_IncludesActiveReturnNumbers()
-    {
-        var user = MakeUser();
-        var shop = MakeShop();
-        var membership = MakeMembership(shop.Id, user.Id);
-        var sale = Sale.Create(
-            shop.Id,
-            "INV-001",
-            customerId: null,
-            customerName: null,
-            customerPhone: null,
-            PaymentMethod.Cash,
-            DateTimeOffset.UtcNow,
-            paidAmount: 100m,
-            dueAmount: 0m,
-            totalAmount: 100m,
-            totalTaxAmount: 0m,
-            []);
-        var activeReturn = MakeReturn(shop.Id, sale.Id, "RET-001");
-        var voidedReturn = MakeReturn(shop.Id, sale.Id, "RET-VOID");
-        voidedReturn.Void(DateTimeOffset.UtcNow, user.Id, "Mistake");
-
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns([activeReturn, voidedReturn]);
-
-        var result = await CreateHandler().Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(["RET-001"], result.Value.Single().ReturnNumbers);
-    }
-
-    [Fact]
-    public async Task Handle_WhenSaleHasNoDiscounts_ExposesZeroDiscountTotals()
-    {
-        var user = MakeUser();
-        var shop = MakeShop();
-        var membership = MakeMembership(shop.Id, user.Id);
-        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
-        var saleItem = SaleItem.Create(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            quantity: 5m,
-            costPrice: 80m,
-            salesPrice: 100m,
-            mrp: 120m,
-            taxRatePercent: 10m,
-            isPriceIncludingTax: false,
-            hasPriceMismatch: false);
-        var sale = Sale.Create(
-            shop.Id,
-            "INV-001",
-            null,
-            null,
-            null,
-            PaymentMethod.Cash,
-            DateTimeOffset.UtcNow,
-            paidAmount: 550m,
-            dueAmount: 0m,
-            totalAmount: 550m,
-            totalTaxAmount: 50m,
-            [saleItem]);
-
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
-
-        var result = await CreateHandler().Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        var saleDto = Assert.Single(result.Value);
-        Assert.Equal(550m, saleDto.TotalBeforeDiscount);
-        Assert.Equal(0m, saleDto.TotalDiscountAmount);
-        Assert.Equal(50m, saleDto.TotalTaxAmount);
-        Assert.Equal(550m, saleDto.TotalAmount);
-    }
-
-    [Fact]
-    public async Task Handle_WhenSaleHasDiscounts_ExposesDiscountBreakdown()
-    {
-        var user = MakeUser();
-        var shop = MakeShop();
-        var membership = MakeMembership(shop.Id, user.Id);
-        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
-        var saleItem = SaleItem.Create(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            quantity: 5m,
-            costPrice: 80m,
-            salesPrice: 100m,
-            mrp: 120m,
-            taxRatePercent: 10m,
-            isPriceIncludingTax: false,
-            hasPriceMismatch: false,
-            itemDiscountAmount: 20m,
-            saleDiscountAmount: 30m);
-        var sale = Sale.Create(
-            shop.Id,
-            "INV-001",
-            null,
-            null,
-            null,
-            PaymentMethod.Cash,
-            DateTimeOffset.UtcNow,
-            paidAmount: 495m,
-            dueAmount: 0m,
-            totalAmount: 495m,
-            totalTaxAmount: 45m,
-            [saleItem],
-            subtotalBeforeDiscount: 500m,
-            totalBeforeDiscount: 550m,
-            totalDiscountAmount: 50m);
-
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([sale]);
-
-        var result = await CreateHandler().Handle(new GetSalesQuery(user.Id, shop.Id), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        var saleDto = Assert.Single(result.Value);
-        Assert.Equal(550m, saleDto.TotalBeforeDiscount);
-        Assert.Equal(50m, saleDto.TotalDiscountAmount);
-        Assert.Equal(45m, saleDto.TotalTaxAmount);
-        Assert.Equal(495m, saleDto.TotalAmount);
-    }
-
-    private static SaleReturn MakeReturn(Guid shopId, Guid saleId, string returnNumber) =>
-        SaleReturn.Record(
-            shopId,
-            saleId,
-            returnNumber,
-            DateTimeOffset.UtcNow,
-            Guid.NewGuid(),
-            notes: null,
-            totalRefundAmount: 0m,
-            dueReductionAmount: 0m,
-            payoutAmount: 0m,
-            payoutMethod: null,
-            totalTaxableAmount: 0m,
-            totalTaxAmount: 0m,
-            customerBalanceBefore: null,
-            customerBalanceAfter: null,
-            []).Value;
 }
+
