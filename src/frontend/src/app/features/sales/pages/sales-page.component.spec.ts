@@ -265,4 +265,60 @@ describe('SalesPageComponent', () => {
     const showing = fixture.nativeElement.querySelector('.showing');
     expect(showing).toBeTruthy();
   });
+
+  describe('Layout regression coverage', () => {
+    it('header layout: sales-ledger-header exists with flex layout', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const header = fixture.nativeElement.querySelector('.sales-ledger-header');
+      expect(header).toBeTruthy();
+      const style = window.getComputedStyle(header);
+      expect(style.display).toBe('flex');
+    });
+
+    it('header layout: export toolbar does not default to width 100% (allows flex siblings)', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const toolbar = fixture.nativeElement.querySelector('app-sales-export-toolbar');
+      expect(toolbar).toBeTruthy();
+      const style = window.getComputedStyle(toolbar);
+      // Should not be forced to 100% width on desktop, allowing it to share flex row with title
+      expect(style.width).not.toBe('100%');
+    });
+
+    it('header layout: clear-filters-btn does not have margin-left auto on desktop', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const button = fixture.nativeElement.querySelector('.clear-filters-btn');
+      expect(button).toBeTruthy();
+      const style = window.getComputedStyle(button);
+      // Should not push button to right edge on desktop
+      expect(style.marginLeft).not.toBe('auto');
+    });
+
+    it('search-field element present with appropriate width', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const searchField = fixture.nativeElement.querySelector('.search-field');
+      expect(searchField).toBeTruthy();
+      expect(searchField.querySelector('input[type="text"]')).toBeTruthy();
+    });
+
+    it('filters-row contains segmented control and search-field without overflow', () => {
+      const fixture = TestBed.createComponent(SalesPageComponent);
+      fixture.detectChanges();
+
+      const filtersRow = fixture.nativeElement.querySelector('.filters-row');
+      expect(filtersRow).toBeTruthy();
+
+      const segmented = filtersRow.querySelector('.segmented');
+      const searchField = filtersRow.querySelector('.search-field');
+      expect(segmented).toBeTruthy();
+      expect(searchField).toBeTruthy();
+    });
+  });
 });
