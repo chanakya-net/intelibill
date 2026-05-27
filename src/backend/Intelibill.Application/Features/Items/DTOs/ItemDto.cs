@@ -8,7 +8,7 @@ public sealed record ItemDto(
     string Uom,
     bool IsActive,
     decimal CurrentStock,
-    decimal UnitPrice,
+    decimal? UnitPrice,
     decimal CurrentStockValue,
     decimal ReorderLevel,
     string StockStatus,

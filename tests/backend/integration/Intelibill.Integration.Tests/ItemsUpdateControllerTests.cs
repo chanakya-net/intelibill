@@ -119,8 +119,8 @@ public sealed class ItemsUpdateControllerTests(PostgreSqlTestFixture fixture) : 
         var listResponse = await client.SendAsync(listRequest);
         listResponse.EnsureSuccessStatusCode();
 
-        var items = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var updatedItem = items.EnumerateArray().Single(i => i.GetProperty("id").GetString() == itemId);
+        var body = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var updatedItem = body.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetString() == itemId);
 
         Assert.Equal("Premium Rice", updatedItem.GetProperty("name").GetString());
         Assert.Equal(updatedBarcode, updatedItem.GetProperty("barcode").GetString());

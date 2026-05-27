@@ -59,10 +59,10 @@ public sealed class AddItemCommandHandler(
             item.Uom,
             item.IsActive,
             CurrentStock: 0m,
-            UnitPrice: 0m,
+            UnitPrice: null,
             CurrentStockValue: 0m,
             ReorderLevel: 0m,
-            StockStatus: "critical",
+            StockStatus: item.IsActive ? "outOfStock" : "inactive",
             item.HsnCode,
             item.DefaultTaxRatePercent,
             item.DefaultTaxIncluded);

@@ -55,10 +55,10 @@ public class AddItemCommandHandlerTests
         Assert.Equal(5m, result.Value.DefaultTaxRatePercent);
         Assert.False(result.Value.DefaultTaxIncluded);
         Assert.Equal(0m, result.Value.CurrentStock);
-        Assert.Equal(0m, result.Value.UnitPrice);
+        Assert.Null(result.Value.UnitPrice);
         Assert.Equal(0m, result.Value.CurrentStockValue);
         Assert.Equal(0m, result.Value.ReorderLevel);
-        Assert.Equal("critical", result.Value.StockStatus);
+        Assert.Equal("outOfStock", result.Value.StockStatus);
 
         await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i =>
             i.Name == "Rice" &&
