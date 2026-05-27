@@ -72,8 +72,8 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         var latestBatchPrices = await _context.InventoryBatches
             .AsNoTracking()
             .Where(b => b.ShopId == filter.ShopId && !b.IsVoided)
-            .OrderBy(b => b.ExpiryDate)
-            .ThenBy(b => b.BatchNumber)
+            .OrderByDescending(b => b.CreatedAt)
+            .ThenByDescending(b => b.Id)
             .Select(b => new
             {
                 b.ItemId,
