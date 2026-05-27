@@ -680,32 +680,52 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
-    public async Task GetItems_SearchAndStatusFiltersOperateServerSide()
-    {
-        using var client = CreateClient();
-        var fixture = await SeedCatalogAsync(client);
+	    public async Task GetItems_SearchAndStatusFiltersOperateServerSide()
+	    {
+	        using var client = CreateClient();
+	        var fixture = await SeedCatalogAsync(client);
+	        const int expectedTotalItems = 4;
+	        const int expectedActiveItems = 3;
+	        const int expectedInactiveItems = 1;
+	        const int expectedRunningLowStock = 1;
+	        const int expectedCriticalStock = 1;
+	        const decimal expectedTotalStockValue = 162m;
 
-        using var nameSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString("brav")}");
-        nameSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+	        using var nameSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString("brav")}");
+	        nameSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
 
-        var nameSearchResponse = await client.SendAsync(nameSearchRequest);
-        Assert.Equal(HttpStatusCode.OK, nameSearchResponse.StatusCode);
-        var nameSearch = await nameSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(1, nameSearch.GetProperty("totalCount").GetInt32());
-        Assert.Equal(fixture.ReorderName, nameSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var nameSearchResponse = await client.SendAsync(nameSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, nameSearchResponse.StatusCode);
+	        var nameSearch = await nameSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, nameSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.ReorderName, nameSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var nameSearchSummary = nameSearch.GetProperty("summary");
+	        Assert.Equal(expectedTotalItems, nameSearchSummary.GetProperty("totalItems").GetInt32());
+	        Assert.Equal(expectedActiveItems, nameSearchSummary.GetProperty("activeItems").GetInt32());
+	        Assert.Equal(expectedInactiveItems, nameSearchSummary.GetProperty("inactiveItems").GetInt32());
+	        Assert.Equal(expectedRunningLowStock, nameSearchSummary.GetProperty("runningLowStockCount").GetInt32());
+	        Assert.Equal(expectedCriticalStock, nameSearchSummary.GetProperty("criticalStockCount").GetInt32());
+	        Assert.Equal(expectedTotalStockValue, nameSearchSummary.GetProperty("totalStockValue").GetDecimal());
 
-        using var barcodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockBarcode)}");
-        barcodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
+	        using var barcodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockBarcode)}");
+	        barcodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
 
-        var barcodeSearchResponse = await client.SendAsync(barcodeSearchRequest);
-        Assert.Equal(HttpStatusCode.OK, barcodeSearchResponse.StatusCode);
-        var barcodeSearch = await barcodeSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(1, barcodeSearch.GetProperty("totalCount").GetInt32());
-        Assert.Equal(fixture.OutOfStockName, barcodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var barcodeSearchResponse = await client.SendAsync(barcodeSearchRequest);
+	        Assert.Equal(HttpStatusCode.OK, barcodeSearchResponse.StatusCode);
+	        var barcodeSearch = await barcodeSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+	        Assert.Equal(1, barcodeSearch.GetProperty("totalCount").GetInt32());
+	        Assert.Equal(fixture.OutOfStockName, barcodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+	        var barcodeSearchSummary = barcodeSearch.GetProperty("summary");
+	        Assert.Equal(expectedTotalItems, barcodeSearchSummary.GetProperty("totalItems").GetInt32());
+	        Assert.Equal(expectedActiveItems, barcodeSearchSummary.GetProperty("activeItems").GetInt32());
+	        Assert.Equal(expectedInactiveItems, barcodeSearchSummary.GetProperty("inactiveItems").GetInt32());
+	        Assert.Equal(expectedRunningLowStock, barcodeSearchSummary.GetProperty("runningLowStockCount").GetInt32());
+	        Assert.Equal(expectedCriticalStock, barcodeSearchSummary.GetProperty("criticalStockCount").GetInt32());
+	        Assert.Equal(expectedTotalStockValue, barcodeSearchSummary.GetProperty("totalStockValue").GetDecimal());
 
-        foreach (var (status, expectedCount, expectedName) in new[]
-        {
-            ("active", 3, fixture.InStockName),
+	        foreach (var (status, expectedCount, expectedName) in new[]
+	        {
+	            ("active", 3, fixture.InStockName),
             ("inactive", 1, fixture.InactiveName),
             ("inStock", 1, fixture.InStockName),
             ("reorder", 1, fixture.ReorderName),
@@ -717,13 +737,20 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
             var response = await client.SendAsync(request);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+	            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-            Assert.Equal(expectedCount, body.GetProperty("totalCount").GetInt32());
-            Assert.Equal(expectedCount, body.GetProperty("items").GetArrayLength());
-            Assert.Contains(body.GetProperty("items").EnumerateArray(), item => item.GetProperty("name").GetString() == expectedName);
-        }
-    }
+	            Assert.Equal(expectedCount, body.GetProperty("totalCount").GetInt32());
+	            Assert.Equal(expectedCount, body.GetProperty("items").GetArrayLength());
+	            Assert.Contains(body.GetProperty("items").EnumerateArray(), item => item.GetProperty("name").GetString() == expectedName);
+	            var summary = body.GetProperty("summary");
+	            Assert.Equal(expectedTotalItems, summary.GetProperty("totalItems").GetInt32());
+	            Assert.Equal(expectedActiveItems, summary.GetProperty("activeItems").GetInt32());
+	            Assert.Equal(expectedInactiveItems, summary.GetProperty("inactiveItems").GetInt32());
+	            Assert.Equal(expectedRunningLowStock, summary.GetProperty("runningLowStockCount").GetInt32());
+	            Assert.Equal(expectedCriticalStock, summary.GetProperty("criticalStockCount").GetInt32());
+	            Assert.Equal(expectedTotalStockValue, summary.GetProperty("totalStockValue").GetDecimal());
+	        }
+	    }
 
     [Fact]
     public async Task GetItems_UsesLatestNonVoidedBatchPriceAndSumsAllBatchValue()

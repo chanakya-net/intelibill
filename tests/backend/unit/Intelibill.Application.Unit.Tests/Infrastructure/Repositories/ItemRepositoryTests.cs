@@ -78,13 +78,17 @@ public sealed class ItemRepositoryTests
         await context.SaveChangesAsync();
 
         var repository = new ItemRepository(context);
-        var result = await repository.GetCatalogAsync(new ItemCatalogFilter(shop.Id, null, "disabled", 1, 20));
+	        var result = await repository.GetCatalogAsync(new ItemCatalogFilter(shop.Id, null, "disabled", 1, 20));
 
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
-        Assert.Equal(0, result.Summary.TotalItems);
-        Assert.Equal(0m, result.Summary.TotalStockValue);
-    }
+	        Assert.Empty(result.Items);
+	        Assert.Equal(0, result.TotalCount);
+	        Assert.Equal(1, result.Summary.TotalItems);
+	        Assert.Equal(1, result.Summary.ActiveItems);
+	        Assert.Equal(0, result.Summary.InactiveItems);
+	        Assert.Equal(0, result.Summary.RunningLowStockCount);
+	        Assert.Equal(1, result.Summary.CriticalStockCount);
+	        Assert.Equal(0m, result.Summary.TotalStockValue);
+	    }
 
     [Fact]
     public async Task GetCatalogAsync_ComputesSummaryOverAllItems_RegardlessOfPagination()

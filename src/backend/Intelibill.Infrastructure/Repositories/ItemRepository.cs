@@ -54,29 +54,28 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<ItemCatalogResultReadModel> GetCatalogAsync(
-        ItemCatalogFilter filter,
-        CancellationToken cancellationToken = default)
-    {
-        var normalizedSearch = filter.Search?.Trim();
-        var normalizedStatus = filter.Status?.Trim().ToLowerInvariant();
+	    public async Task<ItemCatalogResultReadModel> GetCatalogAsync(
+	        ItemCatalogFilter filter,
+	        CancellationToken cancellationToken = default)
+	    {
+	        var normalizedSearch = filter.Search?.Trim();
+	        var normalizedStatus = filter.Status?.Trim().ToLowerInvariant();
 
-        IQueryable<Item> itemQuery = _context.Items
-            .AsNoTracking()
-            .Where(i => i.ShopId == filter.ShopId);
+	        IQueryable<Item> shopItems = _context.Items
+	            .AsNoTracking()
+	            .Where(i => i.ShopId == filter.ShopId);
 
-        itemQuery = ApplySearchFilter(itemQuery, normalizedSearch);
+	        var searchedItems = ApplySearchFilter(shopItems, normalizedSearch);
+	        var filteredItems = ApplyStatusFilter(searchedItems, normalizedStatus);
 
-        var filteredItems = ApplyStatusFilter(itemQuery, normalizedStatus);
+	        var totalCount = await filteredItems.CountAsync(cancellationToken);
 
-        var totalCount = await filteredItems.CountAsync(cancellationToken);
-
-        var summaryRows = await filteredItems
-            .Select(item => new CatalogRow(
-                item.Id,
-                item.Name,
-                item.Barcode,
-                item.Description,
+	        var summaryRows = await shopItems
+	            .Select(item => new CatalogRow(
+	                item.Id,
+	                item.Name,
+	                item.Barcode,
+	                item.Description,
                 item.Uom,
                 item.IsActive,
                 CurrentStock: _context.Inventory
