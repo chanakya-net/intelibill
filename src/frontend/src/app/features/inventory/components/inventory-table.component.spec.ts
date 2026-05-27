@@ -69,6 +69,7 @@ describe('InventoryTableComponent', () => {
     expect(component.stockStatusLabelKey('inStock')).toBe('inventory.inStock');
     expect(component.stockStatusLabelKey('runningLow')).toBe('inventory.reorder');
     expect(component.stockStatusLabelKey('critical')).toBe('inventory.outOfStock');
+    expect(component.stockStatusLabelKey('inactive')).toBe('inventory.inactive');
   });
 
   it('renders mobile paginator for server-side page navigation', () => {

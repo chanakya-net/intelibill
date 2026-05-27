@@ -16,7 +16,7 @@ export interface Item {
 }
 
 export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'runningLow' | 'critical';
-export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical';
+export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical' | 'inactive';
 
 export interface InventoryCatalogQuery {
   readonly search: string;
