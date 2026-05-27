@@ -6,6 +6,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import type { Item } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
@@ -35,7 +36,7 @@ describe('InventoryPageComponent', () => {
     shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
   };
 
-  const itemsSignal = signal([
+  const itemsSignal = signal<Item[]>([
     {
       id: 'item-1',
       name: 'Milk',
@@ -44,6 +45,10 @@ describe('InventoryPageComponent', () => {
       uom: 'ltr',
       isActive: true,
       currentStock: 10,
+      unitPrice: 45,
+      currentStockValue: 450,
+      reorderLevel: 5,
+      stockStatus: 'inStock',
       hsnCode: '0401',
       defaultTaxRatePercent: 5,
       defaultTaxIncluded: false,
@@ -114,6 +119,10 @@ describe('InventoryPageComponent', () => {
         uom: 'ltr',
         isActive: true,
         currentStock: 10,
+        unitPrice: 45,
+        currentStockValue: 450,
+        reorderLevel: 5,
+        stockStatus: 'inStock',
         hsnCode: '0401',
         defaultTaxRatePercent: 5,
         defaultTaxIncluded: false,
@@ -151,7 +160,7 @@ describe('InventoryPageComponent', () => {
   it('dispatches load items when page initializes', () => {
     TestBed.createComponent(InventoryPageComponent);
 
-    expect(store.dispatch).toHaveBeenCalledWith(InventoryActions.loadItemsRequested());
+    expect(store.dispatch).toHaveBeenCalledWith(InventoryActions.loadItemsRequested({}));
   });
 
   it('closes add overlay on successful add mutation', () => {

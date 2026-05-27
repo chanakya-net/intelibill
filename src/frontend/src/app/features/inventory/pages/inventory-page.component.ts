@@ -106,7 +106,7 @@ export class InventoryPageComponent {
   readonly selectedItemForEdit = signal<Item | null>(null);
 
   constructor() {
-    this.store.dispatch(InventoryActions.loadItemsRequested());
+    this.store.dispatch(InventoryActions.loadItemsRequested({}));
     this.store.dispatch(InventoryActions.clearMutationStatus());
 
     effect(() => {
