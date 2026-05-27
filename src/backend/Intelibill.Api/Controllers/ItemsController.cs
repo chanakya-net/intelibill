@@ -72,13 +72,18 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetItems(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetItems(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<ItemDto>>>(
-            new GetItemsQuery(UserId!.Value, ActiveShopId!.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<ItemCatalogResultDto>>(
+            new GetItemsQuery(UserId!.Value, ActiveShopId!.Value, search, status, pageNumber, pageSize),
             cancellationToken);
 
         return result.ToActionResult(Ok);

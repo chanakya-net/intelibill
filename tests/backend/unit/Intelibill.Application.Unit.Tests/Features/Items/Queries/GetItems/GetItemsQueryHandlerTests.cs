@@ -11,7 +11,6 @@ public class GetItemsQueryHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
-    private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
 
     [Fact]
     public async Task HandleAsync_WhenCallerNotInActiveShop_ReturnsForbidden()
@@ -19,7 +18,7 @@ public class GetItemsQueryHandlerTests
         var caller = User.CreateWithEmail("member@test.com", "hash", "Member", "One");
         _userRepository.GetByIdWithDetailsAsync(caller.Id, Arg.Any<CancellationToken>()).Returns(caller);
 
-        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository, _inventoryRepository);
+        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository);
         var result = await handler.HandleAsync(new GetItemsQuery(caller.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -27,7 +26,7 @@ public class GetItemsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_ReturnsItemsWithCurrentStock()
+    public async Task HandleAsync_WhenValid_ReturnsPagedCatalogAndSummary()
     {
         var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
         var manager = User.CreateWithEmail("manager@test.com", "hash", "Manager", "One");
@@ -41,25 +40,83 @@ public class GetItemsQueryHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(manager.Id, Arg.Any<CancellationToken>()).Returns(manager);
 
-        var milk = Item.Create(shop.Id, "Milk", null, "ltr", "B001", true, owner.Id);
-        var rice = Item.Create(shop.Id, "Rice", "Premium", "kg", "B002", true, owner.Id);
+        var catalog = new ItemCatalogResultReadModel(
+            Items:
+            [
+                new ItemCatalogReadModel(
+                    Guid.NewGuid(),
+                    "Milk",
+                    "B001",
+                    null,
+                    "ltr",
+                    true,
+                    25m,
+                    42m,
+                    1050m,
+                    10m,
+                    "runningLow",
+                    "0401",
+                    5m,
+                    false),
+                new ItemCatalogReadModel(
+                    Guid.NewGuid(),
+                    "Rice",
+                    "B002",
+                    "Premium",
+                    "kg",
+                    true,
+                    0m,
+                    60m,
+                    0m,
+                    0m,
+                    "critical",
+                    null,
+                    0m,
+                    false),
+            ],
+            TotalCount: 2,
+            Summary: new ItemCatalogSummaryReadModel(
+                TotalItems: 2,
+                ActiveItems: 2,
+                InactiveItems: 0,
+                RunningLowStockCount: 1,
+                CriticalStockCount: 1,
+                TotalStockValue: 1050m));
 
-        _itemRepository.GetByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns([milk, rice]);
+        ItemCatalogFilter? capturedFilter = null;
+        _itemRepository.GetCatalogAsync(Arg.Do<ItemCatalogFilter>(filter => capturedFilter = filter), Arg.Any<CancellationToken>())
+            .Returns(catalog);
 
-        _inventoryRepository.GetQuantitiesByShopIdAsync(shop.Id, Arg.Any<CancellationToken>())
-            .Returns((IReadOnlyDictionary<Guid, decimal>)new Dictionary<Guid, decimal>
-            {
-                [milk.Id] = 25m,
-            });
-
-        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository, _inventoryRepository);
-        var result = await handler.HandleAsync(new GetItemsQuery(manager.Id, shop.Id), CancellationToken.None);
+        var handler = new GetItemsQueryHandler(_userRepository, _itemRepository);
+        var result = await handler.HandleAsync(
+            new GetItemsQuery(manager.Id, shop.Id, Search: "rice", Status: "active", PageNumber: 0, PageSize: 250),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(2, result.Value.Count);
-        Assert.Equal("Milk", result.Value[0].Name);
-        Assert.Equal(25m, result.Value[0].CurrentStock);
-        Assert.Equal("Rice", result.Value[1].Name);
-        Assert.Equal(0m, result.Value[1].CurrentStock);
+        Assert.NotNull(capturedFilter);
+        Assert.Equal(shop.Id, capturedFilter!.ShopId);
+        Assert.Equal("rice", capturedFilter.Search);
+        Assert.Equal("active", capturedFilter.Status);
+        Assert.Equal(1, capturedFilter.PageNumber);
+        Assert.Equal(100, capturedFilter.PageSize);
+
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(1, result.Value.PageNumber);
+        Assert.Equal(100, result.Value.PageSize);
+        Assert.Equal(2, result.Value.Items.Count);
+
+        Assert.Equal("Milk", result.Value.Items[0].Name);
+        Assert.Equal(25m, result.Value.Items[0].CurrentStock);
+        Assert.Equal(42m, result.Value.Items[0].UnitPrice);
+        Assert.Equal(1050m, result.Value.Items[0].CurrentStockValue);
+        Assert.Equal(10m, result.Value.Items[0].ReorderLevel);
+        Assert.Equal("runningLow", result.Value.Items[0].StockStatus);
+
+        Assert.Equal(2, result.Value.Summary.TotalItems);
+        Assert.Equal(2, result.Value.Summary.ActiveItems);
+        Assert.Equal(0, result.Value.Summary.InactiveItems);
+        Assert.Equal(1, result.Value.Summary.RunningLowStockCount);
+        Assert.Equal(1, result.Value.Summary.CriticalStockCount);
+        Assert.Equal(1050m, result.Value.Summary.TotalStockValue);
     }
 }
