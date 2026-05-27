@@ -8,10 +8,13 @@ namespace Intelibill.Application.Features.Sales.Queries.GetSales;
 public sealed class GetSalesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISaleRepository saleRepository,
-    ISaleReturnRepository saleReturnRepository)
+    ISaleRepository saleRepository)
 {
-    public async Task<ErrorOr<IReadOnlyList<SaleListItemDto>>> Handle(
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+    private const int DefaultLookbackDays = 30;
+
+    public async Task<ErrorOr<SalesHistoryResultDto>> Handle(
         GetSalesQuery query,
         CancellationToken cancellationToken)
     {
@@ -27,35 +30,55 @@ public sealed class GetSalesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var sales = await saleRepository.GetByShopAsync(query.ShopId, cancellationToken);
-        var returnsBySaleId = new Dictionary<Guid, List<string>>();
-        foreach (var sale in sales)
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var startDate = query.From
+            ?? (query.To.HasValue ? query.To.Value.AddDays(-(DefaultLookbackDays - 1)) : today.AddDays(-(DefaultLookbackDays - 1)));
+        var endDate = query.To ?? today;
+
+        var pageNumber = query.Page <= 0 ? 1 : query.Page;
+        var pageSize = query.PageSize <= 0 ? DefaultPageSize : query.PageSize;
+        if (pageSize > MaxPageSize)
         {
-            var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken);
-            returnsBySaleId[sale.Id] = saleReturns
-                .Where(r => !r.IsVoided)
-                .Select(r => r.ReturnNumber)
-                .ToList();
+            pageSize = MaxPageSize;
         }
 
-        return sales
-            .Select(s => new SaleListItemDto(
-                s.Id,
-                s.InvoiceNumber,
-                s.CustomerId,
-                s.PaymentMethod,
-                s.SoldAt,
-                s.PaidAmount,
-                s.DueAmount,
-                s.TotalBeforeDiscount,
-                s.TotalDiscountAmount,
-                s.TotalAmount,
-                s.TotalTaxAmount,
-                s.CustomerName,
-                s.CustomerPhone,
-                s.Items.Count,
-                returnsBySaleId.GetValueOrDefault(s.Id, [])))
-            .OrderByDescending(s => s.SoldAt)
-            .ToList();
+        var filter = new SaleHistoryFilter(
+            ShopId: query.ShopId,
+            StartDate: startDate,
+            EndDate: endDate,
+            Search: query.Search,
+            Status: query.Status,
+            PageNumber: pageNumber,
+            PageSize: pageSize);
+
+        var (rows, totalCount) = await saleRepository.GetHistoryAsync(filter, cancellationToken);
+        var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, startDate, endDate, cancellationToken);
+
+        var items = rows.Select(s => new SaleListItemDto(
+            s.SaleId,
+            s.InvoiceNumber,
+            s.CustomerId,
+            s.PaymentMethod,
+            s.SoldAt,
+            s.PaidAmount,
+            s.DueAmount,
+            s.TotalBeforeDiscount,
+            s.TotalDiscountAmount,
+            s.TotalAmount,
+            s.TotalTaxAmount,
+            s.CustomerName,
+            s.CustomerPhone,
+            s.ItemCount,
+            s.ReturnNumbers)).ToList();
+
+        return new SalesHistoryResultDto(
+            Items: items,
+            TotalCount: totalCount,
+            PageNumber: pageNumber,
+            PageSize: pageSize,
+            Summary: new SalesHistorySummaryDto(
+                summary.PeriodSales,
+                summary.InvoiceCount,
+                summary.RefundAmount));
     }
 }

@@ -384,7 +384,7 @@ public class SalesControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.GetSales(CancellationToken.None);
+        var result = await _controller.GetSales(cancellationToken: CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -395,7 +395,7 @@ public class SalesControllerTests
         var userId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
 
-        var result = await _controller.GetSales(CancellationToken.None);
+        var result = await _controller.GetSales(cancellationToken: CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -411,13 +411,19 @@ public class SalesControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         IReadOnlyList<SaleListItemDto> sales = [];
-        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SaleListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SaleListItemDto>>>(sales.ToList()));
+        var response = new SalesHistoryResultDto(
+            Items: sales,
+            TotalCount: 0,
+            PageNumber: 1,
+            PageSize: 20,
+            Summary: new SalesHistorySummaryDto(0m, 0, 0m));
+        _bus.InvokeAsync<ErrorOr<SalesHistoryResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SalesHistoryResultDto>>(response));
 
-        var result = await _controller.GetSales(CancellationToken.None);
+        var result = await _controller.GetSales(cancellationToken: CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(sales, ok.Value);
+        Assert.Equal(response, ok.Value);
     }
 
     [Fact]
