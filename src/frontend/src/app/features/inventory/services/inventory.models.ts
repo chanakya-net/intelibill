@@ -6,7 +6,7 @@ export interface Item {
   readonly uom: string;
   readonly isActive: boolean;
   readonly currentStock: number;
-  readonly unitPrice: number;
+  readonly unitPrice: number | null;
   readonly currentStockValue: number;
   readonly reorderLevel: number;
   readonly stockStatus: ItemStockStatus;
@@ -16,7 +16,7 @@ export interface Item {
 }
 
 export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'runningLow' | 'critical';
-export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical';
+export type ItemStockStatus = 'inStock' | 'runningLow' | 'critical' | 'inactive';
 
 export interface InventoryCatalogQuery {
   readonly search: string;

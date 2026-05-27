@@ -618,7 +618,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(122m, firstPageItems[0].GetProperty("currentStockValue").GetDecimal());
 
         Assert.Equal(fixture.ReorderName, firstPageItems[1].GetProperty("name").GetString());
-        Assert.Equal("reorder", firstPageItems[1].GetProperty("stockStatus").GetString());
+        Assert.Equal("runningLow", firstPageItems[1].GetProperty("stockStatus").GetString());
         Assert.Equal(20m, firstPageItems[1].GetProperty("unitPrice").GetDecimal());
         Assert.Equal(40m, firstPageItems[1].GetProperty("currentStockValue").GetDecimal());
 
@@ -640,7 +640,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var secondPageItems = secondPage.GetProperty("items").EnumerateArray().ToArray();
         Assert.Equal(2, secondPageItems.Length);
         Assert.Equal(fixture.OutOfStockName, secondPageItems[0].GetProperty("name").GetString());
-        Assert.Equal("outOfStock", secondPageItems[0].GetProperty("stockStatus").GetString());
+        Assert.Equal("critical", secondPageItems[0].GetProperty("stockStatus").GetString());
         Assert.Null(ReadDecimalOrNull(secondPageItems[0].GetProperty("unitPrice")));
 
         Assert.Equal(fixture.InactiveName, secondPageItems[1].GetProperty("name").GetString());
@@ -742,8 +742,8 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 	        var uomSearchResponse = await client.SendAsync(uomSearchRequest);
 	        Assert.Equal(HttpStatusCode.OK, uomSearchResponse.StatusCode);
 	        var uomSearch = await uomSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
-	        Assert.Equal(1, uomSearch.GetProperty("totalCount").GetInt32());
-	        Assert.Equal(fixture.ReorderName, uomSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
+        Assert.Equal(1, uomSearch.GetProperty("totalCount").GetInt32());
+        Assert.Equal(fixture.ReorderName, uomSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
 
 	        using var hsnCodeSearchRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/items?search={Uri.EscapeDataString(fixture.OutOfStockHsnCode)}");
 	        hsnCodeSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.OwnerToken);
@@ -754,13 +754,13 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 	        Assert.Equal(1, hsnCodeSearch.GetProperty("totalCount").GetInt32());
 	        Assert.Equal(fixture.OutOfStockName, hsnCodeSearch.GetProperty("items").EnumerateArray().Single().GetProperty("name").GetString());
 
-	        foreach (var (status, expectedCount, expectedName) in new[]
-	        {
-	            ("active", 3, fixture.InStockName),
+        foreach (var (status, expectedCount, expectedName) in new[]
+        {
+            ("active", 3, fixture.InStockName),
             ("inactive", 1, fixture.InactiveName),
             ("inStock", 1, fixture.InStockName),
-            ("reorder", 1, fixture.ReorderName),
-            ("outOfStock", 1, fixture.OutOfStockName),
+            ("runningLow", 1, fixture.ReorderName),
+            ("critical", 1, fixture.OutOfStockName),
         })
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/items?status={Uri.EscapeDataString(status)}");

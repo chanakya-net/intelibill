@@ -51,7 +51,8 @@ export class InventoryTableComponent {
     this.pageChange.emit({ page, rows });
   }
 
-  stockStatusSeverity(status: string): 'danger' | 'warn' | 'success' | 'secondary' {
+  stockStatusSeverity(status: Item['stockStatus']): 'danger' | 'warn' | 'success' | 'secondary' {
+    if (status === 'inactive') return 'secondary';
     if (status === 'critical') return 'danger';
     if (status === 'runningLow') return 'warn';
     return 'success';
@@ -80,6 +81,10 @@ export class InventoryTableComponent {
   }
 
   stockStatusLabelKey(stockStatus: Item['stockStatus']): string {
+    if (stockStatus === 'inactive') {
+      return 'inventory.inactive';
+    }
+
     if (stockStatus === 'runningLow') {
       return 'inventory.reorder';
     }

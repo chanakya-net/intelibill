@@ -58,7 +58,7 @@ public class AddItemCommandHandlerTests
         Assert.Null(result.Value.UnitPrice);
         Assert.Equal(0m, result.Value.CurrentStockValue);
         Assert.Equal(0m, result.Value.ReorderLevel);
-        Assert.Equal("outOfStock", result.Value.StockStatus);
+        Assert.Equal("critical", result.Value.StockStatus);
 
         await _itemRepository.Received(1).AddAsync(Arg.Is<Item>(i =>
             i.Name == "Rice" &&

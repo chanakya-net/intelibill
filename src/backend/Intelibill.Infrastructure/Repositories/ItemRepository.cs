@@ -203,7 +203,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                         .Select(inv => (decimal?)inv.ReorderLevel)
                         .FirstOrDefault() ?? 0m)
                 )),
-            "reorder" => query.Where(i =>
+            "runninglow" or "reorder" => query.Where(i =>
                 i.IsActive
                 && (
                     (_context.Inventory
@@ -222,7 +222,7 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                         .Select(inv => (decimal?)inv.ReorderLevel)
                         .FirstOrDefault() ?? 0m)
                 )),
-            "outofstock" => query.Where(i =>
+            "critical" or "outofstock" => query.Where(i =>
                 i.IsActive
                 && (
                     (_context.Inventory
@@ -240,10 +240,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
             return "inactive";
 
         if (currentStock <= 0m)
-            return "outOfStock";
+            return "critical";
 
         if (currentStock <= reorderLevel)
-            return "reorder";
+            return "runningLow";
 
         return "inStock";
     }
