@@ -621,56 +621,56 @@
       "taxIncluded": "നികുതി",
       "discount": "ലാഭം",
       "kpi": {
-        "periodSales": "Period sales",
-        "invoices": "Invoices",
-        "refunds": "Refunds"
+        "periodSales": "കാലയളവിലെ വിൽപ്പന",
+        "invoices": "ഇൻവോയ്സുകൾ",
+        "refunds": "തിരിച്ചടവ്"
       },
       "controls": {
-        "period": "Period",
-        "from": "From date",
-        "to": "To date",
-        "status": "Status",
-        "searchPlaceholder": "Search by invoice, customer…",
-        "reportLevel": "Report level",
-        "clearFilters": "Clear filters"
+        "period": "കാലയളവ്",
+        "from": "ആരംഭ തീയതി",
+        "to": "അവസാന തീയതി",
+        "status": "നില",
+        "searchPlaceholder": "ഇൻവോയ്സ്, ഉപഭോക്താവ് എന്നിവ ഉപയോഗിച്ച് തിരയുക…",
+        "reportLevel": "റിപ്പോർട്ട് തലം",
+        "clearFilters": "ഫിൽട്ടർ മായ്ക്കുക"
       },
       "reportLevel": {
-        "summary": "Summary",
-        "lineItems": "Line items"
+        "summary": "സാരാംശം",
+        "lineItems": "ലൈൻ ഇനങ്ങൾ"
       },
       "status": {
-        "all": "All",
-        "paid": "Paid",
-        "partiallyPaid": "Partially paid",
-        "refunded": "Refunded",
-        "unknown": "Unknown"
+        "all": "എല്ലാം",
+        "paid": "അടച്ചത്",
+        "partiallyPaid": "ഭാഗികമായി അടച്ചത്",
+        "refunded": "തിരിച്ചടച്ചത്",
+        "unknown": "അജ്ഞാതം"
       },
       "actions": {
-        "viewReceipt": "View Receipt →"
+        "viewReceipt": "രസീത് കാണുക →"
       },
       "amount": {
-        "due": "Due",
-        "refund": "Refund"
+        "due": "ബാക്കി",
+        "refund": "തിരിച്ചടവ്"
       },
       "pagination": {
-        "ariaLabel": "Sales history pagination",
-        "showing": "Showing {{start}}-{{end}} of {{total}} sales",
-        "pageSize": "Rows",
-        "prev": "Previous page",
-        "next": "Next page",
-        "page": "Go to page {{page}}",
-        "pageStatus": "Page {{page}} of {{totalPages}}"
+        "ariaLabel": "വിൽപ്പന ചരിത്ര പേജിനേഷൻ",
+        "showing": "{{total}} വിൽപ്പനകളിൽ {{start}}-{{end}} കാണിക്കുന്നു",
+        "pageSize": "വരികൾ",
+        "prev": "മുൻ പേജ്",
+        "next": "അടുത്ത പേജ്",
+        "page": "{{page}} പേജിലേക്ക് പോകുക",
+        "pageStatus": "{{totalPages}} ൽ {{page}} പേജ്"
       },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ഓഫ്‌ലൈൻ വിൽപ്പന ക്യൂ നില",
+        "eyebrow": "ഓഫ്‌ലൈൻ ക്യൂ",
+        "title": "സിങ്ക് നില",
+        "retry": "വീണ്ടും ശ്രമിക്കുക",
+        "pending": "കാത്തിരിക്കുന്നു",
+        "syncing": "സിങ്ക് ആകുന്നു",
+        "failed": "പരാജയം",
+        "warnings": "മുന്നറിയിപ്പുകൾ",
+        "needsReview": "അവലോകനം ആവശ്യം"
       }
     },
     "newSale": {

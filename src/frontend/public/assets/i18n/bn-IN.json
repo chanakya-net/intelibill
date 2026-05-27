@@ -621,56 +621,56 @@
       "taxIncluded": "কর",
       "discount": "সাশ্রয়",
       "kpi": {
-        "periodSales": "Period sales",
-        "invoices": "Invoices",
-        "refunds": "Refunds"
+        "periodSales": "সময়কালের বিক্রয়",
+        "invoices": "ইনভয়েস",
+        "refunds": "ফেরত"
       },
       "controls": {
-        "period": "Period",
-        "from": "From date",
-        "to": "To date",
-        "status": "Status",
-        "searchPlaceholder": "Search by invoice, customer…",
-        "reportLevel": "Report level",
-        "clearFilters": "Clear filters"
+        "period": "সময়কাল",
+        "from": "শুরুর তারিখ",
+        "to": "শেষের তারিখ",
+        "status": "স্ট্যাটাস",
+        "searchPlaceholder": "ইনভয়েস, গ্রাহক দ্বারা খুঁজুন…",
+        "reportLevel": "রিপোর্ট স্তর",
+        "clearFilters": "ফিল্টার সাফ করুন"
       },
       "reportLevel": {
-        "summary": "Summary",
-        "lineItems": "Line items"
+        "summary": "সারসংক্ষেপ",
+        "lineItems": "লাইন আইটেম"
       },
       "status": {
-        "all": "All",
-        "paid": "Paid",
-        "partiallyPaid": "Partially paid",
-        "refunded": "Refunded",
-        "unknown": "Unknown"
+        "all": "সব",
+        "paid": "পরিশোধিত",
+        "partiallyPaid": "আংশিক পরিশোধিত",
+        "refunded": "ফেরত",
+        "unknown": "অজানা"
       },
       "actions": {
-        "viewReceipt": "View Receipt →"
+        "viewReceipt": "রশিদ দেখুন →"
       },
       "amount": {
-        "due": "Due",
-        "refund": "Refund"
+        "due": "বকেয়া",
+        "refund": "ফেরত"
       },
       "pagination": {
-        "ariaLabel": "Sales history pagination",
-        "showing": "Showing {{start}}-{{end}} of {{total}} sales",
-        "pageSize": "Rows",
-        "prev": "Previous page",
-        "next": "Next page",
-        "page": "Go to page {{page}}",
-        "pageStatus": "Page {{page}} of {{totalPages}}"
+        "ariaLabel": "বিক্রয় ইতিহাস পৃষ্ঠায়ন",
+        "showing": "{{total}} বিক্রয়ের মধ্যে {{start}}-{{end}} দেখাচ্ছে",
+        "pageSize": "সারি",
+        "prev": "আগের পৃষ্ঠা",
+        "next": "পরের পৃষ্ঠা",
+        "page": "পৃষ্ঠা {{page}}-এ যান",
+        "pageStatus": "{{totalPages}}-এর মধ্যে পৃষ্ঠা {{page}}"
       },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "অফলাইন বিক্রয় সারির স্ট্যাটাস",
+        "eyebrow": "অফলাইন সারি",
+        "title": "সিঙ্ক স্ট্যাটাস",
+        "retry": "আবার চেষ্টা",
+        "pending": "মুলতুবি",
+        "syncing": "সিঙ্ক হচ্ছে",
+        "failed": "ব্যর্থ",
+        "warnings": "সতর্কতা",
+        "needsReview": "পর্যালোচনা প্রয়োজন"
       }
     },
     "newSale": {

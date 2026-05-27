@@ -621,56 +621,56 @@
       "taxIncluded": "कर",
       "discount": "वाचवले",
       "kpi": {
-        "periodSales": "Period sales",
-        "invoices": "Invoices",
-        "refunds": "Refunds"
+        "periodSales": "कालावधीची विक्री",
+        "invoices": "इनव्हॉइस",
+        "refunds": "परतावा"
       },
       "controls": {
-        "period": "Period",
-        "from": "From date",
-        "to": "To date",
-        "status": "Status",
-        "searchPlaceholder": "Search by invoice, customer…",
-        "reportLevel": "Report level",
-        "clearFilters": "Clear filters"
+        "period": "कालावधी",
+        "from": "सुरुवातीची तारीख",
+        "to": "शेवटची तारीख",
+        "status": "स्थिती",
+        "searchPlaceholder": "इनव्हॉइस, ग्राहकाद्वारे शोधा…",
+        "reportLevel": "अहवाल पातळी",
+        "clearFilters": "फिल्टर साफ करा"
       },
       "reportLevel": {
-        "summary": "Summary",
-        "lineItems": "Line items"
+        "summary": "सारांश",
+        "lineItems": "ओळ आयटम"
       },
       "status": {
-        "all": "All",
-        "paid": "Paid",
-        "partiallyPaid": "Partially paid",
-        "refunded": "Refunded",
-        "unknown": "Unknown"
+        "all": "सर्व",
+        "paid": "दिलेले",
+        "partiallyPaid": "अंशतः दिलेले",
+        "refunded": "परत केले",
+        "unknown": "अज्ञात"
       },
       "actions": {
-        "viewReceipt": "View Receipt →"
+        "viewReceipt": "पावती पहा →"
       },
       "amount": {
-        "due": "Due",
-        "refund": "Refund"
+        "due": "थकबाकी",
+        "refund": "परतावा"
       },
       "pagination": {
-        "ariaLabel": "Sales history pagination",
-        "showing": "Showing {{start}}-{{end}} of {{total}} sales",
-        "pageSize": "Rows",
-        "prev": "Previous page",
-        "next": "Next page",
-        "page": "Go to page {{page}}",
-        "pageStatus": "Page {{page}} of {{totalPages}}"
+        "ariaLabel": "विक्री इतिहास पृष्ठ क्रमांकन",
+        "showing": "{{total}} विक्रींपैकी {{start}}-{{end}} दाखवत आहे",
+        "pageSize": "ओळी",
+        "prev": "मागील पृष्ठ",
+        "next": "पुढील पृष्ठ",
+        "page": "पृष्ठ {{page}} वर जा",
+        "pageStatus": "{{totalPages}} पैकी पृष्ठ {{page}}"
       },
       "offlineQueue": {
-        "ariaLabel": "Offline sales queue status",
-        "eyebrow": "Offline queue",
-        "title": "Sync status",
-        "retry": "Retry",
-        "pending": "Pending",
-        "syncing": "Syncing",
-        "failed": "Failed",
-        "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "ariaLabel": "ऑफलाइन विक्री रांग स्थिती",
+        "eyebrow": "ऑफलाइन रांग",
+        "title": "सिंक स्थिती",
+        "retry": "पुन्हा प्रयत्न",
+        "pending": "प्रलंबित",
+        "syncing": "सिंक होत आहे",
+        "failed": "अयशस्वी",
+        "warnings": "इशारे",
+        "needsReview": "पुनरावलोकन आवश्यक"
       }
     },
     "newSale": {

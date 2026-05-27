@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -67,8 +67,8 @@ export class SalesPageComponent {
   readonly statusFilter = signal<SaleHistoryStatus | 'all'>('all');
   readonly searchValue = signal('');
   readonly reportLevel = signal<'summary' | 'lineItems'>('summary');
-  readonly pageNumber = signal(1);
-  readonly pageSize = signal(20);
+  readonly pageNumber = signal(this.salesFacade.salesPagination().pageNumber || 1);
+  readonly pageSize = signal(Math.max(this.salesFacade.salesPagination().pageSize, 20));
 
   readonly pageSizeOptions = [
     { label: '10', value: 10 },
@@ -91,15 +91,15 @@ export class SalesPageComponent {
   });
 
   readonly rangeStart = computed(() => {
-    const total = this.salesPagination().totalCount;
-    if (total === 0) return 0;
-    return (this.pageNumber() - 1) * this.pageSize() + 1;
+    const { totalCount, pageNumber, pageSize } = this.salesPagination();
+    if (totalCount === 0) return 0;
+    return (pageNumber - 1) * pageSize + 1;
   });
 
   readonly rangeEnd = computed(() => {
-    const total = this.salesPagination().totalCount;
-    if (total === 0) return 0;
-    return Math.min(total, this.pageNumber() * this.pageSize());
+    const { totalCount, pageNumber, pageSize } = this.salesPagination();
+    if (totalCount === 0) return 0;
+    return Math.min(totalCount, pageNumber * pageSize);
   });
 
   readonly paginationItems = computed(() => this.getPaginationItems(this.totalPages(), this.pageNumber()));
@@ -109,6 +109,16 @@ export class SalesPageComponent {
       const search = this.searchValue().trim();
       const handle = setTimeout(() => this.debouncedSearch.set(search), 300);
       onCleanup(() => clearTimeout(handle));
+    });
+
+    effect(() => {
+      const { pageNumber: storePageNumber, pageSize: storePageSize } = this.salesPagination();
+      if (storePageNumber && storePageNumber !== this.pageNumber()) {
+        untracked(() => this.pageNumber.set(storePageNumber));
+      }
+      if (storePageSize > 0 && storePageSize !== this.pageSize()) {
+        untracked(() => this.pageSize.set(storePageSize));
+      }
     });
 
     effect(() => {
@@ -180,6 +190,7 @@ export class SalesPageComponent {
     this.toDate.set(this.getDefaultToDate());
     this.statusFilter.set('all');
     this.searchValue.set('');
+    this.debouncedSearch.set('');
     this.reportLevel.set('summary');
     this.pageNumber.set(1);
     this.pageSize.set(20);
