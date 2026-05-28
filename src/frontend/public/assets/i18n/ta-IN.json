@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "விற்பனை",
       "title": "புதிய விற்பனை",
+      "subtitle": "ஒரே workspace-இல் பொருட்களை scan செய்து, cart-ஐ அமைத்து, checkout-ஐ முடிக்கவும்.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "பொருள் பெயர் அல்லது பார்கோடு மூலம் தேடுங்கள்",
       "barcodePlaceholder": "பார்கோட் உள்ளிடவும்…",
       "search": "தேடு",

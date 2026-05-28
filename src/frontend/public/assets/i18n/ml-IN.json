@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "വിൽപ്പന",
       "title": "പുതിയ വിൽപ്പന",
+      "subtitle": "ഒരേ workspace-ൽ products scan ചെയ്ത്, cart ഉണ്ടാക്കി, checkout പൂർത്തിയാക്കുക.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ഉൽപ്പന്നത്തിന്റെ പേര് അല്ലെങ്കിൽ ബാർകോഡ് ഉപയോഗിച്ച് തിരയുക",
       "barcodePlaceholder": "ബാർകോഡ് നൽകുക…",
       "search": "തിരയുക",

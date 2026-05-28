@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "বিক্রয়",
       "title": "নতুন বিক্রয়",
+      "subtitle": "একই workspace-এ পণ্য স্ক্যান করুন, cart তৈরি করুন, এবং checkout শেষ করুন।",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "পণ্যের নাম বা বারকোড দিয়ে খুঁজুন",
       "barcodePlaceholder": "বারকোড লিখুন…",
       "search": "অনুসন্ধান",

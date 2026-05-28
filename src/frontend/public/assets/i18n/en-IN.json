@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "Sales",
       "title": "New Sale",
+      "subtitle": "Scan products, build the cart, and complete checkout in one workspace.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "Search by product name or barcode",
       "barcodePlaceholder": "Enter barcode…",
       "search": "Search",
