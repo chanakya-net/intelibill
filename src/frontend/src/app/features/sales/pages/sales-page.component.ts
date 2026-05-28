@@ -13,6 +13,7 @@ import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
+import { SelectButtonModule } from 'primeng/selectbutton';
 
 import type { SaleListItemDto } from '../services/sale.models';
 import type { SaleHistoryStatus, SalesHistoryQueryParams } from '../services/sale.models';
@@ -39,6 +40,7 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
     SkeletonModule,
     DatePickerModule,
     SelectModule,
+    SelectButtonModule,
     SaleDetailOverlayComponent,
     SalesExportToolbarComponent,
     TranslocoPipe,
@@ -79,6 +81,13 @@ export class SalesPageComponent {
   readonly reportLevelOptions = [
     { label: 'sales.history.reportLevel.summary', value: 'summary' as const },
     { label: 'sales.history.reportLevel.lineItems', value: 'lineItems' as const },
+  ];
+
+  readonly statusFilterOptions = [
+    { label: 'sales.history.status.all', value: 'all' as const },
+    { label: 'sales.history.status.paid', value: 'paid' as const },
+    { label: 'sales.history.status.refunded', value: 'refunded' as const },
+    { label: 'sales.history.status.unknown', value: 'unknown' as const },
   ];
 
   private readonly debouncedSearch = signal('');

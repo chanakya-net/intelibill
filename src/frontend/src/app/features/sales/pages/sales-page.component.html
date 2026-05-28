@@ -1,11 +1,24 @@
 <section class="sales-ledger-page">
-  <header class="sales-ledger-header">
-    <div class="header-text">
-      <p class="eyebrow">{{ 'sales.history.eyebrow' | transloco }}</p>
-      <h1>{{ 'sales.history.title' | transloco }}</h1>
-      <p class="subtitle">{{ 'sales.history.subtitle' | transloco }}</p>
-    </div>
+  <header class="sales-history-hero">
+    <p class="eyebrow">{{ 'sales.history.eyebrow' | transloco }}</p>
+    <h1>{{ 'sales.history.title' | transloco }}</h1>
+    <p class="subtitle">{{ 'sales.history.subtitle' | transloco }}</p>
   </header>
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <p class="kpi-label">{{ 'sales.history.kpi.periodSales' | transloco }}</p>
+      <p class="kpi-value">₹{{ (salesHistorySummary()?.periodSales ?? 0) | number:'1.0-0' }}</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">{{ 'sales.history.kpi.invoices' | transloco }}</p>
+      <p class="kpi-value">{{ (salesHistorySummary()?.invoiceCount ?? 0) | number }}</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">{{ 'sales.history.kpi.refunds' | transloco }}</p>
+      <p class="kpi-value">₹{{ (salesHistorySummary()?.refundAmount ?? 0) | number:'1.0-0' }}</p>
+    </div>
+  </div>
 
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
@@ -39,95 +52,94 @@
   }
 
   <section class="ledger-panel">
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <p class="kpi-label">{{ 'sales.history.kpi.periodSales' | transloco }}</p>
-        <p class="kpi-value">₹{{ (salesHistorySummary()?.periodSales ?? 0) | number:'1.2-2' }}</p>
-      </div>
-      <div class="kpi-card">
-        <p class="kpi-label">{{ 'sales.history.kpi.invoices' | transloco }}</p>
-        <p class="kpi-value">{{ salesHistorySummary()?.invoiceCount ?? 0 }}</p>
-      </div>
-      <div class="kpi-card">
-        <p class="kpi-label">{{ 'sales.history.kpi.refunds' | transloco }}</p>
-        <p class="kpi-value kpi-negative">₹{{ (salesHistorySummary()?.refundAmount ?? 0) | number:'1.2-2' }}</p>
-      </div>
-    </div>
+    <div class="ledger-workflow">
+      <header class="sales-ledger-header">
+        <div class="header-text">
+          <h1>{{ 'sales.history.ledger.title' | transloco }}</h1>
+          <p class="subtitle">{{ 'sales.history.ledger.subtitle' | transloco }}</p>
+        </div>
+      </header>
 
-    <div class="controls-row">
-      <div class="control-group">
-        <label class="control-label">{{ 'sales.history.controls.period' | transloco }}</label>
-        <div class="date-range">
+      <div class="controls-row">
+        <div class="control-group">
+          <label class="control-label">{{ 'sales.history.controls.from' | transloco }}</label>
           <p-datepicker
             ngSkipHydration
             [ngModel]="fromDate()"
             (ngModelChange)="fromDate.set($event)"
-            [showIcon]="true"
             dateFormat="dd/mm/yy"
-            [placeholder]="'sales.history.controls.from' | transloco"
             [disabled]="isLoading()"
           />
-          <span class="date-sep">—</span>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">{{ 'sales.history.controls.to' | transloco }}</label>
           <p-datepicker
             ngSkipHydration
             [ngModel]="toDate()"
             (ngModelChange)="toDate.set($event)"
-            [showIcon]="true"
             dateFormat="dd/mm/yy"
-            [placeholder]="'sales.history.controls.to' | transloco"
             [disabled]="isLoading()"
           />
         </div>
-      </div>
 
-      <div class="control-group">
-        <label class="control-label">{{ 'sales.history.controls.reportLevel' | transloco }}</label>
-        <p-select
-          [ngModel]="reportLevel()"
-          (ngModelChange)="reportLevel.set($event)"
-          [options]="reportLevelOptions"
-          optionLabel="label"
-          optionValue="value"
-          styleClass="w-56"
-          [disabled]="isLoading()"
-        >
-          <ng-template pTemplate="selectedItem" let-option>
-            {{ option.label | transloco }}
-          </ng-template>
-          <ng-template pTemplate="item" let-option>
-            {{ option.label | transloco }}
-          </ng-template>
-        </p-select>
-      </div>
+        <div class="control-group">
+          <label class="control-label">{{ 'sales.history.controls.reportLevel' | transloco }}</label>
+          <p-select
+            [ngModel]="reportLevel()"
+            (ngModelChange)="reportLevel.set($event)"
+            [options]="reportLevelOptions"
+            optionLabel="label"
+            optionValue="value"
+            styleClass="report-select"
+            [disabled]="isLoading()"
+          >
+            <ng-template pTemplate="selectedItem" let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+            <ng-template pTemplate="item" let-option>
+              {{ option.label | transloco }}
+            </ng-template>
+          </p-select>
+        </div>
 
-      <app-sales-export-toolbar
-        class="inline-export"
-        [startDate]="fromDate()"
-        [endDate]="toDate()"
-        [level]="reportLevel()"
-      />
+        <app-sales-export-toolbar
+          class="inline-export"
+          [startDate]="fromDate()"
+          [endDate]="toDate()"
+          [level]="reportLevel()"
+        />
+      </div>
     </div>
 
     <div class="filters-row">
-      <div class="segmented" role="tablist" [attr.aria-label]="'sales.history.controls.status' | transloco">
-        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'all'" (click)="statusFilter.set('all')">
-          {{ 'sales.history.status.all' | transloco }}
-        </button>
-        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'paid'" (click)="statusFilter.set('paid')">
-          {{ 'sales.history.status.paid' | transloco }}
-        </button>
-        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'partiallyPaid'" (click)="statusFilter.set('partiallyPaid')">
-          {{ 'sales.history.status.partiallyPaid' | transloco }}
-        </button>
-        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'refunded'" (click)="statusFilter.set('refunded')">
-          {{ 'sales.history.status.refunded' | transloco }}
-        </button>
-        <button type="button" class="segmented-btn" [class.active]="statusFilter() === 'unknown'" (click)="statusFilter.set('unknown')">
-          {{ 'sales.history.status.unknown' | transloco }}
-        </button>
-      </div>
+      <p-selectbutton
+        class="status-filter"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($event)"
+        [options]="statusFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+        [disabled]="isLoading()"
+        [attr.aria-label]="'sales.history.controls.status' | transloco"
+      >
+        <ng-template #item let-option>
+          {{ option.label | transloco }}
+        </ng-template>
+      </p-selectbutton>
 
       <div class="search-actions">
+        <button
+          pButton
+          type="button"
+          class="clear-filters-btn"
+          outlined="true"
+          severity="secondary"
+          [label]="'sales.history.controls.clearFilters' | transloco"
+          (click)="clearFilters()"
+        ></button>
+
         <p-iconfield iconPosition="left" class="search-field">
           <p-inputicon><i class="pi pi-search"></i></p-inputicon>
           <input
@@ -138,17 +150,6 @@
             [placeholder]="'sales.history.controls.searchPlaceholder' | transloco"
           />
         </p-iconfield>
-
-        <button
-          pButton
-          type="button"
-          icon="pi pi-filter-slash"
-          class="clear-filters-btn"
-          outlined="true"
-          severity="secondary"
-          [label]="'sales.history.controls.clearFilters' | transloco"
-          (click)="clearFilters()"
-        ></button>
       </div>
     </div>
 
@@ -162,7 +163,6 @@
               <th class="col-date">{{ 'sales.history.date' | transloco }}</th>
               <th class="col-status">{{ 'sales.history.controls.status' | transloco }}</th>
               <th class="col-amount">{{ 'sales.history.total' | transloco }}</th>
-              <th class="col-action"></th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body">
@@ -171,8 +171,7 @@
               <td class="col-customer"><p-skeleton width="12rem" /></td>
               <td class="col-date"><p-skeleton width="9rem" /></td>
               <td class="col-status"><p-skeleton width="6rem" height="1.4rem" /></td>
-              <td class="col-amount"><p-skeleton width="7rem" /></td>
-              <td class="col-action"><p-skeleton width="6rem" /></td>
+              <td class="col-amount"><p-skeleton width="12rem" /></td>
             </tr>
           </ng-template>
         </p-table>
@@ -185,7 +184,6 @@
               <th class="col-date">{{ 'sales.history.date' | transloco }}</th>
               <th class="col-status">{{ 'sales.history.controls.status' | transloco }}</th>
               <th class="col-amount">{{ 'sales.history.total' | transloco }}</th>
-              <th class="col-action"></th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-sale>
@@ -213,30 +211,33 @@
                 <p-tag [severity]="statusSeverity(sale.status)" [value]="statusLabelKey(sale.status) | transloco" />
               </td>
               <td class="col-amount amount-cell">
-                <div class="amount-main">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
-                @if (sale.status === 'partiallyPaid' && sale.dueAmount > 0) {
-                  <div class="amount-sub">{{ 'sales.history.amount.due' | transloco }}: ₹{{ sale.dueAmount | number:'1.2-2' }}</div>
-                }
-                @if ((sale.status === 'refunded' || sale.status === 'returned') && sale.refundAmount > 0) {
-                  <div class="amount-sub negative">{{ 'sales.history.amount.refund' | transloco }}: ₹{{ sale.refundAmount | number:'1.2-2' }}</div>
-                }
-              </td>
-              <td class="col-action">
-                <button
-                  pButton
-                  type="button"
-                  class="receipt-btn"
-                  [label]="'sales.history.actions.viewReceipt' | transloco"
-                  icon="pi pi-arrow-right"
-                  iconPos="right"
-                  (click)="onViewSale(sale)"
-                ></button>
+                <div class="amount-action-row">
+                  <div>
+                    <div class="amount-main">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
+                    @if (sale.status === 'partiallyPaid' && sale.dueAmount > 0) {
+                      <div class="amount-sub">{{ 'sales.history.amount.due' | transloco }}: ₹{{ sale.dueAmount | number:'1.2-2' }}</div>
+                    }
+                    @if ((sale.status === 'refunded' || sale.status === 'returned') && sale.refundAmount > 0) {
+                      <div class="amount-sub negative">{{ 'sales.history.amount.refund' | transloco }}: ₹{{ sale.refundAmount | number:'1.2-2' }}</div>
+                    }
+                  </div>
+                  <p-button
+                    type="button"
+                    styleClass="receipt-btn"
+                    [label]="'sales.history.actions.viewReceipt' | transloco"
+                    icon="pi pi-arrow-right"
+                    iconPos="right"
+                    [link]="true"
+                    severity="secondary"
+                    (onClick)="onViewSale(sale)"
+                  />
+                </div>
               </td>
             </tr>
           </ng-template>
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="6" class="empty-cell">
+              <td colspan="5" class="empty-cell">
                 <div class="empty-state">
                   <i class="pi pi-receipt empty-icon"></i>
                   <div>
