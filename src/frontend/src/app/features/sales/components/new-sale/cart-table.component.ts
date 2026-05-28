@@ -92,7 +92,8 @@ export class CartTableComponent {
   }
 
   emitTaxRate(itemId: string, value: number | null): void {
-    this.cartItemTaxRateChange.emit({ itemId, value: Number(value ?? 0) });
+    const n = Number(value ?? 0);
+    this.cartItemTaxRateChange.emit({ itemId, value: Math.round(n * 100) / 100 });
   }
 
   emitDiscountType(itemId: string, value: number | null): void {
@@ -100,7 +101,8 @@ export class CartTableComponent {
   }
 
   emitDiscountValue(itemId: string, value: number | null): void {
-    this.cartItemDiscountValueChange.emit({ itemId, value: Number(value ?? 0).toString() });
+    const n = Number(value ?? 0);
+    this.cartItemDiscountValueChange.emit({ itemId, value: (Math.round(n * 100) / 100).toString() });
   }
 
   toggleLineDiscountEditor(itemId: string): void {

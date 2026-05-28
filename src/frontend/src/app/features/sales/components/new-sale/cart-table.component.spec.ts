@@ -111,6 +111,48 @@ describe('CartTableComponent', () => {
     expect(removedSpy).toHaveBeenCalledWith('line-1');
   });
 
+  it('normalizes tax rate to 2 decimal places before emitting', () => {
+    TestBed.configureTestingModule({
+      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    const taxSpy = vi.fn();
+    fixture.componentInstance.cartItemTaxRateChange.subscribe(taxSpy);
+
+    fixture.componentInstance.emitTaxRate('line-1', 12.345);
+    expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 12.35 });
+
+    taxSpy.mockClear();
+    fixture.componentInstance.emitTaxRate('line-1', 5.999);
+    expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 6.0 });
+
+    taxSpy.mockClear();
+    fixture.componentInstance.emitTaxRate('line-1', null);
+    expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 0 });
+  });
+
+  it('normalizes discount value to 2 decimal places before emitting', () => {
+    TestBed.configureTestingModule({
+      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    const discountSpy = vi.fn();
+    fixture.componentInstance.cartItemDiscountValueChange.subscribe(discountSpy);
+
+    fixture.componentInstance.emitDiscountValue('line-1', 5.678);
+    expect(discountSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: '5.68' });
+
+    discountSpy.mockClear();
+    fixture.componentInstance.emitDiscountValue('line-1', 10.001);
+    expect(discountSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: '10' });
+
+    discountSpy.mockClear();
+    fixture.componentInstance.emitDiscountValue('line-1', null);
+    expect(discountSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: '0' });
+  });
+
   it('renders per-unit final price in breakdown', () => {
     TestBed.configureTestingModule({
       imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
