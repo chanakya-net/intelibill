@@ -1,15 +1,23 @@
 <section class="new-sale-page">
   <header class="new-sale-header">
-    <div>
+    <div class="new-sale-heading">
       <p class="eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
       <h1>{{ 'sales.newSale.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'sales.newSale.subtitle' | transloco }}</p>
     </div>
-    <p-button
-      [label]="'common.cancel' | transloco"
-      severity="secondary"
-      [outlined]="true"
-      (click)="vm.onCancel()"
-    />
+
+    <div class="new-sale-header-actions">
+      @if (vm.isOfflineMode()) {
+        <span class="status-chip">{{ 'sales.newSale.offlineStatusChip' | transloco }}</span>
+      }
+
+      <p-button
+        [label]="'common.cancel' | transloco"
+        severity="secondary"
+        [outlined]="true"
+        (click)="vm.onCancel()"
+      />
+    </div>
   </header>
 
   @if (vm.showUpdateNotification()) {
@@ -19,55 +27,89 @@
     </div>
   }
 
-  <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
-
   @if (vm.serverError()) {
     <p class="error">{{ vm.serverError() }}</p>
   }
 
-  <div class="new-sale-body">
-    <p-card>
-      <ng-template pTemplate="header">
-        <div class="card-title">{{ 'sales.newSale.scanItem' | transloco }}</div>
-      </ng-template>
+  <div class="new-sale-workspace">
+    <main class="new-sale-main">
+      <section class="new-sale-panel new-sale-product-lookup" aria-labelledby="new-sale-product-lookup-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+            <h2 id="new-sale-product-lookup-title">{{ 'sales.newSale.scanItem' | transloco }}</h2>
+          </div>
+        </div>
 
-      <app-batch-search-bar
-        [searchTerm]="vm.searchInput()"
-        [loading]="vm.isSearchingBatches()"
-        [searchSuggestions]="vm.searchSuggestions()"
-        (searchTermChanged)="onBatchSearchTermChanged($event)"
-        (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
-        (suggestionSelected)="onSearchSuggestionSelected($event)"
-        (search)="onBatchSearchRequested($event)"
-        (openPicker)="onOpenBatchPicker()"
-        (cameraOpen)="openScanner()"
+        <app-batch-search-bar
+          [searchTerm]="vm.searchInput()"
+          [loading]="vm.isSearchingBatches()"
+          [searchSuggestions]="vm.searchSuggestions()"
+          (searchTermChanged)="onBatchSearchTermChanged($event)"
+          (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
+          (suggestionSelected)="onSearchSuggestionSelected($event)"
+          (search)="onBatchSearchRequested($event)"
+          (openPicker)="onOpenBatchPicker()"
+          (cameraOpen)="openScanner()"
+        />
+
+        @if (vm.quickProductTiles().length > 0) {
+          <section class="new-sale-quick-product-lookup">
+            <div class="quick-product-lookup-header">
+              <h3>{{ 'sales.newSale.productLookup' | transloco }}</h3>
+              <p>{{ 'sales.newSale.productLookupDescription' | transloco }}</p>
+            </div>
+            <p class="quick-product-lookup-hint">{{ 'sales.newSale.scanOrSearch' | transloco }}</p>
+
+            <div class="quick-product-tile-grid">
+              @for (batch of vm.quickProductTiles(); track batch.inventoryBatchId) {
+                <button
+                  class="quick-product-tile"
+                  type="button"
+                  (click)="onQuickProductTileSelected(batch)"
+                >
+                  <p class="quick-product-tile-title">{{ batch.itemName }}</p>
+                  <p class="quick-product-tile-stock">
+                    {{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}
+                  </p>
+                  <p class="quick-product-tile-price">₹{{ batch.salesPrice | number: '1.2-2' }}</p>
+                  <span class="quick-product-tile-action">{{ 'sales.newSale.quickAdd' | transloco }}</span>
+                </button>
+              }
+            </div>
+          </section>
+        }
+
+        @if (vm.batchSearchError()) {
+          <p class="error mt-2">
+            {{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}
+          </p>
+        }
+
+        <app-batch-picker-dialog
+          [visible]="vm.showBatchPicker()"
+          [batches]="vm.availableBatches()"
+          [loading]="vm.isSearchingBatches()"
+          [quantity]="vm.batchPickerQuantity()"
+          (batchSelected)="onBatchPickerBatchSelected($event)"
+          (closed)="onBatchPickerClosed()"
+          (quantityChanged)="onBatchQuantityChanged($event)"
+        />
+      </section>
+
+      <app-barcode-scanner-dialog
+        [visible]="vm.isScannerOpen()"
+        (visibleChange)="onScannerVisibilityChange($event)"
+        (detected)="onScannedBarcode($event)"
       />
 
-      @if (vm.batchSearchError()) {
-        <p class="error mt-2">{{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}</p>
-      }
+      <section class="new-sale-panel new-sale-cart" aria-labelledby="new-sale-cart-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+            <h2 id="new-sale-cart-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length }})</h2>
+          </div>
 
-      <app-batch-picker-dialog
-        [visible]="vm.showBatchPicker()"
-        [batches]="vm.availableBatches()"
-        [loading]="vm.isSearchingBatches()"
-        [quantity]="vm.batchPickerQuantity()"
-        (batchSelected)="onBatchPickerBatchSelected($event)"
-        (closed)="onBatchPickerClosed()"
-        (quantityChanged)="onBatchQuantityChanged($event)"
-      />
-    </p-card>
-
-    <app-barcode-scanner-dialog
-      [visible]="vm.isScannerOpen()"
-      (visibleChange)="onScannerVisibilityChange($event)"
-      (detected)="onScannedBarcode($event)"
-    />
-
-    <p-card>
-      <ng-template pTemplate="header">
-        <div class="card-header-row">
-          <div class="card-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length }})</div>
           <p-button
             [label]="'common.clear' | transloco"
             icon="pi pi-trash"
@@ -77,100 +119,102 @@
             (click)="onClearCart()"
           />
         </div>
-      </ng-template>
 
-      <app-cart-table
-        [cartItems]="vm.cart()"
-        [highlightedRowKeys]="vm.highlightedRowKeys()"
-        [checkoutPreview]="vm.checkoutPreview()"
-        [saleDiscountType]="vm.saleDiscountType()"
-        [saleDiscountError]="vm.saleDiscountError()"
-        [isLineDiscountEditorOpen]="vm.isLineDiscountEditorOpenFn"
-        [hasTax]="vm.hasTaxFn"
-        [canIncrease]="vm.canIncreaseFn"
-        [getLineSubtotal]="vm.getLineSubtotalFn"
-        [getLineTaxAmount]="vm.getLineTaxAmountFn"
-        [getLineTotal]="vm.getLineTotalFn"
-        [getUnitSubtotal]="vm.getUnitSubtotalFn"
-        [getUnitTaxAmount]="vm.getUnitTaxAmountFn"
-        [getUnitFinalPrice]="vm.getUnitFinalPriceFn"
-        [getPreviewLine]="vm.getPreviewLineFn"
-        [getCartItemHsnError]="vm.getCartItemHsnErrorFn"
-        [getCartItemTaxError]="vm.getCartItemTaxErrorFn"
-        [getCartItemDiscountError]="vm.getCartItemDiscountErrorFn"
-        [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
-        [totalAmount]="vm.totalAmount()"
-        (quantityChanged)="onCartTableQuantityChanged($event)"
-        (itemRemoved)="onCartTableItemRemoved($event)"
-        (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
-        (cartItemTaxRateChange)="onCartTableTaxRateChange($event)"
-        (cartItemDiscountTypeChange)="onCartTableDiscountTypeChange($event)"
-        (cartItemDiscountValueChange)="onCartTableDiscountValueChange($event)"
-        (lineDiscountEditorToggled)="onCartTableLineDiscountEditorToggled($event)"
-      />
-    </p-card>
+        <app-cart-table
+          [cartItems]="vm.cart()"
+          [highlightedRowKeys]="vm.highlightedRowKeys()"
+          [checkoutPreview]="vm.checkoutPreview()"
+          [saleDiscountType]="vm.saleDiscountType()"
+          [saleDiscountError]="vm.saleDiscountError()"
+          [isLineDiscountEditorOpen]="vm.isLineDiscountEditorOpenFn"
+          [hasTax]="vm.hasTaxFn"
+          [canIncrease]="vm.canIncreaseFn"
+          [getLineSubtotal]="vm.getLineSubtotalFn"
+          [getLineTaxAmount]="vm.getLineTaxAmountFn"
+          [getLineTotal]="vm.getLineTotalFn"
+          [getUnitSubtotal]="vm.getUnitSubtotalFn"
+          [getUnitTaxAmount]="vm.getUnitTaxAmountFn"
+          [getUnitFinalPrice]="vm.getUnitFinalPriceFn"
+          [getPreviewLine]="vm.getPreviewLineFn"
+          [getCartItemHsnError]="vm.getCartItemHsnErrorFn"
+          [getCartItemTaxError]="vm.getCartItemTaxErrorFn"
+          [getCartItemDiscountError]="vm.getCartItemDiscountErrorFn"
+          [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+          [totalAmount]="vm.totalAmount()"
+          (quantityChanged)="onCartTableQuantityChanged($event)"
+          (itemRemoved)="onCartTableItemRemoved($event)"
+          (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
+          (cartItemTaxRateChange)="onCartTableTaxRateChange($event)"
+          (cartItemDiscountTypeChange)="onCartTableDiscountTypeChange($event)"
+          (cartItemDiscountValueChange)="onCartTableDiscountValueChange($event)"
+          (lineDiscountEditorToggled)="onCartTableLineDiscountEditorToggled($event)"
+        />
+      </section>
+    </main>
 
-    <p-card>
-      <ng-template pTemplate="header">
-        <div class="card-title">{{ 'sales.newSale.customerSection' | transloco }}</div>
-      </ng-template>
+    <aside class="new-sale-checkout-panel">
+      <section class="new-sale-panel new-sale-checkout-section" aria-labelledby="new-sale-checkout-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.checkoutStatus' | transloco }}</p>
+            <h2 id="new-sale-checkout-title">{{ 'sales.newSale.checkout' | transloco }}</h2>
+          </div>
+        </div>
+        <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
 
-      <app-sale-customer-section
-        [selectedCustomer]="vm.selectedCustomer()"
-        [customerNameControl]="vm.customerForm.controls.customerName"
-        [customerPhoneControl]="vm.customerForm.controls.customerPhone"
-        [customerNameSuggestions]="vm.customerNameSuggestions()"
-        [customers]="vm.customerSelectionPool()"
-        [isOfflineMode]="vm.isOfflineMode()"
-        (customerSelected)="onCustomerSectionSelected($event)"
-        (searchCustomers)="onCustomerSectionSearchCustomers($event)"
-      />
-    </p-card>
+        <app-sale-customer-section
+          [selectedCustomer]="vm.selectedCustomer()"
+          [customerNameControl]="vm.customerForm.controls.customerName"
+          [customerPhoneControl]="vm.customerForm.controls.customerPhone"
+          [customerNameSuggestions]="vm.customerNameSuggestions()"
+          [customers]="vm.customerSelectionPool()"
+          [isOfflineMode]="vm.isOfflineMode()"
+          (customerSelected)="onCustomerSectionSelected($event)"
+          (searchCustomers)="onCustomerSectionSearchCustomers($event)"
+        />
 
-    <p-card>
-      <ng-template pTemplate="header">
-        <div class="card-title">{{ 'sales.newSale.paymentSection' | transloco }}</div>
-      </ng-template>
+        <app-sale-payment-section
+          [paymentMethods]="vm.paymentMethodsForSelection()"
+          [selectedMethod]="vm.selectedPaymentMethod()"
+          [paidAmount]="vm.paymentForm.controls.paidAmount.value"
+          [dueAmount]="vm.paymentForm.controls.dueAmount.value"
+          [isOfflineMode]="vm.isOfflineMode()"
+          [totalAmount]="vm.totalAmount()"
+          [currencyInputPt]="vm.currencyInputPt"
+          [currencyGroupPt]="vm.currencyGroupPt"
+          [currencyAddonPt]="vm.currencyAddonPt"
+          [canUseCredit]="vm.canUseCredit()"
+          [showDueAmount]="vm.canUseCredit()"
+          [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
+          (methodChanged)="onPaymentMethodChanged($event)"
+          (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
+          (dueAmountChanged)="onPaymentDueAmountChanged($event)"
+        />
 
-      <app-sale-payment-section
-        [paymentMethods]="vm.paymentMethodsForSelection()"
-        [selectedMethod]="vm.selectedPaymentMethod()"
-        [paidAmount]="vm.paymentForm.controls.paidAmount.value"
-        [dueAmount]="vm.paymentForm.controls.dueAmount.value"
-        [isOfflineMode]="vm.isOfflineMode()"
-        [totalAmount]="vm.totalAmount()"
-        [currencyInputPt]="vm.currencyInputPt"
-        [currencyGroupPt]="vm.currencyGroupPt"
-        [currencyAddonPt]="vm.currencyAddonPt"
-        [canUseCredit]="vm.canUseCredit()"
-        [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
-        [paymentSplitError]="vm.paymentSplitError()"
-        [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
-        [cartLength]="vm.cart().length"
-        (methodChanged)="onPaymentMethodChanged($event)"
-        (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
-        (dueAmountChanged)="onPaymentDueAmountChanged($event)"
-        (submitRequested)="onPaymentSubmitRequested()"
-      />
-
-      <app-cart-checkout-summary
-        [preview]="vm.checkoutPreview()"
-        [loading]="vm.isPreviewLoading()"
-        [totalAmount]="vm.totalAmount()"
-        [subtotalAmount]="vm.subtotalAmount()"
-        [totalTaxAmount]="vm.totalTaxAmount()"
-        [totalDiscountAmount]="vm.totalDiscountAmount()"
-        [saleDiscountType]="vm.saleDiscountType()"
-        [saleDiscountValue]="vm.saleDiscountValue()"
-        [isSaleDiscountEligible]="vm.isSaleDiscountEligible()"
-        [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
-        [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
-        [saleDiscountError]="vm.saleDiscountError()"
-        (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
-        (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
-        (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
-      />
-    </p-card>
+        <app-cart-checkout-summary
+          [preview]="vm.checkoutPreview()"
+          [loading]="vm.isPreviewLoading()"
+          [totalAmount]="vm.totalAmount()"
+          [subtotalAmount]="vm.subtotalAmount()"
+          [totalTaxAmount]="vm.totalTaxAmount()"
+          [totalDiscountAmount]="vm.totalDiscountAmount()"
+          [saleDiscountType]="vm.saleDiscountType()"
+          [saleDiscountValue]="vm.saleDiscountValue()"
+          [isSaleDiscountEligible]="vm.isSaleDiscountEligible()"
+          [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
+          [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+          [saleDiscountError]="vm.saleDiscountError()"
+          [balanceDue]="vm.paymentForm.controls.dueAmount.value"
+          [paymentSplitError]="vm.paymentSplitError()"
+          [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
+          [cartLength]="vm.cart().length"
+          (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
+          (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
+          (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
+          (submitRequested)="onPaymentSubmitRequested()"
+        />
+      </section>
+    </aside>
   </div>
 </section>
 

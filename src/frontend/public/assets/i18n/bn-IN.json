@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "বিক্রয়",
       "title": "নতুন বিক্রয়",
+      "subtitle": "একই workspace-এ পণ্য স্ক্যান করুন, cart তৈরি করুন, এবং checkout শেষ করুন।",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "পণ্যের নাম বা বারকোড দিয়ে খুঁজুন",
       "barcodePlaceholder": "বারকোড লিখুন…",
       "search": "অনুসন্ধান",
@@ -712,6 +716,7 @@
       "price": "মূল্য",
       "subtotal": "সাবটোটাল",
       "total": "মোট",
+      "advancedLineEdit": "উন্নত সম্পাদনা",
       "customerSection": "গ্রাহক (ঐচ্ছিক)",
       "customerName": "নাম",
       "customerPhone": "ফোন",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "ব্যাচ পিকার খুলুন",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

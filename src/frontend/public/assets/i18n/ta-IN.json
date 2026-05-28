@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "விற்பனை",
       "title": "புதிய விற்பனை",
+      "subtitle": "ஒரே workspace-இல் பொருட்களை scan செய்து, cart-ஐ அமைத்து, checkout-ஐ முடிக்கவும்.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "பொருள் பெயர் அல்லது பார்கோடு மூலம் தேடுங்கள்",
       "barcodePlaceholder": "பார்கோட் உள்ளிடவும்…",
       "search": "தேடு",
@@ -712,6 +716,7 @@
       "price": "விலை",
       "subtotal": "துணை மொத்தம்",
       "total": "மொத்தம்",
+      "advancedLineEdit": "மேம்பட்ட திருத்தம்",
       "customerSection": "வாடிக்கையாளர் (விருப்பத்தேர்வு)",
       "customerName": "பெயர்",
       "customerPhone": "தொலைபேசி",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "பேட்ச் பிக்கரைத் திறக்கவும்",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "விற்பனை விவரங்கள்",

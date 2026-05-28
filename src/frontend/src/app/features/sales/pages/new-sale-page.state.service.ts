@@ -54,6 +54,26 @@ export abstract class NewSalePageStateService {
   readonly isSearchingBatches = signal(false);
   readonly batchSearchError = signal('');
   readonly availableBatches = signal<readonly AvailableBatchDto[]>([]);
+  readonly quickProductTiles = computed(() => {
+    const seenKeys = new Set<string>();
+    const tiles: AvailableBatchDto[] = [];
+
+    for (const batch of this.availableBatches()) {
+      const key = `${batch.barcode}|${batch.itemName}`;
+      if (seenKeys.has(key)) {
+        continue;
+      }
+
+      seenKeys.add(key);
+      tiles.push(batch);
+
+      if (tiles.length >= 4) {
+        break;
+      }
+    }
+
+    return tiles;
+  });
   readonly showBatchPicker = signal(false);
   readonly selectedBatch = signal<AvailableBatchDto | null>(null);
   readonly selectedCustomerId = signal<string | null>(null);
@@ -282,6 +302,7 @@ export abstract class NewSalePageStateService {
   abstract onIncreaseCartItem(index: number): void;
   abstract onDecreaseCartItem(index: number): void;
   abstract onRemoveCartItem(index: number): void;
+  abstract onQuickProductTileSelected(batch: AvailableBatchDto): void;
   abstract canIncreaseCartItem(item: CartItem): boolean;
   abstract hasTax(item: CartItem): boolean;
   abstract getLineSubtotal(item: CartItem): number;

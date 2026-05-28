@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "വിൽപ്പന",
       "title": "പുതിയ വിൽപ്പന",
+      "subtitle": "ഒരേ workspace-ൽ products scan ചെയ്ത്, cart ഉണ്ടാക്കി, checkout പൂർത്തിയാക്കുക.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ഉൽപ്പന്നത്തിന്റെ പേര് അല്ലെങ്കിൽ ബാർകോഡ് ഉപയോഗിച്ച് തിരയുക",
       "barcodePlaceholder": "ബാർകോഡ് നൽകുക…",
       "search": "തിരയുക",
@@ -712,6 +716,7 @@
       "price": "വില",
       "subtotal": "ഉപ ആകെ",
       "total": "ആകെ",
+      "advancedLineEdit": "നൂതന തിരുത്തൽ",
       "customerSection": "ഉപഭോക്താവ് (ഐച്ഛികം)",
       "customerName": "പേര്",
       "customerPhone": "ഫോൺ",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "ബാച്ച് പിക്കർ തുറക്കുക",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "വിൽപ്പന വിശദാംശങ്ങൾ",

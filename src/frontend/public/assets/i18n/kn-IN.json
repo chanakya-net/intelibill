@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "ಮಾರಾಟ",
       "title": "ಹೊಸ ಮಾರಾಟ",
+      "subtitle": "ಒಂದೇ workspace ನಲ್ಲಿ products scan ಮಾಡಿ, cart ನಿರ್ಮಿಸಿ, ಮತ್ತು checkout ಪೂರ್ಣಗೊಳಿಸಿ.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ಉತ್ಪನ್ನದ ಹೆಸರು ಅಥವಾ ಬಾರ್‌ಕೋಡ್ ಮೂಲಕ ಹುಡುಕಿ",
       "barcodePlaceholder": "ಬಾರ್‌ಕೋಡ್ ನಮೂದಿಸಿ…",
       "search": "ಹುಡುಕಿ",
@@ -712,6 +716,7 @@
       "price": "ಬೆಲೆ",
       "subtotal": "ಉಪ ಒಟ್ಟು",
       "total": "ಒಟ್ಟು",
+      "advancedLineEdit": "ಸುಧಾರಿತ ಸಂಪಾದನೆ",
       "customerSection": "ಗ್ರಾಹಕ (ಐಚ್ಛಿಕ)",
       "customerName": "ಹೆಸರು",
       "customerPhone": "ಫೋನ್",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "ಬ್ಯಾಚ್ ಪಿಕರ್ ತೆರೆಯಿರಿ",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",

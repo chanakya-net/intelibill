@@ -22,5 +22,24 @@ describe('new-sale-page: cart checkout summary', () => {
     vm.toggleSaleDiscountEditor();
     expect(vm.isSaleDiscountEditorOpen()).toBe(true);
   });
+
+  it('balance due is sourced from payment form dueAmount control', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    fixture.detectChanges();
+    const vm = fixture.componentInstance.vm;
+
+    // dueAmount control exists and starts at 0 (empty cart, no total)
+    expect(vm.paymentForm.controls.dueAmount.value).toBe(0);
+    // The control is the data source for balanceDue displayed in cart-checkout-summary
+    expect(vm.paymentForm.controls).toHaveProperty('dueAmount');
+  });
+
+  it('totalDiscountAmount is zero when no discount applied', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    fixture.detectChanges();
+    const vm = fixture.componentInstance.vm;
+
+    expect(vm.totalDiscountAmount()).toBe(0);
+  });
 });
 

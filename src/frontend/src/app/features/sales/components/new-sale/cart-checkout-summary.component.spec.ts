@@ -57,4 +57,26 @@ describe('CartCheckoutSummaryComponent', () => {
     expect(valueSpy).toHaveBeenCalledWith(5);
     expect(toggleSpy).toHaveBeenCalled();
   });
+
+  it('places record sale after total due and emits submit requests', () => {
+    const submitSpy = vi.fn();
+
+    TestBed.configureTestingModule({
+      imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
+    fixture.componentInstance.cartLength = 1;
+    fixture.componentInstance.submitRequested.subscribe(submitSpy);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text.indexOf('sales.newSale.totalDue')).toBeLessThan(text.indexOf('sales.newSale.recordSale'));
+
+    const buttons = fixture.nativeElement.querySelectorAll('button');
+    const button = buttons[buttons.length - 1] as HTMLButtonElement;
+    button.click();
+
+    expect(submitSpy).toHaveBeenCalledOnce();
+  });
 });

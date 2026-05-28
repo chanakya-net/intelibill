@@ -41,6 +41,24 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     this.onAddToCart();
   }
 
+  onQuickProductTileSelected(batch: AvailableBatchDto): void {
+    const matchingBatches = this.availableBatches().filter(
+      (candidate) => candidate.itemName === batch.itemName && candidate.barcode === batch.barcode,
+    );
+
+    if (matchingBatches.length > 1) {
+      this.selectedBatch.set(null);
+      this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
+      this.batchPickerQuantity.set(1);
+      this.availableBatches.set(matchingBatches);
+      this.showBatchPicker.set(true);
+      this.batchSearchError.set('');
+      return;
+    }
+
+    this.onBatchPickerBatchSelected(batch);
+  }
+
   onBatchPickerClosed(): void {
     this.showBatchPicker.set(false);
     this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });

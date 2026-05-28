@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "అమ్మకాలు",
       "title": "కొత్త అమ్మకం",
+      "subtitle": "ఒకే workspace లో products scan చేసి, cart తయారు చేసి, checkout పూర్తి చేయండి.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ఉత్పత్తి పేరు లేదా బార్కోడ్ ద్వారా వెతకండి",
       "barcodePlaceholder": "బార్కోడ్ నమోదు చేయండి…",
       "search": "వెతకు",
@@ -712,6 +716,7 @@
       "price": "ధర",
       "subtotal": "ఉప మొత్తం",
       "total": "మొత్తం",
+      "advancedLineEdit": "అధునాతన సవరణ",
       "customerSection": "కస్టమర్ (ఐచ్ఛికం)",
       "customerName": "పేరు",
       "customerPhone": "ఫోన్",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "బ్యాచ్ పికర్ తెరవండి",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "అమ్మకం వివరాలు",

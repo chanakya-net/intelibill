@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "विक्री",
       "title": "नवीन विक्री",
+      "subtitle": "एकाच workspace मध्ये products scan करा, cart तयार करा, आणि checkout पूर्ण करा.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "उत्पादनाचे नाव किंवा बारकोडद्वारे शोधा",
       "barcodePlaceholder": "बारकोड प्रविष्ट करा…",
       "search": "शोधा",
@@ -712,6 +716,7 @@
       "price": "किंमत",
       "subtotal": "उप-एकूण",
       "total": "एकूण",
+      "advancedLineEdit": "प्रगत संपादन",
       "customerSection": "ग्राहक (पर्यायी)",
       "customerName": "नाव",
       "customerPhone": "फोन",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "बॅच पिकर उघडा",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "विक्री तपशील",

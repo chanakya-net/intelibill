@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "Sales",
       "title": "New Sale",
+      "subtitle": "Scan products, build the cart, and complete checkout in one workspace.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "Search by product name or barcode",
       "barcodePlaceholder": "Enter barcode…",
       "search": "Search",
@@ -712,6 +716,7 @@
       "price": "Price",
       "subtotal": "Subtotal",
       "total": "Total",
+      "advancedLineEdit": "Advanced edit",
       "customerSection": "Customer (Optional)",
       "customerName": "Name",
       "customerPhone": "Phone",
@@ -798,7 +803,13 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "productLookup": "Quick product lookup",
+      "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "Open Batch Picker",
+      "scanOrSearch": "Scan or search for products",
+      "quickAdd": "Quick add",
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "Sale Details",
