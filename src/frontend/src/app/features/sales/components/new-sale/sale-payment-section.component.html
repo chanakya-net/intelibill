@@ -49,9 +49,9 @@
   <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
 }
 
-<div class="flex justify-end mt-4">
+<div class="mt-4">
   @if (paymentSplitError) {
-    <p class="error mr-3">{{ paymentSplitError | transloco }}</p>
+    <p class="error mb-2">{{ paymentSplitError | transloco }}</p>
   }
   <p-button
     [label]="'sales.newSale.recordSale' | transloco"
@@ -60,5 +60,6 @@
     [loading]="isSubmitting"
     (click)="onSubmit()"
     size="large"
+    styleClass="w-full"
   />
 </div>

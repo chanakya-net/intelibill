@@ -29,6 +29,7 @@ export class CartCheckoutSummaryComponent {
   @Input() isDiscountEditorOpen = false;
   @Input() instantDiscountTypeOptions: { value: 0 | 1 | 2; labelKey: string }[] = [];
   @Input() saleDiscountError = '';
+  @Input() balanceDue = 0;
 
   @Output() saleDiscountEditorToggled = new EventEmitter<void>();
   @Output() saleDiscountTypeChanged = new EventEmitter<0 | 1 | 2>();

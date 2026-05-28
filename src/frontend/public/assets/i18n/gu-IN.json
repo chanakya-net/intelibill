@@ -802,7 +802,8 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
-      }
+      },
+      "balanceDue": "Balance Due"
     },
     "detail": {
       "title": "વેચાણ વિગતો",

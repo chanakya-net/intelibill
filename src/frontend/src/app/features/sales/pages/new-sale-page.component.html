@@ -181,6 +181,7 @@
           [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
           [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
           [saleDiscountError]="vm.saleDiscountError()"
+          [balanceDue]="vm.paymentForm.controls.dueAmount.value"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
