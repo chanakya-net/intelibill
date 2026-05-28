@@ -92,7 +92,7 @@ export class CartTableComponent {
   }
 
   emitTaxRate(itemId: string, value: number | null): void {
-    this.cartItemTaxRateChange.emit({ itemId, value: Number(value ?? 0) });
+    this.cartItemTaxRateChange.emit({ itemId, value: Math.min(100, Math.max(0, Number(value ?? 0))) });
   }
 
   emitDiscountType(itemId: string, value: number | null): void {

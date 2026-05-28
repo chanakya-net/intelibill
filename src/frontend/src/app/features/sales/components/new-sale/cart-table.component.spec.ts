@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +34,7 @@ describe('CartTableComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('sales.newSale.emptyCart');
   });
 
-  it('keeps advanced line controls hidden until toggled open', fakeAsync(() => {
+  it('keeps advanced line controls hidden until toggled open', async () => {
     TestBed.configureTestingModule({
       imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -57,7 +57,7 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.lineDiscountEditorToggled.subscribe(toggleSpy);
 
     fixture.detectChanges();
-    tick();
+    await fixture.whenStable();
 
     const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
     expect(text).toContain('Coffee');
@@ -71,15 +71,18 @@ describe('CartTableComponent', () => {
     expect(toggleSpy).toHaveBeenCalledWith('line-1');
     openLines.add('line-1');
     fixture.detectChanges();
-    tick();
+    await fixture.whenStable();
 
     expect(advancedPanel.hidden).toBe(false);
     const expandedText = (advancedPanel.textContent as string).replace(/\s+/g, ' ');
     expect(expandedText).toContain('en.sales.newSale.hsnCode');
     expect(expandedText).toContain('en.sales.newSale.taxRatePercent');
-    expect(expandedText).toContain('en.sales.newSale.discounts.value');
+    const discountInput = fixture.nativeElement.querySelector('input[placeholder="en.sales.newSale.discounts.value"]') as HTMLInputElement;
+    expect(discountInput).toBeTruthy();
     expect(expandedText).toContain('en.sales.newSale.hsnInvalid');
-  }));
+    expect(expandedText).toContain('en.sales.newSale.taxInvalid');
+    expect(expandedText).toContain('en.sales.newSale.discountInvalid');
+  });
 
   it('emits item quantity updates and removal', () => {
     TestBed.configureTestingModule({
