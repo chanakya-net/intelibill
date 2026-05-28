@@ -34,7 +34,7 @@ describe('CartTableComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('sales.newSale.emptyCart');
   });
 
-  it('emits item quantity updates', () => {
+  it('keeps advanced line controls hidden until toggled open', () => {
     TestBed.configureTestingModule({
       imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -45,17 +45,38 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.getUnitSubtotal = () => 100;
     fixture.componentInstance.getUnitTaxAmount = () => 18;
     fixture.componentInstance.getLineTotal = () => 118;
-
-    const spy = vi.fn<(event: CartQuantityChangedEvent) => void>();
-    fixture.componentInstance.quantityChanged.subscribe(spy);
+    fixture.componentInstance.getPreviewLine = () => ({
+      configuredBatchRulePercentage: 12,
+    } as never);
+    const openLines = new Set<string>();
+    fixture.componentInstance.isLineDiscountEditorOpen = (itemId) => openLines.has(itemId);
+    const toggleSpy = vi.fn();
+    fixture.componentInstance.lineDiscountEditorToggled.subscribe(toggleSpy);
 
     fixture.detectChanges();
-    fixture.componentInstance.increase('line-1', 2);
 
-    expect(spy).toHaveBeenCalled();
+    const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(text).toContain('Coffee');
+    expect(text).toContain('B1');
+    expect(text).toContain('en.sales.newSale.price');
+    expect(text).toContain('en.sales.newSale.advancedLineEdit');
+    const advancedPanel = fixture.nativeElement.querySelector('.advanced-line-edit') as HTMLElement;
+    expect(advancedPanel.hidden).toBe(true);
+
+    fixture.componentInstance.toggleLineDiscountEditor('line-1');
+    expect(toggleSpy).toHaveBeenCalledWith('line-1');
+    openLines.add('line-1');
+    fixture.detectChanges();
+
+    expect(advancedPanel.hidden).toBe(false);
+    const expandedText = (advancedPanel.textContent as string).replace(/\s+/g, ' ');
+    expect(expandedText).toContain('en.sales.newSale.hsnCode');
+    expect(expandedText).toContain('en.sales.newSale.taxRatePercent');
+    expect(expandedText).toContain('en.sales.newSale.discounts.value');
+    expect(expandedText).toContain('en.sales.newSale.hsnInvalid');
   });
 
-  it('emits item removal', () => {
+  it('emits item quantity updates and removal', () => {
     TestBed.configureTestingModule({
       imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -67,13 +88,19 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.getUnitTaxAmount = () => 18;
     fixture.componentInstance.getLineTotal = () => 118;
 
-    const spy = vi.fn();
-    fixture.componentInstance.itemRemoved.subscribe(spy);
+    const quantitySpy = vi.fn<(event: CartQuantityChangedEvent) => void>();
+    const removedSpy = vi.fn();
+    fixture.componentInstance.quantityChanged.subscribe(quantitySpy);
+    fixture.componentInstance.itemRemoved.subscribe(removedSpy);
     fixture.detectChanges();
 
+    fixture.componentInstance.increase('line-1', 2);
+    fixture.componentInstance.decrease('line-1', 2);
     fixture.componentInstance.remove('line-1');
 
-    expect(spy).toHaveBeenCalledWith('line-1');
+    expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'line-1', qty: 3 });
+    expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'line-1', qty: 1 });
+    expect(removedSpy).toHaveBeenCalledWith('line-1');
   });
 
   it('renders per-unit final price in breakdown', () => {

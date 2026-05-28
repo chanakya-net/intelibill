@@ -5,8 +5,6 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { FormsModule } from '@angular/forms';
 import { TagModule } from 'primeng/tag';
-import { SelectModule } from 'primeng/select';
-import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { CartItem } from '../../../../features/sales/services/sale-cart-state.service';
@@ -42,8 +40,6 @@ export interface InstantDiscountOption {
     ButtonModule,
     TagModule,
     InputTextModule,
-    SelectModule,
-    InputNumberModule,
     TranslocoPipe,
   ],
   templateUrl: './cart-table.component.html',
