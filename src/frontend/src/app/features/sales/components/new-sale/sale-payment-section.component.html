@@ -1,5 +1,5 @@
-<div class="flex gap-4 items-start flex-wrap">
-  <div class="flex flex-col gap-1">
+<div class="flex gap-2 items-start flex-wrap">
+  <div class="flex flex-col gap-1 flex-1 min-w-36">
     <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
     <p-select
       [ngModel]="selectedMethod"
@@ -11,7 +11,7 @@
     />
   </div>
 
-  <div class="flex flex-col gap-1">
+  <div class="flex flex-col gap-1 flex-1 min-w-36">
     <label class="text-xs text-slate-500">{{ 'sales.newSale.paidAmount' | transloco }}</label>
     <p-inputgroup [pt]="currencyGroupPt">
       <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
@@ -25,7 +25,7 @@
     </p-inputgroup>
   </div>
 
-  <div class="flex flex-col gap-1">
+  <div class="flex flex-col gap-1 flex-1 min-w-36">
     <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
     <p-inputgroup [pt]="currencyGroupPt">
       <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
