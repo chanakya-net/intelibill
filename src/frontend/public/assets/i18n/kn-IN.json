@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "ಮಾರಾಟ",
       "title": "ಹೊಸ ಮಾರಾಟ",
+      "subtitle": "ಒಂದೇ workspace ನಲ್ಲಿ products scan ಮಾಡಿ, cart ನಿರ್ಮಿಸಿ, ಮತ್ತು checkout ಪೂರ್ಣಗೊಳಿಸಿ.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ಉತ್ಪನ್ನದ ಹೆಸರು ಅಥವಾ ಬಾರ್‌ಕೋಡ್ ಮೂಲಕ ಹುಡುಕಿ",
       "barcodePlaceholder": "ಬಾರ್‌ಕೋಡ್ ನಮೂದಿಸಿ…",
       "search": "ಹುಡುಕಿ",

@@ -692,6 +692,10 @@
     "newSale": {
       "eyebrow": "વેચાણ",
       "title": "નવું વેચાણ",
+      "subtitle": "એક જ workspace માં products scan કરો, cart બનાવો, અને checkout પૂર્ણ કરો.",
+      "checkout": "Checkout",
+      "checkoutStatus": "Checkout status",
+      "offlineStatusChip": "Offline mode",
       "scanItem": "ઉત્પાદનનું નામ અથવા બારકોડ દ્વારા શોધો",
       "barcodePlaceholder": "બારકોડ દાખલ કરો…",
       "search": "શોધો",
