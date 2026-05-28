@@ -37,7 +37,9 @@ describe('new-sale-page: integration', () => {
     expect(root.querySelector('.new-sale-cart')).not.toBeNull();
     expect(root.querySelector('.new-sale-checkout-section')).not.toBeNull();
     expect(root.textContent).not.toContain('Hold sale');
+    expect(root.textContent).not.toContain('manual offline');
     expect(root.textContent).not.toContain('sale number');
+    expect(root.textContent).not.toContain('invoice number');
   });
 
   it('navigates away on cancel', () => {
