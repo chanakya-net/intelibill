@@ -806,6 +806,7 @@
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "ബാച്ച് പിക്കർ തുറക്കുക",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due"

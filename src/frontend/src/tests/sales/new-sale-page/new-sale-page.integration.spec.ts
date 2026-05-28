@@ -23,11 +23,18 @@ describe('new-sale-page: integration', () => {
     expect(deps.shopUpdatesService.startConnection).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the POS shell regions and hides hold-sale copy', () => {
+  it('renders the POS shell regions and hides out-of-scope controls', () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
+    const forbiddenKeys = [
+      'sales.newSale.holdSale',
+      'sales.newSale.manualOffline',
+      'sales.newSale.manualOfflineToggle',
+      'sales.newSale.saleNumber',
+      'sales.newSale.invoiceNumber',
+    ];
 
     expect(root.querySelector('.new-sale-header')).not.toBeNull();
     expect(root.querySelector('.new-sale-workspace')).not.toBeNull();
@@ -36,8 +43,12 @@ describe('new-sale-page: integration', () => {
     expect(root.querySelector('.new-sale-product-lookup')).not.toBeNull();
     expect(root.querySelector('.new-sale-cart')).not.toBeNull();
     expect(root.querySelector('.new-sale-checkout-section')).not.toBeNull();
-    expect(root.textContent).not.toContain('Hold sale');
-    expect(root.textContent).not.toContain('sale number');
+    const headerActions = root.querySelector('.new-sale-header-actions');
+    expect(headerActions).not.toBeNull();
+    expect(headerActions!.querySelectorAll('button')).toHaveLength(1);
+    forbiddenKeys.forEach((key) => {
+      expect(root.textContent).not.toContain(key);
+    });
   });
 
   it('navigates away on cancel', () => {

@@ -806,6 +806,7 @@
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
+      "openPicker": "బ్యాచ్ పికర్ తెరవండి",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due"
