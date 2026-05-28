@@ -30,10 +30,14 @@ export class CartCheckoutSummaryComponent {
   @Input() instantDiscountTypeOptions: { value: 0 | 1 | 2; labelKey: string }[] = [];
   @Input() saleDiscountError = '';
   @Input() balanceDue = 0;
+  @Input() paymentSplitError = '';
+  @Input() isSubmitting = false;
+  @Input() cartLength = 0;
 
   @Output() saleDiscountEditorToggled = new EventEmitter<void>();
   @Output() saleDiscountTypeChanged = new EventEmitter<0 | 1 | 2>();
   @Output() saleDiscountValueChanged = new EventEmitter<number>();
+  @Output() submitRequested = new EventEmitter<void>();
 
   get configuredSaleDiscountPercent(): number | null {
     return this.preview?.configuredSaleRule?.percentage ?? null;
@@ -65,5 +69,9 @@ export class CartCheckoutSummaryComponent {
 
   onDiscountValueChanged(value: number | null): void {
     this.saleDiscountValueChanged.emit(Number(value ?? 0));
+  }
+
+  onSubmit(): void {
+    this.submitRequested.emit();
   }
 }

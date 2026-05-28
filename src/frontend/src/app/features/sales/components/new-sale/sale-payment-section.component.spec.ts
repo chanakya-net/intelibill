@@ -39,19 +39,30 @@ describe('SalePaymentSectionComponent', () => {
 
     const paidSpy = vi.fn();
     const dueSpy = vi.fn();
-    const submitSpy = vi.fn();
-
     component.paidAmountChanged.subscribe(paidSpy);
     component.dueAmountChanged.subscribe(dueSpy);
-    component.submitRequested.subscribe(submitSpy);
 
     component.onPaidAmountChange(55);
     component.onDueAmountChange(11);
-    component.onSubmit();
 
     expect(paidSpy).toHaveBeenCalledWith(55);
     expect(dueSpy).toHaveBeenCalledWith(11);
-    expect(submitSpy).toHaveBeenCalled();
+  });
+
+  it('hides the due amount input until a customer can use credit', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.paymentMethods = methods;
+    fixture.detectChanges();
+
+    const inputGroups = fixture.nativeElement.querySelectorAll('.p-inputgroup');
+
+    expect(inputGroups.length).toBe(1);
+    expect((fixture.nativeElement.textContent as string)).not.toContain('sales.newSale.dueAmount');
   });
 
   it('disables due amount input when requested', () => {
@@ -61,6 +72,7 @@ describe('SalePaymentSectionComponent', () => {
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
     const component = fixture.componentInstance;
+    component.showDueAmount = true;
     component.dueAmountDisabled = true;
     component.canUseCredit = false;
     component.paymentMethods = methods;

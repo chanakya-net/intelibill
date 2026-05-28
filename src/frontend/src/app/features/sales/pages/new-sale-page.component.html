@@ -184,14 +184,11 @@
           [currencyGroupPt]="vm.currencyGroupPt"
           [currencyAddonPt]="vm.currencyAddonPt"
           [canUseCredit]="vm.canUseCredit()"
+          [showDueAmount]="vm.canUseCredit()"
           [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
-          [paymentSplitError]="vm.paymentSplitError()"
-          [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
-          [cartLength]="vm.cart().length"
           (methodChanged)="onPaymentMethodChanged($event)"
           (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
           (dueAmountChanged)="onPaymentDueAmountChanged($event)"
-          (submitRequested)="onPaymentSubmitRequested()"
         />
 
         <app-cart-checkout-summary
@@ -208,9 +205,13 @@
           [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
           [saleDiscountError]="vm.saleDiscountError()"
           [balanceDue]="vm.paymentForm.controls.dueAmount.value"
+          [paymentSplitError]="vm.paymentSplitError()"
+          [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
+          [cartLength]="vm.cart().length"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
+          (submitRequested)="onPaymentSubmitRequested()"
         />
       </section>
     </aside>

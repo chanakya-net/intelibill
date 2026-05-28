@@ -91,6 +91,21 @@
     <span>₹{{ totalAmount | number:'1.2-2' }}</span>
   </div>
 
+  <div class="record-sale-action">
+    @if (paymentSplitError) {
+      <p class="error mb-2">{{ paymentSplitError | transloco }}</p>
+    }
+    <p-button
+      [label]="'sales.newSale.recordSale' | transloco"
+      icon="pi pi-check"
+      [disabled]="cartLength === 0 || isSubmitting"
+      [loading]="isSubmitting"
+      (click)="onSubmit()"
+      size="large"
+      styleClass="w-full"
+    />
+  </div>
+
   @if (balanceDue > 0) {
     <div class="flex justify-between text-sm text-slate-600 mt-1">
       <span>{{ 'sales.newSale.balanceDue' | transloco }}</span>

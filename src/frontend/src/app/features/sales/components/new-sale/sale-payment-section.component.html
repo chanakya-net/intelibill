@@ -25,20 +25,22 @@
     </p-inputgroup>
   </div>
 
-  <div class="flex flex-col gap-1 flex-1 min-w-36">
-    <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
-    <p-inputgroup [pt]="currencyGroupPt">
-      <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-      <p-inputNumber
-        [ngModel]="dueAmount"
-        (ngModelChange)="onDueAmountChange($event)"
-        [min]="0"
-        [max]="totalAmount"
-        [disabled]="dueAmountDisabled"
-        [pt]="currencyInputPt"
-      />
-    </p-inputgroup>
-  </div>
+  @if (showDueAmount) {
+    <div class="flex flex-col gap-1 flex-1 min-w-36">
+      <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
+      <p-inputgroup [pt]="currencyGroupPt">
+        <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+        <p-inputNumber
+          [ngModel]="dueAmount"
+          (ngModelChange)="onDueAmountChange($event)"
+          [min]="0"
+          [max]="totalAmount"
+          [disabled]="dueAmountDisabled"
+          [pt]="currencyInputPt"
+        />
+      </p-inputgroup>
+    </div>
+  }
 </div>
 
 @if (!isOfflineMode && !canUseCredit) {
@@ -48,18 +50,3 @@
 @if (isOfflineMode && selectedMethod === 'UPI') {
   <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
 }
-
-<div class="mt-4">
-  @if (paymentSplitError) {
-    <p class="error mb-2">{{ paymentSplitError | transloco }}</p>
-  }
-  <p-button
-    [label]="'sales.newSale.recordSale' | transloco"
-    icon="pi pi-check"
-    [disabled]="cartLength === 0 || isSubmitting"
-    [loading]="isSubmitting"
-    (click)="onSubmit()"
-    size="large"
-    styleClass="w-full"
-  />
-</div>

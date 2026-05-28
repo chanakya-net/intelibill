@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { ButtonModule } from 'primeng/button';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -22,7 +21,6 @@ export interface PaymentMethodOption {
   imports: [
     CommonModule,
     FormsModule,
-    ButtonModule,
     InputGroupAddonModule,
     InputGroupModule,
     InputNumberModule,
@@ -42,15 +40,12 @@ export class SalePaymentSectionComponent {
   @Input() currencyGroupPt: any;
   @Input() currencyAddonPt: any;
   @Input() canUseCredit = true;
+  @Input() showDueAmount = false;
   @Input() dueAmountDisabled = false;
-  @Input() paymentSplitError = '';
-  @Input() isSubmitting = false;
-  @Input() cartLength = 0;
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
   @Output() dueAmountChanged = new EventEmitter<number | null>();
-  @Output() submitRequested = new EventEmitter<void>();
 
   onMethodChange(value: PaymentMethod): void {
     this.methodChanged.emit(value);
@@ -62,9 +57,5 @@ export class SalePaymentSectionComponent {
 
   onDueAmountChange(value: number | null): void {
     this.dueAmountChanged.emit(value);
-  }
-
-  onSubmit(): void {
-    this.submitRequested.emit();
   }
 }
