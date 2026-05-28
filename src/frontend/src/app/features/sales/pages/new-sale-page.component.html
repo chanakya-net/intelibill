@@ -153,8 +153,6 @@
     </main>
 
     <aside class="new-sale-checkout-panel">
-      <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
-
       <section class="new-sale-panel new-sale-checkout-section" aria-labelledby="new-sale-checkout-title">
         <div class="new-sale-section-header">
           <div>
@@ -162,6 +160,7 @@
             <h2 id="new-sale-checkout-title">{{ 'sales.newSale.checkout' | transloco }}</h2>
           </div>
         </div>
+        <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
 
         <app-sale-customer-section
           [selectedCustomer]="vm.selectedCustomer()"
@@ -208,6 +207,7 @@
           [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
           [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
           [saleDiscountError]="vm.saleDiscountError()"
+          [balanceDue]="vm.paymentForm.controls.dueAmount.value"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
