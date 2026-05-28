@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +34,7 @@ describe('CartTableComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('sales.newSale.emptyCart');
   });
 
-  it('keeps advanced line controls hidden until toggled open', () => {
+  it('keeps advanced line controls hidden until toggled open', fakeAsync(() => {
     TestBed.configureTestingModule({
       imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -48,12 +48,16 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.getPreviewLine = () => ({
       configuredBatchRulePercentage: 12,
     } as never);
+    fixture.componentInstance.getCartItemHsnError = () => 'sales.newSale.hsnInvalid';
+    fixture.componentInstance.getCartItemTaxError = () => 'sales.newSale.taxInvalid';
+    fixture.componentInstance.getCartItemDiscountError = () => 'sales.newSale.discountInvalid';
     const openLines = new Set<string>();
     fixture.componentInstance.isLineDiscountEditorOpen = (itemId) => openLines.has(itemId);
     const toggleSpy = vi.fn();
     fixture.componentInstance.lineDiscountEditorToggled.subscribe(toggleSpy);
 
     fixture.detectChanges();
+    tick();
 
     const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
     expect(text).toContain('Coffee');
@@ -67,6 +71,7 @@ describe('CartTableComponent', () => {
     expect(toggleSpy).toHaveBeenCalledWith('line-1');
     openLines.add('line-1');
     fixture.detectChanges();
+    tick();
 
     expect(advancedPanel.hidden).toBe(false);
     const expandedText = (advancedPanel.textContent as string).replace(/\s+/g, ' ');
@@ -74,7 +79,7 @@ describe('CartTableComponent', () => {
     expect(expandedText).toContain('en.sales.newSale.taxRatePercent');
     expect(expandedText).toContain('en.sales.newSale.discounts.value');
     expect(expandedText).toContain('en.sales.newSale.hsnInvalid');
-  });
+  }));
 
   it('emits item quantity updates and removal', () => {
     TestBed.configureTestingModule({
