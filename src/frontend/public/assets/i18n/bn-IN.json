@@ -632,6 +632,10 @@
       "noSalesDescription": "আপনার প্রথম বিক্রয় নথিভুক্ত করুন।",
       "taxIncluded": "কর",
       "discount": "সাশ্রয়",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "সময়কালের বিক্রয়",
         "invoices": "ইনভয়েস",

@@ -632,6 +632,10 @@
       "noSalesDescription": "നിങ്ങളുടെ ആദ്യ വിൽപ്പന രേഖപ്പെടുത്തുക.",
       "taxIncluded": "നികുതി",
       "discount": "ലാഭം",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "കാലയളവിലെ വിൽപ്പന",
         "invoices": "ഇൻവോയ്സുകൾ",

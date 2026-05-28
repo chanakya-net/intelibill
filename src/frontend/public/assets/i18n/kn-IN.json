@@ -632,6 +632,10 @@
       "noSalesDescription": "ನಿಮ್ಮ ಮೊದಲ ಮಾರಾಟ ದಾಖಲಿಸಿ.",
       "taxIncluded": "ತೆರಿಗೆ",
       "discount": "ಉಳಿಸಿದ",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "ಅವಧಿಯ ಮಾರಾಟ",
         "invoices": "ಇನ್ವಾಯ್ಸ್‌ಗಳು",

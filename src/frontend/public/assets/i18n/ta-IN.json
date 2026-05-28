@@ -632,6 +632,10 @@
       "noSalesDescription": "உங்கள் முதல் விற்பனையை பதிவு செய்யுங்கள்.",
       "taxIncluded": "வரி",
       "discount": "சேமித்தது",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "காலகட்ட விற்பனை",
         "invoices": "விலைப்பட்டியல்கள்",
