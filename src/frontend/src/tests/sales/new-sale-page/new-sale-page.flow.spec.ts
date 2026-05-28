@@ -17,6 +17,7 @@ describe('new-sale-page: full flow', () => {
     TestBed.resetTestingModule();
   });
 
+  // Offline-mode behavior is covered in offline-state.spec.ts.
   it('covers lookup, quick add, cart edits, checkout details, and submit request', async () => {
     const fixture = TestBed.createComponent(NewSalePageComponent);
     fixture.detectChanges();
@@ -82,7 +83,7 @@ describe('new-sale-page: full flow', () => {
     expect(vm.paymentForm.controls.dueAmount.value).toBe(10);
     expect(vm.canUseCredit()).toBe(true);
 
-    await vm.onPaymentSubmitRequested();
+    vm.onPaymentSubmitRequested();
 
     expect(deps.salesFacade.recordSale).toHaveBeenCalledTimes(1);
     expect(deps.salesFacade.recordSale).toHaveBeenCalledWith(

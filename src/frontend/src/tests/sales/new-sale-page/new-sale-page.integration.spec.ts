@@ -43,7 +43,9 @@ describe('new-sale-page: integration', () => {
     expect(root.querySelector('.new-sale-product-lookup')).not.toBeNull();
     expect(root.querySelector('.new-sale-cart')).not.toBeNull();
     expect(root.querySelector('.new-sale-checkout-section')).not.toBeNull();
-    expect(root.querySelector('.new-sale-header-actions')?.querySelectorAll('button')).toHaveLength(1);
+    const headerActions = root.querySelector('.new-sale-header-actions');
+    expect(headerActions).not.toBeNull();
+    expect(headerActions!.querySelectorAll('button')).toHaveLength(1);
     forbiddenKeys.forEach((key) => {
       expect(root.textContent).not.toContain(key);
     });
