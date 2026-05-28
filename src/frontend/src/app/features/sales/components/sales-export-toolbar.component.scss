@@ -55,3 +55,62 @@
     }
   }
 }
+
+:host-context(.inline-export) .sales-export-toolbar {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+:host-context(.inline-export) .toolbar-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:host-context(.inline-export) .export-controls {
+  display: block;
+}
+
+:host-context(.inline-export) .format-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+:host-context(.inline-export) .format-buttons .p-button {
+  width: 100%;
+  min-height: 3.25rem;
+  justify-content: center;
+  border-radius: 0.625rem;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+:host-context(.inline-export) .format-buttons .p-button-icon {
+  display: none;
+}
+
+:host-context(.inline-export) button[data-export-format='xlsx'] {
+  color: #129334;
+  background: #e5fbe5;
+  border-color: #88dd99;
+}
+
+:host-context(.inline-export) button[data-export-format='pdf'] {
+  color: #0585d9;
+  background: #e5f5fe;
+  border-color: #8bd0ff;
+}
+
+:host-context(.inline-export) button[data-export-format='tallyXml'] {
+  color: #ffffff;
+  background: #d05f55;
+  border-color: #d05f55;
+}

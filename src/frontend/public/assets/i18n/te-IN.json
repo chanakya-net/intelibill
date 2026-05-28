@@ -632,6 +632,10 @@
       "noSalesDescription": "మొదటి అమ్మకం నమోదు చేయండి.",
       "taxIncluded": "పన్ను",
       "discount": "ఆదా",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "కాల వ్యవధి అమ్మకాలు",
         "invoices": "ఇన్వాయిస్‌లు",

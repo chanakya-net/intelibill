@@ -618,7 +618,7 @@
     "history": {
       "eyebrow": "Sales",
       "title": "Sales History",
-      "subtitle": "View all recorded sales for your shop",
+      "subtitle": "A working ledger for reviewing transactions, filtering by period, and sending reports to finance.",
       "search": "Search by invoice, customer…",
       "invoiceNumber": "Invoice #",
       "date": "Date",
@@ -637,13 +637,17 @@
         "invoices": "Invoices",
         "refunds": "Refunds"
       },
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "controls": {
         "period": "Period",
-        "from": "From date",
-        "to": "To date",
+        "from": "From",
+        "to": "To",
         "status": "Status",
-        "searchPlaceholder": "Search by invoice, customer…",
-        "reportLevel": "Report level",
+        "searchPlaceholder": "Search invoice, customer, amount",
+        "reportLevel": "Report",
         "clearFilters": "Clear filters"
       },
       "reportLevel": {

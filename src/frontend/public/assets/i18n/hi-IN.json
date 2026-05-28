@@ -632,6 +632,10 @@
       "noSalesDescription": "अपनी पहली बिक्री दर्ज करें।",
       "taxIncluded": "कर",
       "discount": "बचाया",
+      "ledger": {
+        "title": "Transaction ledger",
+        "subtitle": "Period controls and exports are part of the table workflow."
+      },
       "kpi": {
         "periodSales": "अवधि की बिक्री",
         "invoices": "इनवॉइस",

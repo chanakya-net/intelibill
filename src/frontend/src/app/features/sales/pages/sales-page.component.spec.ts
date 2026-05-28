@@ -339,16 +339,16 @@ describe('SalesPageComponent', () => {
       expect(searchField.querySelector('input[type="text"]')).toBeTruthy();
     });
 
-    it('filters-row contains segmented control and search-field without overflow', () => {
+    it('filters-row contains PrimeNG status filter and search-field without overflow', () => {
       const fixture = TestBed.createComponent(SalesPageComponent);
       fixture.detectChanges();
 
       const filtersRow = fixture.nativeElement.querySelector('.filters-row');
       expect(filtersRow).toBeTruthy();
 
-      const segmented = filtersRow.querySelector('.segmented');
+      const statusFilter = filtersRow.querySelector('p-selectbutton.status-filter');
       const searchActions = filtersRow.querySelector('.search-actions');
-      expect(segmented).toBeTruthy();
+      expect(statusFilter).toBeTruthy();
       expect(searchActions).toBeTruthy();
       expect(searchActions.querySelector('.search-field')).toBeTruthy();
       expect(searchActions.querySelector('.clear-filters-btn')).toBeTruthy();
