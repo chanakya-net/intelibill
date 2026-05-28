@@ -93,7 +93,8 @@ export class CartTableComponent {
 
   emitTaxRate(itemId: string, value: number | null): void {
     const n = Number(value ?? 0);
-    this.cartItemTaxRateChange.emit({ itemId, value: Math.round(n * 100) / 100 });
+    const normalized = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+    this.cartItemTaxRateChange.emit({ itemId, value: normalized });
   }
 
   emitDiscountType(itemId: string, value: number | null): void {
@@ -102,7 +103,8 @@ export class CartTableComponent {
 
   emitDiscountValue(itemId: string, value: number | null): void {
     const n = Number(value ?? 0);
-    this.cartItemDiscountValueChange.emit({ itemId, value: (Math.round(n * 100) / 100).toString() });
+    const normalized = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+    this.cartItemDiscountValueChange.emit({ itemId, value: normalized.toString() });
   }
 
   toggleLineDiscountEditor(itemId: string): void {

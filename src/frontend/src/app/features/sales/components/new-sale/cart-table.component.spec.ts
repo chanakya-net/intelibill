@@ -128,6 +128,10 @@ describe('CartTableComponent', () => {
     expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 6.0 });
 
     taxSpy.mockClear();
+    fixture.componentInstance.emitTaxRate('line-1', 2.675);
+    expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 2.67 });
+
+    taxSpy.mockClear();
     fixture.componentInstance.emitTaxRate('line-1', null);
     expect(taxSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: 0 });
   });
@@ -147,6 +151,10 @@ describe('CartTableComponent', () => {
     discountSpy.mockClear();
     fixture.componentInstance.emitDiscountValue('line-1', 10.001);
     expect(discountSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: '10' });
+
+    discountSpy.mockClear();
+    fixture.componentInstance.emitDiscountValue('line-1', 2.675);
+    expect(discountSpy).toHaveBeenCalledWith({ itemId: 'line-1', value: '2.67' });
 
     discountSpy.mockClear();
     fixture.componentInstance.emitDiscountValue('line-1', null);
