@@ -716,6 +716,7 @@
       "price": "Price",
       "subtotal": "Subtotal",
       "total": "Total",
+      "advancedLineEdit": "Advanced edit",
       "customerSection": "Customer (Optional)",
       "customerName": "Name",
       "customerPhone": "Phone",
