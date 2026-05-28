@@ -98,6 +98,10 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
     this.vm.onBatchPickerBatchSelected(batch);
   }
 
+  onQuickProductTileSelected(batch: AvailableBatchDto): void {
+    this.vm.onQuickProductTileSelected(batch);
+  }
+
   onBatchPickerClosed(): void {
     this.vm.onBatchPickerClosed();
   }

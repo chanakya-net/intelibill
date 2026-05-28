@@ -53,6 +53,33 @@
           (cameraOpen)="openScanner()"
         />
 
+        @if (vm.quickProductTiles().length > 0) {
+          <section class="new-sale-quick-product-lookup">
+            <div class="quick-product-lookup-header">
+              <h3>{{ 'sales.newSale.productLookup' | transloco }}</h3>
+              <p>{{ 'sales.newSale.productLookupDescription' | transloco }}</p>
+            </div>
+            <p class="quick-product-lookup-hint">{{ 'sales.newSale.scanOrSearch' | transloco }}</p>
+
+            <div class="quick-product-tile-grid">
+              @for (batch of vm.quickProductTiles(); track batch.inventoryBatchId) {
+                <button
+                  class="quick-product-tile"
+                  type="button"
+                  (click)="onQuickProductTileSelected(batch)"
+                >
+                  <p class="quick-product-tile-title">{{ batch.itemName }}</p>
+                  <p class="quick-product-tile-stock">
+                    {{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}
+                  </p>
+                  <p class="quick-product-tile-price">₹{{ batch.salesPrice | number: '1.2-2' }}</p>
+                  <span class="quick-product-tile-action">{{ 'sales.newSale.quickAdd' | transloco }}</span>
+                </button>
+              }
+            </div>
+          </section>
+        }
+
         @if (vm.batchSearchError()) {
           <p class="error mt-2">
             {{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}
