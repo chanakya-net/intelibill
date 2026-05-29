@@ -10,7 +10,9 @@ import type { SaleDto, SaleItemDto } from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
 import { SaleReturnPreviewDialogComponent } from './sale-return-preview-dialog.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
 
 class SalesFacadeStub {
   readonly returnPreview = signal(null);
@@ -111,7 +113,14 @@ const makeSale = (): SaleDto => ({
 
 async function createComponent() {
   await TestBed.configureTestingModule({
-    imports: [SaleReturnPreviewDialogComponent, TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true })],
+    imports: [
+      SaleReturnPreviewDialogComponent,
+      TranslocoTestingModule.forRoot({
+        langs: { 'en-IN': enIN },
+        translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+        preloadLangs: true,
+      }),
+    ],
     providers: [
       { provide: SalesFacade, useClass: SalesFacadeStub },
       { provide: AuthService, useClass: AuthServiceStub },
@@ -153,7 +162,10 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const [serviceItem, goodsItem] = component.sale!.items;
     component.toggleReturnLine(serviceItem, true);
     component.toggleReturnLine(goodsItem, true);
-    component.updateReturnCondition(goodsItem, 1 as unknown as Parameters<typeof component.updateReturnCondition>[1]);
+    component.updateReturnCondition(
+      goodsItem,
+      1 as unknown as Parameters<typeof component.updateReturnCondition>[1],
+    );
     component.previewReturn();
 
     expect(facade.previewSaleReturn).toHaveBeenCalledTimes(1);
@@ -173,9 +185,13 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const serviceItem = component.sale!.items[0];
     component.toggleReturnLine(serviceItem, true);
 
-    const errors = (component as unknown as { validateReturnDrafts(): string[] }).validateReturnDrafts();
+    const errors = (
+      component as unknown as { validateReturnDrafts(): string[] }
+    ).validateReturnDrafts();
 
-    expect(errors.find((e) => e.includes('condition') || e.includes('Consultation'))).toBeUndefined();
+    expect(
+      errors.find((e) => e.includes('condition') || e.includes('Consultation')),
+    ).toBeUndefined();
   });
 
   it('returns validation error for goods line with no condition selected', async () => {
@@ -187,9 +203,13 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const goodsItem = component.sale!.items[0];
     component.toggleReturnLine(goodsItem, true);
 
-    const errors = (component as unknown as { validateReturnDrafts(): string[] }).validateReturnDrafts();
+    const errors = (
+      component as unknown as { validateReturnDrafts(): string[] }
+    ).validateReturnDrafts();
 
-    expect(errors.some((e) => e.toLowerCase().includes('condition') || e.includes('Soap'))).toBe(true);
+    expect(errors.some((e) => e.toLowerCase().includes('condition') || e.includes('Soap'))).toBe(
+      true,
+    );
   });
 
   it('service line shows correct returned and returnable quantities', async () => {
@@ -205,6 +225,17 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(component.isFullyReturned(item)).toBe(false);
     expect(item.returnedQuantity).toBe(1);
     expect(item.returnableQuantity).toBe(1);
+  });
+
+  it('renders translated return quantity column header', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Return qty');
+    expect(text).not.toContain('sales.returns.preview.col.quantity');
   });
 
   it('service line with zero returnable quantity is fully returned', async () => {

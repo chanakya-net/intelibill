@@ -33,7 +33,7 @@
             <th style="width: 3rem"></th>
             <th>{{ 'sales.returns.preview.col.item' | transloco }}</th>
             <th>{{ 'sales.returns.preview.col.returnable' | transloco }}</th>
-            <th>{{ 'sales.returns.preview.col.quantity' | transloco }}</th>
+            <th>{{ 'sales.returns.preview.col.returnQty' | transloco }}</th>
             <th>{{ 'sales.returns.preview.col.condition' | transloco }}</th>
             @if (hasFinancialAccess()) {
               <th>{{ 'sales.returns.preview.col.refund' | transloco }}</th>
@@ -117,7 +117,9 @@
             />
           </label>
           <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600">{{ 'sales.returns.preview.overrideReason' | transloco }}</span>
+            <span class="font-medium text-slate-600">{{
+              'sales.returns.preview.overrideReason' | transloco
+            }}</span>
             <input
               pInputText
               type="text"
@@ -144,27 +146,36 @@
       @if (returnPreview()) {
         <div class="rounded border border-slate-200">
           <div class="border-b border-slate-200 px-3 py-2">
-            <p class="font-semibold text-slate-800">{{ 'sales.returns.preview.calculatedEffects' | transloco }}</p>
+            <p class="font-semibold text-slate-800">
+              {{ 'sales.returns.preview.calculatedEffects' | transloco }}
+            </p>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 text-sm">
             @for (line of returnPreview()!.lines; track line.saleItemId) {
               <div class="rounded border border-slate-100 p-3">
                 <div class="flex justify-between gap-2">
-                  <span class="font-medium text-slate-700">{{ getPreviewItemName(line.saleItemId) }}</span>
+                  <span class="font-medium text-slate-700">{{
+                    getPreviewItemName(line.saleItemId)
+                  }}</span>
                   <p-tag
                     [severity]="line.willRestock ? 'success' : 'warn'"
                     [value]="line.willRestock ? 'Restock' : 'No restock'"
                   />
                 </div>
                 <p class="mt-1 text-slate-500">
-                  Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} · returnable
+                  Qty {{ line.requestedQuantity }} · returned {{ line.returnedQuantity }} ·
+                  returnable
                   {{ line.returnableQuantity }}
                 </p>
                 @if (line.financial && returnPreview()!.hasFinancialAccess) {
                   <p class="mt-2 font-medium text-slate-700">
-                    Refund {{ line.financial.approvedRefundAmount | currency:currency:'symbol':'1.2-2' }}
+                    Refund
+                    {{
+                      line.financial.approvedRefundAmount | currency: currency : 'symbol' : '1.2-2'
+                    }}
                     <span class="text-slate-400">
-                      / max {{ line.financial.maxRefundAmount | currency:currency:'symbol':'1.2-2' }}
+                      / max
+                      {{ line.financial.maxRefundAmount | currency: currency : 'symbol' : '1.2-2' }}
                     </span>
                   </p>
                 }
@@ -173,29 +184,43 @@
           </div>
 
           @if (returnPreview()!.financial && returnPreview()!.hasFinancialAccess) {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm">
+            <div
+              class="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-200 p-3 text-sm"
+            >
               <div>
                 <p class="text-slate-500">Total refund</p>
                 <p class="font-bold text-slate-800">
-                  {{ returnPreview()!.financial!.totalRefundAmount | currency:currency:'symbol':'1.2-2' }}
+                  {{
+                    returnPreview()!.financial!.totalRefundAmount
+                      | currency: currency : 'symbol' : '1.2-2'
+                  }}
                 </p>
               </div>
               <div>
                 <p class="text-slate-500">Due reduction</p>
                 <p class="font-bold text-slate-800">
-                  {{ returnPreview()!.financial!.dueReductionAmount | currency:currency:'symbol':'1.2-2' }}
+                  {{
+                    returnPreview()!.financial!.dueReductionAmount
+                      | currency: currency : 'symbol' : '1.2-2'
+                  }}
                 </p>
               </div>
               <div>
                 <p class="text-slate-500">Payout</p>
                 <p class="font-bold text-slate-800">
-                  {{ returnPreview()!.financial!.payoutAmount | currency:currency:'symbol':'1.2-2' }}
+                  {{
+                    returnPreview()!.financial!.payoutAmount
+                      | currency: currency : 'symbol' : '1.2-2'
+                  }}
                 </p>
               </div>
               <div>
                 <p class="text-slate-500">Tax effect</p>
                 <p class="font-bold text-slate-800">
-                  {{ returnPreview()!.financial!.totalTaxAmount | currency:currency:'symbol':'1.2-2' }}
+                  {{
+                    returnPreview()!.financial!.totalTaxAmount
+                      | currency: currency : 'symbol' : '1.2-2'
+                  }}
                 </p>
               </div>
             </div>
@@ -203,9 +228,13 @@
         </div>
       }
 
-      @if (returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0) {
+      @if (
+        returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0
+      ) {
         <label class="flex flex-col gap-1 text-sm">
-          <span class="font-medium text-slate-600">{{ 'sales.returns.preview.payoutMethod' | transloco }}</span>
+          <span class="font-medium text-slate-600">{{
+            'sales.returns.preview.payoutMethod' | transloco
+          }}</span>
           <p-select
             [options]="refundPayoutMethodOptions"
             optionLabel="label"
@@ -227,7 +256,9 @@
             [ngModel]="dueOverrideConfirmed()"
             (ngModelChange)="updateDueOverrideConfirmed($event)"
           />
-          <label for="due-override-confirm">{{ 'sales.returns.preview.confirmDueOverride' | transloco }}</label>
+          <label for="due-override-confirm">{{
+            'sales.returns.preview.confirmDueOverride' | transloco
+          }}</label>
         </div>
       }
 
@@ -259,10 +290,6 @@
         (click)="submitReturn()"
       />
     }
-    <p-button
-      [label]="'common.close' | transloco"
-      severity="secondary"
-      (click)="close()"
-    />
+    <p-button [label]="'common.close' | transloco" severity="secondary" (click)="close()" />
   </ng-template>
 </p-dialog>
