@@ -4,6 +4,7 @@ import { firstValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
+import { servicesGuard } from './core/guards/services.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
 import { shellRoutes } from './core/layout/shell.routes';
@@ -86,6 +87,7 @@ describe('app routes', () => {
     expect(shellRoute).toBeDefined();
     expect(dashboardRoute).toBeDefined();
     expect(servicesRoute).toBeDefined();
+    expect(servicesRoute?.canActivate).toContain(servicesGuard);
     expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
 
     authService.isAuthenticated.mockReturnValue(false);
