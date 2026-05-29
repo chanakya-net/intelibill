@@ -274,6 +274,7 @@ export abstract class NewSalePageStateService {
   readonly getUnitSubtotalFn = (item: CartItem): number => this.getUnitSubtotal(item);
   readonly getUnitTaxAmountFn = (item: CartItem): number => this.getUnitTaxAmount(item);
   readonly getUnitFinalPriceFn = (item: CartItem): number => this.getUnitFinalPrice(item);
+  readonly getServiceLineTotalFn = (item: ServiceCartLine): number => this.cartState.getServiceLineTotal(item);
   readonly getPreviewLineFn = (itemId: string) => this.getPreviewLine(itemId);
   readonly getCartItemHsnErrorFn = (itemId: string) => this.getCartItemHsnError(itemId);
   readonly getCartItemTaxErrorFn = (itemId: string) => this.getCartItemTaxError(itemId);

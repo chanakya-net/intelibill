@@ -207,7 +207,7 @@
                 step="0.01"
               />
             </td>
-            <td class="font-medium cart-line-total">₹{{ (item.unitPrice * item.quantity) | number:'1.2-2' }}</td>
+            <td class="font-medium cart-line-total">₹{{ getServiceLineTotal(item) | number:'1.2-2' }}</td>
             <td>
               <p-button
                 icon="pi pi-trash"
@@ -427,7 +427,7 @@
                 step="0.01"
               />
             </td>
-            <td class="font-medium cart-line-total">₹{{ (item.unitPrice * item.quantity) | number:'1.2-2' }}</td>
+            <td class="font-medium cart-line-total">₹{{ getServiceLineTotal(item) | number:'1.2-2' }}</td>
             <td>
               <p-button
                 icon="pi pi-trash"

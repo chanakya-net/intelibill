@@ -90,10 +90,27 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
       return;
     }
 
-    const names = this.catalogSync.filterByName(query).map((e) => e.name);
-    const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
-    const merged = [...new Set([...names, ...barcodes])];
-    this.searchSuggestions.set(merged.slice(0, 20));
+    if (this.isOfflineMode() && this.isOfflineEligible()) {
+      const names = this.catalogSync.filterByName(query).map((e) => e.name);
+      const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
+      const merged = [...new Set([...names, ...barcodes])];
+      this.searchSuggestions.set(merged.slice(0, 20));
+      return;
+    }
+
+    this.saleService.getSellables(query).subscribe({
+      next: (sellables) => {
+        const terms = sellables.flatMap((sellable) =>
+          sellable.kind === 'Goods'
+            ? [sellable.itemName, sellable.barcode]
+            : [sellable.name, sellable.code]
+        );
+        this.searchSuggestions.set([...new Set(terms.filter((term) => term.trim().length > 0))].slice(0, 20));
+      },
+      error: () => {
+        this.searchSuggestions.set([]);
+      },
+    });
   }
 
   onBatchSearchSuggestions(query: string): void {

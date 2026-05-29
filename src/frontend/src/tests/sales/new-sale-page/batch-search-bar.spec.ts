@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { of } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NewSalePageComponent } from '../../../app/features/sales/pages/new-sale-page.component';
 import { setupNewSalePageTestBed } from './test-helpers';
@@ -68,5 +69,46 @@ describe('new-sale-page: batch search bar', () => {
 
     expect(vm.showBatchPicker()).toBe(true);
     expect(vm.availableBatches().length).toBe(2);
+  });
+
+  it('builds suggestions from unified sellables, including services', () => {
+    deps.saleService.getSellables.mockReturnValueOnce(
+      of([
+        {
+          kind: 'Goods',
+          inventoryBatchId: 'batch-1',
+          barcode: 'A',
+          itemName: 'Oreo',
+          batchNumber: 'B-01',
+          quantity: 10,
+          salesPrice: 50,
+          mrp: 60,
+          taxRatePercent: 18,
+          taxIncluded: true,
+          expiryDate: null,
+          hsnCode: null,
+        },
+        {
+          kind: 'Service',
+          serviceId: 'svc-1',
+          code: 'S-001',
+          name: 'Bike wash',
+          description: null,
+          price: 100,
+          hsnCode: null,
+          taxRatePercent: 0,
+          taxIncluded: false,
+        },
+      ])
+    );
+
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    const vm = component.vm;
+
+    component.onBatchSearchSuggestionFilter('wa');
+
+    expect(deps.saleService.getSellables).toHaveBeenCalledWith('wa');
+    expect(vm.searchSuggestions()).toEqual(['Oreo', 'A', 'Bike wash', 'S-001']);
   });
 });

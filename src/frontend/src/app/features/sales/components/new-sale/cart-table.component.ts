@@ -62,6 +62,7 @@ export class CartTableComponent {
   @Input() getUnitSubtotal = (_item: CartItem) => 0;
   @Input() getUnitTaxAmount = (_item: CartItem) => 0;
   @Input() getUnitFinalPrice = (_item: CartItem) => 0;
+  @Input() getServiceLineTotal = (_item: ServiceCartLine) => 0;
   @Input() getPreviewLine: (itemId: string) => SalePreviewLineDto | null = () => null;
   @Input() getCartItemHsnError = (_itemId: string) => '';
   @Input() getCartItemTaxError = (_itemId: string) => '';
