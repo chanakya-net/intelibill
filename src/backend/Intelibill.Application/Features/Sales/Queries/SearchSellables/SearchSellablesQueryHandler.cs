@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Queries.SearchSellables;
@@ -32,12 +33,13 @@ public sealed class SearchSellablesQueryHandler(
         var goodsBatchesTask = query.IsBarcodeLookup
             ? inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
             : inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
-        var servicesTask = serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
+        var servicesTask = query.IsBarcodeLookup
+            ? Task.FromResult<IReadOnlyList<Service>>([])
+            : serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
 
         await Task.WhenAll(goodsBatchesTask, servicesTask);
 
         var sellables = goodsBatchesTask.Result
-            .DistinctBy(batch => batch.Id)
             .Select(batch => SellableDto.FromInventoryBatch(
                 batch.Id,
                 batch.Item?.Barcode ?? string.Empty,
@@ -52,14 +54,14 @@ public sealed class SearchSellablesQueryHandler(
                 batch.ExpiryDate))
             .Concat(servicesTask.Result
                 .Select(service => SellableDto.FromService(
-                service.Id,
-                service.Code,
-                service.Name,
-                service.Description,
-                service.Price,
-                service.HsnCode,
-                service.TaxRatePercent,
-                service.TaxIncluded)))
+                    service.Id,
+                    service.Code,
+                    service.Name,
+                    service.Description,
+                    service.Price,
+                    service.HsnCode,
+                    service.TaxRatePercent,
+                    service.TaxIncluded)))
             .ToList();
 
         return sellables;

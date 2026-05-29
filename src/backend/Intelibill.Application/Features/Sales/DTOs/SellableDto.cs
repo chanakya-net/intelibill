@@ -1,5 +1,3 @@
-using Intelibill.Domain.Entities;
-
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public enum SellableKind

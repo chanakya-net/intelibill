@@ -177,4 +177,49 @@ public sealed class SearchSellablesQueryHandlerTests
         await _inventoryBatchRepository.Received(1).GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
         await _inventoryBatchRepository.DidNotReceive().SearchAvailableByProductNameOrBatchNumberAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_WhenBarcodeLookup_ServiceSearchIsNotCalled()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var searchTerm = CreateQrLikeBarcode();
+        var item = MakeItem(shop.Id, "BAR-QR", "QR Rice");
+        var batch = MakeBatchWithItem(shop.Id, item);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
+
+        var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm, true), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value);
+
+        await _serviceRepository.DidNotReceive().SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenInactiveServiceExistsInShop_IsNotReturned()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var searchTerm = "consulting";
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
+        _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
+
+        var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Empty(result.Value);
+        Assert.DoesNotContain(result.Value, sellable => sellable.Kind == SellableKind.Service);
+        await _serviceRepository.Received(1).SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+    }
 }
