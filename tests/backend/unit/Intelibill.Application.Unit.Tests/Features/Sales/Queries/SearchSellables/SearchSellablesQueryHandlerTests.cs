@@ -90,6 +90,44 @@ public sealed class SearchSellablesQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenTextSearch_WaitsForGoodsSearchBeforeSearchingServices()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var searchTerm = "Rice";
+        var item = MakeItem(shop.Id, "BAR-001", "Rice Flour");
+        var batch = MakeBatchWithItem(shop.Id, item);
+        var service = MakeService(shop.Id, "SVC-001", "Rice Packaging");
+        var goodsSearchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var goodsSearchResult = new TaskCompletionSource<IReadOnlyList<InventoryBatch>>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _inventoryBatchRepository
+            .SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                goodsSearchStarted.SetResult();
+                return goodsSearchResult.Task;
+            });
+        _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([service]);
+
+        var handlerTask = CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
+
+        await goodsSearchStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await _serviceRepository.DidNotReceive().SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+
+        goodsSearchResult.SetResult([batch]);
+        var result = await handlerTask;
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Count);
+        await _serviceRepository.Received(1).SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenOnlyGoodsMatch_ReturnsGoodsOnly()
     {
         var user = MakeUser();

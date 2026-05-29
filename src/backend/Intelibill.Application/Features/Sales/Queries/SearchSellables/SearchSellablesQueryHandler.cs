@@ -30,16 +30,14 @@ public sealed class SearchSellablesQueryHandler(
 
         var searchTerm = query.SearchTerm.Trim();
 
-        var goodsBatchesTask = query.IsBarcodeLookup
-            ? inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
-            : inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
-        var servicesTask = query.IsBarcodeLookup
-            ? Task.FromResult<IReadOnlyList<Service>>([])
-            : serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
+        var goodsBatches = query.IsBarcodeLookup
+            ? await inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
+            : await inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
+        IReadOnlyList<Service> services = query.IsBarcodeLookup
+            ? []
+            : await serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
 
-        await Task.WhenAll(goodsBatchesTask, servicesTask);
-
-        var sellables = goodsBatchesTask.Result
+        var sellables = goodsBatches
             .Select(batch => SellableDto.FromInventoryBatch(
                 batch.Id,
                 batch.Item?.Barcode ?? string.Empty,
@@ -52,7 +50,7 @@ public sealed class SearchSellablesQueryHandler(
                 batch.TaxIncluded,
                 batch.PurchaseTaxIncluded,
                 batch.ExpiryDate))
-            .Concat(servicesTask.Result
+            .Concat(services
                 .Select(service => SellableDto.FromService(
                     service.Id,
                     service.Code,
