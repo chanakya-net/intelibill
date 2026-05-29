@@ -78,7 +78,7 @@ public sealed class PreviewSaleQueryHandler(
                     line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
                     line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                     line.Command.TaxRatePercent,
-                    line.Command.IsPriceIncludingTax,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
                     line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
                     line.LineType == SaleLineType.Goods);
             }).ToList(),
