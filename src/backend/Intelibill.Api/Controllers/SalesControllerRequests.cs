@@ -81,7 +81,9 @@ public sealed record RecordSaleItemRequest(
     Guid InventoryBatchId,
     InstantDiscountRequest? ItemDiscount = null,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null);
 
 public sealed record PreviewSaleRequest(
     InstantDiscountRequest SaleDiscount,
@@ -100,7 +102,9 @@ public sealed record PreviewSaleItemRequest(
     bool IsPriceIncludingTax,
     InstantDiscountRequest ItemDiscount,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null);
 
 public sealed record InstantDiscountRequest(
     InstantDiscountType Type,

@@ -2,14 +2,17 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Services;
 
 internal sealed class SaleLineValidator(
     IItemRepository itemRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    IInventoryRepository inventoryRepository)
+    IInventoryRepository inventoryRepository,
+    IServiceRepository? serviceRepository = null)
     : ISaleLineValidator
 {
     public async Task<ErrorOr<SaleLineValidationResult>> ValidateLinesAsync(
@@ -18,6 +21,92 @@ internal sealed class SaleLineValidator(
         List<string> warnings,
         CancellationToken cancellationToken,
         bool allowInsufficientStock = false)
+    {
+        var itemNameById = new Dictionary<Guid, string>();
+        var validated = new List<ValidatedSaleLine>(items.Count);
+
+        var goodsLines = items.Where(x => x.IsGoodsLine).ToList();
+        var serviceLines = items.Where(x => x.IsServiceLine).ToList();
+
+        if (goodsLines.Count > 0)
+        {
+            var goodsOrError = await ValidateGoodsLinesAsync(shopId, goodsLines, warnings, allowInsufficientStock, cancellationToken);
+            if (goodsOrError.IsError)
+            {
+                return goodsOrError.Errors;
+            }
+
+            foreach (var pair in goodsOrError.Value.ItemNameById)
+            {
+                itemNameById[pair.Key] = pair.Value;
+            }
+
+            validated.AddRange(goodsOrError.Value.Lines);
+        }
+
+        foreach (var cmd in serviceLines)
+        {
+            if (serviceRepository is null)
+            {
+                return Errors.Sale.ServiceNotFound;
+            }
+            if (!IsValidTaxRatePercent(cmd.TaxRatePercent))
+            {
+                return Errors.Sale.InvalidTaxRatePercent;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cmd.HsnCode) && !IsValidHsnCode(cmd.HsnCode))
+            {
+                return Errors.Sale.InvalidHsnCode;
+            }
+
+            if (cmd.ServiceId is null)
+            {
+                return Errors.Sale.ServiceNotFound;
+            }
+
+            if (cmd.ItemDiscount is not null && cmd.ItemDiscount.Type != InstantDiscountType.None)
+            {
+                return Errors.Sale.ServiceDiscountNotSupported;
+            }
+
+            var service = await serviceRepository.GetByIdAsync(cmd.ServiceId.Value, cancellationToken);
+            if (service is null || service.ShopId != shopId)
+            {
+                return Errors.Sale.ServiceNotFound;
+            }
+
+            if (!service.IsActive)
+            {
+                return Errors.Sale.ServiceInactive;
+            }
+
+            var hasMismatch = cmd.SalesPrice != service.Price
+                || cmd.TaxRatePercent != service.TaxRatePercent
+                || cmd.IsPriceIncludingTax != service.TaxIncluded;
+
+            if (hasMismatch)
+            {
+                warnings.Add($"Price mismatch for service '{service.Name}' (code: {service.Code}).");
+            }
+
+            if (!string.Equals(cmd.ItemName.Trim(), service.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                warnings.Add($"Service name mismatch for code '{service.Code}': provided '{cmd.ItemName}', found '{service.Name}'.");
+            }
+
+            validated.Add(new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, hasMismatch));
+        }
+
+        return new SaleLineValidationResult(validated, itemNameById);
+    }
+
+    private async Task<ErrorOr<SaleLineValidationResult>> ValidateGoodsLinesAsync(
+        Guid shopId,
+        IReadOnlyList<RecordSaleItemCommand> items,
+        List<string> warnings,
+        bool allowInsufficientStock,
+        CancellationToken cancellationToken)
     {
         var lineContexts = new List<(RecordSaleItemCommand Cmd, InventoryBatch Batch)>();
         foreach (var cmdItem in items)
@@ -86,7 +175,7 @@ internal sealed class SaleLineValidator(
             if (!string.Equals(cmdItem.ItemName.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
                 warnings.Add($"Item name mismatch for barcode '{cmdItem.Barcode}': provided '{cmdItem.ItemName}', found '{item.Name}'.");
 
-            validated.Add(new ValidatedSaleLine(cmdItem, item, batch, inventory, hasMismatch));
+            validated.Add(new ValidatedSaleLine(cmdItem, SaleLineType.Goods, item, batch, inventory, null, hasMismatch));
         }
 
         return new SaleLineValidationResult(validated, itemNameById);

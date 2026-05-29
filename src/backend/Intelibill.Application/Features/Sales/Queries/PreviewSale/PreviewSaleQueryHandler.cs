@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 
@@ -67,14 +68,17 @@ public sealed class PreviewSaleQueryHandler(
             validatedLines.Select((line, index) =>
             {
                 return new SalePricingLineCalculationRequest(
-                    line.Batch.Id,
+                    line.LineType,
+                    line.Batch?.Id ?? Guid.Empty,
+                    line.Service?.Id,
                     line.Command.Quantity,
-                    line.Batch.GetProfitCostPrice(),
-                    line.Batch.SalesPrice,
-                    line.Batch.Mrp,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                     line.Command.TaxRatePercent,
-                    line.Batch.TaxIncluded,
-                    query.Items[index].ItemDiscount);
+                    line.Command.IsPriceIncludingTax,
+                    query.Items[index].ItemDiscount,
+                    line.LineType == SaleLineType.Goods);
             }).ToList(),
             query.SaleDiscount);
 
@@ -92,15 +96,17 @@ public sealed class PreviewSaleQueryHandler(
             var calculated = pricing.Lines[i];
 
             lineDtos.Add(new SalePreviewLineDto(
-                validated.Item.Id,
-                validated.Item.Barcode,
-                validated.Item.Name,
-                calculated.InventoryBatchId,
-                validated.Batch.BatchNumber,
+                calculated.LineType,
+                validated.Item?.Id,
+                validated.Service?.Id,
+                validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
+                validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
+                validated.Batch?.Id,
+                validated.Batch?.BatchNumber,
                 validated.Command.Quantity,
                 calculated.CostPrice,
                 calculated.SalesPrice,
-                validated.Batch.Mrp,
+                validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
                 calculated.TaxRatePercent,
                 calculated.IsPriceIncludingTax,
                 calculated.PreTaxAmountBeforeDiscount,
@@ -146,17 +152,17 @@ public sealed class PreviewSaleQueryHandler(
                     "sale_preview.warning.client_price_mismatch",
                     "Client line pricing is stale compared to latest batch pricing.",
                     "warning",
-                    line.Batch.Id,
+                    line.Batch?.Id,
                     line.Command.ClientLineKey));
             }
 
-            if (!string.Equals(line.Command.ItemName.Trim(), line.Item.Name, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(line.Command.ItemName.Trim(), line.Item?.Name ?? line.Service?.Name ?? line.Command.ItemName, StringComparison.OrdinalIgnoreCase))
             {
                 warnings.Add(new SalePreviewWarningDto(
                     "sale_preview.warning.client_item_name_mismatch",
                     "Client line item name differs from current item name.",
                     "warning",
-                    line.Batch.Id,
+                    line.Batch?.Id,
                     line.Command.ClientLineKey));
             }
         }

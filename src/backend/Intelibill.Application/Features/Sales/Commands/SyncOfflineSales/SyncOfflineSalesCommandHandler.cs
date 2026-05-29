@@ -149,8 +149,8 @@ public sealed class SyncOfflineSalesCommandHandler(
             if (!lineByKey.TryGetValue(v.Command.ClientLineKey!, out var line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.General.Unexpected("Line mapping failed."));
             saleItems.Add(SaleItem.CreateGoods(
                 command.ShopId,
-                v.Item.Id,
-                v.Batch.Id,
+                v.Item!.Id,
+                v.Batch!.Id,
                 lineName: line.ItemName,
                 lineCode: line.Barcode,
                 line.Quantity,
@@ -180,11 +180,11 @@ public sealed class SyncOfflineSalesCommandHandler(
         {
             var consumed = consumption[i].ConsumedQuantity;
             if (consumed <= 0) continue;
-            var batchResult = vLines[i].Batch.SubtractQuantity(consumed, command.ActorUserId);
+            var batchResult = vLines[i].Batch!.SubtractQuantity(consumed, command.ActorUserId);
             if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
-            var inventoryResult = vLines[i].Inventory.SubtractQuantity(consumed, command.ActorUserId);
+            var inventoryResult = vLines[i].Inventory!.SubtractQuantity(consumed, command.ActorUserId);
             if (inventoryResult.IsError) throw new InvalidOperationException(inventoryResult.FirstError.Description);
-            var tx = StockTransaction.Create(command.ShopId, vLines[i].Item.Id, vLines[i].Batch.Id, StockTransactionType.Out, -consumed, invNum, null, sale.SoldAt, command.ActorUserId, command.ActorUserId);
+            var tx = StockTransaction.Create(command.ShopId, vLines[i].Item!.Id, vLines[i].Batch!.Id, StockTransactionType.Out, -consumed, invNum, null, sale.SoldAt, command.ActorUserId, command.ActorUserId);
             if (tx.IsError) throw new InvalidOperationException(tx.FirstError.Description);
             await stockTransactionRepository.AddAsync(tx.Value, cancellationToken);
         }

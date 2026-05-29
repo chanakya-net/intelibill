@@ -125,7 +125,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     i.IsPriceIncludingTax,
                     new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
                     i.ClientLineKey,
-                    i.HsnCode)).ToList()),
+                    i.HsnCode,
+                    i.LineType,
+                    i.ServiceId)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(Ok);

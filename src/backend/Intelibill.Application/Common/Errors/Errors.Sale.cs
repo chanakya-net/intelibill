@@ -33,6 +33,15 @@ public static partial class Errors
         public static Error InvalidHsnCode =>
             Error.Validation("Sale.InvalidHsnCode", "HSN code must be 4 to 8 digits.");
 
+        public static Error ServiceNotFound =>
+            Error.NotFound("Sale.ServiceNotFound", "Service was not found.");
+
+        public static Error ServiceInactive =>
+            Error.Validation("Sale.ServiceInactive", "Service is inactive.");
+
+        public static Error ServiceDiscountNotSupported =>
+            Error.Validation("Sale.ServiceDiscountNotSupported", "Service line discounts are not supported.");
+
         public static Error PaidAmountInvalid =>
             Error.Validation("Sale.PaidAmountInvalid", "Paid amount cannot be negative.");
 
