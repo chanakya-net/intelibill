@@ -210,7 +210,7 @@
           [balanceDue]="vm.paymentForm.controls.dueAmount.value"
           [paymentSplitError]="vm.paymentSplitError()"
           [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
-          [cartLength]="vm.cart().length"
+          [cartLength]="vm.cart().length + vm.serviceCart().length"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"

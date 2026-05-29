@@ -149,6 +149,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       effect(() => {
         this.activeShopId();
         this.cart();
+        this.serviceCart();
         if (!this.cartBootstrapped()) {
           return;
         }
