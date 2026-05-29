@@ -66,6 +66,32 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenServiceLineBatchNumberEmpty_DoesNotReturnError()
+    {
+        var command = ValidCommand(
+        [
+            new(
+                "SVC-001",
+                "",
+                "Consulting",
+                1m,
+                0m,
+                500m,
+                500m,
+                18m,
+                false,
+                Guid.Empty,
+                new InstantDiscount(InstantDiscountType.None, 0m),
+                LineType: SaleLineType.Service,
+                ServiceId: Guid.NewGuid()),
+        ]);
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldNotHaveValidationErrorFor("Items[0].BatchNumber");
+    }
+
+    [Fact]
     public void Validate_WhenInventoryBatchIdEmpty_ReturnsError()
     {
         var command = ValidCommand([new("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.Empty)]);

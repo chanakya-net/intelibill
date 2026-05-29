@@ -34,6 +34,7 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
 
             item.RuleFor(i => i.BatchNumber)
                 .NotEmpty()
+                .When(i => i.LineType == SaleLineType.Goods)
                 .WithErrorCode("Sale.BatchNumberRequired")
                 .WithMessage("Batch number is required.");
 
