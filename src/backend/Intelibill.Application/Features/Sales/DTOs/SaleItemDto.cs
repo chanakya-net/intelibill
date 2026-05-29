@@ -1,12 +1,17 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public sealed record SaleItemDto
 {
     public SaleItemDto(
         Guid saleItemId,
-        Guid itemId,
+        SaleLineType lineType,
+        Guid? itemId,
+        Guid? inventoryBatchId,
+        Guid? serviceId,
+        string lineCode,
         string itemName,
-        Guid inventoryBatchId,
         decimal quantity,
         decimal salesPrice,
         decimal taxRatePercent,
@@ -17,9 +22,12 @@ public sealed record SaleItemDto
         string returnStatus = "NotReturned")
     {
         SaleItemId = saleItemId;
+        LineType = lineType;
         ItemId = itemId;
+        ServiceId = serviceId;
         ItemName = itemName;
         InventoryBatchId = inventoryBatchId;
+        LineCode = lineCode;
         Quantity = quantity;
         SalesPrice = salesPrice;
         TaxRatePercent = taxRatePercent;
@@ -31,9 +39,12 @@ public sealed record SaleItemDto
     }
 
     public Guid SaleItemId { get; init; }
-    public Guid ItemId { get; init; }
+    public SaleLineType LineType { get; init; }
+    public Guid? ItemId { get; init; }
+    public Guid? ServiceId { get; init; }
     public string ItemName { get; init; }
-    public Guid InventoryBatchId { get; init; }
+    public string LineCode { get; init; }
+    public Guid? InventoryBatchId { get; init; }
     public decimal Quantity { get; init; }
     public decimal SalesPrice { get; init; }
     public decimal OriginalSalesPrice { get; init; }

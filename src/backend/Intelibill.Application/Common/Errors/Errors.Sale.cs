@@ -42,6 +42,9 @@ public static partial class Errors
         public static Error ServiceDiscountNotSupported =>
             Error.Validation("Sale.ServiceDiscountNotSupported", "Service line discounts are not supported.");
 
+        public static Error InvalidLineType =>
+            Error.Validation("Sale.InvalidLineType", "Sale line type is invalid.");
+
         public static Error PaidAmountInvalid =>
             Error.Validation("Sale.PaidAmountInvalid", "Paid amount cannot be negative.");
 

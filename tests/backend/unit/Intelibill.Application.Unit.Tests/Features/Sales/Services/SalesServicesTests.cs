@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -196,6 +197,33 @@ public class SalesServicesTests
 
         Assert.True(result.IsError);
         Assert.Equal("Sale.ItemInactive", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenLineTypeIsUnsupported_ReturnsInvalidLineType()
+    {
+        var shopId = Guid.NewGuid();
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+        var commandLine = new RecordSaleItemCommand(
+            "BC-001",
+            "B-01",
+            "Rice",
+            1m,
+            80m,
+            100m,
+            120m,
+            18m,
+            false,
+            Guid.NewGuid(),
+            LineType: (SaleLineType)999);
+
+        var validator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        var result = await validator.ValidateLinesAsync(shopId, [commandLine], new List<string>(), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.InvalidLineType.Code, result.FirstError.Code);
     }
 
     private static Item MakeItem(Guid shopId, string barcode, string name) =>

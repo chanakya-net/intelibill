@@ -26,6 +26,14 @@ internal sealed class SaleLineValidator(
         var validatedByIndex = new Dictionary<int, ValidatedSaleLine>(items.Count);
         var indexedItems = items.Select((command, index) => (Index: index, Command: command)).ToList();
 
+        foreach (var (_, command) in indexedItems)
+        {
+            if (!command.IsGoodsLine && !command.IsServiceLine)
+            {
+                return Errors.Sale.InvalidLineType;
+            }
+        }
+
         var goodsLines = indexedItems.Where(x => x.Command.IsGoodsLine).ToList();
         var serviceLines = indexedItems.Where(x => x.Command.IsServiceLine).ToList();
 
