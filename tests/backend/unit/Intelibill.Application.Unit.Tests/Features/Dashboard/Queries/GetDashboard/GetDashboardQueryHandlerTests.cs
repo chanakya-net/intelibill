@@ -835,7 +835,7 @@ public class GetDashboardQueryHandlerTests
             oldServiceSale.Id,
             oldServiceSale.Items[0].Id,
             "RET-SRV-OLD",
-            SaleReturnCondition.Restockable,
+            condition: null,
             approvedRefund: 150m);
 
         _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
@@ -994,7 +994,7 @@ public class GetDashboardQueryHandlerTests
         Guid saleId,
         Guid saleItemId,
         string returnNumber,
-        SaleReturnCondition condition,
+        SaleReturnCondition? condition,
         decimal approvedRefund)
     {
         var item = SaleReturnItem.Create(

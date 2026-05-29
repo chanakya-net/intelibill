@@ -118,9 +118,10 @@ public sealed record PreviewSaleReturnRequest(
 public sealed record PreviewSaleReturnItemRequest(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
-    string? Notes);
+    string? Notes,
+    SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record RecordSaleReturnRequest(
     PaymentMethod? PayoutMethod,
@@ -132,8 +133,9 @@ public sealed record RecordSaleReturnRequest(
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
-    string? Notes);
+    string? Notes,
+    SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record VoidSaleReturnRequest(string Reason);

@@ -360,7 +360,7 @@ public class GetProfitLossReportQueryHandlerTests
         Guid saleId,
         Guid saleItemId,
         string returnNumber,
-        SaleReturnCondition condition,
+        SaleReturnCondition? condition,
         decimal quantity,
         decimal approvedRefund,
         decimal tax,

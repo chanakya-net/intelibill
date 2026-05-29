@@ -95,7 +95,7 @@ public class DashboardKpiCalculatorTests
     {
         var shopId = Guid.NewGuid();
         var saleItemId = Guid.NewGuid();
-        var serviceReturn = MakeReturn(shopId, Guid.NewGuid(), saleItemId, "RET-SRV", SaleReturnCondition.Wastage, approvedRefund: 150m, originalCostPrice: 50m);
+        var serviceReturn = MakeReturn(shopId, Guid.NewGuid(), saleItemId, "RET-SRV", condition: null, approvedRefund: 150m, originalCostPrice: 50m);
 
         var kpis = SalesKpiCalculator.CalculateSalesKpis(
             [],
@@ -232,7 +232,7 @@ public class DashboardKpiCalculatorTests
             Guid.NewGuid(),
             saleItemId,
             "RET-SRV-TREND",
-            SaleReturnCondition.Restockable,
+            condition: null,
             approvedRefund: 150m,
             originalCostPrice: 50m,
             processedAt: processedAt);
@@ -365,7 +365,7 @@ public class DashboardKpiCalculatorTests
         Guid saleId,
         Guid saleItemId,
         string returnNumber,
-        SaleReturnCondition condition,
+        SaleReturnCondition? condition,
         decimal approvedRefund,
         decimal originalCostPrice,
         DateTimeOffset? processedAt = null)

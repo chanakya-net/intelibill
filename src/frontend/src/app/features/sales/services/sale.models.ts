@@ -259,7 +259,7 @@ export interface SaleReturnItemDto {
   readonly saleReturnItemId: string;
   readonly saleItemId: string;
   readonly quantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number;
   readonly notes: string | null;
 }
@@ -318,7 +318,8 @@ export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string
 export interface PreviewSaleReturnItemRequest {
   readonly saleItemId: string;
   readonly quantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly lineType?: 'Goods' | 'Service';
+  readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number | null;
   readonly notes: string | null;
 }
@@ -351,12 +352,12 @@ export interface SaleReturnPreviewLineFinancialDto {
 
 export interface SaleReturnPreviewLineDto {
   readonly saleItemId: string;
-  readonly itemId: string;
-  readonly inventoryBatchId: string;
+  readonly itemId: string | null;
+  readonly inventoryBatchId: string | null;
   readonly requestedQuantity: number;
   readonly returnedQuantity: number;
   readonly returnableQuantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly condition: SaleReturnCondition | null;
   readonly willRestock: boolean;
   readonly financial: SaleReturnPreviewLineFinancialDto | null;
 }

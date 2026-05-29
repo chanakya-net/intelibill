@@ -19,7 +19,10 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../../services/sale.models';
+import {
+  PAYMENT_METHOD_VALUES,
+  SALE_RETURN_CONDITIONS,
+} from '../../services/sale.models';
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
@@ -158,7 +161,10 @@ export class SaleReturnPreviewDialogComponent {
         selected && this.hasFinancialAccess()
           ? this.getMaxRefundAmount(item, item.returnableQuantity)
           : null,
-      condition: selected ? draft.condition : null,
+      condition:
+        selected
+          ? (item.lineType === 'Service' ? null : draft.condition)
+          : null,
       notes: selected ? draft.notes : '',
     }));
 
@@ -243,7 +249,8 @@ export class SaleReturnPreviewDialogComponent {
       items: this.selectedDrafts().map((draft) => ({
         saleItemId: draft.saleItemId,
         quantity: draft.quantity,
-        condition: draft.condition!,
+        lineType: this.getLineType(draft.saleItemId),
+        condition: this.getRequestedCondition(draft.saleItemId, draft.condition),
         approvedRefundAmount: this.hasFinancialAccess() ? draft.approvedRefundAmount : null,
         notes: this.normalizeOptional(draft.notes),
       })),
@@ -276,7 +283,8 @@ export class SaleReturnPreviewDialogComponent {
       items: this.selectedDrafts().map((draft) => ({
         saleItemId: draft.saleItemId,
         quantity: draft.quantity,
-        condition: draft.condition!,
+        lineType: this.getLineType(draft.saleItemId),
+        condition: this.getRequestedCondition(draft.saleItemId, draft.condition),
         approvedRefundAmount: draft.approvedRefundAmount,
         notes: this.normalizeOptional(draft.notes),
       })),
@@ -304,6 +312,10 @@ export class SaleReturnPreviewDialogComponent {
 
   getPreviewItemName(saleItemId: string): string {
     return this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.itemName || 'Unknown Item';
+  }
+
+  isServiceLine(item: SaleItemDto): boolean {
+    return item.lineType === 'Service';
   }
 
   private initializeDrafts(): void {
@@ -361,7 +373,7 @@ export class SaleReturnPreviewDialogComponent {
         errors.push(`${itemName} exceeds returnable quantity.`);
       }
 
-      if (!draft.condition) {
+      if (!draft.condition && item.lineType !== 'Service') {
         errors.push(`Select condition for ${itemName}.`);
       }
 
@@ -404,5 +416,13 @@ export class SaleReturnPreviewDialogComponent {
 
   private roundMoney(value: number): number {
     return Math.round(value * 100) / 100;
+  }
+
+  private getLineType(saleItemId: string): 'Goods' | 'Service' {
+    return this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.lineType ?? 'Goods';
+  }
+
+  private getRequestedCondition(saleItemId: string, condition: SaleReturnCondition | null): SaleReturnCondition | null {
+    return this.getLineType(saleItemId) === 'Service' ? null : (condition ?? 1);
   }
 }

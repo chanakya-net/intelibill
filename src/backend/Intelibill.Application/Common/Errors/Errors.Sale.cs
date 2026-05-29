@@ -149,6 +149,15 @@ public static partial class Errors
         public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
             Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
 
+        public static Error ReturnLineTypeMismatch(Guid saleItemId) =>
+            Error.Validation("SaleReturn.LineTypeMismatch", $"Return line type for sale item '{saleItemId}' does not match original sale line type.");
+
+        public static Error ReturnServiceMustBeRefundOnly(Guid saleItemId) =>
+            Error.Validation("SaleReturn.ServiceRefundOnly", $"Service sale item '{saleItemId}' supports refund-only returns.");
+
+        public static Error ReturnGoodsConditionInvalid(Guid saleItemId) =>
+            Error.Validation("SaleReturn.GoodsConditionInvalid", $"Goods sale item '{saleItemId}' must be marked as restockable or wastage.");
+
         public static Error ReturnNotFound(Guid saleReturnId) =>
             Error.NotFound("SaleReturn.NotFound", $"Sale return '{saleReturnId}' was not found.");
 

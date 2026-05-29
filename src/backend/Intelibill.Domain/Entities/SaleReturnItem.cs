@@ -11,7 +11,7 @@ public sealed class SaleReturnItem : BaseEntity
     public Guid SaleId { get; private set; }
     public Guid SaleItemId { get; private set; }
     public decimal Quantity { get; private set; }
-    public SaleReturnCondition Condition { get; private set; }
+    public SaleReturnCondition? Condition { get; private set; }
     public decimal OriginalCostPrice { get; private set; }
     public decimal OriginalSalesPrice { get; private set; }
     public decimal OriginalTaxRatePercent { get; private set; }
@@ -29,7 +29,7 @@ public sealed class SaleReturnItem : BaseEntity
         Guid saleId,
         Guid saleItemId,
         decimal quantity,
-        SaleReturnCondition condition,
+        SaleReturnCondition? condition,
         decimal originalCostPrice,
         decimal originalSalesPrice,
         decimal originalTaxRatePercent,

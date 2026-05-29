@@ -23,7 +23,11 @@ export class SaleInvoiceA4Component {
     return map[method] ?? 'Unknown';
   }
 
-  getReturnConditionLabel(condition: 1 | 2): string {
+  getReturnConditionLabel(condition: 1 | 2 | null): string {
+    if (condition === null) {
+      return 'Refund only';
+    }
+
     const condition_map = SALE_RETURN_CONDITIONS.find((c) => c.value === condition);
     return condition_map?.label ?? 'Unknown';
   }
