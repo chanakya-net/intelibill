@@ -851,11 +851,11 @@ describe('SaleInvoiceA4Component', () => {
       fixture.detectChanges();
 
       const tableText = fixture.nativeElement.textContent;
-      expect(tableText).toContain('Goods');
-      expect(tableText).toContain('Services');
+      expect(tableText).toMatch(/Goods|sales\.newSale\.cart\.goodsSection/);
+      expect(tableText).toMatch(/Services|sales\.newSale\.cart\.servicesSection/);
       expect(tableText).toContain('Goods Item');
       expect(tableText).toContain('Service Item');
-      expect(tableText).toContain('HSN/SAC');
+      expect(tableText).toMatch(/HSN\/SAC|services\.hsnSac/);
     });
 
     it('goods-only bill: remains flat and does not show section headers', () => {
@@ -868,7 +868,7 @@ describe('SaleInvoiceA4Component', () => {
       const tableText = fixture.nativeElement.textContent;
       const sectionHeaders = fixture.nativeElement.querySelectorAll('.invoice__section-header-row');
       expect(sectionHeaders.length).toBe(0);
-      expect(tableText).not.toContain('Services');
+      expect(tableText).not.toContain('sales.newSale.cart.servicesSection');
       expect(tableText).toContain('Goods Item 1');
       expect(tableText).toContain('Goods Item 2');
     });

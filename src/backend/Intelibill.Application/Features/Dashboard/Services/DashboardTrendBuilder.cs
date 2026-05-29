@@ -16,6 +16,7 @@ internal static class DashboardTrendBuilder
         static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
 
         var activeReturns = GetActiveReturns(saleReturns);
+        var saleItemTypes = sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var byDay = sales
             .GroupBy(s => LocalDate(s.SoldAt))
             .ToDictionary(
@@ -36,7 +37,7 @@ internal static class DashboardTrendBuilder
                         .Where(i => i.Condition == SaleReturnCondition.Restockable)
                         .Sum(i =>
                         {
-                            var isService = sales.SelectMany(s => s.Items).FirstOrDefault(si => si.Id == i.SaleItemId)?.LineType == SaleLineType.Service;
+                            var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
                             return isService ? 0m : i.OriginalCostPrice * i.Quantity;
                         })));
         var adjustmentLossByDay = GetActiveDecreaseAdjustments(adjustmentLosses)

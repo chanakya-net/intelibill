@@ -31,6 +31,7 @@ internal static class SalesKpiCalculator
             .Sum(i => i.CostPrice * i.Quantity);
         var totalTax = sales.Sum(s => s.TotalTaxAmount);
         var activeReturns = saleReturns?.Where(r => !r.IsVoided).ToList() ?? [];
+        var saleItemTypes = sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var refundAmount = activeReturns.Sum(r => r.TotalRefundAmount);
         var refundTax = activeReturns
             .SelectMany(r => r.Items)
@@ -49,7 +50,7 @@ internal static class SalesKpiCalculator
             .Where(i => i.Condition == SaleReturnCondition.Restockable)
             .Sum(i =>
             {
-                var isService = sales.SelectMany(s => s.Items).FirstOrDefault(si => si.Id == i.SaleItemId)?.LineType == SaleLineType.Service;
+                var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
                 return isService ? 0m : i.OriginalCostPrice * i.Quantity;
             });
         var wastageCost = activeReturns
@@ -57,7 +58,7 @@ internal static class SalesKpiCalculator
             .Where(i => i.Condition == SaleReturnCondition.Wastage)
             .Sum(i =>
             {
-                var isService = sales.SelectMany(s => s.Items).FirstOrDefault(si => si.Id == i.SaleItemId)?.LineType == SaleLineType.Service;
+                var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
                 return isService ? 0m : i.OriginalCostPrice * i.Quantity;
             });
         var adjustmentLossCost = adjustmentLosses?.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided).Sum(a => a.CostImpact) ?? 0m;

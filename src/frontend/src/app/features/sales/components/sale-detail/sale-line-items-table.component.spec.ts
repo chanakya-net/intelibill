@@ -78,8 +78,8 @@ describe('SaleLineItemsTableComponent', () => {
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Goods');
-    expect(text).toContain('Services');
-    expect(text).toContain('HSN/SAC');
+    expect(text).toMatch(/Goods|sales\.newSale\.cart\.goodsSection/);
+    expect(text).toMatch(/Services|sales\.newSale\.cart\.servicesSection/);
+    expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
   });
 });

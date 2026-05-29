@@ -23,7 +23,7 @@
 
   <section class="thermal-invoice__section">
     <ng-container *ngIf="isMixedBill(); else flatList">
-      <div class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-dashed border-slate-300 pb-0.5">Goods</div>
+      <div class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-dashed border-slate-300 pb-0.5">{{ 'sales.newSale.cart.goodsSection' | transloco }}</div>
       <div *ngFor="let item of getGoodsItems()" class="thermal-invoice__item">
         <div class="thermal-invoice__item-row">
           <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
@@ -39,7 +39,7 @@
         </p>
       </div>
 
-      <div class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mt-4 mb-2 border-b border-dashed border-slate-300 pb-0.5">Services</div>
+      <div class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mt-4 mb-2 border-b border-dashed border-slate-300 pb-0.5">{{ 'sales.newSale.cart.servicesSection' | transloco }}</div>
       <div *ngFor="let item of getServiceItems()" class="thermal-invoice__item">
         <div class="thermal-invoice__item-row">
           <span class="thermal-invoice__item-name">{{ item.itemName }}</span>

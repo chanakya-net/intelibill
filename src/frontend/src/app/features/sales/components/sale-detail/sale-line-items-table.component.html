@@ -1,11 +1,11 @@
 <div *ngIf="isMixedBill(); else flatTable" class="flex flex-col gap-4">
   <div *ngIf="getGoodsItems().length > 0" class="flex flex-col gap-1">
-    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Goods</h4>
+    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ 'sales.newSale.cart.goodsSection' | transloco }}</h4>
     <p-table [value]="$any(getGoodsItems())" styleClass="p-datatable-sm">
       <ng-template pTemplate="header">
         <tr>
           <th>{{ 'inventory.name' | transloco }}</th>
-          <th>HSN/SAC</th>
+          <th>{{ 'services.hsnSac' | transloco }}</th>
           <th>{{ 'sales.detail.qty' | transloco }}</th>
           <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
           <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
@@ -37,12 +37,12 @@
   </div>
 
   <div *ngIf="getServiceItems().length > 0" class="flex flex-col gap-1">
-    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Services</h4>
+    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ 'sales.newSale.cart.servicesSection' | transloco }}</h4>
     <p-table [value]="$any(getServiceItems())" styleClass="p-datatable-sm">
       <ng-template pTemplate="header">
         <tr>
           <th>{{ 'inventory.name' | transloco }}</th>
-          <th>HSN/SAC</th>
+          <th>{{ 'services.hsnSac' | transloco }}</th>
           <th>{{ 'sales.detail.qty' | transloco }}</th>
           <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
           <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
@@ -79,7 +79,7 @@
     <ng-template pTemplate="header">
       <tr>
         <th>{{ 'inventory.name' | transloco }}</th>
-        <th>HSN/SAC</th>
+        <th>{{ 'services.hsnSac' | transloco }}</th>
         <th>{{ 'sales.detail.qty' | transloco }}</th>
         <th>{{ 'sales.detail.pricePerUnit' | transloco }}</th>
         <th>{{ 'sales.detail.taxAmount' | transloco }}</th>
