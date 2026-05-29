@@ -40,11 +40,11 @@ export class SaleInvoiceA4Component {
   }
 
   hasGoods(): boolean {
-    return this.sale.items.some(i => i.lineType === 1);
+    return this.sale.items.some(i => i.lineType === 'Goods');
   }
 
   hasServices(): boolean {
-    return this.sale.items.some(i => i.lineType === 2);
+    return this.sale.items.some(i => i.lineType === 'Service');
   }
 
   isMixedBill(): boolean {
@@ -52,10 +52,10 @@ export class SaleInvoiceA4Component {
   }
 
   getGoodsItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 1);
+    return this.sale.items.filter(i => i.lineType === 'Goods');
   }
 
   getServiceItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 2);
+    return this.sale.items.filter(i => i.lineType === 'Service');
   }
 }

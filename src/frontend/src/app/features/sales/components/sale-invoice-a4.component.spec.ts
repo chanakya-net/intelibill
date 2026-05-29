@@ -14,7 +14,7 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 describe('SaleInvoiceA4Component', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
     saleItemId: 'item-1',
-    lineType: 1,
+    lineType: 'Goods',
     itemId: 'item-1',
     serviceId: null,
     itemName: 'Test Item',
@@ -844,8 +844,8 @@ describe('SaleInvoiceA4Component', () => {
     });
 
     it('mixed bill: groups goods and services and labels HSN/SAC', () => {
-      const goodsItem = makeSaleItem({ lineType: 1, itemName: 'Goods Item', hsnCode: 'HSN123' });
-      const serviceItem = makeSaleItem({ lineType: 2, itemName: 'Service Item', hsnCode: 'SAC456' });
+      const goodsItem = makeSaleItem({ lineType: 'Goods', itemName: 'Goods Item', hsnCode: 'HSN123' });
+      const serviceItem = makeSaleItem({ lineType: 'Service', itemName: 'Service Item', hsnCode: 'SAC456' });
       component.sale = makeSale({ items: [goodsItem, serviceItem] });
       component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
       fixture.detectChanges();
@@ -859,8 +859,8 @@ describe('SaleInvoiceA4Component', () => {
     });
 
     it('goods-only bill: remains flat and does not show section headers', () => {
-      const goodsItem1 = makeSaleItem({ lineType: 1, itemName: 'Goods Item 1' });
-      const goodsItem2 = makeSaleItem({ lineType: 1, itemName: 'Goods Item 2' });
+      const goodsItem1 = makeSaleItem({ lineType: 'Goods', itemName: 'Goods Item 1' });
+      const goodsItem2 = makeSaleItem({ lineType: 'Goods', itemName: 'Goods Item 2' });
       component.sale = makeSale({ items: [goodsItem1, goodsItem2] });
       component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
       fixture.detectChanges();

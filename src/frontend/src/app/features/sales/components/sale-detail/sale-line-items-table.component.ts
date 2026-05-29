@@ -75,11 +75,11 @@ export class SaleLineItemsTableComponent {
   }
 
   hasGoods(): boolean {
-    return this.items.some(i => i.lineType === 1);
+    return this.items.some(i => i.lineType === 'Goods');
   }
 
   hasServices(): boolean {
-    return this.items.some(i => i.lineType === 2);
+    return this.items.some(i => i.lineType === 'Service');
   }
 
   isMixedBill(): boolean {
@@ -87,10 +87,10 @@ export class SaleLineItemsTableComponent {
   }
 
   getGoodsItems(): SaleItemDto[] {
-    return this.items.filter(i => i.lineType === 1);
+    return this.items.filter(i => i.lineType === 'Goods');
   }
 
   getServiceItems(): SaleItemDto[] {
-    return this.items.filter(i => i.lineType === 2);
+    return this.items.filter(i => i.lineType === 'Service');
   }
 }

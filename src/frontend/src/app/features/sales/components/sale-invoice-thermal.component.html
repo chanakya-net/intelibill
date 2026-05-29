@@ -66,7 +66,7 @@
           <span>{{ item.quantity }} x {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}</span>
           <span>{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%: {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
         </div>
-        <p *ngIf="shop.gstNumber && item.hsnCode" class="thermal-invoice__line thermal-invoice__item-hsn">{{ item.lineType === 2 ? 'SAC' : 'HSN' }}: {{ item.hsnCode }}</p>
+        <p *ngIf="shop.gstNumber && item.hsnCode" class="thermal-invoice__line thermal-invoice__item-hsn">{{ item.lineType === 'Service' ? 'SAC' : 'HSN' }}: {{ item.hsnCode }}</p>
         <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
           {{ 'sales.invoice.discount' | transloco }}: -{{ getLineDiscountAmount(item) | currency: 'INR': 'symbol': '1.2-2' }}
         </p>

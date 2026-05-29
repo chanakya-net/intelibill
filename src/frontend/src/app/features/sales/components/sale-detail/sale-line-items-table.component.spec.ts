@@ -11,7 +11,7 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 
 const makeItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
   saleItemId: 'line-1',
-  lineType: 1,
+  lineType: 'Goods',
   itemId: 'item-1',
   serviceId: null,
   itemName: 'Soap',
@@ -72,8 +72,8 @@ describe('SaleLineItemsTableComponent', () => {
     const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
     const component = fixture.componentInstance;
     component.items = [
-      makeItem({ itemName: 'Soap', lineType: 1, hsnCode: 'HSN1' }),
-      makeItem({ saleItemId: 'line-2', itemName: 'Repair', lineType: 2, itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
+      makeItem({ itemName: 'Soap', lineType: 'Goods', hsnCode: 'HSN1' }),
+      makeItem({ saleItemId: 'line-2', itemName: 'Repair', lineType: 'Service', itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
     ];
     fixture.detectChanges();
 

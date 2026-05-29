@@ -216,7 +216,7 @@ export interface InvoiceLeaseDto {
 
 export interface SaleItemDto {
   readonly saleItemId: string;
-  readonly lineType: number; // 1 = Goods, 2 = Service
+  readonly lineType: 'Goods' | 'Service';
   readonly itemId: string | null;
   readonly serviceId: string | null;
   readonly itemName: string;
