@@ -263,4 +263,102 @@ describe('calculateOfflineFrozenSale', () => {
 
     expect(first).toEqual(second);
   });
+
+  it('service lines receive no discounts, cost=0, and are excluded from eligibleSubtotal', () => {
+    const result = calculateOfflineFrozenSale({
+      soldAt: '2026-05-22T10:00:00.000Z',
+      paymentMethod: 1,
+      paidAmount: 0,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+      saleDiscount: { type: 1, value: 20 },
+      rules: [{ ruleId: 'sale-rule', ruleType: 'SalePercentage', inventoryBatchId: null, percentage: 10 }],
+      lines: [
+        {
+          inventoryBatchId: '',
+          serviceId: 'svc-1',
+          itemId: 'svc-1',
+          barcode: 'SVC001',
+          itemName: 'Consulting',
+          batchNumber: '',
+          quantity: 1,
+          salesPrice: 200,
+          mrp: 0,
+          costPrice: 0,
+          taxRatePercent: 18,
+          taxIncluded: false,
+          itemDiscount: { type: 2, value: 10 },
+          hsnCode: null,
+          lineType: 'service',
+        },
+        {
+          inventoryBatchId: 'batch-1',
+          itemId: 'item-1',
+          barcode: '111',
+          itemName: 'Goods A',
+          batchNumber: 'B1',
+          quantity: 1,
+          salesPrice: 100,
+          mrp: 100,
+          costPrice: 80,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          itemDiscount: { type: 0, value: 0 },
+          hsnCode: null,
+        },
+      ],
+    });
+
+    const serviceLine = result.lines.find((l) => l.lineType === 'service')!;
+    const goodsLine = result.lines.find((l) => l.lineType !== 'service')!;
+
+    // Service line: no item discount, no sale discount, cost=0
+    expect(serviceLine.itemDiscountAmount).toBe(0);
+    expect(serviceLine.saleDiscountAmount).toBe(0);
+    expect(serviceLine.costPrice).toBe(0);
+    expect(serviceLine.mrp).toBe(0);
+    expect(serviceLine.serviceId).toBe('svc-1');
+    expect(serviceLine.lineType).toBe('service');
+
+    // Goods line should receive full sale discount (service excluded from eligibleSubtotal)
+    expect(goodsLine.saleDiscountAmount).toBeGreaterThan(0);
+    expect(goodsLine.lineType).toBe('goods');
+    expect(goodsLine.serviceId).toBeNull();
+  });
+
+  it('service-only sale has zero total discounts', () => {
+    const result = calculateOfflineFrozenSale({
+      soldAt: '2026-05-22T10:00:00.000Z',
+      paymentMethod: 1,
+      paidAmount: 0,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+      saleDiscount: { type: 1, value: 50 },
+      rules: [{ ruleId: 'sale-rule', ruleType: 'SalePercentage', inventoryBatchId: null, percentage: 20 }],
+      lines: [{
+        inventoryBatchId: '',
+        serviceId: 'svc-1',
+        itemId: 'svc-1',
+        barcode: 'SVC001',
+        itemName: 'Repair',
+        batchNumber: '',
+        quantity: 2,
+        salesPrice: 500,
+        mrp: 0,
+        costPrice: 0,
+        taxRatePercent: 18,
+        taxIncluded: false,
+        itemDiscount: { type: 2, value: 30 },
+        hsnCode: null,
+        lineType: 'service',
+      }],
+    });
+
+    expect(result.totals.totalDiscount).toBe(0);
+    expect(result.lines[0].itemDiscountAmount).toBe(0);
+    expect(result.lines[0].saleDiscountAmount).toBe(0);
+    expect(result.lines[0].lineType).toBe('service');
+  });
 });

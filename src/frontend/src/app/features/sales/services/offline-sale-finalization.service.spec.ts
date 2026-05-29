@@ -12,6 +12,7 @@ describe('OfflineSaleFinalizationService', () => {
     const snapshotDb = {
       getUsableSnapshotInfo: vi.fn().mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
       getUsableBatches: vi.fn().mockResolvedValue([makeBatchSnapshot()]),
+      getUsableServices: vi.fn().mockResolvedValue([]),
       getUsableDiscountRules: vi.fn().mockResolvedValue([]),
       getUsableCustomers: vi.fn().mockResolvedValue([{ customerId: 'cust-1' }]),
     };

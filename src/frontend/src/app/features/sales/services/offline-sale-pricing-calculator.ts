@@ -107,27 +107,24 @@ function calculateEffectiveSaleDiscount(
 export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): OfflineFrozenSalePricing {
   const eligibleRules = input.rules.filter((rule) => isRuleActive(rule, input.soldAt));
   const lines = input.lines.map((line, index) => {
+    const isService = line.lineType === 'service';
     const quantity = Math.max(0, line.quantity);
     const grossAmount = roundMoney(line.salesPrice * quantity);
     const preTaxAmount = line.taxIncluded
       ? roundMoney(grossAmount / (1 + line.taxRatePercent / 100))
       : grossAmount;
 
-    const rule = pickBatchRule(eligibleRules, line);
-    const itemDiscountAmount = clamp(
-      calculateEffectiveItemDiscount(line.itemDiscount, preTaxAmount, rule),
-      0,
-      preTaxAmount,
-    );
+    const rule = isService ? null : pickBatchRule(eligibleRules, line);
+    const itemDiscountAmount = isService
+      ? 0
+      : clamp(calculateEffectiveItemDiscount(line.itemDiscount, preTaxAmount, rule), 0, preTaxAmount);
 
     const taxableBeforeSaleDiscount = roundMoney(preTaxAmount - itemDiscountAmount);
     const taxAmountBeforeSaleDiscount = roundMoney(taxableBeforeSaleDiscount * (line.taxRatePercent / 100));
-    const lineTotalBeforeSaleDiscount = line.taxIncluded
-      ? roundMoney(taxableBeforeSaleDiscount + taxAmountBeforeSaleDiscount)
-      : roundMoney(taxableBeforeSaleDiscount + taxAmountBeforeSaleDiscount);
+    const lineTotalBeforeSaleDiscount = roundMoney(taxableBeforeSaleDiscount + taxAmountBeforeSaleDiscount);
 
     return {
-      clientLineId: line.clientLineId ?? `${line.inventoryBatchId}-${index + 1}`,
+      clientLineId: line.clientLineId ?? `${line.inventoryBatchId || line.serviceId}-${index + 1}`,
       inventoryBatchId: line.inventoryBatchId,
       itemId: line.itemId,
       barcode: line.barcode,
@@ -135,8 +132,8 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
       batchNumber: line.batchNumber,
       quantity,
       salesPrice: line.salesPrice,
-      mrp: line.mrp,
-      costPrice: line.costPrice,
+      mrp: isService ? 0 : line.mrp,
+      costPrice: isService ? 0 : line.costPrice,
       taxRatePercent: line.taxRatePercent,
       taxIncluded: line.taxIncluded,
       hsnCode: line.hsnCode,
@@ -148,20 +145,36 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
       lineTotal: lineTotalBeforeSaleDiscount,
       configuredRuleId: rule?.ruleId ?? null,
       configuredRulePercentage: rule?.percentage ?? null,
-      itemDiscountOverrideType: line.itemDiscount.type,
-      itemDiscountOverrideValue: line.itemDiscount.value,
+      itemDiscountOverrideType: isService ? 0 : line.itemDiscount.type,
+      itemDiscountOverrideValue: isService ? 0 : line.itemDiscount.value,
+      lineType: isService ? ('service' as const) : ('goods' as const),
+      serviceId: line.serviceId ?? null,
     };
   });
 
-  const eligibleSubtotal = roundMoney(lines.reduce((sum, line) => sum + line.taxableAmount, 0));
+  const eligibleSubtotal = roundMoney(
+    lines.filter((line) => line.lineType !== 'service').reduce((sum, line) => sum + line.taxableAmount, 0),
+  );
   const saleRule = pickSaleRule(eligibleRules, eligibleSubtotal);
   const saleDiscountRaw = calculateEffectiveSaleDiscount(input.saleDiscount, eligibleSubtotal, saleRule);
   const saleDiscountTotal = clamp(saleDiscountRaw, 0, eligibleSubtotal);
 
   let allocated = 0;
-  const pricedLines = lines.map((line, index) => {
+  const goodsCount = lines.filter((line) => line.lineType !== 'service').length;
+  let goodsAllocated = 0;
+  const pricedLines = lines.map((line) => {
+    if (line.lineType === 'service') {
+      return {
+        ...line,
+        saleDiscountAmount: 0,
+        lineType: 'service' as const,
+        serviceId: line.serviceId,
+      } as OfflineFrozenSaleLine;
+    }
+
     const weight = eligibleSubtotal > 0 ? line.taxableAmount / eligibleSubtotal : 0;
-    const amount = index === lines.length - 1
+    goodsAllocated++;
+    const amount = goodsAllocated === goodsCount
       ? roundMoney(saleDiscountTotal - allocated)
       : roundMoney(saleDiscountTotal * weight);
     allocated = roundMoney(allocated + amount);

@@ -92,14 +92,25 @@ export interface OfflineSalesSnapshotScopedRecord<T> {
   readonly writtenAt: string;
 }
 
+export interface OfflineSellableServiceSnapshot {
+  readonly serviceId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly price: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly hsnCode?: string | null;
+}
+
 export const OFFLINE_SALES_SNAPSHOT_DATABASE_NAME = 'intelibill-offline-sales-snapshot';
-export const OFFLINE_SALES_SNAPSHOT_DATABASE_VERSION = 1;
+export const OFFLINE_SALES_SNAPSHOT_DATABASE_VERSION = 2;
 export const OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE = 'snapshot-attempts';
 export const OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE = 'shop-pointers';
 export const OFFLINE_SALES_SNAPSHOT_BATCHES_STORE = 'batches';
 export const OFFLINE_SALES_SNAPSHOT_CUSTOMERS_STORE = 'customers';
 export const OFFLINE_SALES_SNAPSHOT_DISCOUNT_RULES_STORE = 'discount-rules';
 export const OFFLINE_SALES_SNAPSHOT_ACTIVE_LEASES_STORE = 'active-leases';
+export const OFFLINE_SALES_SNAPSHOT_SERVICES_STORE = 'services';
 
 export const OFFLINE_SALES_SNAPSHOT_STORE_CONFIGS = [
   { name: OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE, keyPath: 'snapshotId' },
@@ -108,6 +119,7 @@ export const OFFLINE_SALES_SNAPSHOT_STORE_CONFIGS = [
   { name: OFFLINE_SALES_SNAPSHOT_CUSTOMERS_STORE, keyPath: 'key' },
   { name: OFFLINE_SALES_SNAPSHOT_DISCOUNT_RULES_STORE, keyPath: 'key' },
   { name: OFFLINE_SALES_SNAPSHOT_ACTIVE_LEASES_STORE, keyPath: 'key' },
+  { name: OFFLINE_SALES_SNAPSHOT_SERVICES_STORE, keyPath: 'key' },
 ] as const;
 
 export const OFFLINE_SALES_SNAPSHOT_ATTEMPT_STATUSES = ['incomplete', 'complete', 'failed'] as const;

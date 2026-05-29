@@ -38,6 +38,8 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
             taxAmount: 43.06,
             lineTotal: 282.3,
             configuredRuleId: null,
+            lineType: 'goods',
+            serviceId: null,
           },
         ],
         totals: {

@@ -316,6 +316,8 @@ export interface AvailableBatchDto {
   readonly purchaseTaxIncluded?: boolean;
   readonly hsnCode?: string | null;
   readonly expiryDate: string | null;
+  readonly lineType?: 'goods' | 'service';
+  readonly serviceId?: string | null;
 }
 
 export type BatchStatusFilter = 'all' | 'active' | 'voided';
