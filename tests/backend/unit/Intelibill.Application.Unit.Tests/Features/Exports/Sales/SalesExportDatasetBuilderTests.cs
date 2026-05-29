@@ -39,10 +39,12 @@ public class SalesExportDatasetBuilderTests
         _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new List<Item> { item });
 
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
             2,
             100,
             150,
@@ -108,10 +110,12 @@ public class SalesExportDatasetBuilderTests
         _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new List<Item> { item });
 
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
             2,
             100,
             150,
@@ -213,10 +217,12 @@ public class SalesExportDatasetBuilderTests
         _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new List<Item> { item });
 
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
             2,
             100,
             150,

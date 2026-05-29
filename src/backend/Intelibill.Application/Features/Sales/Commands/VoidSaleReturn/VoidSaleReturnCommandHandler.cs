@@ -63,13 +63,19 @@ public sealed class VoidSaleReturnCommandHandler(
             if (!saleItemsById.TryGetValue(returnItem.SaleItemId, out var saleItem))
                 return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
 
-            var batch = await inventoryBatchRepository.GetByIdAsync(saleItem.InventoryBatchId, cancellationToken);
-            if (batch is null || batch.ShopId != command.ShopId)
-                return Errors.Sale.ReturnBatchNotFound(saleItem.InventoryBatchId);
+            if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
+                return Errors.Sale.ReturnSaleItemNotFound(returnItem.SaleItemId);
 
-            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, saleItem.ItemId, cancellationToken);
+            var itemId = saleItem.ItemId.Value;
+            var batchId = saleItem.InventoryBatchId.Value;
+
+            var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
+            if (batch is null || batch.ShopId != command.ShopId)
+                return Errors.Sale.ReturnBatchNotFound(batchId);
+
+            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
             if (inventory is null)
-                return Errors.Sale.ReturnInventoryAggregateNotFound(saleItem.ItemId);
+                return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
 
             if (batch.Quantity < returnItem.Quantity || inventory.Quantity < returnItem.Quantity)
                 return Errors.Sale.ReturnVoidInsufficientStock;
@@ -84,8 +90,8 @@ public sealed class VoidSaleReturnCommandHandler(
 
             var stockTransaction = StockTransaction.Create(
                 command.ShopId,
-                saleItem.ItemId,
-                saleItem.InventoryBatchId,
+                itemId,
+                batchId,
                 StockTransactionType.Out,
                 -returnItem.Quantity,
                 saleReturn.ReturnNumber,

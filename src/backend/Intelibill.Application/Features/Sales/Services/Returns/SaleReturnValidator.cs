@@ -69,10 +69,17 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
-            var batch = await inventoryBatchRepository.GetByIdAsync(saleItem.InventoryBatchId, cancellationToken);
-            if (batch is null || batch.ShopId != request.ShopId || batch.Id != saleItem.InventoryBatchId)
+            if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
             {
-                validationErrors.Add(Errors.Sale.ReturnBatchNotFound(saleItem.InventoryBatchId));
+                validationErrors.Add(Errors.Sale.ReturnSaleItemNotFound(item.SaleItemId));
+                continue;
+            }
+
+            var batchId = saleItem.InventoryBatchId.Value;
+            var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
+            if (batch is null || batch.ShopId != request.ShopId || batch.Id != batchId)
+            {
+                validationErrors.Add(Errors.Sale.ReturnBatchNotFound(batchId));
                 continue;
             }
 

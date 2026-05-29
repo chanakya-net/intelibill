@@ -42,8 +42,8 @@ public sealed class PreviewSaleReturnQueryHandler(
                 var calculated = calculationsBySaleItemId[line.Request.SaleItemId];
                 return new SaleReturnPreviewLineDto(
                     line.Request.SaleItemId,
-                    line.SaleItem.ItemId,
-                    line.SaleItem.InventoryBatchId,
+                    line.SaleItem.ItemId!.Value,
+                    line.SaleItem.InventoryBatchId!.Value,
                     line.Request.Quantity,
                     line.ReturnedQuantity,
                     line.ReturnableQuantity,

@@ -96,8 +96,12 @@ public sealed class RecordSaleCommandHandler
             var calculation = pricing.Lines[index];
             return new SaleLineInput(
                 command.ShopId,
+                SaleLineType.Goods,
                 line.Item.Id,
                 line.Batch.Id,
+                ServiceId: null,
+                LineName: line.Item.Name,
+                LineCode: line.Item.Barcode,
                 line.Command.Quantity,
                 calculation.CostPrice,
                 calculation.SalesPrice,

@@ -38,9 +38,9 @@ public class GetProfitLossReportQueryHandlerTests
         var membership = MakeMembership(shop.Id, user.Id);
 
         // Item 1: Price includes tax. 110 total, 10% tax -> 100 base, 10 tax. Cost 80. Profit Before Tax: 20. Profit After Tax: 10.
-        var item1 = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 80, 110, 120, 10, true, false);
+        var item1 = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 80, 110, 120, 10, true, false);
         // Item 2: Price excludes tax. 200 base, 5% tax -> 200 base, 10 tax. Cost 150. Profit Before Tax: 50. Profit After Tax: 40.
-        var item2 = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 150, 200, 250, 5, false, false);
+        var item2 = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 150, 200, 250, 5, false, false);
 
         var sale = Sale.Create(
             shop.Id, "INV-001", null, "John Doe", null, PaymentMethod.Cash,
@@ -89,10 +89,12 @@ public class GetProfitLossReportQueryHandlerTests
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
 
-        var discountedItem = SaleItem.Create(
+        var discountedItem = SaleItem.CreateGoods(
             shop.Id,
             Guid.NewGuid(),
             Guid.NewGuid(),
+            lineName: "Item",
+            lineCode: "BC-001",
             1m,
             50m,
             100m,
@@ -147,7 +149,7 @@ public class GetProfitLossReportQueryHandlerTests
         // Item: Cost 100, Sales Price 80 (Net), 10% tax -> 88 Gross.
         // Loss Before Tax: 88 - 100 = -12.
         // Loss After Tax: 80 - 100 = -20.
-        var item = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 100, 80, 120, 10, false, false);
+        var item = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 100, 80, 120, 10, false, false);
 
         var sale = Sale.Create(
             shop.Id, "INV-002", null, "Jane Doe", null, PaymentMethod.Cash,
@@ -182,7 +184,7 @@ public class GetProfitLossReportQueryHandlerTests
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 2m, 60m, 100m, 120m, 10m, false, false);
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 2m, 60m, 100m, 120m, 10m, false, false);
         var sale = Sale.Create(
             shop.Id,
             "INV-003",
@@ -284,7 +286,7 @@ public class GetProfitLossReportQueryHandlerTests
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 120m, 10m, false, false);
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 120m, 10m, false, false);
         var sale = Sale.Create(
             shop.Id,
             "INV-ADJ",

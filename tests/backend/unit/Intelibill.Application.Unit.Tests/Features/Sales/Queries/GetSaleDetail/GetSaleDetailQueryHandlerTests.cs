@@ -29,11 +29,13 @@ public class GetSaleDetailQueryHandlerTests
     private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
         ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
 
-    private static SaleItem MakeSaleItem(Guid shopId, Guid itemId, decimal quantity = 5m) =>
-        SaleItem.Create(
+    private static SaleItem MakeSaleItem(Guid shopId, Guid itemId, decimal quantity = 5m, string lineName = "Rice", string lineCode = "BC-001") =>
+        SaleItem.CreateGoods(
             shopId,
             itemId,
             Guid.NewGuid(),
+            lineName: lineName,
+            lineCode: lineCode,
             quantity,
             costPrice: 80m,
             salesPrice: 100m,
@@ -263,10 +265,12 @@ public class GetSaleDetailQueryHandlerTests
         var user = MakeUser();
         var shop = MakeShop();
         var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
             quantity: 5m,
             costPrice: 80m,
             salesPrice: 100m,

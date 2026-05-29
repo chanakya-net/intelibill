@@ -307,10 +307,12 @@ public class PreviewSaleReturnQueryHandlerTests
             manufacturingDate: null,
             supplierId: null,
             user.Id).Value;
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             itemId,
             batch.Id,
+            lineName: "Item",
+            lineCode: "BC-001",
             quantity: 5m,
             costPrice: 80m,
             salesPrice: 100m,

@@ -22,7 +22,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
         var activeDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
         var increase = MakeAdjustment(shopId, InventoryAdjustmentDirection.Increase, InventoryAdjustmentReason.FoundStock, 15m);
         var voidedDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Expired, 10m);
@@ -54,7 +54,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 60m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var mix = SalesKpiCalculator.CalculatePaymentMix([sale]);
 
@@ -102,7 +102,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var trends = DashboardTrendBuilder.BuildTrendSeries([saleOnMiddleDay], [], start, end);
 
@@ -135,7 +135,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
         var yesterdayLoss = MakeAdjustment(
             shopId,
             InventoryAdjustmentDirection.Decrease,
@@ -194,7 +194,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 60m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var upiSale = Sale.Create(
             shopId,
@@ -208,7 +208,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
 
         var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [partialCashSale, upiSale],
@@ -240,7 +240,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
 
         var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [sale],
