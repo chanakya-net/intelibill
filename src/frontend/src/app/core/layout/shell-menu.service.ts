@@ -94,6 +94,11 @@ export class ShellMenuService {
           command: () => this.router.navigate(['/inventory']),
         },
         {
+          label: this.localizationService.translate('shell.manageServices'),
+          icon: 'pi pi-briefcase',
+          command: () => this.router.navigate(['/services']),
+        },
+        {
           label: this.localizationService.translate('shell.batchInventoryInbound'),
           icon: 'pi pi-plus',
           command: () => this.router.navigate(['/inventory/batch']),

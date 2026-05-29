@@ -32,10 +32,10 @@ describe('ShopPermissionsService', () => {
   }
 
   it.each([
-    ['owner', true, true, true, true, true, true, true, true],
-    ['manager', false, true, false, true, true, true, false, true],
-    ['staff', false, false, false, false, false, false, false, true],
-  ] satisfies Array<[string, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean]>)(
+    ['owner', true, true, true, true, true, true, true, true, true],
+    ['manager', false, true, false, true, true, true, true, false, true],
+    ['staff', false, false, false, false, false, false, false, false, true],
+  ] satisfies Array<[string, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean]>)(
     'computes permissions for %s role',
     (
       role,
@@ -45,6 +45,7 @@ describe('ShopPermissionsService', () => {
       canManageCustomers,
       canManageExpenses,
       canManageDiscounts,
+      canManageServices,
       canManageBankAccounts,
       canViewInventory,
     ) => {
@@ -61,6 +62,7 @@ describe('ShopPermissionsService', () => {
       expect(service.canManageSales()).toBe(true);
       expect(service.canManageExpenses()).toBe(canManageExpenses);
       expect(service.canManageDiscounts()).toBe(canManageDiscounts);
+      expect(service.canManageServices()).toBe(canManageServices);
       expect(service.canManageBankAccounts()).toBe(canManageBankAccounts);
       expect(service.canViewInventory()).toBe(canViewInventory);
     },
@@ -80,6 +82,7 @@ describe('ShopPermissionsService', () => {
     expect(service.canManageSales()).toBe(false);
     expect(service.canManageExpenses()).toBe(false);
     expect(service.canManageDiscounts()).toBe(false);
+    expect(service.canManageServices()).toBe(false);
     expect(service.canManageBankAccounts()).toBe(false);
     expect(service.canViewInventory()).toBe(false);
   });

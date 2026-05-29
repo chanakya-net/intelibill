@@ -124,6 +124,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'services',
+				loadComponent: () =>
+					import('../../features/services/pages/services-page.component').then(
+						(m) => m.ServicesPageComponent
+					),
+			},
+			{
 				path: 'suppliers',
 				loadComponent: () =>
 					import('../../features/suppliers/pages/suppliers-page.component').then(

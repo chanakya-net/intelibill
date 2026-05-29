@@ -81,9 +81,11 @@ describe('app routes', () => {
     const shellRoute = routes.find((route) => route.path === '');
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const dashboardRoute = shellRoot?.children?.find((route) => route.path === 'dashboard');
+    const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
 
     expect(shellRoute).toBeDefined();
     expect(dashboardRoute).toBeDefined();
+    expect(servicesRoute).toBeDefined();
     expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
 
     authService.isAuthenticated.mockReturnValue(false);
