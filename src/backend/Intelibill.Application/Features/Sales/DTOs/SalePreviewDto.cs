@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public sealed record SalePreviewDto(
@@ -18,11 +20,13 @@ public sealed record SalePreviewConfiguredSaleRuleDto(
     decimal? ThresholdAmount);
 
 public sealed record SalePreviewLineDto(
-    Guid ItemId,
+    SaleLineType LineType,
+    Guid? ItemId,
+    Guid? ServiceId,
     string Barcode,
     string ItemName,
-    Guid InventoryBatchId,
-    string BatchNumber,
+    Guid? InventoryBatchId,
+    string? BatchNumber,
     decimal Quantity,
     decimal CostPrice,
     decimal SalesPrice,
@@ -40,7 +44,36 @@ public sealed record SalePreviewLineDto(
     Guid? ConfiguredBatchRuleId,
     decimal? ConfiguredBatchRulePercentage,
     bool HasClientPriceMismatch,
-    string? ClientLineKey);
+    string? ClientLineKey)
+{
+    public SalePreviewLineDto(
+        Guid itemId,
+        string barcode,
+        string itemName,
+        Guid inventoryBatchId,
+        string batchNumber,
+        decimal quantity,
+        decimal costPrice,
+        decimal salesPrice,
+        decimal mrp,
+        decimal taxRatePercent,
+        bool isPriceIncludingTax,
+        decimal preTaxAmountBeforeDiscount,
+        decimal itemDiscountAmount,
+        decimal saleDiscountAmount,
+        decimal taxableAmount,
+        decimal taxAmount,
+        decimal lineTotalAmount,
+        decimal maxAllowedItemDiscountFlat,
+        decimal maxAllowedItemDiscountPercent,
+        Guid? configuredBatchRuleId,
+        decimal? configuredBatchRulePercentage,
+        bool hasClientPriceMismatch,
+        string? clientLineKey)
+        : this(SaleLineType.Goods, itemId, null, barcode, itemName, inventoryBatchId, batchNumber, quantity, costPrice, salesPrice, mrp, taxRatePercent, isPriceIncludingTax, preTaxAmountBeforeDiscount, itemDiscountAmount, saleDiscountAmount, taxableAmount, taxAmount, lineTotalAmount, maxAllowedItemDiscountFlat, maxAllowedItemDiscountPercent, configuredBatchRuleId, configuredBatchRulePercentage, hasClientPriceMismatch, clientLineKey)
+    {
+    }
+}
 
 public sealed record SalePreviewInfoDto(
     string Code,
@@ -50,6 +83,5 @@ public sealed record SalePreviewWarningDto(
     string Code,
     string Message,
     string Severity,
-    Guid InventoryBatchId,
+    Guid? InventoryBatchId,
     string? ClientLineKey);
-

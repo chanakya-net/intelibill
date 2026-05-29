@@ -47,12 +47,14 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items
-                .Where(si => si.LineType == SaleLineType.Goods && si.ItemId.HasValue && si.InventoryBatchId.HasValue)
                 .Select(si => new SaleItemDto(
                 si.Id,
-                si.ItemId!.Value,
-                !string.IsNullOrWhiteSpace(si.LineName) ? si.LineName : itemNameById.GetValueOrDefault(si.ItemId!.Value, "Unknown Item"),
-                si.InventoryBatchId!.Value,
+                si.LineType,
+                si.ItemId,
+                si.InventoryBatchId,
+                si.ServiceId,
+                si.LineCode,
+                ResolveLineName(si),
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,
@@ -71,5 +73,20 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
             }).ToList(),
             warnings);
+
+        string ResolveLineName(SaleItem saleItem)
+        {
+            if (!string.IsNullOrWhiteSpace(saleItem.LineName))
+            {
+                return saleItem.LineName;
+            }
+
+            if (saleItem.LineType == SaleLineType.Goods && saleItem.ItemId.HasValue)
+            {
+                return itemNameById.GetValueOrDefault(saleItem.ItemId.Value, "Unknown Item");
+            }
+
+            return "Unknown Service";
+        }
     }
 }

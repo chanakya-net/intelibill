@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 
@@ -47,7 +48,9 @@ public sealed class PreviewSaleQueryHandler(
             i.InventoryBatchId,
             i.ItemDiscount,
             i.ClientLineKey,
-            i.HsnCode)).ToList();
+            i.HsnCode,
+            i.LineType,
+            i.ServiceId)).ToList();
 
         var validationWarnings = new List<string>();
         var validationOrError = await saleLineValidator.ValidateLinesAsync(
@@ -64,17 +67,20 @@ public sealed class PreviewSaleQueryHandler(
         var pricingRequest = new SalePricingCalculationRequest(
             query.ShopId,
             DateTimeOffset.UtcNow,
-            validatedLines.Select((line, index) =>
+            validatedLines.Select(line =>
             {
                 return new SalePricingLineCalculationRequest(
-                    line.Batch.Id,
+                    line.LineType,
+                    line.Batch?.Id ?? Guid.Empty,
+                    line.Service?.Id,
                     line.Command.Quantity,
-                    line.Batch.GetProfitCostPrice(),
-                    line.Batch.SalesPrice,
-                    line.Batch.Mrp,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                     line.Command.TaxRatePercent,
-                    line.Batch.TaxIncluded,
-                    query.Items[index].ItemDiscount);
+                    line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
+                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
+                    line.LineType == SaleLineType.Goods);
             }).ToList(),
             query.SaleDiscount);
 
@@ -84,7 +90,7 @@ public sealed class PreviewSaleQueryHandler(
 
         var pricing = pricingOrError.Value;
 
-        var warnings = BuildWarnings(validatedLines);
+        var warnings = BuildWarnings(validatedLines, validationWarnings);
         var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
         for (var i = 0; i < validatedLines.Count; i++)
         {
@@ -92,15 +98,17 @@ public sealed class PreviewSaleQueryHandler(
             var calculated = pricing.Lines[i];
 
             lineDtos.Add(new SalePreviewLineDto(
-                validated.Item.Id,
-                validated.Item.Barcode,
-                validated.Item.Name,
-                calculated.InventoryBatchId,
-                validated.Batch.BatchNumber,
+                calculated.LineType,
+                validated.Item?.Id,
+                validated.Service?.Id,
+                validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
+                validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
+                validated.Batch?.Id,
+                validated.Batch?.BatchNumber,
                 validated.Command.Quantity,
                 calculated.CostPrice,
                 calculated.SalesPrice,
-                validated.Batch.Mrp,
+                validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
                 calculated.TaxRatePercent,
                 calculated.IsPriceIncludingTax,
                 calculated.PreTaxAmountBeforeDiscount,
@@ -135,30 +143,54 @@ public sealed class PreviewSaleQueryHandler(
             warnings);
     }
 
-    private static List<SalePreviewWarningDto> BuildWarnings(IReadOnlyList<ValidatedSaleLine> lines)
+    private static List<SalePreviewWarningDto> BuildWarnings(
+        IReadOnlyList<ValidatedSaleLine> lines,
+        IReadOnlyCollection<string> validationWarnings)
     {
         var warnings = new List<SalePreviewWarningDto>();
+        var warningMessages = new HashSet<string>(StringComparer.Ordinal);
         foreach (var line in lines)
         {
             if (line.HasPriceMismatch)
             {
+                var mismatchMessage = line.LineType == SaleLineType.Service
+                    ? "Client line pricing is stale compared to latest service pricing."
+                    : "Client line pricing is stale compared to latest batch pricing.";
+                warningMessages.Add(mismatchMessage);
                 warnings.Add(new SalePreviewWarningDto(
                     "sale_preview.warning.client_price_mismatch",
-                    "Client line pricing is stale compared to latest batch pricing.",
+                    mismatchMessage,
                     "warning",
-                    line.Batch.Id,
+                    line.Batch?.Id,
                     line.Command.ClientLineKey));
             }
 
-            if (!string.Equals(line.Command.ItemName.Trim(), line.Item.Name, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(line.Command.ItemName.Trim(), line.Item?.Name ?? line.Service?.Name ?? line.Command.ItemName, StringComparison.OrdinalIgnoreCase))
             {
+                const string nameMismatchMessage = "Client line item name differs from current item name.";
+                warningMessages.Add(nameMismatchMessage);
                 warnings.Add(new SalePreviewWarningDto(
                     "sale_preview.warning.client_item_name_mismatch",
-                    "Client line item name differs from current item name.",
+                    nameMismatchMessage,
                     "warning",
-                    line.Batch.Id,
+                    line.Batch?.Id,
                     line.Command.ClientLineKey));
             }
+        }
+
+        foreach (var validationWarning in validationWarnings)
+        {
+            if (warningMessages.Contains(validationWarning))
+            {
+                continue;
+            }
+
+            warnings.Add(new SalePreviewWarningDto(
+                "sale_preview.warning.validation",
+                validationWarning,
+                "warning",
+                null,
+                null));
         }
 
         return warnings;

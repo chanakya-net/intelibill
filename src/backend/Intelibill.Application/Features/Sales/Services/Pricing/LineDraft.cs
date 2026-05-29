@@ -2,7 +2,9 @@ namespace Intelibill.Application.Features.Sales.Services.Pricing;
 
 internal sealed record LineDraft(
     int LineIndex,
+    Intelibill.Domain.Enums.SaleLineType LineType,
     Guid InventoryBatchId,
+    Guid? ServiceId,
     decimal Quantity,
     decimal CostPrice,
     decimal SalesPrice,
@@ -16,7 +18,8 @@ internal sealed record LineDraft(
     decimal MaxAllowedItemDiscountFlat,
     decimal MaxAllowedItemDiscountPercent,
     Guid? ConfiguredBatchRuleId,
-    decimal? ConfiguredBatchRulePercentage)
+    decimal? ConfiguredBatchRulePercentage,
+    bool IsSaleDiscountEligible)
 {
-    public bool IsSaleDiscountEligible => SaleDiscountCapacity > 0m && TaxableAfterItemDiscount > 0m;
+    public bool EligibleForSaleDiscount => IsSaleDiscountEligible && SaleDiscountCapacity > 0m && TaxableAfterItemDiscount > 0m;
 }

@@ -44,6 +44,20 @@ public class GetSaleDetailQueryHandlerTests
             isPriceIncludingTax: false,
             hasPriceMismatch: false);
 
+    private static SaleItem MakeServiceSaleItem(Guid shopId, Guid serviceId, decimal quantity = 1m, string lineName = "Consultation", string lineCode = "SRV-001") =>
+        SaleItem.CreateService(
+            shopId,
+            serviceId,
+            lineName: lineName,
+            lineCode: lineCode,
+            quantity,
+            costPrice: 0m,
+            salesPrice: 300m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false);
+
     private static Sale MakeSale(Guid shopId, SaleItem saleItem) =>
         Sale.Create(
             shopId,
@@ -224,6 +238,46 @@ public class GetSaleDetailQueryHandlerTests
         Assert.Equal(0m, result.Value.Items[0].ReturnedQuantity);
         Assert.Equal(5m, result.Value.Items[0].ReturnableQuantity);
         Assert.Equal("NotReturned", result.Value.Items[0].ReturnStatus);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSaleContainsServiceLine_ReturnsServiceLineInDto()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
+        var serviceId = Guid.NewGuid();
+        var service = MakeServiceSaleItem(shop.Id, serviceId, quantity: 1m);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-002",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 500m,
+            dueAmount: 0m,
+            totalAmount: 500m,
+            totalTaxAmount: 20m,
+            [goods, service]);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Items.Count);
+        var serviceLine = Assert.Single(result.Value.Items, i => i.LineType == SaleLineType.Service);
+        Assert.Equal(serviceId, serviceLine.ServiceId);
+        Assert.Null(serviceLine.ItemId);
+        Assert.Null(serviceLine.InventoryBatchId);
+        Assert.Equal("Consultation", serviceLine.ItemName);
+        Assert.Equal("SRV-001", serviceLine.LineCode);
+        Assert.Equal(0m, serviceLine.ReturnableQuantity);
     }
 
     [Fact]

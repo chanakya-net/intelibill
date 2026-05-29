@@ -1,5 +1,5 @@
-using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
@@ -29,4 +29,10 @@ public sealed record RecordSaleItemCommand(
     Guid InventoryBatchId,
     InstantDiscount? ItemDiscount = null,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null)
+{
+    public bool IsGoodsLine => LineType == SaleLineType.Goods;
+    public bool IsServiceLine => LineType == SaleLineType.Service;
+}

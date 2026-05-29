@@ -69,14 +69,17 @@ public sealed class RecordSaleCommandHandler
             command.ShopId,
             soldAt,
             validatedLines.Select(line => new SalePricingLineCalculationRequest(
-                line.Batch.Id,
+                line.LineType,
+                line.Batch?.Id ?? Guid.Empty,
+                line.Service?.Id,
                 line.Command.Quantity,
-                line.Batch.GetProfitCostPrice(),
-                line.Batch.SalesPrice,
-                line.Batch.Mrp,
+                line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                 line.Command.TaxRatePercent,
-                line.Batch.TaxIncluded,
-                line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m))).ToList(),
+                line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
+                line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
+                line.LineType == SaleLineType.Goods)).ToList(),
             effectiveSaleDiscount);
 
         var pricingOrError = await salePricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
@@ -96,16 +99,16 @@ public sealed class RecordSaleCommandHandler
             var calculation = pricing.Lines[index];
             return new SaleLineInput(
                 command.ShopId,
-                SaleLineType.Goods,
-                line.Item.Id,
-                line.Batch.Id,
-                ServiceId: null,
-                LineName: line.Item.Name,
-                LineCode: line.Item.Barcode,
+                line.LineType,
+                line.Item?.Id,
+                line.Batch?.Id,
+                line.Service?.Id,
+                LineName: line.Item?.Name ?? line.Service!.Name,
+                LineCode: line.Item?.Barcode ?? line.Service!.Code,
                 line.Command.Quantity,
                 calculation.CostPrice,
                 calculation.SalesPrice,
-                line.Batch.Mrp,
+                line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                 calculation.TaxRatePercent,
                 calculation.IsPriceIncludingTax,
                 line.HasPriceMismatch,
@@ -147,8 +150,12 @@ public sealed class RecordSaleCommandHandler
             return saleOrError.Errors;
 
         var sale = saleOrError.Value;
-        foreach (var (cmdItem, item, batch, inventory, _) in validatedLines)
+        foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
         {
+            var cmdItem = line.Command;
+            var item = line.Item!;
+            var batch = line.Batch!;
+            var inventory = line.Inventory!;
             var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
             if (batchResult.IsError) return batchResult.Errors;
 

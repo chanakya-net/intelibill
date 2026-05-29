@@ -11,14 +11,31 @@ public sealed record SalePricingCalculationRequest(
     InstantDiscount SaleDiscount);
 
 public sealed record SalePricingLineCalculationRequest(
+    SaleLineType LineType,
     Guid InventoryBatchId,
+    Guid? ServiceId,
     decimal Quantity,
     decimal CostPrice,
     decimal SalesPrice,
     decimal Mrp,
     decimal TaxRatePercent,
     bool IsPriceIncludingTax,
-    InstantDiscount ItemDiscount);
+    InstantDiscount ItemDiscount,
+    bool IsSaleDiscountEligible)
+{
+    public SalePricingLineCalculationRequest(
+        Guid InventoryBatchId,
+        decimal Quantity,
+        decimal CostPrice,
+        decimal SalesPrice,
+        decimal Mrp,
+        decimal TaxRatePercent,
+        bool IsPriceIncludingTax,
+        InstantDiscount ItemDiscount)
+        : this(SaleLineType.Goods, InventoryBatchId, null, Quantity, CostPrice, SalesPrice, Mrp, TaxRatePercent, IsPriceIncludingTax, ItemDiscount, true)
+    {
+    }
+}
 
 public sealed record SalePricingCalculationResult(
     IReadOnlyList<SalePricingLineCalculation> Lines,
@@ -41,7 +58,9 @@ public sealed record SalePricingInfoMessage(
     string Message);
 
 public sealed record SalePricingLineCalculation(
+    SaleLineType LineType,
     Guid InventoryBatchId,
+    Guid? ServiceId,
     decimal Quantity,
     decimal CostPrice,
     decimal SalesPrice,
@@ -56,7 +75,29 @@ public sealed record SalePricingLineCalculation(
     decimal MaxAllowedItemDiscountFlat,
     decimal MaxAllowedItemDiscountPercent,
     Guid? ConfiguredBatchRuleId,
-    decimal? ConfiguredBatchRulePercentage);
+    decimal? ConfiguredBatchRulePercentage)
+{
+    public SalePricingLineCalculation(
+        Guid InventoryBatchId,
+        decimal Quantity,
+        decimal CostPrice,
+        decimal SalesPrice,
+        decimal TaxRatePercent,
+        bool IsPriceIncludingTax,
+        decimal PreTaxAmountBeforeDiscount,
+        decimal ItemDiscountAmount,
+        decimal SaleDiscountAmount,
+        decimal TaxableAmount,
+        decimal TaxAmount,
+        decimal TotalAmount,
+        decimal MaxAllowedItemDiscountFlat,
+        decimal MaxAllowedItemDiscountPercent,
+        Guid? ConfiguredBatchRuleId,
+        decimal? ConfiguredBatchRulePercentage)
+        : this(SaleLineType.Goods, InventoryBatchId, null, Quantity, CostPrice, SalesPrice, TaxRatePercent, IsPriceIncludingTax, PreTaxAmountBeforeDiscount, ItemDiscountAmount, SaleDiscountAmount, TaxableAmount, TaxAmount, TotalAmount, MaxAllowedItemDiscountFlat, MaxAllowedItemDiscountPercent, ConfiguredBatchRuleId, ConfiguredBatchRulePercentage)
+    {
+    }
+}
 
 public interface ISalePricingCalculator
 {

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -70,20 +71,22 @@ public sealed class GetSaleDetailQueryHandler(
             sale.TotalAmount,
             sale.TotalTaxAmount,
             sale.Items
-                .Where(si => si.LineType == SaleLineType.Goods && si.ItemId.HasValue && si.InventoryBatchId.HasValue)
                 .Select(si => new SaleItemDto(
                 si.Id,
-                si.ItemId!.Value,
-                !string.IsNullOrWhiteSpace(si.LineName) ? si.LineName : itemNameById.GetValueOrDefault(si.ItemId!.Value, "Unknown Item"),
-                si.InventoryBatchId!.Value,
+                si.LineType,
+                si.ItemId,
+                si.InventoryBatchId,
+                si.ServiceId,
+                si.LineCode,
+                ResolveLineName(si),
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
                 si.HasPriceMismatch,
                 GetReturnedQuantity(si.Id),
-                GetReturnableQuantity(si.Id, si.Quantity),
-                GetReturnStatus(si.Id, si.Quantity))
+                GetReturnableQuantity(si),
+                GetReturnStatus(si))
             {
                 OriginalSalesPrice = si.OriginalSalesPrice,
                 FinalSalesPrice = si.FinalSalesPrice,
@@ -123,16 +126,43 @@ public sealed class GetSaleDetailQueryHandler(
         decimal GetReturnedQuantity(Guid saleItemId) =>
             returnedQuantityBySaleItemId.GetValueOrDefault(saleItemId);
 
-        decimal GetReturnableQuantity(Guid saleItemId, decimal soldQuantity) =>
-            Math.Max(0m, soldQuantity - GetReturnedQuantity(saleItemId));
-
-        string GetReturnStatus(Guid saleItemId, decimal soldQuantity)
+        decimal GetReturnableQuantity(SaleItem saleItem)
         {
-            var returnedQuantity = GetReturnedQuantity(saleItemId);
+            if (saleItem.LineType != SaleLineType.Goods)
+            {
+                return 0m;
+            }
+
+            return Math.Max(0m, saleItem.Quantity - GetReturnedQuantity(saleItem.Id));
+        }
+
+        string GetReturnStatus(SaleItem saleItem)
+        {
+            if (saleItem.LineType != SaleLineType.Goods)
+            {
+                return NotReturned;
+            }
+
+            var returnedQuantity = GetReturnedQuantity(saleItem.Id);
             if (returnedQuantity <= 0m)
                 return NotReturned;
 
-            return returnedQuantity >= soldQuantity ? FullyReturned : PartiallyReturned;
+            return returnedQuantity >= saleItem.Quantity ? FullyReturned : PartiallyReturned;
+        }
+
+        string ResolveLineName(SaleItem saleItem)
+        {
+            if (!string.IsNullOrWhiteSpace(saleItem.LineName))
+            {
+                return saleItem.LineName;
+            }
+
+            if (saleItem.LineType == SaleLineType.Goods && saleItem.ItemId.HasValue)
+            {
+                return itemNameById.GetValueOrDefault(saleItem.ItemId.Value, "Unknown Item");
+            }
+
+            return "Unknown Service";
         }
     }
 }

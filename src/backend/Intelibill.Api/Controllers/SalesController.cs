@@ -124,7 +124,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     i.InventoryBatchId,
                     i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
                     i.ClientLineKey,
-                    i.HsnCode)).ToList(),
+                    i.HsnCode,
+                    i.LineType,
+                    i.ServiceId)).ToList(),
                 request.SaleDiscount is null
                     ? null
                     : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value)),

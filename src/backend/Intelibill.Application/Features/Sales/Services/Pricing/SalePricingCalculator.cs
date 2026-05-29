@@ -41,15 +41,20 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         var lineDrafts = new List<LineDraft>(request.Lines.Count);
         for (var lineIndex = 0; lineIndex < request.Lines.Count; lineIndex++)
         {
-            batchRulesByBatchId.TryGetValue(request.Lines[lineIndex].InventoryBatchId, out var batchRule);
-            var draftOrError = DraftLine(request.Lines[lineIndex], lineIndex, batchRule);
+            var line = request.Lines[lineIndex];
+            DiscountRule? batchRule = null;
+            if (line.LineType == SaleLineType.Goods)
+            {
+                batchRulesByBatchId.TryGetValue(line.InventoryBatchId, out batchRule);
+            }
+            var draftOrError = DraftLine(line, lineIndex, batchRule);
             if (draftOrError.IsError)
                 return draftOrError.Errors;
             lineDrafts.Add(draftOrError.Value);
         }
 
         var eligibleDrafts = lineDrafts
-            .Where(d => d.IsSaleDiscountEligible)
+            .Where(d => d.EligibleForSaleDiscount)
             .ToList();
 
         var saleLevelEligibleSubtotal = SalePricingMath.RoundMoney(eligibleDrafts.Sum(d => d.TaxableAfterItemDiscount));
@@ -90,7 +95,7 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             var totalAmount = SalePricingMath.CalculateLineTotalAmount(draft.Quantity, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, taxableAfterAllDiscounts, totalPreTaxDiscount);
             var taxAmount = SalePricingMath.RoundMoney(Math.Max(0m, totalAmount - taxableAfterAllDiscounts));
 
-            finalLines.Add(new SalePricingLineCalculation(draft.InventoryBatchId, draft.Quantity, draft.CostPrice, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, draft.PreTaxBeforeDiscount, draft.ItemDiscountAmount, saleDiscountForLine, taxableAfterAllDiscounts, taxAmount, totalAmount, draft.MaxAllowedItemDiscountFlat, draft.MaxAllowedItemDiscountPercent, draft.ConfiguredBatchRuleId, draft.ConfiguredBatchRulePercentage));
+            finalLines.Add(new SalePricingLineCalculation(draft.LineType, draft.InventoryBatchId, draft.ServiceId, draft.Quantity, draft.CostPrice, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, draft.PreTaxBeforeDiscount, draft.ItemDiscountAmount, saleDiscountForLine, taxableAfterAllDiscounts, taxAmount, totalAmount, draft.MaxAllowedItemDiscountFlat, draft.MaxAllowedItemDiscountPercent, draft.ConfiguredBatchRuleId, draft.ConfiguredBatchRulePercentage));
         }
 
         var totalTaxableAmount = SalePricingMath.RoundMoney(finalLines.Sum(l => l.TaxableAmount));
@@ -128,6 +133,6 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         var revenueAfterItemDiscount = SalePricingMath.CalculateRevenueForCostCheck(taxableAfterItemDiscount, line.TaxRatePercent, line.IsPriceIncludingTax);
         if (revenueAfterItemDiscount < costTotal) return Errors.Sale.LineWouldBeBelowCost(line.InventoryBatchId);
         var saleDiscountCapacity = SalePricingMath.CalculateDiscountCapacity(taxableAfterItemDiscount, costTotal, line.TaxRatePercent, line.IsPriceIncludingTax);
-        return new LineDraft(lineIndex, line.InventoryBatchId, line.Quantity, line.CostPrice, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax, preTaxBeforeDiscount, costTotal, itemDiscountAmount, taxableAfterItemDiscount, saleDiscountCapacity, maxAllowedItemDiscountFlat, maxAllowedItemDiscountPercent, configuredBatchRule?.Id, configuredBatchRule?.Percentage);
+        return new LineDraft(lineIndex, line.LineType, line.InventoryBatchId, line.ServiceId, line.Quantity, line.CostPrice, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax, preTaxBeforeDiscount, costTotal, itemDiscountAmount, taxableAfterItemDiscount, saleDiscountCapacity, maxAllowedItemDiscountFlat, maxAllowedItemDiscountPercent, configuredBatchRule?.Id, configuredBatchRule?.Percentage, line.IsSaleDiscountEligible);
     }
 }
