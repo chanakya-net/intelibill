@@ -40,7 +40,7 @@
     <thead class="invoice__items-header">
       <tr>
         <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
-        <th *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ 'services.hsnSac' | transloco }}</th>
+        <th *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ (hasServices() ? 'services.hsnSac' : 'sales.invoice.hsn') | transloco }}</th>
         <th class="invoice__col-qty">{{ 'sales.detail.qty' | transloco }}</th>
         <th class="invoice__col-price">{{ 'sales.detail.pricePerUnit' | transloco }}</th>
         <th class="invoice__col-discount">{{ 'sales.detail.discount' | transloco }}</th>

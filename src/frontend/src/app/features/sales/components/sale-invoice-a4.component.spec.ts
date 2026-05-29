@@ -872,5 +872,26 @@ describe('SaleInvoiceA4Component', () => {
       expect(tableText).toContain('Goods Item 1');
       expect(tableText).toContain('Goods Item 2');
     });
+
+    it('goods-only GST bill: header stays plain HSN, not HSN/SAC', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ lineType: 'Goods', hsnCode: 'HSN123' })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const headerText = fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
+      expect(headerText).not.toContain('HSN/SAC');
+      expect(headerText).toContain('HSN');
+    });
+
+    it('service-only GST bill: header shows HSN/SAC and stays flat', () => {
+      component.sale = makeSale({ items: [makeSaleItem({ lineType: 'Service', itemName: 'Service Item', hsnCode: 'SAC456' })] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const headerText = fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
+      const sectionHeaders = fixture.nativeElement.querySelectorAll('.invoice__section-header-row');
+      expect(headerText).toContain('HSN/SAC');
+      expect(sectionHeaders.length).toBe(0);
+    });
   });
 });

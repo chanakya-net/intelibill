@@ -82,4 +82,46 @@ describe('SaleLineItemsTableComponent', () => {
     expect(text).toMatch(/Services|sales\.newSale\.cart\.servicesSection/);
     expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
   });
+
+  it('goods-only bill: keeps flat layout without HSN/SAC column', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        SaleLineItemsTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
+    const component = fixture.componentInstance;
+    component.items = [
+      makeItem({ itemName: 'Soap', lineType: 'Goods', hsnCode: 'HSN1' }),
+      makeItem({ saleItemId: 'line-2', itemName: 'Brush', lineType: 'Goods' }),
+    ];
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('sales.newSale.cart.goodsSection');
+    expect(text).not.toContain('sales.newSale.cart.servicesSection');
+    expect(text).not.toMatch(/HSN\/SAC|services\.hsnSac/);
+  });
+
+  it('service-only bill: keeps flat layout with HSN/SAC column', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        SaleLineItemsTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
+    const component = fixture.componentInstance;
+    component.items = [
+      makeItem({ itemName: 'Repair', lineType: 'Service', itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
+    ];
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('sales.newSale.cart.servicesSection');
+    expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
+  });
 });
