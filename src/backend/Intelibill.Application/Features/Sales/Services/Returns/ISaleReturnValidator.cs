@@ -16,7 +16,7 @@ public sealed record SaleReturnValidationLineRequest(
     Guid SaleItemId,
     decimal Quantity,
     SaleLineType LineType,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
     string? Notes);
 

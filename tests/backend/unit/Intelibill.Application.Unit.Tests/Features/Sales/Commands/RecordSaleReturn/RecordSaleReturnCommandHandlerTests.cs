@@ -226,7 +226,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Service refund",
-                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Wastage, ApprovedRefundAmount: null, Notes: "Not delivered")] ),
+                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: "Not delivered")] ),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -238,6 +238,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 r.ReturnNumber == "RET-20260505-SERVICE1"
                 && r.Items.Count == 1
                 && r.Items[0].SaleItemId == serviceItem.Id
+                && r.Items[0].Condition == null
                 && r.Items[0].OriginalCostPrice == 0m
                 && r.TotalRefundAmount == 150m
                 && r.PayoutAmount == 150m),

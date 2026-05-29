@@ -19,7 +19,10 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../../services/sale.models';
+import {
+  PAYMENT_METHOD_VALUES,
+  SALE_RETURN_CONDITIONS,
+} from '../../services/sale.models';
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
@@ -158,7 +161,10 @@ export class SaleReturnPreviewDialogComponent {
         selected && this.hasFinancialAccess()
           ? this.getMaxRefundAmount(item, item.returnableQuantity)
           : null,
-      condition: selected ? (item.lineType === 'Service' ? 2 : draft.condition) : null,
+      condition:
+        selected
+          ? (item.lineType === 'Service' ? null : draft.condition)
+          : null,
       notes: selected ? draft.notes : '',
     }));
 
@@ -416,7 +422,7 @@ export class SaleReturnPreviewDialogComponent {
     return this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.lineType ?? 'Goods';
   }
 
-  private getRequestedCondition(saleItemId: string, condition: SaleReturnCondition | null): SaleReturnCondition {
-    return this.getLineType(saleItemId) === 'Service' ? 2 : (condition ?? 1);
+  private getRequestedCondition(saleItemId: string, condition: SaleReturnCondition | null): SaleReturnCondition | null {
+    return this.getLineType(saleItemId) === 'Service' ? null : (condition ?? 1);
   }
 }

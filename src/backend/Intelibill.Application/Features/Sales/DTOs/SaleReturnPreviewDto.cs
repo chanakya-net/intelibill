@@ -16,7 +16,7 @@ public sealed record SaleReturnPreviewLineDto(
     decimal RequestedQuantity,
     decimal ReturnedQuantity,
     decimal ReturnableQuantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     bool WillRestock,
     SaleReturnPreviewLineFinancialDto? Financial);
 

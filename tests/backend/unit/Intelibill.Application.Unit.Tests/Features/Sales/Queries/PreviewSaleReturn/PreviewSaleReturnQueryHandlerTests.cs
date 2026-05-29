@@ -291,13 +291,14 @@ public class PreviewSaleReturnQueryHandlerTests
                 sale.Id,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
-                [new PreviewSaleReturnItemQuery(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Wastage, ApprovedRefundAmount: null, Notes: null)]),
+                [new PreviewSaleReturnItemQuery(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: null)]),
             CancellationToken.None);
 
         Assert.False(result.IsError);
         var line = Assert.Single(result.Value.Lines);
         Assert.Null(line.ItemId);
         Assert.Null(line.InventoryBatchId);
+        Assert.Null(line.Condition);
         Assert.False(line.WillRestock);
         Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
         await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());

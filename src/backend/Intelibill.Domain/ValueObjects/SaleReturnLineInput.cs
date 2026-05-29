@@ -6,7 +6,7 @@ public sealed record SaleReturnLineInput(
     Guid ShopId,
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal OriginalCostPrice,
     decimal OriginalSalesPrice,
     decimal OriginalTaxRatePercent,

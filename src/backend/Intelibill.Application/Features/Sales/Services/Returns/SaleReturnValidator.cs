@@ -77,13 +77,19 @@ internal sealed class SaleReturnValidator(
 
             if (saleItem.LineType == SaleLineType.Service)
             {
-                if (item.Condition != SaleReturnCondition.Wastage)
+                if (item.Condition.HasValue)
                 {
                     validationErrors.Add(Errors.Sale.ReturnServiceMustBeRefundOnly(item.SaleItemId));
                     continue;
                 }
 
                 lineInputs.Add(new ValidatedSaleReturnLine(item, saleItem, null, returnedQuantity, returnableQuantity));
+                continue;
+            }
+
+            if (!item.Condition.HasValue)
+            {
+                validationErrors.Add(Errors.Sale.ReturnGoodsConditionInvalid(item.SaleItemId));
                 continue;
             }
 

@@ -80,7 +80,7 @@ const makeSale = (): SaleDto => ({
 });
 
 describe('SaleReturnPreviewDialogComponent', () => {
-  it('allows selecting service line without condition input and sends refund-only payload', async () => {
+  it('allows selecting service line without condition input and sends null condition payload', async () => {
     await TestBed.configureTestingModule({
       imports: [SaleReturnPreviewDialogComponent, TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true })],
       providers: [
@@ -103,6 +103,6 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(facade.previewSaleReturn).toHaveBeenCalledTimes(1);
     const payload = facade.previewSaleReturn.mock.calls[0][1];
     expect(payload.items[0].lineType).toBe('Service');
-    expect(payload.items[0].condition).toBe(2);
+    expect(payload.items[0].condition).toBeNull();
   });
 });
