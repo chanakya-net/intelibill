@@ -65,6 +65,31 @@ public class DashboardKpiCalculatorTests
     }
 
     [Fact]
+    public void CalculateSalesKpis_WithServiceLine_IgnoresServiceCost()
+    {
+        var shopId = Guid.NewGuid();
+        var serviceSale = Sale.Create(
+            shopId,
+            "INV-SRV",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 150m,
+            dueAmount: 0m,
+            totalAmount: 150m,
+            totalTaxAmount: 13.64m,
+            [SaleItem.CreateService(shopId, Guid.NewGuid(), lineName: "Consulting", lineCode: "SRV-001", 1m, 75m, 150m, 150m, 10m, true, false)]);
+
+        var kpis = SalesKpiCalculator.CalculateSalesKpis([serviceSale], [], []);
+
+        Assert.Equal(0m, kpis.TotalCost);
+        Assert.Equal(150m, kpis.SalesBooked);
+        Assert.Equal(150m, kpis.ProfitBeforeTax);
+    }
+
+    [Fact]
     public void BuildAlerts_WhenOwnerAndAllSignalsPresent_ReturnsExpectedPriorityOrder()
     {
         var highestDue = new Application.Features.Dashboard.DTOs.CustomerDueDto(Guid.NewGuid(), "Big Buyer", 1000m);

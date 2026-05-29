@@ -136,7 +136,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                         saleItem.IsPriceIncludingTax,
                         returnedQuantity,
                         GetReturnStatus(returnedQuantity, saleItem.Quantity),
-                        string.IsNullOrWhiteSpace(itemReturnNumbers) ? null : itemReturnNumbers));
+                        string.IsNullOrWhiteSpace(itemReturnNumbers) ? null : itemReturnNumbers,
+                        saleItem.LineType));
                 }
             }
 

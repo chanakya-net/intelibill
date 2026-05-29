@@ -41,7 +41,10 @@ public sealed class GetProfitLossReportQueryHandler(
 
             foreach (var item in sale.Items)
             {
-                totalCost += item.CostPrice * item.Quantity;
+                if (item.LineType != SaleLineType.Service)
+                {
+                    totalCost += item.CostPrice * item.Quantity;
+                }
                 revenueExclTax += item.TaxableAmount;
                 revenueInclTax += item.TotalAmount;
             }
@@ -65,10 +68,20 @@ public sealed class GetProfitLossReportQueryHandler(
             {
                 var restockableCost = saleReturn.Items
                     .Where(i => i.Condition == SaleReturnCondition.Restockable)
-                    .Sum(i => i.OriginalCostPrice * i.Quantity);
+                    .Sum(i =>
+                    {
+                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
+                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
+                        return i.OriginalCostPrice * i.Quantity;
+                    });
                 var wastageCost = saleReturn.Items
                     .Where(i => i.Condition == SaleReturnCondition.Wastage)
-                    .Sum(i => i.OriginalCostPrice * i.Quantity);
+                    .Sum(i =>
+                    {
+                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
+                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
+                        return i.OriginalCostPrice * i.Quantity;
+                    });
                 var returnCostImpact = -restockableCost;
                 var approvedRefundTax = saleReturn.Items.Sum(CalculateApprovedRefundTax);
                 var returnRevenueInclTax = -saleReturn.TotalRefundAmount;

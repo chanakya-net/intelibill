@@ -52,8 +52,11 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   items: [
     {
       saleItemId: 'line-1',
+      lineType: 1,
       itemId: 'item-1',
+      serviceId: null,
       itemName: 'Soap',
+      lineCode: 'ITEM-001',
       inventoryBatchId: 'batch-1',
       quantity: 2,
       salesPrice: 100,

@@ -202,6 +202,62 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal(1, row.ReturnedQuantity);
         Assert.Equal("PartiallyReturned", row.ReturnStatus);
         Assert.Equal("RET-001", row.ReturnNumbers);
+        Assert.Equal(SaleLineType.Goods, row.LineType);
+    }
+
+    [Fact]
+    public async Task BuildAsync_LineItems_IncludesServiceLineTypeAndSnapshotName()
+    {
+        var shop = MakeShop();
+        var user = MakeUser();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Item>());
+
+        var serviceItem = SaleItem.CreateService(
+            shop.Id,
+            Guid.NewGuid(),
+            lineName: "AC Repair",
+            lineCode: "SAC-9987",
+            quantity: 1,
+            costPrice: 0,
+            salesPrice: 500,
+            mrp: 500,
+            taxRatePercent: 18,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false,
+            taxableAmount: 423.73m,
+            taxAmount: 76.27m,
+            totalAmount: 500m);
+
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-SRV-001",
+            null,
+            "Customer",
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            500,
+            0,
+            500,
+            76.27m,
+            new List<SaleItem> { serviceItem });
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { sale });
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn>());
+
+        var builder = CreateBuilder();
+        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.LineItems, CancellationToken.None);
+
+        Assert.Single(result.LineItemRows);
+        var row = result.LineItemRows[0];
+        Assert.Equal("AC Repair", row.ItemName);
+        Assert.Equal(SaleLineType.Service, row.LineType);
     }
 
     [Fact]

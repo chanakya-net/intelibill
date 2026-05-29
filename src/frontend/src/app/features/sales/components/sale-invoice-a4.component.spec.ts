@@ -14,8 +14,11 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 describe('SaleInvoiceA4Component', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
     saleItemId: 'item-1',
+    lineType: 1,
     itemId: 'item-1',
+    serviceId: null,
     itemName: 'Test Item',
+    lineCode: 'ITEM-001',
     inventoryBatchId: 'batch-1',
     quantity: 2,
     salesPrice: 100,
@@ -838,6 +841,36 @@ describe('SaleInvoiceA4Component', () => {
 
       const tableElement = fixture.nativeElement.querySelector('table');
       expect(tableElement?.textContent).toContain('12%');
+    });
+
+    it('mixed bill: groups goods and services and labels HSN/SAC', () => {
+      const goodsItem = makeSaleItem({ lineType: 1, itemName: 'Goods Item', hsnCode: 'HSN123' });
+      const serviceItem = makeSaleItem({ lineType: 2, itemName: 'Service Item', hsnCode: 'SAC456' });
+      component.sale = makeSale({ items: [goodsItem, serviceItem] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const tableText = fixture.nativeElement.textContent;
+      expect(tableText).toContain('Goods');
+      expect(tableText).toContain('Services');
+      expect(tableText).toContain('Goods Item');
+      expect(tableText).toContain('Service Item');
+      expect(tableText).toContain('HSN/SAC');
+    });
+
+    it('goods-only bill: remains flat and does not show section headers', () => {
+      const goodsItem1 = makeSaleItem({ lineType: 1, itemName: 'Goods Item 1' });
+      const goodsItem2 = makeSaleItem({ lineType: 1, itemName: 'Goods Item 2' });
+      component.sale = makeSale({ items: [goodsItem1, goodsItem2] });
+      component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
+      fixture.detectChanges();
+
+      const tableText = fixture.nativeElement.textContent;
+      const sectionHeaders = fixture.nativeElement.querySelectorAll('.invoice__section-header-row');
+      expect(sectionHeaders.length).toBe(0);
+      expect(tableText).not.toContain('Services');
+      expect(tableText).toContain('Goods Item 1');
+      expect(tableText).toContain('Goods Item 2');
     });
   });
 });

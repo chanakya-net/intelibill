@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Exports.Sales.DTOs;
 
 public sealed record SalesExportLineItemRowDto(
@@ -16,4 +18,5 @@ public sealed record SalesExportLineItemRowDto(
     bool IsPriceIncludingTax,
     decimal ReturnedQuantity,
     string? ReturnStatus,
-    string? ReturnNumbers);
+    string? ReturnNumbers,
+    SaleLineType LineType = SaleLineType.Goods);

@@ -38,4 +38,24 @@ export class SaleInvoiceA4Component {
   getCustomerPhone(): string | null {
     return this.sale.customerId ? this.sale.customerPhone : null;
   }
+
+  hasGoods(): boolean {
+    return this.sale.items.some(i => i.lineType === 1);
+  }
+
+  hasServices(): boolean {
+    return this.sale.items.some(i => i.lineType === 2);
+  }
+
+  isMixedBill(): boolean {
+    return this.hasGoods() && this.hasServices();
+  }
+
+  getGoodsItems(): SaleItemDto[] {
+    return this.sale.items.filter(i => i.lineType === 1);
+  }
+
+  getServiceItems(): SaleItemDto[] {
+    return this.sale.items.filter(i => i.lineType === 2);
+  }
 }

@@ -40,7 +40,7 @@
     <thead class="invoice__items-header">
       <tr>
         <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
-        <th *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ 'sales.invoice.hsn' | transloco }}</th>
+        <th *ngIf="shop.gstNumber" class="invoice__col-hsn">HSN/SAC</th>
         <th class="invoice__col-qty">{{ 'sales.detail.qty' | transloco }}</th>
         <th class="invoice__col-price">{{ 'sales.detail.pricePerUnit' | transloco }}</th>
         <th class="invoice__col-discount">{{ 'sales.detail.discount' | transloco }}</th>
@@ -51,27 +51,87 @@
       </tr>
     </thead>
     <tbody class="invoice__items-body">
-      <tr *ngFor="let item of sale.items" class="invoice__item-row">
-        <td class="invoice__col-item">{{ item.itemName }}</td>
-        <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
-        <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
-        <td class="invoice__col-price invoice__cell-right">
-          {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
-        </td>
-        <td class="invoice__col-discount invoice__cell-right">
-          {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
-        </td>
-        <td class="invoice__col-taxable invoice__cell-right">
-          {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
-        </td>
-        <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
-        <td class="invoice__col-tax-amt invoice__cell-right">
-          {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
-        </td>
-        <td class="invoice__col-total invoice__cell-right">
-          {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
-        </td>
-      </tr>
+      <ng-container *ngIf="isMixedBill(); else flatRows">
+        <!-- Goods Section -->
+        <tr class="invoice__section-header-row">
+          <td [attr.colspan]="shop.gstNumber ? 9 : 8" class="invoice__section-header font-bold text-slate-800 bg-slate-50 p-2">
+            Goods
+          </td>
+        </tr>
+        <tr *ngFor="let item of getGoodsItems()" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+
+        <!-- Services Section -->
+        <tr class="invoice__section-header-row">
+          <td [attr.colspan]="shop.gstNumber ? 9 : 8" class="invoice__section-header font-bold text-slate-800 bg-slate-50 p-2">
+            Services
+          </td>
+        </tr>
+        <tr *ngFor="let item of getServiceItems()" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+      </ng-container>
+
+      <ng-template #flatRows>
+        <tr *ngFor="let item of sale.items" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+      </ng-template>
     </tbody>
   </table>
 

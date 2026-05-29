@@ -13,8 +13,11 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 describe('SaleInvoiceThermalComponent', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
     saleItemId: 'item-1',
+    lineType: 1,
     itemId: 'item-1',
+    serviceId: null,
     itemName: 'Test Item',
+    lineCode: 'ITEM-001',
     inventoryBatchId: 'batch-1',
     quantity: 2,
     salesPrice: 100,

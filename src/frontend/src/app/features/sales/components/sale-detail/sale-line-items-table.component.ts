@@ -73,4 +73,24 @@ export class SaleLineItemsTableComponent {
 
     return (item.quantity * item.salesPrice * item.taxRatePercent) / 100;
   }
+
+  hasGoods(): boolean {
+    return this.items.some(i => i.lineType === 1);
+  }
+
+  hasServices(): boolean {
+    return this.items.some(i => i.lineType === 2);
+  }
+
+  isMixedBill(): boolean {
+    return this.hasGoods() && this.hasServices();
+  }
+
+  getGoodsItems(): SaleItemDto[] {
+    return this.items.filter(i => i.lineType === 1);
+  }
+
+  getServiceItems(): SaleItemDto[] {
+    return this.items.filter(i => i.lineType === 2);
+  }
 }

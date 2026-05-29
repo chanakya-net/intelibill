@@ -70,8 +70,11 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       items: [
         {
           saleItemId: 'line-1',
+          lineType: 1,
           itemId: 'item-1',
+          serviceId: null,
           itemName: 'Test Item',
+          lineCode: '12345',
           inventoryBatchId: 'batch-1',
           quantity: 3,
           salesPrice: 100,

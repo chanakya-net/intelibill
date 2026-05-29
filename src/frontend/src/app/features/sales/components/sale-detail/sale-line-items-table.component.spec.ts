@@ -11,8 +11,11 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 
 const makeItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
   saleItemId: 'line-1',
+  lineType: 1,
   itemId: 'item-1',
+  serviceId: null,
   itemName: 'Soap',
+  lineCode: 'ITEM-001',
   inventoryBatchId: 'batch-1',
   quantity: 2,
   salesPrice: 110,
@@ -56,5 +59,27 @@ describe('SaleLineItemsTableComponent', () => {
     expect(text).toContain('₹110.00');
     expect(text).toContain('₹22.00');
     expect(text).toContain('-₹20.00');
+  });
+
+  it('groups goods and services only for mixed bills', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        SaleLineItemsTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
+    const component = fixture.componentInstance;
+    component.items = [
+      makeItem({ itemName: 'Soap', lineType: 1, hsnCode: 'HSN1' }),
+      makeItem({ saleItemId: 'line-2', itemName: 'Repair', lineType: 2, itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
+    ];
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Goods');
+    expect(text).toContain('Services');
+    expect(text).toContain('HSN/SAC');
   });
 });
