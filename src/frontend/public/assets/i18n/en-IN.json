@@ -12,7 +12,8 @@
     "done": "Done",
     "currencySymbol": "₹",
     "search": "Search...",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "all": "All"
   },
   "languages": {
     "en-IN": "English",

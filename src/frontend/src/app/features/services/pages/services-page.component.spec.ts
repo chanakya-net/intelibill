@@ -3,11 +3,15 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import type { Service } from '../services/service.models';
 import { ServiceService } from '../services/service.service';
 import { ServicesPageComponent } from './services-page.component';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 describe('ServicesPageComponent', () => {
   const servicesSignal = signal<readonly Service[]>([
@@ -77,7 +81,14 @@ describe('ServicesPageComponent', () => {
     ]);
 
     TestBed.configureTestingModule({
-      imports: [ServicesPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        ServicesPageComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' },
+          preloadLangs: true,
+        }),
+      ],
       providers: [
         { provide: ServiceService, useValue: serviceService },
         { provide: ShopPermissionsService, useValue: permissionsService },
@@ -89,6 +100,18 @@ describe('ServicesPageComponent', () => {
     TestBed.createComponent(ServicesPageComponent);
 
     expect(serviceService.getServices).toHaveBeenCalledWith({ search: '', includeInactive: true });
+  });
+
+  it('renders translated status filter labels', async () => {
+    const fixture = TestBed.createComponent(ServicesPageComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const selectedLabel = fixture.nativeElement.querySelector('.p-select-label') as HTMLElement | null;
+
+    expect(selectedLabel?.textContent?.trim()).toBe('All');
+    expect(selectedLabel?.textContent).not.toContain('common.all');
   });
 
   it('filters and paginates the current list', () => {
