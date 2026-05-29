@@ -3,21 +3,20 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi, describe, expect, it } from 'vitest';
 
 import { BatchPickerDialogComponent } from './batch-picker-dialog.component';
-import { AvailableBatchDto } from '../../../../features/inventory/services/inventory.models';
+import type { SellableGoodsDto } from '../../../sales/services/sale.models';
 
 describe('BatchPickerDialogComponent', () => {
-  const batch: AvailableBatchDto = {
+  const batch: SellableGoodsDto = {
+    kind: 'Goods',
     itemName: 'Milk',
     barcode: 'MILK123',
     batchNumber: 'B-01',
     inventoryBatchId: 'inv-batch-1',
     quantity: 10,
-    costPrice: 40,
     mrp: 50,
     salesPrice: 55,
     taxRatePercent: 18,
     taxIncluded: true,
-    purchaseTaxIncluded: true,
     expiryDate: null,
   };
 

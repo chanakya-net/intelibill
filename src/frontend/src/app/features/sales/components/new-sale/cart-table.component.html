@@ -1,166 +1,460 @@
-@if (cartItems.length === 0) {
+@if (cartItems.length === 0 && serviceCartItems.length === 0) {
   <div class="empty-cart text-center py-6 text-slate-400">
     <i class="pi pi-shopping-cart text-4xl mb-2"></i>
     <p>{{ 'sales.newSale.emptyCart' | transloco }}</p>
   </div>
 } @else {
-  <p-table [value]="cartItems" styleClass="p-datatable-sm cart-table">
-    <ng-template pTemplate="header">
-      <tr>
-        <th>{{ 'inventory.name' | transloco }}</th>
-        <th>{{ 'sales.newSale.qty' | transloco }}</th>
-        <th>{{ 'sales.newSale.total' | transloco }}</th>
-        <th></th>
-      </tr>
-    </ng-template>
+  @if (showGroupedSections && cartItems.length > 0 && serviceCartItems.length > 0) {
+    <div class="cart-section">
+      <h3 class="cart-section-title">{{ 'sales.newSale.goodsSection' | transloco }}</h3>
+      <p-table [value]="cartItems" styleClass="p-datatable-sm cart-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.name' | transloco }}</th>
+            <th>{{ 'sales.newSale.qty' | transloco }}</th>
+            <th>{{ 'sales.newSale.total' | transloco }}</th>
+            <th></th>
+          </tr>
+        </ng-template>
 
-    <ng-template pTemplate="body" let-item>
-      <tr [ngClass]="{ 'highlight-row': highlightedRowKeys.has(item.clientLineKey) }">
-        <td class="cart-item-cell">
-          @let advancedLineEditOpen = isLineDiscountEditorOpen(item.clientLineKey);
-          <div class="cart-item-header">
-            <div class="cart-item-copy">
-              <div class="cart-item-name">{{ item.itemName }}</div>
-              <div class="cart-item-meta">
-                <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
-                <span class="meta-separator">•</span>
-                <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
-                <span class="meta-separator">•</span>
-                <span>{{ 'sales.newSale.price' | transloco }} ₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
-              </div>
-            </div>
+        <ng-template pTemplate="body" let-item>
+          <tr [ngClass]="{ 'highlight-row': highlightedRowKeys.has(item.clientLineKey) }">
+            <td class="cart-item-cell">
+              @let advancedLineEditOpen = isLineDiscountEditorOpen(item.clientLineKey);
+              <div class="cart-item-header">
+                <div class="cart-item-copy">
+                  <div class="cart-item-name">{{ item.itemName }}</div>
+                  <div class="cart-item-meta">
+                    <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
+                    <span class="meta-separator">•</span>
+                    <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
+                    <span class="meta-separator">•</span>
+                    <span>{{ 'sales.newSale.price' | transloco }} ₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
+                  </div>
+                </div>
 
-            <p-button
-              class="advanced-toggle"
-              size="small"
-              severity="secondary"
-              [text]="true"
-              icon="pi pi-sliders-h"
-              [label]="'sales.newSale.advancedLineEdit' | transloco"
-              [attr.aria-label]="'sales.newSale.advancedLineEdit' | transloco"
-              (click)="toggleLineDiscountEditor(item.clientLineKey)"
-            />
-          </div>
-
-          <div class="discount-badges">
-            @if (getPreviewLine(item.clientLineKey); as previewLine) {
-              @if (previewLine.configuredBatchRulePercentage !== null) {
-                <p-tag
-                  severity="info"
-                  [value]="'sales.newSale.discounts.configuredPercent' | transloco:{ percent: previewLine.configuredBatchRulePercentage }"
+                <p-button
+                  class="advanced-toggle"
+                  size="small"
+                  severity="secondary"
+                  [text]="true"
+                  icon="pi pi-sliders-h"
+                  [label]="'sales.newSale.advancedLineEdit' | transloco"
+                  [attr.aria-label]="'sales.newSale.advancedLineEdit' | transloco"
+                  (click)="toggleLineDiscountEditor(item.clientLineKey)"
                 />
-              }
-            }
+              </div>
 
-            @if (item.itemDiscountType !== 0 && item.itemDiscountValue > 0) {
-              <p-tag
-                severity="secondary"
-                [value]="item.itemDiscountType === 1
-                  ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: item.itemDiscountValue })
-                  : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (item.itemDiscountValue | number:'1.0-2') })"
-              />
-            }
-          </div>
-
-          <div class="advanced-line-edit" [hidden]="!advancedLineEditOpen">
-            <div class="line-override">
-              <label class="text-xs text-slate-500">{{ 'sales.newSale.hsnCode' | transloco }}</label>
-              <input
-                pInputText
-                type="text"
-                [ngModel]="item.hsnCode ?? ''"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="emitHsnCode(item.clientLineKey, $event)"
-              />
-              @if (getCartItemHsnError(item.clientLineKey)) {
-                <p class="error-hint">{{ getCartItemHsnError(item.clientLineKey) | transloco }}</p>
-              }
-            </div>
-
-            <div class="line-override">
-              <label class="text-xs text-slate-500">{{ 'sales.newSale.taxRatePercent' | transloco }}</label>
-              <input
-                pInputText
-                type="number"
-                [ngModel]="item.taxRatePercent"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="emitTaxRate(item.clientLineKey, $event)"
-                [min]="0"
-                [max]="100"
-                step="0.01"
-              />
-              @if (getCartItemTaxError(item.clientLineKey)) {
-                <p class="error-hint">{{ getCartItemTaxError(item.clientLineKey) | transloco }}</p>
-              }
-            </div>
-
-            <div class="discount-editor">
-              <select
-                [ngModel]="item.itemDiscountType"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="emitDiscountType(item.clientLineKey, $event)"
-                class="discount-type-select"
-              >
-                @for (opt of instantDiscountTypeOptions; track opt.value) {
-                  <option [ngValue]="opt.value">{{ opt.labelKey | transloco }}</option>
+              <div class="discount-badges">
+                @if (getPreviewLine(item.clientLineKey); as previewLine) {
+                  @if (previewLine.configuredBatchRulePercentage !== null) {
+                    <p-tag
+                      severity="info"
+                      [value]="'sales.newSale.discounts.configuredPercent' | transloco:{ percent: previewLine.configuredBatchRulePercentage }"
+                    />
+                  }
                 }
-              </select>
 
+                @if (item.itemDiscountType !== 0 && item.itemDiscountValue > 0) {
+                  <p-tag
+                    severity="secondary"
+                    [value]="item.itemDiscountType === 1
+                      ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: item.itemDiscountValue })
+                      : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (item.itemDiscountValue | number:'1.0-2') })"
+                  />
+                }
+              </div>
+
+              <div class="advanced-line-edit" [hidden]="!advancedLineEditOpen">
+                <div class="line-override">
+                  <label class="text-xs text-slate-500">{{ 'sales.newSale.hsnCode' | transloco }}</label>
+                  <input
+                    pInputText
+                    type="text"
+                    [ngModel]="item.hsnCode ?? ''"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitHsnCode(item.clientLineKey, $event)"
+                  />
+                  @if (getCartItemHsnError(item.clientLineKey)) {
+                    <p class="error-hint">{{ getCartItemHsnError(item.clientLineKey) | transloco }}</p>
+                  }
+                </div>
+
+                <div class="line-override">
+                  <label class="text-xs text-slate-500">{{ 'sales.newSale.taxRatePercent' | transloco }}</label>
+                  <input
+                    pInputText
+                    type="number"
+                    [ngModel]="item.taxRatePercent"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitTaxRate(item.clientLineKey, $event)"
+                    [min]="0"
+                    [max]="100"
+                    step="0.01"
+                  />
+                  @if (getCartItemTaxError(item.clientLineKey)) {
+                    <p class="error-hint">{{ getCartItemTaxError(item.clientLineKey) | transloco }}</p>
+                  }
+                </div>
+
+                <div class="discount-editor">
+                  <select
+                    [ngModel]="item.itemDiscountType"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitDiscountType(item.clientLineKey, $event)"
+                    class="discount-type-select"
+                  >
+                    @for (opt of instantDiscountTypeOptions; track opt.value) {
+                      <option [ngValue]="opt.value">{{ opt.labelKey | transloco }}</option>
+                    }
+                  </select>
+
+                  <input
+                    pInputText
+                    type="number"
+                    [ngModel]="item.itemDiscountValue"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitDiscountValue(item.clientLineKey, $event)"
+                    [min]="0"
+                    [placeholder]="'sales.newSale.discounts.value' | transloco"
+                    step="0.01"
+                  />
+                  <span class="discount-unit">{{ item.itemDiscountType === 1 ? '%' : '₹' }}</span>
+                </div>
+
+                @if (getCartItemDiscountError(item.clientLineKey)) {
+                  <p class="error-hint">{{ getCartItemDiscountError(item.clientLineKey) | transloco }}</p>
+                }
+              </div>
+            </td>
+            <td>
+              <div class="qty-controls">
+                <p-button
+                  icon="pi pi-minus"
+                  severity="secondary"
+                  [text]="true"
+                  [disabled]="item.quantity <= 1"
+                  (click)="decrease(item.clientLineKey, item.quantity)"
+                />
+                <span class="qty-value">{{ item.quantity }}</span>
+                <p-button
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  [text]="true"
+                  [disabled]="!canIncrease(item)"
+                  (click)="increase(item.clientLineKey, item.quantity)"
+                />
+              </div>
+            </td>
+            <td class="font-medium cart-line-total">₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
+            <td>
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                (click)="remove(item.clientLineKey)"
+              />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <div class="cart-section">
+      <h3 class="cart-section-title">{{ 'sales.newSale.servicesSection' | transloco }}</h3>
+      <p-table [value]="serviceCartItems" styleClass="p-datatable-sm cart-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.name' | transloco }}</th>
+            <th>{{ 'sales.newSale.qty' | transloco }}</th>
+            <th>{{ 'sales.newSale.price' | transloco }}</th>
+            <th>{{ 'sales.newSale.total' | transloco }}</th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-item>
+          <tr [ngClass]="{ 'highlight-row': highlightedRowKeys.has(item.clientLineKey) }">
+            <td class="cart-item-cell">
+              <div class="cart-item-header">
+                <div class="cart-item-copy">
+                  <div class="cart-item-name">{{ item.serviceName }}</div>
+                  <div class="cart-item-meta">
+                    <span>{{ item.serviceCode }}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
               <input
                 pInputText
                 type="number"
-                [ngModel]="item.itemDiscountValue"
+                [ngModel]="item.quantity"
                 [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="emitDiscountValue(item.clientLineKey, $event)"
+                (ngModelChange)="quantityChanged.emit({ itemId: item.clientLineKey, qty: $event })"
+                [min]="1"
+                step="1"
+              />
+            </td>
+            <td>
+              <input
+                pInputText
+                type="number"
+                [ngModel]="item.unitPrice"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="emitServiceUnitPrice(item.clientLineKey, $event)"
                 [min]="0"
-                [placeholder]="'sales.newSale.discounts.value' | transloco"
                 step="0.01"
               />
-              <span class="discount-unit">{{ item.itemDiscountType === 1 ? '%' : '₹' }}</span>
-            </div>
+            </td>
+            <td class="font-medium cart-line-total">₹{{ getServiceLineTotal(item) | number:'1.2-2' }}</td>
+            <td>
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                (click)="remove(item.clientLineKey)"
+              />
+            </td>
+          </tr>
+        </ng-template>
 
-            @if (getCartItemDiscountError(item.clientLineKey)) {
-              <p class="error-hint">{{ getCartItemDiscountError(item.clientLineKey) | transloco }}</p>
-            }
-          </div>
-        </td>
-        <td>
-          <div class="qty-controls">
-            <p-button
-              icon="pi pi-minus"
-              severity="secondary"
-              [text]="true"
-              [disabled]="item.quantity <= 1"
-              (click)="decrease(item.clientLineKey, item.quantity)"
-            />
-            <span class="qty-value">{{ item.quantity }}</span>
-            <p-button
-              icon="pi pi-plus"
-              severity="secondary"
-              [text]="true"
-              [disabled]="!canIncrease(item)"
-              (click)="increase(item.clientLineKey, item.quantity)"
-            />
-          </div>
-        </td>
-        <td class="font-medium cart-line-total">₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
-        <td>
-          <p-button
-            icon="pi pi-trash"
-            severity="danger"
-            [text]="true"
-            (click)="remove(item.clientLineKey)"
-          />
-        </td>
-      </tr>
-    </ng-template>
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="3" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
+            <td class="font-bold text-orange-600">₹{{ totalAmount | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  } @else {
+    @if (cartItems.length > 0) {
+      <p-table [value]="cartItems" styleClass="p-datatable-sm cart-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.name' | transloco }}</th>
+            <th>{{ 'sales.newSale.qty' | transloco }}</th>
+            <th>{{ 'sales.newSale.total' | transloco }}</th>
+            <th></th>
+          </tr>
+        </ng-template>
 
-    <ng-template pTemplate="footer">
-      <tr>
-        <td colspan="2" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
-        <td class="font-bold text-orange-600">₹{{ totalAmount | number:'1.2-2' }}</td>
-        <td></td>
-      </tr>
-    </ng-template>
-  </p-table>
+        <ng-template pTemplate="body" let-item>
+          <tr [ngClass]="{ 'highlight-row': highlightedRowKeys.has(item.clientLineKey) }">
+            <td class="cart-item-cell">
+              @let advancedLineEditOpen = isLineDiscountEditorOpen(item.clientLineKey);
+              <div class="cart-item-header">
+                <div class="cart-item-copy">
+                  <div class="cart-item-name">{{ item.itemName }}</div>
+                  <div class="cart-item-meta">
+                    <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
+                    <span class="meta-separator">•</span>
+                    <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
+                    <span class="meta-separator">•</span>
+                    <span>{{ 'sales.newSale.price' | transloco }} ₹{{ getUnitFinalPrice(item) | number:'1.2-2' }}</span>
+                  </div>
+                </div>
+
+                <p-button
+                  class="advanced-toggle"
+                  size="small"
+                  severity="secondary"
+                  [text]="true"
+                  icon="pi pi-sliders-h"
+                  [label]="'sales.newSale.advancedLineEdit' | transloco"
+                  [attr.aria-label]="'sales.newSale.advancedLineEdit' | transloco"
+                  (click)="toggleLineDiscountEditor(item.clientLineKey)"
+                />
+              </div>
+
+              <div class="discount-badges">
+                @if (getPreviewLine(item.clientLineKey); as previewLine) {
+                  @if (previewLine.configuredBatchRulePercentage !== null) {
+                    <p-tag
+                      severity="info"
+                      [value]="'sales.newSale.discounts.configuredPercent' | transloco:{ percent: previewLine.configuredBatchRulePercentage }"
+                    />
+                  }
+                }
+
+                @if (item.itemDiscountType !== 0 && item.itemDiscountValue > 0) {
+                  <p-tag
+                    severity="secondary"
+                    [value]="item.itemDiscountType === 1
+                      ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: item.itemDiscountValue })
+                      : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (item.itemDiscountValue | number:'1.0-2') })"
+                  />
+                }
+              </div>
+
+              <div class="advanced-line-edit" [hidden]="!advancedLineEditOpen">
+                <div class="line-override">
+                  <label class="text-xs text-slate-500">{{ 'sales.newSale.hsnCode' | transloco }}</label>
+                  <input
+                    pInputText
+                    type="text"
+                    [ngModel]="item.hsnCode ?? ''"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitHsnCode(item.clientLineKey, $event)"
+                  />
+                  @if (getCartItemHsnError(item.clientLineKey)) {
+                    <p class="error-hint">{{ getCartItemHsnError(item.clientLineKey) | transloco }}</p>
+                  }
+                </div>
+
+                <div class="line-override">
+                  <label class="text-xs text-slate-500">{{ 'sales.newSale.taxRatePercent' | transloco }}</label>
+                  <input
+                    pInputText
+                    type="number"
+                    [ngModel]="item.taxRatePercent"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitTaxRate(item.clientLineKey, $event)"
+                    [min]="0"
+                    [max]="100"
+                    step="0.01"
+                  />
+                  @if (getCartItemTaxError(item.clientLineKey)) {
+                    <p class="error-hint">{{ getCartItemTaxError(item.clientLineKey) | transloco }}</p>
+                  }
+                </div>
+
+                <div class="discount-editor">
+                  <select
+                    [ngModel]="item.itemDiscountType"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitDiscountType(item.clientLineKey, $event)"
+                    class="discount-type-select"
+                  >
+                    @for (opt of instantDiscountTypeOptions; track opt.value) {
+                      <option [ngValue]="opt.value">{{ opt.labelKey | transloco }}</option>
+                    }
+                  </select>
+
+                  <input
+                    pInputText
+                    type="number"
+                    [ngModel]="item.itemDiscountValue"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="emitDiscountValue(item.clientLineKey, $event)"
+                    [min]="0"
+                    [placeholder]="'sales.newSale.discounts.value' | transloco"
+                    step="0.01"
+                  />
+                  <span class="discount-unit">{{ item.itemDiscountType === 1 ? '%' : '₹' }}</span>
+                </div>
+
+                @if (getCartItemDiscountError(item.clientLineKey)) {
+                  <p class="error-hint">{{ getCartItemDiscountError(item.clientLineKey) | transloco }}</p>
+                }
+              </div>
+            </td>
+            <td>
+              <div class="qty-controls">
+                <p-button
+                  icon="pi pi-minus"
+                  severity="secondary"
+                  [text]="true"
+                  [disabled]="item.quantity <= 1"
+                  (click)="decrease(item.clientLineKey, item.quantity)"
+                />
+                <span class="qty-value">{{ item.quantity }}</span>
+                <p-button
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  [text]="true"
+                  [disabled]="!canIncrease(item)"
+                  (click)="increase(item.clientLineKey, item.quantity)"
+                />
+              </div>
+            </td>
+            <td class="font-medium cart-line-total">₹{{ getLineTotal(item) | number:'1.2-2' }}</td>
+            <td>
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                (click)="remove(item.clientLineKey)"
+              />
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="2" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
+            <td class="font-bold text-orange-600">₹{{ totalAmount | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    } @else {
+      <p-table [value]="serviceCartItems" styleClass="p-datatable-sm cart-table">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'inventory.name' | transloco }}</th>
+            <th>{{ 'sales.newSale.qty' | transloco }}</th>
+            <th>{{ 'sales.newSale.price' | transloco }}</th>
+            <th>{{ 'sales.newSale.total' | transloco }}</th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-item>
+          <tr>
+            <td class="cart-item-cell">
+              <div class="cart-item-header">
+                <div class="cart-item-copy">
+                  <div class="cart-item-name">{{ item.serviceName }}</div>
+                  <div class="cart-item-meta">
+                    <span>{{ item.serviceCode }}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <input
+                pInputText
+                type="number"
+                [ngModel]="item.quantity"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="quantityChanged.emit({ itemId: item.clientLineKey, qty: $event })"
+                [min]="1"
+                step="1"
+              />
+            </td>
+            <td>
+              <input
+                pInputText
+                type="number"
+                [ngModel]="item.unitPrice"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="emitServiceUnitPrice(item.clientLineKey, $event)"
+                [min]="0"
+                step="0.01"
+              />
+            </td>
+            <td class="font-medium cart-line-total">₹{{ getServiceLineTotal(item) | number:'1.2-2' }}</td>
+            <td>
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                (click)="remove(item.clientLineKey)"
+              />
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="footer">
+          <tr>
+            <td colspan="3" class="text-right font-bold">{{ 'sales.newSale.total' | transloco }}</td>
+            <td class="font-bold text-orange-600">₹{{ totalAmount | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  }
 }

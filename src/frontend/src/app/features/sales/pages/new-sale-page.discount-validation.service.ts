@@ -190,6 +190,9 @@ export abstract class NewSalePageDiscountValidationService extends NewSalePageDi
     }
 
     const totalCapacity = preview.lines.reduce((sum, line) => {
+      if (line.lineType === 'Service') {
+        return sum;
+      }
       const preTax = Number(line.preTaxAmountBeforeDiscount ?? 0);
       const itemDiscount = Number(line.itemDiscountAmount ?? 0);
       const taxableAfterItem = preTax - itemDiscount;

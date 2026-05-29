@@ -2,9 +2,14 @@ import { NewSalePageLifecycleService } from './new-sale-page.lifecycle.service';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
+import { SellableDto } from '../services/sale.models';
 import { CustomerDto } from '../components/new-sale/sale-customer-section.component';
+import type { Subscription } from 'rxjs';
 
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
+  private searchSuggestionsRequestSeq = 0;
+  private searchSuggestionsSubscription: Subscription | null = null;
+
   onBatchSearchTermChanged(value: string): void {
     this.searchInput.set((value ?? '').toString());
   }
@@ -19,7 +24,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   }
 
   onOpenBatchPicker(): void {
-    if (this.availableBatches().length > 0) {
+    if (this.pickerSellables().length > 0) {
       this.showBatchPicker.set(true);
     }
   }
@@ -30,11 +35,11 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
   }
 
-  onBatchPickerBatchSelected(batch: AvailableBatchDto): void {
+  onBatchPickerBatchSelected(sellable: SellableDto): void {
     const normalizedQuantity = Number.isFinite(Number(this.batchPickerQuantity())) ? Math.max(1, Math.trunc(Number(this.batchPickerQuantity()))) : 1;
-    this.selectedBatch.set(batch);
+    this.selectedSellable.set(sellable);
     this.batchPickerForm.patchValue({
-      batchNumber: batch.batchNumber,
+      batchNumber: sellable.kind === 'Goods' ? sellable.batchNumber : sellable.code,
       quantity: normalizedQuantity,
     });
     this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
@@ -47,7 +52,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     );
 
     if (matchingBatches.length > 1) {
-      this.selectedBatch.set(null);
+      this.selectedSellable.set(null);
       this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
       this.batchPickerQuantity.set(1);
       this.availableBatches.set(matchingBatches);
@@ -56,7 +61,20 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
       return;
     }
 
-    this.onBatchPickerBatchSelected(batch);
+    this.onBatchPickerBatchSelected({
+      kind: 'Goods',
+      inventoryBatchId: batch.inventoryBatchId,
+      barcode: batch.barcode,
+      itemName: batch.itemName,
+      batchNumber: batch.batchNumber,
+      quantity: batch.quantity,
+      salesPrice: batch.salesPrice,
+      mrp: batch.mrp,
+      taxRatePercent: batch.taxRatePercent,
+      taxIncluded: batch.taxIncluded,
+      expiryDate: batch.expiryDate,
+      hsnCode: batch.hsnCode,
+    });
   }
 
   onBatchPickerClosed(): void {
@@ -64,19 +82,49 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
     this.batchPickerQuantity.set(1);
     this.batchSearchError.set('');
+    this.selectedSellable.set(null);
+    this.availableBatches.set([]);
+    this.availableSellables.set([]);
   }
 
   onFilterSearch(event: AutoCompleteCompleteEvent): void {
     const query = event.query.trim();
     if (!query) {
+      this.searchSuggestionsSubscription?.unsubscribe();
+      this.searchSuggestionsSubscription = null;
       this.searchSuggestions.set([]);
       return;
     }
 
-    const names = this.catalogSync.filterByName(query).map((e) => e.name);
-    const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
-    const merged = [...new Set([...names, ...barcodes])];
-    this.searchSuggestions.set(merged.slice(0, 20));
+    if (this.isOfflineMode() && this.isOfflineEligible()) {
+      const names = this.catalogSync.filterByName(query).map((e) => e.name);
+      const barcodes = this.catalogSync.filterByBarcode(query).map((e) => e.barcode);
+      const merged = [...new Set([...names, ...barcodes])];
+      this.searchSuggestions.set(merged.slice(0, 20));
+      return;
+    }
+
+    this.searchSuggestionsSubscription?.unsubscribe();
+    const requestSeq = ++this.searchSuggestionsRequestSeq;
+    this.searchSuggestionsSubscription = this.saleService.getSellables(query).subscribe({
+      next: (sellables) => {
+        if (requestSeq !== this.searchSuggestionsRequestSeq) {
+          return;
+        }
+        const terms = sellables.flatMap((sellable) =>
+          sellable.kind === 'Goods'
+            ? [sellable.itemName, sellable.barcode]
+            : [sellable.name, sellable.code]
+        );
+        this.searchSuggestions.set([...new Set(terms.filter((term) => term.trim().length > 0))].slice(0, 20));
+      },
+      error: () => {
+        if (requestSeq !== this.searchSuggestionsRequestSeq) {
+          return;
+        }
+        this.searchSuggestions.set([]);
+      },
+    });
   }
 
   onBatchSearchSuggestions(query: string): void {
@@ -190,6 +238,12 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     this.searchInput.set(barcode);
     this.isScannerOpen.set(false);
     void this.onBarcodeSearch();
+  }
+
+  override onDestroy(): void {
+    this.searchSuggestionsSubscription?.unsubscribe();
+    this.searchSuggestionsSubscription = null;
+    super.onDestroy();
   }
 
 }

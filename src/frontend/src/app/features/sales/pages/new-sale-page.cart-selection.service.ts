@@ -9,13 +9,27 @@ import {
 
 export abstract class NewSalePageCartSelectionService extends NewSalePageSearchCustomerService {
   onSelectBatch(batch: AvailableBatchDto): void {
-    this.selectedBatch.set(batch);
+    this.selectedSellable.set({
+      kind: 'Goods',
+      inventoryBatchId: batch.inventoryBatchId,
+      barcode: batch.barcode,
+      itemName: batch.itemName,
+      batchNumber: batch.batchNumber,
+      quantity: batch.quantity,
+      salesPrice: batch.salesPrice,
+      mrp: batch.mrp,
+      taxRatePercent: batch.taxRatePercent,
+      taxIncluded: batch.taxIncluded,
+      expiryDate: batch.expiryDate,
+      hsnCode: batch.hsnCode,
+    });
     this.batchPickerForm.patchValue({ batchNumber: batch.batchNumber, quantity: 1 });
   }
 
   onCartTableQuantityChanged(event: CartQuantityChangedEvent): void {
     const index = this.cart().findIndex((item) => item.clientLineKey === event.itemId);
     if (index < 0) {
+      this.onServiceItemQuantityChange(event.itemId, event.qty);
       return;
     }
 
@@ -44,6 +58,7 @@ export abstract class NewSalePageCartSelectionService extends NewSalePageSearchC
   onCartTableItemRemoved(itemId: string): void {
     const index = this.cart().findIndex((item) => item.clientLineKey === itemId);
     if (index < 0) {
+      this.onRemoveServiceItem(itemId);
       return;
     }
 
@@ -68,6 +83,10 @@ export abstract class NewSalePageCartSelectionService extends NewSalePageSearchC
 
   onCartTableLineDiscountEditorToggled(itemId: string): void {
     this.toggleLineDiscountEditor(itemId);
+  }
+
+  onCartTableServiceUnitPriceChanged(event: CartLineNumberEvent): void {
+    this.onServiceItemPriceChange(event.itemId, event.value);
   }
 
   onPaymentMethodChanged(method: PaymentMethod): void {

@@ -43,7 +43,7 @@ export interface NewSalePageTestDeps {
     clearLastRecordedSale: ReturnType<typeof vi.fn>;
     recordSale: ReturnType<typeof vi.fn>;
   };
-  readonly saleService: { previewSale: ReturnType<typeof vi.fn> };
+  readonly saleService: { previewSale: ReturnType<typeof vi.fn>; getSellables: ReturnType<typeof vi.fn> };
   readonly authService: {
     session: ReturnType<typeof signal<any>>;
     canUseOfflineSalesAuthGrace: ReturnType<typeof vi.fn>;
@@ -109,7 +109,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
     recordSale: vi.fn(),
   };
 
-  const saleService = overrides.saleService ?? { previewSale: vi.fn() };
+  const saleService = overrides.saleService ?? { previewSale: vi.fn(), getSellables: vi.fn() };
 
   const authService = overrides.authService ?? {
     session: signal({
@@ -198,6 +198,25 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
     ])
   );
 
+  saleService.getSellables.mockReturnValue(
+    of([
+      {
+        kind: 'Goods',
+        inventoryBatchId: 'batch-1',
+        barcode: createQrLikeBarcode(),
+        itemName: 'Oreo',
+        batchNumber: 'B-01',
+        quantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        expiryDate: null,
+        hsnCode: '0902',
+      },
+    ])
+  );
+
   inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
     of({
       name: 'Oreo',
@@ -268,4 +287,3 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
     } satisfies NewSalePageTestDeps,
   };
 }
-

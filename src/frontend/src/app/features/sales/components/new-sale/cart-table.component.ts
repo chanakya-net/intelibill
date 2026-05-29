@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { TagModule } from 'primeng/tag';
 import { InputTextModule } from 'primeng/inputtext';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { CartItem } from '../../../../features/sales/services/sale-cart-state.service';
+import { CartItem, ServiceCartLine } from '../../../../features/sales/services/sale-cart-state.service';
 import { SalePreviewDto, SalePreviewLineDto } from '../../../../features/sales/services/sale.models';
 
 export interface CartQuantityChangedEvent {
@@ -47,6 +47,8 @@ export interface InstantDiscountOption {
 })
 export class CartTableComponent {
   @Input() cartItems: CartItem[] = [];
+  @Input() serviceCartItems: ServiceCartLine[] = [];
+  @Input() showGroupedSections = false;
   @Input() highlightedRowKeys: Set<string> = new Set();
   @Input() checkoutPreview: SalePreviewDto | null = null;
   @Input() saleDiscountType = 0 as 0 | 1 | 2;
@@ -60,6 +62,7 @@ export class CartTableComponent {
   @Input() getUnitSubtotal = (_item: CartItem) => 0;
   @Input() getUnitTaxAmount = (_item: CartItem) => 0;
   @Input() getUnitFinalPrice = (_item: CartItem) => 0;
+  @Input() getServiceLineTotal = (_item: ServiceCartLine) => 0;
   @Input() getPreviewLine: (itemId: string) => SalePreviewLineDto | null = () => null;
   @Input() getCartItemHsnError = (_itemId: string) => '';
   @Input() getCartItemTaxError = (_itemId: string) => '';
@@ -69,6 +72,7 @@ export class CartTableComponent {
 
   @Output() quantityChanged = new EventEmitter<CartQuantityChangedEvent>();
   @Output() itemRemoved = new EventEmitter<string>();
+  @Output() serviceUnitPriceChanged = new EventEmitter<CartLineNumberEvent>();
   @Output() cartItemHsnCodeChange = new EventEmitter<CartLineTextEvent>();
   @Output() cartItemTaxRateChange = new EventEmitter<CartLineNumberEvent>();
   @Output() cartItemDiscountTypeChange = new EventEmitter<CartLineNumberEvent>();
@@ -109,5 +113,11 @@ export class CartTableComponent {
 
   toggleLineDiscountEditor(itemId: string): void {
     this.lineDiscountEditorToggled.emit(itemId);
+  }
+
+  emitServiceUnitPrice(itemId: string, value: number | null): void {
+    const n = Number(value ?? 0);
+    const normalized = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+    this.serviceUnitPriceChanged.emit({ itemId, value: normalized });
   }
 }

@@ -12,6 +12,7 @@ describe('SaleCartStateService', () => {
   const session = signal<AuthSession | null>(makeSession('shop-1'));
   const cartStorage = {
     loadCart: vi.fn<SalesCartIndexedDbService['loadCart']>(),
+    loadServiceCart: vi.fn<SalesCartIndexedDbService['loadServiceCart']>(),
     saveCart: vi.fn<SalesCartIndexedDbService['saveCart']>(),
     clearCart: vi.fn<SalesCartIndexedDbService['clearCart']>(),
   };
@@ -32,6 +33,7 @@ describe('SaleCartStateService', () => {
     TestBed.resetTestingModule();
     session.set(makeSession('shop-1'));
     cartStorage.loadCart.mockResolvedValue([]);
+    cartStorage.loadServiceCart.mockResolvedValue([]);
     cartStorage.saveCart.mockResolvedValue(undefined);
     cartStorage.clearCart.mockResolvedValue(undefined);
     vi.clearAllMocks();
@@ -165,7 +167,7 @@ describe('SaleCartStateService', () => {
     expect(appliedDefaults).toHaveLength(1);
 
     await service.persistCart();
-    expect(cartStorage.saveCart).toHaveBeenCalledWith('shop-1', stored);
+    expect(cartStorage.saveCart).toHaveBeenCalledWith('shop-1', stored, []);
 
     service.onClearCart();
     await service.persistCart();

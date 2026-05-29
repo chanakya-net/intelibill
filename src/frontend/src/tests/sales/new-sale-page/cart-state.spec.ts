@@ -49,9 +49,16 @@ describe('new-sale-page: cart state', () => {
         hsnCode: null,
       },
     ]);
+    vm.saleDiscountType.set(1);
+    vm.saleDiscountValue.set(10);
+    vm.saleDiscountError.set('sales.newSale.discounts.exceedsMaxPercent');
+    vm.toggleSaleDiscountEditor();
 
     vm.onClearCart();
     expect(vm.cart()).toHaveLength(0);
+    expect(vm.saleDiscountType()).toBe(0);
+    expect(vm.saleDiscountValue()).toBe(0);
+    expect(vm.saleDiscountError()).toBe('');
+    expect(vm.isSaleDiscountEditorOpen()).toBe(false);
   });
 });
-

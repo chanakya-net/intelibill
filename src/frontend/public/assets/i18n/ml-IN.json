@@ -100,7 +100,6 @@
     "salesHistory": "ചരിത്രം",
     "manageInventory": "ഇൻവെന്ററി",
     "addNewProduct": "ഉൽപ്പന്നങ്ങൾ",
-
     "manageServices": "Services",
     "batchInventoryInbound": "ഇൻവെന്ററി ചേർക്കുക",
     "inventoryBatchesOverview": "ബാച്ചുകൾ ഒറ്റനോട്ടം",
@@ -838,14 +837,17 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
       "openPicker": "ബാച്ച് പിക്കർ തുറക്കുക",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "goodsSection": "Goods",
+      "servicesSection": "Services"
     },
     "detail": {
       "title": "വിൽപ്പന വിശദാംശങ്ങൾ",
