@@ -10,6 +10,7 @@ using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Sales.Queries.SearchSellables;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -142,6 +143,31 @@ public class SalesControllerTests
             200,
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow.AddDays(7));
+
+    private static IReadOnlyList<SellableDto> CreateSellables() =>
+        [
+            SellableDto.FromInventoryBatch(
+                Guid.NewGuid(),
+                "BC-001",
+                "Rice",
+                "B-01",
+                5m,
+                100m,
+                120m,
+                18m,
+                false,
+                false,
+                null),
+            SellableDto.FromService(
+                Guid.NewGuid(),
+                "SVC-001",
+                "Consulting",
+                "Advice",
+                250m,
+                "9988",
+                18m,
+                false)
+        ];
 
     [Fact]
     public async Task RecordSale_WhenNoUserClaim_ReturnsUnauthorized()
@@ -424,6 +450,51 @@ public class SalesControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(response, ok.Value);
+    }
+
+    [Fact]
+    public async Task SearchSellables_WhenSuccessful_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var searchTerm = "rice";
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sellables = CreateSellables();
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SellableDto>>>(sellables.ToList()));
+
+        var result = await _controller.SearchSellables(searchTerm, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sellables, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
+            Arg.Is<SearchSellablesQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SearchTerm == searchTerm),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SearchSellables_WhenSearchTermMissing_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var result = await _controller.SearchSellables("   ", CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        await _bus.DidNotReceive().InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
