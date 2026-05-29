@@ -23,14 +23,20 @@ internal sealed class SaleLineValidator(
         bool allowInsufficientStock = false)
     {
         var itemNameById = new Dictionary<Guid, string>();
-        var validated = new List<ValidatedSaleLine>(items.Count);
+        var validatedByIndex = new Dictionary<int, ValidatedSaleLine>(items.Count);
+        var indexedItems = items.Select((command, index) => (Index: index, Command: command)).ToList();
 
-        var goodsLines = items.Where(x => x.IsGoodsLine).ToList();
-        var serviceLines = items.Where(x => x.IsServiceLine).ToList();
+        var goodsLines = indexedItems.Where(x => x.Command.IsGoodsLine).ToList();
+        var serviceLines = indexedItems.Where(x => x.Command.IsServiceLine).ToList();
 
         if (goodsLines.Count > 0)
         {
-            var goodsOrError = await ValidateGoodsLinesAsync(shopId, goodsLines, warnings, allowInsufficientStock, cancellationToken);
+            var goodsOrError = await ValidateGoodsLinesAsync(
+                shopId,
+                goodsLines.Select(x => x.Command).ToList(),
+                warnings,
+                allowInsufficientStock,
+                cancellationToken);
             if (goodsOrError.IsError)
             {
                 return goodsOrError.Errors;
@@ -41,10 +47,13 @@ internal sealed class SaleLineValidator(
                 itemNameById[pair.Key] = pair.Value;
             }
 
-            validated.AddRange(goodsOrError.Value.Lines);
+            for (var i = 0; i < goodsLines.Count; i++)
+            {
+                validatedByIndex[goodsLines[i].Index] = goodsOrError.Value.Lines[i];
+            }
         }
 
-        foreach (var cmd in serviceLines)
+        foreach (var (index, cmd) in serviceLines)
         {
             if (serviceRepository is null)
             {
@@ -95,7 +104,13 @@ internal sealed class SaleLineValidator(
                 warnings.Add($"Service name mismatch for code '{service.Code}': provided '{cmd.ItemName}', found '{service.Name}'.");
             }
 
-            validated.Add(new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, hasMismatch));
+            validatedByIndex[index] = new ValidatedSaleLine(cmd, SaleLineType.Service, null, null, null, service, hasMismatch);
+        }
+
+        var validated = new List<ValidatedSaleLine>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            validated.Add(validatedByIndex[i]);
         }
 
         return new SaleLineValidationResult(validated, itemNameById);

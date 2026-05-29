@@ -90,7 +90,7 @@ public sealed class PreviewSaleQueryHandler(
 
         var pricing = pricingOrError.Value;
 
-        var warnings = BuildWarnings(validatedLines);
+        var warnings = BuildWarnings(validatedLines, validationWarnings);
         var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
         for (var i = 0; i < validatedLines.Count; i++)
         {
@@ -143,16 +143,23 @@ public sealed class PreviewSaleQueryHandler(
             warnings);
     }
 
-    private static List<SalePreviewWarningDto> BuildWarnings(IReadOnlyList<ValidatedSaleLine> lines)
+    private static List<SalePreviewWarningDto> BuildWarnings(
+        IReadOnlyList<ValidatedSaleLine> lines,
+        IReadOnlyCollection<string> validationWarnings)
     {
         var warnings = new List<SalePreviewWarningDto>();
+        var warningMessages = new HashSet<string>(StringComparer.Ordinal);
         foreach (var line in lines)
         {
             if (line.HasPriceMismatch)
             {
+                var mismatchMessage = line.LineType == SaleLineType.Service
+                    ? "Client line pricing is stale compared to latest service pricing."
+                    : "Client line pricing is stale compared to latest batch pricing.";
+                warningMessages.Add(mismatchMessage);
                 warnings.Add(new SalePreviewWarningDto(
                     "sale_preview.warning.client_price_mismatch",
-                    "Client line pricing is stale compared to latest batch pricing.",
+                    mismatchMessage,
                     "warning",
                     line.Batch?.Id,
                     line.Command.ClientLineKey));
@@ -160,13 +167,30 @@ public sealed class PreviewSaleQueryHandler(
 
             if (!string.Equals(line.Command.ItemName.Trim(), line.Item?.Name ?? line.Service?.Name ?? line.Command.ItemName, StringComparison.OrdinalIgnoreCase))
             {
+                const string nameMismatchMessage = "Client line item name differs from current item name.";
+                warningMessages.Add(nameMismatchMessage);
                 warnings.Add(new SalePreviewWarningDto(
                     "sale_preview.warning.client_item_name_mismatch",
-                    "Client line item name differs from current item name.",
+                    nameMismatchMessage,
                     "warning",
                     line.Batch?.Id,
                     line.Command.ClientLineKey));
             }
+        }
+
+        foreach (var validationWarning in validationWarnings)
+        {
+            if (warningMessages.Contains(validationWarning))
+            {
+                continue;
+            }
+
+            warnings.Add(new SalePreviewWarningDto(
+                "sale_preview.warning.validation",
+                validationWarning,
+                "warning",
+                null,
+                null));
         }
 
         return warnings;
