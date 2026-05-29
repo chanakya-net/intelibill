@@ -22,13 +22,17 @@ internal static class SalesKpiCalculator
     internal static SalesKpis CalculateSalesKpis(
         IReadOnlyCollection<Sale> sales,
         IReadOnlyCollection<SaleReturn>? saleReturns = null,
-        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null,
+        IReadOnlyDictionary<Guid, SaleLineType>? saleItemTypes = null)
     {
         var salesBooked = sales.Sum(s => s.TotalAmount);
         var cashCollected = sales.Sum(s => s.PaidAmount);
-        var totalCost = sales.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity);
+        var totalCost = sales.SelectMany(s => s.Items)
+            .Where(i => i.LineType != SaleLineType.Service)
+            .Sum(i => i.CostPrice * i.Quantity);
         var totalTax = sales.Sum(s => s.TotalTaxAmount);
         var activeReturns = saleReturns?.Where(r => !r.IsVoided).ToList() ?? [];
+        saleItemTypes ??= sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var refundAmount = activeReturns.Sum(r => r.TotalRefundAmount);
         var refundTax = activeReturns
             .SelectMany(r => r.Items)
@@ -45,11 +49,19 @@ internal static class SalesKpiCalculator
         var restockableCost = activeReturns
             .SelectMany(r => r.Items)
             .Where(i => i.Condition == SaleReturnCondition.Restockable)
-            .Sum(i => i.OriginalCostPrice * i.Quantity);
+            .Sum(i =>
+            {
+                var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
+                return isService ? 0m : i.OriginalCostPrice * i.Quantity;
+            });
         var wastageCost = activeReturns
             .SelectMany(r => r.Items)
             .Where(i => i.Condition == SaleReturnCondition.Wastage)
-            .Sum(i => i.OriginalCostPrice * i.Quantity);
+            .Sum(i =>
+            {
+                var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
+                return isService ? 0m : i.OriginalCostPrice * i.Quantity;
+            });
         var adjustmentLossCost = adjustmentLosses?.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided).Sum(a => a.CostImpact) ?? 0m;
         var netSalesBooked = salesBooked - refundAmount;
         var netCost = totalCost - restockableCost;

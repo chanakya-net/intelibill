@@ -216,9 +216,12 @@ export interface InvoiceLeaseDto {
 
 export interface SaleItemDto {
   readonly saleItemId: string;
-  readonly itemId: string;
+  readonly lineType: 'Goods' | 'Service';
+  readonly itemId: string | null;
+  readonly serviceId: string | null;
   readonly itemName: string;
-  readonly inventoryBatchId: string;
+  readonly lineCode: string;
+  readonly inventoryBatchId: string | null;
   readonly quantity: number;
   readonly salesPrice: number;
   readonly originalSalesPrice: number;

@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Services;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -70,9 +71,15 @@ public sealed class GetDashboardQueryHandler(
         var customerIds = customers.Select(c => c.Id).ToList();
         var customerBalances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
             query.ShopId, customerIds, cancellationToken);
+        var saleItemTypes = await BuildSaleItemTypeLookupAsync(
+            query.ShopId,
+            sales,
+            saleReturns,
+            saleRepository,
+            cancellationToken);
 
         // Compute all KPIs using pure functions
-        var salesKpis = SalesKpiCalculator.CalculateSalesKpis(sales, saleReturns, adjustmentLosses);
+        var salesKpis = SalesKpiCalculator.CalculateSalesKpis(sales, saleReturns, adjustmentLosses, saleItemTypes);
         var expenseKpis = ExpenseKpiCalculator.CalculateExpenseKpis(expenses);
         var paymentMix = SalesKpiCalculator.CalculatePaymentMix(sales);
         var stockRisk = StockRiskKpiCalculator.CalculateStockRisk(inventories);
@@ -96,7 +103,13 @@ public sealed class GetDashboardQueryHandler(
 
         if (!isStaff)
         {
-            var trends = DashboardTrendBuilder.BuildTrendSeries(sales, saleReturns, query.StartDate, query.EndDate, adjustmentLosses);
+            var trends = DashboardTrendBuilder.BuildTrendSeries(
+                sales,
+                saleReturns,
+                query.StartDate,
+                query.EndDate,
+                adjustmentLosses,
+                saleItemTypes);
             salesTrendSeries = trends.SalesTrend;
             profitTrendSeries = trends.ProfitTrend;
             paymentMixTrendSeries = trends.PaymentMixTrend;
@@ -136,5 +149,39 @@ public sealed class GetDashboardQueryHandler(
             ProfitTrendSeries: profitTrendSeries,
             PaymentMixTrendSeries: paymentMixTrendSeries,
             PreviousPeriodSummary: previousPeriodSummary);
+    }
+
+    private static async Task<IReadOnlyDictionary<Guid, SaleLineType>> BuildSaleItemTypeLookupAsync(
+        Guid shopId,
+        IReadOnlyCollection<Sale> sales,
+        IReadOnlyCollection<SaleReturn> saleReturns,
+        ISaleRepository saleRepository,
+        CancellationToken cancellationToken)
+    {
+        var saleItemTypes = sales
+            .SelectMany(sale => sale.Items)
+            .ToDictionary(item => item.Id, item => item.LineType);
+
+        var missingSaleIds = saleReturns
+            .Where(saleReturn => saleReturn.Items.Any(item => !saleItemTypes.ContainsKey(item.SaleItemId)))
+            .Select(saleReturn => saleReturn.SaleId)
+            .Distinct()
+            .ToList();
+
+        foreach (var saleId in missingSaleIds)
+        {
+            var sale = await saleRepository.GetByIdAsync(saleId, shopId, cancellationToken);
+            if (sale is null)
+            {
+                continue;
+            }
+
+            foreach (var item in sale.Items)
+            {
+                saleItemTypes[item.Id] = item.LineType;
+            }
+        }
+
+        return saleItemTypes;
     }
 }

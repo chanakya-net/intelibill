@@ -796,6 +796,67 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenServiceSoldBeforeRangeAndReturnedInsideRange_IgnoresServiceReturnCosts()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-1);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var oldServiceSale = Sale.Create(
+            shop.Id,
+            "INV-SRV-OLD",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(start.AddDays(-7).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            paidAmount: 150m,
+            dueAmount: 0m,
+            totalAmount: 150m,
+            totalTaxAmount: 13.64m,
+            [SaleItem.CreateService(
+                shop.Id,
+                Guid.NewGuid(),
+                lineName: "Consulting",
+                lineCode: "SRV-001",
+                quantity: 1m,
+                costPrice: 50m,
+                salesPrice: 150m,
+                mrp: 150m,
+                taxRatePercent: 10m,
+                isPriceIncludingTax: true,
+                hasPriceMismatch: false)]);
+
+        var saleReturn = MakeReturn(
+            shop.Id,
+            oldServiceSale.Id,
+            oldServiceSale.Items[0].Id,
+            "RET-SRV-OLD",
+            SaleReturnCondition.Restockable,
+            approvedRefund: 150m);
+
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
+            .Returns([saleReturn]);
+        _saleRepository.GetByIdAsync(oldServiceSale.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(oldServiceSale);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(-150m, result.Value.NetSalesBooked);
+        Assert.Equal(0m, result.Value.WastageCost);
+        Assert.Equal(-150m, result.Value.ProfitBeforeTax);
+        Assert.Equal(-136.36m, result.Value.ProfitAfterTax);
+        Assert.Equal(-150m, result.Value.ProfitTrendSeries![1].ProfitBeforeTax);
+        Assert.Equal(-136.36m, result.Value.ProfitTrendSeries[1].ProfitAfterTax);
+    }
+
+    [Fact]
     public async Task Handle_WhenStaffRole_ProfitTrendSeriesIsNull()
     {
         var user = MakeUser();

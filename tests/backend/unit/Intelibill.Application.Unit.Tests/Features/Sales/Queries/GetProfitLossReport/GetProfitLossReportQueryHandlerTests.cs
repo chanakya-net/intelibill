@@ -415,6 +415,56 @@ public class GetProfitLossReportQueryHandlerTests
             [line]).Value;
     }
 
+    [Fact]
+    public async Task Handle_ServiceSale_CalculatesProfitLossWithZeroCost()
+    {
+        // Arrange
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+
+        // Service item: price 150, 10% tax -> 136.36 base, 13.64 tax. Cost 50 (which must be ignored/remain 0 in v1).
+        var serviceItem = SaleItem.CreateService(
+            shop.Id, Guid.NewGuid(), lineName: "Consulting", lineCode: "SRV-001",
+            quantity: 1m, costPrice: 50m, salesPrice: 150m, mrp: 150m, taxRatePercent: 10m,
+            isPriceIncludingTax: true, hasPriceMismatch: false);
+
+        var sale = Sale.Create(
+            shop.Id, "INV-SRV", null, "John Doe", null, PaymentMethod.Cash,
+            DateTimeOffset.Now, 150m, 0m, 150m, 13.64m, new List<SaleItem> { serviceItem });
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(new[] { sale });
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsError);
+        var report = result.Value[0];
+        Assert.Equal(sale.Id, report.SaleId);
+        Assert.Equal("INV-SRV", report.ReferenceNumber);
+        
+        // Total Cost must be 0 for service
+        Assert.Equal(0m, report.TotalCost);
+        
+        // Revenue Before Tax: 136.36
+        Assert.Equal(serviceItem.TaxableAmount, report.RevenueBeforeTax);
+        
+        // Revenue After Tax: 150.00
+        Assert.Equal(150m, report.RevenueAfterTax);
+        
+        // Profit Before Tax: 150 - 0 = 150
+        Assert.Equal(150m, report.ProfitBeforeTax);
+        
+        // Profit After Tax: 136.36 - 0 = 136.36
+        Assert.Equal(serviceItem.TaxableAmount, report.ProfitAfterTax);
+    }
+
     private static InventoryAdjustment MakeAdjustment(
         Guid shopId,
         string adjustmentNumber,
