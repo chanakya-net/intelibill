@@ -15,6 +15,7 @@ internal sealed class SearchSellablesQueryValidator : AbstractValidator<SearchSe
 
         RuleFor(x => x.SearchTerm)
             .NotEmpty()
-            .WithErrorCode(Errors.Inventory.SearchTermRequired.Code);
+            .WithErrorCode(Errors.Inventory.SearchTermRequired.Code)
+            .WithMessage(Errors.Inventory.SearchTermRequired.Description);
     }
 }

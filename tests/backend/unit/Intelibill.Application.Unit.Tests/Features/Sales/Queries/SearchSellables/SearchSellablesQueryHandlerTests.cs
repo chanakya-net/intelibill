@@ -147,30 +147,6 @@ public sealed class SearchSellablesQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenInactiveServiceReturnedByRepository_ExcludesIt()
-    {
-        var user = MakeUser();
-        var shop = MakeShop();
-        var membership = MakeMembership(shop.Id, user.Id);
-        var searchTerm = "consult";
-        var activeService = MakeService(shop.Id, "SVC-010", "Consulting", true);
-        var inactiveService = MakeService(shop.Id, "SVC-011", "Consulting Plus", false);
-
-        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
-        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
-        _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
-        _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([activeService, inactiveService]);
-
-        var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Single(result.Value);
-        Assert.Equal(activeService.Id, result.Value[0].ServiceId);
-    }
-
-    [Fact]
     public async Task Handle_WhenBarcodeLookupRequestedByData_ReturnsGoodsAndCallsBarcodeSearch()
     {
         var user = MakeUser();

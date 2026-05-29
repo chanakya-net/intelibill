@@ -51,7 +51,6 @@ public sealed class SearchSellablesQueryHandler(
                 batch.PurchaseTaxIncluded,
                 batch.ExpiryDate))
             .Concat(servicesTask.Result
-                .Where(service => service.IsActive)
                 .Select(service => SellableDto.FromService(
                 service.Id,
                 service.Code,

@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Queries.SearchSellables;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.SearchSellables;
@@ -14,7 +15,9 @@ public sealed class SearchSellablesQueryValidatorTests
 
         var result = _validator.TestValidate(query);
 
-        result.ShouldHaveValidationErrorFor(x => x.SearchTerm);
+        result.ShouldHaveValidationErrorFor(x => x.SearchTerm)
+            .WithErrorCode(Errors.Inventory.SearchTermRequired.Code)
+            .WithErrorMessage(Errors.Inventory.SearchTermRequired.Description);
     }
 
     [Fact]
