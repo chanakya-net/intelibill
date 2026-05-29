@@ -3,12 +3,11 @@ import { Component, EventEmitter, Input, Output, computed, inject, signal } from
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
-import { DividerModule } from 'primeng/divider';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 import { AuthService } from '../../../core/auth/auth.service';
-import type { SaleReturnDto } from '../services/sale.models';
+import { getPaymentMethodLabel, type SaleReturnDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
 import { SaleLineItemsTableComponent } from './sale-detail/sale-line-items-table.component';
 import { SaleReturnPreviewDialogComponent } from './sale-detail/sale-return-preview-dialog.component';
@@ -22,7 +21,6 @@ import { SaleVoidReturnDialogComponent } from './sale-detail/sale-void-return-di
     CommonModule,
     ButtonModule,
     DialogModule,
-    DividerModule,
     ProgressSpinnerModule,
     TagModule,
     TableModule,
@@ -33,6 +31,7 @@ import { SaleVoidReturnDialogComponent } from './sale-detail/sale-void-return-di
     SaleVoidReturnDialogComponent,
   ],
   templateUrl: './sale-detail-overlay.component.html',
+  styleUrl: './sale-detail-overlay.component.scss',
 })
 export class SaleDetailOverlayComponent {
   private readonly salesFacade = inject(SalesFacade);
@@ -59,14 +58,26 @@ export class SaleDetailOverlayComponent {
     return activeShop?.role ?? '';
   });
 
-  readonly returnableItems = computed(() => this.sale()?.items.filter((item) => item.returnableQuantity > 0) ?? []);
+  readonly returnableItems = computed(
+    () => this.sale()?.items.filter((item) => item.returnableQuantity > 0) ?? [],
+  );
+
+  readonly paymentMethodLabel = computed(() =>
+    getPaymentMethodLabel(this.sale()?.paymentMethod ?? 0),
+  );
+
+  readonly customerName = computed(() => this.sale()?.customerName || 'Walk-in Customer');
+
+  readonly customerPhone = computed(() => this.sale()?.customerPhone || 'Not provided');
 
   readonly canPreviewReturns = computed(() => {
     const role = this.activeShopRole().toLowerCase();
     return ['owner', 'manager', 'staff'].includes(role) && this.returnableItems().length > 0;
   });
 
-  readonly canSubmitReturns = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+  readonly canSubmitReturns = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
 
   openReturnPreview(): void {
     if (!this.sale() || !this.canPreviewReturns()) return;
@@ -113,8 +124,17 @@ export class SaleDetailOverlayComponent {
     return saleReturn.isVoided ? 'Voided' : 'Active';
   }
 
-  returnStatusSeverity(saleReturn: SaleReturnDto): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+  returnStatusSeverity(
+    saleReturn: SaleReturnDto,
+  ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
     return saleReturn.isVoided ? 'secondary' : 'success';
   }
-}
 
+  returnFooterNote(): string {
+    if (this.canPreviewReturns()) {
+      return 'Return items stays available because at least one sold line is still marked returnable. Print actions are grouped with the receipt, not mixed into the line-item table.';
+    }
+
+    return 'Return items are unavailable because this receipt has no remaining returnable lines. Print actions are grouped with the receipt, not mixed into the line-item table.';
+  }
+}

@@ -1,14 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { TableModule } from 'primeng/table';
-import { SaleItemDto } from '../../services/sale.models';
+import type { SaleItemDto } from '../../services/sale.models';
 
 @Component({
   selector: 'app-sale-line-items-table',
   standalone: true,
-  imports: [CommonModule, TableModule, TranslocoPipe],
+  imports: [CommonModule, TranslocoPipe],
   templateUrl: './sale-line-items-table.component.html',
+  styleUrl: './sale-line-items-table.component.scss',
 })
 export class SaleLineItemsTableComponent {
   @Input({ required: true }) items: readonly SaleItemDto[] = [];
@@ -21,14 +21,23 @@ export class SaleLineItemsTableComponent {
       return true;
     }
 
-    const hasMissing = this.items.some((item) => item.isPriceIncludingTax === null || item.isPriceIncludingTax === undefined);
+    const hasMissing = this.items.some(
+      (item) => item.isPriceIncludingTax === null || item.isPriceIncludingTax === undefined,
+    );
     if (!hasMissing) {
       return true;
     }
 
-    const totalTax = this.totalTaxAmount ?? this.items.reduce((sum, item) => sum + item.taxAmount, 0);
-    const includedTaxTotal = this.items.reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, true), 0);
-    const excludedTaxTotal = this.items.reduce((sum, item) => sum + this.getLineTaxAmountForMode(item, false), 0);
+    const totalTax =
+      this.totalTaxAmount ?? this.items.reduce((sum, item) => sum + item.taxAmount, 0);
+    const includedTaxTotal = this.items.reduce(
+      (sum, item) => sum + this.getLineTaxAmountForMode(item, true),
+      0,
+    );
+    const excludedTaxTotal = this.items.reduce(
+      (sum, item) => sum + this.getLineTaxAmountForMode(item, false),
+      0,
+    );
     const includedDelta = Math.abs(includedTaxTotal - totalTax);
     const excludedDelta = Math.abs(excludedTaxTotal - totalTax);
     return includedDelta <= excludedDelta;
@@ -48,6 +57,10 @@ export class SaleLineItemsTableComponent {
 
   getLineTotal(item: SaleItemDto): number {
     return item.quantity * item.salesPrice;
+  }
+
+  getSectionTotal(items: readonly SaleItemDto[]): number {
+    return items.reduce((sum, item) => sum + this.getLineTotal(item), 0);
   }
 
   isPriceIncludingTax(item: SaleItemDto): boolean {
@@ -75,11 +88,11 @@ export class SaleLineItemsTableComponent {
   }
 
   hasGoods(): boolean {
-    return this.items.some(i => i.lineType === 'Goods');
+    return this.items.some((i) => i.lineType === 'Goods');
   }
 
   hasServices(): boolean {
-    return this.items.some(i => i.lineType === 'Service');
+    return this.items.some((i) => i.lineType === 'Service');
   }
 
   isMixedBill(): boolean {
@@ -87,10 +100,42 @@ export class SaleLineItemsTableComponent {
   }
 
   getGoodsItems(): SaleItemDto[] {
-    return this.items.filter(i => i.lineType === 'Goods');
+    return this.items.filter((i) => i.lineType === 'Goods');
   }
 
   getServiceItems(): SaleItemDto[] {
-    return this.items.filter(i => i.lineType === 'Service');
+    return this.items.filter((i) => i.lineType === 'Service');
+  }
+
+  getSections(): { title: string; summary: string; items: SaleItemDto[] }[] {
+    const sections: { title: string; summary: string; items: SaleItemDto[] }[] = [];
+    const goodsItems = this.getGoodsItems();
+    const serviceItems = this.getServiceItems();
+
+    if (goodsItems.length > 0) {
+      sections.push({
+        title: 'Goods sold',
+        summary: `${goodsItems.length} ${goodsItems.length === 1 ? 'item' : 'items'}`,
+        items: goodsItems,
+      });
+    }
+
+    if (serviceItems.length > 0) {
+      sections.push({
+        title: 'Services sold',
+        summary: `${serviceItems.length} ${serviceItems.length === 1 ? 'service' : 'services'}`,
+        items: serviceItems,
+      });
+    }
+
+    return sections;
+  }
+
+  getLineCode(item: SaleItemDto): string {
+    return item.hsnCode || item.lineCode || '-';
+  }
+
+  isReturnable(item: SaleItemDto): boolean {
+    return item.returnableQuantity > 0;
   }
 }

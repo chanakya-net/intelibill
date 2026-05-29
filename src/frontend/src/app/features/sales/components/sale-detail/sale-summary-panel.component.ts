@@ -1,14 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { TagModule } from 'primeng/tag';
-import { getPaymentMethodLabel, getPaymentMethodSeverity, SaleDto } from '../../services/sale.models';
+import { getPaymentMethodLabel, type SaleDto } from '../../services/sale.models';
 
 @Component({
   selector: 'app-sale-summary-panel',
   standalone: true,
-  imports: [CommonModule, TagModule, TranslocoPipe],
+  imports: [CommonModule, TranslocoPipe],
   templateUrl: './sale-summary-panel.component.html',
+  styleUrl: './sale-summary-panel.component.scss',
 })
 export class SaleSummaryPanelComponent {
   @Input({ required: true }) sale!: SaleDto;
@@ -26,7 +26,11 @@ export class SaleSummaryPanelComponent {
     return getPaymentMethodLabel(this.sale.paymentMethod);
   }
 
-  paymentMethodSeverity(): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
-    return getPaymentMethodSeverity(this.sale.paymentMethod);
+  customerName(): string {
+    return this.sale.customerName || 'Walk-in Customer';
+  }
+
+  customerPhone(): string {
+    return this.sale.customerPhone || 'Not provided';
   }
 }

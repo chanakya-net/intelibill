@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import type { SaleItemDto } from '../../services/sale.models';
 import { SaleLineItemsTableComponent } from './sale-line-items-table.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
 
 const makeItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
   saleItemId: 'line-1',
@@ -49,7 +51,10 @@ describe('SaleLineItemsTableComponent', () => {
 
     const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
     const component = fixture.componentInstance;
-    component.items = [makeItem(), makeItem({ itemName: 'Brush', salesPrice: 100, taxRatePercent: 5, savingsAmount: 0 })];
+    component.items = [
+      makeItem(),
+      makeItem({ itemName: 'Brush', salesPrice: 100, taxRatePercent: 5, savingsAmount: 0 }),
+    ];
     component.currency = 'INR';
     fixture.detectChanges();
 
@@ -73,7 +78,16 @@ describe('SaleLineItemsTableComponent', () => {
     const component = fixture.componentInstance;
     component.items = [
       makeItem({ itemName: 'Soap', lineType: 'Goods', hsnCode: 'HSN1' }),
-      makeItem({ saleItemId: 'line-2', itemName: 'Repair', lineType: 'Service', itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
+      makeItem({
+        saleItemId: 'line-2',
+        itemName: 'Repair',
+        lineType: 'Service',
+        itemId: null,
+        serviceId: 'svc-1',
+        inventoryBatchId: null,
+        lineCode: 'SAC1',
+        hsnCode: 'SAC1',
+      }),
     ];
     fixture.detectChanges();
 
@@ -83,7 +97,7 @@ describe('SaleLineItemsTableComponent', () => {
     expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
   });
 
-  it('goods-only bill: keeps flat layout without HSN/SAC column', async () => {
+  it('goods-only bill: uses the receipt section layout with HSN/SAC details', async () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
@@ -100,12 +114,13 @@ describe('SaleLineItemsTableComponent', () => {
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).not.toContain('sales.newSale.cart.goodsSection');
-    expect(text).not.toContain('sales.newSale.cart.servicesSection');
-    expect(text).not.toMatch(/HSN\/SAC|services\.hsnSac/);
+    expect(text).toContain('Goods sold');
+    expect(text).toContain('2 items');
+    expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
+    expect(text).toContain('HSN1');
   });
 
-  it('service-only bill: keeps flat layout with HSN/SAC column', async () => {
+  it('service-only bill: uses the receipt section layout with HSN/SAC details', async () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
@@ -116,12 +131,21 @@ describe('SaleLineItemsTableComponent', () => {
     const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
     const component = fixture.componentInstance;
     component.items = [
-      makeItem({ itemName: 'Repair', lineType: 'Service', itemId: null, serviceId: 'svc-1', inventoryBatchId: null, lineCode: 'SAC1', hsnCode: 'SAC1' }),
+      makeItem({
+        itemName: 'Repair',
+        lineType: 'Service',
+        itemId: null,
+        serviceId: 'svc-1',
+        inventoryBatchId: null,
+        lineCode: 'SAC1',
+        hsnCode: 'SAC1',
+      }),
     ];
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).not.toContain('sales.newSale.cart.servicesSection');
+    expect(text).toContain('Services sold');
+    expect(text).toContain('1 service');
     expect(text).toMatch(/HSN\/SAC|services\.hsnSac/);
   });
 });
