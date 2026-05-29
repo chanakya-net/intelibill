@@ -246,6 +246,200 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ForMixedServiceAndGoodsReturn_RestocksGoodsAndSkipsServiceInventory()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var serviceItem = SaleItem.CreateService(
+            fixture.Shop.Id,
+            Guid.NewGuid(),
+            lineName: "Delivery",
+            lineCode: "SRV-DELIV",
+            quantity: 1m,
+            costPrice: 0m,
+            salesPrice: 50m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            fixture.Shop.Id,
+            "INV-MIX-01",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 270m,
+            dueAmount: 0m,
+            totalAmount: 270m,
+            totalTaxAmount: 20m,
+            [fixture.SaleItem, serviceItem]);
+
+        _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SRVMIX1");
+
+        var result = await CreateHandler().HandleAsync(
+            new RecordSaleReturnCommand(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                sale.Id,
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: "Mixed return",
+                [
+                    new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 1m, SaleLineType.Goods, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
+                    new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: "Not delivered"),
+                ]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError, string.Join(", ", result.IsError ? result.Errors.Select(e => e.Code) : []));
+        Assert.Equal(11m, fixture.Batch.Quantity);
+        Assert.Equal(21m, fixture.Inventory.Quantity);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(t =>
+                t.TransactionType == StockTransactionType.Ret
+                && t.ItemId == fixture.SaleItem.ItemId
+                && t.Quantity == 1m
+                && t.ReferenceNumber == "RET-20260505-SRVMIX1"),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.ReturnNumber == "RET-20260505-SRVMIX1"
+                && r.Items.Count == 2
+                && r.Items.Any(i => i.SaleItemId == fixture.SaleItem.Id && i.Condition == SaleReturnCondition.Restockable)
+                && r.Items.Any(i => i.SaleItemId == serviceItem.Id && i.Condition == null && i.OriginalCostPrice == 0m)),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForServiceRefundWithCustomerDue_IncludesServiceRefundInDueReductionMath()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var customerId = Guid.NewGuid();
+        var serviceItem = SaleItem.CreateService(
+            shop.Id,
+            Guid.NewGuid(),
+            lineName: "Consultation",
+            lineCode: "SRV-CONS",
+            quantity: 2m,
+            costPrice: 0m,
+            salesPrice: 200m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-SRV-DUE",
+            customerId,
+            "Customer",
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            paidAmount: 0m,
+            dueAmount: 400m,
+            totalAmount: 400m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, customerId, Arg.Any<CancellationToken>())
+            .Returns(150m);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SRVDUE1");
+
+        var result = await CreateHandler().HandleAsync(
+            new RecordSaleReturnCommand(
+                user.Id,
+                shop.Id,
+                sale.Id,
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: "Refund",
+                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: null)]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
+        _inventoryRepository.DidNotReceive().Update(Arg.Any<Intelibill.Domain.Entities.Inventory>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<CustomerLedgerEntry>(entry =>
+                entry.CustomerId == customerId
+                && entry.EntryType == CustomerLedgerEntryType.ReturnCredit
+                && entry.Amount == 150m),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.ReturnNumber == "RET-20260505-SRVDUE1"
+                && r.TotalRefundAmount == 200m
+                && r.DueReductionAmount == 150m
+                && r.PayoutAmount == 50m
+                && r.CustomerBalanceBefore == 150m
+                && r.CustomerBalanceAfter == 0m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenServiceLineHasCondition_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var serviceItem = SaleItem.CreateService(
+            fixture.Shop.Id,
+            Guid.NewGuid(),
+            lineName: "Repair",
+            lineCode: "SRV-REP",
+            quantity: 1m,
+            costPrice: 0m,
+            salesPrice: 100m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            fixture.Shop.Id,
+            "INV-SRV-COND",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+        _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var result = await CreateHandler().HandleAsync(
+            new RecordSaleReturnCommand(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                sale.Id,
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: null,
+                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: null)]),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.ServiceRefundOnly", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_ForMixedMultiLineReturn_RecordsOneHeaderWithIndependentLineEffects()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
