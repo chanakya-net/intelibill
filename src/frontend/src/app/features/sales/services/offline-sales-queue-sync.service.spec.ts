@@ -389,6 +389,8 @@ describe('OfflineSalesQueueSyncService', () => {
             taxAmount: 0,
             lineTotal: 100,
             configuredRuleId: null,
+            lineType: 'goods',
+            serviceId: null,
           }],
           totals: {
             totalBeforeDiscount: 100,

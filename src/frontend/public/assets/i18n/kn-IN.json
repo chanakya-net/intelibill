@@ -12,7 +12,8 @@
     "done": "ಮುಗಿದಿದೆ",
     "currencySymbol": "₹",
     "search": "ಹುಡುಕಿ...",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "all": "ಎಲ್ಲಾ"
   },
   "languages": {
     "en-IN": "ಇಂಗ್ಲಿಷ್",
@@ -100,6 +101,7 @@
     "salesHistory": "ಇತಿಹಾಸ",
     "manageInventory": "ಇನ್‌ವೆಂಟರಿ",
     "addNewProduct": "ಉತ್ಪನ್ನಗಳು",
+    "manageServices": "Services",
     "batchInventoryInbound": "ಇನ್‌ವೆಂಟರಿ ಸೇರಿಸಿ",
     "inventoryBatchesOverview": "ಬ್ಯಾಚ್‌ಗಳ ವಿಹಂಗಮ ನೋಟ",
     "inventoryAdjustments": "ಹೊಂದಾಣಿಕೆ ಇತಿಹಾಸ",
@@ -114,6 +116,40 @@
     "profitLossReport": "ಲಾಭ ಮತ್ತು ನಷ್ಟ",
     "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
     "manageDiscounts": "ರಿಯಾಯಿತಿಗಳು"
+  },
+  "services": {
+    "directory": "Service Directory",
+    "title": "Services",
+    "subtitle": "Manage billable services for the active shop.",
+    "searchPlaceholder": "Search services...",
+    "status": "Status",
+    "code": "Code",
+    "name": "Name",
+    "description": "Description",
+    "price": "Price",
+    "taxRatePercent": "Tax Rate %",
+    "taxIncluded": "Tax Included",
+    "taxExcluded": "Tax Excluded",
+    "hsnSac": "HSN/SAC",
+    "addService": "Add Service",
+    "editService": "Edit Service",
+    "addServiceDescription": "Create a new service for this shop.",
+    "editServiceDescription": "Update service details.",
+    "serviceForm": "Service form",
+    "saveChanges": "Save Changes",
+    "noServicesFound": "No services found",
+    "noServicesDescription": "Start by creating your first service.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activeServices": "Active Services",
+    "inactiveServices": "Inactive Services",
+    "totalServices": "Total Services",
+    "totalValue": "Total Value",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "loadFailed": "Unable to load services.",
+    "saveFailed": "Unable to save service.",
+    "toggleFailed": "Unable to update service status."
   },
   "bankAccounts": {
     "directory": "ಬ್ಯಾಂಕ್ ಖಾತೆ ಡೈರೆಕ್ಟರಿ",
@@ -802,14 +838,17 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
       "openPicker": "ಬ್ಯಾಚ್ ಪಿಕರ್ ತೆರೆಯಿರಿ",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "goodsSection": "Goods",
+      "servicesSection": "Services"
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",

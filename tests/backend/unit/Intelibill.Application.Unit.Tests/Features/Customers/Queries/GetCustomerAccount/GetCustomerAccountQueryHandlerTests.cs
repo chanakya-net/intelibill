@@ -59,10 +59,12 @@ public class GetCustomerAccountQueryHandlerTests
             100m,
             0m,
             [
-                SaleItem.Create(
+                SaleItem.CreateGoods(
                     fixture.shop.Id,
                     Guid.NewGuid(),
                     Guid.NewGuid(),
+                    lineName: "Item",
+                    lineCode: "BC-001",
                     1m,
                     80m,
                     100m,
@@ -149,10 +151,12 @@ public class GetCustomerAccountQueryHandlerTests
         var fixture = BuildFixture();
         var query = new GetCustomerAccountQuery(fixture.manager.Id, fixture.shop.Id, fixture.customer.Id);
 
-        var discountedItem = SaleItem.Create(
+        var discountedItem = SaleItem.CreateGoods(
             fixture.shop.Id,
             Guid.NewGuid(),
             Guid.NewGuid(),
+            lineName: "Item",
+            lineCode: "BC-001",
             1m,
             50m,
             100m,

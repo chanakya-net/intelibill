@@ -81,7 +81,9 @@ public sealed record RecordSaleItemRequest(
     Guid InventoryBatchId,
     InstantDiscountRequest? ItemDiscount = null,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null);
 
 public sealed record PreviewSaleRequest(
     InstantDiscountRequest SaleDiscount,
@@ -100,7 +102,9 @@ public sealed record PreviewSaleItemRequest(
     bool IsPriceIncludingTax,
     InstantDiscountRequest ItemDiscount,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null);
 
 public sealed record InstantDiscountRequest(
     InstantDiscountType Type,
@@ -114,9 +118,10 @@ public sealed record PreviewSaleReturnRequest(
 public sealed record PreviewSaleReturnItemRequest(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
-    string? Notes);
+    string? Notes,
+    SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record RecordSaleReturnRequest(
     PaymentMethod? PayoutMethod,
@@ -128,8 +133,9 @@ public sealed record RecordSaleReturnRequest(
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
-    string? Notes);
+    string? Notes,
+    SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record VoidSaleReturnRequest(string Reason);

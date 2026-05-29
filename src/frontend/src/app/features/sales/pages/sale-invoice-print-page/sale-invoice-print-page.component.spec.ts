@@ -85,6 +85,8 @@ describe('SaleInvoicePrintPageComponent', () => {
           taxAmount: 2.26,
           lineTotal: 47.5,
           configuredRuleId: null,
+          lineType: 'goods',
+          serviceId: null,
         },
       ],
       totals: {

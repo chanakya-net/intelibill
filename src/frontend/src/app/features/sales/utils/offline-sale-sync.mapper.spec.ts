@@ -57,6 +57,8 @@ describe('offline-sale-sync.mapper', () => {
             configuredRulePercentage: 5,
             itemDiscountOverrideType: 1,
             itemDiscountOverrideValue: 2,
+            lineType: 'goods',
+            serviceId: null,
           },
         ],
         totals: {

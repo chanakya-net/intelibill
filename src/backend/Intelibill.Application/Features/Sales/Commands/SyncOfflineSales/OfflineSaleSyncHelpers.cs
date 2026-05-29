@@ -104,6 +104,9 @@ internal static class OfflineSaleSyncHelpers
     {
         foreach (var validated in validatedLines)
         {
+            if (validated.LineType == SaleLineType.Service)
+                continue;
+
             if (!validated.HasPriceMismatch)
                 continue;
 
@@ -112,7 +115,7 @@ internal static class OfflineSaleSyncHelpers
                     ? line
                     : null;
             var printedPrice = printedLine?.SalesPrice ?? validated.Command.SalesPrice;
-            var message = $"Offline price variance for item '{validated.Item.Name}' batch '{validated.Batch.BatchNumber}': printed {printedPrice}, current {validated.Batch.SalesPrice}.";
+            var message = $"Offline price variance for item '{validated.Item!.Name}' batch '{validated.Batch!.BatchNumber}': printed {printedPrice}, current {validated.Batch!.SalesPrice}.";
             warnings.Add(message);
             issues.Add(ReconciliationIssue.Create(
                 shopId,
@@ -123,8 +126,8 @@ internal static class OfflineSaleSyncHelpers
                 "offline_sync.pricing_variance",
                 message,
                 actorUserId,
-                validated.Item.Id,
-                validated.Batch.Id));
+                validated.Item!.Id,
+                validated.Batch!.Id));
         }
     }
 
@@ -157,6 +160,9 @@ internal static class OfflineSaleSyncHelpers
 
         foreach (var line in lines)
         {
+            if (line.IsServiceLine)
+                continue;
+
             if (!line.ConfiguredBatchRuleId.HasValue
                 || !IsBatchDiscountRuleVariance(line, activeDiscountRulesById))
             {
@@ -213,27 +219,35 @@ internal static class OfflineSaleSyncHelpers
         List<ReconciliationIssue> issues)
     {
         var remainingByBatchId = validatedLines
-            .Select(line => line.Batch)
+            .Where(line => line.LineType == SaleLineType.Goods)
+            .Select(line => line.Batch!)
             .DistinctBy(batch => batch.Id)
             .ToDictionary(batch => batch.Id, batch => Math.Max(0m, batch.Quantity));
         var remainingByItemId = validatedLines
-            .Select(line => line.Inventory)
+            .Where(line => line.LineType == SaleLineType.Goods)
+            .Select(line => line.Inventory!)
             .DistinctBy(inventory => inventory.ItemId)
             .ToDictionary(inventory => inventory.ItemId, inventory => Math.Max(0m, inventory.Quantity));
         var plan = new List<OfflineStockConsumption>(validatedLines.Count);
 
         foreach (var validated in validatedLines)
         {
+            if (validated.LineType == SaleLineType.Service)
+            {
+                plan.Add(new OfflineStockConsumption(0m));
+                continue;
+            }
+
             var availableQuantity = Math.Min(
-                remainingByBatchId[validated.Batch.Id],
-                remainingByItemId[validated.Item.Id]);
+                remainingByBatchId[validated.Batch!.Id],
+                remainingByItemId[validated.Item!.Id]);
             var consumedQuantity = Math.Min(validated.Command.Quantity, availableQuantity);
-            remainingByBatchId[validated.Batch.Id] -= consumedQuantity;
-            remainingByItemId[validated.Item.Id] -= consumedQuantity;
+            remainingByBatchId[validated.Batch!.Id] -= consumedQuantity;
+            remainingByItemId[validated.Item!.Id] -= consumedQuantity;
 
             if (consumedQuantity < validated.Command.Quantity)
             {
-                var message = $"Offline stock shortage for item '{validated.Item.Name}' batch '{validated.Batch.BatchNumber}': printed {validated.Command.Quantity}, consumed {consumedQuantity}.";
+                var message = $"Offline stock shortage for item '{validated.Item!.Name}' batch '{validated.Batch!.BatchNumber}': printed {validated.Command.Quantity}, consumed {consumedQuantity}.";
                 warnings.Add(message);
                 issues.Add(ReconciliationIssue.Create(
                     shopId,
@@ -244,8 +258,8 @@ internal static class OfflineSaleSyncHelpers
                     "offline_sync.stock_shortage",
                     message,
                     actorUserId,
-                    validated.Item.Id,
-                    validated.Batch.Id,
+                    validated.Item!.Id,
+                    validated.Batch!.Id,
                     validated.Command.Quantity,
                     availableQuantity,
                     consumedQuantity));

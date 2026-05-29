@@ -66,7 +66,8 @@ public sealed record OfflineSalesSnapshotComplete(
     int BatchCount,
     int CustomerCount,
     int DiscountRuleCount,
-    int ActiveLeaseCount);
+    int ActiveLeaseCount,
+    int ServiceCount = 0);
 
 public sealed record OfflineSalesSnapshotError(
     Guid SnapshotId,
@@ -106,5 +107,19 @@ public sealed record OfflineSalesSnapshotCompleteRecord(OfflineSalesSnapshotComp
 public sealed record OfflineSalesSnapshotErrorRecord(OfflineSalesSnapshotError Error) : IOfflineSalesSnapshotStreamRecord
 {
     public string Type => "error";
+}
+
+public sealed record OfflineSellableServiceDto(
+    Guid ServiceId,
+    string Code,
+    string Name,
+    decimal Price,
+    decimal TaxRatePercent,
+    bool TaxIncluded,
+    string? HsnCode);
+
+public sealed record OfflineSalesSnapshotServiceRecord(OfflineSellableServiceDto Service) : IOfflineSalesSnapshotStreamRecord
+{
+    public string Type => "service";
 }
 

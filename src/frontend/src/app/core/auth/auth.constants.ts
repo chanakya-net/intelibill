@@ -61,6 +61,7 @@ export const SALE_ENDPOINTS = {
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
+  sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {
@@ -88,6 +89,14 @@ export const DISCOUNT_ENDPOINTS = {
   detail: (id: string) => `${API_BASE_URL}/discounts/${id}`,
   disable: (id: string) => `${API_BASE_URL}/discounts/${id}/disable`,
   preview: `${API_BASE_URL}/discounts/preview`,
+} as const;
+
+export const SERVICE_ENDPOINTS = {
+  list: `${API_BASE_URL}/services`,
+  add: `${API_BASE_URL}/services`,
+  update: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}`,
+  activate: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}/activate`,
+  deactivate: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}/deactivate`,
 } as const;
 
 export const EXPORT_ENDPOINTS = {

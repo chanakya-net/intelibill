@@ -22,6 +22,7 @@ public sealed class PreviewSaleReturnQueryHandler(
                 query.Items.Select(i => new SaleReturnValidationLineRequest(
                     i.SaleItemId,
                     i.Quantity,
+                    i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
                     i.Notes)).ToList()),

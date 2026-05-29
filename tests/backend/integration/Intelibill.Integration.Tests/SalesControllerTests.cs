@@ -104,6 +104,26 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    private static async Task<Guid> AddServiceAsync(HttpClient client, string token, string name, decimal price = 100m)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/services");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            description = "Test service",
+            price,
+            hsnCode = "9987",
+            taxRatePercent = 18m,
+            taxIncluded = false,
+            isActive = true,
+        });
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("serviceId").GetGuid();
+    }
+
     private static async Task AddInventoryBatchAsync(HttpClient client, string token, int count)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/inbound/batch");
@@ -920,6 +940,138 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var inventory = await db.Inventory.FirstOrDefaultAsync(i => i.ItemId == itemId);
         Assert.NotNull(inventory);
         Assert.Equal(45m, inventory!.Quantity);
+    }
+
+    [Fact]
+    public async Task RecordSale_ServiceOnly_DoesNotMutateStock()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var serviceId = await AddServiceAsync(client, ownerToken, "Wheel Alignment", 500m);
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 590m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode = "SVC-001",
+                    batchNumber = string.Empty,
+                    itemName = "Wheel Alignment",
+                    quantity = 1m,
+                    costPrice = 0m,
+                    salesPrice = 500m,
+                    mrp = 0m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = Guid.Empty,
+                    lineType = "Service",
+                    serviceId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).SingleAsync(s => s.Id == saleId);
+
+        Assert.Single(sale.Items);
+        Assert.Equal(SaleLineType.Service, sale.Items[0].LineType);
+        Assert.Equal(serviceId, sale.Items[0].ServiceId);
+        Assert.Equal(0, await db.StockTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task RecordSale_Mixed_OnlyMutatesGoodsStock()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var itemId = inboundBody.GetProperty("itemId").GetGuid();
+        var serviceId = await AddServiceAsync(client, ownerToken, "Bike Wash", 500m);
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Walk-in Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 708m,
+            dueAmount = 0m,
+            items = new object[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                    lineType = "Goods",
+                },
+                new
+                {
+                    barcode = "SVC-002",
+                    batchNumber = string.Empty,
+                    itemName = "Bike Wash",
+                    quantity = 1m,
+                    costPrice = 0m,
+                    salesPrice = 500m,
+                    mrp = 0m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = Guid.Empty,
+                    lineType = "Service",
+                    serviceId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var saleId = (await saleResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+        var sale = await db.Sales.Include(s => s.Items).SingleAsync(s => s.Id == saleId);
+        var batch = await db.InventoryBatches.SingleAsync(x => x.Id == batchId);
+        var inventory = await db.Inventory.SingleAsync(x => x.ItemId == itemId);
+        var stockTransactions = await db.StockTransactions
+            .Where(x => x.InventoryBatchId == batchId && x.TransactionType == StockTransactionType.Out)
+            .ToListAsync();
+
+        Assert.Equal(2, sale.Items.Count);
+        Assert.Contains(sale.Items, x => x.LineType == SaleLineType.Goods);
+        Assert.Contains(sale.Items, x => x.LineType == SaleLineType.Service && x.ServiceId == serviceId);
+        Assert.Single(stockTransactions);
+        Assert.Equal(9m, batch.Quantity);
+        Assert.Equal(9m, inventory.Quantity);
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
+using Intelibill.Application.Features.Sales.Queries.SearchSellables;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
@@ -123,7 +124,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     i.InventoryBatchId,
                     i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
                     i.ClientLineKey,
-                    i.HsnCode)).ToList(),
+                    i.HsnCode,
+                    i.LineType,
+                    i.ServiceId)).ToList(),
                 request.SaleDiscount is null
                     ? null
                     : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value)),
@@ -146,6 +149,28 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         var result = await Bus.InvokeAsync<ErrorOr<SalesHistoryResultDto>>(
             new GetSalesQuery(UserId!.Value, ActiveShopId!.Value, from, to, search, status, page, pageSize),
             cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("sellables")]
+    public async Task<IActionResult> SearchSellables(
+        [FromQuery] string? searchTerm,
+        [FromQuery] string? barcode,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var isBarcodeLookup = string.IsNullOrWhiteSpace(searchTerm) && !string.IsNullOrWhiteSpace(barcode);
+        var effectiveSearchTerm = isBarcodeLookup ? barcode : searchTerm;
+
+        if (string.IsNullOrWhiteSpace(effectiveSearchTerm))
+            return new List<Error> { Errors.Inventory.SearchTermRequired }.ToProblemResult();
+
+        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
+            new SearchSellablesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup),
+            cancellationToken);
+
         return result.ToActionResult(Ok);
     }
 

@@ -20,7 +20,7 @@ public sealed record SaleReturnLineCalculationRequest(
     decimal OriginalPaidTaxableAmount,
     decimal OriginalPaidTaxAmount,
     decimal OriginalPaidTotalAmount,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount = null,
     string? Notes = null);
 
@@ -38,7 +38,7 @@ public sealed record SaleReturnCalculationResult(
 public sealed record SaleReturnLineCalculation(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal OriginalCostPrice,
     decimal OriginalSalesPrice,
     decimal OriginalTaxRatePercent,

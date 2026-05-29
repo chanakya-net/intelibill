@@ -13,6 +13,7 @@ public sealed record PreviewSaleReturnQuery(
 public sealed record PreviewSaleReturnItemQuery(
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleLineType LineType,
+    SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount,
     string? Notes);

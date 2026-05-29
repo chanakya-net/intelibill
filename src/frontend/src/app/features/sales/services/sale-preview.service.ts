@@ -4,7 +4,7 @@ import { Observable, Subject, catchError, debounceTime, map, of, switchMap } fro
 
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { CartItem } from './sale-cart-state.service';
-import type { InstantDiscountRequest, PreviewSaleRequest, SalePreviewDto } from './sale.models';
+import type { InstantDiscountRequest, PreviewSaleRequest, SalePreviewDto, ServiceCartLine } from './sale.models';
 import { SaleService } from './sale.service';
 
 type PreviewRequestResult =
@@ -14,6 +14,7 @@ type PreviewRequestResult =
 interface PreviewSetupOptions {
   readonly destroyRef: DestroyRef;
   readonly getCart: () => readonly CartItem[];
+  readonly getServiceCart?: () => readonly ServiceCartLine[];
   readonly getSaleDiscount: () => InstantDiscountRequest;
   readonly onPreviewApplied?: (preview: SalePreviewDto, oldPreview: SalePreviewDto | null) => void;
 }
@@ -175,24 +176,46 @@ export class SalePreviewService {
     cart: readonly CartItem[],
     saleDiscountType: 0 | 1 | 2,
     saleDiscountValue: number,
+    serviceLines: readonly ServiceCartLine[] = [],
   ): PreviewSaleRequest {
+    const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
     return {
       saleDiscount: { type: saleDiscountType, value: saleDiscountValue },
-      items: cart.map((item) => ({
-        inventoryBatchId: item.inventoryBatchId,
-        barcode: item.barcode,
-        batchNumber: item.batchNumber,
-        itemName: item.itemName,
-        quantity: item.quantity,
-        costPrice: item.costPrice,
-        salesPrice: item.salesPrice,
-        mrp: item.mrp,
-        taxRatePercent: item.taxRatePercent,
-        isPriceIncludingTax: item.taxIncluded,
-        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
-        clientLineKey: item.clientLineKey,
-        hsnCode: item.hsnCode ?? null,
-      })),
+      items: [
+        ...cart.map((item) => ({
+          inventoryBatchId: item.inventoryBatchId,
+          barcode: item.barcode,
+          batchNumber: item.batchNumber,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          costPrice: item.costPrice,
+          salesPrice: item.salesPrice,
+          mrp: item.mrp,
+          taxRatePercent: item.taxRatePercent,
+          isPriceIncludingTax: item.taxIncluded,
+          itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue },
+          clientLineKey: item.clientLineKey,
+          hsnCode: item.hsnCode ?? null,
+          lineType: 'Goods' as const,
+        })),
+        ...serviceLines.map((svc) => ({
+          inventoryBatchId: EMPTY_GUID,
+          barcode: svc.serviceCode,
+          batchNumber: '',
+          itemName: svc.serviceName,
+          quantity: svc.quantity,
+          costPrice: 0,
+          salesPrice: svc.unitPrice,
+          mrp: svc.unitPrice,
+          taxRatePercent: svc.taxRatePercent,
+          isPriceIncludingTax: svc.taxIncluded,
+          itemDiscount: { type: 0 as const, value: 0 },
+          clientLineKey: svc.clientLineKey,
+          hsnCode: svc.hsnCode,
+          lineType: 'Service' as const,
+          serviceId: svc.serviceId,
+        })),
+      ],
     };
   }
 
@@ -216,7 +239,8 @@ export class SalePreviewService {
 
   private buildPreviewRequestStream(options: PreviewSetupOptions): Observable<PreviewRequestResult | null> {
     const cart = options.getCart();
-    if (cart.length === 0) {
+    const serviceCart = options.getServiceCart?.() ?? [];
+    if (cart.length === 0 && serviceCart.length === 0) {
       this.clearPreviewState();
       return of(null);
     }
@@ -226,7 +250,7 @@ export class SalePreviewService {
     }
     const requestId = this.beginPreviewRequest();
     const discount = options.getSaleDiscount();
-    const request = this.buildPreviewRequest(cart, discount.type as 0 | 1 | 2, discount.value);
+    const request = this.buildPreviewRequest(cart, discount.type as 0 | 1 | 2, discount.value, serviceCart);
     return this.saleService.previewSale(request).pipe(
       map((preview) => ({ requestId, preview } as PreviewRequestResult)),
       catchError((error: unknown) => of({

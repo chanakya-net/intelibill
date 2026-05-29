@@ -61,6 +61,12 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
+            if (saleItem.LineType != item.LineType)
+            {
+                validationErrors.Add(Errors.Sale.ReturnLineTypeMismatch(item.SaleItemId));
+                continue;
+            }
+
             var returnedQuantity = returnedQuantityBySaleItemId.GetValueOrDefault(item.SaleItemId);
             var returnableQuantity = Math.Max(0m, saleItem.Quantity - returnedQuantity);
             if (item.Quantity > returnableQuantity)
@@ -69,10 +75,35 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
-            var batch = await inventoryBatchRepository.GetByIdAsync(saleItem.InventoryBatchId, cancellationToken);
-            if (batch is null || batch.ShopId != request.ShopId || batch.Id != saleItem.InventoryBatchId)
+            if (saleItem.LineType == SaleLineType.Service)
             {
-                validationErrors.Add(Errors.Sale.ReturnBatchNotFound(saleItem.InventoryBatchId));
+                if (item.Condition.HasValue)
+                {
+                    validationErrors.Add(Errors.Sale.ReturnServiceMustBeRefundOnly(item.SaleItemId));
+                    continue;
+                }
+
+                lineInputs.Add(new ValidatedSaleReturnLine(item, saleItem, null, returnedQuantity, returnableQuantity));
+                continue;
+            }
+
+            if (!item.Condition.HasValue)
+            {
+                validationErrors.Add(Errors.Sale.ReturnGoodsConditionInvalid(item.SaleItemId));
+                continue;
+            }
+
+            if (!saleItem.ItemId.HasValue || !saleItem.InventoryBatchId.HasValue)
+            {
+                validationErrors.Add(Errors.Sale.ReturnSaleItemNotFound(item.SaleItemId));
+                continue;
+            }
+
+            var batchId = saleItem.InventoryBatchId.Value;
+            var batch = await inventoryBatchRepository.GetByIdAsync(batchId, cancellationToken);
+            if (batch is null || batch.ShopId != request.ShopId || batch.Id != batchId)
+            {
+                validationErrors.Add(Errors.Sale.ReturnBatchNotFound(batchId));
                 continue;
             }
 

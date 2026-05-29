@@ -18,13 +18,27 @@ export interface SalesCartDraftItem {
   readonly hsnCode: string | null;
 }
 
+export interface SalesCartDraftServiceItem {
+  readonly kind: 'service';
+  readonly clientLineKey: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly serviceCode: string;
+  readonly quantity: number;
+  readonly unitPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly hsnCode: string | null;
+}
+
 interface SalesCartRecord {
   readonly shopId: string;
   readonly items: readonly unknown[];
+  readonly serviceItems?: readonly unknown[];
   readonly updatedAt: string;
 }
 
-/** Migrates a persisted item that may be missing fields added in later schema versions. */
+/** Migrates a persisted goods item that may be missing fields added in later schema versions. */
 export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null {
   if (!item || typeof item !== 'object') {
     return null;
@@ -48,6 +62,29 @@ export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null 
     costPrice: typeof obj['costPrice'] === 'number' ? obj['costPrice'] : 0,
     itemDiscountType: typeof obj['itemDiscountType'] === 'number' ? obj['itemDiscountType'] : 0,
     itemDiscountValue: typeof obj['itemDiscountValue'] === 'number' ? obj['itemDiscountValue'] : 0,
+    hsnCode: typeof obj['hsnCode'] === 'string' ? obj['hsnCode'] : null,
+  };
+}
+
+/** Migrates a persisted service cart item. */
+export function migrateLegacyServiceCartItem(item: unknown): SalesCartDraftServiceItem | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+  const obj = item as Record<string, unknown>;
+  if (obj['kind'] !== 'service' || typeof obj['serviceId'] !== 'string') {
+    return null;
+  }
+  return {
+    kind: 'service',
+    clientLineKey: typeof obj['clientLineKey'] === 'string' ? obj['clientLineKey'] : crypto.randomUUID(),
+    serviceId: obj['serviceId'] as string,
+    serviceName: typeof obj['serviceName'] === 'string' ? obj['serviceName'] : '',
+    serviceCode: typeof obj['serviceCode'] === 'string' ? obj['serviceCode'] : '',
+    quantity: typeof obj['quantity'] === 'number' ? obj['quantity'] : 1,
+    unitPrice: typeof obj['unitPrice'] === 'number' ? obj['unitPrice'] : 0,
+    taxRatePercent: typeof obj['taxRatePercent'] === 'number' ? obj['taxRatePercent'] : 0,
+    taxIncluded: typeof obj['taxIncluded'] === 'boolean' ? obj['taxIncluded'] : false,
     hsnCode: typeof obj['hsnCode'] === 'string' ? obj['hsnCode'] : null,
   };
 }
@@ -101,7 +138,48 @@ export class SalesCartIndexedDbService {
     return migratedItems as SalesCartDraftItem[];
   }
 
-  async saveCart(shopId: string, items: readonly SalesCartDraftItem[]): Promise<void> {
+  async loadServiceCart(shopId: string, maxAgeMs: number): Promise<readonly SalesCartDraftServiceItem[]> {
+    if (!shopId || typeof indexedDB === 'undefined') {
+      return [];
+    }
+
+    const database = await this.openDatabase();
+    const record = await new Promise<SalesCartRecord | undefined>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readonly');
+      const request = transaction.objectStore(this.storeName).get(shopId);
+
+      request.onsuccess = () => resolve(request.result as SalesCartRecord | undefined);
+      request.onerror = () => reject(request.error);
+    });
+
+    if (!record) {
+      return [];
+    }
+
+    const updatedAtMs = Date.parse(record.updatedAt);
+    const isExpired =
+      Number.isNaN(updatedAtMs) ||
+      maxAgeMs <= 0 ||
+      Date.now() - updatedAtMs > maxAgeMs;
+
+    if (isExpired) {
+      return [];
+    }
+
+    const rawItems = record.serviceItems ?? [];
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      return [];
+    }
+
+    const migrated = rawItems.map(migrateLegacyServiceCartItem);
+    return migrated.filter((item): item is SalesCartDraftServiceItem => item !== null);
+  }
+
+  async saveCart(
+    shopId: string,
+    items: readonly SalesCartDraftItem[],
+    serviceItems: readonly SalesCartDraftServiceItem[] = [],
+  ): Promise<void> {
     if (!shopId || typeof indexedDB === 'undefined') {
       return;
     }
@@ -112,6 +190,7 @@ export class SalesCartIndexedDbService {
       const request = transaction.objectStore(this.storeName).put({
         shopId,
         items,
+        serviceItems,
         updatedAt: new Date().toISOString(),
       } as SalesCartRecord);
 

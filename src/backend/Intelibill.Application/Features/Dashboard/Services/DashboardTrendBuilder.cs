@@ -11,18 +11,20 @@ internal static class DashboardTrendBuilder
         IReadOnlyCollection<SaleReturn>? saleReturns,
         DateOnly startDate,
         DateOnly endDate,
-        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null,
+        IReadOnlyDictionary<Guid, SaleLineType>? saleItemTypes = null)
     {
         static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
 
         var activeReturns = GetActiveReturns(saleReturns);
+        saleItemTypes ??= sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var byDay = sales
             .GroupBy(s => LocalDate(s.SoldAt))
             .ToDictionary(
                 g => g.Key,
                 g => (
                     SalesBooked: g.Sum(s => s.TotalAmount),
-                    Cost: g.SelectMany(s => s.Items).Sum(i => i.CostPrice * i.Quantity),
+                    Cost: g.SelectMany(s => s.Items).Where(i => i.LineType != SaleLineType.Service).Sum(i => i.CostPrice * i.Quantity),
                     Tax: g.Sum(s => s.TotalTaxAmount),
                     PaymentMix: SalesKpiCalculator.CalculatePaymentMix(g.ToList())));
         var returnsByDay = activeReturns
@@ -34,7 +36,11 @@ internal static class DashboardTrendBuilder
                     RefundTax: CalculateApprovedRefundTax(g),
                     RestockableCost: g.SelectMany(r => r.Items)
                         .Where(i => i.Condition == SaleReturnCondition.Restockable)
-                        .Sum(i => i.OriginalCostPrice * i.Quantity)));
+                        .Sum(i =>
+                        {
+                            var isService = saleItemTypes.GetValueOrDefault(i.SaleItemId) == SaleLineType.Service;
+                            return isService ? 0m : i.OriginalCostPrice * i.Quantity;
+                        })));
         var adjustmentLossByDay = GetActiveDecreaseAdjustments(adjustmentLosses)
             .GroupBy(a => LocalDate(a.PerformedAt))
             .ToDictionary(g => g.Key, g => g.Sum(a => a.CostImpact));

@@ -1,3 +1,51 @@
+// ─── Sellable DTOs (GET /api/sales/sellables) ───────────────────────────────
+
+export interface SellableGoodsDto {
+  readonly kind: 'Goods';
+  readonly inventoryBatchId: string;
+  readonly barcode: string;
+  readonly itemName: string;
+  readonly batchNumber: string;
+  readonly quantity: number;
+  readonly salesPrice: number;
+  readonly mrp: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly expiryDate: string | null;
+  readonly hsnCode?: string | null;
+}
+
+export interface SellableServiceDto {
+  readonly kind: 'Service';
+  readonly serviceId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly price: number;
+  readonly hsnCode: string | null;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+}
+
+export type SellableDto = SellableGoodsDto | SellableServiceDto;
+
+// ─── Service cart line ───────────────────────────────────────────────────────
+
+export interface ServiceCartLine {
+  readonly kind: 'service';
+  readonly clientLineKey: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly serviceCode: string;
+  readonly quantity: number;
+  readonly unitPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly hsnCode: string | null;
+}
+
+// ─── Payment ─────────────────────────────────────────────────────────────────
+
 export type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Credit';
 export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = [
   { value: 1, label: 'Cash' },
@@ -48,6 +96,8 @@ export interface PreviewSaleItemRequest {
   readonly itemDiscount: InstantDiscountRequest;
   readonly clientLineKey: string;
   readonly hsnCode: string | null;
+  readonly lineType?: 'Goods' | 'Service';
+  readonly serviceId?: string | null;
 }
 
 export interface PreviewSaleRequest {
@@ -86,6 +136,7 @@ export interface SalePreviewLineDto {
   readonly configuredBatchRulePercentage: number | null;
   readonly hasClientPriceMismatch: boolean;
   readonly clientLineKey: string | null;
+  readonly lineType?: 'Goods' | 'Service';
 }
 
 export interface SalePreviewInfoDto {
@@ -127,6 +178,8 @@ export interface RecordSaleItemRequest {
   readonly clientLineKey: string | null;
   readonly itemDiscount: InstantDiscountRequest | null;
   readonly hsnCode: string | null;
+  readonly lineType?: 'Goods' | 'Service';
+  readonly serviceId?: string | null;
 }
 
 export interface RecordSaleRequest {
@@ -163,9 +216,12 @@ export interface InvoiceLeaseDto {
 
 export interface SaleItemDto {
   readonly saleItemId: string;
-  readonly itemId: string;
+  readonly lineType: 'Goods' | 'Service';
+  readonly itemId: string | null;
+  readonly serviceId: string | null;
   readonly itemName: string;
-  readonly inventoryBatchId: string;
+  readonly lineCode: string;
+  readonly inventoryBatchId: string | null;
   readonly quantity: number;
   readonly salesPrice: number;
   readonly originalSalesPrice: number;
@@ -203,7 +259,7 @@ export interface SaleReturnItemDto {
   readonly saleReturnItemId: string;
   readonly saleItemId: string;
   readonly quantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number;
   readonly notes: string | null;
 }
@@ -262,7 +318,8 @@ export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string
 export interface PreviewSaleReturnItemRequest {
   readonly saleItemId: string;
   readonly quantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly lineType?: 'Goods' | 'Service';
+  readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number | null;
   readonly notes: string | null;
 }
@@ -295,12 +352,12 @@ export interface SaleReturnPreviewLineFinancialDto {
 
 export interface SaleReturnPreviewLineDto {
   readonly saleItemId: string;
-  readonly itemId: string;
-  readonly inventoryBatchId: string;
+  readonly itemId: string | null;
+  readonly inventoryBatchId: string | null;
   readonly requestedQuantity: number;
   readonly returnedQuantity: number;
   readonly returnableQuantity: number;
-  readonly condition: SaleReturnCondition;
+  readonly condition: SaleReturnCondition | null;
   readonly willRestock: boolean;
   readonly financial: SaleReturnPreviewLineFinancialDto | null;
 }
@@ -389,6 +446,8 @@ export interface OfflineSalesSyncLineRequest {
   readonly itemDiscountOverrideType: number;
   readonly itemDiscountOverrideValue: number;
   readonly hsnCode: string | null;
+  readonly lineType?: string;
+  readonly serviceId?: string | null;
 }
 
 export interface OfflineSaleSyncRequest {

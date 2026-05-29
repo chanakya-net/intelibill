@@ -98,18 +98,18 @@ public class RecordSaleCommandHandlerTests
     {
         var calculatedLines = lines.Select(line =>
             new SalePricingLineCalculation(
-                line.Batch.Id,
+                line.Batch!.Id,
                 line.Command.Quantity,
-                line.Batch.CostPrice,
-                line.Batch.SalesPrice,
-                line.Batch.TaxRatePercent,
-                line.Batch.TaxIncluded,
-                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice, 2, MidpointRounding.AwayFromZero),
+                line.Batch!.CostPrice,
+                line.Batch!.SalesPrice,
+                line.Batch!.TaxRatePercent,
+                line.Batch!.TaxIncluded,
+                decimal.Round(line.Command.Quantity * line.Batch!.SalesPrice, 2, MidpointRounding.AwayFromZero),
                 0m,
                 0m,
-                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice, 2, MidpointRounding.AwayFromZero),
-                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice * line.Batch.TaxRatePercent / 100m, 2, MidpointRounding.AwayFromZero),
-                decimal.Round(line.Command.Quantity * line.Batch.SalesPrice * (1 + line.Batch.TaxRatePercent / 100m), 2, MidpointRounding.AwayFromZero),
+                decimal.Round(line.Command.Quantity * line.Batch!.SalesPrice, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(line.Command.Quantity * line.Batch!.SalesPrice * line.Batch!.TaxRatePercent / 100m, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(line.Command.Quantity * line.Batch!.SalesPrice * (1 + line.Batch!.TaxRatePercent / 100m), 2, MidpointRounding.AwayFromZero),
                 0m,
                 0m,
                 null,
@@ -195,8 +195,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -250,8 +254,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -302,8 +310,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -358,8 +370,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -418,8 +434,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,

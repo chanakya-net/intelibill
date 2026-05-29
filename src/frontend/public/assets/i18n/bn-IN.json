@@ -12,7 +12,8 @@
     "done": "সম্পন্ন",
     "currencySymbol": "₹",
     "search": "অনুসন্ধান করুন...",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "all": "সব"
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -100,6 +101,7 @@
     "salesHistory": "ইতিহাস",
     "manageInventory": "ইনভেন্টরি",
     "addNewProduct": "পণ্য",
+    "manageServices": "Services",
     "batchInventoryInbound": "ইনভেন্টরি যোগ করুন",
     "inventoryBatchesOverview": "ব্যাচ সারসংক্ষেপ",
     "inventoryAdjustments": "সমন্বয় ইতিহাস",
@@ -114,6 +116,40 @@
     "profitLossReport": "লাভ ও ক্ষতি",
     "dashboard": "ড্যাশবোর্ড",
     "manageDiscounts": "ছাড়"
+  },
+  "services": {
+    "directory": "Service Directory",
+    "title": "Services",
+    "subtitle": "Manage billable services for the active shop.",
+    "searchPlaceholder": "Search services...",
+    "status": "Status",
+    "code": "Code",
+    "name": "Name",
+    "description": "Description",
+    "price": "Price",
+    "taxRatePercent": "Tax Rate %",
+    "taxIncluded": "Tax Included",
+    "taxExcluded": "Tax Excluded",
+    "hsnSac": "HSN/SAC",
+    "addService": "Add Service",
+    "editService": "Edit Service",
+    "addServiceDescription": "Create a new service for this shop.",
+    "editServiceDescription": "Update service details.",
+    "serviceForm": "Service form",
+    "saveChanges": "Save Changes",
+    "noServicesFound": "No services found",
+    "noServicesDescription": "Start by creating your first service.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activeServices": "Active Services",
+    "inactiveServices": "Inactive Services",
+    "totalServices": "Total Services",
+    "totalValue": "Total Value",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "loadFailed": "Unable to load services.",
+    "saveFailed": "Unable to save service.",
+    "toggleFailed": "Unable to update service status."
   },
   "bankAccounts": {
     "directory": "ব্যাঙ্ক অ্যাকাউন্ট তালিকা",
@@ -802,14 +838,17 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
       "openPicker": "ব্যাচ পিকার খুলুন",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "goodsSection": "Goods",
+      "servicesSection": "Services"
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

@@ -14,10 +14,7 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../../services/sale.models';
 import type {
@@ -47,13 +44,11 @@ interface ReturnLineDraft {
     ButtonModule,
     CheckboxModule,
     DialogModule,
-    InputTextModule,
     SelectModule,
-    TableModule,
-    TagModule,
     TranslocoPipe,
   ],
   templateUrl: './sale-return-preview-dialog.component.html',
+  styleUrl: './sale-return-preview-dialog.component.scss',
 })
 export class SaleReturnPreviewDialogComponent {
   private readonly salesFacade = inject(SalesFacade);
@@ -107,17 +102,53 @@ export class SaleReturnPreviewDialogComponent {
     return activeShop?.role ?? '';
   });
 
-  readonly returnableItems = computed(() => this.saleInput()?.items.filter((item) => item.returnableQuantity > 0) ?? []);
+  readonly returnableItems = computed(
+    () => this.saleInput()?.items.filter((item) => item.returnableQuantity > 0) ?? [],
+  );
 
   readonly canPreviewReturns = computed(() => {
     const role = this.activeShopRole().toLowerCase();
     return ['owner', 'manager', 'staff'].includes(role) && this.returnableItems().length > 0;
   });
 
-  readonly hasFinancialAccess = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+  readonly hasFinancialAccess = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
   readonly canSubmitReturns = this.hasFinancialAccess;
 
   readonly selectedDrafts = computed(() => this.returnDrafts().filter((draft) => draft.selected));
+
+  readonly selectedLineCount = computed(() => this.selectedDrafts().length);
+
+  readonly selectedRefundTotal = computed(() =>
+    this.selectedDrafts().reduce((sum, draft) => sum + (draft.approvedRefundAmount ?? 0), 0),
+  );
+
+  readonly selectedTaxReversalTotal = computed(() => {
+    const sale = this.saleInput();
+    if (!sale) return 0;
+
+    return this.selectedDrafts().reduce((sum, draft) => {
+      const item = sale.items.find((line) => line.saleItemId === draft.saleItemId);
+      return item ? sum + this.getTaxReversalAmount(item, draft.quantity) : sum;
+    }, 0);
+  });
+
+  readonly selectedItemRefundTotal = computed(() =>
+    Math.max(0, this.selectedRefundTotal() - this.selectedTaxReversalTotal()),
+  );
+
+  readonly displayedRefundTotal = computed(
+    () => this.returnPreview()?.financial?.totalRefundAmount ?? this.selectedRefundTotal(),
+  );
+
+  readonly displayedTaxReversalTotal = computed(
+    () => this.returnPreview()?.financial?.totalTaxAmount ?? this.selectedTaxReversalTotal(),
+  );
+
+  readonly displayedItemRefundTotal = computed(() =>
+    Math.max(0, this.displayedRefundTotal() - this.displayedTaxReversalTotal()),
+  );
 
   constructor() {
     effect(() => {
@@ -158,7 +189,7 @@ export class SaleReturnPreviewDialogComponent {
         selected && this.hasFinancialAccess()
           ? this.getMaxRefundAmount(item, item.returnableQuantity)
           : null,
-      condition: selected ? draft.condition : null,
+      condition: selected ? (item.lineType === 'Service' ? null : draft.condition) : null,
       notes: selected ? draft.notes : '',
     }));
 
@@ -213,7 +244,9 @@ export class SaleReturnPreviewDialogComponent {
 
   updateDueReductionOverride(value: number | string | null): void {
     const normalized =
-      value === '' || value === null ? null : this.clampNumber(Number(value), 0, Number.MAX_SAFE_INTEGER);
+      value === '' || value === null
+        ? null
+        : this.clampNumber(Number(value), 0, Number.MAX_SAFE_INTEGER);
 
     this.dueReductionOverrideAmount.set(normalized);
     this.dueOverrideConfirmed.set(false);
@@ -238,12 +271,17 @@ export class SaleReturnPreviewDialogComponent {
     }
 
     const payload: PreviewSaleReturnRequest = {
-      dueReductionOverrideAmount: this.hasFinancialAccess() ? this.dueReductionOverrideAmount() : null,
-      dueOverrideReason: this.hasFinancialAccess() ? this.normalizeOptional(this.dueOverrideReason()) : null,
+      dueReductionOverrideAmount: this.hasFinancialAccess()
+        ? this.dueReductionOverrideAmount()
+        : null,
+      dueOverrideReason: this.hasFinancialAccess()
+        ? this.normalizeOptional(this.dueOverrideReason())
+        : null,
       items: this.selectedDrafts().map((draft) => ({
         saleItemId: draft.saleItemId,
         quantity: draft.quantity,
-        condition: draft.condition!,
+        lineType: this.getLineType(draft.saleItemId),
+        condition: this.getRequestedCondition(draft.saleItemId, draft.condition),
         approvedRefundAmount: this.hasFinancialAccess() ? draft.approvedRefundAmount : null,
         notes: this.normalizeOptional(draft.notes),
       })),
@@ -269,14 +307,16 @@ export class SaleReturnPreviewDialogComponent {
     if (errors.length > 0) return;
 
     const payload: RecordSaleReturnRequest = {
-      payoutMethod: (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? this.payoutMethod() : null,
+      payoutMethod:
+        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? this.payoutMethod() : null,
       dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
       dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
       notes: null,
       items: this.selectedDrafts().map((draft) => ({
         saleItemId: draft.saleItemId,
         quantity: draft.quantity,
-        condition: draft.condition!,
+        lineType: this.getLineType(draft.saleItemId),
+        condition: this.getRequestedCondition(draft.saleItemId, draft.condition),
         approvedRefundAmount: draft.approvedRefundAmount,
         notes: this.normalizeOptional(draft.notes),
       })),
@@ -303,7 +343,90 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   getPreviewItemName(saleItemId: string): string {
-    return this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.itemName || 'Unknown Item';
+    return (
+      this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.itemName ||
+      'Unknown Item'
+    );
+  }
+
+  getPreviewLineRefundAmount(saleItemId: string): number | null {
+    const line = this.returnPreview()?.lines.find(
+      (previewLine) => previewLine.saleItemId === saleItemId,
+    );
+    return line?.financial?.approvedRefundAmount ?? null;
+  }
+
+  isServiceLine(item: SaleItemDto): boolean {
+    return item.lineType === 'Service';
+  }
+
+  customerName(): string {
+    return this.saleInput()?.customerName || 'Walk-in Customer';
+  }
+
+  lineTypeLabel(item: SaleItemDto): string {
+    return item.lineType === 'Service' ? 'Service' : 'Goods';
+  }
+
+  returnLineHint(item: SaleItemDto): string {
+    if (this.isServiceLine(item)) {
+      return 'Manager approval required';
+    }
+
+    return item.returnableQuantity > 0 ? 'Returnable' : 'Fully returned';
+  }
+
+  getReturnableLineCount(): number {
+    return this.returnableItems().length;
+  }
+
+  getLineConditionPlaceholder(item: SaleItemDto): string {
+    return this.isServiceLine(item) ? 'Refund-only service' : 'Required';
+  }
+
+  decreaseReturnQuantity(item: SaleItemDto): void {
+    const draft = this.getDraft(item.saleItemId);
+    this.updateReturnQuantity(item, (draft?.quantity ?? 0) - 1);
+  }
+
+  increaseReturnQuantity(item: SaleItemDto): void {
+    const draft = this.getDraft(item.saleItemId);
+    this.updateReturnQuantity(item, (draft?.quantity ?? 0) + 1);
+  }
+
+  getSelectedStatusLabel(): string {
+    return `${this.selectedLineCount()} of ${this.getReturnableLineCount()}`;
+  }
+
+  getPolicyInventoryLine(): string {
+    const firstGoods = this.returnableItems().find((item) => item.lineType === 'Goods');
+    const itemName = firstGoods?.itemName ?? 'Returnable goods';
+    return `${itemName} can return to stock if sealed.`;
+  }
+
+  getPolicyFinanceLine(): string {
+    return 'Service refunds require a reason before recording.';
+  }
+
+  getPolicyReceiptLine(): string {
+    return 'A return receipt will be generated after confirmation.';
+  }
+
+  getFooterNote(): string {
+    return 'Preview the financial impact before recording. Only selected lines will affect stock, tax reversal, and customer balance.';
+  }
+
+  private getTaxReversalAmount(item: SaleItemDto, quantity: number): number {
+    if (item.taxRatePercent <= 0 || quantity <= 0) {
+      return 0;
+    }
+
+    const grossOriginalValue = quantity * item.salesPrice;
+    const taxAmount = item.isPriceIncludingTax
+      ? (grossOriginalValue * item.taxRatePercent) / (100 + item.taxRatePercent)
+      : (grossOriginalValue * item.taxRatePercent) / 100;
+
+    return this.roundMoney(taxAmount);
   }
 
   private initializeDrafts(): void {
@@ -329,7 +452,10 @@ export class SaleReturnPreviewDialogComponent {
     this.salesFacade.clearSaleReturnPreview();
   }
 
-  private updateDraft(saleItemId: string, update: (draft: ReturnLineDraft) => ReturnLineDraft): void {
+  private updateDraft(
+    saleItemId: string,
+    update: (draft: ReturnLineDraft) => ReturnLineDraft,
+  ): void {
     this.returnDrafts.update((drafts) =>
       drafts.map((draft) => (draft.saleItemId === saleItemId ? update(draft) : draft)),
     );
@@ -361,7 +487,7 @@ export class SaleReturnPreviewDialogComponent {
         errors.push(`${itemName} exceeds returnable quantity.`);
       }
 
-      if (!draft.condition) {
+      if (!draft.condition && item.lineType !== 'Service') {
         errors.push(`Select condition for ${itemName}.`);
       }
 
@@ -404,5 +530,18 @@ export class SaleReturnPreviewDialogComponent {
 
   private roundMoney(value: number): number {
     return Math.round(value * 100) / 100;
+  }
+
+  private getLineType(saleItemId: string): 'Goods' | 'Service' {
+    return (
+      this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.lineType ?? 'Goods'
+    );
+  }
+
+  private getRequestedCondition(
+    saleItemId: string,
+    condition: SaleReturnCondition | null,
+  ): SaleReturnCondition | null {
+    return this.getLineType(saleItemId) === 'Service' ? null : (condition ?? 1);
   }
 }

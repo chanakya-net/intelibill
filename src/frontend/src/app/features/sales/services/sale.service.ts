@@ -18,6 +18,7 @@ import type {
   SaleDto,
   SalePreviewDto,
   SaleReturnPreviewDto,
+  SellableDto,
   VoidSaleReturnRequest,
 } from './sale.models';
 
@@ -74,5 +75,9 @@ export class SaleService {
 
   getProfitLossReport(): Observable<readonly ProfitLossReportItemDto[]> {
     return this.http.get<readonly ProfitLossReportItemDto[]>(SALE_ENDPOINTS.profitLoss);
+  }
+
+  getSellables(searchTerm: string): Observable<SellableDto[]> {
+    return this.http.get<SellableDto[]>(SALE_ENDPOINTS.sellables(searchTerm));
   }
 }

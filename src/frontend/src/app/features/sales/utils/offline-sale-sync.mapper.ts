@@ -69,6 +69,8 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
       itemDiscountOverrideType: line.itemDiscountOverrideType ?? 0,
       itemDiscountOverrideValue: line.itemDiscountOverrideValue ?? 0,
       hsnCode: line.hsnCode,
+      lineType: line.lineType === 'service' ? 'Service' : 'Goods',
+      serviceId: line.serviceId ?? null,
     })),
   };
 }

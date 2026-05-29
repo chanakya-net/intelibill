@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Dashboard.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Services;
 
@@ -22,7 +23,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
         var activeDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
         var increase = MakeAdjustment(shopId, InventoryAdjustmentDirection.Increase, InventoryAdjustmentReason.FoundStock, 15m);
         var voidedDecrease = MakeAdjustment(shopId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Expired, 10m);
@@ -54,7 +55,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 60m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var mix = SalesKpiCalculator.CalculatePaymentMix([sale]);
 
@@ -62,6 +63,49 @@ public class DashboardKpiCalculatorTests
         Assert.Equal(60m, mix.Credit);
         Assert.Equal(0m, mix.Upi);
         Assert.Equal(0m, mix.Card);
+    }
+
+    [Fact]
+    public void CalculateSalesKpis_WithServiceLine_IgnoresServiceCost()
+    {
+        var shopId = Guid.NewGuid();
+        var serviceSale = Sale.Create(
+            shopId,
+            "INV-SRV",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 150m,
+            dueAmount: 0m,
+            totalAmount: 150m,
+            totalTaxAmount: 13.64m,
+            [SaleItem.CreateService(shopId, Guid.NewGuid(), lineName: "Consulting", lineCode: "SRV-001", 1m, 75m, 150m, 150m, 10m, true, false)]);
+
+        var kpis = SalesKpiCalculator.CalculateSalesKpis([serviceSale], [], []);
+
+        Assert.Equal(0m, kpis.TotalCost);
+        Assert.Equal(150m, kpis.SalesBooked);
+        Assert.Equal(150m, kpis.ProfitBeforeTax);
+    }
+
+    [Fact]
+    public void CalculateSalesKpis_WithServiceReturnResolvedFromLookup_IgnoresServiceReturnCosts()
+    {
+        var shopId = Guid.NewGuid();
+        var saleItemId = Guid.NewGuid();
+        var serviceReturn = MakeReturn(shopId, Guid.NewGuid(), saleItemId, "RET-SRV", condition: null, approvedRefund: 150m, originalCostPrice: 50m);
+
+        var kpis = SalesKpiCalculator.CalculateSalesKpis(
+            [],
+            [serviceReturn],
+            [],
+            new Dictionary<Guid, SaleLineType> { [saleItemId] = SaleLineType.Service });
+
+        Assert.Equal(0m, kpis.TotalCost);
+        Assert.Equal(0m, kpis.WastageCost);
+        Assert.Equal(-150m, kpis.ProfitBeforeTax);
     }
 
     [Fact]
@@ -102,7 +146,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var trends = DashboardTrendBuilder.BuildTrendSeries([saleOnMiddleDay], [], start, end);
 
@@ -135,7 +179,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
         var yesterdayLoss = MakeAdjustment(
             shopId,
             InventoryAdjustmentDirection.Decrease,
@@ -176,6 +220,36 @@ public class DashboardKpiCalculatorTests
     }
 
     [Fact]
+    public void BuildTrendSeries_WithServiceReturnResolvedFromLookup_IgnoresServiceReturnCosts()
+    {
+        var shopId = Guid.NewGuid();
+        var start = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1));
+        var end = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var saleItemId = Guid.NewGuid();
+        var processedAt = new DateTimeOffset(end.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var serviceReturn = MakeReturn(
+            shopId,
+            Guid.NewGuid(),
+            saleItemId,
+            "RET-SRV-TREND",
+            condition: null,
+            approvedRefund: 150m,
+            originalCostPrice: 50m,
+            processedAt: processedAt);
+
+        var trends = DashboardTrendBuilder.BuildTrendSeries(
+            [],
+            [serviceReturn],
+            start,
+            end,
+            saleItemTypes: new Dictionary<Guid, SaleLineType> { [saleItemId] = SaleLineType.Service });
+
+        Assert.Equal(0m, trends.ProfitTrend[0].ProfitBeforeTax);
+        Assert.Equal(-150m, trends.ProfitTrend[1].ProfitBeforeTax);
+        Assert.Equal(-136.36m, trends.ProfitTrend[1].ProfitAfterTax);
+    }
+
+    [Fact]
     public void BuildPreviousPeriodSummary_WhenDueExists_UsesDueInCreditSalesPercentage()
     {
         var shopId = Guid.NewGuid();
@@ -194,7 +268,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 60m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 70m, 100m, 110m, 10m, false, false)]);
 
         var upiSale = Sale.Create(
             shopId,
@@ -208,7 +282,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
 
         var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [partialCashSale, upiSale],
@@ -240,7 +314,7 @@ public class DashboardKpiCalculatorTests
             dueAmount: 0m,
             totalAmount: 100m,
             totalTaxAmount: 10m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 60m, 100m, 110m, 10m, false, false)]);
 
         var summary = DashboardTrendBuilder.BuildPreviousPeriodSummary(
             [sale],
@@ -284,5 +358,64 @@ public class DashboardKpiCalculatorTests
             Guid.NewGuid(),
             notes: null,
             Guid.NewGuid()).Value;
+    }
+
+    private static SaleReturn MakeReturn(
+        Guid shopId,
+        Guid saleId,
+        Guid saleItemId,
+        string returnNumber,
+        SaleReturnCondition? condition,
+        decimal approvedRefund,
+        decimal originalCostPrice,
+        DateTimeOffset? processedAt = null)
+    {
+        var item = SaleReturnItem.Create(
+            shopId,
+            saleId,
+            saleItemId,
+            quantity: 1m,
+            condition,
+            originalCostPrice: originalCostPrice,
+            originalSalesPrice: 150m,
+            originalTaxRatePercent: 10m,
+            originalIsPriceIncludingTax: true,
+            maxRefundAmount: 150m,
+            approvedRefundAmount: approvedRefund,
+            taxableAmount: 136.36m,
+            taxAmount: 13.64m,
+            notes: "Return").Value;
+
+        var line = new SaleReturnLineInput(
+            item.ShopId,
+            item.SaleItemId,
+            item.Quantity,
+            item.Condition,
+            item.OriginalCostPrice,
+            item.OriginalSalesPrice,
+            item.OriginalTaxRatePercent,
+            item.OriginalIsPriceIncludingTax,
+            item.MaxRefundAmount,
+            item.ApprovedRefundAmount,
+            item.TaxableAmount,
+            item.TaxAmount,
+            item.Notes);
+
+        return SaleReturn.Record(
+            shopId,
+            saleId,
+            returnNumber,
+            processedAt ?? DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            totalRefundAmount: approvedRefund,
+            dueReductionAmount: 0m,
+            payoutAmount: approvedRefund,
+            payoutMethod: PaymentMethod.Cash,
+            totalTaxableAmount: 136.36m,
+            totalTaxAmount: 13.64m,
+            customerBalanceBefore: null,
+            customerBalanceAfter: null,
+            [line]).Value;
     }
 }

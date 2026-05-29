@@ -92,6 +92,42 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-2');
   });
 
+  it('persists service records from the snapshot stream', async () => {
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBeNull();
+
+    const completedAt = new Date().toISOString();
+    const ndjson =
+      [
+        JSON.stringify({
+          type: 'metadata',
+          metadata: { snapshotId: 'attempt-svc', shopId, schemaVersion: 2, startedAt: new Date().toISOString() },
+        }),
+        JSON.stringify({
+          type: 'service',
+          service: {
+            serviceId: 'svc-1',
+            code: 'SVC001',
+            name: 'Consulting',
+            price: 500,
+            taxRatePercent: 18,
+            taxIncluded: false,
+            hsnCode: '998311',
+          },
+        }),
+        JSON.stringify({
+          type: 'complete',
+          complete: { snapshotId: 'attempt-svc', completedAt },
+        }),
+      ].join('\n') + '\n';
+
+    stubFetch(ndjson);
+
+    await service.syncForShop(shopId);
+
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-svc');
+    // Service record was processed successfully — snapshot was promoted
+  });
+
   it('fetches the snapshot stream with no-store caching to bypass service worker API cache', async () => {
     const completedAt = new Date().toISOString();
     const ndjson =

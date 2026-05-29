@@ -1526,7 +1526,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("hsn_code");
 
-                    b.Property<Guid>("InventoryBatchId")
+                    b.Property<Guid?>("InventoryBatchId")
                         .HasColumnType("uuid")
                         .HasColumnName("inventory_batch_id");
 
@@ -1548,9 +1548,27 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("item_discount_override_value");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<Guid?>("ItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
+
+                    b.Property<string>("LineCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("line_code");
+
+                    b.Property<string>("LineName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)")
+                        .HasColumnName("line_name");
+
+                    b.Property<string>("LineType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("line_type");
 
                     b.Property<decimal>("Mrp")
                         .HasPrecision(18, 2)
@@ -1585,6 +1603,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("sales_price");
+
+                    b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -1626,6 +1648,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_sale_items_sale_id");
 
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_sale_items_service_id");
+
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_sale_items_shop_id");
 
@@ -1635,7 +1660,15 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "ItemId")
                         .HasDatabaseName("ix_sale_items_shop_id_item_id");
 
-                    b.ToTable("sale_items", (string)null);
+                    b.HasIndex("ShopId", "ServiceId")
+                        .HasDatabaseName("ix_sale_items_shop_id_service_id");
+
+                    b.ToTable("sale_items", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_items_line_snapshots_required", "line_name IS NOT NULL AND length(btrim(line_name)) > 0 AND line_code IS NOT NULL AND length(btrim(line_code)) > 0");
+
+                            t.HasCheckConstraint("ck_sale_items_line_type_refs", "((line_type = 'GOODS' AND item_id IS NOT NULL AND inventory_batch_id IS NOT NULL AND service_id IS NULL) OR (line_type = 'SERVICE' AND service_id IS NOT NULL AND item_id IS NULL AND inventory_batch_id IS NULL))");
+                        });
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturn", b =>
@@ -1776,7 +1809,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("approved_refund_amount");
 
                     b.Property<string>("Condition")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("condition");
@@ -1880,6 +1912,133 @@ namespace Intelibill.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_sale_return_items_tax_rate_range", "original_tax_rate_percent >= 0 AND original_tax_rate_percent <= 100");
                         });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.Service", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("hsn_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)")
+                        .HasColumnName("name");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("price");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<bool>("TaxIncluded")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("tax_included");
+
+                    b.Property<decimal>("TaxRatePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("tax_rate_percent");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_services");
+
+                    b.HasIndex("ShopId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_services_shop_id_code");
+
+                    b.HasIndex("ShopId", "IsActive")
+                        .HasDatabaseName("ix_services_shop_id_is_active");
+
+                    b.HasIndex("ShopId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_services_shop_id_name");
+
+                    b.ToTable("services", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ServiceCodeSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("prefix");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_code_sequences");
+
+                    b.HasIndex("ShopId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_code_sequences_shop_id");
+
+                    b.ToTable("service_code_sequences", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Shop", b =>
@@ -2704,14 +2863,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("InventoryBatchId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_sale_items_inventory_batches_inventory_batch_id");
 
                     b.HasOne("Intelibill.Domain.Entities.Item", null)
                         .WithMany()
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_sale_items_items_item_id");
 
                     b.HasOne("Intelibill.Domain.Entities.Sale", null)
@@ -2720,6 +2877,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sale_items_sales_sale_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Service", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_items_services_service_id");
 
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
                         .WithMany()
@@ -2775,6 +2938,26 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sale_return_items_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.Service", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_services_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ServiceCodeSequence", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_code_sequences_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopMembership", b =>

@@ -9,6 +9,7 @@ import {
   type OfflineDiscountRuleSnapshot,
   type OfflineSalesSnapshotMetadata,
   type OfflineSellableBatchSnapshot,
+  type OfflineSellableServiceSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 
 const SERVICE_WORKER_BYPASS_QUERY = 'ngsw-bypass=true';
@@ -19,6 +20,7 @@ type OfflineSnapshotStreamRecord =
   | { readonly type: 'customer'; readonly customer: OfflineCustomerLiteSnapshot }
   | { readonly type: 'discountRule'; readonly discountRule: OfflineDiscountRuleSnapshot }
   | { readonly type: 'activeLease'; readonly activeLease: OfflineActiveLeaseSnapshot }
+  | { readonly type: 'service'; readonly service: OfflineSellableServiceSnapshot }
   | {
       readonly type: 'complete';
       readonly complete: {
@@ -108,6 +110,9 @@ export class OfflineSalesSnapshotSyncService {
               break;
             case 'activeLease':
               await this.snapshotDb.writeActiveLease(snapshotId, shopId, record.activeLease);
+              break;
+            case 'service':
+              await this.snapshotDb.writeService(snapshotId, shopId, record.service);
               break;
             case 'complete':
               sawComplete = true;

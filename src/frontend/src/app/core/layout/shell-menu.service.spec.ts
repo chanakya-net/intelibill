@@ -22,6 +22,7 @@ describe('ShellMenuService', () => {
     canManageSales: computed(() => true),
     canManageExpenses: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
     canManageDiscounts: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
+    canManageServices: computed(() => ['owner', 'manager'].includes(roleSignal().toLowerCase())),
     canManageBankAccounts: computed(() => roleSignal().toLowerCase() === 'owner'),
     canViewInventory: computed(() => true),
   } as ShopPermissionsService;
@@ -67,6 +68,7 @@ describe('ShellMenuService', () => {
 
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
@@ -82,6 +84,7 @@ describe('ShellMenuService', () => {
 
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(false);
+    expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);

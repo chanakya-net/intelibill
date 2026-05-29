@@ -39,8 +39,7 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
 
         builder.Property(i => i.Condition)
             .HasConversion(c => ToProviderValue(c), value => FromProviderValue(value))
-            .HasMaxLength(20)
-            .IsRequired();
+            .HasMaxLength(20);
 
         builder.Property(i => i.OriginalCostPrice)
             .HasPrecision(18, 2)
@@ -96,8 +95,11 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
             .OnDelete(DeleteBehavior.Restrict);
     }
 
-    private static string ToProviderValue(SaleReturnCondition condition)
+    private static string? ToProviderValue(SaleReturnCondition? condition)
     {
+        if (!condition.HasValue)
+            return null;
+
         return condition switch
         {
             SaleReturnCondition.Restockable => "RESTOCKABLE",
@@ -106,8 +108,11 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
         };
     }
 
-    private static SaleReturnCondition FromProviderValue(string value)
+    private static SaleReturnCondition? FromProviderValue(string? value)
     {
+        if (value is null)
+            return null;
+
         return value switch
         {
             "RESTOCKABLE" => SaleReturnCondition.Restockable,

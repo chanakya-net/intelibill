@@ -170,10 +170,12 @@ public sealed class VoidSaleReturnCommandHandlerTests
             reorderLevel: 0m,
             maxLevel: 100m,
             createdBy: user.Id).Value;
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             itemId,
             batch.Id,
+            lineName: "Item",
+            lineCode: "BC-001",
             quantity: 5m,
             costPrice: 80m,
             salesPrice: 100m,

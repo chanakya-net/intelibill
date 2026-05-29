@@ -175,8 +175,11 @@ describe('SaleService', () => {
       items: [
         {
           saleItemId: 'line-1',
+          lineType: 'Goods',
           itemId: 'item-1',
+          serviceId: null,
           itemName: 'Rice',
+          lineCode: 'BC-001',
           inventoryBatchId: 'batch-1',
           quantity: 5,
           salesPrice: 100,

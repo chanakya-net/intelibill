@@ -13,8 +13,11 @@ const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-
 describe('SaleInvoiceThermalComponent', () => {
   const makeSaleItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
     saleItemId: 'item-1',
+    lineType: 'Goods',
     itemId: 'item-1',
+    serviceId: null,
     itemName: 'Test Item',
+    lineCode: 'ITEM-001',
     inventoryBatchId: 'batch-1',
     quantity: 2,
     salesPrice: 100,
@@ -205,6 +208,43 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(text).toContain('Tax 5%: ₹5.00');
     expect(text).toContain('Discount: -₹10.00');
     expect(text).toContain('₹105.00');
+  });
+
+  it('groups goods and services for mixed thermal invoices', () => {
+    component.sale = makeSale({
+      items: [
+        makeSaleItem({ lineType: 'Goods', itemName: 'Engine Oil', hsnCode: '2710' }),
+        makeSaleItem({ lineType: 'Service', itemName: 'Bike Wash', hsnCode: '9987' }),
+      ],
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent ?? '';
+    expect(text).toContain('sales.newSale.cart.goodsSection');
+    expect(text).toContain('sales.newSale.cart.servicesSection');
+    expect(text).toContain('HSN: 2710');
+    expect(text).toContain('SAC: 9987');
+  });
+
+  it('keeps service-only thermal invoice flat and labels SAC', () => {
+    component.sale = makeSale({
+      items: [
+        makeSaleItem({
+          lineType: 'Service',
+          itemName: 'Bike Wash',
+          hsnCode: '9987',
+        }),
+      ],
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+
+    const groupHeaders = fixture.nativeElement.querySelectorAll('.thermal-invoice__group-header');
+    const text = fixture.nativeElement.textContent ?? '';
+    expect(groupHeaders.length).toBe(0);
+    expect(text).toContain('SAC: 9987');
+    expect(text).not.toContain('HSN:');
   });
 
   it('renders payment summary and partial payment status', () => {

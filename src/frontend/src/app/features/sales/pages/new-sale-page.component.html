@@ -88,7 +88,7 @@
 
         <app-batch-picker-dialog
           [visible]="vm.showBatchPicker()"
-          [batches]="vm.availableBatches()"
+          [batches]="vm.pickerSellables()"
           [loading]="vm.isSearchingBatches()"
           [quantity]="vm.batchPickerQuantity()"
           (batchSelected)="onBatchPickerBatchSelected($event)"
@@ -107,7 +107,7 @@
         <div class="new-sale-section-header">
           <div>
             <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
-            <h2 id="new-sale-cart-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length }})</h2>
+            <h2 id="new-sale-cart-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length + vm.serviceCart().length }})</h2>
           </div>
 
           <p-button
@@ -115,13 +115,15 @@
             icon="pi pi-trash"
             severity="secondary"
             [text]="true"
-            [disabled]="vm.cart().length === 0"
+            [disabled]="vm.cart().length === 0 && vm.serviceCart().length === 0"
             (click)="onClearCart()"
           />
         </div>
 
         <app-cart-table
           [cartItems]="vm.cart()"
+          [serviceCartItems]="vm.serviceCart()"
+          [showGroupedSections]="vm.isMixedCart()"
           [highlightedRowKeys]="vm.highlightedRowKeys()"
           [checkoutPreview]="vm.checkoutPreview()"
           [saleDiscountType]="vm.saleDiscountType()"
@@ -135,6 +137,7 @@
           [getUnitSubtotal]="vm.getUnitSubtotalFn"
           [getUnitTaxAmount]="vm.getUnitTaxAmountFn"
           [getUnitFinalPrice]="vm.getUnitFinalPriceFn"
+          [getServiceLineTotal]="vm.getServiceLineTotalFn"
           [getPreviewLine]="vm.getPreviewLineFn"
           [getCartItemHsnError]="vm.getCartItemHsnErrorFn"
           [getCartItemTaxError]="vm.getCartItemTaxErrorFn"
@@ -143,6 +146,7 @@
           [totalAmount]="vm.totalAmount()"
           (quantityChanged)="onCartTableQuantityChanged($event)"
           (itemRemoved)="onCartTableItemRemoved($event)"
+          (serviceUnitPriceChanged)="onCartTableServiceUnitPriceChanged($event)"
           (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
           (cartItemTaxRateChange)="onCartTableTaxRateChange($event)"
           (cartItemDiscountTypeChange)="onCartTableDiscountTypeChange($event)"
@@ -207,7 +211,7 @@
           [balanceDue]="vm.paymentForm.controls.dueAmount.value"
           [paymentSplitError]="vm.paymentSplitError()"
           [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
-          [cartLength]="vm.cart().length"
+          [cartLength]="vm.cart().length + vm.serviceCart().length"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"

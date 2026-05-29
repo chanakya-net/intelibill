@@ -19,7 +19,7 @@ public sealed record SaleReturnItemDto(
     Guid SaleReturnItemId,
     Guid SaleItemId,
     decimal Quantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     decimal ApprovedRefundAmount,
     decimal TaxableAmount,
     decimal TaxAmount,

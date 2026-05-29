@@ -34,13 +34,21 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
 
             item.RuleFor(i => i.BatchNumber)
                 .NotEmpty()
+                .When(i => i.LineType == SaleLineType.Goods)
                 .WithErrorCode("Sale.BatchNumberRequired")
                 .WithMessage("Batch number is required.");
 
             item.RuleFor(i => i.InventoryBatchId)
                 .NotEmpty()
+                .When(i => i.LineType == SaleLineType.Goods)
                 .WithErrorCode("Sale.InventoryBatchIdRequired")
                 .WithMessage("Inventory batch id is required.");
+
+            item.RuleFor(i => i.ServiceId)
+                .NotEmpty()
+                .When(i => i.LineType == SaleLineType.Service)
+                .WithErrorCode(Errors.Sale.ServiceNotFound.Code)
+                .WithMessage(Errors.Sale.ServiceNotFound.Description);
 
             item.RuleFor(i => i.Quantity)
                 .GreaterThan(0)
@@ -51,6 +59,12 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .Must(IsValidDiscount)
                 .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
                 .WithMessage(Errors.Sale.InvalidSaleDiscount.Description);
+
+            item.RuleFor(i => i.ItemDiscount)
+                .Must(d => d is null || d.Type == InstantDiscountType.None)
+                .When(i => i.LineType == SaleLineType.Service)
+                .WithErrorCode(Errors.Sale.ServiceDiscountNotSupported.Code)
+                .WithMessage(Errors.Sale.ServiceDiscountNotSupported.Description);
         });
 
         RuleFor(x => x.SaleDiscount)

@@ -29,16 +29,32 @@ public class GetSaleDetailQueryHandlerTests
     private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
         ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
 
-    private static SaleItem MakeSaleItem(Guid shopId, Guid itemId, decimal quantity = 5m) =>
-        SaleItem.Create(
+    private static SaleItem MakeSaleItem(Guid shopId, Guid itemId, decimal quantity = 5m, string lineName = "Rice", string lineCode = "BC-001") =>
+        SaleItem.CreateGoods(
             shopId,
             itemId,
             Guid.NewGuid(),
+            lineName: lineName,
+            lineCode: lineCode,
             quantity,
             costPrice: 80m,
             salesPrice: 100m,
             mrp: 120m,
             taxRatePercent: 10m,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false);
+
+    private static SaleItem MakeServiceSaleItem(Guid shopId, Guid serviceId, decimal quantity = 1m, string lineName = "Consultation", string lineCode = "SRV-001") =>
+        SaleItem.CreateService(
+            shopId,
+            serviceId,
+            lineName: lineName,
+            lineCode: lineCode,
+            quantity,
+            costPrice: 0m,
+            salesPrice: 300m,
+            mrp: 0m,
+            taxRatePercent: 0m,
             isPriceIncludingTax: false,
             hasPriceMismatch: false);
 
@@ -225,6 +241,81 @@ public class GetSaleDetailQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenSaleContainsServiceLine_ReturnsServiceLineInDto()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
+        var serviceId = Guid.NewGuid();
+        var service = MakeServiceSaleItem(shop.Id, serviceId, quantity: 1m);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-002",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 500m,
+            dueAmount: 0m,
+            totalAmount: 500m,
+            totalTaxAmount: 20m,
+            [goods, service]);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Items.Count);
+        var serviceLine = Assert.Single(result.Value.Items, i => i.LineType == SaleLineType.Service);
+        Assert.Equal(serviceId, serviceLine.ServiceId);
+        Assert.Null(serviceLine.ItemId);
+        Assert.Null(serviceLine.InventoryBatchId);
+        Assert.Equal("Consultation", serviceLine.ItemName);
+        Assert.Equal("SRV-001", serviceLine.LineCode);
+        Assert.Equal(1m, serviceLine.ReturnableQuantity);
+    }
+
+    [Fact]
+    public async Task Handle_WhenServiceLineHasActiveReturn_ComputesReturnedAndStatus()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
+        var service = MakeServiceSaleItem(shop.Id, Guid.NewGuid(), quantity: 2m);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-003",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 800m,
+            dueAmount: 0m,
+            totalAmount: 800m,
+            totalTaxAmount: 20m,
+            [goods, service]);
+        var serviceReturn = MakeSaleReturn(shop.Id, sale.Id, service.Id, quantity: 1m);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([serviceReturn]);
+
+        var result = await CreateHandler().Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var serviceLine = Assert.Single(result.Value.Items, i => i.LineType == SaleLineType.Service);
+        Assert.Equal(1m, serviceLine.ReturnedQuantity);
+        Assert.Equal(1m, serviceLine.ReturnableQuantity);
+        Assert.Equal("PartiallyReturned", serviceLine.ReturnStatus);
+    }
+
+    [Fact]
     public async Task Handle_WhenSaleHasNoDiscounts_ExposesZeroDiscountBreakdown()
     {
         var user = MakeUser();
@@ -263,10 +354,12 @@ public class GetSaleDetailQueryHandlerTests
         var user = MakeUser();
         var shop = MakeShop();
         var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
             quantity: 5m,
             costPrice: 80m,
             salesPrice: 100m,

@@ -11,12 +11,12 @@ public sealed record SaleReturnPreviewDto(
 
 public sealed record SaleReturnPreviewLineDto(
     Guid SaleItemId,
-    Guid ItemId,
-    Guid InventoryBatchId,
+    Guid? ItemId,
+    Guid? InventoryBatchId,
     decimal RequestedQuantity,
     decimal ReturnedQuantity,
     decimal ReturnableQuantity,
-    SaleReturnCondition Condition,
+    SaleReturnCondition? Condition,
     bool WillRestock,
     SaleReturnPreviewLineFinancialDto? Financial);
 

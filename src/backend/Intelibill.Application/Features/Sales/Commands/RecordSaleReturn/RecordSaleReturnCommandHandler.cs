@@ -34,6 +34,7 @@ public sealed class RecordSaleReturnCommandHandler(
                 command.Items.Select(i => new SaleReturnValidationLineRequest(
                     i.SaleItemId,
                     i.Quantity,
+                    i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
                     i.Notes)).ToList()),
@@ -73,17 +74,26 @@ public sealed class RecordSaleReturnCommandHandler(
                 calculated.TaxAmount,
                 calculated.Notes));
 
-            if (line.Request.Condition == SaleReturnCondition.Wastage)
+            if (line.SaleItem.LineType == SaleLineType.Service || line.Request.Condition == SaleReturnCondition.Wastage)
                 continue;
 
-            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, line.SaleItem.ItemId, cancellationToken);
+            if (!line.SaleItem.ItemId.HasValue || !line.SaleItem.InventoryBatchId.HasValue)
+                return Errors.Sale.ReturnSaleItemNotFound(line.SaleItem.Id);
+
+            var itemId = line.SaleItem.ItemId.Value;
+            var batchId = line.SaleItem.InventoryBatchId.Value;
+            var batch = line.Batch;
+            if (batch is null)
+                return Errors.Sale.ReturnBatchNotFound(batchId);
+
+            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
             if (inventory is null)
-                return Errors.Sale.ReturnInventoryAggregateNotFound(line.SaleItem.ItemId);
+                return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
 
             var transaction = StockTransaction.Create(
                 command.ShopId,
-                line.SaleItem.ItemId,
-                line.SaleItem.InventoryBatchId,
+                itemId,
+                batchId,
                 StockTransactionType.Ret,
                 line.Request.Quantity,
                 returnNumber,
@@ -95,7 +105,7 @@ public sealed class RecordSaleReturnCommandHandler(
             if (transaction.IsError)
                 return transaction.Errors;
 
-            var batchResult = line.Batch.AddQuantity(line.Request.Quantity, command.ActorUserId);
+            var batchResult = batch.AddQuantity(line.Request.Quantity, command.ActorUserId);
             if (batchResult.IsError)
                 return batchResult.Errors;
 
@@ -103,7 +113,7 @@ public sealed class RecordSaleReturnCommandHandler(
             if (inventoryResult.IsError)
                 return inventoryResult.Errors;
 
-            inventoryBatchRepository.Update(line.Batch);
+            inventoryBatchRepository.Update(batch);
             inventoryRepository.Update(inventory);
             await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
         }

@@ -1,6 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -36,7 +38,11 @@ public sealed class GetSaleDetailQueryHandler(
         if (sale is null)
             return Error.NotFound("Sale.NotFound", $"Sale '{query.SaleId}' was not found.");
 
-        var itemIds = sale.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemIds = sale.Items
+            .Where(i => i.LineType == SaleLineType.Goods && i.ItemId.HasValue)
+            .Select(i => i.ItemId!.Value)
+            .Distinct()
+            .ToList();
         var items = await itemRepository.GetByIdsAsync(query.ShopId, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
@@ -64,19 +70,23 @@ public sealed class GetSaleDetailQueryHandler(
             sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
-            sale.Items.Select(si => new SaleItemDto(
+            sale.Items
+                .Select(si => new SaleItemDto(
                 si.Id,
+                si.LineType,
                 si.ItemId,
-                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
                 si.InventoryBatchId,
+                si.ServiceId,
+                si.LineCode,
+                ResolveLineName(si),
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
                 si.HasPriceMismatch,
                 GetReturnedQuantity(si.Id),
-                GetReturnableQuantity(si.Id, si.Quantity),
-                GetReturnStatus(si.Id, si.Quantity))
+                GetReturnableQuantity(si),
+                GetReturnStatus(si))
             {
                 OriginalSalesPrice = si.OriginalSalesPrice,
                 FinalSalesPrice = si.FinalSalesPrice,
@@ -116,16 +126,33 @@ public sealed class GetSaleDetailQueryHandler(
         decimal GetReturnedQuantity(Guid saleItemId) =>
             returnedQuantityBySaleItemId.GetValueOrDefault(saleItemId);
 
-        decimal GetReturnableQuantity(Guid saleItemId, decimal soldQuantity) =>
-            Math.Max(0m, soldQuantity - GetReturnedQuantity(saleItemId));
-
-        string GetReturnStatus(Guid saleItemId, decimal soldQuantity)
+        decimal GetReturnableQuantity(SaleItem saleItem)
         {
-            var returnedQuantity = GetReturnedQuantity(saleItemId);
+            return Math.Max(0m, saleItem.Quantity - GetReturnedQuantity(saleItem.Id));
+        }
+
+        string GetReturnStatus(SaleItem saleItem)
+        {
+            var returnedQuantity = GetReturnedQuantity(saleItem.Id);
             if (returnedQuantity <= 0m)
                 return NotReturned;
 
-            return returnedQuantity >= soldQuantity ? FullyReturned : PartiallyReturned;
+            return returnedQuantity >= saleItem.Quantity ? FullyReturned : PartiallyReturned;
+        }
+
+        string ResolveLineName(SaleItem saleItem)
+        {
+            if (!string.IsNullOrWhiteSpace(saleItem.LineName))
+            {
+                return saleItem.LineName;
+            }
+
+            if (saleItem.LineType == SaleLineType.Goods && saleItem.ItemId.HasValue)
+            {
+                return itemNameById.GetValueOrDefault(saleItem.ItemId.Value, "Unknown Item");
+            }
+
+            return "Unknown Service";
         }
     }
 }

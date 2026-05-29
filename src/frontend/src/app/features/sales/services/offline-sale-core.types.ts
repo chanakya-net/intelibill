@@ -17,6 +17,8 @@ export interface OfflineSalePricingLineInput {
   readonly taxIncluded: boolean;
   readonly itemDiscount: InstantDiscountRequest;
   readonly hsnCode: string | null;
+  readonly lineType?: 'goods' | 'service';
+  readonly serviceId?: string | null;
 }
 
 export interface OfflineSalePricingRuleInput {
@@ -65,6 +67,8 @@ export interface OfflineFrozenSaleLine {
   readonly configuredRulePercentage?: number | null;
   readonly itemDiscountOverrideType?: number;
   readonly itemDiscountOverrideValue?: number;
+  readonly lineType: 'goods' | 'service';
+  readonly serviceId: string | null;
 }
 
 export interface OfflineFrozenSaleTotals {

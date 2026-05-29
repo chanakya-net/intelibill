@@ -23,6 +23,7 @@ import { DashboardEffects } from '../../features/dashboard/state/dashboard.effec
 import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
 import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
+import { servicesGuard } from '../guards/services.guard';
 
 export const shellRoutes: Routes = [
 	{
@@ -121,6 +122,14 @@ export const shellRoutes: Routes = [
 				loadComponent: () =>
 					import('../../features/inventory/pages/inventory-page.component').then(
 						(m) => m.InventoryPageComponent
+					),
+			},
+			{
+				path: 'services',
+				canActivate: [servicesGuard],
+				loadComponent: () =>
+					import('../../features/services/pages/services-page.component').then(
+						(m) => m.ServicesPageComponent
 					),
 			},
 			{

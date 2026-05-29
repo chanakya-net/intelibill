@@ -31,6 +31,8 @@ internal static class RecordSaleIdempotencyHasher
             {
                 var itemDiscount = item.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
                 return new RecordSaleItemIdempotencyPayload(
+                    (int)item.LineType,
+                    item.ServiceId,
                     item.Barcode,
                     item.BatchNumber,
                     item.ItemName,
@@ -70,6 +72,8 @@ internal sealed record RecordSaleIdempotencyPayload(
     IReadOnlyList<RecordSaleItemIdempotencyPayload> Items);
 
 internal sealed record RecordSaleItemIdempotencyPayload(
+    int LineType,
+    Guid? ServiceId,
     string Barcode,
     string BatchNumber,
     string ItemName,

@@ -8,6 +8,7 @@ import {
   OFFLINE_SALES_SNAPSHOT_DATABASE_VERSION,
   OFFLINE_SALES_SNAPSHOT_CUSTOMERS_STORE,
   OFFLINE_SALES_SNAPSHOT_DISCOUNT_RULES_STORE,
+  OFFLINE_SALES_SNAPSHOT_SERVICES_STORE,
   OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE,
   type OfflineActiveLeaseSnapshot,
   type OfflineCustomerLiteSnapshot,
@@ -20,6 +21,7 @@ import {
   type OfflineUsableSnapshotInfo,
   configureOfflineSalesSnapshotSchema,
   type OfflineSellableBatchSnapshot,
+  type OfflineSellableServiceSnapshot,
 } from '../../features/sales/utils/offline-sales-snapshot.schema';
 
 export type {
@@ -31,6 +33,7 @@ export type {
   OfflineDiscountRuleSnapshot,
   OfflineActiveLeaseSnapshot,
   OfflineUsableSnapshotInfo,
+  OfflineSellableServiceSnapshot,
 } from '../../features/sales/utils/offline-sales-snapshot.schema';
 
 @Injectable({ providedIn: 'root' })
@@ -91,6 +94,10 @@ export class OfflineSalesSnapshotIndexedDbService {
 
   async writeActiveLease(snapshotId: string, shopId: string, lease: OfflineActiveLeaseSnapshot): Promise<void> {
     await this.writeEntity(OFFLINE_SALES_SNAPSHOT_ACTIVE_LEASES_STORE, snapshotId, shopId, lease.leaseId, lease);
+  }
+
+  async writeService(snapshotId: string, shopId: string, service: OfflineSellableServiceSnapshot): Promise<void> {
+    await this.writeEntity(OFFLINE_SALES_SNAPSHOT_SERVICES_STORE, snapshotId, shopId, service.serviceId, service);
   }
 
   async markComplete(snapshotId: string, shopId: string, completedAt: string): Promise<void> {
@@ -234,6 +241,10 @@ export class OfflineSalesSnapshotIndexedDbService {
 
   async getUsableDiscountRules(shopId: string): Promise<readonly OfflineDiscountRuleSnapshot[]> {
     return await this.readUsableEntities(OFFLINE_SALES_SNAPSHOT_DISCOUNT_RULES_STORE, shopId);
+  }
+
+  async getUsableServices(shopId: string): Promise<readonly OfflineSellableServiceSnapshot[]> {
+    return await this.readUsableEntities(OFFLINE_SALES_SNAPSHOT_SERVICES_STORE, shopId);
   }
 
   private async readUsableEntities<T>(storeName: string, shopId: string): Promise<readonly T[]> {

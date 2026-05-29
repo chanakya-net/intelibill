@@ -33,6 +33,18 @@ public static partial class Errors
         public static Error InvalidHsnCode =>
             Error.Validation("Sale.InvalidHsnCode", "HSN code must be 4 to 8 digits.");
 
+        public static Error ServiceNotFound =>
+            Error.NotFound("Sale.ServiceNotFound", "Service was not found.");
+
+        public static Error ServiceInactive =>
+            Error.Validation("Sale.ServiceInactive", "Service is inactive.");
+
+        public static Error ServiceDiscountNotSupported =>
+            Error.Validation("Sale.ServiceDiscountNotSupported", "Service line discounts are not supported.");
+
+        public static Error InvalidLineType =>
+            Error.Validation("Sale.InvalidLineType", "Sale line type is invalid.");
+
         public static Error PaidAmountInvalid =>
             Error.Validation("Sale.PaidAmountInvalid", "Paid amount cannot be negative.");
 
@@ -108,6 +120,8 @@ public static partial class Errors
         public static Error InventoryBatchIdRequired =>
             Error.Validation("Sale.InventoryBatchIdRequired", "Inventory batch id is required.");
 
+        public static Error ServiceIdRequired =>
+            Error.Validation("Sale.ServiceIdRequired", "Service id is required for service lines.");
         public static Error OfflineLineQuantityMustBePositive =>
             Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.");
 
@@ -134,6 +148,15 @@ public static partial class Errors
 
         public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
             Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
+
+        public static Error ReturnLineTypeMismatch(Guid saleItemId) =>
+            Error.Validation("SaleReturn.LineTypeMismatch", $"Return line type for sale item '{saleItemId}' does not match original sale line type.");
+
+        public static Error ReturnServiceMustBeRefundOnly(Guid saleItemId) =>
+            Error.Validation("SaleReturn.ServiceRefundOnly", $"Service sale item '{saleItemId}' supports refund-only returns.");
+
+        public static Error ReturnGoodsConditionInvalid(Guid saleItemId) =>
+            Error.Validation("SaleReturn.GoodsConditionInvalid", $"Goods sale item '{saleItemId}' must be marked as restockable or wastage.");
 
         public static Error ReturnNotFound(Guid saleReturnId) =>
             Error.NotFound("SaleReturn.NotFound", $"Sale return '{saleReturnId}' was not found.");

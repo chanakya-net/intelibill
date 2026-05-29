@@ -1,5 +1,6 @@
 using System.Reflection;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
@@ -13,13 +14,19 @@ public class SaleItemTests
         var itemId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
 
-        var saleItem = SaleItem.Create(shopId, itemId, batchId,
+        var saleItem = SaleItem.CreateGoods(shopId, itemId, batchId,
+            lineName: "Sugar",
+            lineCode: "BC-001",
             quantity: 3m, costPrice: 80m, salesPrice: 100m, mrp: 120m,
             taxRatePercent: 18m, isPriceIncludingTax: false, hasPriceMismatch: false);
 
         Assert.Equal(shopId, saleItem.ShopId);
+        Assert.Equal(SaleLineType.Goods, saleItem.LineType);
         Assert.Equal(itemId, saleItem.ItemId);
         Assert.Equal(batchId, saleItem.InventoryBatchId);
+        Assert.Null(saleItem.ServiceId);
+        Assert.Equal("Sugar", saleItem.LineName);
+        Assert.Equal("BC-001", saleItem.LineCode);
         Assert.Equal(3m, saleItem.Quantity);
         Assert.Equal(80m, saleItem.CostPrice);
         Assert.Equal(100m, saleItem.SalesPrice);
@@ -43,7 +50,9 @@ public class SaleItemTests
     [Fact]
     public void Create_WithBlankHsnCode_NormalizesToNull()
     {
-        var saleItem = SaleItem.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+        var saleItem = SaleItem.CreateGoods(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            lineName: "Sugar",
+            lineCode: "BC-001",
             quantity: 1m, costPrice: 80m, salesPrice: 100m, mrp: 120m,
             taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: false,
             hsnCode: "   ");
@@ -54,7 +63,9 @@ public class SaleItemTests
     [Fact]
     public void Create_WithHsnCode_SetsNormalizedValue()
     {
-        var saleItem = SaleItem.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+        var saleItem = SaleItem.CreateGoods(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            lineName: "Sugar",
+            lineCode: "BC-001",
             quantity: 1m, costPrice: 80m, salesPrice: 100m, mrp: 120m,
             taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: false,
             hsnCode: " 0902 ");
@@ -65,7 +76,9 @@ public class SaleItemTests
     [Fact]
     public void Create_WithPriceMismatch_SetsMismatchFlag()
     {
-        var saleItem = SaleItem.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+        var saleItem = SaleItem.CreateGoods(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            lineName: "Sugar",
+            lineCode: "BC-001",
             quantity: 1m, costPrice: 85m, salesPrice: 105m, mrp: 120m,
             taxRatePercent: 5m, isPriceIncludingTax: true, hasPriceMismatch: true);
 
@@ -78,7 +91,7 @@ public class SaleItemTests
     [Fact]
     public void Create_IsNotPublic()
     {
-        var method = typeof(SaleItem).GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+        var method = typeof(SaleItem).GetMethod("CreateGoods", BindingFlags.Public | BindingFlags.Static);
 
         Assert.Null(method);
     }

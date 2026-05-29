@@ -41,7 +41,7 @@ public class GetDashboardQueryHandlerTests
     private static Sale MakeCashSale(Guid shopId, decimal total, decimal paid, decimal tax) =>
         Sale.Create(shopId, "INV-001", null, null, null, PaymentMethod.Cash,
             DateTimeOffset.UtcNow, paid, total - paid, total, tax,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1, total * 0.8m, total, total * 1.1m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, total * 0.8m, total, total * 1.1m, 10m, false, false)]);
 
     private static DomainInventory MakeInventory(Guid shopId, decimal quantity, decimal reorderLevel, string itemName = "Widget")
     {
@@ -250,7 +250,7 @@ public class GetDashboardQueryHandlerTests
         var membership = MakeMembership(shop.Id, user.Id);
         SetupValidUserShopMembership(user, shop, membership);
 
-        var saleItem = SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 2m, 60m, 100m, 120m, 10m, false, false);
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 2m, 60m, 100m, 120m, 10m, false, false);
         var sale = Sale.Create(
             shop.Id,
             "INV-RET",
@@ -318,7 +318,7 @@ public class GetDashboardQueryHandlerTests
         var saleYesterday = Sale.Create(shop.Id, "INV-Y", null, null, null, PaymentMethod.Cash,
             new DateTimeOffset(Today.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 80m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 80m, 100m, 110m, 10m, false, false)]);
         var saleToday = MakeCashSale(shop.Id, 200m, 200m, 20m);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
@@ -378,7 +378,7 @@ public class GetDashboardQueryHandlerTests
 
         var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
             DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
@@ -403,7 +403,7 @@ public class GetDashboardQueryHandlerTests
 
         var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
             DateTimeOffset.UtcNow, 0m, 10m, 10m, 1m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 6m, 10m, 12m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 6m, 10m, 12m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 90m, 90m, 9m);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
@@ -508,10 +508,10 @@ public class GetDashboardQueryHandlerTests
         var cashSale = MakeCashSale(shop.Id, 100m, 100m, 10m);
         var upiSale = Sale.Create(shop.Id, "INV-U", null, null, null, PaymentMethod.UPI,
             DateTimeOffset.UtcNow, 200m, 0m, 200m, 20m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 150m, 200m, 220m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 150m, 200m, 220m, 10m, false, false)]);
         var cardSale = Sale.Create(shop.Id, "INV-C", null, null, null, PaymentMethod.Card,
             DateTimeOffset.UtcNow, 300m, 0m, 300m, 30m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 250m, 300m, 330m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 250m, 300m, 330m, 10m, false, false)]);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([cashSale, upiSale, cardSale]);
@@ -537,7 +537,7 @@ public class GetDashboardQueryHandlerTests
         var partialCashSale = MakeCashSale(shop.Id, total: 100m, paid: 40m, tax: 10m);
         var upiSale = Sale.Create(shop.Id, "INV-U", null, null, null, PaymentMethod.UPI,
             DateTimeOffset.UtcNow, 100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 70m, 100m, 110m, 10m, false, false)]);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([partialCashSale, upiSale]);
@@ -685,7 +685,7 @@ public class GetDashboardQueryHandlerTests
 
         var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
             DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
@@ -722,7 +722,7 @@ public class GetDashboardQueryHandlerTests
 
         var creditSale = Sale.Create(shop.Id, "INV-002", null, null, null, PaymentMethod.Credit,
             DateTimeOffset.UtcNow, 0m, 50m, 50m, 5m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 30m, 50m, 60m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 30m, 50m, 60m, 10m, false, false)]);
         var cashSale = MakeCashSale(shop.Id, 50m, 50m, 5m);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([creditSale, cashSale]);
@@ -750,7 +750,7 @@ public class GetDashboardQueryHandlerTests
         var saleYesterday = Sale.Create(shop.Id, "INV-PT1", null, null, null, PaymentMethod.Cash,
             new DateTimeOffset(Today.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 60m, 100m, 110m, 10m, false, false)]);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
             .Returns([saleYesterday]);
@@ -796,6 +796,67 @@ public class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenServiceSoldBeforeRangeAndReturnedInsideRange_IgnoresServiceReturnCosts()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var start = Today.AddDays(-1);
+        var end = Today;
+        SetupValidUserShopMembership(user, shop, membership);
+
+        var oldServiceSale = Sale.Create(
+            shop.Id,
+            "INV-SRV-OLD",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(start.AddDays(-7).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            paidAmount: 150m,
+            dueAmount: 0m,
+            totalAmount: 150m,
+            totalTaxAmount: 13.64m,
+            [SaleItem.CreateService(
+                shop.Id,
+                Guid.NewGuid(),
+                lineName: "Consulting",
+                lineCode: "SRV-001",
+                quantity: 1m,
+                costPrice: 50m,
+                salesPrice: 150m,
+                mrp: 150m,
+                taxRatePercent: 10m,
+                isPriceIncludingTax: true,
+                hasPriceMismatch: false)]);
+
+        var saleReturn = MakeReturn(
+            shop.Id,
+            oldServiceSale.Id,
+            oldServiceSale.Items[0].Id,
+            "RET-SRV-OLD",
+            condition: null,
+            approvedRefund: 150m);
+
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>())
+            .Returns([saleReturn]);
+        _saleRepository.GetByIdAsync(oldServiceSale.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(oldServiceSale);
+
+        var result = await CreateHandler().Handle(
+            new GetDashboardQuery(user.Id, shop.Id, start, end),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(-150m, result.Value.NetSalesBooked);
+        Assert.Equal(0m, result.Value.WastageCost);
+        Assert.Equal(-150m, result.Value.ProfitBeforeTax);
+        Assert.Equal(-136.36m, result.Value.ProfitAfterTax);
+        Assert.Equal(-150m, result.Value.ProfitTrendSeries![1].ProfitBeforeTax);
+        Assert.Equal(-136.36m, result.Value.ProfitTrendSeries[1].ProfitAfterTax);
+    }
+
+    [Fact]
     public async Task Handle_WhenStaffRole_ProfitTrendSeriesIsNull()
     {
         var user = MakeUser();
@@ -827,7 +888,7 @@ public class GetDashboardQueryHandlerTests
         var prevSale = Sale.Create(shop.Id, "INV-PREV1", null, null, null, PaymentMethod.Cash,
             new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             100m, 0m, 100m, 0m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 100m, 0m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 60m, 100m, 100m, 0m, false, false)]);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
             .Returns([prevSale]);
@@ -862,7 +923,7 @@ public class GetDashboardQueryHandlerTests
         var prevSale = Sale.Create(shop.Id, "INV-PREV-ADJ", null, null, null, PaymentMethod.Cash,
             new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 60m, 100m, 110m, 10m, false, false)]);
         var prevLoss = MakeAdjustment(shop.Id, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 25m);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
@@ -894,11 +955,11 @@ public class GetDashboardQueryHandlerTests
         var prevPartialCashSale = Sale.Create(shop.Id, "INV-PREV-CASH", null, null, null, PaymentMethod.Cash,
             new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             40m, 60m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 70m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 70m, 100m, 110m, 10m, false, false)]);
         var prevUpiSale = Sale.Create(shop.Id, "INV-PREV-UPI", null, null, null, PaymentMethod.UPI,
             new DateTimeOffset(prevEnd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             100m, 0m, 100m, 10m,
-            [SaleItem.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 60m, 100m, 110m, 10m, false, false)]);
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1, 60m, 100m, 110m, 10m, false, false)]);
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, prevStart, prevEnd, Arg.Any<CancellationToken>())
             .Returns([prevPartialCashSale, prevUpiSale]);
@@ -933,7 +994,7 @@ public class GetDashboardQueryHandlerTests
         Guid saleId,
         Guid saleItemId,
         string returnNumber,
-        SaleReturnCondition condition,
+        SaleReturnCondition? condition,
         decimal approvedRefund)
     {
         var item = SaleReturnItem.Create(

@@ -40,7 +40,7 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
 
         foreach (var candidate in candidates)
         {
-            if (File.Exists(Path.Combine(candidate, "appsettings.Development.json")))
+            if (File.Exists(Path.Combine(candidate, "Intelibill.Api.csproj")))
             {
                 return candidate;
             }

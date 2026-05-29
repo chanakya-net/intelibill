@@ -85,4 +85,55 @@ describe('new-sale-page: integration', () => {
 
     expect((onlineFixture.nativeElement as HTMLElement).textContent).not.toContain('sales.newSale.offlineStatusChip');
   });
+
+  it('renders grouped Goods/Services sections only for mixed carts', () => {
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    fixture.detectChanges();
+    const vm = fixture.componentInstance.vm;
+
+    vm.cart.set([
+      {
+        clientLineKey: 'clk-g-1',
+        barcode: 'A',
+        itemName: 'Item',
+        batchNumber: 'B-01',
+        inventoryBatchId: 'batch-1',
+        quantity: 1,
+        availableQuantity: 10,
+        salesPrice: 50,
+        mrp: 60,
+        taxRatePercent: 18,
+        taxIncluded: true,
+        costPrice: 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: null,
+      },
+    ]);
+
+    vm.serviceCart.set([
+      {
+        kind: 'service',
+        clientLineKey: 'clk-s-1',
+        serviceId: 'svc-1',
+        serviceName: 'Bike wash',
+        serviceCode: 'S-001',
+        quantity: 1,
+        unitPrice: 100,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        hsnCode: null,
+      },
+    ]);
+
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('en.sales.newSale.goodsSection');
+    expect(root.textContent).toContain('en.sales.newSale.servicesSection');
+    expect(root.querySelectorAll('tfoot tr').length).toBeGreaterThan(0);
+
+    vm.serviceCart.set([]);
+    fixture.detectChanges();
+    expect(root.textContent).not.toContain('en.sales.newSale.servicesSection');
+  });
 });

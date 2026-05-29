@@ -92,6 +92,9 @@ export abstract class NewSalePageDiscountActionsService extends NewSalePageCartS
 
   toggleLineDiscountEditor(clientLineKey: string): void {
     if (!clientLineKey) return;
+    if (!this.cart().some((line) => line.clientLineKey === clientLineKey)) {
+      return;
+    }
     this.openLineDiscountEditorByKey.update((current) => ({
       ...current,
       [clientLineKey]: !current[clientLineKey],

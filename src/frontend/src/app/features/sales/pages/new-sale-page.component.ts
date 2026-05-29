@@ -25,7 +25,7 @@ import { OfflineStatusBannerComponent } from '../components/new-sale/offline-sta
 import { SaleConfirmationDialogComponent } from '../components/new-sale/sale-confirmation-dialog.component';
 import { CustomerDto, SaleCustomerSectionComponent } from '../components/new-sale/sale-customer-section.component';
 import { SalePaymentSectionComponent } from '../components/new-sale/sale-payment-section.component';
-import { PaymentMethod } from '../services/sale.models';
+import { PaymentMethod, SellableDto } from '../services/sale.models';
 import { NewSalePageCoordinatorService } from './new-sale-page.coordinator.service';
 
 @Component({
@@ -94,7 +94,7 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
     this.vm.onBatchQuantityChanged(quantity);
   }
 
-  onBatchPickerBatchSelected(batch: AvailableBatchDto): void {
+  onBatchPickerBatchSelected(batch: SellableDto): void {
     this.vm.onBatchPickerBatchSelected(batch);
   }
 
@@ -124,6 +124,10 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
 
   onCartTableItemRemoved(itemId: string): void {
     this.vm.onCartTableItemRemoved(itemId);
+  }
+
+  onCartTableServiceUnitPriceChanged(event: CartLineNumberEvent): void {
+    this.vm.onCartTableServiceUnitPriceChanged(event);
   }
 
   onCartTableHsnCodeChange(event: CartLineTextEvent): void {

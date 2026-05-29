@@ -5,6 +5,17 @@
   }
 }
 
+.cart-section + .cart-section {
+  margin-top: 1rem;
+}
+
+.cart-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
 .cart-item-cell {
   min-width: 18rem;
 }

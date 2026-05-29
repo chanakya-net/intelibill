@@ -1,3 +1,4 @@
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Queries.PreviewSale;
@@ -21,4 +22,6 @@ public sealed record PreviewSaleLineQuery(
     bool IsPriceIncludingTax,
     InstantDiscount ItemDiscount,
     string? ClientLineKey = null,
-    string? HsnCode = null);
+    string? HsnCode = null,
+    SaleLineType LineType = SaleLineType.Goods,
+    Guid? ServiceId = null);
