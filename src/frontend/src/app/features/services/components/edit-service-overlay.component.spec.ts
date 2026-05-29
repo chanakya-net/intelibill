@@ -23,8 +23,8 @@ describe('EditServiceOverlayComponent', () => {
   };
 
   beforeEach(() => {
-    serviceService.updateService.mockReset();
-    inventoryService.lookupHsn.mockReset();
+    serviceService.updateService.mockClear();
+    inventoryService.lookupHsn.mockClear();
     TestBed.configureTestingModule({
       imports: [EditServiceOverlayComponent, ReactiveFormsModule, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [

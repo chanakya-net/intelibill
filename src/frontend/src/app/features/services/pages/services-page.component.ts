@@ -166,11 +166,6 @@ export class ServicesPageComponent {
     this.loadServices();
   }
 
-  onPageSizeChange(pageSize: number): void {
-    this.pageSize.set(pageSize);
-    this.pageNumber.set(1);
-  }
-
   onTablePageChange(event: { page: number; rows: number }): void {
     this.pageNumber.set(event.page);
     this.pageSize.set(event.rows);
@@ -186,10 +181,6 @@ export class ServicesPageComponent {
   }
 
   onCloseAddService(): void {
-    if (this.isMutating()) {
-      return;
-    }
-
     this.showAddOverlay.set(false);
   }
 
@@ -203,10 +194,6 @@ export class ServicesPageComponent {
   }
 
   onCloseEditService(): void {
-    if (this.isMutating()) {
-      return;
-    }
-
     this.editingService.set(null);
   }
 
