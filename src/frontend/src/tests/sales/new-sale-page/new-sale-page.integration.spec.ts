@@ -130,6 +130,7 @@ describe('new-sale-page: integration', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('en.sales.newSale.goodsSection');
     expect(root.textContent).toContain('en.sales.newSale.servicesSection');
+    expect(root.querySelectorAll('tfoot tr').length).toBeGreaterThan(0);
 
     vm.serviceCart.set([]);
     fixture.detectChanges();

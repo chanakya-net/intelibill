@@ -169,6 +169,10 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
 
   resetTransientState(): void {
     this.cartState.onClearCart();
+    this.isSaleDiscountEditorOpen.set(false);
+    this.saleDiscountType.set(0);
+    this.saleDiscountValue.set(0);
+    this.saleDiscountError.set('');
     this.searchInput.set('');
     this.customerNameSuggestions.set([]);
     this.customerForm.reset();

@@ -88,6 +88,10 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
 
   onClearCart(): void {
     this.cartState.onClearCart();
+    this.isSaleDiscountEditorOpen.set(false);
+    this.saleDiscountType.set(0);
+    this.saleDiscountValue.set(0);
+    this.saleDiscountError.set('');
   }
 
   hasTax(item: CartItem): boolean {
