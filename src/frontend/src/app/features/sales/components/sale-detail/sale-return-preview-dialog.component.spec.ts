@@ -227,15 +227,36 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(item.returnableQuantity).toBe(1);
   });
 
-  it('renders translated return quantity column header', async () => {
+  it('renders return quantity control without raw translation keys', async () => {
     const { fixture, component } = await createComponent();
     component.sale = makeSale();
     component.visible = true;
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Return qty');
+    expect(text).toContain('Qty to return');
     expect(text).not.toContain('sales.returns.preview.col.quantity');
+    expect(text).not.toContain('sales.returns.preview.col.returnQty');
+  });
+
+  it('shows the selected quantity inside the return stepper', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeGoodsItem({ quantity: 10, returnableQuantity: 10 })],
+    };
+    component.visible = true;
+    fixture.detectChanges();
+
+    const item = component.sale.items[0];
+    component.toggleReturnLine(item, true);
+    component.updateReturnQuantity(item, 2);
+    fixture.detectChanges();
+
+    const quantityInput = fixture.nativeElement.querySelector(
+      '.return-preview-stepper input',
+    ) as HTMLInputElement | null;
+    expect(quantityInput?.value).toBe('2');
   });
 
   it('service line with zero returnable quantity is fully returned', async () => {
