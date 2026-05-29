@@ -48,7 +48,9 @@ public sealed class PreviewSaleQueryHandler(
             i.InventoryBatchId,
             i.ItemDiscount,
             i.ClientLineKey,
-            i.HsnCode)).ToList();
+            i.HsnCode,
+            i.LineType,
+            i.ServiceId)).ToList();
 
         var validationWarnings = new List<string>();
         var validationOrError = await saleLineValidator.ValidateLinesAsync(
@@ -65,7 +67,7 @@ public sealed class PreviewSaleQueryHandler(
         var pricingRequest = new SalePricingCalculationRequest(
             query.ShopId,
             DateTimeOffset.UtcNow,
-            validatedLines.Select((line, index) =>
+            validatedLines.Select(line =>
             {
                 return new SalePricingLineCalculationRequest(
                     line.LineType,
@@ -77,7 +79,7 @@ public sealed class PreviewSaleQueryHandler(
                     line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
                     line.Command.TaxRatePercent,
                     line.Command.IsPriceIncludingTax,
-                    query.Items[index].ItemDiscount,
+                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
                     line.LineType == SaleLineType.Goods);
             }).ToList(),
             query.SaleDiscount);

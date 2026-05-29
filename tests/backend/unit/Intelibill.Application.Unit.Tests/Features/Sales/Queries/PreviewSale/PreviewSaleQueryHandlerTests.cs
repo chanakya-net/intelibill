@@ -43,6 +43,9 @@ public class PreviewSaleQueryHandlerTests
         return result.Value;
     }
 
+    private static Service MakeService(Guid shopId, string code = "SVC-001", string name = "Consulting", bool isActive = true) =>
+        Service.Create(shopId, code, name, "Service description", 250m, "9988", 18m, false, isActive, Guid.NewGuid());
+
     private static User MakeUser() =>
         User.CreateWithEmail("test@example.com", "hash", "Test", "User");
 
@@ -449,13 +452,13 @@ public class PreviewSaleQueryHandlerTests
         var validatedLines = new List<ValidatedSaleLine>
         {
             new(
-                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id, null),
+                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id, new InstantDiscount(InstantDiscountType.Flat, 5m)),
                 item,
                 batch,
                 inventory,
                 HasPriceMismatch: false),
             new(
-                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 18m, false, batch.Id, ClientLineKey: "line-2"),
+                new RecordSaleItemCommand("BC-001", "B-01", "Rice", 2m, 80m, 100m, 120m, 18m, false, batch.Id, new InstantDiscount(InstantDiscountType.Percentage, 10m), ClientLineKey: "line-2"),
                 item,
                 batch,
                 inventory,
@@ -498,5 +501,118 @@ public class PreviewSaleQueryHandlerTests
         Assert.Equal(10m, capturedRequest.Lines[1].ItemDiscount.Value);
         Assert.Null(result.Value.Lines[0].ClientLineKey);
         Assert.Equal("line-2", result.Value.Lines[1].ClientLineKey);
+    }
+
+    [Fact]
+    public async Task Handle_WhenServiceLineRequested_PreservesLineTypeAndServiceIdInValidationInput()
+    {
+        var shopId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var service = MakeService(shopId);
+        var query = new PreviewSaleQuery(
+            userId,
+            shopId,
+            new InstantDiscount(InstantDiscountType.None, 0m),
+            [
+                new PreviewSaleLineQuery(
+                    Guid.Empty, service.Code, string.Empty, service.Name, 1m, 0m, service.Price, service.Price, service.TaxRatePercent,
+                    service.TaxIncluded, new InstantDiscount(InstantDiscountType.None, 0m), "line-svc", service.HsnCode, SaleLineType.Service, service.Id),
+            ]);
+        _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(MakeUser());
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns(MakeShop());
+        _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
+
+        IReadOnlyList<RecordSaleItemCommand>? capturedItems = null;
+        var validatedLines = new List<ValidatedSaleLine>
+        {
+            new(
+                new RecordSaleItemCommand(
+                    service.Code, string.Empty, service.Name, 1m, 0m, service.Price, service.Price, service.TaxRatePercent, service.TaxIncluded,
+                    Guid.Empty, new InstantDiscount(InstantDiscountType.None, 0m), "line-svc", service.HsnCode, SaleLineType.Service, service.Id),
+                SaleLineType.Service, null, null, null, service, HasPriceMismatch: false),
+        };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Do<IReadOnlyList<RecordSaleItemCommand>>(x => capturedItems = x), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleLineValidationResult>>(new SaleLineValidationResult(validatedLines, new Dictionary<Guid, string>())));
+        _pricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SalePricingCalculationResult>>(
+                new SalePricingCalculationResult(
+                    [new SalePricingLineCalculation(SaleLineType.Service, Guid.Empty, service.Id, 1m, 0m, service.Price, service.TaxRatePercent, service.TaxIncluded, service.Price, 0m, 0m, service.Price, 0m, service.Price, 0m, 0m, null, null)],
+                    service.Price, service.Price, 0m, 0m, service.Price, null, [])));
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(capturedItems);
+        Assert.Single(capturedItems!);
+        Assert.Equal(SaleLineType.Service, capturedItems[0].LineType);
+        Assert.Equal(service.Id, capturedItems[0].ServiceId);
+    }
+
+    [Fact]
+    public async Task Handle_WhenValidatedOrderDiffers_UsesValidatedLineDiscountsForPricing()
+    {
+        var shopId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", quantity: 100m);
+        var inventory = MakeInventory(shopId, item.Id, quantity: 100m);
+        var service = MakeService(shopId, code: "SVC-002", name: "Packing");
+        var query = new PreviewSaleQuery(
+            userId,
+            shopId,
+            new InstantDiscount(InstantDiscountType.None, 0m),
+            [
+                new PreviewSaleLineQuery(
+                    Guid.Empty, service.Code, string.Empty, service.Name, 1m, 0m, service.Price, service.Price, service.TaxRatePercent,
+                    service.TaxIncluded, new InstantDiscount(InstantDiscountType.None, 0m), "line-service", service.HsnCode, SaleLineType.Service, service.Id),
+                new PreviewSaleLineQuery(
+                    batch.Id, item.Barcode, batch.BatchNumber, item.Name, 1m, 80m, 100m, 120m, 18m, false,
+                    new InstantDiscount(InstantDiscountType.Flat, 5m), "line-goods"),
+            ]);
+        _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(MakeUser());
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns(MakeShop());
+        _shopRepository.GetMembershipAsync(userId, shopId, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shopId, userId, ShopRole.Owner, true));
+
+        // Validator returns goods first, then service (different from query order).
+        var validatedLines = new List<ValidatedSaleLine>
+        {
+            new(
+                new RecordSaleItemCommand(item.Barcode, batch.BatchNumber, item.Name, 1m, 80m, 100m, 120m, 18m, false, batch.Id, new InstantDiscount(InstantDiscountType.Flat, 5m), "line-goods"),
+                item,
+                batch,
+                inventory,
+                HasPriceMismatch: false),
+            new(
+                new RecordSaleItemCommand(service.Code, string.Empty, service.Name, 1m, 0m, service.Price, service.Price, service.TaxRatePercent, service.TaxIncluded, Guid.Empty, new InstantDiscount(InstantDiscountType.None, 0m), "line-service", service.HsnCode, SaleLineType.Service, service.Id),
+                SaleLineType.Service, null, null, null, service, HasPriceMismatch: false),
+        };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleLineValidationResult>>(new SaleLineValidationResult(validatedLines, new Dictionary<Guid, string> { { item.Id, item.Name } })));
+
+        SalePricingCalculationRequest? capturedRequest = null;
+        _pricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedRequest = callInfo.ArgAt<SalePricingCalculationRequest>(0);
+                return Task.FromResult<ErrorOr<SalePricingCalculationResult>>(
+                    new SalePricingCalculationResult(
+                        [
+                            new SalePricingLineCalculation(batch.Id, 1m, 80m, 100m, 18m, false, 100m, 5m, 0m, 95m, 17.1m, 112.1m, 20m, 20m, null, null),
+                            new SalePricingLineCalculation(SaleLineType.Service, Guid.Empty, service.Id, 1m, 0m, service.Price, service.TaxRatePercent, service.TaxIncluded, service.Price, 0m, 0m, service.Price, 0m, service.Price, 0m, 0m, null, null),
+                        ],
+                        195m, 195m, 17.1m, 5m, 212.1m, null, []));
+            });
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(2, capturedRequest!.Lines.Count);
+        Assert.Equal(InstantDiscountType.Flat, capturedRequest.Lines[0].ItemDiscount.Type);
+        Assert.Equal(5m, capturedRequest.Lines[0].ItemDiscount.Value);
+        Assert.Equal(InstantDiscountType.None, capturedRequest.Lines[1].ItemDiscount.Type);
+        Assert.Equal(0m, capturedRequest.Lines[1].ItemDiscount.Value);
     }
 }
