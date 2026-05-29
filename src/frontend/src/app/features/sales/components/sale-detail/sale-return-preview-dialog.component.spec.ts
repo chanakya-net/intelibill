@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
-import type { SaleDto, SaleItemDto } from '../../services/sale.models';
+import type { SaleDto, SaleItemDto, SaleReturnPreviewDto } from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
 import { SaleReturnPreviewDialogComponent } from './sale-return-preview-dialog.component';
 
@@ -15,7 +15,7 @@ const enIN = JSON.parse(
 ) as Record<string, unknown>;
 
 class SalesFacadeStub {
-  readonly returnPreview = signal(null);
+  readonly returnPreview = signal<SaleReturnPreviewDto | null>(null);
   readonly loadingReturnPreview = signal(false);
   readonly submitting = signal(false);
   readonly returnPreviewErrorMessage = signal<string | null>(null);
@@ -257,6 +257,64 @@ describe('SaleReturnPreviewDialogComponent', () => {
       '.return-preview-stepper input',
     ) as HTMLInputElement | null;
     expect(quantityInput?.value).toBe('2');
+  });
+
+  it('displays calculated preview effects after preview succeeds', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeGoodsItem({ itemName: 'Soap', quantity: 10, returnableQuantity: 10 })],
+    };
+    component.visible = true;
+    fixture.detectChanges();
+
+    const item = component.sale.items[0];
+    component.toggleReturnLine(item, true);
+    component.updateReturnQuantity(item, 2);
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [
+        {
+          saleItemId: item.saleItemId,
+          itemId: item.itemId,
+          inventoryBatchId: item.inventoryBatchId,
+          requestedQuantity: 2,
+          returnedQuantity: 0,
+          returnableQuantity: 8,
+          condition: 1,
+          willRestock: true,
+          financial: {
+            originalCostPrice: 0,
+            originalSalesPrice: 110,
+            originalTaxRatePercent: 10,
+            originalIsPriceIncludingTax: false,
+            maxRefundAmount: 242,
+            approvedRefundAmount: 242,
+            taxableAmount: 220,
+            taxAmount: 22,
+          },
+        },
+      ],
+      financial: {
+        totalRefundAmount: 242,
+        dueReductionAmount: 0,
+        payoutAmount: 242,
+        totalTaxableAmount: 220,
+        totalTaxAmount: 22,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Calculated effects');
+    expect(text).toContain('Preview ready');
+    expect(text).toContain('Soap');
+    expect(text).toContain('2 qty');
+    expect(text).toContain('₹242.00');
   });
 
   it('service line with zero returnable quantity is fully returned', async () => {

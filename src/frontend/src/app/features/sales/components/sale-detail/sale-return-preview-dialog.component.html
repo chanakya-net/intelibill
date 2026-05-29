@@ -193,6 +193,34 @@
               {{ previewError() }}
             </div>
           }
+
+          @if (returnPreview()) {
+            <section class="return-preview-side-card return-preview-result">
+              <header>
+                <h3>{{ 'sales.returns.preview.calculatedEffects' | transloco }}</h3>
+                <span>Preview ready</span>
+              </header>
+              <div class="return-preview-result-lines">
+                @for (line of returnPreview()!.lines; track line.saleItemId) {
+                  <div class="return-preview-result-line">
+                    <strong>{{ getPreviewItemName(line.saleItemId) }}</strong>
+                    <span
+                      >{{ line.requestedQuantity }} qty ·
+                      {{ line.willRestock ? 'Restock' : 'No restock' }}</span
+                    >
+                    @if (getPreviewLineRefundAmount(line.saleItemId) !== null) {
+                      <b>
+                        {{
+                          getPreviewLineRefundAmount(line.saleItemId)
+                            | currency: currency : 'symbol' : '1.2-2'
+                        }}
+                      </b>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          }
         </main>
 
         <aside class="return-preview-side">
@@ -205,18 +233,20 @@
             <div class="return-preview-impact-row">
               <span>Item refund</span>
               <strong>{{
-                selectedItemRefundTotal() | currency: currency : 'symbol' : '1.2-2'
+                displayedItemRefundTotal() | currency: currency : 'symbol' : '1.2-2'
               }}</strong>
             </div>
             <div class="return-preview-impact-row">
               <span>Tax reversal</span>
               <strong>{{
-                selectedTaxReversalTotal() | currency: currency : 'symbol' : '1.2-2'
+                displayedTaxReversalTotal() | currency: currency : 'symbol' : '1.2-2'
               }}</strong>
             </div>
             <div class="return-preview-impact-total">
               <span>Total refund</span>
-              <strong>{{ selectedRefundTotal() | currency: currency : 'symbol' : '1.2-2' }}</strong>
+              <strong>{{
+                displayedRefundTotal() | currency: currency : 'symbol' : '1.2-2'
+              }}</strong>
             </div>
           </section>
 

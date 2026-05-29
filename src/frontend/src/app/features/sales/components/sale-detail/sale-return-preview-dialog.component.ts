@@ -138,6 +138,18 @@ export class SaleReturnPreviewDialogComponent {
     Math.max(0, this.selectedRefundTotal() - this.selectedTaxReversalTotal()),
   );
 
+  readonly displayedRefundTotal = computed(
+    () => this.returnPreview()?.financial?.totalRefundAmount ?? this.selectedRefundTotal(),
+  );
+
+  readonly displayedTaxReversalTotal = computed(
+    () => this.returnPreview()?.financial?.totalTaxAmount ?? this.selectedTaxReversalTotal(),
+  );
+
+  readonly displayedItemRefundTotal = computed(() =>
+    Math.max(0, this.displayedRefundTotal() - this.displayedTaxReversalTotal()),
+  );
+
   constructor() {
     effect(() => {
       if (!this.isVisible() || !this.saleInput()) return;
@@ -335,6 +347,13 @@ export class SaleReturnPreviewDialogComponent {
       this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.itemName ||
       'Unknown Item'
     );
+  }
+
+  getPreviewLineRefundAmount(saleItemId: string): number | null {
+    const line = this.returnPreview()?.lines.find(
+      (previewLine) => previewLine.saleItemId === saleItemId,
+    );
+    return line?.financial?.approvedRefundAmount ?? null;
   }
 
   isServiceLine(item: SaleItemDto): boolean {
