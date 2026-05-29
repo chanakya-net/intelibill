@@ -76,14 +76,20 @@ public sealed class RecordSaleReturnCommandHandler(
             if (line.Request.Condition == SaleReturnCondition.Wastage)
                 continue;
 
-            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, line.SaleItem.ItemId, cancellationToken);
+            if (!line.SaleItem.ItemId.HasValue || !line.SaleItem.InventoryBatchId.HasValue)
+                return Errors.Sale.ReturnSaleItemNotFound(line.SaleItem.Id);
+
+            var itemId = line.SaleItem.ItemId.Value;
+            var batchId = line.SaleItem.InventoryBatchId.Value;
+
+            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, itemId, cancellationToken);
             if (inventory is null)
-                return Errors.Sale.ReturnInventoryAggregateNotFound(line.SaleItem.ItemId);
+                return Errors.Sale.ReturnInventoryAggregateNotFound(itemId);
 
             var transaction = StockTransaction.Create(
                 command.ShopId,
-                line.SaleItem.ItemId,
-                line.SaleItem.InventoryBatchId,
+                itemId,
+                batchId,
                 StockTransactionType.Ret,
                 line.Request.Quantity,
                 returnNumber,

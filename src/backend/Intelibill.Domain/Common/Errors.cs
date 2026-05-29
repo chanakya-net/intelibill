@@ -32,5 +32,8 @@ public static partial class Errors
 
         public static Error PaidAndDueAmountMismatch =>
             Error.Validation("Sale.PaidAndDueAmountMismatch", "Paid amount and due amount must match sale total.");
+
+        public static Error InvalidLineReferences =>
+            Error.Validation("Sale.InvalidLineReferences", "Sale line references are invalid for the specified line type.");
     }
 }

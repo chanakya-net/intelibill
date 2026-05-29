@@ -20,8 +20,12 @@ public class SaleDtoBuilderTests
     {
         var line = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             itemId,
             Guid.NewGuid(),
+            ServiceId: null,
+            LineName: "Rice",
+            LineCode: "BC-TEST",
             5m,
             80m,
             100m,
@@ -83,6 +87,6 @@ public class SaleDtoBuilderTests
         var dto = await CreateBuilder().BuildSaleDtoAsync(sale, [], CancellationToken.None);
 
         Assert.Single(dto.Items);
-        Assert.Equal("Unknown Item", dto.Items[0].ItemName);
+        Assert.Equal("Rice", dto.Items[0].ItemName);
     }
 }

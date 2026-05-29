@@ -483,7 +483,7 @@ public class SyncOfflineSalesCommandHandlerTests
             0m,
             118m,
             18m,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false)]);
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 80m, 100m, 120m, 18m, false, false)]);
 
         _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
             .Returns(CreateMemberUser(shopId));
@@ -593,7 +593,7 @@ public class SyncOfflineSalesCommandHandlerTests
             sale.DueAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
-            [SaleItem.Create(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false)],
+            [SaleItem.CreateGoods(shopId, Guid.NewGuid(), Guid.NewGuid(), lineName: "Item", lineCode: "BC-001", 1m, 80m, 100m, 120m, 18m, false, false)],
             source: SaleSource.Offline,
             clientSaleId: sale.ClientSaleId,
             deviceId: deviceId,
@@ -676,10 +676,12 @@ public class SyncOfflineSalesCommandHandlerTests
         var requestHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(shopId, deviceId, sale);
         var persistedWarnings = new[] { "Offline stock shortage was reconciled." };
 
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shopId,
             Guid.NewGuid(),
             line.InventoryBatchId,
+            lineName: line.ItemName,
+            lineCode: line.Barcode,
             line.Quantity,
             line.CostPrice,
             line.SalesPrice,
@@ -891,7 +893,7 @@ public class SyncOfflineSalesCommandHandlerTests
             sale.DueAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
-            [SaleItem.Create(shopId, item.Id, batch.Id, 1m, 80m, 100m, 120m, 18m, false, false)],
+            [SaleItem.CreateGoods(shopId, item.Id, batch.Id, lineName: item.Name, lineCode: item.Barcode, 1m, 80m, 100m, 120m, 18m, false, false)],
             source: SaleSource.Offline,
             clientSaleId: sale.ClientSaleId,
             deviceId: deviceId,
@@ -944,7 +946,7 @@ public class SyncOfflineSalesCommandHandlerTests
             sale.DueAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
-            [SaleItem.Create(shopId, item.Id, batch.Id, 1m, 80m, 100m, 120m, 18m, false, false)],
+            [SaleItem.CreateGoods(shopId, item.Id, batch.Id, lineName: item.Name, lineCode: item.Barcode, 1m, 80m, 100m, 120m, 18m, false, false)],
             source: SaleSource.Offline,
             clientSaleId: sale.ClientSaleId,
             deviceId: deviceId,
@@ -1002,7 +1004,7 @@ public class SyncOfflineSalesCommandHandlerTests
             firstSale.DueAmount,
             firstSale.TotalAmount,
             firstSale.TotalTaxAmount,
-            [SaleItem.Create(shopId, item.Id, batch.Id, 1m, 80m, 100m, 120m, 18m, false, false)],
+            [SaleItem.CreateGoods(shopId, item.Id, batch.Id, lineName: item.Name, lineCode: item.Barcode, 1m, 80m, 100m, 120m, 18m, false, false)],
             source: SaleSource.Offline,
             clientSaleId: firstSale.ClientSaleId,
             deviceId: deviceId,

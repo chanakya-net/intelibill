@@ -92,10 +92,12 @@ public sealed class SaleReturnPersistenceTests(PostgreSqlTestFixture fixture) : 
             supplierId: null,
             createdBy: actorId).Value;
 
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             item.Id,
             batch.Id,
+            lineName: item.Name,
+            lineCode: item.Barcode,
             2m,
             80m,
             100m,

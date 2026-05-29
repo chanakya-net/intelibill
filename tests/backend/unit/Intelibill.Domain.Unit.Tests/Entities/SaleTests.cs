@@ -17,8 +17,36 @@ public class SaleTests
         var soldAt = DateTimeOffset.UtcNow;
         SaleLineInput[] lines =
         [
-            new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 2m, 80m, 100m, 120m, 18m, false, false),
-            new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 70m, 118m, 120m, 18m, true, true),
+            new SaleLineInput(
+                shopId,
+                SaleLineType.Goods,
+                ItemId: Guid.NewGuid(),
+                InventoryBatchId: Guid.NewGuid(),
+                ServiceId: null,
+                LineName: "Sugar",
+                LineCode: "BC-001",
+                Quantity: 2m,
+                CostPrice: 80m,
+                SalesPrice: 100m,
+                Mrp: 120m,
+                TaxRatePercent: 18m,
+                IsPriceIncludingTax: false,
+                HasPriceMismatch: false),
+            new SaleLineInput(
+                shopId,
+                SaleLineType.Goods,
+                ItemId: Guid.NewGuid(),
+                InventoryBatchId: Guid.NewGuid(),
+                ServiceId: null,
+                LineName: "Tea",
+                LineCode: "BC-002",
+                Quantity: 1m,
+                CostPrice: 70m,
+                SalesPrice: 118m,
+                Mrp: 120m,
+                TaxRatePercent: 18m,
+                IsPriceIncludingTax: true,
+                HasPriceMismatch: true),
         ];
 
         var result = Sale.Record(
@@ -72,10 +100,112 @@ public class SaleTests
     }
 
     [Fact]
+    public void Record_WithServiceLine_CreatesServiceSaleItem()
+    {
+        var shopId = Guid.NewGuid();
+        var soldAt = DateTimeOffset.UtcNow;
+        var serviceId = Guid.NewGuid();
+
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Service,
+            ItemId: null,
+            InventoryBatchId: null,
+            ServiceId: serviceId,
+            LineName: "Consultation",
+            LineCode: "SRV-001",
+            Quantity: 1m,
+            CostPrice: 0m,
+            SalesPrice: 100m,
+            Mrp: 0m,
+            TaxRatePercent: 0m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
+
+        var result = Sale.Record(
+            shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
+            "INV-20260416-ABCD1234",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            100m,
+            0m,
+            soldAt);
+
+        Assert.False(result.IsError);
+        var sale = result.Value;
+        Assert.Single(sale.Items);
+        Assert.Equal(SaleLineType.Service, sale.Items[0].LineType);
+        Assert.Equal(serviceId, sale.Items[0].ServiceId);
+        Assert.Null(sale.Items[0].ItemId);
+        Assert.Null(sale.Items[0].InventoryBatchId);
+        Assert.Equal("Consultation", sale.Items[0].LineName);
+        Assert.Equal("SRV-001", sale.Items[0].LineCode);
+    }
+
+    [Fact]
+    public void Record_WhenServiceLineHasGoodsRefs_ReturnsInvalidLineError()
+    {
+        var shopId = Guid.NewGuid();
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Service,
+            ItemId: Guid.NewGuid(),
+            InventoryBatchId: Guid.NewGuid(),
+            ServiceId: Guid.NewGuid(),
+            LineName: "Consultation",
+            LineCode: "SRV-001",
+            Quantity: 1m,
+            CostPrice: 0m,
+            SalesPrice: 100m,
+            Mrp: 0m,
+            TaxRatePercent: 0m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
+
+        var result = Sale.Record(
+            shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-TEST",
+            "INV-20260416-ABCD1234",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            100m,
+            0m,
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.InvalidLineReferences.Code, result.FirstError.Code);
+    }
+
+    [Fact]
     public void Record_WhenPaidAndDueDoNotMatchRoundedTotal_ReturnsMismatchError()
     {
         var shopId = Guid.NewGuid();
-        var line = new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 2m, 10m, 50.0025m, 60m, 0m, false, false);
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Goods,
+            ItemId: Guid.NewGuid(),
+            InventoryBatchId: Guid.NewGuid(),
+            ServiceId: null,
+            LineName: "Sugar",
+            LineCode: "BC-001",
+            Quantity: 2m,
+            CostPrice: 10m,
+            SalesPrice: 50.0025m,
+            Mrp: 60m,
+            TaxRatePercent: 0m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
 
         var result = Sale.Record(
             shopId,
@@ -100,7 +230,21 @@ public class SaleTests
     public void Record_WhenCreditHasNoDue_ReturnsCreditRequiresDueAmount()
     {
         var shopId = Guid.NewGuid();
-        var line = new SaleLineInput(shopId, Guid.NewGuid(), Guid.NewGuid(), 1m, 80m, 100m, 120m, 18m, false, false);
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Goods,
+            ItemId: Guid.NewGuid(),
+            InventoryBatchId: Guid.NewGuid(),
+            ServiceId: null,
+            LineName: "Sugar",
+            LineCode: "BC-001",
+            Quantity: 1m,
+            CostPrice: 80m,
+            SalesPrice: 100m,
+            Mrp: 120m,
+            TaxRatePercent: 18m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
 
         var result = Sale.Record(
             shopId,

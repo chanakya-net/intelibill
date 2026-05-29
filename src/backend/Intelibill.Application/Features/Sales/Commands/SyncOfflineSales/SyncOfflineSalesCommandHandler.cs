@@ -147,7 +147,30 @@ public sealed class SyncOfflineSalesCommandHandler(
         foreach (var v in vLines)
         {
             if (!lineByKey.TryGetValue(v.Command.ClientLineKey!, out var line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.General.Unexpected("Line mapping failed."));
-            saleItems.Add(SaleItem.Create(command.ShopId, v.Item.Id, v.Batch.Id, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, v.HasPriceMismatch, preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount, itemDiscountAmount: line.ItemDiscountAmount, saleDiscountAmount: line.SaleDiscountAmount, taxableAmount: line.TaxableAmount, taxAmount: line.TaxAmount, totalAmount: line.TotalAmount, configuredBatchRuleId: line.ConfiguredBatchRuleId, configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage, itemDiscountOverrideType: line.ItemDiscountOverrideType, itemDiscountOverrideValue: line.ItemDiscountOverrideValue, hsnCode: line.HsnCode));
+            saleItems.Add(SaleItem.CreateGoods(
+                command.ShopId,
+                v.Item.Id,
+                v.Batch.Id,
+                lineName: line.ItemName,
+                lineCode: line.Barcode,
+                line.Quantity,
+                line.CostPrice,
+                line.SalesPrice,
+                line.Mrp,
+                line.TaxRatePercent,
+                line.IsPriceIncludingTax,
+                v.HasPriceMismatch,
+                preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+                itemDiscountAmount: line.ItemDiscountAmount,
+                saleDiscountAmount: line.SaleDiscountAmount,
+                taxableAmount: line.TaxableAmount,
+                taxAmount: line.TaxAmount,
+                totalAmount: line.TotalAmount,
+                configuredBatchRuleId: line.ConfiguredBatchRuleId,
+                configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
+                itemDiscountOverrideType: line.ItemDiscountOverrideType,
+                itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
+                hsnCode: line.HsnCode));
         }
 
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, warnings, pendingIssues);

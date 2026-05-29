@@ -30,7 +30,12 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
     {
         var sales = await _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, cancellationToken);
         
-        var itemIds = sales.SelectMany(s => s.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemIds = sales
+            .SelectMany(s => s.Items)
+            .Where(i => i.ItemId.HasValue)
+            .Select(i => i.ItemId!.Value)
+            .Distinct()
+            .ToList();
         var items = await _itemRepository.GetByIdsAsync(shop.Id, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
@@ -109,12 +114,17 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                     var itemReturns = returns.SelectMany(r => r.Items).Where(ri => ri.SaleItemId == saleItem.Id).ToList();
                     var returnedQuantity = itemReturns.Sum(ri => ri.Quantity);
                     var itemReturnNumbers = string.Join(", ", returns.Where(r => r.Items.Any(ri => ri.SaleItemId == saleItem.Id)).Select(r => r.ReturnNumber));
+                    var lineName = !string.IsNullOrWhiteSpace(saleItem.LineName)
+                        ? saleItem.LineName
+                        : saleItem.ItemId.HasValue
+                            ? itemNameById.GetValueOrDefault(saleItem.ItemId.Value, "Unknown Item")
+                            : "Unknown Line";
 
                     lineItemRows.Add(new SalesExportLineItemRowDto(
                         sale.InvoiceNumber,
                         sale.SoldAt,
                         sale.CustomerName,
-                        itemNameById.GetValueOrDefault(saleItem.ItemId, "Unknown Item"),
+                        lineName,
                         saleItem.Quantity,
                         saleItem.SalesPrice,
                         saleItem.ItemDiscountAmount,

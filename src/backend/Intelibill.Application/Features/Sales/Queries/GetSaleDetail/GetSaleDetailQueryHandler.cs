@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
@@ -36,7 +37,11 @@ public sealed class GetSaleDetailQueryHandler(
         if (sale is null)
             return Error.NotFound("Sale.NotFound", $"Sale '{query.SaleId}' was not found.");
 
-        var itemIds = sale.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemIds = sale.Items
+            .Where(i => i.LineType == SaleLineType.Goods && i.ItemId.HasValue)
+            .Select(i => i.ItemId!.Value)
+            .Distinct()
+            .ToList();
         var items = await itemRepository.GetByIdsAsync(query.ShopId, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
@@ -64,11 +69,13 @@ public sealed class GetSaleDetailQueryHandler(
             sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
-            sale.Items.Select(si => new SaleItemDto(
+            sale.Items
+                .Where(si => si.LineType == SaleLineType.Goods && si.ItemId.HasValue && si.InventoryBatchId.HasValue)
+                .Select(si => new SaleItemDto(
                 si.Id,
-                si.ItemId,
-                itemNameById.GetValueOrDefault(si.ItemId, "Unknown Item"),
-                si.InventoryBatchId,
+                si.ItemId!.Value,
+                !string.IsNullOrWhiteSpace(si.LineName) ? si.LineName : itemNameById.GetValueOrDefault(si.ItemId!.Value, "Unknown Item"),
+                si.InventoryBatchId!.Value,
                 si.Quantity,
                 si.SalesPrice,
                 si.TaxRatePercent,

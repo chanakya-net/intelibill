@@ -63,7 +63,13 @@ public sealed partial class Sale
 
         foreach (var line in lines)
         {
-            var saleItem = CreateSaleItem(shopId, line);
+            var saleItemOrError = CreateSaleItem(shopId, line);
+            if (saleItemOrError.IsError)
+            {
+                return saleItemOrError.Errors;
+            }
+
+            var saleItem = saleItemOrError.Value;
             subtotalBeforeDiscount += saleItem.PreTaxAmountBeforeDiscount;
             totalBeforeDiscount += saleItem.TotalAmount + saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
             totalDiscountAmount += saleItem.ItemDiscountAmount + saleItem.SaleDiscountAmount;
@@ -114,28 +120,68 @@ public sealed partial class Sale
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static SaleItem CreateSaleItem(Guid shopId, SaleLineInput line) =>
-        SaleItem.Create(
-            shopId,
-            line.ItemId,
-            line.InventoryBatchId,
-            line.Quantity,
-            line.CostPrice,
-            line.SalesPrice,
-            line.Mrp,
-            line.TaxRatePercent,
-            line.IsPriceIncludingTax,
-            line.HasPriceMismatch,
-            preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
-            itemDiscountAmount: line.ItemDiscountAmount,
-            saleDiscountAmount: line.SaleDiscountAmount,
-            taxableAmount: line.TaxableAmount,
-            taxAmount: line.TaxAmount,
-            totalAmount: line.TotalAmount,
-            configuredBatchRuleId: line.ConfiguredBatchRuleId,
-            configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
-            itemDiscountOverrideType: line.ItemDiscountOverrideType,
-            itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
-            hsnCode: line.HsnCode);
+    private static ErrorOr<SaleItem> CreateSaleItem(Guid shopId, SaleLineInput line)
+    {
+        if (line.LineType == SaleLineType.Goods)
+        {
+            if (!line.ItemId.HasValue || !line.InventoryBatchId.HasValue || line.ServiceId.HasValue)
+                return Errors.Sale.InvalidLineReferences;
+
+            return SaleItem.CreateGoods(
+                shopId,
+                line.ItemId.Value,
+                line.InventoryBatchId.Value,
+                line.LineName,
+                line.LineCode,
+                line.Quantity,
+                line.CostPrice,
+                line.SalesPrice,
+                line.Mrp,
+                line.TaxRatePercent,
+                line.IsPriceIncludingTax,
+                line.HasPriceMismatch,
+                preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+                itemDiscountAmount: line.ItemDiscountAmount,
+                saleDiscountAmount: line.SaleDiscountAmount,
+                taxableAmount: line.TaxableAmount,
+                taxAmount: line.TaxAmount,
+                totalAmount: line.TotalAmount,
+                configuredBatchRuleId: line.ConfiguredBatchRuleId,
+                configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
+                itemDiscountOverrideType: line.ItemDiscountOverrideType,
+                itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
+                hsnCode: line.HsnCode);
+        }
+
+        if (line.LineType == SaleLineType.Service)
+        {
+            if (line.ServiceId is null || line.ItemId.HasValue || line.InventoryBatchId.HasValue)
+                return Errors.Sale.InvalidLineReferences;
+
+            return SaleItem.CreateService(
+                shopId,
+                line.ServiceId.Value,
+                line.LineName,
+                line.LineCode,
+                line.Quantity,
+                line.CostPrice,
+                line.SalesPrice,
+                line.Mrp,
+                line.TaxRatePercent,
+                line.IsPriceIncludingTax,
+                line.HasPriceMismatch,
+                preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+                itemDiscountAmount: line.ItemDiscountAmount,
+                saleDiscountAmount: line.SaleDiscountAmount,
+                taxableAmount: line.TaxableAmount,
+                taxAmount: line.TaxAmount,
+                totalAmount: line.TotalAmount,
+                itemDiscountOverrideType: line.ItemDiscountOverrideType,
+                itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
+                hsnCode: line.HsnCode);
+        }
+
+        return Errors.Sale.InvalidLineReferences;
+    }
 
 }

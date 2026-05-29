@@ -4,8 +4,12 @@ namespace Intelibill.Domain.ValueObjects;
 
 public sealed record SaleLineInput(
     Guid ShopId,
-    Guid ItemId,
-    Guid InventoryBatchId,
+    SaleLineType LineType,
+    Guid? ItemId,
+    Guid? InventoryBatchId,
+    Guid? ServiceId,
+    string LineName,
+    string LineCode,
     decimal Quantity,
     decimal CostPrice,
     decimal SalesPrice,

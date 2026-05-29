@@ -1,4 +1,5 @@
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Entities;
@@ -7,8 +8,12 @@ public sealed class SaleItem : BaseEntity
 {
     public Guid SaleId { get; private set; }
     public Guid ShopId { get; private set; }
-    public Guid ItemId { get; private set; }
-    public Guid InventoryBatchId { get; private set; }
+    public SaleLineType LineType { get; private set; }
+    public Guid? ItemId { get; private set; }
+    public Guid? InventoryBatchId { get; private set; }
+    public Guid? ServiceId { get; private set; }
+    public string LineName { get; private set; } = string.Empty;
+    public string LineCode { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; }
     public decimal CostPrice { get; private set; }
     public decimal SalesPrice { get; private set; }
@@ -32,10 +37,12 @@ public sealed class SaleItem : BaseEntity
 
     private SaleItem() { }
 
-    internal static SaleItem Create(
+    internal static SaleItem CreateGoods(
         Guid shopId,
         Guid itemId,
         Guid inventoryBatchId,
+        string lineName,
+        string lineCode,
         decimal quantity,
         decimal costPrice,
         decimal salesPrice,
@@ -74,8 +81,12 @@ public sealed class SaleItem : BaseEntity
         return new SaleItem
         {
             ShopId = shopId,
+            LineType = SaleLineType.Goods,
             ItemId = itemId,
             InventoryBatchId = inventoryBatchId,
+            ServiceId = null,
+            LineName = lineName.Trim(),
+            LineCode = lineCode.Trim(),
             Quantity = quantity,
             CostPrice = costPrice,
             SalesPrice = salesPrice,
@@ -93,6 +104,76 @@ public sealed class SaleItem : BaseEntity
             TotalAmount = effectiveTotalAmount,
             ConfiguredBatchRuleId = configuredBatchRuleId,
             ConfiguredBatchRulePercentage = configuredBatchRulePercentage,
+            ItemDiscountOverrideType = itemDiscountOverrideType,
+            ItemDiscountOverrideValue = itemDiscountOverrideValue,
+            HsnCode = NormalizeHsnCode(hsnCode),
+        };
+    }
+
+    internal static SaleItem CreateService(
+        Guid shopId,
+        Guid serviceId,
+        string lineName,
+        string lineCode,
+        decimal quantity,
+        decimal costPrice,
+        decimal salesPrice,
+        decimal mrp,
+        decimal taxRatePercent,
+        bool isPriceIncludingTax,
+        bool hasPriceMismatch,
+        decimal? originalSalesPrice = null,
+        decimal? finalSalesPrice = null,
+        decimal? preTaxAmountBeforeDiscount = null,
+        decimal itemDiscountAmount = 0m,
+        decimal saleDiscountAmount = 0m,
+        decimal? taxableAmount = null,
+        decimal? taxAmount = null,
+        decimal? totalAmount = null,
+        InstantDiscountType itemDiscountOverrideType = InstantDiscountType.None,
+        decimal itemDiscountOverrideValue = 0m,
+        string? hsnCode = null)
+    {
+        var originalUnitPrice = originalSalesPrice ?? salesPrice;
+        var effectiveFinalUnitPrice = finalSalesPrice ?? originalUnitPrice;
+        var effectivePreTaxAmountBeforeDiscount = preTaxAmountBeforeDiscount
+            ?? CalculatePreTaxAmount(quantity, originalUnitPrice, taxRatePercent, isPriceIncludingTax);
+        var effectiveTaxAmount = taxAmount
+            ?? CalculateTaxAmount(quantity, effectiveFinalUnitPrice, taxRatePercent, isPriceIncludingTax, itemDiscountAmount, saleDiscountAmount);
+        var effectiveTaxableAmount = taxableAmount
+            ?? decimal.Round(
+                effectivePreTaxAmountBeforeDiscount - itemDiscountAmount - saleDiscountAmount,
+                2,
+                MidpointRounding.AwayFromZero);
+        var effectiveTotalAmount = totalAmount
+            ?? CalculateTotalAmount(quantity, effectiveFinalUnitPrice, taxRatePercent, isPriceIncludingTax, itemDiscountAmount, saleDiscountAmount);
+
+        return new SaleItem
+        {
+            ShopId = shopId,
+            LineType = SaleLineType.Service,
+            ItemId = null,
+            InventoryBatchId = null,
+            ServiceId = serviceId,
+            LineName = lineName.Trim(),
+            LineCode = lineCode.Trim(),
+            Quantity = quantity,
+            CostPrice = costPrice,
+            SalesPrice = salesPrice,
+            Mrp = mrp,
+            TaxRatePercent = taxRatePercent,
+            IsPriceIncludingTax = isPriceIncludingTax,
+            HasPriceMismatch = hasPriceMismatch,
+            OriginalSalesPrice = originalUnitPrice,
+            FinalSalesPrice = effectiveFinalUnitPrice,
+            PreTaxAmountBeforeDiscount = effectivePreTaxAmountBeforeDiscount,
+            ItemDiscountAmount = itemDiscountAmount,
+            SaleDiscountAmount = saleDiscountAmount,
+            TaxableAmount = effectiveTaxableAmount,
+            TaxAmount = effectiveTaxAmount,
+            TotalAmount = effectiveTotalAmount,
+            ConfiguredBatchRuleId = null,
+            ConfiguredBatchRulePercentage = null,
             ItemDiscountOverrideType = itemDiscountOverrideType,
             ItemDiscountOverrideValue = itemDiscountOverrideValue,
             HsnCode = NormalizeHsnCode(hsnCode),

@@ -203,10 +203,12 @@ public sealed class RecordSaleReturnCommandHandlerTests
             manufacturingDate: null,
             supplierId: null,
             fixture.User.Id).Value;
-        var secondSaleItem = SaleItem.Create(
+        var secondSaleItem = SaleItem.CreateGoods(
             fixture.Shop.Id,
             secondItemId,
             secondBatch.Id,
+            lineName: "Item",
+            lineCode: "BC-001",
             quantity: 2m,
             costPrice: 35m,
             salesPrice: 50m,
@@ -456,10 +458,12 @@ public sealed class RecordSaleReturnCommandHandlerTests
             reorderLevel: 0m,
             maxLevel: 100m,
             createdBy: user.Id).Value;
-        var saleItem = SaleItem.Create(
+        var saleItem = SaleItem.CreateGoods(
             shop.Id,
             itemId,
             batch.Id,
+            lineName: "Item",
+            lineCode: "BC-001",
             quantity: 5m,
             costPrice: 80m,
             salesPrice: 100m,

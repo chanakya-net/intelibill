@@ -195,8 +195,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -250,8 +254,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -302,8 +310,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -358,8 +370,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
@@ -418,8 +434,12 @@ public class RecordSaleCommandHandlerTests
 
         var lineInput = new SaleLineInput(
             shopId,
+            SaleLineType.Goods,
             item.Id,
             batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
             command.Items[0].Quantity,
             batch.CostPrice,
             batch.SalesPrice,
