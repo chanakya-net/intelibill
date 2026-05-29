@@ -22,6 +22,7 @@ public sealed class PreviewSaleReturnQueryHandler(
                 query.Items.Select(i => new SaleReturnValidationLineRequest(
                     i.SaleItemId,
                     i.Quantity,
+                    i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
                     i.Notes)).ToList()),
@@ -42,8 +43,8 @@ public sealed class PreviewSaleReturnQueryHandler(
                 var calculated = calculationsBySaleItemId[line.Request.SaleItemId];
                 return new SaleReturnPreviewLineDto(
                     line.Request.SaleItemId,
-                    line.SaleItem.ItemId!.Value,
-                    line.SaleItem.InventoryBatchId!.Value,
+                    line.SaleItem.ItemId,
+                    line.SaleItem.InventoryBatchId,
                     line.Request.Quantity,
                     line.ReturnedQuantity,
                     line.ReturnableQuantity,

@@ -71,10 +71,10 @@
                 optionValue="value"
                 appendTo="body"
                 styleClass="w-44"
-                [disabled]="!(getDraft(item.saleItemId)?.selected ?? false)"
+                [disabled]="!(getDraft(item.saleItemId)?.selected ?? false) || isServiceLine(item)"
                 [ngModel]="getDraft(item.saleItemId)?.condition"
                 (ngModelChange)="updateReturnCondition(item, $event)"
-                placeholder="Required"
+                [placeholder]="isServiceLine(item) ? 'Refund-only service' : 'Required'"
               />
             </td>
             @if (hasFinancialAccess()) {
@@ -266,4 +266,3 @@
     />
   </ng-template>
 </p-dialog>
-

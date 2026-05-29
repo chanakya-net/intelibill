@@ -31,6 +31,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.Items.Select(i => new PreviewSaleReturnItemQuery(
                     i.SaleItemId,
                     i.Quantity,
+                    i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
                     i.Notes)).ToList()),
@@ -61,6 +62,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.Items.Select(i => new RecordSaleReturnItemCommand(
                     i.SaleItemId,
                     i.Quantity,
+                    i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
                     i.Notes)).ToList()),

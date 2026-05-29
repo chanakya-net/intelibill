@@ -15,6 +15,7 @@ public sealed record SaleReturnValidationRequest(
 public sealed record SaleReturnValidationLineRequest(
     Guid SaleItemId,
     decimal Quantity,
+    SaleLineType LineType,
     SaleReturnCondition Condition,
     decimal? ApprovedRefundAmount,
     string? Notes);
@@ -31,7 +32,7 @@ public sealed record SaleReturnValidationResult(
 public sealed record ValidatedSaleReturnLine(
     SaleReturnValidationLineRequest Request,
     SaleItem SaleItem,
-    InventoryBatch Batch,
+    InventoryBatch? Batch,
     decimal ReturnedQuantity,
     decimal ReturnableQuantity);
 

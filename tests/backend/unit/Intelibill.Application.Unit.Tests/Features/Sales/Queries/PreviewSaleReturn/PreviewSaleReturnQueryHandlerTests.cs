@@ -245,6 +245,65 @@ public class PreviewSaleReturnQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SaleReturnPreview_ForServiceRefundOnly_AllowsPreviewWithoutBatchLookup()
+    {
+        var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var serviceItem = SaleItem.CreateService(
+            shop.Id,
+            Guid.NewGuid(),
+            lineName: "Consultation",
+            lineCode: "SRV-001",
+            quantity: 2m,
+            costPrice: 0m,
+            salesPrice: 200m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-SRV-001",
+            Guid.NewGuid(),
+            "Customer",
+            null,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            paidAmount: 0m,
+            dueAmount: 400m,
+            totalAmount: 400m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(400m);
+
+        var result = await CreateHandler().Handle(
+            new PreviewSaleReturnQuery(
+                user.Id,
+                shop.Id,
+                sale.Id,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                [new PreviewSaleReturnItemQuery(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Wastage, ApprovedRefundAmount: null, Notes: null)]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Null(line.ItemId);
+        Assert.Null(line.InventoryBatchId);
+        Assert.False(line.WillRestock);
+        Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
+        await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_SaleReturnPreview_ReturnsOverrideWarningsWithoutWritingData()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
@@ -369,7 +428,7 @@ public class PreviewSaleReturnQueryHandlerTests
             saleId,
             dueReductionOverrideAmount,
             DueOverrideReason: null,
-            [new PreviewSaleReturnItemQuery(saleItemId, quantity, condition, approvedRefundAmount, Notes: notes)]);
+            [new PreviewSaleReturnItemQuery(saleItemId, quantity, SaleLineType.Goods, condition, approvedRefundAmount, Notes: notes)]);
 
     private static SaleReturn MakeSaleReturn(
         Guid shopId,

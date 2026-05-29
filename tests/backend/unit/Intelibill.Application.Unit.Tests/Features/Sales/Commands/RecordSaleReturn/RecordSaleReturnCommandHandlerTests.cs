@@ -185,6 +185,66 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ForServiceRefundOnly_RecordsReturnWithoutInventoryOrStockMovement()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var serviceItem = SaleItem.CreateService(
+            fixture.Shop.Id,
+            Guid.NewGuid(),
+            lineName: "Consultation",
+            lineCode: "SRV-001",
+            quantity: 2m,
+            costPrice: 0m,
+            salesPrice: 150m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            fixture.Shop.Id,
+            "INV-SRV-001",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 300m,
+            dueAmount: 0m,
+            totalAmount: 300m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+        _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SERVICE1");
+
+        var result = await CreateHandler().HandleAsync(
+            new RecordSaleReturnCommand(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                sale.Id,
+                PaymentMethod.Cash,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: "Service refund",
+                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Wastage, ApprovedRefundAmount: null, Notes: "Not delivered")] ),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
+        _inventoryRepository.DidNotReceive().Update(Arg.Any<Intelibill.Domain.Entities.Inventory>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.ReturnNumber == "RET-20260505-SERVICE1"
+                && r.Items.Count == 1
+                && r.Items[0].SaleItemId == serviceItem.Id
+                && r.Items[0].OriginalCostPrice == 0m
+                && r.TotalRefundAmount == 150m
+                && r.PayoutAmount == 150m),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_ForMixedMultiLineReturn_RecordsOneHeaderWithIndependentLineEffects()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
@@ -245,8 +305,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 DueOverrideReason: null,
                 Notes: "Mixed return",
                 [
-                    new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 2m, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
-                    new RecordSaleReturnItemCommand(secondSaleItem.Id, 1m, SaleReturnCondition.Wastage, ApprovedRefundAmount: 25m, Notes: "Damaged"),
+                    new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 2m, SaleLineType.Goods, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
+                    new RecordSaleReturnItemCommand(secondSaleItem.Id, 1m, SaleLineType.Goods, SaleReturnCondition.Wastage, ApprovedRefundAmount: 25m, Notes: "Damaged"),
                 ]),
             CancellationToken.None);
 
@@ -527,7 +587,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             dueReductionOverrideAmount,
             dueOverrideReason,
             Notes: "Customer returned sealed items",
-            [new RecordSaleReturnItemCommand(saleItemId, 2m, condition, approvedRefundAmount, lineNotes)]);
+            [new RecordSaleReturnItemCommand(saleItemId, 2m, SaleLineType.Goods, condition, approvedRefundAmount, lineNotes)]);
 
     private static SaleReturn MakeSaleReturn(Guid shopId, Guid saleId, Guid saleItemId, decimal quantity)
     {

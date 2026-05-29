@@ -277,7 +277,42 @@ public class GetSaleDetailQueryHandlerTests
         Assert.Null(serviceLine.InventoryBatchId);
         Assert.Equal("Consultation", serviceLine.ItemName);
         Assert.Equal("SRV-001", serviceLine.LineCode);
-        Assert.Equal(0m, serviceLine.ReturnableQuantity);
+        Assert.Equal(1m, serviceLine.ReturnableQuantity);
+    }
+
+    [Fact]
+    public async Task Handle_WhenServiceLineHasActiveReturn_ComputesReturnedAndStatus()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var goods = MakeSaleItem(shop.Id, item.Id, quantity: 2m);
+        var service = MakeServiceSaleItem(shop.Id, Guid.NewGuid(), quantity: 2m);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-003",
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 800m,
+            dueAmount: 0m,
+            totalAmount: 800m,
+            totalTaxAmount: 20m,
+            [goods, service]);
+        var serviceReturn = MakeSaleReturn(shop.Id, sale.Id, service.Id, quantity: 1m);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([serviceReturn]);
+
+        var result = await CreateHandler().Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var serviceLine = Assert.Single(result.Value.Items, i => i.LineType == SaleLineType.Service);
+        Assert.Equal(1m, serviceLine.ReturnedQuantity);
+        Assert.Equal(1m, serviceLine.ReturnableQuantity);
+        Assert.Equal("PartiallyReturned", serviceLine.ReturnStatus);
     }
 
     [Fact]

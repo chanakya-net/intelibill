@@ -61,11 +61,29 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
+            if (saleItem.LineType != item.LineType)
+            {
+                validationErrors.Add(Errors.Sale.ReturnLineTypeMismatch(item.SaleItemId));
+                continue;
+            }
+
             var returnedQuantity = returnedQuantityBySaleItemId.GetValueOrDefault(item.SaleItemId);
             var returnableQuantity = Math.Max(0m, saleItem.Quantity - returnedQuantity);
             if (item.Quantity > returnableQuantity)
             {
                 validationErrors.Add(Errors.Sale.ReturnQuantityExceedsRemaining(item.SaleItemId, returnableQuantity));
+                continue;
+            }
+
+            if (saleItem.LineType == SaleLineType.Service)
+            {
+                if (item.Condition != SaleReturnCondition.Wastage)
+                {
+                    validationErrors.Add(Errors.Sale.ReturnServiceMustBeRefundOnly(item.SaleItemId));
+                    continue;
+                }
+
+                lineInputs.Add(new ValidatedSaleReturnLine(item, saleItem, null, returnedQuantity, returnableQuantity));
                 continue;
             }
 

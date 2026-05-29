@@ -15,6 +15,7 @@ public sealed record RecordSaleReturnCommand(
 public sealed record RecordSaleReturnItemCommand(
     Guid SaleItemId,
     decimal Quantity,
+    SaleLineType LineType,
     SaleReturnCondition Condition,
     decimal? ApprovedRefundAmount,
     string? Notes);

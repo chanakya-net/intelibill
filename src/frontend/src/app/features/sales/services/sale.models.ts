@@ -318,6 +318,7 @@ export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string
 export interface PreviewSaleReturnItemRequest {
   readonly saleItemId: string;
   readonly quantity: number;
+  readonly lineType?: 'Goods' | 'Service';
   readonly condition: SaleReturnCondition;
   readonly approvedRefundAmount: number | null;
   readonly notes: string | null;
@@ -351,8 +352,8 @@ export interface SaleReturnPreviewLineFinancialDto {
 
 export interface SaleReturnPreviewLineDto {
   readonly saleItemId: string;
-  readonly itemId: string;
-  readonly inventoryBatchId: string;
+  readonly itemId: string | null;
+  readonly inventoryBatchId: string | null;
   readonly requestedQuantity: number;
   readonly returnedQuantity: number;
   readonly returnableQuantity: number;

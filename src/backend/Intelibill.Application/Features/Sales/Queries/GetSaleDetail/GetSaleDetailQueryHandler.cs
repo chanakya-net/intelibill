@@ -128,21 +128,11 @@ public sealed class GetSaleDetailQueryHandler(
 
         decimal GetReturnableQuantity(SaleItem saleItem)
         {
-            if (saleItem.LineType != SaleLineType.Goods)
-            {
-                return 0m;
-            }
-
             return Math.Max(0m, saleItem.Quantity - GetReturnedQuantity(saleItem.Id));
         }
 
         string GetReturnStatus(SaleItem saleItem)
         {
-            if (saleItem.LineType != SaleLineType.Goods)
-            {
-                return NotReturned;
-            }
-
             var returnedQuantity = GetReturnedQuantity(saleItem.Id);
             if (returnedQuantity <= 0m)
                 return NotReturned;
