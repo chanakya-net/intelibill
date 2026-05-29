@@ -78,10 +78,11 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
 
   resetSearchAndPickerState(): void {
     this.showBatchPicker.set(false);
-    this.selectedBatch.set(null);
+    this.selectedSellable.set(null);
     this.searchInput.set('');
     this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
     this.availableBatches.set([]);
+    this.availableSellables.set([]);
     this.batchSearchError.set('');
   }
 

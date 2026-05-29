@@ -25,32 +25,36 @@ describe('new-sale-page: batch search bar', () => {
   });
 
   it('shows batch picker when multiple batches returned', () => {
-    deps.inventoryService.getAvailableBatchesBySearchTerm.mockReturnValueOnce({
+    deps.saleService.getSellables.mockReturnValueOnce({
       subscribe: ({ next }: any) =>
         next([
           {
+            kind: 'Goods',
+            inventoryBatchId: 'batch-1',
             barcode: 'A',
             itemName: 'Oreo',
             batchNumber: 'B-01',
-            inventoryBatchId: 'batch-1',
             quantity: 10,
             salesPrice: 50,
             mrp: 60,
             taxRatePercent: 18,
             taxIncluded: true,
             expiryDate: null,
+            hsnCode: null,
           },
           {
+            kind: 'Goods',
+            inventoryBatchId: 'batch-2',
             barcode: 'B',
             itemName: 'Biscuit',
             batchNumber: 'B-02',
-            inventoryBatchId: 'batch-2',
             quantity: 10,
             salesPrice: 50,
             mrp: 60,
             taxRatePercent: 18,
             taxIncluded: true,
             expiryDate: null,
+            hsnCode: null,
           },
         ]),
     } as any);

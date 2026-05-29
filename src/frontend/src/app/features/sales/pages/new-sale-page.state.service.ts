@@ -10,12 +10,14 @@ import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-s
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
-import { PAYMENT_METHOD_VALUES, PaymentMethod } from '../services/sale.models';
+import { PAYMENT_METHOD_VALUES, PaymentMethod, SellableDto } from '../services/sale.models';
 import type {
   SalePreviewDto,
   SalePreviewLineDto,
+  ServiceCartLine,
 } from '../services/sale.models';
 import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { SaleService } from '../services/sale.service';
 import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SalesFacade } from '../state/sales.facade';
@@ -46,14 +48,40 @@ export abstract class NewSalePageStateService {
   protected readonly injector = inject(Injector);
   protected readonly networkStatus = inject(NetworkStatusService);
   protected readonly offlineSaleState = inject(OfflineSaleStateService);
+  protected readonly saleService = inject(SaleService);
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = this.cartState.cart;
+  readonly serviceCart = this.cartState.serviceCart;
+  readonly hasGoodsLines = computed(() => this.cart().length > 0);
+  readonly hasServiceLines = computed(() => this.serviceCart().length > 0);
+  readonly isMixedCart = computed(() => this.hasGoodsLines() && this.hasServiceLines());
   readonly searchInput = signal('');
   readonly searchSuggestions = signal<string[]>([]);
   readonly isSearchingBatches = signal(false);
   readonly batchSearchError = signal('');
   readonly availableBatches = signal<readonly AvailableBatchDto[]>([]);
+  readonly availableSellables = signal<readonly SellableDto[]>([]);
+  readonly pickerSellables = computed<readonly SellableDto[]>(() => {
+    const sellables = this.availableSellables();
+    if (sellables.length > 0) {
+      return sellables;
+    }
+    return this.availableBatches().map((b): SellableDto => ({
+      kind: 'Goods',
+      inventoryBatchId: b.inventoryBatchId,
+      barcode: b.barcode,
+      itemName: b.itemName,
+      batchNumber: b.batchNumber,
+      quantity: b.quantity,
+      salesPrice: b.salesPrice,
+      mrp: b.mrp,
+      taxRatePercent: b.taxRatePercent,
+      taxIncluded: b.taxIncluded,
+      expiryDate: b.expiryDate,
+      hsnCode: b.hsnCode,
+    }));
+  });
   readonly quickProductTiles = computed(() => {
     const seenKeys = new Set<string>();
     const tiles: AvailableBatchDto[] = [];
@@ -75,7 +103,7 @@ export abstract class NewSalePageStateService {
     return tiles;
   });
   readonly showBatchPicker = signal(false);
-  readonly selectedBatch = signal<AvailableBatchDto | null>(null);
+  readonly selectedSellable = signal<SellableDto | null>(null);
   readonly selectedCustomerId = signal<string | null>(null);
   readonly selectedCustomerName = signal<string | null>(null);
   readonly customerNameSuggestions = signal<string[]>([]);
@@ -162,21 +190,27 @@ export abstract class NewSalePageStateService {
     if (preview !== null) {
       return preview.totalAmount - preview.totalTaxAmount;
     }
-    return this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0);
+    const goodsSubtotal = this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0);
+    const serviceSubtotal = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineSubtotal(svc), 0);
+    return goodsSubtotal + serviceSubtotal;
   });
   readonly totalTaxAmount = computed(() => {
     const preview = this.checkoutPreview();
     if (preview !== null) {
       return preview.totalTaxAmount;
     }
-    return this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0);
+    const goodsTax = this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0);
+    const serviceTax = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineTaxAmount(svc), 0);
+    return goodsTax + serviceTax;
   });
   readonly totalAmount = computed(() => {
     const preview = this.checkoutPreview();
     if (preview !== null) {
       return preview.totalAmount;
     }
-    return this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
+    const goodsTotal = this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
+    const serviceTotal = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineTotal(svc), 0);
+    return goodsTotal + serviceTotal;
   });
 
   readonly saleConfirmationResult = computed<CreateSaleResponse | null>(() => {
@@ -281,7 +315,7 @@ export abstract class NewSalePageStateService {
   readonly canCreateNewCustomer = computed(() => !this.isOfflineMode());
 
   readonly batchPickerForm = this.fb.nonNullable.group({
-    batchNumber: ['', Validators.required],
+    batchNumber: [''],
     quantity: [1, [Validators.required, Validators.min(1)]],
   });
 
@@ -302,6 +336,9 @@ export abstract class NewSalePageStateService {
   abstract onIncreaseCartItem(index: number): void;
   abstract onDecreaseCartItem(index: number): void;
   abstract onRemoveCartItem(index: number): void;
+  abstract onRemoveServiceItem(clientLineKey: string): void;
+  abstract onServiceItemPriceChange(clientLineKey: string, value: number | null | undefined): void;
+  abstract onServiceItemQuantityChange(clientLineKey: string, value: number | null | undefined): void;
   abstract onQuickProductTileSelected(batch: AvailableBatchDto): void;
   abstract canIncreaseCartItem(item: CartItem): boolean;
   abstract hasTax(item: CartItem): boolean;

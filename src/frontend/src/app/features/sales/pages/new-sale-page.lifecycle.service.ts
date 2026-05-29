@@ -68,6 +68,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
     this.salePreview.refreshOnlinePreview({
       destroyRef: this.destroyRef,
       getCart: () => this.cart(),
+      getServiceCart: () => this.serviceCart(),
       getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
       onPreviewApplied: handlePreviewApplied,
     });
@@ -75,6 +76,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
     this.salePreview.refreshOnServerUpdate({
       destroyRef: this.destroyRef,
       getCart: () => this.cart(),
+      getServiceCart: () => this.serviceCart(),
       getSaleDiscount: () => ({ type: this.saleDiscountType(), value: this.saleDiscountValue() }),
       onPreviewApplied: handlePreviewApplied,
     });
@@ -164,6 +166,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       // edits always go through cart mutations, so they reach this effect automatically.
       effect(() => {
         const cart = this.cart();
+        const serviceCart = this.serviceCart();
         this.isOfflineMode();
         this.isOfflineEligible();
         this.snapshotCompletedAt();
@@ -173,7 +176,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
           return;
         }
         const hasOverrideErrors = this.revalidateLineOverrides(cart);
-        if (cart.length === 0) {
+        if (cart.length === 0 && serviceCart.length === 0) {
           this.salePreview.clearPreviewState();
           return;
         }
@@ -211,33 +214,72 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
     this.batchSearchError.set('');
     this.isSearchingBatches.set(true);
     this.availableBatches.set([]);
+    this.availableSellables.set([]);
 
-    this.inventoryService.getAvailableBatchesBySearchTerm(searchTerm).subscribe({
-      next: (batches) => {
+    this.saleService.getSellables(searchTerm).subscribe({
+      next: (sellables) => {
         this.isSearchingBatches.set(false);
-        const list = [...batches];
-        if (list.length === 0) {
+        if (sellables.length === 0) {
           this.batchSearchError.set('sales.newSale.noBatchesFound');
           return;
         }
-        if (list.length === 1) {
-          const result = this.cartState.addBatchToCart(list[0], 1);
-          if (!result.added) {
-            this.batchSearchError.set('sales.newSale.exceedsStock');
-            return;
-          }
-          if (result.addedLineKey && !this.isOfflineMode()) {
-            this.applyProductDefaultsForLine(result.addedLineKey, list[0].itemName, list[0].barcode);
+        if (sellables.length === 1) {
+          const sellable = sellables[0];
+          if (sellable.kind === 'Goods') {
+            const batch = {
+              barcode: sellable.barcode,
+              itemName: sellable.itemName,
+              batchNumber: sellable.batchNumber,
+              inventoryBatchId: sellable.inventoryBatchId,
+              quantity: sellable.quantity,
+              salesPrice: sellable.salesPrice,
+              mrp: sellable.mrp,
+              taxRatePercent: sellable.taxRatePercent,
+              taxIncluded: sellable.taxIncluded,
+              expiryDate: sellable.expiryDate,
+              hsnCode: sellable.hsnCode,
+            };
+            const result = this.cartState.addBatchToCart(batch, 1);
+            if (!result.added) {
+              this.batchSearchError.set('sales.newSale.exceedsStock');
+              return;
+            }
+            if (result.addedLineKey) {
+              this.applyProductDefaultsForLine(result.addedLineKey, batch.itemName, batch.barcode);
+            }
+          } else {
+            this.cartState.addServiceToCart(sellable);
           }
           this.resetSearchAndPickerState();
         } else {
-          this.availableBatches.set(list);
+          const allGoods = sellables.every((s) => s.kind === 'Goods');
+          if (allGoods) {
+            this.availableBatches.set(
+              sellables
+                .filter((s): s is import('../services/sale.models').SellableGoodsDto => s.kind === 'Goods')
+                .map((s) => ({
+                  barcode: s.barcode,
+                  itemName: s.itemName,
+                  batchNumber: s.batchNumber,
+                  inventoryBatchId: s.inventoryBatchId,
+                  quantity: s.quantity,
+                  salesPrice: s.salesPrice,
+                  mrp: s.mrp,
+                  taxRatePercent: s.taxRatePercent,
+                  taxIncluded: s.taxIncluded,
+                  expiryDate: s.expiryDate,
+                  hsnCode: s.hsnCode,
+                })),
+            );
+          } else {
+            this.availableSellables.set(sellables);
+          }
           this.showBatchPicker.set(true);
         }
       },
       error: (err) => {
         this.isSearchingBatches.set(false);
-        this.batchSearchError.set(err.error?.detail || 'sales.newSale.searchError');
+        this.batchSearchError.set((err as { error?: { detail?: string } }).error?.detail || 'sales.newSale.searchError');
       },
     });
   }

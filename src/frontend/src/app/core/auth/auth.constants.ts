@@ -61,6 +61,7 @@ export const SALE_ENDPOINTS = {
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
+  sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

@@ -1,10 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { SalesCartDraftItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
+import { SalesCartDraftItem, SalesCartDraftServiceItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
+import type { SellableServiceDto, ServiceCartLine } from './sale.models';
 
 export interface CartItem extends SalesCartDraftItem {}
+
+export type { ServiceCartLine } from './sale.models';
 
 export interface AddBatchResult {
   readonly added: boolean;
@@ -24,6 +27,7 @@ export class SaleCartStateService {
   private cartLoadToken = 0;
 
   readonly cart = signal<CartItem[]>([]);
+  readonly serviceCart = signal<ServiceCartLine[]>([]);
   readonly cartBootstrapped = signal(false);
 
   async loadPersistedCart(
@@ -36,17 +40,20 @@ export class SaleCartStateService {
 
     if (!shopId) {
       this.cart.set([]);
+      this.serviceCart.set([]);
       this.cartBootstrapped.set(true);
       return;
     }
 
     try {
-      const rows = await this.cartStorage.loadCart(shopId, cartRetentionMs);
+      const [rows, serviceRows] = await Promise.all([
+        this.cartStorage.loadCart(shopId, cartRetentionMs),
+        this.cartStorage.loadServiceCart(shopId, cartRetentionMs),
+      ]);
       if (token !== this.cartLoadToken) {
         return;
       }
 
-      // Preserve in-memory edits made before the async cart bootstrap completes.
       if (this.cart().length === 0) {
         this.cart.set([...rows]);
         if (onApplyDefaults) {
@@ -55,9 +62,14 @@ export class SaleCartStateService {
             .forEach((row) => onApplyDefaults(row));
         }
       }
+
+      if (this.serviceCart().length === 0) {
+        this.serviceCart.set([...serviceRows]);
+      }
     } catch {
       if (token === this.cartLoadToken) {
         this.cart.set([]);
+        this.serviceCart.set([]);
       }
     } finally {
       if (token === this.cartLoadToken) {
@@ -73,13 +85,29 @@ export class SaleCartStateService {
     }
 
     const cart = this.cart();
+    const serviceCart = this.serviceCart();
     try {
-      if (cart.length === 0) {
+      if (cart.length === 0 && serviceCart.length === 0) {
         await this.cartStorage.clearCart(shopId);
         return;
       }
 
-      await this.cartStorage.saveCart(shopId, cart);
+      await this.cartStorage.saveCart(
+        shopId,
+        cart,
+        serviceCart.map((svc): SalesCartDraftServiceItem => ({
+          kind: 'service',
+          clientLineKey: svc.clientLineKey,
+          serviceId: svc.serviceId,
+          serviceName: svc.serviceName,
+          serviceCode: svc.serviceCode,
+          quantity: svc.quantity,
+          unitPrice: svc.unitPrice,
+          taxRatePercent: svc.taxRatePercent,
+          taxIncluded: svc.taxIncluded,
+          hsnCode: svc.hsnCode,
+        })),
+      );
     } catch {
       // Ignore persistence errors; cart remains in memory.
     }
@@ -147,6 +175,26 @@ export class SaleCartStateService {
     return { added, addedLineKey };
   }
 
+  addServiceToCart(service: SellableServiceDto): string {
+    const clientLineKey = crypto.randomUUID();
+    this.serviceCart.update((items) => [
+      ...items,
+      {
+        kind: 'service',
+        clientLineKey,
+        serviceId: service.serviceId,
+        serviceName: service.name,
+        serviceCode: service.code,
+        quantity: 1,
+        unitPrice: service.price,
+        taxRatePercent: service.taxRatePercent,
+        taxIncluded: service.taxIncluded,
+        hsnCode: service.hsnCode,
+      },
+    ]);
+    return clientLineKey;
+  }
+
   onIncreaseCartItem(index: number): void {
     this.cart.update((items) =>
       items.map((item, i) =>
@@ -171,8 +219,52 @@ export class SaleCartStateService {
     this.cart.update((items) => items.filter((_, i) => i !== index));
   }
 
+  onIncreaseServiceItem(clientLineKey: string): void {
+    this.serviceCart.update((items) =>
+      items.map((item) =>
+        item.clientLineKey === clientLineKey
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      )
+    );
+  }
+
+  onDecreaseServiceItem(clientLineKey: string): void {
+    this.serviceCart.update((items) =>
+      items.map((item) =>
+        item.clientLineKey === clientLineKey && item.quantity > 1
+          ? { ...item, quantity: item.quantity - 1 }
+          : item
+      )
+    );
+  }
+
+  onRemoveServiceItem(clientLineKey: string): void {
+    this.serviceCart.update((items) => items.filter((item) => item.clientLineKey !== clientLineKey));
+  }
+
+  setServiceUnitPrice(clientLineKey: string, value: number): void {
+    const price = Number.isFinite(value) && value >= 0 ? Number(value.toFixed(2)) : 0;
+    this.serviceCart.update((items) =>
+      items.map((item) =>
+        item.clientLineKey === clientLineKey ? { ...item, unitPrice: price } : item
+      )
+    );
+  }
+
+  setServiceQuantity(clientLineKey: string, value: number): void {
+    const qty = Math.max(1, Math.trunc(Number(value)));
+    if (!Number.isFinite(qty)) return;
+    this.serviceCart.update((items) =>
+      items.map((item) =>
+        item.clientLineKey === clientLineKey ? { ...item, quantity: qty } : item
+      )
+    );
+  }
+
   onClearCart(): void {
     this.cart.set([]);
+    this.serviceCart.set([]);
   }
 
   setItemDiscountType(clientLineKey: string, type: 0 | 1 | 2): void {
@@ -272,40 +364,76 @@ export class SaleCartStateService {
     return this.getUnitFinalPrice(item) * item.quantity;
   }
 
+  getServiceLineSubtotal(item: ServiceCartLine): number {
+    return this.getServiceUnitSubtotal(item) * item.quantity;
+  }
+
+  getServiceLineTaxAmount(item: ServiceCartLine): number {
+    return this.getServiceUnitTaxAmount(item) * item.quantity;
+  }
+
+  getServiceLineTotal(item: ServiceCartLine): number {
+    return this.getServiceUnitFinalPrice(item) * item.quantity;
+  }
+
   getUnitSubtotal(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return item.salesPrice;
-    }
-
-    if (!item.taxIncluded) {
-      return item.salesPrice;
-    }
-
-    return item.salesPrice / (1 + item.taxRatePercent / 100);
+    return this.getUnitSubtotalFrom(item.salesPrice, item.taxRatePercent, item.taxIncluded);
   }
 
   getUnitTaxAmount(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return 0;
-    }
-
-    const basePrice = this.getUnitSubtotal(item);
-    return (basePrice * item.taxRatePercent) / 100;
+    return this.getUnitTaxAmountFrom(item.salesPrice, item.taxRatePercent, item.taxIncluded);
   }
 
   getUnitFinalPrice(item: CartItem): number {
-    if (!this.hasTax(item)) {
-      return item.salesPrice;
-    }
-
-    if (item.taxIncluded) {
-      return item.salesPrice;
-    }
-
-    return item.salesPrice + this.getUnitTaxAmount(item);
+    return this.getUnitFinalPriceFrom(item.salesPrice, item.taxRatePercent, item.taxIncluded);
   }
 
-  private normalizeHsnCode(value: string | null | undefined): string | null {
+  getServiceUnitSubtotal(item: ServiceCartLine): number {
+    return this.getUnitSubtotalFrom(item.unitPrice, item.taxRatePercent, item.taxIncluded);
+  }
+
+  getServiceUnitTaxAmount(item: ServiceCartLine): number {
+    return this.getUnitTaxAmountFrom(item.unitPrice, item.taxRatePercent, item.taxIncluded);
+  }
+
+  getServiceUnitFinalPrice(item: ServiceCartLine): number {
+    return this.getUnitFinalPriceFrom(item.unitPrice, item.taxRatePercent, item.taxIncluded);
+  }
+
+  private getUnitSubtotalFrom(price: number, taxRatePercent: number, taxIncluded: boolean): number {
+    if (taxRatePercent <= 0) {
+      return price;
+    }
+
+    if (!taxIncluded) {
+      return price;
+    }
+
+    return price / (1 + taxRatePercent / 100);
+  }
+
+  private getUnitTaxAmountFrom(price: number, taxRatePercent: number, taxIncluded: boolean): number {
+    if (taxRatePercent <= 0) {
+      return 0;
+    }
+
+    const basePrice = this.getUnitSubtotalFrom(price, taxRatePercent, taxIncluded);
+    return (basePrice * taxRatePercent) / 100;
+  }
+
+  private getUnitFinalPriceFrom(price: number, taxRatePercent: number, taxIncluded: boolean): number {
+    if (taxRatePercent <= 0) {
+      return price;
+    }
+
+    if (taxIncluded) {
+      return price;
+    }
+
+    return price + this.getUnitTaxAmountFrom(price, taxRatePercent, taxIncluded);
+  }
+
+  normalizeHsnCode(value: string | null | undefined): string | null {
     const trimmed = (value ?? '').trim();
     return trimmed.length > 0 ? trimmed : null;
   }
