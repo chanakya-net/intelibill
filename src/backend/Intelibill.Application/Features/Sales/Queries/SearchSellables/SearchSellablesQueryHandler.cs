@@ -29,14 +29,14 @@ public sealed class SearchSellablesQueryHandler(
 
         var searchTerm = query.SearchTerm.Trim();
 
-        var barcodeBatchesTask = inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken);
-        var textBatchesTask = inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
+        var goodsBatchesTask = query.IsBarcodeLookup
+            ? inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
+            : inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
         var servicesTask = serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
 
-        await Task.WhenAll(barcodeBatchesTask, textBatchesTask, servicesTask);
+        await Task.WhenAll(goodsBatchesTask, servicesTask);
 
-        var sellables = barcodeBatchesTask.Result
-            .Concat(textBatchesTask.Result)
+        var sellables = goodsBatchesTask.Result
             .DistinctBy(batch => batch.Id)
             .Select(batch => SellableDto.FromInventoryBatch(
                 batch.Id,

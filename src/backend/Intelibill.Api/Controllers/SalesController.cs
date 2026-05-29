@@ -153,16 +153,20 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     [HttpGet("sellables")]
     public async Task<IActionResult> SearchSellables(
         [FromQuery] string? searchTerm,
+        [FromQuery] string? barcode,
         CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        if (string.IsNullOrWhiteSpace(searchTerm))
+        var isBarcodeLookup = string.IsNullOrWhiteSpace(searchTerm) && !string.IsNullOrWhiteSpace(barcode);
+        var effectiveSearchTerm = isBarcodeLookup ? barcode : searchTerm;
+
+        if (string.IsNullOrWhiteSpace(effectiveSearchTerm))
             return new List<Error> { Errors.Inventory.SearchTermRequired }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
-            new SearchSellablesQuery(UserId!.Value, ActiveShopId!.Value, searchTerm),
+            new SearchSellablesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup),
             cancellationToken);
 
         return result.ToActionResult(Ok);

@@ -466,7 +466,7 @@ public class SalesControllerTests
         _bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SellableDto>>>(sellables.ToList()));
 
-        var result = await _controller.SearchSellables(searchTerm, CancellationToken.None);
+        var result = await _controller.SearchSellables(searchTerm, null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(sellables, ok.Value);
@@ -475,7 +475,65 @@ public class SalesControllerTests
             Arg.Is<SearchSellablesQuery>(q =>
                 q.UserId == userId
                 && q.ShopId == shopId
-                && q.SearchTerm == searchTerm),
+                && q.SearchTerm == searchTerm
+                && !q.IsBarcodeLookup),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SearchSellables_WhenBarcodeProvided_UsesBarcodeMode()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var barcode = $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sellables = CreateSellables();
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SellableDto>>>(sellables.ToList()));
+
+        var result = await _controller.SearchSellables(null, barcode, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sellables, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
+            Arg.Is<SearchSellablesQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SearchTerm == barcode
+                && q.IsBarcodeLookup),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SearchSellables_WhenSearchTermAndBarcodeProvided_PrioritizesSearchMode()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var searchTerm = "apple";
+        var barcode = $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sellables = CreateSellables();
+        _bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SellableDto>>>(sellables.ToList()));
+
+        var result = await _controller.SearchSellables(searchTerm, barcode, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(sellables, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
+            Arg.Is<SearchSellablesQuery>(q =>
+                q.UserId == userId
+                && q.ShopId == shopId
+                && q.SearchTerm == searchTerm
+                && !q.IsBarcodeLookup),
             Arg.Any<CancellationToken>());
     }
 
@@ -488,7 +546,7 @@ public class SalesControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var result = await _controller.SearchSellables("   ", CancellationToken.None);
+        var result = await _controller.SearchSellables("   ", null, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);

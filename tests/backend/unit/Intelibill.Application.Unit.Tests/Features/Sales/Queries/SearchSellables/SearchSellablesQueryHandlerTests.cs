@@ -1,4 +1,3 @@
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.SearchSellables;
 using Intelibill.Domain.Entities;
@@ -56,6 +55,9 @@ public sealed class SearchSellablesQueryHandlerTests
     private static Service MakeService(Guid shopId, string code, string name, bool isActive = true) =>
         Service.Create(shopId, code, name, "Service description", 250m, "9988", 18m, false, isActive, Guid.NewGuid());
 
+    private static string CreateQrLikeBarcode() =>
+        $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
+
     [Fact]
     public async Task Handle_WhenGoodsAndServicesMatch_ReturnsMixedSellables()
     {
@@ -70,7 +72,6 @@ public sealed class SearchSellablesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
         _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
         _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([service]);
 
@@ -83,8 +84,8 @@ public sealed class SearchSellablesQueryHandlerTests
         Assert.Equal(SellableKind.Service, result.Value[1].Kind);
         Assert.Equal(service.Id, result.Value[1].ServiceId);
 
-        await _inventoryBatchRepository.Received(1).GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
         await _inventoryBatchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.DidNotReceive().GetAvailableByBarcodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _serviceRepository.Received(1).SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
     }
 
@@ -94,15 +95,14 @@ public sealed class SearchSellablesQueryHandlerTests
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-        var searchTerm = "barcode-123";
+        var searchTerm = "Milk";
         var item = MakeItem(shop.Id, "barcode-123", "Milk");
         var batch = MakeBatchWithItem(shop.Id, item);
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
-        _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
         _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
 
         var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
@@ -115,6 +115,9 @@ public sealed class SearchSellablesQueryHandlerTests
         Assert.Equal(batch.BatchNumber, sellable.BatchNumber);
         Assert.Equal(batch.Id, sellable.InventoryBatchId);
         Assert.Null(sellable.ServiceId);
+
+        await _inventoryBatchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.DidNotReceive().GetAvailableByBarcodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -129,7 +132,6 @@ public sealed class SearchSellablesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
-        _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
         _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([service]);
 
@@ -144,15 +146,18 @@ public sealed class SearchSellablesQueryHandlerTests
         Assert.Equal(service.Name, sellable.Name);
         Assert.Equal(service.Price, sellable.Price);
         Assert.Null(sellable.InventoryBatchId);
+
+        await _inventoryBatchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.DidNotReceive().GetAvailableByBarcodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Handle_WhenBarcodeLookupRequestedByData_ReturnsGoodsAndCallsBarcodeSearch()
+    public async Task Handle_WhenBarcodeLookupRequested_UsesBarcodeSearchAndSkipsTextSearch()
     {
         var user = MakeUser();
         var shop = MakeShop();
         var membership = MakeMembership(shop.Id, user.Id);
-        var searchTerm = $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('B', 24)}";
+        var searchTerm = CreateQrLikeBarcode();
         var item = MakeItem(shop.Id, "BAR-QR", "QR Rice");
         var batch = MakeBatchWithItem(shop.Id, item);
 
@@ -160,10 +165,9 @@ public sealed class SearchSellablesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _inventoryBatchRepository.GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([batch]);
-        _inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
         _serviceRepository.SearchActiveAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>()).Returns([]);
 
-        var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new SearchSellablesQuery(user.Id, shop.Id, searchTerm, true), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Single(result.Value);
@@ -171,6 +175,6 @@ public sealed class SearchSellablesQueryHandlerTests
         Assert.Equal(batch.Id, result.Value[0].InventoryBatchId);
 
         await _inventoryBatchRepository.Received(1).GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
-        await _inventoryBatchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.DidNotReceive().SearchAvailableByProductNameOrBatchNumberAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }
