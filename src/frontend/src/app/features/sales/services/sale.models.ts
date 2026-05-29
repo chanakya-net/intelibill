@@ -442,6 +442,8 @@ export interface OfflineSalesSyncLineRequest {
   readonly itemDiscountOverrideType: number;
   readonly itemDiscountOverrideValue: number;
   readonly hsnCode: string | null;
+  readonly lineType?: string;
+  readonly serviceId?: string | null;
 }
 
 export interface OfflineSaleSyncRequest {

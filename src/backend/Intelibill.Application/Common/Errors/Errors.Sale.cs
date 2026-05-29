@@ -120,6 +120,8 @@ public static partial class Errors
         public static Error InventoryBatchIdRequired =>
             Error.Validation("Sale.InventoryBatchIdRequired", "Inventory batch id is required.");
 
+        public static Error ServiceIdRequired =>
+            Error.Validation("Sale.ServiceIdRequired", "Service id is required for service lines.");
         public static Error OfflineLineQuantityMustBePositive =>
             Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.");
 

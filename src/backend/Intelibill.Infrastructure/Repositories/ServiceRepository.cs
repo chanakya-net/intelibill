@@ -98,6 +98,14 @@ internal sealed class ServiceRepository(ApplicationDbContext context)
             .ToListAsync(cancellationToken);
     }
 
+    public IAsyncEnumerable<Service> StreamActiveByShopAsync(Guid shopId, CancellationToken cancellationToken = default)
+    {
+        return _context.Services
+            .Where(s => s.ShopId == shopId && s.IsActive)
+            .OrderBy(s => s.Name)
+            .AsAsyncEnumerable();
+    }
+
     public async Task<IReadOnlyList<Service>> SearchActiveAsync(
         Guid shopId,
         string searchTerm,

@@ -12,7 +12,8 @@ public sealed class OfflineSalesSnapshotStreamingService(
     IInventoryBatchRepository inventoryBatchRepository,
     ICustomerRepository customerRepository,
     IDiscountRuleRepository discountRuleRepository,
-    IInvoiceLeaseRepository invoiceLeaseRepository) : IOfflineSalesSnapshotStreamingService
+    IInvoiceLeaseRepository invoiceLeaseRepository,
+    IServiceRepository serviceRepository) : IOfflineSalesSnapshotStreamingService
 {
     public async Task<ErrorOr<Success>> ValidateAccessAsync(
         Guid userId,
@@ -37,7 +38,7 @@ public sealed class OfflineSalesSnapshotStreamingService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         yield return new OfflineSalesSnapshotMetadataRecord(
-            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 1, StartedAt: startedAt));
+            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 2, StartedAt: startedAt));
 
         var batchCount = 0;
         await foreach (var batch in inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(activeShopId, cancellationToken))
@@ -107,6 +108,21 @@ public sealed class OfflineSalesSnapshotStreamingService(
             activeLeaseCount++;
         }
 
+        var serviceCount = 0;
+        await foreach (var service in serviceRepository.StreamActiveByShopAsync(activeShopId, cancellationToken))
+        {
+            yield return new OfflineSalesSnapshotServiceRecord(
+                new OfflineSellableServiceDto(
+                    ServiceId: service.Id,
+                    Code: service.Code,
+                    Name: service.Name,
+                    Price: service.Price,
+                    TaxRatePercent: service.TaxRatePercent,
+                    TaxIncluded: service.TaxIncluded,
+                    HsnCode: service.HsnCode));
+            serviceCount++;
+        }
+
         yield return new OfflineSalesSnapshotCompleteRecord(
             new OfflineSalesSnapshotComplete(
                 SnapshotId: snapshotId,
@@ -114,7 +130,8 @@ public sealed class OfflineSalesSnapshotStreamingService(
                 BatchCount: batchCount,
                 CustomerCount: customerCount,
                 DiscountRuleCount: discountRuleCount,
-                ActiveLeaseCount: activeLeaseCount));
+                ActiveLeaseCount: activeLeaseCount,
+                ServiceCount: serviceCount));
     }
 }
 

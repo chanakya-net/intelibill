@@ -9,6 +9,7 @@ import {
   OfflineCustomerLiteSnapshot,
   OfflineSalesSnapshotIndexedDbService,
   OfflineSellableBatchSnapshot,
+  OfflineSellableServiceSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { CartItem } from './sale-cart-state.service';
 import { OfflineFinalizeRequest } from './offline-sale-finalization.service';
@@ -73,6 +74,7 @@ export class OfflineSaleStateService {
 
   readonly snapshotCompletedAt = signal<string | null>(null);
   readonly offlineCatalog = signal<readonly OfflineSellableBatchSnapshot[] | null>(null);
+  readonly offlineServices = signal<readonly OfflineSellableServiceSnapshot[] | null>(null);
   readonly offlineCustomers = signal<readonly OfflineCustomerLiteSnapshot[]>([]);
   readonly offlinePendingCount = signal<number>(0);
   readonly offlineNeedsReviewCount = signal<number>(0);
@@ -86,6 +88,7 @@ export class OfflineSaleStateService {
       this.offlineDeviceSettings.set(null);
       this.snapshotCompletedAt.set(null);
       this.offlineCatalog.set(null);
+      this.offlineServices.set(null);
       this.offlineCatalogCacheKey.set(null);
       this.offlineCustomers.set([]);
       this.offlinePendingCount.set(0);
@@ -97,6 +100,7 @@ export class OfflineSaleStateService {
     const settings = this.deviceSettingsStorage.loadSettings(shopId);
     this.offlineDeviceSettings.set(settings);
     this.offlineCatalog.set(null);
+    this.offlineServices.set(null);
     this.offlineCatalogCacheKey.set(null);
     this.snapshotCompletedAt.set(null);
     this.offlineCustomers.set([]);
@@ -135,21 +139,30 @@ export class OfflineSaleStateService {
     let catalog = this.offlineCatalog();
     if (!shopId) {
       this.offlineCatalog.set(null);
+      this.offlineServices.set(null);
       this.offlineCatalogCacheKey.set(null);
       return [];
     }
 
     if (!catalog || this.offlineCatalogCacheKey() !== cacheKey) {
-      catalog = await this.snapshotDb.getUsableBatches(shopId);
+      [catalog] = await Promise.all([
+        this.snapshotDb.getUsableBatches(shopId),
+        this.snapshotDb.getUsableServices(shopId).then((svcs) => this.offlineServices.set(svcs)),
+      ]);
       this.offlineCatalog.set(catalog);
       this.offlineCatalogCacheKey.set(cacheKey);
     }
 
-    const matched = catalog.filter(
+    const services = this.offlineServices() ?? [];
+
+    const matchedBatches = catalog.filter(
       (b) => b.itemName.toLowerCase().includes(q) || b.barcode.toLowerCase().startsWith(q)
     );
+    const matchedServices = services.filter(
+      (s) => s.name.toLowerCase().includes(q) || (s.code ?? '').toLowerCase().startsWith(q)
+    );
 
-    return matched.map((b) => ({
+    const batchResults: AvailableBatchDto[] = matchedBatches.map((b) => ({
       barcode: b.barcode,
       itemName: b.itemName,
       batchNumber: b.batchNumber,
@@ -163,7 +176,27 @@ export class OfflineSaleStateService {
       purchaseTaxIncluded: b.purchaseTaxIncluded,
       hsnCode: b.hsnCode ?? null,
       expiryDate: b.expiryDate ?? null,
+      lineType: 'goods',
     }));
+
+    const serviceResults: AvailableBatchDto[] = matchedServices.map((s) => ({
+      barcode: s.code ?? s.serviceId,
+      itemName: s.name,
+      batchNumber: '',
+      inventoryBatchId: s.serviceId,
+      quantity: Number.MAX_SAFE_INTEGER,
+      costPrice: 0,
+      salesPrice: s.price,
+      mrp: 0,
+      taxRatePercent: s.taxRatePercent,
+      taxIncluded: s.taxIncluded,
+      hsnCode: s.hsnCode ?? null,
+      expiryDate: null,
+      lineType: 'service',
+      serviceId: s.serviceId,
+    }));
+
+    return [...batchResults, ...serviceResults];
   }
 
   async buildOfflinePreview(

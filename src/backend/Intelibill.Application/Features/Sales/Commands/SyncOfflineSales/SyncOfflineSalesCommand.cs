@@ -53,4 +53,9 @@ public sealed record OfflineSaleSyncLineCommand(
     decimal? ConfiguredBatchRulePercentage,
     InstantDiscountType ItemDiscountOverrideType,
     decimal ItemDiscountOverrideValue,
-    string? HsnCode);
+    string? HsnCode,
+    string LineType = "Goods",
+    Guid? ServiceId = null)
+{
+    public bool IsServiceLine => string.Equals(LineType, "Service", StringComparison.OrdinalIgnoreCase);
+}

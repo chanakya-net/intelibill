@@ -12,4 +12,9 @@ public interface IServiceRepository : IRepository<Service>
     /// Search active services only; repository guarantees inactive rows are excluded.
     /// </summary>
     Task<IReadOnlyList<Service>> SearchActiveAsync(Guid shopId, string searchTerm, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams all active services for the given shop. Used for offline snapshot generation.
+    /// </summary>
+    IAsyncEnumerable<Service> StreamActiveByShopAsync(Guid shopId, CancellationToken cancellationToken = default);
 }

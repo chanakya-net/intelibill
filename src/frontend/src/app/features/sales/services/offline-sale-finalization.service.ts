@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
 import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError } from '../../../core/storage/invoice-lease-indexeddb.service';
-import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
 import { OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
@@ -38,8 +38,12 @@ export class OfflineSaleFinalizationService {
     const batches = await this.snapshotDb.getUsableBatches(request.shopId);
     const byBatchId = new Map(batches.map((batch) => [batch.batchId, batch]));
 
+    const services = await this.snapshotDb.getUsableServices(request.shopId);
+    const byServiceId = new Map(services.map((svc) => [svc.serviceId, svc]));
+
     const requestedByBatch = new Map<string, number>();
     for (const line of request.pricingInput.lines) {
+      if (line.lineType === 'service') continue;
       requestedByBatch.set(line.inventoryBatchId, (requestedByBatch.get(line.inventoryBatchId) ?? 0) + line.quantity);
     }
 
@@ -51,9 +55,20 @@ export class OfflineSaleFinalizationService {
       if (available < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
     }
 
+    for (const line of request.pricingInput.lines) {
+      if (line.lineType === 'service') {
+        if (!line.serviceId || !byServiceId.has(line.serviceId)) {
+          return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
+        }
+      }
+    }
+
     const pricingInputFromSnapshot: OfflineSalePricingInput = {
       ...request.pricingInput,
       lines: request.pricingInput.lines.map((line) => {
+        if (line.lineType === 'service') {
+          return this.buildServicePricingLine(line, byServiceId.get(line.serviceId!)!);
+        }
         return this.buildSnapshotPricingLine(line, byBatchId.get(line.inventoryBatchId)!);
       }),
       rules: await this.snapshotDb.getUsableDiscountRules(request.shopId),
@@ -124,10 +139,35 @@ export class OfflineSaleFinalizationService {
     }
 
     for (const line of request.pricingInput.lines) {
+      if (line.lineType === 'service') continue;
       await this.shadowDb.reduceQuantity(request.shopId, request.deviceId, line.inventoryBatchId, line.quantity);
     }
 
     return { ok: true, payload, remainingInvoiceCount };
+  }
+
+  private buildServicePricingLine(
+    line: OfflineSalePricingLineInput,
+    service: OfflineSellableServiceSnapshot,
+  ): OfflineSalePricingLineInput {
+    return {
+      clientLineId: line.clientLineId,
+      inventoryBatchId: line.serviceId ?? line.inventoryBatchId,
+      itemId: service.serviceId,
+      barcode: service.code ?? service.serviceId,
+      itemName: service.name,
+      batchNumber: '',
+      quantity: line.quantity,
+      salesPrice: service.price,
+      mrp: 0,
+      costPrice: 0,
+      taxRatePercent: service.taxRatePercent,
+      taxIncluded: service.taxIncluded,
+      itemDiscount: line.itemDiscount,
+      hsnCode: service.hsnCode ?? null,
+      lineType: 'service',
+      serviceId: service.serviceId,
+    };
   }
 
   private buildSnapshotPricingLine(

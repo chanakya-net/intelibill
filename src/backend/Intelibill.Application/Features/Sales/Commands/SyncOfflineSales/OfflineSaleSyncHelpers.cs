@@ -104,6 +104,9 @@ internal static class OfflineSaleSyncHelpers
     {
         foreach (var validated in validatedLines)
         {
+            if (validated.LineType == SaleLineType.Service)
+                continue;
+
             if (!validated.HasPriceMismatch)
                 continue;
 
@@ -157,6 +160,9 @@ internal static class OfflineSaleSyncHelpers
 
         foreach (var line in lines)
         {
+            if (line.IsServiceLine)
+                continue;
+
             if (!line.ConfiguredBatchRuleId.HasValue
                 || !IsBatchDiscountRuleVariance(line, activeDiscountRulesById))
             {
@@ -213,10 +219,12 @@ internal static class OfflineSaleSyncHelpers
         List<ReconciliationIssue> issues)
     {
         var remainingByBatchId = validatedLines
+            .Where(line => line.LineType == SaleLineType.Goods)
             .Select(line => line.Batch!)
             .DistinctBy(batch => batch.Id)
             .ToDictionary(batch => batch.Id, batch => Math.Max(0m, batch.Quantity));
         var remainingByItemId = validatedLines
+            .Where(line => line.LineType == SaleLineType.Goods)
             .Select(line => line.Inventory!)
             .DistinctBy(inventory => inventory.ItemId)
             .ToDictionary(inventory => inventory.ItemId, inventory => Math.Max(0m, inventory.Quantity));
@@ -224,6 +232,12 @@ internal static class OfflineSaleSyncHelpers
 
         foreach (var validated in validatedLines)
         {
+            if (validated.LineType == SaleLineType.Service)
+            {
+                plan.Add(new OfflineStockConsumption(0m));
+                continue;
+            }
+
             var availableQuantity = Math.Min(
                 remainingByBatchId[validated.Batch!.Id],
                 remainingByItemId[validated.Item!.Id]);

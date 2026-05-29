@@ -123,15 +123,17 @@ public sealed class SyncOfflineSalesCommandHandler(
         {
             var line = sale.Items[i];
             if (string.IsNullOrWhiteSpace(line.Barcode)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BarcodeRequired);
-            if (string.IsNullOrWhiteSpace(line.BatchNumber)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BatchNumberRequired);
             if (string.IsNullOrWhiteSpace(line.ItemName)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemNameRequired);
-            if (line.InventoryBatchId == Guid.Empty) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InventoryBatchIdRequired);
+            if (!line.IsServiceLine && string.IsNullOrWhiteSpace(line.BatchNumber)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BatchNumberRequired);
+            if (!line.IsServiceLine && line.InventoryBatchId == Guid.Empty) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InventoryBatchIdRequired);
+            if (line.IsServiceLine && !line.ServiceId.HasValue) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ServiceIdRequired);
             if (line.Quantity <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineQuantityMustBePositive);
             if (OfflineSaleSyncHelpers.HasNegativeOfflineLineAmounts(line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineAmountsInvalid);
 
             var key = i.ToString(CultureInfo.InvariantCulture);
             lineByKey.Add(key, line);
-            lineCmds.Add(new RecordSaleItemCommand(line.Barcode, line.BatchNumber, line.ItemName, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, line.InventoryBatchId, null, key, line.HsnCode));
+            var lineType = line.IsServiceLine ? SaleLineType.Service : SaleLineType.Goods;
+            lineCmds.Add(new RecordSaleItemCommand(line.Barcode, line.BatchNumber, line.ItemName, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, line.InventoryBatchId, null, key, line.HsnCode, lineType, line.ServiceId));
         }
 
         var warnCountBefore = warnings.Count;
@@ -147,30 +149,55 @@ public sealed class SyncOfflineSalesCommandHandler(
         foreach (var v in vLines)
         {
             if (!lineByKey.TryGetValue(v.Command.ClientLineKey!, out var line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.General.Unexpected("Line mapping failed."));
-            saleItems.Add(SaleItem.CreateGoods(
-                command.ShopId,
-                v.Item!.Id,
-                v.Batch!.Id,
-                lineName: line.ItemName,
-                lineCode: line.Barcode,
-                line.Quantity,
-                line.CostPrice,
-                line.SalesPrice,
-                line.Mrp,
-                line.TaxRatePercent,
-                line.IsPriceIncludingTax,
-                v.HasPriceMismatch,
-                preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
-                itemDiscountAmount: line.ItemDiscountAmount,
-                saleDiscountAmount: line.SaleDiscountAmount,
-                taxableAmount: line.TaxableAmount,
-                taxAmount: line.TaxAmount,
-                totalAmount: line.TotalAmount,
-                configuredBatchRuleId: line.ConfiguredBatchRuleId,
-                configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
-                itemDiscountOverrideType: line.ItemDiscountOverrideType,
-                itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
-                hsnCode: line.HsnCode));
+            if (v.LineType == SaleLineType.Service)
+            {
+                saleItems.Add(SaleItem.CreateService(
+                    command.ShopId,
+                    v.Service!.Id,
+                    lineName: line.ItemName,
+                    lineCode: line.Barcode,
+                    line.Quantity,
+                    costPrice: 0m,
+                    line.SalesPrice,
+                    mrp: 0m,
+                    line.TaxRatePercent,
+                    line.IsPriceIncludingTax,
+                    hasPriceMismatch: false,
+                    preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+                    itemDiscountAmount: 0m,
+                    saleDiscountAmount: line.SaleDiscountAmount,
+                    taxableAmount: line.TaxableAmount,
+                    taxAmount: line.TaxAmount,
+                    totalAmount: line.TotalAmount,
+                    hsnCode: line.HsnCode));
+            }
+            else
+            {
+                saleItems.Add(SaleItem.CreateGoods(
+                    command.ShopId,
+                    v.Item!.Id,
+                    v.Batch!.Id,
+                    lineName: line.ItemName,
+                    lineCode: line.Barcode,
+                    line.Quantity,
+                    line.CostPrice,
+                    line.SalesPrice,
+                    line.Mrp,
+                    line.TaxRatePercent,
+                    line.IsPriceIncludingTax,
+                    v.HasPriceMismatch,
+                    preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
+                    itemDiscountAmount: line.ItemDiscountAmount,
+                    saleDiscountAmount: line.SaleDiscountAmount,
+                    taxableAmount: line.TaxableAmount,
+                    taxAmount: line.TaxAmount,
+                    totalAmount: line.TotalAmount,
+                    configuredBatchRuleId: line.ConfiguredBatchRuleId,
+                    configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
+                    itemDiscountOverrideType: line.ItemDiscountOverrideType,
+                    itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
+                    hsnCode: line.HsnCode));
+            }
         }
 
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, warnings, pendingIssues);
@@ -180,6 +207,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         {
             var consumed = consumption[i].ConsumedQuantity;
             if (consumed <= 0) continue;
+            if (vLines[i].LineType == SaleLineType.Service) continue;
             var batchResult = vLines[i].Batch!.SubtractQuantity(consumed, command.ActorUserId);
             if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
             var inventoryResult = vLines[i].Inventory!.SubtractQuantity(consumed, command.ActorUserId);
