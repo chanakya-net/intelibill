@@ -8,4 +8,8 @@ public interface IServiceRepository : IRepository<Service>
     Task<Service?> GetByNameAsync(Guid shopId, string name, CancellationToken cancellationToken = default);
     Task<string> GetNextCodeAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Service>> GetByShopIdAsync(Guid shopId, bool includeInactive, string? search = null, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Search active services only; repository guarantees inactive rows are excluded.
+    /// </summary>
+    Task<IReadOnlyList<Service>> SearchActiveAsync(Guid shopId, string searchTerm, CancellationToken cancellationToken = default);
 }

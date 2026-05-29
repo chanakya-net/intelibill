@@ -97,4 +97,23 @@ internal sealed class ServiceRepository(ApplicationDbContext context)
             .OrderBy(s => s.Name)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Service>> SearchActiveAsync(
+        Guid shopId,
+        string searchTerm,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedSearch = searchTerm.Trim();
+        var pattern = $"%{normalizedSearch}%";
+
+        return await _context.Services
+            .Where(s => s.ShopId == shopId && s.IsActive)
+            .Where(s =>
+                EF.Functions.ILike(s.Name, pattern)
+                || EF.Functions.ILike(s.Code, pattern)
+                || (s.Description != null && EF.Functions.ILike(s.Description, pattern))
+                || (s.HsnCode != null && EF.Functions.ILike(s.HsnCode, pattern)))
+            .OrderBy(s => s.Name)
+            .ToListAsync(cancellationToken);
+    }
 }
