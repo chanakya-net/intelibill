@@ -100,7 +100,6 @@
     "salesHistory": "ઇતિહાસ",
     "manageInventory": "ઇન્વેન્ટરી",
     "addNewProduct": "ઉત્પાદનો",
-
     "manageServices": "Services",
     "batchInventoryInbound": "ઇન્વેન્ટરી ઉમેરો",
     "inventoryBatchesOverview": "બૅચ વિહંગાવલોકન",
@@ -838,14 +837,17 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
       "openPicker": "બૅચ પિકર ખોલો",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "goodsSection": "Goods",
+      "servicesSection": "Services"
     },
     "detail": {
       "title": "વેચાણ વિગતો",

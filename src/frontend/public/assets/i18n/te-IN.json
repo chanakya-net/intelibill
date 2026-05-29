@@ -100,7 +100,6 @@
     "salesHistory": "చరిత్ర",
     "manageInventory": "ఇన్వెంటరీ",
     "addNewProduct": "ఉత్పత్తులు",
-
     "manageServices": "Services",
     "batchInventoryInbound": "ఇన్వెంటరీ జోడించండి",
     "inventoryBatchesOverview": "బ్యాచ్‌ల వివరణ",
@@ -838,14 +837,17 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
       "openPicker": "బ్యాచ్ పికర్ తెరవండి",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "goodsSection": "Goods",
+      "servicesSection": "Services"
     },
     "detail": {
       "title": "అమ్మకం వివరాలు",

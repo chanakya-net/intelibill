@@ -4,8 +4,12 @@ import { BarcodeDetection } from '../../../core/services/barcode-detector.servic
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { SellableDto } from '../services/sale.models';
 import { CustomerDto } from '../components/new-sale/sale-customer-section.component';
+import type { Subscription } from 'rxjs';
 
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
+  private searchSuggestionsRequestSeq = 0;
+  private searchSuggestionsSubscription: Subscription | null = null;
+
   onBatchSearchTermChanged(value: string): void {
     this.searchInput.set((value ?? '').toString());
   }
@@ -86,6 +90,8 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   onFilterSearch(event: AutoCompleteCompleteEvent): void {
     const query = event.query.trim();
     if (!query) {
+      this.searchSuggestionsSubscription?.unsubscribe();
+      this.searchSuggestionsSubscription = null;
       this.searchSuggestions.set([]);
       return;
     }
@@ -98,8 +104,13 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
       return;
     }
 
-    this.saleService.getSellables(query).subscribe({
+    this.searchSuggestionsSubscription?.unsubscribe();
+    const requestSeq = ++this.searchSuggestionsRequestSeq;
+    this.searchSuggestionsSubscription = this.saleService.getSellables(query).subscribe({
       next: (sellables) => {
+        if (requestSeq !== this.searchSuggestionsRequestSeq) {
+          return;
+        }
         const terms = sellables.flatMap((sellable) =>
           sellable.kind === 'Goods'
             ? [sellable.itemName, sellable.barcode]
@@ -108,6 +119,9 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
         this.searchSuggestions.set([...new Set(terms.filter((term) => term.trim().length > 0))].slice(0, 20));
       },
       error: () => {
+        if (requestSeq !== this.searchSuggestionsRequestSeq) {
+          return;
+        }
         this.searchSuggestions.set([]);
       },
     });
@@ -224,6 +238,12 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     this.searchInput.set(barcode);
     this.isScannerOpen.set(false);
     void this.onBarcodeSearch();
+  }
+
+  override onDestroy(): void {
+    this.searchSuggestionsSubscription?.unsubscribe();
+    this.searchSuggestionsSubscription = null;
+    super.onDestroy();
   }
 
 }

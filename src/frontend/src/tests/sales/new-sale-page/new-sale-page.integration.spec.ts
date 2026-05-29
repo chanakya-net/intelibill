@@ -128,11 +128,11 @@ describe('new-sale-page: integration', () => {
 
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('Goods');
-    expect(root.textContent).toContain('Services');
+    expect(root.textContent).toContain('en.sales.newSale.goodsSection');
+    expect(root.textContent).toContain('en.sales.newSale.servicesSection');
 
     vm.serviceCart.set([]);
     fixture.detectChanges();
-    expect(root.textContent).not.toContain('Services');
+    expect(root.textContent).not.toContain('en.sales.newSale.servicesSection');
   });
 });

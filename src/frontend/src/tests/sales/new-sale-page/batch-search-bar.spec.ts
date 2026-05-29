@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NewSalePageComponent } from '../../../app/features/sales/pages/new-sale-page.component';
@@ -110,5 +110,71 @@ describe('new-sale-page: batch search bar', () => {
 
     expect(deps.saleService.getSellables).toHaveBeenCalledWith('wa');
     expect(vm.searchSuggestions()).toEqual(['Oreo', 'A', 'Bike wash', 'S-001']);
+  });
+
+  it('ignores stale sellables responses when a newer query is in flight', () => {
+    let firstNext: ((value: unknown) => void) | undefined;
+    let secondNext: ((value: unknown) => void) | undefined;
+
+    deps.saleService.getSellables
+      .mockReturnValueOnce(
+        new Observable((subscriber) => {
+          firstNext = subscriber.next.bind(subscriber);
+          return () => undefined;
+        })
+      )
+      .mockReturnValueOnce(
+        new Observable((subscriber) => {
+          secondNext = subscriber.next.bind(subscriber);
+          return () => undefined;
+        })
+      );
+
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    const component = fixture.componentInstance;
+    const vm = component.vm;
+
+    component.onBatchSearchSuggestionFilter('o');
+    component.onBatchSearchSuggestionFilter('or');
+
+    if (secondNext) {
+      secondNext([
+        {
+          kind: 'Goods',
+          inventoryBatchId: 'batch-2',
+          barcode: 'OR2',
+          itemName: 'Oreo 2',
+          batchNumber: 'B-02',
+          quantity: 10,
+          salesPrice: 50,
+          mrp: 60,
+          taxRatePercent: 18,
+          taxIncluded: true,
+          expiryDate: null,
+          hsnCode: null,
+        },
+      ]);
+    }
+
+    if (firstNext) {
+      firstNext([
+        {
+          kind: 'Goods',
+          inventoryBatchId: 'batch-1',
+          barcode: 'OLD',
+          itemName: 'Old Oreo',
+          batchNumber: 'B-01',
+          quantity: 10,
+          salesPrice: 50,
+          mrp: 60,
+          taxRatePercent: 18,
+          taxIncluded: true,
+          expiryDate: null,
+          hsnCode: null,
+        },
+      ]);
+    }
+
+    expect(vm.searchSuggestions()).toEqual(['Oreo 2', 'OR2']);
   });
 });

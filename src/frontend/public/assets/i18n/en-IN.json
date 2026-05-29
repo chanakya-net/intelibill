@@ -100,7 +100,6 @@
     "salesHistory": "History",
     "manageInventory": "Inventory",
     "addNewProduct": "Products",
-
     "manageServices": "Services",
     "batchInventoryInbound": "Add Inventory",
     "inventoryBatchesOverview": "Batches Overview",
@@ -745,6 +744,8 @@
       "addToCart": "Add to Cart",
       "exceedsStock": "Quantity exceeds available stock.",
       "cart": "Cart",
+      "goodsSection": "Goods",
+      "servicesSection": "Services",
       "emptyCart": "No items added yet. Scan a barcode to begin.",
       "barcode": "Barcode",
       "batch": "Batch",
@@ -838,7 +839,8 @@
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
-        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale."
+        "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",

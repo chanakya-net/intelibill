@@ -86,7 +86,8 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((update) => {
         const cart = this.cart();
-        if (cart.length === 0) {
+        const serviceCart = this.serviceCart();
+        if (cart.length === 0 && serviceCart.length === 0) {
           return;
         }
 
