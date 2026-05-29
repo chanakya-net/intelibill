@@ -52,6 +52,8 @@ export class ShopPermissionsService {
 
   readonly canManageDiscounts = computed(() => this.isOwnerOrManagerOfActiveShop());
 
+  readonly canManageServices = computed(() => this.isOwnerOrManagerOfActiveShop());
+
   readonly canManageBankAccounts = computed(() => this.isOwnerOfActiveShop());
 
   readonly canViewInventory = computed(() => this.hasActiveShop());

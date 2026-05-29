@@ -1,0 +1,75 @@
+.services-table-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.table-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+
+.table-caption {
+  margin: 0.25rem 0 0;
+  color: #57534e;
+  font-size: 0.9rem;
+}
+
+.code-cell {
+  font-size: 0.8rem;
+  color: #92400e;
+  font-weight: 700;
+}
+
+.service-name-cell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.service-name {
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.service-description {
+  color: #78716c;
+  font-size: 0.85rem;
+}
+
+.tax-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #57534e;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1c1917;
+}
+
+.empty-state p {
+  margin: 0.35rem 0 0;
+}

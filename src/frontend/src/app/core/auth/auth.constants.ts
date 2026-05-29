@@ -90,6 +90,14 @@ export const DISCOUNT_ENDPOINTS = {
   preview: `${API_BASE_URL}/discounts/preview`,
 } as const;
 
+export const SERVICE_ENDPOINTS = {
+  list: `${API_BASE_URL}/services`,
+  add: `${API_BASE_URL}/services`,
+  update: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}`,
+  activate: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}/activate`,
+  deactivate: (serviceId: string) => `${API_BASE_URL}/services/${serviceId}/deactivate`,
+} as const;
+
 export const EXPORT_ENDPOINTS = {
   sales: `${API_BASE_URL}/exports/sales`,
 } as const;
