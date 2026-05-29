@@ -11,12 +11,13 @@ internal static class DashboardTrendBuilder
         IReadOnlyCollection<SaleReturn>? saleReturns,
         DateOnly startDate,
         DateOnly endDate,
-        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null,
+        IReadOnlyDictionary<Guid, SaleLineType>? saleItemTypes = null)
     {
         static DateOnly LocalDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
 
         var activeReturns = GetActiveReturns(saleReturns);
-        var saleItemTypes = sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
+        saleItemTypes ??= sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var byDay = sales
             .GroupBy(s => LocalDate(s.SoldAt))
             .ToDictionary(

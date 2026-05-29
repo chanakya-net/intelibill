@@ -22,7 +22,8 @@ internal static class SalesKpiCalculator
     internal static SalesKpis CalculateSalesKpis(
         IReadOnlyCollection<Sale> sales,
         IReadOnlyCollection<SaleReturn>? saleReturns = null,
-        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null)
+        IReadOnlyCollection<InventoryAdjustment>? adjustmentLosses = null,
+        IReadOnlyDictionary<Guid, SaleLineType>? saleItemTypes = null)
     {
         var salesBooked = sales.Sum(s => s.TotalAmount);
         var cashCollected = sales.Sum(s => s.PaidAmount);
@@ -31,7 +32,7 @@ internal static class SalesKpiCalculator
             .Sum(i => i.CostPrice * i.Quantity);
         var totalTax = sales.Sum(s => s.TotalTaxAmount);
         var activeReturns = saleReturns?.Where(r => !r.IsVoided).ToList() ?? [];
-        var saleItemTypes = sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
+        saleItemTypes ??= sales.SelectMany(s => s.Items).ToDictionary(i => i.Id, i => i.LineType);
         var refundAmount = activeReturns.Sum(r => r.TotalRefundAmount);
         var refundTax = activeReturns
             .SelectMany(r => r.Items)
