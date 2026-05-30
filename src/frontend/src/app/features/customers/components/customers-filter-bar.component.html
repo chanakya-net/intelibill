@@ -1,5 +1,5 @@
 <div class="customers-filter-bar">
-  <div class="mobile-search-bar">
+  <div class="search-shell">
     <p-iconfield iconPosition="left" class="mobile-search-field">
       <p-inputicon>
         <i class="pi pi-search"></i>
@@ -9,7 +9,7 @@
         type="text"
         [value]="searchValue"
         (input)="onSearchChange($any($event.target).value)"
-        [placeholder]="'customers.name' | transloco"
+        [placeholder]="'customers.searchPlaceholder' | transloco"
         class="w-full pr-10"
       />
       @if (searchValue) {

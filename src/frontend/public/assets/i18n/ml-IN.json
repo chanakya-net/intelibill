@@ -316,7 +316,28 @@
       "loadFailed": "ഇപ്പോൾ ഉപഭോക്തൃ അക്കൗണ്ട് ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
       "paymentFailed": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിഞ്ഞില്ല."
     },
-    "searchPlaceholder": "ഉപഭോക്താക്കളെ തിരയുക..."
+    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "ഇൻവെന്ററി ഡയറക്ടറി",

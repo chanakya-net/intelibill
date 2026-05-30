@@ -1,24 +1,26 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { AvatarModule } from 'primeng/avatar';
-import { TagModule } from 'primeng/tag';
+import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
+import { InputGroupModule } from 'primeng/inputgroup';
 import { InputIconModule } from 'primeng/inputicon';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { DialogModule } from 'primeng/dialog';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { InputGroupModule } from 'primeng/inputgroup';
-import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
+import { CustomersFilterBarComponent } from '../components/customers-filter-bar.component';
+import { CustomersTableComponent } from '../components/customers-table.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
 import {
   Customer,
@@ -28,14 +30,13 @@ import {
   CustomerService,
 } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
-import { CustomersFilterBarComponent } from '../components/customers-filter-bar.component';
-import { CustomersTableComponent } from '../components/customers-table.component';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
-import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 type CustomerStatusFilter = 'all' | 'active' | 'inactive';
 type AccountLedgerFilter = 'all' | 'purchases' | 'payments';
+type CustomerStatus = 'active' | 'inactive' | 'overdue' | 'inCredit';
 
 interface AccountLedgerRow {
   entry: CustomerLedgerEntry;
@@ -46,6 +47,19 @@ interface AccountLedgerRow {
   credit: number | null;
 }
 
+interface CustomerSummaryCard {
+  readonly labelKey: string;
+  readonly value: number;
+  readonly variant: 'count' | 'money';
+  readonly tone: 'amber' | 'sage' | 'terracotta' | 'ink';
+}
+
+interface CustomerDirectoryMetric {
+  readonly labelKey: string;
+  readonly value: number;
+  readonly variant: 'count' | 'money';
+}
+
 @Component({
   selector: 'app-customers-page',
   standalone: true,
@@ -53,24 +67,24 @@ interface AccountLedgerRow {
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    AvatarModule,
     ButtonModule,
     CardModule,
-    AvatarModule,
-    TagModule,
+    DialogModule,
     IconFieldModule,
+    InputGroupAddonModule,
+    InputGroupModule,
     InputIconModule,
+    InputNumberModule,
     InputTextModule,
     ProgressSpinnerModule,
-    DialogModule,
-    InputNumberModule,
-    InputGroupModule,
-    InputGroupAddonModule,
     SkeletonModule,
+    TagModule,
     TableModule,
     AddCustomerOverlayComponent,
-    EditCustomerOverlayComponent,
     CustomersFilterBarComponent,
     CustomersTableComponent,
+    EditCustomerOverlayComponent,
     DateOnlyPipe,
     TranslocoPipe,
   ],
@@ -89,21 +103,86 @@ export class CustomersPageComponent {
   readonly customers = this.customersFacade.allCustomers;
   readonly searchValue = signal('');
   readonly statusFilter = signal<CustomerStatusFilter>('all');
-  readonly filteredCustomers = computed(() => {
-    const q = this.searchValue().toLowerCase();
-    const filtered = this.statusFilter() === 'all' ? [...this.customers()] : this.customers().filter((c) => c.isActive === (this.statusFilter() === 'active'));
 
-    if (!q) {
-      return filtered;
+  readonly filteredCustomers = computed(() => {
+    const search = this.searchValue().trim().toLowerCase();
+    const statusFilter = this.statusFilter();
+
+    const byStatus =
+      statusFilter === 'all'
+        ? [...this.customers()]
+        : this.customers().filter((customer) => customer.isActive === (statusFilter === 'active'));
+
+    if (!search) {
+      return byStatus;
     }
 
-    return filtered.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phoneNumber.toLowerCase().includes(q) ||
-        (c.address ?? '').toLowerCase().includes(q),
+    return byStatus.filter((customer) =>
+      [customer.name, customer.phoneNumber, customer.address ?? ''].some((value) =>
+        value.toLowerCase().includes(search),
+      ),
     );
   });
+
+  readonly totalCustomers = computed(() => this.customers().length);
+  readonly outstandingBalance = computed(() =>
+    this.sumBy(this.customers(), (customer) => Math.max(0, customer.outstandingDue ?? 0)),
+  );
+  readonly overdueCount = computed(
+    () => this.customers().filter((customer) => (customer.outstandingDue ?? 0) > 0).length,
+  );
+  readonly totalCreditIssued = computed(() => this.sumBy(this.customers(), (customer) => customer.creditLimit ?? 0));
+  readonly accountsWithCredit = computed(
+    () => this.customers().filter((customer) => (customer.creditLimit ?? 0) > 0).length,
+  );
+  readonly monthlyRevenue = computed(() =>
+    this.sumBy(this.customers(), (customer) => customer.currentMonthRevenue ?? 0),
+  );
+  readonly filteredRowCount = computed(() => this.filteredCustomers().length);
+  readonly displayRowCount = computed(() => this.filteredCustomers().length);
+  readonly summaryCards = computed<CustomerSummaryCard[]>(() => [
+    {
+      labelKey: 'customers.summary.totalCustomers',
+      value: this.totalCustomers(),
+      variant: 'count',
+      tone: 'amber',
+    },
+    {
+      labelKey: 'customers.summary.outstandingBalance',
+      value: this.outstandingBalance(),
+      variant: 'money',
+      tone: 'terracotta',
+    },
+    {
+      labelKey: 'customers.summary.overdueCount',
+      value: this.overdueCount(),
+      variant: 'count',
+      tone: 'sage',
+    },
+    {
+      labelKey: 'customers.summary.monthlyRevenue',
+      value: this.monthlyRevenue(),
+      variant: 'money',
+      tone: 'ink',
+    },
+  ]);
+  readonly directoryMetrics = computed<CustomerDirectoryMetric[]>(() => [
+    {
+      labelKey: 'customers.summary.totalCreditIssued',
+      value: this.totalCreditIssued(),
+      variant: 'money',
+    },
+    {
+      labelKey: 'customers.summary.accountsWithCredit',
+      value: this.accountsWithCredit(),
+      variant: 'count',
+    },
+    {
+      labelKey: 'customers.summary.filteredRows',
+      value: this.displayRowCount(),
+      variant: 'count',
+    },
+  ]);
 
   readonly isLoading = this.customersFacade.loadingCustomers;
   readonly serverError = this.customersFacade.errorMessage;
@@ -124,19 +203,21 @@ export class CustomersPageComponent {
   readonly selectedAccountInitials = computed(() => {
     const name = this.selectedAccount()?.name ?? this.selectedAccountCustomer()?.name ?? '';
 
-    return name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join('') || 'CU';
+    return (
+      name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || 'CU'
+    );
   });
   readonly selectedAccountPurchaseCount = computed(() => this.selectedAccount()?.sales.length ?? 0);
   readonly selectedAccountOverdueCount = computed(
-    () => this.selectedAccount()?.sales.filter((sale) => sale.dueAmount > 0).length ?? 0
+    () => this.selectedAccount()?.sales.filter((sale) => sale.dueAmount > 0).length ?? 0,
   );
   readonly selectedAccountLifetimeRevenue = computed(() =>
-    this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount)
+    this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount),
   );
   readonly selectedAccountCreditLimit = computed(() => {
     const account = this.selectedAccount();
@@ -147,14 +228,22 @@ export class CustomersPageComponent {
 
     return Math.max(account.outstandingDue, this.selectedAccountLifetimeRevenue());
   });
-  readonly selectedAccountAvailableCreditPercent = computed(() => {
-    const limit = this.selectedAccountCreditLimit();
+  readonly selectedAccountUsagePercent = computed(() => {
+    const account = this.selectedAccount();
 
-    if (limit <= 0) {
-      return 100;
+    if (!account) {
+      return 0;
     }
 
-    return Math.max(0, Math.round(((limit - (this.selectedAccount()?.outstandingDue ?? 0)) / limit) * 100));
+    return this.customerUsagePercent({
+      ...account,
+      isActive: true,
+      address: null,
+      creditLimit: this.selectedAccountCreditLimit(),
+      purchaseCount: account.sales.length,
+      lifetimeRevenue: this.selectedAccountLifetimeRevenue(),
+      currentMonthRevenue: 0,
+    });
   });
   readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.ledgerEntries.at(-1)?.runningBalance ?? 0);
   readonly selectedAccountClosingBalance = computed(() => this.selectedAccount()?.outstandingDue ?? 0);
@@ -215,7 +304,6 @@ export class CustomersPageComponent {
         this.showEditCustomerOverlay.set(false);
         this.editingCustomer.set(null);
         this.customersFacade.clearMutationStatus();
-        return;
       }
     });
   }
@@ -309,6 +397,48 @@ export class CustomersPageComponent {
 
   onAccountLedgerFilterChange(filter: AccountLedgerFilter): void {
     this.accountLedgerFilter.set(filter);
+  }
+
+  customerStatus(customer: Customer): CustomerStatus {
+    if (!customer.isActive) {
+      return 'inactive';
+    }
+
+    const outstandingDue = customer.outstandingDue ?? 0;
+
+    if (outstandingDue > 0) {
+      return 'overdue';
+    }
+
+    if (outstandingDue < 0) {
+      return 'inCredit';
+    }
+
+    return 'active';
+  }
+
+  customerStatusLabelKey(customer: Customer): string {
+    return `customers.statuses.${this.customerStatus(customer)}`;
+  }
+
+  customerStatusClass(customer: Customer): string {
+    const status = this.customerStatus(customer);
+    return `status-badge--${status === 'inCredit' ? 'in-credit' : status}`;
+  }
+
+  customerUsagePercent(customer: Customer): number {
+    const creditLimit = customer.creditLimit ?? 0;
+
+    if (creditLimit <= 0) {
+      return 0;
+    }
+
+    const usage = (Math.max(0, customer.outstandingDue ?? 0) / creditLimit) * 100;
+    return Math.min(100, Math.max(0, Math.round(usage)));
+  }
+
+  customerUsageLabel(customer: Customer): string {
+    return `${this.customerUsagePercent(customer)}%`;
   }
 
   private loadCustomerAccount(customerId: string): void {
