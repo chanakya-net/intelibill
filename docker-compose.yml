@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: intelibill_postgres
+    environment:
+      POSTGRES_DB: intelibill_dev
+      POSTGRES_USER: intelibill
+      POSTGRES_PASSWORD: intelibill_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelibill -d intelibill_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: intelibill_backend
+    ports:
+      - "5277:5277"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5277
+      - Database__Host=postgres
+      - Database__Port=5432
+      - Database__Database=intelibill_dev
+      - Database__Username=intelibill
+      - Database__Password=intelibill_dev_password
+      - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
+      - Jwt__Issuer=Intelibill
+      - Jwt__Audience=Intelibill
+      - App__BaseUrl=http://localhost:4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Check if the API is responding on port 5277.
+      # curl's failure (-f) will indicate if the server is not starting or listening.
+      test: ["CMD", "curl", "-s", "--max-time", "25", "http://localhost:5277/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
+  frontend:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    container_name: intelibill_frontend
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://backend:5277
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
+
