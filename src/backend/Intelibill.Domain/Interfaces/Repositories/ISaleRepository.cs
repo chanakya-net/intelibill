@@ -24,6 +24,13 @@ public interface ISaleRepository : IRepository<Sale>
         DateOnly startDate,
         DateOnly endDate,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
+        Guid shopId,
+        IReadOnlyCollection<Guid> customerIds,
+        DateTime monthStartUtc,
+        DateTime nextMonthStartUtc,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record SaleHistoryFilter(
@@ -59,3 +66,9 @@ public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,
     int InvoiceCount,
     decimal RefundAmount);
+
+public sealed record CustomerSalesMetricsReadModel(
+    Guid CustomerId,
+    int PurchaseCount,
+    decimal LifetimeRevenue,
+    decimal CurrentMonthRevenue);

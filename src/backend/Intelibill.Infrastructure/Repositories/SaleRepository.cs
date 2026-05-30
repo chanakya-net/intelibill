@@ -270,6 +270,38 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             RefundAmount: refundAmount);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
+        Guid shopId,
+        IReadOnlyCollection<Guid> customerIds,
+        DateTime monthStartUtc,
+        DateTime nextMonthStartUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerIds.Count == 0)
+        {
+            return new Dictionary<Guid, CustomerSalesMetricsReadModel>();
+        }
+
+        var startOffset = new DateTimeOffset(monthStartUtc);
+        var endOffset = new DateTimeOffset(nextMonthStartUtc);
+
+        var metricsList = await DbSet
+            .AsNoTracking()
+            .Where(s => s.ShopId == shopId
+                && s.CustomerId != null
+                && customerIds.Contains(s.CustomerId.Value))
+            .GroupBy(s => s.CustomerId!.Value)
+            .Select(g => new CustomerSalesMetricsReadModel(
+                g.Key,
+                g.Count(),
+                g.Sum(s => s.TotalAmount),
+                g.Sum(s => s.SoldAt >= startOffset && s.SoldAt < endOffset ? s.TotalAmount : 0m)
+            ))
+            .ToListAsync(cancellationToken);
+
+        return metricsList.ToDictionary(m => m.CustomerId);
+    }
+
     private enum SaleHistoryStatus
     {
         Refunded,

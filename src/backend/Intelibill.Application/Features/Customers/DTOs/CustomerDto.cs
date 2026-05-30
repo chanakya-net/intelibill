@@ -7,4 +7,7 @@ public sealed record CustomerDto(
     string? Address,
     bool IsActive,
     decimal OutstandingDue,
-    decimal CreditLimit);
+    decimal CreditLimit,
+    int PurchaseCount = 0,
+    decimal LifetimeRevenue = 0m,
+    decimal CurrentMonthRevenue = 0m);
