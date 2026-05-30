@@ -101,6 +101,7 @@ export const SERVICE_ENDPOINTS = {
 
 export const EXPORT_ENDPOINTS = {
   sales: `${API_BASE_URL}/exports/sales`,
+  profitLoss: `${API_BASE_URL}/exports/profit-loss`,
 } as const;
 
 export const CONNECTIVITY_ENDPOINTS = {

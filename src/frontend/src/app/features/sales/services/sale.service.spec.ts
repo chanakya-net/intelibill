@@ -7,7 +7,11 @@ import { SaleService } from './sale.service';
 import type {
   SaleDto,
   SaleListItemDto,
+  ProfitLossAppliedFiltersDto,
   ProfitLossReportItemDto,
+  ProfitLossReportQueryParams,
+  ProfitLossReportResultDto,
+  ProfitLossSummaryDto,
   PreviewSaleRequest,
   SalesHistoryQueryParams,
   SalesHistoryResultDto,
@@ -324,8 +328,16 @@ describe('SaleService', () => {
     http.verify();
   });
 
-  it('loads profit loss report with neutral row fields', () => {
+  it('loads profit loss report with query params and result metadata', () => {
     const { service, http } = setup();
+    const queryParams: ProfitLossReportQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'saleReturn',
+      search: 'INV',
+      page: 3,
+      pageSize: 15,
+    };
     const report: ProfitLossReportItemDto[] = [
       {
         saleId: 'sale-1',
@@ -338,6 +350,7 @@ describe('SaleService', () => {
         revenueAfterTax: 118,
         profitBeforeTax: 38,
         profitAfterTax: 20,
+        marginPercent: 25,
         rowType: 'Sale',
         inventoryAdjustmentId: null,
       },
@@ -352,23 +365,61 @@ describe('SaleService', () => {
         revenueAfterTax: 0,
         profitBeforeTax: -80,
         profitAfterTax: -80,
+        marginPercent: null,
         rowType: 'InventoryAdjustment',
         inventoryAdjustmentId: 'adjustment-1',
       },
     ];
+    const summary: ProfitLossSummaryDto = {
+      netProfitAfterTax: -60,
+      revenueIncludingTax: 118,
+      totalCost: 80,
+      averageMarginPercent: -75,
+      invoiceCount: 1,
+      returnCount: 0,
+      adjustmentCount: 1,
+    };
+    const appliedFilters: ProfitLossAppliedFiltersDto = {
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'saleReturn',
+      search: 'INV',
+      pageNumber: 3,
+      pageSize: 15,
+    };
+    const result: ProfitLossReportResultDto = {
+      items: report,
+      totalCount: 2,
+      pageNumber: 3,
+      pageSize: 15,
+      summary,
+      appliedFilters,
+    };
 
-    service.getProfitLossReport().subscribe((result) => {
-      expect(result[0].referenceNumber).toBe('INV-001');
-      expect(result[0].rowType).toBe('Sale');
-      expect(result[0].inventoryAdjustmentId).toBeNull();
-      expect(result[1].saleId).toBeNull();
-      expect(result[1].rowType).toBe('InventoryAdjustment');
-      expect(result[1].inventoryAdjustmentId).toBe('adjustment-1');
+    service.getProfitLossReport(queryParams).subscribe((response) => {
+      expect(response.items[0].referenceNumber).toBe('INV-001');
+      expect(response.items[0].rowType).toBe('Sale');
+      expect(response.items[0].inventoryAdjustmentId).toBeNull();
+      expect(response.items[0].marginPercent).toBe(25);
+      expect(response.items[1].saleId).toBeNull();
+      expect(response.items[1].rowType).toBe('InventoryAdjustment');
+      expect(response.items[1].inventoryAdjustmentId).toBe('adjustment-1');
+      expect(response.totalCount).toBe(2);
+      expect(response.pageNumber).toBe(3);
+      expect(response.pageSize).toBe(15);
+      expect(response.summary).toEqual(summary);
+      expect(response.appliedFilters).toEqual(appliedFilters);
     });
 
-    const req = http.expectOne(SALE_ENDPOINTS.profitLoss);
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
     expect(req.request.method).toBe('GET');
-    req.flush(report);
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('to')).toBe('2026-05-31');
+    expect(req.request.params.get('type')).toBe('saleReturn');
+    expect(req.request.params.get('search')).toBe('INV');
+    expect(req.request.params.get('page')).toBe('3');
+    expect(req.request.params.get('pageSize')).toBe('15');
+    req.flush(result);
     http.verify();
   });
 
@@ -498,6 +549,165 @@ describe('SaleService', () => {
         },
       ],
     });
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint with query params and maps response', () => {
+    const { service, http } = setup();
+    const queryParams = {
+      from: '2026-05-01',
+      to: '2026-05-12',
+      type: 'sale' as const,
+      search: 'rice',
+      page: 1,
+      pageSize: 50,
+    };
+    const items: ProfitLossReportItemDto[] = [
+      {
+        saleId: 'sale-1',
+        referenceNumber: 'INV-001',
+        occurredAt: '2026-05-11T00:00:00.000Z',
+        partyName: 'John',
+        totalCost: 300,
+        wastageCost: 0,
+        revenueBeforeTax: 500,
+        revenueAfterTax: 550,
+        profitBeforeTax: 200,
+        profitAfterTax: 250,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
+        marginPercent: 40,
+      },
+    ];
+    const result = {
+      items,
+      summary: {
+        netProfitAfterTax: 250,
+        revenueIncludingTax: 550,
+        totalCost: 300,
+        averageMarginPercent: 83.33,
+        invoiceCount: 1,
+        returnCount: 0,
+        adjustmentCount: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-01',
+        to: '2026-05-12',
+        type: 'sale',
+        search: 'rice',
+        pageNumber: 1,
+        pageSize: 50,
+      },
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    };
+
+    service.getProfitLossReport(queryParams).subscribe((response) => {
+      expect(response.items).toHaveLength(1);
+      expect(response.items[0].referenceNumber).toBe('INV-001');
+      expect(response.items[0].marginPercent).toBe(40);
+      expect(response.summary.netProfitAfterTax).toBe(250);
+      expect(response.appliedFilters.type).toBe('sale');
+      expect(response.totalCount).toBe(1);
+      expect(response.pageNumber).toBe(1);
+      expect(response.pageSize).toBe(50);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('to')).toBe('2026-05-12');
+    expect(req.request.params.get('type')).toBe('sale');
+    expect(req.request.params.get('search')).toBe('rice');
+    expect(req.request.params.get('page')).toBe('1');
+    expect(req.request.params.get('pageSize')).toBe('50');
+    req.flush(result);
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint with partial query params', () => {
+    const { service, http } = setup();
+    const queryParams = {
+      from: '2026-05-01',
+      page: 2,
+    };
+    const result = {
+      items: [],
+      summary: {
+        netProfitAfterTax: 0,
+        revenueIncludingTax: 0,
+        totalCost: 0,
+        averageMarginPercent: null,
+        invoiceCount: 0,
+        returnCount: 0,
+        adjustmentCount: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-01',
+        to: '2026-05-30',
+        type: 'all',
+        search: null,
+        pageNumber: 2,
+        pageSize: 20,
+      },
+      totalCount: 0,
+      pageNumber: 2,
+      pageSize: 20,
+    };
+
+    service.getProfitLossReport(queryParams).subscribe((response) => {
+      expect(response.items).toHaveLength(0);
+      expect(response.pageNumber).toBe(2);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('page')).toBe('2');
+    expect(req.request.params.get('to')).toBeNull();
+    expect(req.request.params.get('type')).toBeNull();
+    expect(req.request.params.get('search')).toBeNull();
+    expect(req.request.params.get('pageSize')).toBeNull();
+    req.flush(result);
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint without params', () => {
+    const { service, http } = setup();
+    const result = {
+      items: [],
+      summary: {
+        netProfitAfterTax: 0,
+        revenueIncludingTax: 0,
+        totalCost: 0,
+        averageMarginPercent: null,
+        invoiceCount: 0,
+        returnCount: 0,
+        adjustmentCount: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-24',
+        to: '2026-05-30',
+        type: 'all',
+        search: null,
+        pageNumber: 1,
+        pageSize: 20,
+      },
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+
+    service.getProfitLossReport().subscribe((response) => {
+      expect(response.items).toHaveLength(0);
+      expect(response.pageNumber).toBe(1);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush(result);
     http.verify();
   });
 });

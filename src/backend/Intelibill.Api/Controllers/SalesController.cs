@@ -175,12 +175,20 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("profit-loss")]
-    public async Task<IActionResult> GetProfitLossReport(CancellationToken cancellationToken)
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> GetProfitLossReport(
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? type = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
-        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>>(
-            new GetProfitLossReportQuery(UserId!.Value, ActiveShopId!.Value),
+        var result = await Bus.InvokeAsync<ErrorOr<ProfitLossReportResultDto>>(
+            new GetProfitLossReportQuery(UserId!.Value, ActiveShopId!.Value, from, to, type, search, page, pageSize),
             cancellationToken);
         return result.ToActionResult(Ok);
     }

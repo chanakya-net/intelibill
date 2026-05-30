@@ -1,7 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
@@ -9,11 +8,12 @@ namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 public sealed class GetProfitLossReportQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISaleRepository saleRepository,
-    ISaleReturnRepository saleReturnRepository,
-    IInventoryAdjustmentRepository inventoryAdjustmentRepository)
+    ProfitLossReportBuilder reportBuilder)
 {
-    public async Task<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>> Handle(
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+
+    public async Task<ErrorOr<ProfitLossReportResultDto>> Handle(
         GetProfitLossReportQuery query,
         CancellationToken cancellationToken)
     {
@@ -29,111 +29,24 @@ public sealed class GetProfitLossReportQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var sales = await saleRepository.GetByShopAsync(query.ShopId, cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var to = query.To ?? today;
+        var from = query.From ?? to.AddDays(-6);
+        var pageNumber = query.Page < 1 ? 1 : query.Page;
+        var pageSize = query.PageSize < 1 ? DefaultPageSize : Math.Min(query.PageSize, MaxPageSize);
+        var report = await reportBuilder.BuildAsync(query.ShopId, from, to, query.Type, query.Search, cancellationToken);
 
-        var report = new List<ProfitLossReportItemDto>();
-
-        foreach (var sale in sales)
-        {
-            decimal totalCost = 0;
-            decimal revenueExclTax = 0;
-            decimal revenueInclTax = 0;
-
-            foreach (var item in sale.Items)
-            {
-                if (item.LineType != SaleLineType.Service)
-                {
-                    totalCost += item.CostPrice * item.Quantity;
-                }
-                revenueExclTax += item.TaxableAmount;
-                revenueInclTax += item.TotalAmount;
-            }
-
-            report.Add(new ProfitLossReportItemDto(
-                sale.Id,
-                sale.InvoiceNumber,
-                sale.SoldAt,
-                sale.CustomerName,
-                totalCost,
-                WastageCost: 0m,
-                revenueExclTax,
-                revenueInclTax,
-                revenueInclTax - totalCost,
-                revenueExclTax - totalCost,
-                ProfitLossReportRowTypes.Sale,
-                InventoryAdjustmentId: null));
-
-            var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken) ?? [];
-            foreach (var saleReturn in saleReturns.Where(r => !r.IsVoided))
-            {
-                var restockableCost = saleReturn.Items
-                    .Where(i => i.Condition == SaleReturnCondition.Restockable)
-                    .Sum(i =>
-                    {
-                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
-                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
-                        return i.OriginalCostPrice * i.Quantity;
-                    });
-                var wastageCost = saleReturn.Items
-                    .Where(i => i.Condition == SaleReturnCondition.Wastage)
-                    .Sum(i =>
-                    {
-                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
-                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
-                        return i.OriginalCostPrice * i.Quantity;
-                    });
-                var returnCostImpact = -restockableCost;
-                var approvedRefundTax = saleReturn.Items.Sum(CalculateApprovedRefundTax);
-                var returnRevenueInclTax = -saleReturn.TotalRefundAmount;
-                var returnRevenueExclTax = -(saleReturn.TotalRefundAmount - approvedRefundTax);
-
-                report.Add(new ProfitLossReportItemDto(
-                    sale.Id,
-                    $"{sale.InvoiceNumber} / {saleReturn.ReturnNumber}",
-                    saleReturn.ProcessedAt,
-                    sale.CustomerName,
-                    returnCostImpact,
-                    wastageCost,
-                    returnRevenueExclTax,
-                    returnRevenueInclTax,
-                    returnRevenueInclTax - returnCostImpact,
-                    returnRevenueExclTax - returnCostImpact,
-                    ProfitLossReportRowTypes.SaleReturn,
-                    InventoryAdjustmentId: null));
-            }
-        }
-
-        var adjustments = await inventoryAdjustmentRepository.GetProfitLossAdjustmentsAsync(query.ShopId, cancellationToken);
-        foreach (var adjustment in adjustments.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
-        {
-            report.Add(new ProfitLossReportItemDto(
-                SaleId: null,
-                adjustment.AdjustmentNumber,
-                adjustment.PerformedAt,
-                PartyName: null,
-                TotalCost: 0m,
-                WastageCost: adjustment.CostImpact,
-                RevenueBeforeTax: 0m,
-                RevenueAfterTax: 0m,
-                ProfitBeforeTax: -adjustment.CostImpact,
-                ProfitAfterTax: -adjustment.CostImpact,
-                ProfitLossReportRowTypes.InventoryAdjustment,
-                adjustment.Id));
-        }
-
-        return report
-            .OrderByDescending(s => s.OccurredAt)
+        var pageItems = report.Items
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToList();
-    }
 
-    private static decimal CalculateApprovedRefundTax(Domain.Entities.SaleReturnItem item)
-    {
-        if (item.ApprovedRefundAmount <= 0m || item.MaxRefundAmount <= 0m || item.TaxAmount <= 0m)
-        {
-            return 0m;
-        }
-
-        var tax = item.ApprovedRefundAmount * item.TaxAmount / item.MaxRefundAmount;
-        return Math.Round(tax, 2, MidpointRounding.AwayFromZero);
+        return new ProfitLossReportResultDto(
+            pageItems,
+            report.Items.Count,
+            pageNumber,
+            pageSize,
+            report.Summary,
+            new ProfitLossAppliedFiltersDto(report.From, report.To, report.Type, report.Search, pageNumber, pageSize));
     }
 }

@@ -2,13 +2,14 @@ import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import type {
   PreviewSaleReturnRequest,
+  ProfitLossReportQueryParams,
+  ProfitLossReportResultDto,
   RecordSaleReturnRequest,
   RecordSaleRequest,
   SaleDto,
   SalesHistoryQueryParams,
   SalesHistorySummaryDto,
   SaleListItemDto,
-  ProfitLossReportItemDto,
   SaleReturnPreviewDto,
   VoidSaleReturnRequest,
 } from '../services/sale.models';
@@ -28,8 +29,8 @@ export const SalesActions = createActionGroup({
     }>(),
     'Load Sales Failed': props<{ errorMessage: string }>(),
 
-    'Load Profit Loss Report Requested': emptyProps(),
-    'Load Profit Loss Report Succeeded': props<{ report: readonly ProfitLossReportItemDto[] }>(),
+    'Load Profit Loss Report Requested': props<{ queryParams?: ProfitLossReportQueryParams }>(),
+    'Load Profit Loss Report Succeeded': props<{ result: ProfitLossReportResultDto }>(),
     'Load Profit Loss Report Failed': props<{ errorMessage: string }>(),
 
     'Load Sale Detail Requested': props<{ saleId: string }>(),

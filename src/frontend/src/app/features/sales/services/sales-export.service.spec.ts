@@ -5,7 +5,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { EXPORT_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
-import { SalesExportService, SalesExportParams } from './sales-export.service';
+import { ProfitLossExportParams, SalesExportParams, SalesExportService } from './sales-export.service';
 
 describe('SalesExportService', () => {
   function setup(): { service: SalesExportService; http: HttpTestingController } {
@@ -131,6 +131,36 @@ describe('SalesExportService', () => {
     });
   });
 
+  describe('exportProfitLoss', () => {
+    it('sends GET request with all query parameters', () => {
+      const { service, http } = setup();
+      const params: ProfitLossExportParams = {
+        from: '2026-04-13',
+        to: '2026-05-13',
+        type: 'saleReturn',
+        search: 'customer',
+        format: 'xlsx',
+      };
+
+      service.exportProfitLoss(params).subscribe();
+
+      const req = http.expectOne((request) => {
+        return (
+          request.url === EXPORT_ENDPOINTS.profitLoss &&
+          request.params.get('from') === '2026-04-13' &&
+          request.params.get('to') === '2026-05-13' &&
+          request.params.get('type') === 'saleReturn' &&
+          request.params.get('search') === 'customer' &&
+          request.params.get('format') === 'xlsx'
+        );
+      });
+
+      expect(req.request.method).toBe('GET');
+      req.flush(new Blob());
+      http.verify();
+    });
+  });
+
   describe('extractFilename', () => {
     it('extracts filename from Content-Disposition header with UTF-8 encoding', () => {
       const { service } = setup();
@@ -191,6 +221,14 @@ describe('SalesExportService', () => {
       const filename = service.extractFilename(response);
       const today = formatLocalIsoDate(new Date());
       expect(filename).toBe(`sales-export-${today}.xlsx`);
+    });
+
+    it('supports alternate fallback prefixes', () => {
+      const { service } = setup();
+      const response = new HttpResponse<Blob>();
+
+      const filename = service.extractFilenameWithPrefix(response, 'profit-loss-export');
+      expect(filename).toMatch(/^profit-loss-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
     });
   });
 

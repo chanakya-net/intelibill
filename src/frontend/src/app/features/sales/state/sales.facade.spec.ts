@@ -3,19 +3,32 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { vi } from 'vitest';
 
-import type { SalesHistorySummaryDto, SalesHistoryQueryParams, SaleListItemDto } from '../services/sale.models';
+import type {
+  ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
+  ProfitLossReportQueryParams,
+  ProfitLossSummaryDto,
+  SalesHistorySummaryDto,
+  SalesHistoryQueryParams,
+  SaleListItemDto,
+} from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import { SalesFacade } from './sales.facade';
 import {
   selectAllSales,
+  selectProfitLossAppliedFilters,
+  selectProfitLossItems,
+  selectProfitLossPagination,
+  selectProfitLossSummary,
   selectSalesHistorySummary,
   selectSalesPagination,
   selectErrorMessage,
   selectLastMutationSucceeded,
   selectLastMutationType,
+  selectLoadingProfitLossReport,
+  selectLoadingReturnPreview,
   selectLoadingSaleDetail,
   selectLoadingSales,
-  selectLoadingReturnPreview,
   selectReturnPreview,
   selectReturnPreviewErrorMessage,
   selectSelectedSale,
@@ -35,6 +48,29 @@ describe('SalesFacade', () => {
     periodSales: 5000,
     invoiceCount: 17,
     refundAmount: 100,
+  });
+  const profitLossItemsSignal = signal<readonly ProfitLossReportItemDto[]>([]);
+  const profitLossSummarySignal = signal<ProfitLossSummaryDto | null>({
+    netProfitAfterTax: 100,
+    revenueIncludingTax: 200,
+    totalCost: 100,
+    averageMarginPercent: 50,
+    invoiceCount: 1,
+    returnCount: 0,
+    adjustmentCount: 0,
+  });
+  const profitLossAppliedFiltersSignal = signal<ProfitLossAppliedFiltersDto | null>({
+    from: '2026-05-01',
+    to: '2026-05-31',
+    type: 'all',
+    search: null,
+    pageNumber: 1,
+    pageSize: 20,
+  });
+  const profitLossPaginationSignal = signal({
+    totalCount: 17,
+    pageNumber: 2,
+    pageSize: 20,
   });
   const paginationSignal = signal({
     totalCount: 17,
@@ -56,6 +92,11 @@ describe('SalesFacade', () => {
       if (selector === selectReturnPreview) return returnPreviewSignal;
       if (selector === selectLoadingReturnPreview) return boolSignal;
       if (selector === selectReturnPreviewErrorMessage) return returnPreviewErrorSignal;
+      if (selector === selectProfitLossItems) return profitLossItemsSignal;
+      if (selector === selectProfitLossSummary) return profitLossSummarySignal;
+      if (selector === selectProfitLossAppliedFilters) return profitLossAppliedFiltersSignal;
+      if (selector === selectLoadingProfitLossReport) return boolSignal;
+      if (selector === selectProfitLossPagination) return profitLossPaginationSignal;
       if (selector === selectSalesHistorySummary) return summarySignal;
       if (selector === selectSalesPagination) return paginationSignal;
       return signal(null);
@@ -91,6 +132,25 @@ describe('SalesFacade', () => {
     expect(dispatch).toHaveBeenCalledWith(
       SalesActions.loadSalesRequested({ queryParams })
     );
+  });
+
+  it('loadProfitLossReport dispatches loadProfitLossReportRequested', () => {
+    facade.loadProfitLossReport();
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadProfitLossReportRequested({}));
+  });
+
+  it('loadProfitLossReport dispatches loadProfitLossReportRequested with query params', () => {
+    const queryParams: ProfitLossReportQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'sale',
+      search: 'INV',
+      page: 2,
+      pageSize: 15,
+    };
+
+    facade.loadProfitLossReport(queryParams);
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadProfitLossReportRequested({ queryParams }));
   });
 
   it('loadSaleDetail dispatches loadSaleDetailRequested', () => {
@@ -139,5 +199,31 @@ describe('SalesFacade', () => {
   it('clearLastRecordedSale dispatches clearLastRecordedSale', () => {
     facade.clearLastRecordedSale();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearLastRecordedSale());
+  });
+
+  it('exposes profit loss selectors', () => {
+    expect(facade.profitLossItems()).toEqual([]);
+    expect(facade.profitLossSummary()).toEqual({
+      netProfitAfterTax: 100,
+      revenueIncludingTax: 200,
+      totalCost: 100,
+      averageMarginPercent: 50,
+      invoiceCount: 1,
+      returnCount: 0,
+      adjustmentCount: 0,
+    });
+    expect(facade.profitLossAppliedFilters()).toEqual({
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'all',
+      search: null,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    expect(facade.profitLossPagination()).toEqual({
+      totalCount: 17,
+      pageNumber: 2,
+      pageSize: 20,
+    });
   });
 });

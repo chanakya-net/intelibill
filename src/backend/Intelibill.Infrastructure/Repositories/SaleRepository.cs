@@ -61,6 +61,19 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Sale>> GetByIdsAsync(
+        Guid shopId,
+        IReadOnlyCollection<Guid> saleIds,
+        CancellationToken cancellationToken = default) =>
+        saleIds.Count == 0
+            ? []
+            : await DbSet
+                .Include(s => s.Items)
+                .Where(s => s.ShopId == shopId && saleIds.Contains(s.Id))
+                .OrderByDescending(s => s.SoldAt)
+                .ThenByDescending(s => s.Id)
+                .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Sale>> GetByCustomerAsync(Guid shopId, Guid customerId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)

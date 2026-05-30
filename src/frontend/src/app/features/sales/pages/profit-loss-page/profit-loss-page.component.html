@@ -1,187 +1,329 @@
 <section class="profit-loss-page">
-  <header class="page-header">
+  <header class="profit-loss-hero">
     <div>
       <p class="eyebrow">{{ 'sales.profitLoss.eyebrow' | transloco }}</p>
       <h1>{{ 'sales.profitLoss.title' | transloco }}</h1>
       <p class="subtitle">{{ 'sales.profitLoss.subtitle' | transloco }}</p>
     </div>
+
+    <p class="period-pill">
+      {{ 'sales.profitLoss.reportingPeriod' | transloco: { from: (fromDate() | date:'dd MMM, yyyy'), to: (toDate() | date:'dd MMM, yyyy') } }}
+    </p>
   </header>
+
+  <section class="kpi-row">
+    @for (kpi of kpiCards; track kpi.label) {
+      <article class="kpi-card">
+        <p class="kpi-label">{{ kpi.label | transloco }}</p>
+        <p class="kpi-value">{{ getKpiValue(kpi) }}</p>
+      </article>
+    }
+  </section>
 
   @if (serverError()) {
     <p class="error">{{ serverError() }}</p>
   }
 
-  @if (isLoading()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
-  }
+  <section class="ledger-panel">
+    <header class="ledger-header">
+      <div>
+        <h2>{{ 'sales.profitLoss.ledgerTitle' | transloco }}</h2>
+        <p class="subtitle">{{ 'sales.profitLoss.ledgerSubtitle' | transloco }}</p>
+      </div>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-upload"
+        [label]="'sales.profitLoss.actions.export' | transloco"
+        [outlined]="true"
+        severity="secondary"
+        class="export-btn"
+        [disabled]="isLoading() || isExporting()"
+        (click)="onExport()"
+        data-qa="profit-loss-export"
+      ></button>
+    </header>
 
-  @if (!isLoading()) {
-    <!-- Mobile Stacked List -->
-    <div class="mobile-grid-container">
-      <div class="mobile-search-bar">
-        <p-iconfield iconPosition="left" class="mobile-search-field">
+    @if (exportError()) {
+      <p class="error">{{ exportError() }}</p>
+    }
+
+    @if (!serverError()) {
+      <div class="controls-wrap">
+      <div class="control-group">
+        <label class="control-label">{{ 'sales.profitLoss.controls.from' | transloco }}</label>
+        <p-datepicker
+          ngSkipHydration
+          [ngModel]="fromDate()"
+          (ngModelChange)="fromDate.set($event)"
+          dateFormat="dd/mm/yy"
+          [disabled]="isLoading()"
+        />
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{ 'sales.profitLoss.controls.to' | transloco }}</label>
+        <p-datepicker
+          ngSkipHydration
+          [ngModel]="toDate()"
+          (ngModelChange)="toDate.set($event)"
+          dateFormat="dd/mm/yy"
+          [disabled]="isLoading()"
+        />
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{ 'sales.profitLoss.controls.type' | transloco }}</label>
+        <p-select
+          [ngModel]="typeFilter()"
+          (ngModelChange)="typeFilter.set($event)"
+          [options]="typeFilterOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="profit-loss-type"
+          [disabled]="isLoading()"
+        >
+          <ng-template pTemplate="selectedItem" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+          <ng-template pTemplate="item" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
+
+      <div class="search-actions">
+        <button
+          pButton
+          type="button"
+          class="clear-filters-btn"
+          outlined="true"
+          severity="secondary"
+          [label]="'sales.profitLoss.controls.clearFilters' | transloco"
+          (click)="clearFilters()"
+        ></button>
+
+        <p-iconfield iconPosition="left" class="search-field">
           <p-inputicon><i class="pi pi-search"></i></p-inputicon>
           <input
             pInputText
             type="text"
             [ngModel]="searchValue()"
             (ngModelChange)="searchValue.set($event)"
-            [placeholder]="'sales.searchPlaceholder' | transloco"
-            class="w-full pr-10"
+            [placeholder]="'sales.profitLoss.controls.searchPlaceholder' | transloco"
+            [disabled]="isLoading()"
           />
           @if (searchValue()) {
             <p-inputicon iconPosition="right" class="cursor-pointer" (click)="searchValue.set('')">
-              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+              <i class="pi pi-times"></i>
             </p-inputicon>
           }
         </p-iconfield>
       </div>
-
-      <div class="report-list flex flex-col gap-3 px-1">
-        @for (item of filteredReport(); track item.rowType + '-' + item.saleId + '-' + item.referenceNumber + '-' + item.occurredAt) {
-          <p-card class="report-card-item" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-slate-800">{{ item.referenceNumber }}</span>
-                <div class="flex items-center gap-2">
-                  <p-tag severity="info" [value]="getRowTypeTranslationKey(item.rowType) | transloco"></p-tag>
-                  <span class="text-xs text-slate-500">{{ item.occurredAt | date:'dd MMM, h:mm a' }}</span>
-                </div>
-              </div>
-              <div class="text-sm text-slate-600">
-                @if (item.partyName) {
-                  <span>{{ item.partyName }}</span>
-                } @else {
-                  <span class="italic text-slate-400 text-xs">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
-                }
-              </div>
-              <div class="grid grid-cols-2 gap-2 mt-1">
-                <div class="flex flex-col">
-                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.cost' | transloco }}</span>
-                  <span class="text-sm font-semibold text-slate-700">₹{{ item.totalCost | number:'1.2-2' }}</span>
-                </div>
-                <div class="flex flex-col">
-                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.wastageCost' | transloco }}</span>
-                  <span class="text-sm font-semibold text-slate-700">₹{{ item.wastageCost | number:'1.2-2' }}</span>
-                </div>
-                <div class="flex flex-col">
-                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</span>
-                  <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="'₹' + (item.profitBeforeTax | number:'1.2-2')"></p-tag>
-                </div>
-                <div class="flex flex-col">
-                  <span class="text-[10px] uppercase text-slate-400 font-bold">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</span>
-                  <p-tag [severity]="getProfitSeverity(item.profitAfterTax)" [value]="'₹' + (item.profitAfterTax | number:'1.2-2')"></p-tag>
-                </div>
-              </div>
-            </div>
-          </p-card>
-        }
-
-        @if (filteredReport().length === 0) {
-          <div class="mobile-empty-state text-center py-12">
-            <i class="pi pi-chart-line text-5xl text-slate-300 mb-4"></i>
-            <h2 class="text-xl font-bold text-slate-700">{{ 'sales.profitLoss.noData' | transloco }}</h2>
-          </div>
-        }
       </div>
-    </div>
 
-    <!-- Desktop Table -->
-    <div class="report-table-card desktop-table">
-      <p-table
-        #reportTable
-        [value]="tableData()"
-        [globalFilterFields]="['referenceNumber', 'partyName']"
-        [scrollable]="true"
-        class="p-datatable-sm"
-      >
-        <ng-template pTemplate="caption">
-          <app-table-filter-bar
-            [table]="reportTable"
-            [searchValue]="searchValue()"
-            (searchValueChange)="searchValue.set($event)"
-            [placeholder]="'sales.profitLoss.search' | transloco"
-          />
-        </ng-template>
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="referenceNumber">
-              <div class="flex items-center justify-between">
-                {{ 'sales.profitLoss.invoice' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="referenceNumber" />
-                  <p-columnFilter type="text" field="referenceNumber" display="menu" />
+      @if (isLoading()) {
+        <section class="loading-state">
+          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+        </section>
+
+        <div class="loading-cards">
+          @for (_ of loadingRows; track $index) {
+            <article class="mobile-report-card">
+              <p-skeleton width="100%" height="1.6rem"></p-skeleton>
+              <p-skeleton width="72%" height="0.95rem"></p-skeleton>
+              <p-skeleton width="88%" height="0.95rem"></p-skeleton>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="report-content">
+        <div class="desktop-table">
+          <p-table [value]="tableData()" class="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'sales.profitLoss.table.reference' | transloco }}</th>
+                <th>{{ 'sales.profitLoss.table.date' | transloco }}</th>
+                <th>{{ 'sales.profitLoss.table.type' | transloco }}</th>
+                <th>{{ 'sales.profitLoss.table.customer' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.wastageCost' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</th>
+                <th class="text-right">{{ 'sales.profitLoss.table.margin' | transloco }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-item>
+              <tr>
+                <td class="font-bold">{{ item.referenceNumber }}</td>
+                <td>{{ item.occurredAt | date:'dd MMM yyyy, h:mm a' }}</td>
+                <td>
+                  <p-tag
+                    [severity]="getTypeBadgeSeverity(item.rowType)"
+                    [value]="getRowTypeTranslationKey(item.rowType) | transloco"
+                  ></p-tag>
+                </td>
+                <td>
+                  @if (item.partyName) {
+                    {{ item.partyName }}
+                  } @else {
+                    <span class="muted">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
+                  }
+                </td>
+                <td class="text-right">{{ totalAmount(item.revenueAfterTax) }}</td>
+                <td class="text-right">{{ totalAmount(item.totalCost) }}</td>
+                <td class="text-right">{{ totalAmount(item.wastageCost) }}</td>
+                <td class="text-right">
+                  <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="totalAmount(item.profitBeforeTax)"></p-tag>
+                </td>
+                <td class="text-right">
+                  <p-tag [severity]="getProfitSeverity(item.profitAfterTax)" [value]="totalAmount(item.profitAfterTax)"></p-tag>
+                </td>
+                <td class="text-right">{{ formatMarginPercent(item.marginPercent) }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="10" class="empty-cell">
+                  <div class="empty-state">
+                    <i class="pi pi-chart-line empty-icon"></i>
+                    <h3>{{ 'sales.profitLoss.emptyState.title' | transloco }}</h3>
+                    <p>{{ 'sales.profitLoss.emptyState.description' | transloco }}</p>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <div class="mobile-list">
+          @for (item of tableData(); track item.rowType + '-' + item.referenceNumber + '-' + item.occurredAt) {
+            <article class="mobile-report-card">
+              <header>
+                <h3>{{ item.referenceNumber }}</h3>
+                <div class="mobile-badges">
+                  <p-tag
+                    [severity]="getTypeBadgeSeverity(item.rowType)"
+                    [value]="getRowTypeTranslationKey(item.rowType) | transloco"
+                  ></p-tag>
+                  <span>{{ item.occurredAt | date:'dd MMM yyyy' }}</span>
                 </div>
+              </header>
+
+              <p class="mobile-identity">
+                @if (item.partyName) {
+                  {{ item.partyName }}
+                } @else {
+                  <span class="muted">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
+                }
+              </p>
+
+              <div class="mobile-grid">
+                <p>
+                  <strong>{{ 'sales.profitLoss.revenueInclTax' | transloco }}:</strong>
+                  {{ totalAmount(item.revenueAfterTax) }}
+                </p>
+                <p>
+                  <strong>{{ 'sales.profitLoss.cost' | transloco }}:</strong>
+                  {{ totalAmount(item.totalCost) }}
+                </p>
+                <p>
+                  <strong>{{ 'sales.profitLoss.profitAfterTax' | transloco }}:</strong>
+                  <span [class.negative]="item.profitAfterTax < 0">{{ totalAmount(item.profitAfterTax) }}</span>
+                </p>
+                <p class="margin">
+                  <strong>{{ 'sales.profitLoss.table.margin' | transloco }}:</strong>
+                  {{ formatMarginPercent(item.marginPercent) }}
+                </p>
               </div>
-            </th>
-            <th pSortableColumn="occurredAt">
-              <div class="flex items-center justify-between">
-                {{ 'sales.profitLoss.date' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="occurredAt" />
-                  <p-columnFilter type="date" field="occurredAt" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="rowType">
-              <div class="flex items-center justify-between">
-                {{ 'sales.profitLoss.rowType' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="rowType" />
-                  <p-columnFilter type="text" field="rowType" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="partyName">
-              <div class="flex items-center justify-between">
-                {{ 'sales.profitLoss.customer' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="partyName" />
-                  <p-columnFilter type="text" field="partyName" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
-            <th class="text-right">{{ 'sales.profitLoss.wastageCost' | transloco }}</th>
-            <th class="text-right">{{ 'sales.profitLoss.revenueExclTax' | transloco }}</th>
-            <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>
-            <th class="text-center">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</th>
-            <th class="text-center">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-item>
-          <tr>
-            <td class="font-bold">{{ item.referenceNumber }}</td>
-            <td>{{ item.occurredAt | date:'dd MMM yyyy, h:mm a' }}</td>
-            <td>
-              <p-tag severity="info" [value]="getRowTypeTranslationKey(item.rowType) | transloco"></p-tag>
-            </td>
-            <td>
-              @if (item.partyName) {
-                {{ item.partyName }}
+            </article>
+          }
+
+          @if (tableData().length === 0) {
+            <div class="mobile-empty-state">
+              <i class="pi pi-chart-line empty-icon"></i>
+              <h3>{{ 'sales.profitLoss.emptyState.title' | transloco }}</h3>
+              <p>{{ 'sales.profitLoss.emptyState.description' | transloco }}</p>
+            </div>
+          }
+        </div>
+        </div>
+      }
+
+      <footer class="report-footer">
+      <div class="totals-grid">
+        <p>{{ 'sales.profitLoss.footer.invoices' | transloco }}: {{ summary()?.invoiceCount ?? 0 }}</p>
+        <p>{{ 'sales.profitLoss.footer.returns' | transloco }}: {{ summary()?.returnCount ?? 0 }}</p>
+        <p>{{ 'sales.profitLoss.footer.adjustments' | transloco }}: {{ summary()?.adjustmentCount ?? 0 }}</p>
+      </div>
+
+      <div class="showing">
+        {{ 'sales.profitLoss.pagination.showing' | transloco: { start: rangeStart(), end: rangeEnd(), total: pagination().totalCount } }}
+      </div>
+
+      <div class="page-controls">
+        <span class="page-size-label">{{ 'sales.profitLoss.pagination.pageSize' | transloco }}</span>
+        <p-select
+          [ngModel]="pageSize()"
+          (ngModelChange)="onPageSizeChange($event)"
+          [options]="pageSizeOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-20"
+          [disabled]="isLoading()"
+        />
+
+        <nav class="pager" [attr.aria-label]="'sales.profitLoss.pagination.ariaLabel' | transloco">
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-left"
+            class="pager-btn"
+            [disabled]="pageNumber() === 1"
+            (click)="onPageChange(pageNumber() - 1)"
+            [attr.aria-label]="'sales.profitLoss.pagination.prev' | transloco"
+          ></button>
+
+          <div class="page-status">
+            {{ 'sales.profitLoss.pagination.pageStatus' | transloco: { page: pageNumber(), totalPages: totalPages() } }}
+          </div>
+
+          <div class="page-buttons">
+            @for (item of paginationItems(); track item) {
+              @if (item === 'ellipsis') {
+                <span class="ellipsis">…</span>
               } @else {
-                <span class="text-slate-400 italic text-xs">{{ getPartyFallbackTranslationKey(item) | transloco }}</span>
+                <button
+                  type="button"
+                  class="page-btn"
+                  [class.active]="item === pageNumber()"
+                  [disabled]="isLoading()"
+                  (click)="onPageChange(item)"
+                  [attr.aria-label]="'sales.profitLoss.pagination.page' | transloco: { page: item }"
+                >
+                  {{ item }}
+                </button>
               }
-            </td>
-            <td class="text-right">₹{{ item.totalCost | number:'1.2-2' }}</td>
-            <td class="text-right">₹{{ item.wastageCost | number:'1.2-2' }}</td>
-            <td class="text-right">₹{{ item.revenueBeforeTax | number:'1.2-2' }}</td>
-            <td class="text-right">₹{{ item.revenueAfterTax | number:'1.2-2' }}</td>
-            <td class="text-center">
-              <p-tag [severity]="getProfitSeverity(item.profitBeforeTax)" [value]="'₹' + (item.profitBeforeTax | number:'1.2-2')"></p-tag>
-            </td>
-            <td class="text-center">
-              <p-tag [severity]="getProfitSeverity(item.profitAfterTax)" [value]="'₹' + (item.profitAfterTax | number:'1.2-2')"></p-tag>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
-  }
+            }
+          </div>
+
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-right"
+            class="pager-btn"
+            [disabled]="pageNumber() >= totalPages()"
+            (click)="onPageChange(pageNumber() + 1)"
+            [attr.aria-label]="'sales.profitLoss.pagination.next' | transloco"
+          ></button>
+        </nav>
+      </div>
+      </footer>
+    }
+  </section>
 </section>
