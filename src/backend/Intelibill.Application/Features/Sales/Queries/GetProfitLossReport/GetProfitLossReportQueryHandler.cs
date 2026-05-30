@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using System.Globalization;
 
 namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 
@@ -13,7 +14,10 @@ public sealed class GetProfitLossReportQueryHandler(
     ISaleReturnRepository saleReturnRepository,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository)
 {
-    public async Task<ErrorOr<IReadOnlyList<ProfitLossReportItemDto>>> Handle(
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+
+    public async Task<ErrorOr<ProfitLossReportResultDto>> Handle(
         GetProfitLossReportQuery query,
         CancellationToken cancellationToken)
     {
@@ -29,13 +33,36 @@ public sealed class GetProfitLossReportQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var sales = await saleRepository.GetByShopAsync(query.ShopId, cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var to = query.To ?? today;
+        var from = query.From ?? to.AddDays(-6);
+        var type = NormalizeType(query.Type);
+        var pageNumber = query.Page < 1 ? 1 : query.Page;
+        var pageSize = query.PageSize < 1 ? DefaultPageSize : Math.Min(query.PageSize, MaxPageSize);
+
+        var salesInRange = await saleRepository.GetByShopAndDateRangeAsync(query.ShopId, from, to, cancellationToken);
+        var saleReturnsInRange = await saleReturnRepository.GetByShopAndDateRangeAsync(query.ShopId, from, to, cancellationToken);
+        var adjustmentsInRange = await inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(query.ShopId, from, to, cancellationToken);
+
+        var additionalSaleIds = saleReturnsInRange
+            .Select(r => r.SaleId)
+            .Except(salesInRange.Select(s => s.Id))
+            .Distinct()
+            .ToArray();
+        var additionalSales = additionalSaleIds.Length == 0
+            ? []
+            : await saleRepository.GetByIdsAsync(query.ShopId, additionalSaleIds, cancellationToken);
+
+        var salesById = salesInRange
+            .Concat(additionalSales)
+            .GroupBy(s => s.Id)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var report = new List<ProfitLossReportItemDto>();
 
-        foreach (var sale in sales)
+        foreach (var sale in salesInRange)
         {
-            decimal totalCost = 0;
+            decimal saleTotalCost = 0;
             decimal revenueExclTax = 0;
             decimal revenueInclTax = 0;
 
@@ -43,7 +70,7 @@ public sealed class GetProfitLossReportQueryHandler(
             {
                 if (item.LineType != SaleLineType.Service)
                 {
-                    totalCost += item.CostPrice * item.Quantity;
+                    saleTotalCost += item.CostPrice * item.Quantity;
                 }
                 revenueExclTax += item.TaxableAmount;
                 revenueInclTax += item.TotalAmount;
@@ -54,57 +81,62 @@ public sealed class GetProfitLossReportQueryHandler(
                 sale.InvoiceNumber,
                 sale.SoldAt,
                 sale.CustomerName,
-                totalCost,
+                saleTotalCost,
                 WastageCost: 0m,
                 revenueExclTax,
                 revenueInclTax,
-                revenueInclTax - totalCost,
-                revenueExclTax - totalCost,
+                revenueInclTax - saleTotalCost,
+                revenueExclTax - saleTotalCost,
+                CalculateMarginPercent(revenueExclTax - saleTotalCost, saleTotalCost),
                 ProfitLossReportRowTypes.Sale,
                 InventoryAdjustmentId: null));
-
-            var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken) ?? [];
-            foreach (var saleReturn in saleReturns.Where(r => !r.IsVoided))
-            {
-                var restockableCost = saleReturn.Items
-                    .Where(i => i.Condition == SaleReturnCondition.Restockable)
-                    .Sum(i =>
-                    {
-                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
-                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
-                        return i.OriginalCostPrice * i.Quantity;
-                    });
-                var wastageCost = saleReturn.Items
-                    .Where(i => i.Condition == SaleReturnCondition.Wastage)
-                    .Sum(i =>
-                    {
-                        var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
-                        if (saleItem?.LineType == SaleLineType.Service) return 0m;
-                        return i.OriginalCostPrice * i.Quantity;
-                    });
-                var returnCostImpact = -restockableCost;
-                var approvedRefundTax = saleReturn.Items.Sum(CalculateApprovedRefundTax);
-                var returnRevenueInclTax = -saleReturn.TotalRefundAmount;
-                var returnRevenueExclTax = -(saleReturn.TotalRefundAmount - approvedRefundTax);
-
-                report.Add(new ProfitLossReportItemDto(
-                    sale.Id,
-                    $"{sale.InvoiceNumber} / {saleReturn.ReturnNumber}",
-                    saleReturn.ProcessedAt,
-                    sale.CustomerName,
-                    returnCostImpact,
-                    wastageCost,
-                    returnRevenueExclTax,
-                    returnRevenueInclTax,
-                    returnRevenueInclTax - returnCostImpact,
-                    returnRevenueExclTax - returnCostImpact,
-                    ProfitLossReportRowTypes.SaleReturn,
-                    InventoryAdjustmentId: null));
-            }
         }
 
-        var adjustments = await inventoryAdjustmentRepository.GetProfitLossAdjustmentsAsync(query.ShopId, cancellationToken);
-        foreach (var adjustment in adjustments.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
+        foreach (var saleReturn in saleReturnsInRange.Where(r => !r.IsVoided))
+        {
+            if (!salesById.TryGetValue(saleReturn.SaleId, out var sale))
+            {
+                continue;
+            }
+
+            var restockableCost = saleReturn.Items
+                .Where(i => i.Condition == SaleReturnCondition.Restockable)
+                .Sum(i =>
+                {
+                    var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
+                    if (saleItem?.LineType == SaleLineType.Service) return 0m;
+                    return i.OriginalCostPrice * i.Quantity;
+                });
+            var wastageCost = saleReturn.Items
+                .Where(i => i.Condition == SaleReturnCondition.Wastage)
+                .Sum(i =>
+                {
+                    var saleItem = sale.Items.FirstOrDefault(si => si.Id == i.SaleItemId);
+                    if (saleItem?.LineType == SaleLineType.Service) return 0m;
+                    return i.OriginalCostPrice * i.Quantity;
+                });
+            var returnCostImpact = -restockableCost;
+            var approvedRefundTax = saleReturn.Items.Sum(CalculateApprovedRefundTax);
+            var returnRevenueInclTax = -saleReturn.TotalRefundAmount;
+            var returnRevenueExclTax = -(saleReturn.TotalRefundAmount - approvedRefundTax);
+
+            report.Add(new ProfitLossReportItemDto(
+                sale.Id,
+                $"{sale.InvoiceNumber} / {saleReturn.ReturnNumber}",
+                saleReturn.ProcessedAt,
+                sale.CustomerName,
+                returnCostImpact,
+                wastageCost,
+                returnRevenueExclTax,
+                returnRevenueInclTax,
+                returnRevenueInclTax - returnCostImpact,
+                returnRevenueExclTax - returnCostImpact,
+                CalculateMarginPercent(returnRevenueExclTax - returnCostImpact, returnCostImpact),
+                ProfitLossReportRowTypes.SaleReturn,
+                InventoryAdjustmentId: null));
+        }
+
+        foreach (var adjustment in adjustmentsInRange.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
         {
             report.Add(new ProfitLossReportItemDto(
                 SaleId: null,
@@ -117,13 +149,44 @@ public sealed class GetProfitLossReportQueryHandler(
                 RevenueAfterTax: 0m,
                 ProfitBeforeTax: -adjustment.CostImpact,
                 ProfitAfterTax: -adjustment.CostImpact,
-                ProfitLossReportRowTypes.InventoryAdjustment,
-                adjustment.Id));
+                MarginPercent: null,
+                RowType: ProfitLossReportRowTypes.InventoryAdjustment,
+                InventoryAdjustmentId: adjustment.Id));
         }
 
-        return report
-            .OrderByDescending(s => s.OccurredAt)
+        var filtered = report
+            .Where(row => MatchesType(row.RowType, type))
+            .Where(row => MatchesSearch(row, query.Search))
+            .OrderByDescending(row => row.OccurredAt)
+            .ThenByDescending(row => row.ReferenceNumber)
             .ToList();
+
+        var totalCost = filtered.Sum(row => row.TotalCost);
+        var revenueIncludingTax = filtered.Sum(row => row.RevenueAfterTax);
+        var netProfitAfterTax = filtered.Sum(row => row.ProfitAfterTax);
+        var summary = new ProfitLossSummaryDto(
+            NetProfitAfterTax: netProfitAfterTax,
+            RevenueIncludingTax: revenueIncludingTax,
+            TotalCost: totalCost,
+            AverageMarginPercent: totalCost == 0m
+                ? null
+                : Math.Round(netProfitAfterTax * 100m / totalCost, 2, MidpointRounding.AwayFromZero),
+            InvoiceCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.Sale),
+            ReturnCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.SaleReturn),
+            AdjustmentCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.InventoryAdjustment));
+
+        var pageItems = filtered
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new ProfitLossReportResultDto(
+            pageItems,
+            filtered.Count,
+            pageNumber,
+            pageSize,
+            summary,
+            new ProfitLossAppliedFiltersDto(from, to, type, query.Search, pageNumber, pageSize));
     }
 
     private static decimal CalculateApprovedRefundTax(Domain.Entities.SaleReturnItem item)
@@ -136,4 +199,44 @@ public sealed class GetProfitLossReportQueryHandler(
         var tax = item.ApprovedRefundAmount * item.TaxAmount / item.MaxRefundAmount;
         return Math.Round(tax, 2, MidpointRounding.AwayFromZero);
     }
+
+    private static bool MatchesType(string rowType, string type) =>
+        type == "all" || string.Equals(rowType, type, StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesSearch(ProfitLossReportItemDto row, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return true;
+        }
+
+        var term = search.Trim();
+        var numericMatch = decimal.TryParse(term, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedAmount)
+            || decimal.TryParse(term, NumberStyles.Number, CultureInfo.CurrentCulture, out parsedAmount);
+
+        return row.ReferenceNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(row.PartyName) && row.PartyName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            || (numericMatch && (
+                row.RevenueAfterTax == parsedAmount
+                || row.TotalCost == parsedAmount
+                || row.ProfitBeforeTax == parsedAmount
+                || row.ProfitAfterTax == parsedAmount));
+    }
+
+    private static string NormalizeType(string? type) =>
+        type is null
+            ? "all"
+            : type.Trim() switch
+            {
+                var value when string.Equals(value, "all", StringComparison.OrdinalIgnoreCase) => "all",
+                var value when string.Equals(value, "sale", StringComparison.OrdinalIgnoreCase) => "sale",
+                var value when string.Equals(value, "saleReturn", StringComparison.OrdinalIgnoreCase) => "saleReturn",
+                var value when string.Equals(value, "inventoryAdjustment", StringComparison.OrdinalIgnoreCase) => "inventoryAdjustment",
+                _ => "all",
+            };
+
+    private static decimal? CalculateMarginPercent(decimal profitAfterTax, decimal totalCost) =>
+        totalCost == 0m
+            ? null
+            : Math.Round(profitAfterTax * 100m / totalCost, 2, MidpointRounding.AwayFromZero);
 }
