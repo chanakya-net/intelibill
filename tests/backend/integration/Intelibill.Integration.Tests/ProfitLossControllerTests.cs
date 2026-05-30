@@ -12,6 +12,7 @@ using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Intelibill.Integration.Tests;
@@ -119,9 +120,10 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         return body.GetProperty("accessToken").GetString()!;
     }
 
-    private static string CreateOwnerTokenWithoutShop()
+    private string CreateOwnerTokenWithoutShop()
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-secret-key-must-be-at-least-32-chars!"));
+        var configuration = _factory.Services.GetRequiredService<IConfiguration>();
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Secret"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
@@ -130,8 +132,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         };
 
         var token = new JwtSecurityToken(
-            issuer: "inventory.ai.integration",
-            audience: "inventory.ai.integration",
+            issuer: configuration["Jwt:Issuer"],
+            audience: configuration["Jwt:Audience"],
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds);
@@ -358,7 +360,6 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
 
         var currentSale = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Current Customer");
         var oldSale = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Old Customer", DateTimeOffset.UtcNow.AddDays(-8));
-        await SetSaleSoldAtAsync(oldSale.SaleId, DateTimeOffset.UtcNow.AddDays(-8));
 
         var report = await GetReportAsync(client, ownerToken);
 
@@ -510,6 +511,27 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal("InventoryAdjustment", adjustmentSearch.GetProperty("items").EnumerateArray().Single().GetProperty("rowType").GetString());
         Assert.Single(numericSearch.GetProperty("items").EnumerateArray());
         Assert.Equal(80m, numericSearch.GetProperty("items").EnumerateArray().Single().GetProperty("totalCost").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GetProfitLossReport_ReturnsReturnForSaleOutsideDefaultWindow()
+    {
+        using var client = CreateClient();
+        var (token, _) = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token, "PL Cross Range Shop");
+        var barcode = UniqueBarcode();
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
+
+        var oldSale = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Old Customer", DateTimeOffset.UtcNow.AddDays(-8));
+        var returnNumber = await CreateReturnAsync(client, ownerToken, oldSale.SaleId, oldSale.SaleItemId);
+
+        var report = await GetReportAsync(client, ownerToken);
+        var item = Assert.Single(report.GetProperty("items").EnumerateArray());
+
+        Assert.Equal(1, report.GetProperty("totalCount").GetInt32());
+        Assert.Equal("SaleReturn", item.GetProperty("rowType").GetString());
+        Assert.Equal(oldSale.SaleId, item.GetProperty("saleId").GetGuid());
+        Assert.Equal($"{oldSale.InvoiceNumber} / {returnNumber}", item.GetProperty("referenceNumber").GetString());
     }
 
     [Fact]

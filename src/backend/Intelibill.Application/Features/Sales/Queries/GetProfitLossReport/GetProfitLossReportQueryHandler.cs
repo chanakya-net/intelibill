@@ -232,7 +232,7 @@ public sealed class GetProfitLossReportQueryHandler(
                 var value when string.Equals(value, "sale", StringComparison.OrdinalIgnoreCase) => "sale",
                 var value when string.Equals(value, "saleReturn", StringComparison.OrdinalIgnoreCase) => "saleReturn",
                 var value when string.Equals(value, "inventoryAdjustment", StringComparison.OrdinalIgnoreCase) => "inventoryAdjustment",
-                _ => type.Trim(),
+                _ => "all",
             };
 
     private static decimal? CalculateMarginPercent(decimal profitAfterTax, decimal totalCost) =>
