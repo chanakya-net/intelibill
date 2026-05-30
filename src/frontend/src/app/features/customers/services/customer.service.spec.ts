@@ -21,7 +21,19 @@ describe('CustomerService', () => {
   afterEach(() => httpMock.verify());
 
   it('getCustomers performs GET to /customers', () => {
-    const customers = [{ customerId: 'c1', name: 'Alice', phoneNumber: '+9198', address: null, isActive: true }];
+    const customers = [
+      {
+        customerId: 'c1',
+        name: 'Alice',
+        phoneNumber: '+9198',
+        address: null,
+        isActive: true,
+        creditLimit: 0,
+        purchaseCount: 0,
+        lifetimeRevenue: 0,
+        currentMonthRevenue: 0,
+      },
+    ];
     service.getCustomers().subscribe((res) => expect(res).toEqual(customers));
 
     const req = httpMock.expectOne(apiUrl);
@@ -30,8 +42,8 @@ describe('CustomerService', () => {
   });
 
   it('addCustomer performs POST to /customers', () => {
-    const payload: AddCustomerRequest = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true };
-    const customer = { customerId: 'c1', ...payload };
+    const payload: AddCustomerRequest = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 };
+    const customer = { customerId: 'c1', ...payload, purchaseCount: 0, lifetimeRevenue: 0, currentMonthRevenue: 0 };
     service.addCustomer(payload).subscribe((res) => expect(res).toEqual(customer));
 
     const req = httpMock.expectOne(apiUrl);
@@ -41,13 +53,14 @@ describe('CustomerService', () => {
   });
 
   it('editCustomer performs PUT to /customers/:id', () => {
-    const payload: EditCustomerRequest = { name: 'Alice Updated', phoneNumber: '+9198', address: 'Addr', isActive: true };
+    const payload: EditCustomerRequest = { name: 'Alice Updated', phoneNumber: '+9198', address: 'Addr', isActive: true, creditLimit: 100 };
     const customerId = 'c1';
-    const updated = { customerId, ...payload };
+    const updated = { customerId, ...payload, purchaseCount: 1, lifetimeRevenue: 1200, currentMonthRevenue: 100 };
     service.editCustomer(customerId, payload).subscribe((res) => expect(res).toEqual(updated));
 
     const req = httpMock.expectOne(`${apiUrl}/${customerId}`);
     expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(payload);
     req.flush(updated);
   });
 

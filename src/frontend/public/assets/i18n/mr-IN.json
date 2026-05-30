@@ -277,6 +277,7 @@
     "name": "नाव",
     "phoneNumber": "फोन नंबर",
     "address": "पत्ता",
+    "creditLimit": "क्रेडिट मर्यादा",
     "status": "स्थिती",
     "active": "सक्रिय",
     "inactive": "निष्क्रिय",

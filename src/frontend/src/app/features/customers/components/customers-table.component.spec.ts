@@ -16,6 +16,10 @@ describe('CustomersTableComponent', () => {
       phoneNumber: '9999999999',
       address: 'Street 1',
       isActive: true,
+      creditLimit: 0,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
       outstandingDue: 200,
     },
   ];

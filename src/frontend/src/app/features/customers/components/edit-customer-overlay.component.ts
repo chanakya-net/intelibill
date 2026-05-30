@@ -4,11 +4,15 @@ import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { Customer } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
+import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-edit-customer-overlay',
@@ -19,6 +23,9 @@ import { CustomersFacade } from '../state/customers.facade';
     CheckboxModule,
     ButtonModule,
     ProgressSpinnerModule,
+    InputNumberModule,
+    InputGroupModule,
+    InputGroupAddonModule,
     TranslocoPipe,
   ],
   templateUrl: './edit-customer-overlay.component.html',
@@ -27,6 +34,10 @@ import { CustomersFacade } from '../state/customers.facade';
 export class EditCustomerOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly customersFacade = inject(CustomersFacade);
+
+  readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
+  readonly currencyAddonPt = CURRENCY_ADDON_PT;
+  readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly customer = input.required<Customer>();
 
@@ -40,6 +51,7 @@ export class EditCustomerOverlayComponent implements OnInit {
     phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
     address: ['', [Validators.maxLength(320)]],
     isActive: [true],
+    creditLimit: [0, [Validators.required, Validators.min(0), Validators.max(99999999.99)]],
   });
 
   ngOnInit(): void {
@@ -52,6 +64,7 @@ export class EditCustomerOverlayComponent implements OnInit {
       phoneNumber: c.phoneNumber,
       address: c.address ?? '',
       isActive: c.isActive,
+      creditLimit: c.creditLimit,
     });
   }
 
@@ -72,11 +85,13 @@ export class EditCustomerOverlayComponent implements OnInit {
     }
     this.customersFacade.clearError();
     this.customersFacade.clearMutationStatus();
+    const raw = this.form.getRawValue();
     this.customersFacade.editCustomer(this.customer().customerId, {
-      name: this.form.controls.name.value.trim(),
-      phoneNumber: this.form.controls.phoneNumber.value.trim(),
-      address: this.nullableTrimmed(this.form.controls.address.value),
-      isActive: this.form.controls.isActive.value,
+      name: raw.name.trim(),
+      phoneNumber: raw.phoneNumber.trim(),
+      address: this.nullableTrimmed(raw.address),
+      isActive: raw.isActive,
+      creditLimit: raw.creditLimit,
     });
   }
 
