@@ -79,17 +79,17 @@ export class ProfitLossPageComponent {
   readonly kpiCards = [
     {
       label: 'sales.profitLoss.kpi.netProfit',
-      value: () => this.summary()?.netProfitAfterTax ?? 0,
+      value: () => this.summary()?.netProfitAfterTax ?? null,
       currency: true,
     },
     {
       label: 'sales.profitLoss.kpi.revenue',
-      value: () => this.summary()?.revenueIncludingTax ?? 0,
+      value: () => this.summary()?.revenueIncludingTax ?? null,
       currency: true,
     },
     {
       label: 'sales.profitLoss.kpi.totalCost',
-      value: () => this.summary()?.totalCost ?? 0,
+      value: () => this.summary()?.totalCost ?? null,
       currency: true,
     },
     {
@@ -133,6 +133,9 @@ export class ProfitLossPageComponent {
       if (normalizedSize !== this.pageSize()) {
         untracked(() => this.pageSize.set(normalizedSize));
       }
+      // Sync store page number to local only when local state is at default (page 1)
+      // and differs from store. This prevents user's active page navigation selections
+      // from being temporarily reverted by stale store values before a request resolves.
       if (storePageNumber && this.pageNumber() === 1 && storePageNumber !== 1) {
         untracked(() => this.pageNumber.set(storePageNumber));
       }
@@ -144,9 +147,9 @@ export class ProfitLossPageComponent {
         return;
       }
 
-      this.lastAppliedFilterKey.set(filterKey);
+      untracked(() => this.lastAppliedFilterKey.set(filterKey));
       if (this.pageNumber() !== 1) {
-        this.pageNumber.set(1);
+        untracked(() => this.pageNumber.set(1));
       }
     });
 
