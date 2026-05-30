@@ -1,0 +1,245 @@
+<section class="new-sale-page">
+  <header class="new-sale-header">
+    <div class="new-sale-heading">
+      <p class="eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+      <h1>{{ 'sales.newSale.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'sales.newSale.subtitle' | transloco }}</p>
+    </div>
+
+    <div class="new-sale-header-actions">
+      @if (vm.isOfflineMode()) {
+        <span class="status-chip">{{ 'sales.newSale.offlineStatusChip' | transloco }}</span>
+      }
+
+      <p-button
+        [label]="'common.cancel' | transloco"
+        severity="secondary"
+        [outlined]="true"
+        (click)="vm.onCancel()"
+      />
+    </div>
+  </header>
+
+  @if (vm.showUpdateNotification()) {
+    <div class="update-notification">
+      <i class="pi pi-info-circle"></i>
+      <span>{{ vm.updateNotificationText() | transloco }}</span>
+    </div>
+  }
+
+  @if (vm.serverError()) {
+    <p class="error">{{ vm.serverError() }}</p>
+  }
+
+  <div class="new-sale-workspace">
+    <main class="new-sale-main">
+      <section class="new-sale-panel new-sale-product-lookup" aria-labelledby="new-sale-product-lookup-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+            <h2 id="new-sale-product-lookup-title">{{ 'sales.newSale.scanItem' | transloco }}</h2>
+          </div>
+        </div>
+
+        <app-batch-search-bar
+          [searchTerm]="vm.searchInput()"
+          [loading]="vm.isSearchingBatches()"
+          [searchSuggestions]="vm.searchSuggestions()"
+          (searchTermChanged)="onBatchSearchTermChanged($event)"
+          (suggestionFilter)="onBatchSearchSuggestionFilter($event)"
+          (suggestionSelected)="onSearchSuggestionSelected($event)"
+          (search)="onBatchSearchRequested($event)"
+          (openPicker)="onOpenBatchPicker()"
+          (cameraOpen)="openScanner()"
+        />
+
+        @if (vm.quickProductTiles().length > 0) {
+          <section class="new-sale-quick-product-lookup">
+            <div class="quick-product-lookup-header">
+              <h3>{{ 'sales.newSale.productLookup' | transloco }}</h3>
+              <p>{{ 'sales.newSale.productLookupDescription' | transloco }}</p>
+            </div>
+            <p class="quick-product-lookup-hint">{{ 'sales.newSale.scanOrSearch' | transloco }}</p>
+
+            <div class="quick-product-tile-grid">
+              @for (batch of vm.quickProductTiles(); track batch.inventoryBatchId) {
+                <button
+                  class="quick-product-tile"
+                  type="button"
+                  (click)="onQuickProductTileSelected(batch)"
+                >
+                  <p class="quick-product-tile-title">{{ batch.itemName }}</p>
+                  <p class="quick-product-tile-stock">
+                    {{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}
+                  </p>
+                  <p class="quick-product-tile-price">₹{{ batch.salesPrice | number: '1.2-2' }}</p>
+                  <span class="quick-product-tile-action">{{ 'sales.newSale.quickAdd' | transloco }}</span>
+                </button>
+              }
+            </div>
+          </section>
+        }
+
+        @if (vm.batchSearchError()) {
+          <p class="error mt-2">
+            {{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}
+          </p>
+        }
+
+        <app-batch-picker-dialog
+          [visible]="vm.showBatchPicker()"
+          [batches]="vm.pickerSellables()"
+          [loading]="vm.isSearchingBatches()"
+          [quantity]="vm.batchPickerQuantity()"
+          (batchSelected)="onBatchPickerBatchSelected($event)"
+          (closed)="onBatchPickerClosed()"
+          (quantityChanged)="onBatchQuantityChanged($event)"
+        />
+      </section>
+
+      <app-barcode-scanner-dialog
+        [visible]="vm.isScannerOpen()"
+        (visibleChange)="onScannerVisibilityChange($event)"
+        (detected)="onScannedBarcode($event)"
+      />
+
+      <section class="new-sale-panel new-sale-cart" aria-labelledby="new-sale-cart-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
+            <h2 id="new-sale-cart-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length + vm.serviceCart().length }})</h2>
+          </div>
+
+          <p-button
+            [label]="'common.clear' | transloco"
+            icon="pi pi-trash"
+            severity="secondary"
+            [text]="true"
+            [disabled]="vm.cart().length === 0 && vm.serviceCart().length === 0"
+            (click)="onClearCart()"
+          />
+        </div>
+
+        <app-cart-table
+          [cartItems]="vm.cart()"
+          [serviceCartItems]="vm.serviceCart()"
+          [showGroupedSections]="vm.isMixedCart()"
+          [highlightedRowKeys]="vm.highlightedRowKeys()"
+          [checkoutPreview]="vm.checkoutPreview()"
+          [saleDiscountType]="vm.saleDiscountType()"
+          [saleDiscountError]="vm.saleDiscountError()"
+          [isLineDiscountEditorOpen]="vm.isLineDiscountEditorOpenFn"
+          [hasTax]="vm.hasTaxFn"
+          [canIncrease]="vm.canIncreaseFn"
+          [getLineSubtotal]="vm.getLineSubtotalFn"
+          [getLineTaxAmount]="vm.getLineTaxAmountFn"
+          [getLineTotal]="vm.getLineTotalFn"
+          [getUnitSubtotal]="vm.getUnitSubtotalFn"
+          [getUnitTaxAmount]="vm.getUnitTaxAmountFn"
+          [getUnitFinalPrice]="vm.getUnitFinalPriceFn"
+          [getServiceLineTotal]="vm.getServiceLineTotalFn"
+          [getPreviewLine]="vm.getPreviewLineFn"
+          [getCartItemHsnError]="vm.getCartItemHsnErrorFn"
+          [getCartItemTaxError]="vm.getCartItemTaxErrorFn"
+          [getCartItemDiscountError]="vm.getCartItemDiscountErrorFn"
+          [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+          [totalAmount]="vm.totalAmount()"
+          (quantityChanged)="onCartTableQuantityChanged($event)"
+          (itemRemoved)="onCartTableItemRemoved($event)"
+          (serviceUnitPriceChanged)="onCartTableServiceUnitPriceChanged($event)"
+          (cartItemHsnCodeChange)="onCartTableHsnCodeChange($event)"
+          (cartItemTaxRateChange)="onCartTableTaxRateChange($event)"
+          (cartItemDiscountTypeChange)="onCartTableDiscountTypeChange($event)"
+          (cartItemDiscountValueChange)="onCartTableDiscountValueChange($event)"
+          (lineDiscountEditorToggled)="onCartTableLineDiscountEditorToggled($event)"
+        />
+      </section>
+    </main>
+
+    <aside class="new-sale-checkout-panel">
+      <section class="new-sale-panel new-sale-checkout-section" aria-labelledby="new-sale-checkout-title">
+        <div class="new-sale-section-header">
+          <div>
+            <p class="new-sale-section-eyebrow">{{ 'sales.newSale.checkoutStatus' | transloco }}</p>
+            <h2 id="new-sale-checkout-title">{{ 'sales.newSale.checkout' | transloco }}</h2>
+          </div>
+        </div>
+        <app-offline-status-banner [isOffline]="vm.isOfflineMode()" [syncStatus]="vm.syncStatus()" />
+
+        <app-sale-customer-section
+          [selectedCustomer]="vm.selectedCustomer()"
+          [customerNameControl]="vm.customerForm.controls.customerName"
+          [customerPhoneControl]="vm.customerForm.controls.customerPhone"
+          [customerNameSuggestions]="vm.customerNameSuggestions()"
+          [customers]="vm.customerSelectionPool()"
+          [isOfflineMode]="vm.isOfflineMode()"
+          (customerSelected)="onCustomerSectionSelected($event)"
+          (searchCustomers)="onCustomerSectionSearchCustomers($event)"
+        />
+
+        <app-sale-payment-section
+          [paymentMethods]="vm.paymentMethodsForSelection()"
+          [selectedMethod]="vm.selectedPaymentMethod()"
+          [paidAmount]="vm.paymentForm.controls.paidAmount.value"
+          [dueAmount]="vm.paymentForm.controls.dueAmount.value"
+          [isOfflineMode]="vm.isOfflineMode()"
+          [totalAmount]="vm.totalAmount()"
+          [currencyInputPt]="vm.currencyInputPt"
+          [currencyGroupPt]="vm.currencyGroupPt"
+          [currencyAddonPt]="vm.currencyAddonPt"
+          [canUseCredit]="vm.canUseCredit()"
+          [showDueAmount]="vm.canUseCredit()"
+          [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
+          (methodChanged)="onPaymentMethodChanged($event)"
+          (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
+          (dueAmountChanged)="onPaymentDueAmountChanged($event)"
+        />
+
+        <app-cart-checkout-summary
+          [preview]="vm.checkoutPreview()"
+          [loading]="vm.isPreviewLoading()"
+          [totalAmount]="vm.totalAmount()"
+          [subtotalAmount]="vm.subtotalAmount()"
+          [totalTaxAmount]="vm.totalTaxAmount()"
+          [totalDiscountAmount]="vm.totalDiscountAmount()"
+          [saleDiscountType]="vm.saleDiscountType()"
+          [saleDiscountValue]="vm.saleDiscountValue()"
+          [isSaleDiscountEligible]="vm.isSaleDiscountEligible()"
+          [isDiscountEditorOpen]="vm.isSaleDiscountEditorOpen()"
+          [instantDiscountTypeOptions]="vm.instantDiscountTypeOptions"
+          [saleDiscountError]="vm.saleDiscountError()"
+          [balanceDue]="vm.paymentForm.controls.dueAmount.value"
+          [paymentSplitError]="vm.paymentSplitError()"
+          [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
+          [cartLength]="vm.cart().length + vm.serviceCart().length"
+          (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
+          (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
+          (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"
+          (submitRequested)="onPaymentSubmitRequested()"
+        />
+      </section>
+    </aside>
+  </div>
+</section>
+
+<app-sale-confirmation-dialog
+  [visible]="vm.showConfirmation()"
+  [saleResult]="vm.saleConfirmationResult()"
+  [titleKey]="'sales.newSale.confirmation.title'"
+  (closed)="vm.onDone()"
+  (printA4Requested)="vm.onOnlineConfirmationPrintA4Requested()"
+  (printThermalRequested)="vm.onOnlineConfirmationPrintThermalRequested()"
+/>
+
+<app-sale-confirmation-dialog
+  [visible]="vm.showOfflineConfirmation()"
+  [saleResult]="vm.offlineSaleConfirmationResult()"
+  [titleKey]="'sales.newSale.offline.confirmation.title'"
+  [saleTypeLabel]="'sales.invoice.invoiceNumber'"
+  [doneButtonLabel]="'common.done'"
+  [printA4ButtonLabel]="'sales.invoice.printA4'"
+  [printThermalButtonLabel]="'sales.invoice.printThermal'"
+  (closed)="vm.onOfflineDone()"
+  (printA4Requested)="vm.onOfflineConfirmationPrintA4Requested()"
+  (printThermalRequested)="vm.onOfflineConfirmationPrintThermalRequested()"
+/>

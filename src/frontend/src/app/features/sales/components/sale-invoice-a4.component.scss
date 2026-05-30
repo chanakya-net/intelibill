@@ -1,0 +1,293 @@
+@page {
+  size: A4;
+  margin: 20mm;
+}
+
+.invoice {
+  position: relative;
+  font-family: Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.4;
+  color: #333;
+  background: white;
+  padding: 20px;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+  }
+
+  &__pending-sync {
+    position: absolute;
+    top: -8px;
+    right: 0;
+    border: 2px solid #b45309;
+    color: #7c2d12;
+    background: #fffbeb;
+    padding: 4px 10px;
+    font-size: 10pt;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  &__shop-info {
+    flex: 1;
+  }
+
+  &__shop-name {
+    font-size: 18pt;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+  }
+
+  &__shop-address,
+  &__shop-phone,
+  &__shop-gst {
+    margin: 2px 0;
+    font-size: 10pt;
+  }
+
+  &__meta {
+    text-align: right;
+  }
+
+  &__meta-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+
+  &__meta-label {
+    font-weight: bold;
+  }
+
+  &__meta-value {
+    min-width: 100px;
+  }
+
+  &__customer {
+    margin: 15px 0;
+    padding: 10px;
+    background: #f9f9f9;
+  }
+
+  &__customer-label {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  &__customer-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__customer-phone {
+    font-size: 9pt;
+    color: #555;
+  }
+
+  &__items {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 10pt;
+
+    thead {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+
+      &:nth-child(n + 2) {
+        text-align: right;
+      }
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fafafa;
+    }
+  }
+
+  &__items-header {
+    background: #e8e8e8;
+  }
+
+  &__item-row {
+    page-break-inside: avoid;
+  }
+
+  &__cell-right {
+    text-align: right;
+  }
+
+  &__col-item {
+    flex: 2;
+  }
+
+  &__col-qty,
+  &__col-discount,
+  &__col-taxable,
+  &__col-tax,
+  &__col-tax-amt,
+  &__col-total,
+  &__col-price {
+    width: 80px;
+    text-align: right;
+  }
+
+  &__returns {
+    margin: 20px 0;
+    padding: 10px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+
+    &-title {
+      margin: 0 0 10px 0;
+      font-weight: bold;
+      color: #856404;
+    }
+  }
+
+  &__return-block {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: white;
+    border-left: 3px solid #ffc107;
+  }
+
+  &__return-header {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+
+  &__return-label {
+    flex: 1;
+  }
+
+  &__return-date {
+    font-size: 9pt;
+    color: #666;
+  }
+
+  &__return-voided {
+    background: #dc3545;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9pt;
+  }
+
+  &__return-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 9pt;
+  }
+
+  &__return-amount,
+  &__return-reason {
+    color: #555;
+  }
+
+  &__totals {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    background: #f9f9f9;
+  }
+
+  &__totals-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 10pt;
+
+    &--total {
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      padding: 8px 0;
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 12pt;
+    }
+  }
+
+  &__totals-label {
+    font-weight: 500;
+  }
+
+  &__totals-value {
+    text-align: right;
+    min-width: 100px;
+  }
+
+  &__divider {
+    border-top: 1px solid #ddd;
+    margin: 10px 0;
+  }
+
+  &__payment-info {
+    margin-top: 15px;
+  }
+
+  &__payment-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 10pt;
+  }
+
+  &__payment-label {
+    font-weight: bold;
+    min-width: 120px;
+  }
+
+  &__payment-value {
+    text-align: right;
+    min-width: 100px;
+
+    &.invoice__status-paid {
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    &.invoice__status-due {
+      color: #dc3545;
+      font-weight: bold;
+    }
+  }
+}
+
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .invoice {
+    padding: 0;
+    margin: 0;
+  }
+
+  .invoice__items tbody tr {
+    page-break-inside: avoid;
+  }
+
+  .invoice__return-block {
+    page-break-inside: avoid;
+  }
+}

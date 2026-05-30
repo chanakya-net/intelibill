@@ -1,0 +1,59 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'bankAccounts.accountForm' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'bankAccounts.title' | transloco }}</p>
+        <h2>{{ (bankAccount ? 'bankAccounts.editAccount' : 'bankAccounts.addAccount') | transloco }}</h2>
+        <p class="description">
+          {{ (bankAccount ? 'bankAccounts.editAccountDescription' : 'bankAccounts.addAccountDescription') | transloco }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <app-bank-account-form [form]="form" idPrefix="manage"></app-bank-account-form>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'bankAccounts.saveChanges' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
+  </div>
+</section>

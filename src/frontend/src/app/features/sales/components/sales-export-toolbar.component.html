@@ -1,0 +1,60 @@
+<section class="sales-export-toolbar">
+  <h2 class="toolbar-heading">{{ 'sales.export.title' | transloco }}</h2>
+
+  <div class="export-controls">
+    <div class="format-buttons">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-file-excel"
+        data-export-format="xlsx"
+        [label]="'sales.export.format.excel' | transloco"
+        [loading]="isExporting()"
+        [disabled]="isExporting()"
+        severity="success"
+        outlined="true"
+        size="small"
+        [attr.aria-label]="'sales.export.format.excel' | transloco"
+        (click)="exportToExcel()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-file-pdf"
+        data-export-format="pdf"
+        [label]="'sales.export.format.pdf' | transloco"
+        [loading]="isExporting()"
+        [disabled]="isExporting()"
+        severity="info"
+        outlined="true"
+        size="small"
+        [attr.aria-label]="'sales.export.format.pdf' | transloco"
+        (click)="exportToPdf()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-download"
+        data-export-format="tallyXml"
+        [label]="'sales.export.format.tally' | transloco"
+        [loading]="isExporting()"
+        [disabled]="isExporting()"
+        severity="secondary"
+        outlined="true"
+        size="small"
+        [attr.aria-label]="'sales.export.format.tally' | transloco"
+        (click)="exportToTally()"
+      ></button>
+    </div>
+  </div>
+
+  @if (isExporting()) {
+    <p class="export-status">{{ 'sales.export.loading' | transloco }}</p>
+  }
+
+  @if (exportError()) {
+    <p class="error" data-export-error>
+      {{ exportError() }}
+    </p>
+  }
+</section>

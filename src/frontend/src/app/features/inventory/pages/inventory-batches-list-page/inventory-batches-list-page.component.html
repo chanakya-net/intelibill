@@ -1,0 +1,292 @@
+<p-toast></p-toast>
+
+<section class="p-6">
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold">{{ 'inventory.batchListTitle' | transloco }}</h1>
+    <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
+  </header>
+
+  <app-batches-filter-bar
+    class="mb-6"
+    [filters]="batchFilters()"
+    (filtersChange)="onFiltersChange($event)"
+  />
+
+  <app-batches-table
+    [batches]="filteredBatches()"
+    [loading]="loading()"
+    (batchClicked)="onBatchTableSelect($event)"
+    (batchAction)="onBatchTableAction($event)"
+  />
+</section>
+
+<p-dialog
+  [header]="'inventory.correctBatch' | transloco"
+  [(visible)]="isEditDialogOpen"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '600px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2">
+    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.originalBatch' | transloco }}
+      </span>
+      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.newBatchNumber' | transloco }}</label>
+      <input
+        pInputText
+        formControlName="newBatchNumber"
+        [placeholder]="'inventory.leaveEmptyToAutoGenerate' | transloco"
+      />
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
+        <p-inputNumber formControlName="quantity" [min]="0" [fluid]="true"></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.costPrice' | transloco }}</label>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="costPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.mrp' | transloco }}</label>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="mrp"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.salesPrice' | transloco }}</label>
+        <p-inputgroup class="w-full" [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="salesPrice"
+            [min]="0"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+          <p-select
+            formControlName="taxIncluded"
+            [options]="taxModeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            class="w-32"
+            [pt]="currencySelectPt"
+          ></p-select>
+        </p-inputgroup>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.taxRatePercent' | transloco }}</label>
+        <p-inputNumber
+          formControlName="taxRatePercent"
+          [min]="0"
+          [max]="100"
+          [fluid]="true"
+          suffix="%"
+        ></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.supplier' | transloco }}</label>
+        <p-autocomplete
+          formControlName="supplierName"
+          [suggestions]="supplierSuggestions()"
+          (completeMethod)="onFilterSupplier($event)"
+          [fluid]="true"
+        ></p-autocomplete>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.expiryDate' | transloco }}</label>
+        <input pInputText type="date" formControlName="expiryDate" class="w-full" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.manufacturingDate' | transloco }}</label>
+        <input pInputText type="date" formControlName="manufacturingDate" class="w-full" />
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.correctionNotes' | transloco }}</label>
+      <input
+        pInputText
+        formControlName="notes"
+        [placeholder]="'inventory.correctionNotesPlaceholder' | transloco"
+      />
+    </div>
+
+    <div class="flex justify-end gap-2 mt-4">
+      <button
+        pButton
+        [label]="'common.cancel' | transloco"
+        class="p-button-text"
+        (click)="isEditDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        [label]="'common.save' | transloco"
+        [loading]="isSaving()"
+        (click)="onSaveEdit()"
+        [disabled]="editForm.invalid"
+      ></button>
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [header]="'inventory.adjustBatch' | transloco"
+  [(visible)]="isAdjustmentDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '560px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form
+    [formGroup]="adjustmentForm"
+    class="flex flex-col gap-4 mt-2"
+    (ngSubmit)="onSaveAdjustment()"
+  >
+    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.batchNumber' | transloco }}
+      </span>
+      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
+        <p-select
+          formControlName="direction"
+          [options]="directionOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+        ></p-select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
+        <p-select
+          formControlName="reason"
+          [options]="adjustmentReasonOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+        ></p-select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
+        <p-inputNumber
+          formControlName="quantity"
+          [min]="0.01"
+          mode="decimal"
+          [maxFractionDigits]="2"
+          [fluid]="true"
+        ></p-inputNumber>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold">{{ 'inventory.performedAt' | transloco }}</label>
+        <input pInputText type="datetime-local" formControlName="performedAt" class="w-full" />
+      </div>
+    </div>
+
+    @if (adjustmentPreview(); as preview) {
+      <div class="adjustment-preview">
+        <div>
+          <span>{{ 'inventory.currentBatchQuantity' | transloco }}</span>
+          <strong>{{ preview.batchQuantityBefore | number: '1.0-2' }}</strong>
+        </div>
+        <div>
+          <span>{{ 'inventory.newBatchQuantity' | transloco }}</span>
+          <strong>{{ preview.batchQuantityAfter | number: '1.0-2' }}</strong>
+        </div>
+        <div>
+          <span>{{ 'inventory.unitCost' | transloco }}</span>
+          <strong>
+            {{ 'common.currencySymbol' | transloco }}
+            {{ preview.unitCost | number: '1.2-2' }}
+          </strong>
+        </div>
+        <div>
+          <span>{{ 'inventory.costImpact' | transloco }}</span>
+          <strong
+            [class.text-red-600]="preview.costImpact < 0"
+            [class.text-green-700]="preview.costImpact > 0"
+          >
+            {{ 'common.currencySymbol' | transloco }} {{ preview.costImpact | number: '1.2-2' }}
+          </strong>
+        </div>
+      </div>
+    }
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.notes' | transloco }}</label>
+      <textarea
+        pTextarea
+        formControlName="notes"
+        rows="3"
+        [placeholder]="'inventory.adjustmentNotesPlaceholder' | transloco"
+      ></textarea>
+    </div>
+
+    <div class="flex justify-end gap-2 mt-2">
+      <button
+        pButton
+        type="button"
+        [label]="'common.cancel' | transloco"
+        class="p-button-text"
+        [disabled]="isAdjustmentSaving()"
+        (click)="isAdjustmentDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        [label]="'inventory.submitAdjustment' | transloco"
+        [loading]="isAdjustmentSaving()"
+        [disabled]="adjustmentForm.invalid || isAdjustmentSaving()"
+      ></button>
+    </div>
+  </form>
+</p-dialog>

@@ -1,0 +1,76 @@
+@use '../../../core/styles/auth-shared' as *;
+
+.login-form {
+  .field-wrap {
+    label {
+      display: none;
+    }
+  }
+}
+
+.social-title {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  font-size: 1.03rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.social-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.social-button {
+  border: none;
+  border-radius: 0.68rem;
+  background: rgba(255, 247, 237, 0.9);
+  color: #9a3412;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-weight: 500;
+}
+
+.social-icon {
+  width: 1.38rem;
+  height: 1.38rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.social-icon-fb {
+  background: #1877f2;
+  color: #ffffff;
+}
+
+.social-icon-google {
+  background: #ffffff;
+  color: #ea4335;
+}
+
+.signup-hint {
+  margin: 0.8rem 0 0.1rem;
+  text-align: center;
+  font-size: 1.05rem;
+  color: #020617;
+  font-weight: 700;
+
+  a {
+    color: #c2410c;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+}
+
+@media (max-width: 640px) {
+  .signup-hint {
+    font-size: 1rem;
+  }
+}

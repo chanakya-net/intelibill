@@ -1,0 +1,265 @@
+<section class="expenses-page">
+  <header class="expenses-header">
+    <div>
+      <p class="eyebrow">{{ 'expenses.subtitle' | transloco }}</p>
+      <h1>{{ 'expenses.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
+    </div>
+
+    @if (canManageExpenses()) {
+      <button
+        pButton
+        type="button"
+        [label]="'expenses.recordExpense' | transloco"
+        icon="pi pi-plus"
+        (click)="openRecordOverlay()"
+      ></button>
+    }
+  </header>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="loading">
+      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!loading()) {
+    <!-- Mobile Stacked List (≤1023px) -->
+    <div class="mobile-grid-container">
+      <div class="mobile-search-bar">
+        <p-iconfield iconPosition="left" class="mobile-search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [ngModel]="searchValue()"
+            (ngModelChange)="onSearchValueChange($event)"
+            [placeholder]="'expenses.searchPlaceholder' | transloco"
+            class="w-full pr-10"
+          />
+          @if (searchValue()) {
+            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="onSearchValueChange('')">
+              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+            </p-inputicon>
+          }
+        </p-iconfield>
+      </div>
+
+      <div class="expense-list flex flex-col gap-3 px-1">
+        @for (expense of expenses(); track expense.id) {
+          <p-card class="expense-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="font-bold text-slate-800 text-base truncate leading-tight">
+                  {{ expense.categoryName }}
+                </div>
+                <div class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                  {{ expense.paidTo }}
+                </div>
+                <div class="text-slate-400 text-xs">
+                  {{ expense.expenseDate | dateOnly: 'mediumDate' }}
+                </div>
+              </div>
+
+              <div class="flex flex-col items-end gap-2">
+                <span class="font-bold text-slate-800 text-sm">
+                  {{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}
+                </span>
+
+                @if (expense.isVoided) {
+                  <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
+                } @else {
+                  <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
+                }
+
+                @if (canManageExpenses() && !expense.isVoided) {
+                  <p-button
+                    [label]="'expenses.correctShort' | transloco"
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    (click)="openCorrectOverlay(expense.id)"
+                  ></p-button>
+                }
+              </div>
+            </div>
+          </p-card>
+        }
+
+        @if (expenses().length === 0) {
+          <div class="mobile-empty-state">
+            <h2 class="text-xl font-bold text-slate-700">{{ 'expenses.noExpenses' | transloco }}</h2>
+            <p class="text-slate-500">{{ 'expenses.noExpensesDescription' | transloco }}</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="expenses-table-card desktop-table">
+      <p-table
+        #expensesTable
+        [value]="expenses()"
+        [globalFilterFields]="['categoryName','paidTo','amount','expenseDate']"
+        [sortField]="'expenseDate'"
+        [sortOrder]="-1"
+        [scrollable]="true"
+        class="p-datatable-sm"
+      >
+        <ng-template pTemplate="caption">
+          <app-table-filter-bar
+            [table]="expensesTable"
+            [searchValue]="searchValue()"
+            (searchValueChange)="onSearchValueChange($event)"
+            [placeholder]="'expenses.searchPlaceholder' | transloco"
+          />
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="categoryName">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.category' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="categoryName" />
+                  <p-columnFilter type="text" field="categoryName" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="paidTo">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.paidTo' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="paidTo" />
+                  <p-columnFilter type="text" field="paidTo" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="amount">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.amount' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="amount" />
+                  <p-columnFilter type="numeric" field="amount" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="expenseDate">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.expenseDate' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="expenseDate" />
+                  <p-columnFilter type="date" field="expenseDate" display="menu" />
+                </div>
+              </div>
+            </th>
+            <th pSortableColumn="isVoided">
+              <div class="flex items-center justify-between">
+                {{ 'expenses.status' | transloco }}
+                <div class="flex items-center gap-1">
+                  <p-sortIcon field="isVoided" />
+                  <p-columnFilter type="boolean" field="isVoided" display="menu" />
+                </div>
+              </div>
+            </th>
+            @if (canManageExpenses()) {
+              <th>{{ 'common.actions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-expense>
+          <tr>
+            <td>{{ expense.categoryName }}</td>
+            <td>{{ expense.paidTo }}</td>
+            <td>{{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}</td>
+            <td>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</td>
+            <td>
+              @if (expense.isVoided) {
+                <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
+              } @else {
+                <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
+              }
+            </td>
+            @if (canManageExpenses()) {
+              <td>
+                @if (!expense.isVoided) {
+                  <button
+                    pButton
+                    type="button"
+                    [label]="'expenses.correctShort' | transloco"
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    (click)="openCorrectOverlay(expense.id)"
+                  ></button>
+                }
+              </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td [attr.colspan]="5 + (canManageExpenses() ? 1 : 0)">
+              <div class="empty-state">
+                <h2>{{ 'expenses.noExpenses' | transloco }}</h2>
+                <p>{{ 'expenses.noExpensesDescription' | transloco }}</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      @if (pagination().totalCount > pagination().pageSize) {
+        <div class="pagination-controls">
+          <p-button
+            icon="pi pi-chevron-left"
+            [disabled]="pagination().currentPage <= 1"
+            (click)="onPageChange(pagination().currentPage - 1)"
+            severity="secondary"
+            [text]="true"
+          ></p-button>
+          <span class="page-info">
+            {{
+              'expenses.pageInfo'
+                | transloco
+                  : {
+                      currentPage: pagination().currentPage,
+                      totalPages: totalPages()
+                    }
+            }}
+          </span>
+          <p-button
+            icon="pi pi-chevron-right"
+            [disabled]="pagination().currentPage * pagination().pageSize >= pagination().totalCount"
+            (click)="onPageChange(pagination().currentPage + 1)"
+            severity="secondary"
+            [text]="true"
+          ></p-button>
+        </div>
+      }
+    </div>
+  }
+
+  @if (showRecordOverlay()) {
+    <app-record-expense-overlay
+      (closeRequested)="closeRecordOverlay()"
+    ></app-record-expense-overlay>
+  }
+
+  @if (showCorrectOverlay() && selectedExpense()) {
+    <app-correct-expense-overlay
+      [expenseId]="selectedExpenseId()!"
+      [originalExpense]="selectedExpense()!"
+      (closeRequested)="closeCorrectOverlay()"
+    ></app-correct-expense-overlay>
+  }
+</section>

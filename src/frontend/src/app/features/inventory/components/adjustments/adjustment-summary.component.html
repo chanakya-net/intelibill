@@ -1,0 +1,23 @@
+<p-card>
+  <h2>{{ 'inventory.adjustmentSummary' | transloco }}</h2>
+  @if (loading) {
+    <p>{{ 'common.loading' | transloco }}...</p>
+  } @else if (totalRows === 0) {
+    <p class="summary-empty">{{ 'inventory.noAdjustments' | transloco }}</p>
+  } @else {
+    <div class="summary-grid">
+      <p>{{ reasonLabel }}</p>
+      <p>
+        {{ 'inventory.adjustmentDirection.increase' | transloco }}
+        {{ increaseQuantity | number: '1.0-2' }}
+      </p>
+      <p>
+        {{ 'inventory.adjustmentDirection.decrease' | transloco }}
+        {{ decreaseQuantity | number: '1.0-2' }}
+      </p>
+      <p>
+        {{ 'inventory.adjustmentDirectionLabel' | transloco }} {{ directionLabel }}
+      </p>
+    </div>
+  }
+</p-card>

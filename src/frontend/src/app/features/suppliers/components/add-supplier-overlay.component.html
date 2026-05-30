@@ -1,0 +1,98 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'suppliers.supplierForm' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2>{{ 'suppliers.addSupplier' | transloco }}</h2>
+        <p class="description">{{ 'suppliers.addSupplierDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'suppliers.name' | transloco }}</span>
+        <input pInputText type="text" formControlName="name" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.contactPerson' | transloco }}</span>
+        <input pInputText type="text" formControlName="contactPersonName" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.contactPhone' | transloco }}</span>
+        <input pInputText type="text" formControlName="contactPersonPhone" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.address' | transloco }}</span>
+        <input pInputText type="text" formControlName="address" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.city' | transloco }}</span>
+        <input pInputText type="text" formControlName="city" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.state' | transloco }}</span>
+        <input pInputText type="text" formControlName="state" />
+      </label>
+
+      <label>
+        <span>{{ 'suppliers.pin' | transloco }}</span>
+        <input pInputText type="text" formControlName="pin" />
+      </label>
+
+      <label class="toggle-row" for="isActive">
+        <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
+        <span>{{ 'suppliers.isActive' | transloco }}</span>
+      </label>
+
+      <label class="toggle-row" for="isPreferred">
+        <p-checkbox
+          inputId="isPreferred"
+          formControlName="isPreferred"
+          [binary]="true"
+        ></p-checkbox>
+        <span>{{ 'suppliers.isPreferred' | transloco }}</span>
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'suppliers.addSupplier' | transloco"
+          [loading]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+  </div>
+</section>

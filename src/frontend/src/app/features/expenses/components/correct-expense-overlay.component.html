@@ -1,0 +1,107 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'expenses.correctExpense' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'expenses.title' | transloco }}</p>
+        <h2>{{ 'expenses.correctExpense' | transloco }}</h2>
+        <p class="description">{{ 'expenses.correctExpenseDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'expenses.category' | transloco }}</span>
+        <p-select
+          formControlName="categoryName"
+          [options]="selectableCategories()"
+          optionLabel="name"
+          optionValue="name"
+          [placeholder]="'expenses.category' | transloco"
+          [filter]="true"
+          [fluid]="true"
+        ></p-select>
+      </label>
+
+      <label>
+        <span>{{ 'expenses.amount' | transloco }}</span>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="amount"
+            mode="decimal"
+            [min]="0"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
+      </label>
+
+      <label>
+        <span>{{ 'expenses.paidTo' | transloco }}</span>
+        <input pInputText type="text" formControlName="paidTo" />
+      </label>
+
+      <label>
+        <span>{{ 'expenses.description' | transloco }}</span>
+        <textarea pInputTextarea rows="3" formControlName="description"></textarea>
+      </label>
+
+      <label>
+        <span>{{ 'expenses.expenseDate' | transloco }}</span>
+        <p-datePicker
+          formControlName="expenseDate"
+          dateFormat="yy-mm-dd"
+          [showIcon]="true"
+          [showButtonBar]="true"
+          [fluid]="true"
+        ></p-datePicker>
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'expenses.correctExpense' | transloco"
+          [disabled]="form.invalid || isSubmitting()"
+        ></button>
+      </div>
+    </form>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner
+          styleClass="h-8 w-8"
+          strokeWidth="6"
+        ></p-progressSpinner>
+      </div>
+    }
+  </div>
+</section>

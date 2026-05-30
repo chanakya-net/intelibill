@@ -1,0 +1,282 @@
+<p-toast></p-toast>
+
+<section class="adjustments-page p-6">
+  <header class="adjustments-header">
+    <div>
+      <h1>{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
+      <p>{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+    </div>
+    @if (canCreateAdjustments()) {
+      <button
+        pButton
+        type="button"
+        data-testid="new-adjustment-action"
+        icon="pi pi-plus"
+        [label]="'inventory.newAdjustment' | transloco"
+        (click)="openNewAdjustment()"
+      ></button>
+    }
+  </header>
+
+  <form [formGroup]="filterForm" class="filters" (ngSubmit)="onApplyFilters()">
+    <p-select
+      formControlName="itemId"
+      [options]="itemOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="'inventory.item' | transloco"
+      [showClear]="true"
+    ></p-select>
+    <p-select
+      formControlName="batchId"
+      [options]="batchOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="'inventory.batchNumber' | transloco"
+      [showClear]="true"
+    ></p-select>
+    <p-select
+      formControlName="direction"
+      [options]="directionOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="'inventory.adjustmentDirectionLabel' | transloco"
+      [showClear]="true"
+    ></p-select>
+    <p-select
+      formControlName="reason"
+      [options]="reasonOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [placeholder]="'inventory.adjustmentReasonLabel' | transloco"
+      [showClear]="true"
+    ></p-select>
+    <input pInputText type="date" formControlName="from" [attr.aria-label]="'inventory.fromDate' | transloco" />
+    <input pInputText type="date" formControlName="to" [attr.aria-label]="'inventory.toDate' | transloco" />
+    <label class="include-voided">
+      <p-checkbox formControlName="includeVoided" [binary]="true"></p-checkbox>
+      <span>{{ 'inventory.includeVoided' | transloco }}</span>
+    </label>
+    <button pButton type="submit" [label]="'common.search' | transloco" icon="pi pi-search"></button>
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      [outlined]="true"
+      [label]="'common.clear' | transloco"
+      (click)="onClearFilters()"
+    ></button>
+  </form>
+
+  <app-adjustment-summary
+    [rows]="adjustmentSummaryRows()"
+    [loading]="loading()"
+  ></app-adjustment-summary>
+
+  <div class="mobile-grid-container">
+    <div class="adjustment-list">
+      @for (adjustment of adjustments(); track adjustment.adjustmentId) {
+        <p-card class="adjustment-card-item">
+          <div class="adjustment-card-content">
+            <div>
+              <strong>{{ adjustment.itemName }}</strong>
+              <span>{{ adjustment.adjustmentNumber }} · {{ adjustment.batchNumber }}</span>
+              <span>{{ adjustment.performedAt | date: 'medium' }}</span>
+            </div>
+            <div class="adjustment-card-metrics">
+              <p-tag
+                [severity]="adjustment.direction === 'Increase' ? 'success' : 'danger'"
+                [value]="adjustment.direction"
+              ></p-tag>
+              <p-tag
+                [severity]="adjustment.isVoided ? 'danger' : 'success'"
+                [value]="(adjustment.isVoided ? 'inventory.voided' : 'inventory.active') | transloco"
+              ></p-tag>
+              <span>{{ adjustment.quantity | number: '1.0-2' }}</span>
+              <span>{{ 'common.currencySymbol' | transloco }} {{ adjustment.costImpact | number: '1.2-2' }}</span>
+              @if (canVoidAdjustment(adjustment)) {
+                <button pButton type="button" data-testid="void-adjustment-action" icon="pi pi-ban" severity="danger" [outlined]="true"
+                  [label]="'inventory.voidAdjustment' | transloco" (click)="onOpenVoidAdjustment(adjustment)"></button>
+              }
+            </div>
+          </div>
+          @if (adjustment.isVoided) {
+            <div class="void-metadata">
+              <span>{{ 'inventory.voidedAt' | transloco }}: {{ adjustment.voidedAt | date: 'medium' }}</span>
+              <span>{{ 'inventory.voidedBy' | transloco }}: {{ adjustment.voidedByDisplayName || '-' }}</span>
+              <span>{{ 'inventory.voidReason' | transloco }}: {{ adjustment.voidReason || '-' }}</span>
+              <span>{{ 'inventory.reversalStockTransactionId' | transloco }}: {{ adjustment.reversalStockTransactionId || '-' }}</span>
+            </div>
+          }
+        </p-card>
+      }
+
+      @if (adjustments().length === 0) {
+        <div class="empty-state">
+          <h2>{{ 'inventory.noAdjustments' | transloco }}</h2>
+          <p>{{ 'inventory.noAdjustmentsDescription' | transloco }}</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="desktop-table">
+    <p-table
+      [value]="adjustments()"
+      [loading]="loading()"
+      [scrollable]="true"
+      styleClass="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'inventory.adjustmentNumber' | transloco }}</th>
+          <th>{{ 'inventory.item' | transloco }}</th>
+          <th>{{ 'inventory.batchNumber' | transloco }}</th>
+          <th>{{ 'inventory.adjustmentDirectionLabel' | transloco }}</th>
+          <th>{{ 'inventory.adjustmentReasonLabel' | transloco }}</th>
+          <th>{{ 'inventory.quantity' | transloco }}</th>
+          <th>{{ 'inventory.costImpact' | transloco }}</th>
+          <th>{{ 'inventory.performedAt' | transloco }}</th>
+          <th>{{ 'inventory.status' | transloco }}</th>
+          <th>{{ 'inventory.voidMetadata' | transloco }}</th>
+          <th>{{ 'inventory.actions' | transloco }}</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-adjustment>
+        <tr>
+          <td>{{ adjustment.adjustmentNumber }}</td>
+          <td>
+            <div class="item-cell">
+              <strong>{{ adjustment.itemName }}</strong>
+              <span>{{ adjustment.barcode }}</span>
+            </div>
+          </td>
+          <td>{{ adjustment.batchNumber }}</td>
+          <td>
+            <p-tag [severity]="adjustment.direction === 'Increase' ? 'success' : 'danger'" [value]="adjustment.direction"></p-tag>
+          </td>
+          <td>
+            {{ [...this.reasonOptionsByDirection.Decrease, ...this.reasonOptionsByDirection.Increase].find((option) => option.value === adjustment.reason)?.label ?? adjustment.reason }}
+          </td>
+          <td>{{ adjustment.quantity | number: '1.0-2' }}</td>
+          <td [class.text-green-700]="adjustment.costImpact > 0" [class.text-red-600]="adjustment.costImpact < 0">
+            {{ 'common.currencySymbol' | transloco }} {{ adjustment.costImpact | number: '1.2-2' }}
+          </td>
+          <td>{{ adjustment.performedAt | date: 'medium' }}</td>
+          <td>
+            <p-tag
+            [severity]="adjustment.isVoided ? 'danger' : 'success'"
+            [value]="(adjustment.isVoided ? 'inventory.voided' : 'inventory.active') | transloco"
+          ></p-tag>
+          </td>
+          <td>
+            @if (adjustment.isVoided) {
+              <div class="void-metadata">
+                <span>{{ 'inventory.voidedAt' | transloco }}: {{ adjustment.voidedAt | date: 'medium' }}</span>
+                <span>{{ 'inventory.voidedBy' | transloco }}: {{ adjustment.voidedByDisplayName || '-' }}</span>
+                <span>{{ 'inventory.voidReason' | transloco }}: {{ adjustment.voidReason || '-' }}</span>
+                <span>{{ 'inventory.reversalStockTransactionId' | transloco }}: {{ adjustment.reversalStockTransactionId || '-' }}</span>
+              </div>
+            } @else {
+              <span class="muted">-</span>
+            }
+          </td>
+          <td>
+            @if (canVoidAdjustment(adjustment)) {
+              <button pButton type="button" data-testid="void-adjustment-action" icon="pi pi-ban" severity="danger" [text]="true"
+                [label]="'inventory.voidAdjustment' | transloco" (click)="onOpenVoidAdjustment(adjustment)"></button>
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="11">
+            <div class="empty-state">
+              <h2>{{ 'inventory.noAdjustments' | transloco }}</h2>
+              <p>{{ 'inventory.noAdjustmentsDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  @if (totalCount() > pageSize()) {
+    <div class="pagination-controls">
+      <p-button icon="pi pi-chevron-left" severity="secondary" [text]="true" [disabled]="pageNumber() <= 1"
+        (click)="onPageChange(pageNumber() - 1)"></p-button>
+      <span>{{ pageNumber() }} / {{ totalPages() }}</span>
+      <p-button icon="pi pi-chevron-right" severity="secondary" [text]="true" [disabled]="pageNumber() >= totalPages()"
+        (click)="onPageChange(pageNumber() + 1)"></p-button>
+    </div>
+  }
+</section>
+
+<p-dialog
+  [header]="'inventory.newAdjustment' | transloco"
+  [(visible)]="isAdjustmentDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '560px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  @if (isAdjustmentDialogOpen()) {
+    <app-adjustment-row-form
+      [batchOptions]="adjustmentBatchOptions()"
+      [saving]="saving()"
+      (rowChange)="onSaveAdjustment($event)"
+      (cancelled)="isAdjustmentDialogOpen.set(false)"
+    ></app-adjustment-row-form>
+  }
+</p-dialog>
+
+<p-dialog
+  [header]="'inventory.voidAdjustment' | transloco"
+  [(visible)]="isVoidDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form [formGroup]="voidForm" class="void-form" (ngSubmit)="onSaveVoidAdjustment()">
+    @if (selectedAdjustment()) {
+      <div class="void-summary">
+        <strong>{{ selectedAdjustment()?.adjustmentNumber }}</strong>
+        <span>{{ selectedAdjustment()?.itemName }} · {{ selectedAdjustment()?.batchNumber }}</span>
+      </div>
+    }
+
+    <div class="field">
+      <label>{{ 'inventory.voidReason' | transloco }}</label>
+      <textarea
+        pTextarea
+        formControlName="reason"
+        rows="4"
+        [placeholder]="'inventory.voidReasonPlaceholder' | transloco"
+      ></textarea>
+      @if (voidForm.controls.reason.touched && voidForm.controls.reason.invalid) {
+        <span class="validation-message">{{ 'inventory.voidReasonRequired' | transloco }}</span>
+      }
+    </div>
+
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        class="p-button-text"
+        [label]="'common.cancel' | transloco"
+        [disabled]="voidSaving()"
+        (click)="isVoidDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        severity="danger"
+        [label]="'inventory.voidAdjustment' | transloco"
+        [loading]="voidSaving()"
+        [disabled]="voidForm.invalid || voidSaving()"
+      ></button>
+    </div>
+  </form>
+</p-dialog>

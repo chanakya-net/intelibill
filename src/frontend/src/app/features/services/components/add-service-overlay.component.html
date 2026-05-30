@@ -1,0 +1,92 @@
+<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'services.serviceForm' | transloco">
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'services.title' | transloco }}</p>
+        <h2>{{ 'services.addService' | transloco }}</h2>
+        <p class="description">{{ 'services.addServiceDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'services.name' | transloco }}</span>
+        <input pInputText type="text" formControlName="name" (blur)="onNameBlur()" />
+      </label>
+
+      <label>
+        <span>{{ 'services.description' | transloco }}</span>
+        <textarea pInputTextarea rows="3" formControlName="description"></textarea>
+      </label>
+
+      <label>
+        <span>{{ 'services.price' | transloco }}</span>
+        <input pInputText type="number" min="0" step="0.01" formControlName="price" />
+      </label>
+
+      <label class="toggle-row">
+        <p-checkbox inputId="taxIncluded" formControlName="taxIncluded" [binary]="true"></p-checkbox>
+        <span>{{ 'services.taxIncluded' | transloco }}</span>
+      </label>
+
+      <label>
+        <span>{{ 'services.taxRatePercent' | transloco }}</span>
+        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="taxRatePercent" />
+        @if (suggestedTaxSlabs().length > 0) {
+          <div class="suggestion-list" aria-label="Tax suggestions">
+            @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
+              <button type="button" class="suggestion-chip" (click)="selectSuggestedTaxSlab(taxPercentage)">
+                {{ taxPercentage }}
+              </button>
+            }
+          </div>
+        }
+      </label>
+
+      <label>
+        <span>{{ 'services.hsnSac' | transloco }}</span>
+        <input pInputText type="text" formControlName="hsnCode" />
+        @if (suggestedHsnCodes().length > 0) {
+          <div class="suggestion-list" aria-label="HSN suggestions">
+            @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
+              <button type="button" class="suggestion-chip" (click)="selectSuggestedHsnCode(hsnCode)">
+                {{ hsnCode }}
+              </button>
+            }
+          </div>
+        }
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'services.addService' | transloco"
+          [loading]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+  </div>
+</section>

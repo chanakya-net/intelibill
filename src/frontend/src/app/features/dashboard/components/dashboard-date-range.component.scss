@@ -1,0 +1,112 @@
+.dashboard-range-controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(140deg, rgba(237, 247, 255, 0.98), rgba(255, 255, 255, 0.98));
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid rgba(14, 116, 144, 0.15);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+
+  .range-combos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(210px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .combo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    span {
+      font-size: 0.8rem;
+      color: var(--text-color-secondary);
+      font-weight: 600;
+    }
+  }
+
+  .range-apply-button {
+    background: var(--blue-600, #2563eb) !important;
+    border-color: var(--blue-600, #2563eb) !important;
+    color: #fff !important;
+    border-radius: 0.95rem !important;
+    padding-inline: 1.45rem !important;
+    box-shadow: 0 10px 18px rgba(37, 99, 235, 0.2);
+
+    &:enabled:hover {
+      background: var(--blue-700, #1d4ed8) !important;
+      border-color: var(--blue-700, #1d4ed8) !important;
+      box-shadow: 0 12px 22px rgba(37, 99, 235, 0.24);
+    }
+
+    &:disabled {
+      background: var(--surface-300, #cbd5e1) !important;
+      border-color: var(--surface-300, #cbd5e1) !important;
+      color: var(--surface-700, #475569) !important;
+    }
+  }
+
+  .range-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .range-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    input[type='date'] {
+      padding: 0.375rem 0.5rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 4px;
+      font-size: 0.875rem;
+      background: var(--surface-ground);
+      color: var(--text-color);
+    }
+  }
+
+  .range-hint,
+  .range-validation-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: fit-content;
+    padding: 0.42rem 0.66rem;
+    border-radius: 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .range-hint {
+    color: #1e40af;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: #eff6ff;
+  }
+
+  .range-validation-error {
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    background: #fef2f2;
+  }
+
+  @media (max-width: 768px) {
+    .range-combos {
+      grid-template-columns: 1fr;
+    }
+
+    .range-apply-button,
+    .range-actions {
+      width: 100%;
+      justify-content: stretch;
+    }
+
+    .range-custom {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  }
+}

@@ -1,0 +1,36 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'suppliers.paymentForm' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2>{{ 'suppliers.makePayment' | transloco }}</h2>
+        <p class="description">
+          {{ 'suppliers.makePaymentDescription' | transloco: { name: supplier.name } }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+    <app-supplier-payment-form
+      class="overlay-form"
+      [submitting]="isSubmitting()"
+      [serverError]="serverError()"
+      [maxDate]="today"
+      (paymentSubmitted)="onPaymentSubmitted($event)"
+      (cancelled)="onClose()"
+    />
+  </div>
+</section>

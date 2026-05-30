@@ -1,0 +1,30 @@
+<section class="login-shell min-h-screen p-0 flex items-center justify-center">
+  <!-- Page-level bubble decorations -->
+  <div class="pg-bubble pg-b1"></div>
+  <div class="pg-bubble pg-b2"></div>
+  <div class="pg-bubble pg-ring pg-b3"></div>
+  <div class="pg-bubble pg-ring pg-b4"></div>
+  <div class="pg-bubble pg-ring pg-b5"></div>
+  <div class="pg-bubble pg-b6"></div>
+
+  <article
+    class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20 p-8 text-center space-y-6"
+  >
+    @if (isBusy()) {
+      <header class="auth-header !p-0">
+        <p-progressSpinner strokeWidth="4"></p-progressSpinner>
+        <h2 class="!text-2xl mt-4">{{ 'auth.signingIn' | transloco }}</h2>
+        <p class="text-stone-700 font-medium">{{ 'auth.finishingExternalAuth' | transloco }}</p>
+      </header>
+    } @else {
+      <header class="auth-header !p-0">
+        <i class="pi pi-exclamation-circle text-rose-600 text-5xl mb-4" aria-hidden="true"></i>
+        <h2 class="!text-2xl text-rose-700">{{ 'auth.couldNotSignIn' | transloco }}</h2>
+        <p class="text-stone-700 font-medium">{{ errorMessage() | transloco }}</p>
+      </header>
+      <div class="pt-2">
+        <a pButton routerLink="/login" [label]="'register.backToLogin' | transloco" class="auth-submit w-full"></a>
+      </div>
+    }
+  </article>
+</section>

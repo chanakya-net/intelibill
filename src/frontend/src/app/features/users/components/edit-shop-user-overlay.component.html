@@ -1,0 +1,115 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'users.editShopUser' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'users.shopUsers' | transloco }}</p>
+        <h2>{{ 'users.editUser' | transloco }}</h2>
+        <p class="description">{{ 'users.editUserDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <fieldset class="shop-selection">
+        <legend>{{ 'users.shops' | transloco }}</legend>
+        <p class="shop-selection-description">{{ 'users.selectShopsForAccess' | transloco }}</p>
+
+        <div class="shop-options">
+          @for (shop of availableShops(); track shop) {
+            <label class="shop-option">
+              <input
+                type="checkbox"
+                [checked]="isShopSelected(shop.shopId)"
+                (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
+              />
+              <span>
+                {{ shop.shopName }}
+                @if (shop.isDefault) {
+                  <small>{{ 'users.default' | transloco }}</small>
+                }
+              </span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <label>
+        <span>{{ 'common.firstName' | transloco }}</span>
+        <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
+      </label>
+
+      <label>
+        <span>{{ 'common.lastName' | transloco }}</span>
+        <input pInputText type="text" formControlName="lastName" autocomplete="family-name" />
+      </label>
+
+      <label>
+        <span>{{ 'users.email' | transloco }}</span>
+        <input pInputText type="email" formControlName="email" autocomplete="email" />
+      </label>
+
+      <label>
+        <span>{{ 'users.mobileNumber' | transloco }}</span>
+        <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />
+      </label>
+
+      <label>
+        <span>{{ 'users.role' | transloco }}</span>
+        <select formControlName="role">
+          <option value="Manager">{{ 'users.manager' | transloco }}</option>
+          <option value="Staff">{{ 'users.staff' | transloco }}</option>
+        </select>
+      </label>
+
+      <label class="toggle-row" for="isLoginEnabled">
+        <p-checkbox
+          inputId="isLoginEnabled"
+          formControlName="isLoginEnabled"
+          [binary]="true"
+        ></p-checkbox>
+        <span>{{ 'users.allowUserLogin' | transloco }}</span>
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'users.saveChanges' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
+  </div>
+</section>

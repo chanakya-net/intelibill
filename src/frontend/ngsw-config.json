@@ -1,0 +1,68 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.csr.html",
+          "/index.html",
+          "/manifest.webmanifest",
+          "/*.css",
+          "/*.js"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": ["/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2|json)"]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "ping-no-cache",
+      "urls": [
+        "/api/ping"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 1,
+        "maxAge": "0s",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "offline-sales-api-no-cache",
+      "urls": [
+        "/api/sales/offline-snapshot/stream",
+        "/api/sales/invoice-leases/reserve",
+        "/api/sales/offline-sync"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 1,
+        "maxAge": "0s",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "api-fresh",
+      "urls": [
+        "/api/**"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 100,
+        "maxAge": "1h",
+        "timeout": "8s"
+      }
+    }
+  ]
+}

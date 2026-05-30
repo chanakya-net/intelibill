@@ -1,0 +1,125 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'inventory.productForm' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+        <h2>{{ 'inventory.addNewProduct' | transloco }}</h2>
+        <p class="description">{{ 'inventory.addNewProductDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'inventory.name' | transloco }}</span>
+        <p-autocomplete
+          formControlName="name"
+          [suggestions]="nameSuggestions()"
+          (completeMethod)="onFilterName($event)"
+          (onSelect)="onNameSelected($event.value)"
+          (onBlur)="onNameBlur()"
+          appendTo="body"
+          [fluid]="true"
+        ></p-autocomplete>
+      </label>
+
+      <label>
+        <span>{{ 'inventory.barcode' | transloco }}</span>
+        <p-autocomplete
+          formControlName="barcode"
+          [suggestions]="barcodeSuggestions()"
+          (completeMethod)="onFilterBarcode($event)"
+          (onSelect)="onBarcodeSelected($event.value)"
+          appendTo="body"
+          [fluid]="true"
+        ></p-autocomplete>
+      </label>
+
+      <label>
+        <span>{{ 'inventory.description' | transloco }}</span>
+        <input pInputText type="text" formControlName="description" />
+      </label>
+
+      <label>
+        <span>{{ 'inventory.uom' | transloco }}</span>
+        <input pInputText type="text" formControlName="uom" />
+      </label>
+
+      <label>
+        <span>{{ 'hsn.hsnCode' | transloco }}</span>
+        <input pInputText type="text" formControlName="hsnCode" />
+        @if (suggestedHsnCodes().length > 0) {
+          <div class="suggestion-list" aria-label="HSN suggestions">
+            @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
+              <button
+                type="button"
+                class="suggestion-chip"
+                (click)="selectSuggestedHsnCode(hsnCode)"
+              >
+                {{ hsnCode }}
+              </button>
+            }
+          </div>
+        }
+      </label>
+
+      <label>
+        <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
+        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
+        @if (suggestedTaxSlabs().length > 0) {
+          <div class="suggestion-list" aria-label="Tax suggestions">
+            @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
+              <button
+                type="button"
+                class="suggestion-chip"
+                (click)="selectSuggestedTaxSlab(taxPercentage)"
+              >
+                {{ taxPercentage }}
+              </button>
+            }
+          </div>
+        }
+      </label>
+
+      <label class="toggle-row" for="isActive">
+        <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
+        <span>{{ 'inventory.isActive' | transloco }}</span>
+      </label>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'inventory.addNewProduct' | transloco"
+          [loading]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+  </div>
+</section>

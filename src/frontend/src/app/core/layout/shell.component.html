@@ -1,0 +1,135 @@
+<div class="app-shell min-h-screen">
+  <header class="shell-header">
+    <div class="shell-header-inner">
+      <div class="shell-brand">
+        <div class="shell-logo">OZ</div>
+        <div class="shell-shop" #shopMenuRoot>
+          <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
+          <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
+
+          @if (activeShopLabel(); as activeShopCaption) {
+            <button
+              type="button"
+              class="active-shop-trigger active-shop-trigger-desktop"
+              [attr.aria-expanded]="isShopMenuOpen()"
+              aria-haspopup="menu"
+              [attr.aria-label]="'shell.switchActiveShop' | transloco"
+              (click)="onToggleShopMenu()"
+            >
+              <span class="active-shop-caption">{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
+            </button>
+          }
+
+          @if (activeShopLabel(); as activeShopCaption) {
+            <button
+              type="button"
+              class="active-shop-trigger active-shop-trigger-mobile"
+              [attr.aria-expanded]="isShopMenuOpen()"
+              aria-haspopup="menu"
+              [attr.aria-label]="'shell.switchActiveShop' | transloco"
+              (click)="onToggleShopMenu()"
+            >
+              <span class="active-shop-caption">{{ activeShopCaption }}</span>
+              <i class="pi pi-chevron-down" aria-hidden="true"></i>
+            </button>
+          }
+
+          @if (isShopMenuOpen()) {
+            <div
+              class="shop-menu"
+              role="menu"
+              [attr.aria-label]="'shell.availableShops' | transloco"
+            >
+              @for (shop of shops(); track shop) {
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="shop-menu-item"
+                  [class.is-current]="shop.shopId === activeShopId()"
+                  (click)="onSelectShop(shop.shopId)"
+                >
+                  {{ shop.shopName }}{{ shopDetailsById()[shop.shopId]?.pincode?.trim() ? ` - ${shopDetailsById()[shop.shopId]?.pincode?.trim()}` : '' }}
+                  @if (shop.shopId === activeShopId()) {
+                    <span>{{ 'shell.active' | transloco }}</span>
+                  }
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+      </div>
+
+      @if (menuService.mainMenuItems().length > 0) {
+        <div class="shell-middle-zone">
+          <p-menubar [model]="menuService.mainMenuItems()" [pt]="menubarPt"></p-menubar>
+        </div>
+      }
+
+      <div class="shell-actions" #profileMenuRoot>
+        <app-mobile-nav
+          [menuItems]="menuService.mainMenuItems()"
+          (itemSelected)="onMenuItemSelected($event)"
+        ></app-mobile-nav>
+
+        <button
+          type="button"
+          class="profile-trigger"
+          [attr.aria-label]="'shell.openProfileMenu' | transloco"
+          [attr.aria-expanded]="isProfileMenuOpen()"
+          aria-haspopup="menu"
+          (click)="onToggleProfileMenu($event)"
+        >
+          <span class="profile-avatar">{{ profileInitials() }}</span>
+          <span class="profile-text">
+            <span class="profile-name">{{ profileDisplayName() }}</span>
+            <span class="profile-label">{{ 'shell.profile' | transloco }}</span>
+          </span>
+          <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
+        </button>
+
+        <p-tieredMenu
+          #profileMenu
+          [model]="profileMenuItems()"
+          [popup]="true"
+          styleClass="profile-prime-menu"
+          [attr.aria-label]="'shell.profileActions' | transloco"
+          (onShow)="isProfileMenuOpen.set(true)"
+          (onHide)="isProfileMenuOpen.set(false)"
+        ></p-tieredMenu>
+      </div>
+    </div>
+
+  </header>
+
+  <main class="mx-auto w-full max-w-[95rem] px-4 py-6 sm:px-6 lg:px-8">
+    <router-outlet></router-outlet>
+  </main>
+
+  @if (showCreateShopOverlayAuto() || showCreateShopOverlayManual()) {
+    <app-create-shop-overlay
+      (closeRequested)="onCreateShopOverlayClose()"
+    ></app-create-shop-overlay>
+  }
+
+  @if (showManageShopOverlay()) {
+    <app-manage-shop-overlay
+      [shops]="shops()"
+      (closeRequested)="onManageShopOverlayClose()"
+    ></app-manage-shop-overlay>
+  }
+
+  @if (showUpdateProfileOverlay() && session()?.user) {
+    <app-update-profile-overlay
+      [user]="session()!.user"
+      (closeRequested)="onProfileOverlayClose()"
+    ></app-update-profile-overlay>
+  }
+
+  @if (showChangePasswordOverlay()) {
+    <app-change-password-overlay
+      (closeRequested)="onProfileOverlayClose()"
+    ></app-change-password-overlay>
+  }
+</div>

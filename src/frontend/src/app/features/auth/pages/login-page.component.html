@@ -1,0 +1,142 @@
+<section class="login-shell min-h-screen p-0">
+  <!-- Page-level bubble decorations -->
+  <div class="pg-bubble pg-b1"></div>
+  <div class="pg-bubble pg-b2"></div>
+  <div class="pg-bubble pg-ring pg-b3"></div>
+  <div class="pg-bubble pg-ring pg-b4"></div>
+  <div class="pg-bubble pg-ring pg-b5"></div>
+  <div class="pg-bubble pg-b6"></div>
+
+  <div class="auth-stage w-full min-h-screen">
+    <article
+      class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
+    >
+      <header class="auth-header">
+        <h2>{{ 'auth.loginNow' | transloco }}</h2>
+      </header>
+
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+        class="login-form space-y-4 p-6 pt-6"
+        [class.form-busy]="isHttpLoading()"
+      >
+        <div class="field-wrap space-y-1.5">
+          <label for="identifier">{{ 'auth.loginIdentifierLabel' | transloco }}</label>
+          <input
+            id="identifier"
+            type="text"
+            pInputText
+            formControlName="identifier"
+            autocomplete="username"
+            class="w-full"
+            [placeholder]="'auth.loginIdentifierPlaceholder' | transloco"
+            [class.ng-invalid]="form.controls.identifier.invalid && form.controls.identifier.touched"
+            [pt]="emailInputPt"
+          />
+          @if (form.controls.identifier.invalid && form.controls.identifier.touched) {
+            <p class="field-error">{{ 'auth.validation.loginIdentifierRequired' | transloco }}</p>
+          }
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="password">{{ 'auth.password' | transloco }}</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="current-password"
+            [placeholder]="'auth.password' | transloco"
+            [pt]="passwordInputPt"
+          ></p-password>
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <p class="field-error">{{ 'auth.validation.passwordRequired' | transloco }}</p>
+          }
+          <div class="text-right mt-1">
+            <a routerLink="/forgot-password" class="text-sm text-orange-700 hover:text-orange-900">
+              {{ 'auth.forgotPassword.link' | transloco }}?
+            </a>
+          </div>
+        </div>
+
+        @if (successMessage()) {
+          <p class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {{ successMessage() | transloco }}
+          </p>
+        }
+
+        @if (serverError()) {
+          <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {{ getServerErrorMessage() }}
+          </p>
+        }
+
+        <button
+          pButton
+          type="submit"
+          [label]="isHttpLoading() ? ('auth.signingIn' | transloco) : ('auth.loginCta' | transloco)"
+          [disabled]="form.invalid || isHttpLoading()"
+          class="auth-submit w-full"
+        ></button>
+
+        <p class="social-title">{{ 'auth.orLoginWith' | transloco }}</p>
+
+        <div class="social-actions">
+          <button
+            type="button"
+            class="social-button"
+            (click)="onFacebookLogin()"
+            [disabled]="isHttpLoading()"
+          >
+            <span class="social-icon social-icon-fb">f</span>
+            <span>{{ 'auth.facebook' | transloco }}</span>
+          </button>
+          <button
+            type="button"
+            class="social-button"
+            (click)="onGoogleLogin()"
+            [disabled]="isHttpLoading()"
+          >
+            <span class="social-icon social-icon-google">G</span>
+            <span>{{ 'auth.google' | transloco }}</span>
+          </button>
+        </div>
+
+        <p class="signup-hint">
+          {{ 'auth.notMember' | transloco }}
+          <a routerLink="/register">{{ 'auth.signupNow' | transloco }}</a>
+        </p>
+
+        <div class="lang-pick">
+          <i class="pi pi-globe" aria-hidden="true"></i>
+          <select
+            id="language"
+            [attr.aria-label]="'common.language' | transloco"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            @for (language of supportedLanguages; track language) {
+              <option [value]="language" [selected]="language === currentLanguage()">
+                {{ nativeLanguageNames[language] }}
+              </option>
+            }
+          </select>
+        </div>
+      </form>
+
+      @if (isHttpLoading()) {
+        <div class="form-overlay">
+          <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
+        </div>
+      }
+    </article>
+
+    <aside class="visual-panel" aria-hidden="true">
+      <div class="v-disc v-disc-one"></div>
+      <div class="v-disc v-disc-two"></div>
+      <div class="v-disc v-disc-three"></div>
+    </aside>
+  </div>
+</section>

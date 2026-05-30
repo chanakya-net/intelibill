@@ -1,0 +1,156 @@
+.cart-table {
+  .p-datatable-thead > tr > th,
+  .p-datatable-tbody > tr > td {
+    vertical-align: top;
+  }
+}
+
+.cart-section + .cart-section {
+  margin-top: 1rem;
+}
+
+.cart-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cart-item-cell {
+  min-width: 18rem;
+}
+
+.cart-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cart-item-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cart-item-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cart-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.meta-separator {
+  color: #cbd5e1;
+}
+
+.advanced-toggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.discount-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.advanced-line-edit {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.advanced-line-edit[hidden] {
+  display: none;
+}
+
+.line-override {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.qty-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.qty-value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.cart-line-total {
+  white-space: nowrap;
+}
+
+.discount-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 10rem) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.discount-type-select {
+  min-height: 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+}
+
+.discount-unit {
+  align-self: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.error-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .cart-item-cell {
+    min-width: 0;
+  }
+
+  .cart-item-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .advanced-toggle {
+    align-self: flex-start;
+  }
+
+  .advanced-line-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .discount-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .discount-unit {
+    justify-self: flex-start;
+  }
+}

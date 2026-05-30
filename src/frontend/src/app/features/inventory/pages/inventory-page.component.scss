@@ -1,0 +1,153 @@
+.inventory-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.inventory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #f5f5f4;
+  padding-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c2410c; /* Warm amber-700 */
+}
+
+h1 {
+  margin: 0.3rem 0 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1c1917; /* warm slate */
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: #78716c; /* warm stone */
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  background-color: #fef2f2;
+  border-left: 4px solid #ef4444;
+  border-radius: 4px;
+}
+
+/* Four Summary Cards Grid */
+.summary-cards-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #f1f0ee;
+  border-radius: 8px; /* 8px or below under app control */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgba(120, 113, 108, 0.15);
+    border-color: #fed7aa; /* warm orange */
+  }
+
+  .summary-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .summary-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .summary-card-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #78716c;
+  }
+
+  .summary-card-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1c1917;
+  }
+
+  /* Specific Card Colorings */
+  &.active-products {
+    .summary-card-icon {
+      background-color: #fff7ed;
+      color: #ea580c; /* orange */
+    }
+  }
+
+  &.stock-value {
+    .summary-card-icon {
+      background-color: #f0fdf4;
+      color: #16a34a; /* green */
+    }
+  }
+
+  &.low-stock {
+    .summary-card-icon {
+      background-color: #fffbeb;
+      color: #d97706; /* amber */
+    }
+  }
+
+  &.out-of-stock {
+    .summary-card-icon {
+      background-color: #fef2f2;
+      color: #dc2626; /* red */
+    }
+  }
+}
+
+/* Product Catalog Panel */
+.product-catalog-panel {
+  padding: 1.5rem;
+  background: #ffffff;
+  border: 1px solid #f1f0ee;
+  border-radius: 8px; /* 8px or below */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.catalog-title {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}

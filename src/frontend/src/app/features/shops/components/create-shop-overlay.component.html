@@ -1,0 +1,329 @@
+<section class="create-shop-overlay" aria-modal="true" role="dialog">
+  <div class="overlay-backdrop"></div>
+
+  <article class="overlay-card" [class.card-busy]="isSubmitting()">
+    <header class="overlay-header">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        class="overlay-close"
+        [disabled]="isSubmitting()"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      ></button>
+
+      <p class="overlay-kicker">{{ 'shops.workspaceSetup' | transloco }}</p>
+      <h2>{{ 'shops.createFirstShop' | transloco }}</h2>
+      <p>{{ 'shops.createFirstShopDescription' | transloco }}</p>
+    </header>
+
+    <p-stepper [(value)]="activeStep" class="overlay-stepper">
+      <p-step-list>
+        <p-step [value]="1">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
+            >
+              <i class="pi pi-shop"></i>
+            </span>
+          </ng-template>
+        </p-step>
+        <p-step [value]="2">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
+            >
+              <i class="pi pi-credit-card"></i>
+            </span>
+          </ng-template>
+        </p-step>
+        <p-step [value]="3">
+          <ng-template #content let-value="value">
+            <span
+              class="rounded-full border-2 w-10 h-10 inline-flex items-center justify-center"
+              [ngClass]="{
+                'bg-primary text-primary-contrast border-primary': value <= activeStep(),
+                'border-surface': value > activeStep()
+              }"
+              [class.cursor-pointer]="value < activeStep()"
+              role="button"
+              tabindex="0"
+              (click)="onStepIconClick(value)"
+              (keydown.enter)="onStepIconClick(value)"
+              (keydown.space)="onStepIconClick(value)"
+            >
+              <i class="pi pi-check"></i>
+            </span>
+          </ng-template>
+        </p-step>
+      </p-step-list>
+
+      <p-step-panels>
+        <!-- Step 1: Shop Info -->
+        <p-step-panel [value]="1">
+          <ng-template #content>
+            <form [formGroup]="shopForm" (ngSubmit)="onNextFromStep1()" class="overlay-form space-y-4">
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
+                <input
+                  id="shop-name"
+                  type="text"
+                  pInputText
+                  formControlName="name"
+                  autocomplete="organization"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.shopName' | transloco"
+                  [class.ng-invalid]="shopForm.controls.name.invalid && shopForm.controls.name.touched"
+                />
+                @if (shopForm.controls.name.hasError('required') && shopForm.controls.name.touched) {
+                  <p class="field-error">{{ 'shops.validation.shopNameRequired' | transloco }}</p>
+                }
+                @if (shopForm.controls.name.hasError('maxlength') && shopForm.controls.name.touched) {
+                  <p class="field-error">{{ 'shops.validation.shopNameMaxLength' | transloco }}</p>
+                }
+              </div>
+
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-address">{{ 'shops.address' | transloco }}</label>
+                <input
+                  id="shop-address"
+                  type="text"
+                  pInputText
+                  formControlName="address"
+                  autocomplete="street-address"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.address' | transloco"
+                  [class.ng-invalid]="shopForm.controls.address.invalid && shopForm.controls.address.touched"
+                />
+                @if (shopForm.controls.address.hasError('required') && shopForm.controls.address.touched) {
+                  <p class="field-error">{{ 'shops.validation.addressRequired' | transloco }}</p>
+                }
+              </div>
+
+              <div class="field-grid">
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-city">{{ 'shops.city' | transloco }}</label>
+                  <input
+                    id="shop-city"
+                    type="text"
+                    pInputText
+                    formControlName="city"
+                    autocomplete="address-level2"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.city' | transloco"
+                    [class.ng-invalid]="shopForm.controls.city.invalid && shopForm.controls.city.touched"
+                  />
+                  @if (shopForm.controls.city.hasError('required') && shopForm.controls.city.touched) {
+                    <p class="field-error">{{ 'shops.validation.cityRequired' | transloco }}</p>
+                  }
+                </div>
+
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-state">{{ 'shops.state' | transloco }}</label>
+                  <input
+                    id="shop-state"
+                    type="text"
+                    pInputText
+                    formControlName="state"
+                    autocomplete="address-level1"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.state' | transloco"
+                    [class.ng-invalid]="shopForm.controls.state.invalid && shopForm.controls.state.touched"
+                  />
+                  @if (shopForm.controls.state.hasError('required') && shopForm.controls.state.touched) {
+                    <p class="field-error">{{ 'shops.validation.stateRequired' | transloco }}</p>
+                  }
+                </div>
+              </div>
+
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-pincode">{{ 'shops.pincode' | transloco }}</label>
+                <input
+                  id="shop-pincode"
+                  type="text"
+                  pInputText
+                  formControlName="pincode"
+                  autocomplete="postal-code"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.pincode' | transloco"
+                  [class.ng-invalid]="shopForm.controls.pincode.invalid && shopForm.controls.pincode.touched"
+                />
+                @if (shopForm.controls.pincode.hasError('required') && shopForm.controls.pincode.touched) {
+                  <p class="field-error">{{ 'shops.validation.pincodeRequired' | transloco }}</p>
+                }
+              </div>
+
+              <div class="field-grid">
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
+                  <input
+                    id="shop-contact-person"
+                    type="text"
+                    pInputText
+                    formControlName="contactPerson"
+                    autocomplete="name"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.contactPerson' | transloco"
+                  />
+                </div>
+
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-mobile">{{ 'shops.mobileNumberOptional' | transloco }}</label>
+                  <input
+                    id="shop-mobile"
+                    type="text"
+                    pInputText
+                    formControlName="mobileNumber"
+                    autocomplete="tel"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.mobileNumber' | transloco"
+                  />
+                </div>
+              </div>
+
+              <div class="field-wrap space-y-1.5">
+                <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
+                <input
+                  id="shop-gst"
+                  type="text"
+                  pInputText
+                  formControlName="gstNumber"
+                  class="w-full"
+                  [placeholder]="'shops.placeholders.gst' | transloco"
+                  [class.ng-invalid]="shopForm.controls.gstNumber.invalid && shopForm.controls.gstNumber.touched"
+                />
+                @if (shopForm.controls.gstNumber.hasError('pattern') && shopForm.controls.gstNumber.touched) {
+                  <p class="field-error">{{ 'shops.validation.gstInvalid' | transloco }}</p>
+                }
+              </div>
+
+              @if (serverError()) {
+                <p class="server-error">{{ serverError() | transloco }}</p>
+              }
+
+              <div class="flex pt-4 justify-end">
+                <button
+                  pButton
+                  type="submit"
+                  [label]="isSubmitting() ? ('shops.creatingShop' | transloco) : ('shops.nextStep' | transloco)"
+                  [loading]="isSubmitting()"
+                  [disabled]="shopForm.invalid || isSubmitting()"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="create-button"
+                ></button>
+              </div>
+            </form>
+          </ng-template>
+        </p-step-panel>
+
+        <!-- Step 2: Bank Details (optional) -->
+        <p-step-panel [value]="2">
+          <ng-template #content>
+            <form [formGroup]="bankForm" (ngSubmit)="onSaveFromStep2()" class="overlay-form space-y-4">
+              <div class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</div>
+
+              <app-bank-account-form [form]="bankForm" idPrefix="create"></app-bank-account-form>
+
+              @if (serverError()) {
+                <p class="server-error">{{ serverError() | transloco }}</p>
+              }
+
+              <div class="flex pt-4 justify-between">
+                <div class="flex gap-2">
+                  <p-button
+                    type="button"
+                    [label]="'shops.previousStep' | transloco"
+                    icon="pi pi-arrow-left"
+                    severity="secondary"
+                    [text]="true"
+                    [disabled]="isSubmitting()"
+                    (onClick)="onPreviousStep()"
+                  />
+                  <p-button
+                    type="button"
+                    [label]="'shops.skipBankDetails' | transloco"
+                    severity="secondary"
+                    [text]="true"
+                    [disabled]="isSubmitting()"
+                    (onClick)="onSkipStep2()"
+                  />
+                </div>
+                <button
+                  pButton
+                  type="submit"
+                  [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)"
+                  [loading]="isSubmitting()"
+                  [disabled]="bankForm.invalid || isSubmitting()"
+                  class="create-button"
+                ></button>
+              </div>
+            </form>
+          </ng-template>
+        </p-step-panel>
+
+        <!-- Step 3: Success -->
+        <p-step-panel [value]="3">
+          <ng-template #content>
+            <div class="flex flex-col items-center gap-4 py-8">
+              <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
+                <i class="pi pi-check text-3xl"></i>
+              </span>
+              <div class="text-center">
+                <h3 class="text-lg font-semibold mb-1">{{ 'shops.shopCreated' | transloco }}</h3>
+                <p class="text-sm text-muted">{{ 'shops.shopCreatedDescription' | transloco }}</p>
+              </div>
+              <button
+                pButton
+                type="button"
+                [label]="'shops.previousStep' | transloco"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                [text]="true"
+                (click)="onPreviousStep()"
+              ></button>
+              <button
+                pButton
+                type="button"
+                [label]="'shops.done' | transloco"
+                icon="pi pi-check"
+                class="create-button mt-2"
+                (click)="onDone()"
+              ></button>
+            </div>
+          </ng-template>
+        </p-step-panel>
+      </p-step-panels>
+    </p-stepper>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
+      </div>
+    }
+  </article>
+</section>

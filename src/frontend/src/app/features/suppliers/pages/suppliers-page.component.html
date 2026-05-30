@@ -1,0 +1,146 @@
+<section class="suppliers-page">
+  <header class="suppliers-header">
+    <div>
+      <p class="eyebrow">{{ 'suppliers.supplierDirectory' | transloco }}</p>
+      <h1>{{ 'suppliers.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'suppliers.subtitle' | transloco }}</p>
+    </div>
+
+    @if (canManageSuppliers()) {
+      <button
+        pButton
+        type="button"
+        [label]="'suppliers.addSupplier' | transloco"
+        icon="pi pi-plus"
+        (click)="onOpenAddSupplier()"
+      ></button>
+    }
+  </header>
+
+  @if (serverError()) {
+    <p class="error">{{ serverError() | transloco }}</p>
+  }
+
+  @if (isLoading()) {
+    <!-- Mobile Skeleton (≤1023px) -->
+    <div class="mobile-grid-container">
+      <div class="supplier-list flex flex-col gap-3 px-1">
+        @for (i of [1,2,3,4]; track i) {
+          <p-card class="supplier-card-item" [pt]="{
+            root: { class: 'border border-orange-100 shadow-none' },
+            body: { class: 'p-3' },
+            content: { class: 'p-0' }
+          }">
+            <div class="flex items-center gap-4">
+              <!-- Left: Avatar Skeleton -->
+              <p-skeleton shape="circle" size="3rem" class="flex-shrink-0" />
+
+              <!-- Center: Info Skeleton -->
+              <div class="flex-1 flex flex-col gap-2 min-w-0">
+                <p-skeleton width="60%" height="1.25rem" />
+                <div class="flex items-center gap-2">
+                  <p-skeleton width="40%" height="1rem" />
+                  <p-skeleton width="20%" height="1rem" />
+                </div>
+              </div>
+
+              <!-- Right: Balance & Actions Skeleton -->
+              <div class="flex flex-col items-end gap-3">
+                <p-skeleton width="4rem" height="1.5rem" />
+                <div class="flex gap-2">
+                  <p-skeleton width="2rem" height="2rem" />
+                  <p-skeleton width="2rem" height="2rem" />
+                </div>
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+    </div>
+
+    <!-- Desktop Table Skeleton (≥1024px) -->
+    <div class="suppliers-table-card desktop-table">
+      <p-table [value]="[1,2,3,4,5,6]" class="p-datatable-sm">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'suppliers.name' | transloco }}</th>
+            <th>{{ 'suppliers.contactPerson' | transloco }}</th>
+            <th>{{ 'suppliers.contactPhone' | transloco }}</th>
+            <th>{{ 'suppliers.city' | transloco }}</th>
+            <th>{{ 'suppliers.state' | transloco }}</th>
+            <th>{{ 'suppliers.pin' | transloco }}</th>
+            <th>{{ 'suppliers.balance' | transloco }}</th>
+            <th>{{ 'suppliers.status' | transloco }}</th>
+            <th>{{ 'suppliers.preferred' | transloco }}</th>
+            @if (canManageSuppliers() || canMakePayment()) {
+              <th>{{ 'suppliers.actions' | transloco }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body">
+          <tr>
+            <td><p-skeleton width="80%" /></td>
+            <td><p-skeleton width="60%" /></td>
+            <td><p-skeleton width="70%" /></td>
+            <td><p-skeleton width="50%" /></td>
+            <td><p-skeleton width="40%" /></td>
+            <td><p-skeleton width="30%" /></td>
+            <td><p-skeleton width="60%" /></td>
+            <td><p-skeleton width="4rem" height="1.5rem" /></td>
+            <td><p-skeleton width="3rem" height="1.5rem" /></td>
+            @if (canManageSuppliers() || canMakePayment()) {
+              <td>
+                <div class="flex gap-2">
+                  <p-skeleton width="6rem" height="2rem" />
+                  <p-skeleton width="6rem" height="2rem" />
+                </div>
+              </td>
+            }
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  } @else {
+    <app-suppliers-filter-bar
+      [searchValue]="searchValue()"
+      [statusFilter]="statusFilter()"
+      (searchValueChange)="searchValue.set($event)"
+      (statusFilterChange)="onStatusFilterChange($event)"
+    />
+
+    <app-suppliers-table
+      [suppliers]="filteredSuppliers()"
+      [canManageSuppliers]="canManageSuppliers()"
+      [canMakePayment]="canMakePayment()"
+      (openSupplierDetail)="onOpenSupplierDetail($event)"
+      (editSupplier)="onOpenEditSupplier($event)"
+      (makePayment)="onOpenMakePayment($event)"
+    />
+  }
+
+  @if (showAddSupplierOverlay()) {
+    <app-add-supplier-overlay (closeRequested)="onCloseAddSupplier()"></app-add-supplier-overlay>
+  }
+
+  @if (showEditSupplierOverlay() && editingSupplier()) {
+    <app-edit-supplier-overlay
+      [supplier]="$any(editingSupplier())"
+      (closeRequested)="onCloseEditSupplier()"
+    ></app-edit-supplier-overlay>
+  }
+
+  @if (showDetailModal() && detailSupplierId()) {
+    <app-supplier-detail
+      [supplier]="detailSupplier()"
+      [supplierId]="detailSupplierId()"
+      (closeRequested)="onCloseSupplierDetail()"
+    ></app-supplier-detail>
+  }
+
+  @if (showMakePaymentOverlay() && paymentSupplier()) {
+    <app-make-payment-overlay
+      [supplier]="$any(paymentSupplier())"
+      (closeRequested)="onCloseMakePayment()"
+    ></app-make-payment-overlay>
+  }
+</section>

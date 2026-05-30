@@ -1,0 +1,162 @@
+<div class="table-card">
+  @if (saveSummary) {
+    <div class="save-summary" [class.save-summary--partial]="saveSummary.failedCount > 0">
+      <strong>
+        @if (saveSummary.failedCount === 0) {
+          {{ 'inventory.savedSuccess' | transloco }}
+        } @else {
+          {{ 'inventory.savedPartial' | transloco }}
+        }
+      </strong>
+      <span>{{ saveSummary.successCount }}/{{ saveSummary.requestedCount }}</span>
+    </div>
+  }
+
+  <div class="table-header">
+    <h2>{{ 'inventory.pendingRows' | transloco }}</h2>
+    <div class="row-count">
+      {{ 'inventory.rowCount' | transloco }}: {{ pendingRows().length }}
+    </div>
+  </div>
+
+  @if (loadingDraft() || isSaving) {
+    <div class="loading">
+      <p-progressSpinner [style]="{ width: '2rem', height: '2rem' }" strokeWidth="6"></p-progressSpinner>
+    </div>
+  }
+
+  @if (!loadingDraft()) {
+    <div class="mobile-rows-list">
+      @for (row of pendingRows(); track row.clientRowId) {
+        <div
+          class="pending-row-card"
+          [class.pending-row-card--failed]="failedClientRowIds().has(row.clientRowId)"
+          [class.pending-row-card--scanned]="highlightedRowId === row.clientRowId"
+        >
+          <div class="pending-row-avatar" [style.background-color]="pendingRowAvatarColor(row.itemName)">
+            <span>{{ pendingRowInitials(row.itemName) }}</span>
+          </div>
+          <div class="pending-row-body">
+            <p class="pending-row-name">{{ row.itemName }}</p>
+            <p class="pending-row-barcode">{{ row.barcode }}</p>
+            <div class="pending-row-meta">
+              <span>{{ 'inventory.batchNumber' | transloco }}: {{ row.batchNumber }}</span>
+              <span>{{ 'inventory.quantity' | transloco }}: {{ row.quantity }}</span>
+              <span>{{ 'inventory.salesPrice' | transloco }}: {{ row.salesPrice }}</span>
+            </div>
+            @if (failedRowErrorTextById().get(row.clientRowId); as errText) {
+              <small class="row-error-text">{{ errText }}</small>
+            }
+          </div>
+          <div class="pending-row-actions">
+            <button
+              pButton
+              type="button"
+              icon="pi pi-pencil"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              (click)="editRow.emit(row.clientRowId)"
+              [disabled]="isSaving"
+              [attr.aria-label]="'inventory.edit' | transloco"
+            ></button>
+            <button
+              pButton
+              type="button"
+              icon="pi pi-trash"
+              [text]="true"
+              [rounded]="true"
+              severity="danger"
+              size="small"
+              (click)="removeRow.emit(row.clientRowId)"
+              [disabled]="isSaving"
+              [attr.aria-label]="'inventory.remove' | transloco"
+            ></button>
+          </div>
+        </div>
+      }
+      @if (pendingRows().length === 0) {
+        <div class="empty-state">
+          <h3>{{ 'inventory.noPendingRows' | transloco }}</h3>
+          <p>{{ 'inventory.noPendingRowsDescription' | transloco }}</p>
+        </div>
+      }
+    </div>
+
+    <p-table class="desktop-pending-table p-datatable-sm" [value]="pendingRows()" [scrollable]="true" scrollHeight="420px">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'inventory.name' | transloco }}</th>
+          <th>{{ 'inventory.quantity' | transloco }}</th>
+          <th>{{ 'inventory.salesPrice' | transloco }}</th>
+          <th>{{ 'inventory.actions' | transloco }}</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class.failed-row]="failedClientRowIds().has(row.clientRowId)" [class.scanned-row]="highlightedRowId === row.clientRowId">
+          <td>
+            <div>{{ row.itemName }}</div>
+            @if (failedRowErrorTextById().get(row.clientRowId); as rowErrorText) {
+              <small class="row-error-text">{{ rowErrorText }}</small>
+            }
+          </td>
+          <td>{{ row.quantity }}</td>
+          <td>{{ row.salesPrice }}</td>
+          <td>
+            <div class="row-actions">
+              <button
+                pButton
+                type="button"
+                size="small"
+                [label]="'inventory.edit' | transloco"
+                icon="pi pi-pencil"
+                (click)="editRow.emit(row.clientRowId)"
+                [disabled]="isSaving"
+              ></button>
+              <button
+                pButton
+                type="button"
+                severity="danger"
+                size="small"
+                [label]="'inventory.remove' | transloco"
+                icon="pi pi-trash"
+                (click)="removeRow.emit(row.clientRowId)"
+                [disabled]="isSaving"
+              ></button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4">
+            <div class="empty-state">
+              <h3>{{ 'inventory.noPendingRows' | transloco }}</h3>
+              <p>{{ 'inventory.noPendingRowsDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+
+  <div class="table-actions">
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      [label]="'inventory.clearAll' | transloco"
+      icon="pi pi-times"
+      (click)="clearAll.emit()"
+      [disabled]="pendingRows().length === 0 || isSaving"
+    ></button>
+    <button
+      pButton
+      type="button"
+      [label]="'inventory.saveAll' | transloco"
+      icon="pi pi-save"
+      (click)="saveAll.emit()"
+      [disabled]="pendingRows().length === 0 || isSaving"
+    ></button>
+  </div>
+</div>

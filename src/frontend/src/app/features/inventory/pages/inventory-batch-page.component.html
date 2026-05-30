@@ -1,0 +1,29 @@
+<p-toast></p-toast>
+
+<section class="inventory-batch-page">
+  <header class="inventory-header">
+    <div>
+      <p class="eyebrow">{{ 'inventory.directory' | transloco }}</p>
+      <h1>{{ 'inventory.batchInboundTitle' | transloco }}</h1>
+      <p class="subtitle">{{ 'inventory.batchInboundSubtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  <app-batch-row-form (rowSubmitted)="onRowSubmitted($event)" (scannerRequested)="openScanner()" />
+
+  <app-batch-save-results
+    [saveSummary]="saveSummary()"
+    [isSaving]="isSaving()"
+    [highlightedRowId]="highlightedRowId()"
+    (editRow)="onEditRow($event)"
+    (removeRow)="onRemoveRow($event)"
+    (clearAll)="onClearAll()"
+    (saveAll)="onSaveAll()"
+  />
+
+  <app-barcode-scanner-dialog
+    [visible]="isScannerOpen()"
+    (visibleChange)="onScannerVisibilityChange($event)"
+    (detected)="handleScannedBarcode($event)"
+  />
+</section>

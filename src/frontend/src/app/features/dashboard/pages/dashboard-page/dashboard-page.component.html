@@ -1,0 +1,202 @@
+<div class="dashboard-page">
+  <div class="dashboard-header">
+    <h1>{{ 'dashboard.title' | transloco }}</h1>
+    <button pButton type="button" icon="pi pi-refresh" [label]="'dashboard.refresh' | transloco" [disabled]="loading()" (click)="onRefresh()"></button>
+  </div>
+
+  <app-dashboard-date-range
+    [preset]="selectedPreset()"
+    [startDate]="activeStartDate()"
+    [endDate]="activeEndDate()"
+    [presets]="presetOptions()"
+    [maxRangeDays]="maxRangeDays"
+    [loading]="loading()"
+    (rangeChange)="onRangeChange($event)">
+  </app-dashboard-date-range>
+
+  <label class="combo-field">
+    <span>{{ 'dashboard.metricLabel' | transloco }}</span>
+    <p-select
+      [options]="metricOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="selectedMetric()"
+      (ngModelChange)="onMetricChange($event)"
+      appendTo="body"
+    >
+      <ng-template pTemplate="selectedItem" let-option>
+        {{ option.label | transloco }}
+      </ng-template>
+      <ng-template pTemplate="item" let-option>
+        {{ option.label | transloco }}
+      </ng-template>
+    </p-select>
+  </label>
+
+  @if (loading() && !data()) {
+    <div class="dashboard-loading"><p-progressSpinner></p-progressSpinner></div>
+  }
+
+  @if (isLoadingWithData()) {
+    <div class="dashboard-loading-overlay" role="status" aria-busy="true"><p-progressSpinner strokeWidth="4"></p-progressSpinner></div>
+  }
+
+  @if (error() && !data()) {
+    <div class="dashboard-error"><p>{{ error() }}</p></div>
+  }
+
+  @if (error() && data()) {
+    <div class="dashboard-stale-warning"><span class="pi pi-exclamation-triangle"></span><span>{{ 'dashboard.staleDataWarning' | transloco }}</span></div>
+  }
+
+  @if (data(); as dashboard) {
+    <app-dashboard-chart
+      [chartData]="selectedChartData()"
+      [chartType]="selectedChartType()"
+      [title]="selectedChartTitle()"
+      [loading]="loading()"
+      [chartOptions]="selectedChartOptions()"
+      (chartTypeChange)="onChartTypeChange($event)">
+    </app-dashboard-chart>
+
+    <div class="dashboard-freshness-badge">
+      <div class="freshness-item"><span class="pi pi-clock"></span><span class="freshness-label">{{ 'dashboard.dataFreshnessStamp' | transloco }}:</span><span class="freshness-value">{{ dashboard.generatedAt | date: 'medium' }}</span></div>
+      <div class="freshness-item"><span class="pi pi-calendar"></span><span class="freshness-label">{{ 'dashboard.rangeSummary' | transloco }}:</span><span class="freshness-value">{{ dashboard.startDate }} – {{ dashboard.endDate }}</span></div>
+    </div>
+
+    @if (dashboard.hasNoSalesActivity) {
+      <div class="dashboard-no-activity"><span class="pi pi-info-circle"></span><span>{{ 'dashboard.noActivity' | transloco }}</span></div>
+    }
+
+    @if (dashboard.alerts.length > 0) {
+      <div class="dashboard-alerts">
+        @for (alert of dashboard.alerts; track alert.alertType) {
+          <div class="dashboard-alert" [class]="'alert-' + alert.alertType.toLowerCase()">
+            <span class="pi pi-exclamation-circle"></span><span>{{ 'dashboard.alert' + alert.alertType | transloco }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (dashboard.salesBooked !== null) {
+      <div class="dashboard-section card-style">
+        <button type="button" class="dashboard-section-toggle" (click)="toggleSection('sales')" [attr.aria-expanded]="sectionExpanded().sales">
+          <span>{{ 'dashboard.sectionSales' | transloco }}</span>
+          <span class="dashboard-section-summary">{{ 'dashboard.netSalesBooked' | transloco }}: {{ dashboard.netSalesBooked | currency: 'INR' }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().sales" [class.pi-chevron-up]="sectionExpanded().sales"></span>
+        </button>
+        @if (sectionExpanded().sales) {
+          <p class="dashboard-adjustment-loss-note"><span class="pi pi-info-circle"></span><span>{{ 'dashboard.adjustmentLossNote' | transloco }}</span></p>
+          <div class="dashboard-kpi-grid">
+            <app-dashboard-metric-card [label]="'dashboard.salesBooked'" [value]="dashboard.salesBooked" [loading]="loading()" [currency]="true" [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.salesBooked)"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.netSalesBooked'" [value]="dashboard.netSalesBooked" [loading]="loading()" [currency]="true" [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.netSalesBooked)"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.profitBeforeTax'" [value]="dashboard.profitBeforeTax" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.profitAfterTax'" [value]="dashboard.profitAfterTax" [loading]="loading()" [currency]="true" [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.profitAfterTax)"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.wastageCost'" [value]="dashboard.wastageCost" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
+          </div>
+        }
+      </div>
+    }
+
+    @if (dashboard.expenseRecorded !== null) {
+      <div class="dashboard-section card-style">
+        <button type="button" class="dashboard-section-toggle" (click)="toggleSection('expenses')" [attr.aria-expanded]="sectionExpanded().expenses">
+          <span>{{ 'dashboard.sectionExpenses' | transloco }}</span>
+          <span class="dashboard-section-summary">{{ 'dashboard.netExpense' | transloco }}: {{ dashboard.netExpense | currency: 'INR' }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().expenses" [class.pi-chevron-up]="sectionExpanded().expenses"></span>
+        </button>
+        @if (sectionExpanded().expenses) {
+          <div class="dashboard-kpi-grid">
+            <app-dashboard-metric-card [label]="'dashboard.expenseRecorded'" [value]="dashboard.expenseRecorded" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.expenseCorrection'" [value]="dashboard.expenseCorrection" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
+            <app-dashboard-metric-card [label]="'dashboard.netExpense'" [value]="dashboard.netExpense" [loading]="loading()" [currency]="true" [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.netExpense)"></app-dashboard-metric-card>
+          </div>
+        }
+      </div>
+    }
+
+    @if (dashboard.paymentMix !== null) {
+      <div class="dashboard-section card-style">
+        <button type="button" class="dashboard-section-toggle" (click)="toggleSection('paymentBehavior')" [attr.aria-expanded]="sectionExpanded().paymentBehavior">
+          <span>{{ 'dashboard.sectionPaymentBehavior' | transloco }}</span>
+          <span class="dashboard-section-summary">{{ 'dashboard.creditSalesPercentage' | transloco }}: {{ dashboard.creditSalesPercentage | percent: '1.1-1' }}</span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().paymentBehavior" [class.pi-chevron-up]="sectionExpanded().paymentBehavior"></span>
+        </button>
+        @if (sectionExpanded().paymentBehavior) {
+          <div class="dashboard-kpi-grid">
+            <app-dashboard-metric-card [label]="'dashboard.creditSalesAmount'" [value]="dashboard.creditSalesAmount" [loading]="loading()" [currency]="true"></app-dashboard-metric-card>
+	            <app-dashboard-metric-card
+	              [label]="'dashboard.creditSalesPercentage'"
+	              [value]="dashboard.creditSalesPercentage | percent: '1.1-1'"
+	              [loading]="loading()"
+	              [delta]="metricCardDeltaFromComparison(previousPeriodComparisons()?.creditSalesPercentage, true)">
+	            </app-dashboard-metric-card>
+	          </div>
+	        }
+	      </div>
+	    }
+
+    <div class="dashboard-section card-style">
+      <button type="button" class="dashboard-section-toggle" (click)="toggleSection('stockRisk')" [attr.aria-expanded]="sectionExpanded().stockRisk">
+        <span>{{ 'dashboard.sectionStockRisk' | transloco }}</span>
+        <span class="dashboard-section-summary">{{ 'dashboard.criticalStockCount' | transloco }}: {{ dashboard.criticalStockCount }} / {{ 'dashboard.runningLowStockCount' | transloco }}: {{ dashboard.runningLowStockCount }}</span>
+        <span class="pi" [class.pi-chevron-down]="!sectionExpanded().stockRisk" [class.pi-chevron-up]="sectionExpanded().stockRisk"></span>
+      </button>
+      @if (sectionExpanded().stockRisk) {
+        <div class="dashboard-kpi-grid">
+          <app-dashboard-metric-card [label]="'dashboard.runningLowStockCount'" [value]="dashboard.runningLowStockCount" [loading]="loading()"></app-dashboard-metric-card>
+          <app-dashboard-metric-card [label]="'dashboard.criticalStockCount'" [value]="dashboard.criticalStockCount" [loading]="loading()"></app-dashboard-metric-card>
+          <p-card>
+            <ng-template pTemplate="header"><span class="kpi-section-title">{{ 'dashboard.stockShortageList' | transloco }}</span></ng-template>
+            @if (dashboard.rankedShortageList.length === 0) {
+              <p class="kpi-empty">{{ 'dashboard.noStockRisk' | transloco }}</p>
+            } @else {
+              <ul class="shortage-list">
+                @for (item of dashboard.rankedShortageList; track item.itemName) {
+                  <li>{{ item.itemName }} — {{ item.quantity }}/{{ item.reorderLevel }}</li>
+                }
+              </ul>
+            }
+          </p-card>
+        </div>
+      }
+    </div>
+
+    @if (dashboard.topFiveDueCustomers !== null) {
+      <div class="dashboard-section card-style">
+        <button type="button" class="dashboard-section-toggle" (click)="toggleSection('receivables')" [attr.aria-expanded]="sectionExpanded().receivables">
+          <span>{{ 'dashboard.sectionReceivables' | transloco }}</span>
+          <span class="dashboard-section-summary">
+            @if (dashboard.highestDueCustomer) {
+              {{ 'dashboard.highestDueCustomer' | transloco }}: {{ dashboard.highestDueCustomer.outstandingDue | currency: 'INR' }}
+            }
+          </span>
+          <span class="pi" [class.pi-chevron-down]="!sectionExpanded().receivables" [class.pi-chevron-up]="sectionExpanded().receivables"></span>
+        </button>
+        @if (sectionExpanded().receivables) {
+          <div class="dashboard-kpi-grid">
+            <app-dashboard-metric-card
+              [label]="dashboard.highestDueCustomer ? dashboard.highestDueCustomer.displayName : 'dashboard.noReceivableRisk'"
+              [translateLabel]="!dashboard.highestDueCustomer"
+              [value]="dashboard.highestDueCustomer?.outstandingDue ?? null"
+              [loading]="loading()"
+              [currency]="true">
+            </app-dashboard-metric-card>
+            <p-card>
+              <ng-template pTemplate="header"><span class="kpi-section-title">{{ 'dashboard.topFiveDueCustomers' | transloco }}</span></ng-template>
+              @if (dashboard.topFiveDueCustomers.length === 0) {
+                <p class="kpi-empty">{{ 'dashboard.noReceivableRisk' | transloco }}</p>
+              } @else {
+                <ul class="due-list">
+                  @for (customer of dashboard.topFiveDueCustomers; track customer.customerId) {
+                    <li>{{ customer.displayName }} — {{ customer.outstandingDue | currency: 'INR' }}</li>
+                  }
+                </ul>
+              }
+            </p-card>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

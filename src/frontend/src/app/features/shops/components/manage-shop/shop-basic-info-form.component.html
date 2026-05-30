@@ -1,0 +1,38 @@
+<ng-container [formGroup]="form">
+  <div class="field-wrap space-y-1.5">
+    <label for="shop-name">Shop name</label>
+    <input id="shop-name" type="text" pInputText formControlName="name" class="w-full" [disabled]="disabled" />
+  </div>
+  <div class="field-wrap space-y-1.5">
+    <label for="shop-address">Address</label>
+    <input id="shop-address" type="text" pInputText formControlName="address" class="w-full" [disabled]="disabled" />
+  </div>
+  <div class="field-grid">
+    <div class="field-wrap space-y-1.5">
+      <label for="shop-city">City</label>
+      <input id="shop-city" type="text" pInputText formControlName="city" class="w-full" [disabled]="disabled" />
+    </div>
+    <div class="field-wrap space-y-1.5">
+      <label for="shop-state">State</label>
+      <input id="shop-state" type="text" pInputText formControlName="state" class="w-full" [disabled]="disabled" />
+    </div>
+  </div>
+  <div class="field-wrap space-y-1.5">
+    <label for="shop-pincode">Pincode</label>
+    <input id="shop-pincode" type="text" pInputText formControlName="pincode" class="w-full" [disabled]="disabled" />
+  </div>
+  <div class="field-grid">
+    <div class="field-wrap space-y-1.5">
+      <label for="shop-contact-person">Contact person</label>
+      <input id="shop-contact-person" type="text" pInputText formControlName="contactPerson" class="w-full" [disabled]="disabled" />
+    </div>
+    <div class="field-wrap space-y-1.5">
+      <label for="shop-mobile">Mobile number</label>
+      <input id="shop-mobile" type="text" pInputText formControlName="mobileNumber" class="w-full" [disabled]="disabled" />
+    </div>
+  </div>
+  <div class="field-wrap space-y-1.5">
+    <label for="shop-gst">GST number</label>
+    <input id="shop-gst" type="text" pInputText formControlName="gstNumber" class="w-full" [disabled]="disabled" />
+  </div>
+</ng-container>

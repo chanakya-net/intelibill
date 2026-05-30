@@ -1,0 +1,58 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="close()"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'sales.returns.void.title' | transloco"
+>
+  @if (saleReturn) {
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+          {{ 'sales.returns.void.returnLabel' | transloco }}
+        </p>
+        <p class="font-bold text-slate-800">{{ saleReturn.returnNumber }}</p>
+      </div>
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="font-medium text-slate-600">{{ 'sales.returns.void.reason' | transloco }}</span>
+        <textarea
+          pInputTextarea
+          rows="3"
+          [ngModel]="voidReason()"
+          (ngModelChange)="updateVoidReason($event)"
+        ></textarea>
+      </label>
+      @if (validationMessages().length > 0) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          @for (message of validationMessages(); track message) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      }
+      @if (previewError()) {
+        <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {{ previewError() }}
+        </div>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button
+      [label]="'sales.returns.void.submit' | transloco"
+      icon="pi pi-ban"
+      severity="danger"
+      [loading]="isSubmitting()"
+      [disabled]="isSubmitting()"
+      (click)="submit()"
+    />
+    <p-button
+      [label]="'common.cancel' | transloco"
+      severity="secondary"
+      (click)="close()"
+    />
+  </ng-template>
+</p-dialog>
+

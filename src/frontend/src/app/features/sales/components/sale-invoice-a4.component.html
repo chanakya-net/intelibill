@@ -1,0 +1,208 @@
+<article class="invoice">
+  <!-- Header -->
+  <header class="invoice__header">
+    <div *ngIf="pendingSync" class="invoice__pending-sync" role="status">
+      {{ 'sales.newSale.offline.confirmation.queued' | transloco }}
+    </div>
+
+    <div class="invoice__shop-info">
+      <h1 class="invoice__shop-name">{{ shop.name }}</h1>
+      <p class="invoice__shop-address">
+        {{ shop.address }}, {{ shop.city }}, {{ shop.state }} {{ shop.pincode }}
+      </p>
+      <p *ngIf="shop.mobileNumber" class="invoice__shop-phone">Phone: {{ shop.mobileNumber }}</p>
+      <p *ngIf="shop.gstNumber" class="invoice__shop-gst">GSTIN: {{ shop.gstNumber }}</p>
+    </div>
+
+    <div class="invoice__meta">
+      <div class="invoice__meta-item">
+        <span class="invoice__meta-label">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
+        <span class="invoice__meta-value">{{ sale.invoiceNumber }}</span>
+      </div>
+      <div class="invoice__meta-item">
+        <span class="invoice__meta-label">{{ 'sales.invoice.date' | transloco }}</span>
+        <span class="invoice__meta-value">{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Customer Info -->
+  <section class="invoice__customer">
+    <div class="invoice__customer-label">{{ 'sales.invoice.customer' | transloco }}:</div>
+    <div class="invoice__customer-info">
+      <span>{{ getCustomerDisplay() }}</span>
+      <span *ngIf="getCustomerPhone()" class="invoice__customer-phone">{{ getCustomerPhone() }}</span>
+    </div>
+  </section>
+
+  <!-- Items Table -->
+  <table class="invoice__items">
+    <thead class="invoice__items-header">
+      <tr>
+        <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
+        <th *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ (hasServices() ? 'services.hsnSac' : 'sales.invoice.hsn') | transloco }}</th>
+        <th class="invoice__col-qty">{{ 'sales.detail.qty' | transloco }}</th>
+        <th class="invoice__col-price">{{ 'sales.detail.pricePerUnit' | transloco }}</th>
+        <th class="invoice__col-discount">{{ 'sales.detail.discount' | transloco }}</th>
+        <th class="invoice__col-taxable">{{ 'sales.detail.taxAmount' | transloco }}</th>
+        <th class="invoice__col-tax">{{ 'sales.invoice.tax' | transloco }} %</th>
+        <th class="invoice__col-tax-amt">{{ 'sales.detail.taxAmount' | transloco }}</th>
+        <th class="invoice__col-total">{{ 'sales.detail.itemTotal' | transloco }}</th>
+      </tr>
+    </thead>
+    <tbody class="invoice__items-body">
+      <ng-container *ngIf="isMixedBill(); else flatRows">
+        <!-- Goods Section -->
+        <tr class="invoice__section-header-row">
+          <td [attr.colspan]="shop.gstNumber ? 9 : 8" class="invoice__section-header font-bold text-slate-800 bg-slate-50 p-2">
+            {{ 'sales.newSale.cart.goodsSection' | transloco }}
+          </td>
+        </tr>
+        <tr *ngFor="let item of getGoodsItems()" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+
+        <!-- Services Section -->
+        <tr class="invoice__section-header-row">
+          <td [attr.colspan]="shop.gstNumber ? 9 : 8" class="invoice__section-header font-bold text-slate-800 bg-slate-50 p-2">
+            {{ 'sales.newSale.cart.servicesSection' | transloco }}
+          </td>
+        </tr>
+        <tr *ngFor="let item of getServiceItems()" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+      </ng-container>
+
+      <ng-template #flatRows>
+        <tr *ngFor="let item of sale.items" class="invoice__item-row">
+          <td class="invoice__col-item">{{ item.itemName }}</td>
+          <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ item.salesPrice | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ (item.itemDiscountAmount + item.saleDiscountAmount) | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ item.taxableAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ item.taxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ item.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+          </td>
+        </tr>
+      </ng-template>
+    </tbody>
+  </table>
+
+  <!-- Returns Section -->
+  <section *ngIf="sale.returns.length > 0" class="invoice__returns">
+    <h3 class="invoice__returns-title">{{ 'sales.invoice.returns' | transloco }}</h3>
+    <div *ngFor="let saleReturn of sale.returns" class="invoice__return-block">
+      <div class="invoice__return-header">
+        <span class="invoice__return-label">{{ 'sales.invoice.returnNumber' | transloco }} {{ saleReturn.returnNumber }}</span>
+        <span class="invoice__return-date">{{ saleReturn.returnedAt | date: 'dd/MM/yyyy' }}</span>
+        <span *ngIf="saleReturn.isVoided" class="invoice__return-voided">{{ 'sales.invoice.voided' | transloco }}</span>
+      </div>
+      <div class="invoice__return-details">
+        <span class="invoice__return-amount">{{ 'sales.invoice.refundAmount' | transloco }}: {{ saleReturn.totalRefundAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+        <span *ngIf="saleReturn.voidReason" class="invoice__return-reason">{{ 'sales.invoice.voidReason' | transloco }}: {{ saleReturn.voidReason }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Payment Summary -->
+  <section class="invoice__totals">
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">{{ 'sales.invoice.totalBeforeDiscount' | transloco }}</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalBeforeDiscount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">{{ 'sales.invoice.discount' | transloco }}</span>
+      <span class="invoice__totals-value">
+        -{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row">
+      <span class="invoice__totals-label">{{ 'sales.invoice.tax' | transloco }}</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalTaxAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+    <div class="invoice__totals-row invoice__totals-row--total">
+      <span class="invoice__totals-label">{{ 'sales.invoice.grandTotal' | transloco }}</span>
+      <span class="invoice__totals-value">
+        {{ sale.totalAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
+
+    <div class="invoice__divider"></div>
+
+    <div class="invoice__payment-info">
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">{{ 'sales.invoice.paymentMode' | transloco }}:</span>
+        <span class="invoice__payment-value">{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">{{ 'sales.invoice.paidAmount' | transloco }}:</span>
+        <span class="invoice__payment-value">
+          {{ sale.paidAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">{{ 'sales.invoice.dueAmount' | transloco }}:</span>
+        <span class="invoice__payment-value">
+          {{ sale.dueAmount | currency: 'INR': 'symbol': '1.2-2' }}
+        </span>
+      </div>
+      <div class="invoice__payment-row">
+        <span class="invoice__payment-label">{{ 'sales.invoice.paymentStatus' | transloco }}:</span>
+        <span class="invoice__payment-value" [class.invoice__status-paid]="sale.dueAmount === 0" [class.invoice__status-due]="sale.dueAmount > 0">
+          {{ sale.dueAmount === 0 ? ('sales.invoice.paid' | transloco) : ('sales.invoice.partiallyPaid' | transloco) }}
+        </span>
+      </div>
+    </div>
+  </section>
+</article>

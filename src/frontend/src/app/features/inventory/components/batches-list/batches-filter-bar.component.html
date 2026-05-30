@@ -1,0 +1,67 @@
+<div class="batches-filter-bar">
+  <p-iconfield iconPosition="left" class="batches-filter-search">
+    <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+      <input
+        pInputText
+        type="text"
+        name="batchFilterSearch"
+        [ngModel]="filters.search"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onSearchChange($event)"
+        [placeholder]="'inventory.searchPlaceholder' | transloco"
+        class="w-full pr-10"
+      />
+  </p-iconfield>
+
+  <div class="flex items-center justify-between gap-3 flex-wrap w-full md:w-auto">
+    <div class="flex items-center gap-2 min-w-40">
+      <label for="batch-status" class="text-sm font-semibold text-slate-600">{{ 'inventory.status' | transloco }}</label>
+        <p-select
+        inputId="batch-status"
+        name="batchFilterStatus"
+        [options]="statusOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="filters.status"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onStatusChange($event)"
+      ></p-select>
+    </div>
+
+    <div class="flex items-center gap-2 min-w-40">
+      <label for="batch-from-date" class="text-sm font-semibold text-slate-600">{{ 'inventory.fromDate' | transloco }}</label>
+      <input
+        id="batch-from-date"
+        pInputText
+        type="date"
+        name="batchFilterFromDate"
+        [ngModel]="filters.fromDate"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onDateFromChange($event)"
+      />
+    </div>
+
+    <div class="flex items-center gap-2 min-w-40">
+      <label for="batch-to-date" class="text-sm font-semibold text-slate-600">{{ 'inventory.toDate' | transloco }}</label>
+      <input
+        id="batch-to-date"
+        pInputText
+        type="date"
+        name="batchFilterToDate"
+        [ngModel]="filters.toDate"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onDateToChange($event)"
+      />
+    </div>
+
+    <button
+      type="button"
+      pButton
+      [label]="'common.clear' | transloco"
+      [outlined]="true"
+      icon="pi pi-filter-slash"
+      class="mt-1"
+      (click)="onClearFilters()"
+    ></button>
+  </div>
+</div>

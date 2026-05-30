@@ -1,0 +1,35 @@
+:host {
+  display: block;
+  background-color: var(--surface-ground);
+  min-height: 100vh;
+}
+
+.text-secondary {
+  color: var(--text-color-secondary);
+}
+
+.adjustment-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.75rem;
+}
+
+.adjustment-preview div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.adjustment-preview span {
+  color: var(--text-color-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.adjustment-preview strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+}

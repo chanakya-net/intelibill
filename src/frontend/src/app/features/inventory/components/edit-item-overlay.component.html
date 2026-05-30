@@ -1,0 +1,94 @@
+<section
+  class="overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'inventory.editProduct' | transloco"
+>
+  <div class="overlay-backdrop" (click)="onClose()"></div>
+
+  <div class="overlay-card">
+    <header class="overlay-header">
+      <div>
+        <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+        <h2>{{ 'inventory.editProduct' | transloco }}</h2>
+        <p class="description">{{ 'inventory.editProductDescription' | transloco }}</p>
+      </div>
+      <button
+        type="button"
+        class="close-button"
+        [attr.aria-label]="'common.close' | transloco"
+        (click)="onClose()"
+      >
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label>
+        <span>{{ 'inventory.name' | transloco }}</span>
+        <input pInputText type="text" formControlName="name" />
+      </label>
+
+      <label>
+        <span>{{ 'inventory.barcode' | transloco }}</span>
+        <input pInputText type="text" formControlName="barcode" />
+      </label>
+
+      <label>
+        <span>{{ 'inventory.description' | transloco }}</span>
+        <textarea pInputTextarea formControlName="description" rows="3"></textarea>
+      </label>
+
+      <label>
+        <span>{{ 'inventory.uom' | transloco }}</span>
+        <input pInputText type="text" formControlName="uom" />
+      </label>
+
+      <label>
+        <span>{{ 'hsn.hsnCode' | transloco }}</span>
+        <input pInputText type="text" formControlName="hsnCode" />
+      </label>
+
+      <label>
+        <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
+        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
+      </label>
+
+      <div class="stock-display">
+        <span class="label">{{ 'inventory.currentStock' | transloco }}</span>
+        <p-badge
+          [value]="item.currentStock | number"
+          [severity]="getStockSeverity()"
+          class="stock-badge"
+        ></p-badge>
+      </div>
+
+      @if (serverError()) {
+        <p class="error-message">{{ serverError() | transloco }}</p>
+      }
+
+      <div class="actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          [label]="'common.save' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
+      </div>
+    </form>
+
+    @if (isSubmitting()) {
+      <div class="submit-overlay">
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+      </div>
+    }
+  </div>
+</section>

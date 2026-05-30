@@ -1,0 +1,193 @@
+<section class="login-shell min-h-screen p-0">
+  <!-- Page-level bubble decorations -->
+  <div class="pg-bubble pg-b1"></div>
+  <div class="pg-bubble pg-b2"></div>
+  <div class="pg-bubble pg-ring pg-b3"></div>
+  <div class="pg-bubble pg-ring pg-b4"></div>
+  <div class="pg-bubble pg-ring pg-b5"></div>
+  <div class="pg-bubble pg-b6"></div>
+
+  <div class="auth-stage w-full min-h-screen">
+    <article
+      class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
+    >
+      <header class="auth-header">
+        <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
+        <h2>{{ 'register.createAccount' | transloco }}</h2>
+        <p>{{ 'register.subtitle' | transloco }}</p>
+      </header>
+
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+        class="space-y-4 p-6 pt-6"
+        [class.form-busy]="isSubmitting()"
+      >
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="field-wrap space-y-1.5">
+            <label for="firstName">{{ 'common.firstName' | transloco }}</label>
+            <input
+              id="firstName"
+              type="text"
+              pInputText
+              formControlName="firstName"
+              autocomplete="given-name"
+              class="w-full"
+              [pt]="firstNameInputPt"
+            />
+          </div>
+
+          <div class="field-wrap space-y-1.5">
+            <label for="lastName">{{ 'common.lastName' | transloco }}</label>
+            <input
+              id="lastName"
+              type="text"
+              pInputText
+              formControlName="lastName"
+              autocomplete="family-name"
+              class="w-full"
+              [pt]="lastNameInputPt"
+            />
+          </div>
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="email">{{ 'auth.emailAddress' | transloco }}</label>
+          <input
+            id="email"
+            type="email"
+            pInputText
+            formControlName="email"
+            autocomplete="email"
+            class="w-full"
+            [class.ng-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            [pt]="emailInputPt"
+          />
+          @if (form.controls.email.invalid && form.controls.email.touched) {
+            <p class="field-error">{{ 'auth.validation.emailInvalid' | transloco }}</p>
+          }
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="phoneNumber">{{ 'auth.phoneNumber' | transloco }}</label>
+          <input
+            id="phoneNumber"
+            type="tel"
+            pInputText
+            formControlName="phoneNumber"
+            autocomplete="tel"
+            class="w-full"
+            [pt]="phoneNumberInputPt"
+          />
+          @if (form.controls.phoneNumber.invalid && form.controls.phoneNumber.touched) {
+            <p class="field-error">{{ 'register.validation.phoneRequired' | transloco }}</p>
+          }
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="password">{{ 'auth.password' | transloco }}</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="new-password"
+            [pt]="passwordInputPt"
+          ></p-password>
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <p class="field-error">
+              {{ 'register.validation.passwordLength' | transloco }}
+            </p>
+          }
+        </div>
+
+        <div class="field-wrap space-y-1.5">
+          <label for="confirmPassword">{{ 'register.confirmPassword' | transloco }}</label>
+          <p-password
+            inputId="confirmPassword"
+            formControlName="confirmPassword"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            autocomplete="new-password"
+            [pt]="confirmPasswordInputPt"
+          ></p-password>
+          @if (form.controls.confirmPassword.invalid && form.controls.confirmPassword.touched) {
+            <p class="field-error">
+              {{ 'register.validation.confirmPasswordRequired' | transloco }}
+            </p>
+          }
+          @if (form.hasError('passwordMismatch') && form.controls.confirmPassword.touched) {
+            <p class="field-error">
+              {{ 'register.validation.passwordMismatch' | transloco }}
+            </p>
+          }
+        </div>
+
+        <div class="flex items-center justify-between pt-0.5 text-sm">
+          <div class="flex items-center gap-2">
+            <p-checkbox
+              inputId="rememberMe"
+              formControlName="rememberMe"
+              [binary]="true"
+            ></p-checkbox>
+            <label for="rememberMe" class="text-stone-700">{{
+              'auth.rememberMe' | transloco
+            }}</label>
+          </div>
+          <a routerLink="/login" class="text-orange-800 font-medium">{{
+            'register.backToLogin' | transloco
+          }}</a>
+        </div>
+
+        @if (serverError()) {
+          <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {{ serverError() | transloco }}
+          </p>
+        }
+
+        <button
+          pButton
+          type="submit"
+          [label]="
+            isSubmitting()
+              ? ('register.creatingAccount' | transloco)
+              : ('register.signUp' | transloco)
+          "
+          [disabled]="form.invalid || isSubmitting()"
+          class="auth-submit w-full"
+        ></button>
+
+        <div class="lang-pick">
+          <i class="pi pi-globe" aria-hidden="true"></i>
+          <select
+            id="language"
+            [attr.aria-label]="'common.language' | transloco"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            @for (language of supportedLanguages; track language) {
+              <option [value]="language" [selected]="language === currentLanguage()">
+                {{ nativeLanguageNames[language] }}
+              </option>
+            }
+          </select>
+        </div>
+      </form>
+
+      @if (isSubmitting()) {
+        <div class="form-overlay">
+          <p-progressSpinner strokeWidth="4" [pt]="progressSpinnerPt"></p-progressSpinner>
+        </div>
+      }
+    </article>
+
+    <aside class="visual-panel" aria-hidden="true">
+      <div class="v-disc v-disc-one"></div>
+      <div class="v-disc v-disc-two"></div>
+      <div class="v-disc v-disc-three"></div>
+    </aside>
+  </div>
+</section>

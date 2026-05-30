@@ -1,0 +1,25 @@
+.dashboard-primary-chart-card {
+  height: 100%;
+}
+
+:host ::ng-deep .dashboard-primary-chart-card .p-card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.dashboard-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:host ::ng-deep .dashboard-primary-chart-card .p-chart {
+  min-height: 300px;
+}
+
+@media (max-width: 768px) {
+  :host ::ng-deep .dashboard-primary-chart-card .p-chart {
+    min-height: 220px;
+  }
+}

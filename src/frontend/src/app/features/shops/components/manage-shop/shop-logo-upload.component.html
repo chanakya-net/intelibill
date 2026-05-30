@@ -1,0 +1,17 @@
+<section class="logo-upload-card">
+  <div class="field-wrap space-y-1.5">
+    <label for="shop-logo">Shop logo</label>
+    <div class="logo-preview">
+      @if (previewUrl()) {
+        <img [src]="previewUrl()" alt="Shop logo preview" />
+      } @else {
+        <div class="logo-placeholder">No logo selected</div>
+      }
+    </div>
+    <input #fileInput id="shop-logo" type="file" accept="image/*" [disabled]="disabled" (change)="onFileSelected($event)" />
+    @if (selectedFileName()) {
+      <p class="logo-file-name">{{ selectedFileName() }}</p>
+    }
+    <button pButton type="button" severity="secondary" [text]="true" [disabled]="disabled" (click)="onRemoveLogo(fileInput)">Remove logo</button>
+  </div>
+</section>

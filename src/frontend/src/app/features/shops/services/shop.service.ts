@@ -1,0 +1,106 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+import { map, Observable, tap, switchMap } from 'rxjs';
+
+import { SHOP_ENDPOINTS, BANK_ACCOUNT_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { AuthResult, UserShop } from '../../../core/auth/auth.models';
+import { AuthService } from '../../../core/auth/auth.service';
+
+export interface CreateShopRequest {
+  readonly name: string;
+  readonly address: string;
+  readonly city: string;
+  readonly state: string;
+  readonly pincode: string;
+  readonly contactPerson?: string;
+  readonly mobileNumber?: string;
+  readonly gstNumber?: string;
+}
+
+export type UpdateShopRequest = CreateShopRequest;
+export type ShopRole = string;
+
+export interface ShopMemberDto {
+  readonly userId: string;
+  readonly fullName?: string;
+  readonly firstName?: string;
+  readonly lastName?: string;
+  readonly email?: string | null;
+  readonly phoneNumber?: string | null;
+  readonly role: ShopRole;
+}
+
+export interface ShopDetails {
+  readonly shopId: string;
+  readonly name: string;
+  readonly address: string;
+  readonly city: string;
+  readonly state: string;
+  readonly pincode: string;
+  readonly contactPerson: string | null;
+  readonly mobileNumber: string | null;
+  readonly gstNumber: string | null;
+  readonly bankName: string | null;
+  readonly bankAccountNumber: string | null;
+  readonly bankAccountType: string | null;
+  readonly ifscCode: string | null;
+  readonly accountHolderName: string | null;
+  readonly logoUrl?: string | null;
+  readonly members?: readonly ShopMemberDto[] | null;
+}
+
+export type ShopDetailsDto = ShopDetails;
+
+export interface UpdateBankDetailsRequest {
+  readonly bankName?: string;
+  readonly accountNumber?: string;
+  readonly accountType?: string;
+  readonly ifscCode?: string;
+  readonly accountHolderName?: string;
+}
+
+interface SetDefaultShopRequest {
+  readonly shopId: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ShopService {
+  private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService);
+
+  getMyShops(): Observable<readonly UserShop[]> {
+    return this.http.get<readonly UserShop[]>(SHOP_ENDPOINTS.me);
+  }
+
+  getShopDetails(shopId: string): Observable<ShopDetails> {
+    return this.http.get<ShopDetails>(SHOP_ENDPOINTS.details(shopId));
+  }
+
+  createShop(payload: CreateShopRequest): Observable<void> {
+
+    return this.http.post<AuthResult>(SHOP_ENDPOINTS.create, payload).pipe(
+      tap((result) => this.authService.applyAuthResult(result)),
+      map(() => void 0)
+    );
+  }
+
+  setDefaultShop(shopId: string): Observable<void> {
+    const payload: SetDefaultShopRequest = { shopId };
+
+    return this.http.post<AuthResult>(SHOP_ENDPOINTS.setDefault, payload).pipe(
+      tap((result) => this.authService.applyAuthResult(result)),
+      map(() => void 0)
+    );
+  }
+
+  updateShop(shopId: string, payload: CreateShopRequest): Observable<ShopDetails> {
+    return this.http.put<ShopDetails>(SHOP_ENDPOINTS.update(shopId), payload);
+  }
+
+  updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {
+    return this.http.post<unknown>(BANK_ACCOUNT_ENDPOINTS.add, payload).pipe(
+      switchMap(() => this.getShopDetails(shopId))
+    );
+  }
+}

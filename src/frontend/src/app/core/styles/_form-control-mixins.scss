@@ -1,0 +1,30 @@
+@mixin text-input(
+  $border: #cbd5e1,
+  $background: #f8fafc,
+  $text: #0f172a,
+  $padding: 0.82rem 0.9rem,
+  $transition: null
+) {
+  border-radius: 0.72rem;
+  border-color: $border;
+  background: $background;
+  color: $text;
+  padding: $padding;
+
+  @if $transition != null {
+    transition: $transition;
+  }
+}
+
+@mixin text-input-placeholder($color: #64748b) {
+  &::placeholder {
+    color: $color;
+  }
+}
+
+@mixin text-input-focus($border: #fb923c, $ring: rgba(251, 146, 60, 0.35)) {
+  &:enabled:focus {
+    border-color: $border;
+    box-shadow: 0 0 0 0.18rem $ring;
+  }
+}
