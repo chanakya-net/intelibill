@@ -1,0 +1,554 @@
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
+using Intelibill.Application.Features.Sales.Services.Returns;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
+using NSubstitute;
+
+namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.PreviewSaleReturn;
+
+public class PreviewSaleReturnQueryHandlerTests
+{
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
+
+    private PreviewSaleReturnQueryHandler CreateHandler() =>
+        new(new SaleReturnValidator(
+            _userRepository,
+            _shopRepository,
+            _saleRepository,
+            _saleReturnRepository,
+            _inventoryBatchRepository,
+            _customerLedgerEntryRepository,
+            _calculator));
+
+    [Theory]
+    [InlineData(ShopRole.Owner)]
+    [InlineData(ShopRole.Manager)]
+    public async Task Handle_SaleReturnPreview_ForOwnerOrManager_ReturnsFullFinancialPreview(ShopRole role)
+    {
+        var fixture = ArrangeSale(role);
+        var query = Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 2m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(result.Value.HasFinancialAccess);
+        Assert.NotNull(result.Value.Financial);
+        Assert.NotNull(result.Value.Lines[0].Financial);
+        Assert.Equal(220m, result.Value.Financial!.TotalRefundAmount);
+        Assert.Equal(2m, result.Value.Lines[0].RequestedQuantity);
+        Assert.Equal(5m, result.Value.Lines[0].ReturnableQuantity);
+    }
+
+    [Theory]
+    [InlineData(ShopRole.Owner)]
+    [InlineData(ShopRole.Manager)]
+    public async Task Handle_SaleReturnPreview_DefaultRefundUsesDiscountedPaidAmountPerQuantity(ShopRole role)
+    {
+        var fixture = ArrangeSale(role, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+        var query = Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 2m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.Financial);
+
+        var line = Assert.Single(result.Value.Lines);
+        Assert.NotNull(line.Financial);
+
+        Assert.Equal(187m, result.Value.Financial!.TotalRefundAmount);
+        Assert.Equal(187m, line.Financial!.MaxRefundAmount);
+        Assert.Equal(187m, line.Financial!.ApprovedRefundAmount);
+        Assert.Equal(170m, line.Financial!.TaxableAmount);
+        Assert.Equal(17m, line.Financial!.TaxAmount);
+    }
+
+    [Theory]
+    [InlineData(ShopRole.Owner)]
+    [InlineData(ShopRole.Manager)]
+    public async Task Handle_SaleReturnPreview_WhenRefundExceedsDiscountedMax_AddsWarning(ShopRole role)
+    {
+        var fixture = ArrangeSale(role, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 2m,
+            approvedRefundAmount: 200m,
+            notes: null);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+
+        var line = Assert.Single(result.Value.Lines);
+        Assert.NotNull(line.Financial);
+
+        Assert.Equal(187m, line.Financial!.MaxRefundAmount);
+        Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
+        Assert.Contains(result.Value.Warnings, warning => warning.Code == "sale_return.note_required.refund_override");
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_ForStaff_ReturnsOperationalOnlyPreview()
+    {
+        var fixture = ArrangeSale(ShopRole.Staff);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 1m,
+            approvedRefundAmount: 0m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.HasFinancialAccess);
+        Assert.Null(result.Value.Financial);
+        Assert.Null(result.Value.Lines[0].Financial);
+        Assert.Equal(fixture.SaleItem.Id, result.Value.Lines[0].SaleItemId);
+        Assert.Equal(fixture.SaleItem.InventoryBatchId, result.Value.Lines[0].InventoryBatchId);
+        Assert.Empty(result.Value.Warnings);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenActiveShopSaleMissing_ReturnsSaleNotFound()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _saleRepository.GetByIdAsync(Arg.Any<Guid>(), shop.Id, Arg.Any<CancellationToken>()).Returns((Sale?)null);
+
+        var result = await CreateHandler().Handle(
+            Query(user.Id, shop.Id, Guid.NewGuid(), Guid.NewGuid(), quantity: 1m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.NotFound", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenSaleItemDoesNotBelongToSale_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, Guid.NewGuid(), quantity: 1m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.SaleItemNotFound", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenQuantityIsNotPositive_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 0m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.QuantityMustBePositive", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenQuantityExceedsRemainingNonVoidedReturns_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var previousReturn = MakeSaleReturn(fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 4m);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>())
+            .Returns([previousReturn]);
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 2m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.QuantityExceedsRemaining", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_IgnoresVoidedReturnsForRemainingQuantity()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var voidedReturn = MakeSaleReturn(fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 5m, voided: true);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>())
+            .Returns([voidedReturn]);
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 5m),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(5m, result.Value.Lines[0].ReturnableQuantity);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenRestockableOriginalBatchIsVoided_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        fixture.Batch.Void(fixture.User.Id);
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 1m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.BatchVoided", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenRestockableOriginalBatchIsExpired_ReturnsValidationError()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, expiryDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 1m),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.BatchExpired", result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenWastageOriginalBatchIsExpired_AllowsPreview()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, expiryDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+
+        var result = await CreateHandler().Handle(
+            Query(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                quantity: 1m,
+                condition: SaleReturnCondition.Wastage),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.Lines[0].WillRestock);
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_ForServiceRefundOnly_AllowsPreviewWithoutBatchLookup()
+    {
+        var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var serviceItem = SaleItem.CreateService(
+            shop.Id,
+            Guid.NewGuid(),
+            lineName: "Consultation",
+            lineCode: "SRV-001",
+            quantity: 2m,
+            costPrice: 0m,
+            salesPrice: 200m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-SRV-001",
+            Guid.NewGuid(),
+            "Customer",
+            null,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            paidAmount: 0m,
+            dueAmount: 400m,
+            totalAmount: 400m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(400m);
+
+        var result = await CreateHandler().Handle(
+            new PreviewSaleReturnQuery(
+                user.Id,
+                shop.Id,
+                sale.Id,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                [new PreviewSaleReturnItemQuery(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: null)]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Null(line.ItemId);
+        Assert.Null(line.InventoryBatchId);
+        Assert.Null(line.Condition);
+        Assert.False(line.WillRestock);
+        Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
+        await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_ReturnsOverrideWarningsWithoutWritingData()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 1m,
+            dueReductionOverrideAmount: 0m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Contains(result.Value.Warnings, w => w.Code == "sale_return.due_override");
+        Assert.Contains(result.Value.Warnings, w => w.Code == "sale_return.note_required.due_override");
+        _saleRepository.DidNotReceive().Update(Arg.Any<Sale>());
+        await _saleReturnRepository.DidNotReceive().AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>());
+        _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenDueOverrideExceedsOutstandingDue_ReturnsWarning()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var query = Query(
+            fixture.User.Id,
+            fixture.Shop.Id,
+            fixture.Sale.Id,
+            fixture.SaleItem.Id,
+            quantity: 1m,
+            dueReductionOverrideAmount: 999m);
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Contains(result.Value.Warnings, w => w.Code == "sale_return.due_override_exceeds_outstanding");
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenServiceLineHasCondition_ReturnsValidationError()
+    {
+        var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var serviceItem = SaleItem.CreateService(
+            shop.Id,
+            Guid.NewGuid(),
+            lineName: "Repair",
+            lineCode: "SRV-REP",
+            quantity: 1m,
+            costPrice: 0m,
+            salesPrice: 100m,
+            mrp: 0m,
+            taxRatePercent: 0m,
+            isPriceIncludingTax: true,
+            hasPriceMismatch: false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-SRV-COND",
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            paidAmount: 100m,
+            dueAmount: 0m,
+            totalAmount: 100m,
+            totalTaxAmount: 0m,
+            [serviceItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var result = await CreateHandler().Handle(
+            new PreviewSaleReturnQuery(
+                user.Id,
+                shop.Id,
+                sale.Id,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                [new PreviewSaleReturnItemQuery(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: null)]),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("SaleReturn.ServiceRefundOnly", result.FirstError.Code);
+        await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    private SalePreviewFixture ArrangeSale(
+        ShopRole role,
+        DateOnly? expiryDate = null,
+        decimal itemDiscountAmount = 0m,
+        decimal saleDiscountAmount = 0m)
+    {
+        var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
+        var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(
+            shop.Id,
+            itemId,
+            "B-001",
+            quantity: 10m,
+            costPrice: 80m,
+            mrp: 120m,
+            salesPrice: 100m,
+            taxRatePercent: 10m,
+            taxIncluded: false,
+            expiryDate,
+            manufacturingDate: null,
+            supplierId: null,
+            user.Id).Value;
+        var saleItem = SaleItem.CreateGoods(
+            shop.Id,
+            itemId,
+            batch.Id,
+            lineName: "Item",
+            lineCode: "BC-001",
+            quantity: 5m,
+            costPrice: 80m,
+            salesPrice: 100m,
+            mrp: 120m,
+            taxRatePercent: 10m,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false,
+            itemDiscountAmount: itemDiscountAmount,
+            saleDiscountAmount: saleDiscountAmount);
+
+        var totalAmount = saleItem.TotalAmount;
+        var totalTaxAmount = saleItem.TaxAmount;
+
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            Guid.NewGuid(),
+            "Customer",
+            null,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            paidAmount: 0m,
+            dueAmount: totalAmount,
+            totalAmount: totalAmount,
+            totalTaxAmount: totalTaxAmount,
+            [saleItem]);
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, role, true));
+        _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(sale.DueAmount);
+
+        return new SalePreviewFixture(user, shop, sale, saleItem, batch);
+    }
+
+    private static PreviewSaleReturnQuery Query(
+        Guid userId,
+        Guid shopId,
+        Guid saleId,
+        Guid saleItemId,
+        decimal quantity,
+        SaleReturnCondition condition = SaleReturnCondition.Restockable,
+        decimal? approvedRefundAmount = null,
+        decimal? dueReductionOverrideAmount = null,
+        string? notes = null) =>
+        new(
+            userId,
+            shopId,
+            saleId,
+            dueReductionOverrideAmount,
+            DueOverrideReason: null,
+            [new PreviewSaleReturnItemQuery(saleItemId, quantity, SaleLineType.Goods, condition, approvedRefundAmount, Notes: notes)]);
+
+    private static SaleReturn MakeSaleReturn(
+        Guid shopId,
+        Guid saleId,
+        Guid saleItemId,
+        decimal quantity,
+        bool voided = false)
+    {
+        var returnItem = SaleReturnItem.Create(
+            shopId,
+            saleId,
+            saleItemId,
+            quantity,
+            SaleReturnCondition.Restockable,
+            originalCostPrice: 80m,
+            originalSalesPrice: 100m,
+            originalTaxRatePercent: 10m,
+            originalIsPriceIncludingTax: false,
+            maxRefundAmount: quantity * 110m,
+            approvedRefundAmount: quantity * 110m,
+            taxableAmount: quantity * 100m,
+            taxAmount: quantity * 10m,
+            notes: null).Value;
+
+        var line = new SaleReturnLineInput(
+            returnItem.ShopId,
+            returnItem.SaleItemId,
+            returnItem.Quantity,
+            returnItem.Condition,
+            returnItem.OriginalCostPrice,
+            returnItem.OriginalSalesPrice,
+            returnItem.OriginalTaxRatePercent,
+            returnItem.OriginalIsPriceIncludingTax,
+            returnItem.MaxRefundAmount,
+            returnItem.ApprovedRefundAmount,
+            returnItem.TaxableAmount,
+            returnItem.TaxAmount,
+            returnItem.Notes);
+
+        var saleReturn = SaleReturn.Record(
+            shopId,
+            saleId,
+            $"RET-{Guid.NewGuid():N}",
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            notes: null,
+            totalRefundAmount: quantity * 110m,
+            dueReductionAmount: 0m,
+            payoutAmount: quantity * 110m,
+            payoutMethod: PaymentMethod.Cash,
+            totalTaxableAmount: quantity * 100m,
+            totalTaxAmount: quantity * 10m,
+            customerBalanceBefore: null,
+            customerBalanceAfter: null,
+            [line]).Value;
+
+        if (voided)
+            saleReturn.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake");
+
+        return saleReturn;
+    }
+
+    private sealed record SalePreviewFixture(
+        User User,
+        Shop Shop,
+        Sale Sale,
+        SaleItem SaleItem,
+        InventoryBatch Batch);
+}
