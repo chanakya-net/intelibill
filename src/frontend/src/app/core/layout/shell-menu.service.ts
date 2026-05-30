@@ -125,7 +125,7 @@ export class ShellMenuService {
       return [];
     }
 
-    return [
+    const items: MenuItem[] = [
       {
         label: this.localizationService.translate('shell.newSale'),
         icon: 'pi pi-plus-circle',
@@ -136,12 +136,17 @@ export class ShellMenuService {
         icon: 'pi pi-list',
         command: () => this.router.navigate(['/sales']),
       },
-      {
+    ];
+
+    if (this.permissions.isOwnerOrManagerOfActiveShop()) {
+      items.push({
         label: this.localizationService.translate('shell.profitLossReport'),
         icon: 'pi pi-chart-line',
         command: () => this.router.navigate(['/sales/profit-loss']),
-      },
-    ];
+      });
+    }
+
+    return items;
   }
 
   profileMenuItems(actions: {

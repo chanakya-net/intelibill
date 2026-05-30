@@ -148,4 +148,40 @@ describe('ProfitLossPageComponent', () => {
     expect(component.getProfitSeverity(0)).toBe('success');
     expect(component.getProfitSeverity(-50)).toBe('danger');
   });
+
+  it('handles serverError cleanly by showing the error and hiding the table and cards', async () => {
+    const { fixture } = await setup([
+      {
+        saleId: 'sale-1',
+        referenceNumber: 'INV-1',
+        occurredAt: '2026-05-05T10:00:00Z',
+        partyName: 'Alice',
+        totalCost: 10,
+        wastageCost: 0,
+        revenueBeforeTax: 20,
+        revenueAfterTax: 22,
+        profitBeforeTax: 10,
+        profitAfterTax: 12,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
+      }
+    ]);
+    mockSalesFacade.errorMessage.set('Forbidden (403)');
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement;
+    
+    // Assert error message is rendered
+    const errorEl = element.querySelector('.error');
+    expect(errorEl).not.toBeNull();
+    expect(errorEl.textContent).toContain('Forbidden (403)');
+
+    // Assert that table elements are not shown
+    const tableEl = element.querySelector('p-table');
+    expect(tableEl).toBeNull();
+    
+    // Assert that mobile stacked list elements (cards) are not shown
+    const cardEl = element.querySelector('.report-list');
+    expect(cardEl).toBeNull();
+  });
 });
