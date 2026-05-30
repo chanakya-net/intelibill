@@ -1,0 +1,26 @@
+namespace Intelibill.Application.Features.Inventory.DTOs;
+
+public sealed record InventoryAdjustmentHistoryDto(
+    Guid AdjustmentId,
+    string AdjustmentNumber,
+    Guid ItemId,
+    string ItemName,
+    string Barcode,
+    Guid BatchId,
+    string BatchNumber,
+    string Direction,
+    string Reason,
+    decimal Quantity,
+    decimal UnitCost,
+    decimal CostImpact,
+    string? Notes,
+    DateTimeOffset PerformedAt,
+    DateTimeOffset CreatedAt,
+    Guid PerformedByUserId,
+    string PerformedByDisplayName,
+    bool IsVoided,
+    DateTimeOffset? VoidedAt,
+    Guid? VoidedByUserId,
+    string? VoidedByDisplayName,
+    string? VoidReason,
+    Guid? ReversalStockTransactionId);

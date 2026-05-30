@@ -1,0 +1,46 @@
+using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Suppliers.DTOs;
+using Intelibill.Domain.Interfaces.Repositories;
+
+namespace Intelibill.Application.Features.Suppliers.Queries.GetSuppliers;
+
+public sealed class GetSuppliersQueryHandler(
+    IUserRepository userRepository,
+    ISupplierRepository supplierRepository,
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository)
+{
+    public async Task<ErrorOr<IReadOnlyList<SupplierDto>>> HandleAsync(GetSuppliersQuery query, CancellationToken cancellationToken)
+    {
+        var caller = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);
+        if (caller is null)
+            return Errors.Auth.UserNotFound;
+
+        var callerMembership = caller.ShopMemberships.FirstOrDefault(sm => sm.ShopId == query.ActiveShopId);
+        if (callerMembership is null)
+            return Errors.Shop.MembershipNotFound;
+
+        var suppliers = await supplierRepository.GetByShopIdAsync(query.ActiveShopId, query.IncludeSystem, cancellationToken);
+
+        var result = new List<SupplierDto>();
+        foreach (var s in suppliers)
+        {
+            var balance = await supplierLedgerEntryRepository.GetSupplierBalanceAsync(query.ActiveShopId, s.Id, cancellationToken);
+            result.Add(new SupplierDto(
+                s.Id,
+                s.IsSystem ? "Unassigned" : s.Name,
+                s.ContactPersonName,
+                s.ContactPersonPhone,
+                s.Address,
+                s.City,
+                s.State,
+                s.Pin,
+                s.IsSystem,
+                s.IsActive,
+                s.IsPreferred,
+                balance));
+        }
+
+        return result;
+    }
+}
