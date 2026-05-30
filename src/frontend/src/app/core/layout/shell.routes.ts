@@ -24,6 +24,7 @@ import { dashboardFeature } from '../../features/dashboard/state/dashboard.reduc
 import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
 import { servicesGuard } from '../guards/services.guard';
+import { profitLossGuard } from '../guards/profit-loss.guard';
 
 export const shellRoutes: Routes = [
 	{
@@ -70,6 +71,7 @@ export const shellRoutes: Routes = [
 			},
 			{
 				path: 'sales/profit-loss',
+				canActivate: [profitLossGuard],
 				loadComponent: () =>
 					import('../../features/sales/pages/profit-loss-page/profit-loss-page.component').then(
 						(m) => m.ProfitLossPageComponent

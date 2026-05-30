@@ -17,7 +17,7 @@
     </div>
   }
 
-  @if (!isLoading()) {
+  @if (!isLoading() && !serverError()) {
     <!-- Mobile Stacked List -->
     <div class="mobile-grid-container">
       <div class="mobile-search-bar">

@@ -89,4 +89,32 @@ describe('ShellMenuService', () => {
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
   });
+
+  it('shows Profit & Loss to Owner and Manager, but not to Staff in sales menu', () => {
+    const service = createService();
+
+    // Owner
+    roleSignal.set('Owner');
+    const ownerSalesItems = service.mainMenuItems().find(item => item.label === 'i18n:shell.manageSales')?.items as MenuItem[];
+    expect(ownerSalesItems).toBeDefined();
+    expect(hasLabel(ownerSalesItems, 'i18n:shell.newSale')).toBe(true);
+    expect(hasLabel(ownerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(ownerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
+
+    // Manager
+    roleSignal.set('Manager');
+    const managerSalesItems = service.mainMenuItems().find(item => item.label === 'i18n:shell.manageSales')?.items as MenuItem[];
+    expect(managerSalesItems).toBeDefined();
+    expect(hasLabel(managerSalesItems, 'i18n:shell.newSale')).toBe(true);
+    expect(hasLabel(managerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(managerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
+
+    // Staff
+    roleSignal.set('Staff');
+    const staffSalesItems = service.mainMenuItems().find(item => item.label === 'i18n:shell.manageSales')?.items as MenuItem[];
+    expect(staffSalesItems).toBeDefined();
+    expect(hasLabel(staffSalesItems, 'i18n:shell.newSale')).toBe(true);
+    expect(hasLabel(staffSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(staffSalesItems, 'i18n:shell.profitLossReport')).toBe(false);
+  });
 });
