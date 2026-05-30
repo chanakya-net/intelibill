@@ -118,6 +118,8 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
 
         var addResponse = await client.SendAsync(addRequest);
         Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var addBody = await addResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0m, addBody.GetProperty("creditLimit").GetDecimal());
 
         using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/customers");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -127,6 +129,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
         var body = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.GetArrayLength() >= 1);
         Assert.Equal("John Doe", body[0].GetProperty("name").GetString());
+        Assert.Equal(0m, body[0].GetProperty("creditLimit").GetDecimal());
     }
 
     [Fact]
@@ -161,11 +164,14 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             name = "John Doe Updated",
             phoneNumber = "+918888888888",
             address = "43 MG Road",
-            isActive = false
+            isActive = false,
+            creditLimit = 1250.50m
         });
         
         var editResponse = await client.SendAsync(editRequest);
         Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+        var editBody = await editResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1250.50m, editBody.GetProperty("creditLimit").GetDecimal());
 
         using var verifyRequest = new HttpRequestMessage(HttpMethod.Get, "/api/customers");
         verifyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
@@ -176,6 +182,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
         Assert.Equal("John Doe Updated", verifiedCustomers[0].GetProperty("name").GetString());
         Assert.Equal("+918888888888", verifiedCustomers[0].GetProperty("phoneNumber").GetString());
         Assert.False(verifiedCustomers[0].GetProperty("isActive").GetBoolean());
+        Assert.Equal(1250.50m, verifiedCustomers[0].GetProperty("creditLimit").GetDecimal());
     }
 
     // ======================= NEW: CUSTOMER ACCOUNT =======================
