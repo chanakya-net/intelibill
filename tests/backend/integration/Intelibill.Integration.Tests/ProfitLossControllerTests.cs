@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -143,6 +144,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
 
     private static async Task<Guid> SetupInventoryAsync(HttpClient client, string token, string barcode)
     {
+        const decimal quantity = 50m;
+
         using var supplierRequest = new HttpRequestMessage(HttpMethod.Post, "/api/suppliers");
         supplierRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         supplierRequest.Content = JsonContent.Create(new
@@ -183,8 +186,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             itemDescription = "Test Item",
             uom = "PCS",
             batchNumber = "B-001",
-            quantity = 10m,
-            totalPurchaseCost = 800m,
+            quantity = quantity,
+            totalPurchaseCost = 80m * quantity,
             salesPrice = 100m,
             mrp = 120m,
             taxRatePercent = 0m,
@@ -345,6 +348,19 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<HttpResponseMessage> ExportProfitLossAsync(HttpClient client, string token, string query = "")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/exports/profit-loss{query}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await client.SendAsync(request);
+    }
+
+    private static string GetFileName(HttpResponseMessage response)
+    {
+        var contentDisposition = response.Content.Headers.ContentDisposition;
+        return contentDisposition?.FileNameStar?.Trim('"') ?? contentDisposition?.FileName?.Trim('"') ?? string.Empty;
     }
 
     [Fact]
@@ -549,5 +565,100 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(1, report.GetProperty("totalCount").GetInt32());
         Assert.Single(report.GetProperty("items").EnumerateArray());
         Assert.Equal("Search Customer", report.GetProperty("items").EnumerateArray().Single().GetProperty("partyName").GetString());
+    }
+
+    [Fact]
+    public async Task ExportProfitLoss_WithoutAuth_Returns401()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/api/exports/profit-loss");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExportProfitLoss_StaffGetsForbidden()
+    {
+        using var client = CreateClient();
+        var (token, _) = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsync(client, token, "PL Export Staff Shop");
+        var (_, staffEmail, staffPassword) = await AddShopUserAsync(client, ownerToken, shopId, "Staff");
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/exports/profit-loss");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExportProfitLoss_UsesActiveFiltersAndExportsAllMatchingRows()
+    {
+        using var client = CreateClient();
+        var (token, _) = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token, "PL Export Shop");
+        var barcode = UniqueBarcode();
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
+
+        for (var index = 0; index < 21; index++)
+        {
+            await CreateSaleAsync(client, ownerToken, barcode, batchId, $"Customer {index + 1}", DateTimeOffset.UtcNow.AddMinutes(-index));
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var response = await ExportProfitLossAsync(
+            client,
+            ownerToken,
+            $"?from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}&type=sale&search=Customer&format=xlsx");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+
+        var fileName = GetFileName(response);
+        Assert.Contains("pl-export-shop-profit-loss", fileName, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(".xlsx", fileName, StringComparison.OrdinalIgnoreCase);
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var sheet = workbook.Worksheet("Profit & Loss");
+        var headerRow = sheet.RowsUsed().First(row => row.Cell(1).GetString() == "Reference").RowNumber();
+        var dataRows = sheet.RowsUsed().Where(row => row.RowNumber() > headerRow && !string.IsNullOrWhiteSpace(row.Cell(1).GetString())).ToList();
+
+        Assert.Equal(21, dataRows.Count);
+        Assert.All(dataRows, row => Assert.StartsWith("INV-", row.Cell(1).GetString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ExportProfitLoss_AppliesTypeAndSearchFilters()
+    {
+        using var client = CreateClient();
+        var (token, _) = await RegisterAsync(client);
+        var (_, ownerToken) = await CreateShopAsync(client, token, "PL Export Filter Shop");
+        var barcode = UniqueBarcode();
+        var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
+
+        var sale = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Filter Customer");
+        var returnNumber = await CreateReturnAsync(client, ownerToken, sale.SaleId, sale.SaleItemId);
+        var (_, adjustmentNumber) = await CreateAdjustmentAsync(client, ownerToken, batchId, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 1m, "Damaged stock");
+
+        var response = await ExportProfitLossAsync(
+            client,
+            ownerToken,
+            $"?from={DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}&to={DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}&type=saleReturn&search={returnNumber}&format=xlsx");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var sheet = workbook.Worksheet("Profit & Loss");
+        var headerRow = sheet.RowsUsed().First(row => row.Cell(1).GetString() == "Reference").RowNumber();
+        var dataRows = sheet.RowsUsed().Where(row => row.RowNumber() > headerRow && !string.IsNullOrWhiteSpace(row.Cell(1).GetString())).ToList();
+
+        Assert.Single(dataRows);
+        Assert.Equal($"{sale.InvoiceNumber} / {returnNumber}", dataRows[0].Cell(1).GetString());
+        Assert.Contains("Filter Customer", dataRows[0].Cell(4).GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(adjustmentNumber, dataRows[0].Cell(1).GetString(), StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Exports.ProfitLoss;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Domain.Interfaces;
@@ -114,6 +115,7 @@ public static class DependencyInjection
         services.AddScoped<ISalesExcelExportRenderer, Services.Exports.SalesExcelExportRenderer>();
         services.AddScoped<ISalesPdfExportRenderer, Services.Exports.SalesPdfExportRenderer>();
         services.AddScoped<ISalesTallyXmlExportRenderer, Services.Exports.SalesTallyXmlExportRenderer>();
+        services.AddScoped<IProfitLossExcelExportRenderer, Services.Exports.ProfitLossExcelExportRenderer>();
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.

@@ -8,6 +8,14 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 export type SalesExportFormat = 'xlsx' | 'pdf' | 'tallyXml';
 export type SalesExportLevel = 'summary' | 'lineItems';
 
+export interface ProfitLossExportParams {
+  readonly from: string;
+  readonly to: string;
+  readonly type?: 'all' | 'sale' | 'saleReturn' | 'inventoryAdjustment';
+  readonly search?: string;
+  readonly format?: 'xlsx';
+}
+
 export interface SalesExportParams {
   readonly format: SalesExportFormat;
   readonly level: SalesExportLevel;
@@ -33,7 +41,32 @@ export class SalesExportService {
     }) as Observable<HttpResponse<Blob>>;
   }
 
+  exportProfitLoss(params: ProfitLossExportParams): Observable<HttpResponse<Blob>> {
+    let httpParams = new HttpParams()
+      .set('from', params.from)
+      .set('to', params.to)
+      .set('format', params.format ?? 'xlsx');
+
+    if (params.type) {
+      httpParams = httpParams.set('type', params.type);
+    }
+
+    if (params.search) {
+      httpParams = httpParams.set('search', params.search);
+    }
+
+    return this.http.get(EXPORT_ENDPOINTS.profitLoss, {
+      params: httpParams,
+      responseType: 'blob',
+      observe: 'response',
+    }) as Observable<HttpResponse<Blob>>;
+  }
+
   extractFilename(response: HttpResponse<Blob>): string {
+    return this.extractFilenameWithPrefix(response, 'sales-export');
+  }
+
+  extractFilenameWithPrefix(response: HttpResponse<Blob>, fallbackPrefix: string): string {
     const contentDisposition = response.headers.get('Content-Disposition');
 
     if (contentDisposition) {
@@ -46,12 +79,12 @@ export class SalesExportService {
       }
     }
 
-    return this.generateDefaultFilename();
+    return this.generateDefaultFilename(fallbackPrefix);
   }
 
-  private generateDefaultFilename(): string {
+  private generateDefaultFilename(prefix: string): string {
     const timestamp = formatLocalIsoDate(new Date());
-    return `sales-export-${timestamp}.xlsx`;
+    return `${prefix}-${timestamp}.xlsx`;
   }
 
   triggerDownload(blob: Blob, filename: string): void {

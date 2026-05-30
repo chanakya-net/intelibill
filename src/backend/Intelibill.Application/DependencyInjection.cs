@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<SyncOfflineSalesCommandHandler>();
 
         services.AddScoped<ISalesExportDatasetBuilder, SalesExportDatasetBuilder>();
+        services.AddScoped<ProfitLossReportBuilder>();
 
         services.AddScoped<DiscountRuleValidationService>();
 

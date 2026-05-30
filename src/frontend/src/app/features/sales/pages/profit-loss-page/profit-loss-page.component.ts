@@ -15,6 +15,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { SalesFacade } from '../../state/sales.facade';
+import { SalesExportService } from '../../services/sales-export.service';
 import type {
   ProfitLossReportItemDto,
   ProfitLossReportQueryParams,
@@ -46,6 +47,7 @@ import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
 })
 export class ProfitLossPageComponent {
   private readonly salesFacade = inject(SalesFacade);
+  private readonly salesExportService = inject(SalesExportService);
 
   readonly report = this.salesFacade.profitLossItems;
   readonly summary = this.salesFacade.profitLossSummary;
@@ -59,7 +61,9 @@ export class ProfitLossPageComponent {
   readonly pageSize = signal(this.getDefaultPageSize(this.pagination().pageSize));
   readonly debouncedSearch = signal('');
   readonly isLoading = this.salesFacade.loadingProfitLossReport;
+  readonly isExporting = signal(false);
   readonly serverError = this.salesFacade.errorMessage;
+  readonly exportError = signal('');
   readonly loadingRows = [1, 2, 3, 4, 5];
   private readonly lastAppliedFilterKey = signal<string>('');
 
@@ -224,7 +228,32 @@ export class ProfitLossPageComponent {
   }
 
   onExport(): void {
-    // Placeholder hook for future export implementation.
+    if (this.isExporting()) {
+      return;
+    }
+
+    this.exportError.set('');
+    const params = this.buildExportParams();
+    this.isExporting.set(true);
+
+    this.salesExportService.exportProfitLoss(params).subscribe({
+      next: (response) => {
+        this.isExporting.set(false);
+        const filename = this.salesExportService.extractFilenameWithPrefix(response, 'profit-loss-export');
+        const blob = response.body;
+
+        if (!blob) {
+          this.exportError.set('Unable to export profit and loss report.');
+          return;
+        }
+
+        this.salesExportService.triggerDownload(blob, filename);
+      },
+      error: () => {
+        this.isExporting.set(false);
+        this.exportError.set('Unable to export profit and loss report.');
+      },
+    });
   }
 
   private buildQueryParams(): ProfitLossReportQueryParams {
@@ -237,6 +266,18 @@ export class ProfitLossPageComponent {
       search: this.debouncedSearch() || undefined,
       page: this.pageNumber(),
       pageSize: this.pageSize(),
+    };
+  }
+
+  private buildExportParams() {
+    const type = this.typeFilter();
+
+    return {
+      from: formatLocalIsoDate(this.fromDate()),
+      to: formatLocalIsoDate(this.toDate()),
+      type: type === 'all' ? undefined : type,
+      search: this.debouncedSearch() || undefined,
+      format: 'xlsx' as const,
     };
   }
 

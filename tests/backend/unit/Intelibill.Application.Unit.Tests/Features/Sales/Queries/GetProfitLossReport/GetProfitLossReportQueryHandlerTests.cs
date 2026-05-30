@@ -17,7 +17,10 @@ public class GetProfitLossReportQueryHandlerTests
     private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
 
     private GetProfitLossReportQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _inventoryAdjustmentRepository);
+        new(
+            _userRepository,
+            _shopRepository,
+            new ProfitLossReportBuilder(_saleRepository, _saleReturnRepository, _inventoryAdjustmentRepository));
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
