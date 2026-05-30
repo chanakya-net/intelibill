@@ -11,6 +11,7 @@ public sealed record ProfitLossReportItemDto(
     decimal RevenueAfterTax,
     decimal ProfitBeforeTax,
     decimal ProfitAfterTax,
+    decimal? MarginPercent,
     string RowType,
     Guid? InventoryAdjustmentId);
 
