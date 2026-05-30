@@ -1,11 +1,20 @@
 import { salesAdapter, salesReducer } from './sales.reducer';
-import type { SaleListItemDto } from '../services/sale.models';
+import type {
+  ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
+  ProfitLossSummaryDto,
+  SaleListItemDto,
+} from '../services/sale.models';
 import {
   selectAllSales,
   selectErrorMessage,
   selectLastMutationSucceeded,
   selectLastMutationType,
   selectLoadingSales,
+  selectProfitLossAppliedFilters,
+  selectProfitLossItems,
+  selectProfitLossPagination,
+  selectProfitLossSummary,
   selectReturnPreview,
   selectReturnPreviewErrorMessage,
   selectSalesHistorySummary,
@@ -30,10 +39,25 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerName: null,
   customerPhone: null,
   itemCount: 2,
-      returnNumbers: [],
+  returnNumbers: [],
   status: 'partiallyPaid',
   refundAmount: 0,
   dueReductionAmount: 0,
+});
+
+const makeProfitLossItem = (saleId: string): ProfitLossReportItemDto => ({
+  saleId,
+  referenceNumber: `INV-${saleId}`,
+  occurredAt: '2026-05-05T10:00:00Z',
+  partyName: null,
+  totalCost: 30,
+  wastageCost: 2,
+  revenueBeforeTax: 80,
+  revenueAfterTax: 88,
+  profitBeforeTax: 50,
+  profitAfterTax: 58,
+  rowType: 'Sale',
+  inventoryAdjustmentId: null,
 });
 
 function buildState(sales: SaleListItemDto[] = [], overrides = {}) {
@@ -120,5 +144,48 @@ describe('sales selectors', () => {
     };
     const state = buildState([], { historySummary: summary });
     expect(selectSalesHistorySummary.projector(state)).toEqual(summary);
+  });
+
+  it('selectProfitLossItems reflects state', () => {
+    const items = [makeProfitLossItem('sale-1')];
+    const state = buildState([], { profitLossItems: items });
+    expect(selectProfitLossItems.projector(state)).toEqual(items);
+  });
+
+  it('selectProfitLossSummary reflects state', () => {
+    const summary = {
+      totalCost: 30,
+      totalRevenueBeforeTax: 80,
+      totalRevenueAfterTax: 88,
+      totalProfitBeforeTax: 50,
+      totalProfitAfterTax: 58,
+      totalWastageCost: 2,
+    } satisfies ProfitLossSummaryDto;
+    const state = buildState([], { profitLossSummary: summary });
+    expect(selectProfitLossSummary.projector(state)).toEqual(summary);
+  });
+
+  it('selectProfitLossAppliedFilters reflects state', () => {
+    const appliedFilters = {
+      from: '2026-05-01',
+      to: '2026-05-20',
+      search: 'margin',
+    } satisfies ProfitLossAppliedFiltersDto;
+    const state = buildState([], { profitLossAppliedFilters: appliedFilters });
+    expect(selectProfitLossAppliedFilters.projector(state)).toEqual(appliedFilters);
+  });
+
+  it('selectProfitLossPagination reflects profit loss pagination state', () => {
+    const state = buildState([], {
+      profitLossTotalCount: 17,
+      profitLossPageNumber: 2,
+      profitLossPageSize: 20,
+    });
+
+    expect(selectProfitLossPagination.projector(state)).toEqual({
+      totalCount: 17,
+      pageNumber: 2,
+      pageSize: 20,
+    });
   });
 });

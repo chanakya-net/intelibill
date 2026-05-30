@@ -61,12 +61,12 @@ const initialState: SalesState = salesAdapter.getInitialState({
   profitLossAppliedFilters: {},
   profitLossTotalCount: 0,
   profitLossPageNumber: 1,
-  profitLossPageSize: 0,
+  profitLossPageSize: 20,
   loadingProfitLossReport: false,
   lastRecordedSale: null,
   totalCount: 0,
   pageNumber: 1,
-  pageSize: 0,
+  pageSize: 20,
   historySummary: null,
 });
 

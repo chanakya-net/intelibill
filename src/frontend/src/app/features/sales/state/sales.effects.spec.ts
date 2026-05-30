@@ -341,10 +341,17 @@ describe('SalesEffects', () => {
       pageNumber: 1,
       pageSize: 20,
     };
+    const queryParams = {
+      from: '2026-05-01',
+      to: '2026-05-20',
+      search: 'margin',
+      page: 2,
+      pageSize: 20,
+    };
     saleService.getProfitLossReport.mockReturnValue(of(result));
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
-    actions$.next(SalesActions.loadProfitLossReportRequested({}));
+    actions$.next(SalesActions.loadProfitLossReportRequested({ queryParams }));
 
     await expect(output).resolves.toEqual(
       SalesActions.loadProfitLossReportSucceeded({
@@ -356,6 +363,7 @@ describe('SalesEffects', () => {
         pageSize: result.pageSize,
       })
     );
+    expect(saleService.getProfitLossReport).toHaveBeenCalledWith(queryParams);
   });
 
   it('dispatches loadProfitLossReportFailed on failure', async () => {
@@ -369,5 +377,45 @@ describe('SalesEffects', () => {
     await expect(output).resolves.toEqual(
       SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })
     );
+  });
+
+  it('dispatches loadProfitLossReport with undefined query params when omitted', async () => {
+    saleService.getProfitLossReport.mockReturnValue(of({
+      items: [],
+      summary: {
+        totalCost: 0,
+        totalRevenueBeforeTax: 0,
+        totalRevenueAfterTax: 0,
+        totalProfitBeforeTax: 0,
+        totalProfitAfterTax: 0,
+        totalWastageCost: 0,
+      },
+      appliedFilters: {},
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+    }));
+
+    const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
+    actions$.next(SalesActions.loadProfitLossReportRequested({}));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.loadProfitLossReportSucceeded({
+        items: [],
+        summary: {
+          totalCost: 0,
+          totalRevenueBeforeTax: 0,
+          totalRevenueAfterTax: 0,
+          totalProfitBeforeTax: 0,
+          totalProfitAfterTax: 0,
+          totalWastageCost: 0,
+        },
+        appliedFilters: {},
+        totalCount: 0,
+        pageNumber: 1,
+        pageSize: 20,
+      })
+    );
+    expect(saleService.getProfitLossReport).toHaveBeenCalledWith(undefined);
   });
 });

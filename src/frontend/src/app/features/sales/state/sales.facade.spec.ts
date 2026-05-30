@@ -15,12 +15,22 @@ import {
   selectLastMutationType,
   selectLoadingSaleDetail,
   selectLoadingSales,
+  selectLoadingProfitLossReport,
   selectLoadingReturnPreview,
+  selectProfitLossAppliedFilters,
+  selectProfitLossItems,
+  selectProfitLossPagination,
+  selectProfitLossSummary,
   selectReturnPreview,
   selectReturnPreviewErrorMessage,
   selectSelectedSale,
   selectSubmitting,
 } from './sales.selectors';
+import type {
+  ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
+  ProfitLossSummaryDto,
+} from '../services/sale.models';
 
 describe('SalesFacade', () => {
   const dispatch = vi.fn();
@@ -36,9 +46,24 @@ describe('SalesFacade', () => {
     invoiceCount: 17,
     refundAmount: 100,
   });
+  const profitLossItemsSignal = signal<readonly ProfitLossReportItemDto[]>([]);
+  const profitLossSummarySignal = signal<ProfitLossSummaryDto | null>({
+    totalCost: 100,
+    totalRevenueBeforeTax: 250,
+    totalRevenueAfterTax: 275,
+    totalProfitBeforeTax: 150,
+    totalProfitAfterTax: 175,
+    totalWastageCost: 0,
+  });
+  const profitLossAppliedFiltersSignal = signal<ProfitLossAppliedFiltersDto>({});
   const paginationSignal = signal({
     totalCount: 17,
     pageNumber: 2,
+    pageSize: 20,
+  });
+  const profitLossPaginationSignal = signal({
+    totalCount: 8,
+    pageNumber: 1,
     pageSize: 20,
   });
 
@@ -56,6 +81,11 @@ describe('SalesFacade', () => {
       if (selector === selectReturnPreview) return returnPreviewSignal;
       if (selector === selectLoadingReturnPreview) return boolSignal;
       if (selector === selectReturnPreviewErrorMessage) return returnPreviewErrorSignal;
+      if (selector === selectProfitLossItems) return profitLossItemsSignal;
+      if (selector === selectProfitLossSummary) return profitLossSummarySignal;
+      if (selector === selectProfitLossAppliedFilters) return profitLossAppliedFiltersSignal;
+      if (selector === selectLoadingProfitLossReport) return boolSignal;
+      if (selector === selectProfitLossPagination) return profitLossPaginationSignal;
       if (selector === selectSalesHistorySummary) return summarySignal;
       if (selector === selectSalesPagination) return paginationSignal;
       return signal(null);
@@ -90,6 +120,26 @@ describe('SalesFacade', () => {
     facade.loadSales(queryParams);
     expect(dispatch).toHaveBeenCalledWith(
       SalesActions.loadSalesRequested({ queryParams })
+    );
+  });
+
+  it('loadProfitLossReport dispatches loadProfitLossReportRequested', () => {
+    facade.loadProfitLossReport();
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadProfitLossReportRequested({}));
+  });
+
+  it('loadProfitLossReport dispatches loadProfitLossReportRequested with query params', () => {
+    const queryParams = {
+      from: '2026-05-01',
+      to: '2026-05-20',
+      search: 'margin',
+      page: 2,
+      pageSize: 20,
+    };
+
+    facade.loadProfitLossReport(queryParams);
+    expect(dispatch).toHaveBeenCalledWith(
+      SalesActions.loadProfitLossReportRequested({ queryParams })
     );
   });
 
@@ -139,5 +189,23 @@ describe('SalesFacade', () => {
   it('clearLastRecordedSale dispatches clearLastRecordedSale', () => {
     facade.clearLastRecordedSale();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearLastRecordedSale());
+  });
+
+  it('exposes profit loss selectors', () => {
+    expect(facade.profitLossItems()).toEqual([]);
+    expect(facade.profitLossSummary()).toEqual({
+      totalCost: 100,
+      totalRevenueBeforeTax: 250,
+      totalRevenueAfterTax: 275,
+      totalProfitBeforeTax: 150,
+      totalProfitAfterTax: 175,
+      totalWastageCost: 0,
+    });
+    expect(facade.profitLossAppliedFilters()).toEqual({});
+    expect(facade.profitLossPagination()).toEqual({
+      totalCount: 8,
+      pageNumber: 1,
+      pageSize: 20,
+    });
   });
 });
