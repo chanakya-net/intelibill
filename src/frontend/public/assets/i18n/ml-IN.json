@@ -277,6 +277,7 @@
     "name": "പേര്",
     "phoneNumber": "ഫോൺ നമ്പർ",
     "address": "വിലാസം",
+    "creditLimit": "ക്രെഡിറ്റ് പരിധി",
     "status": "സ്റ്റാറ്റസ്",
     "active": "സജീവം",
     "inactive": "നിർജ്ജീവമായ",

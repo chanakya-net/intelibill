@@ -10,6 +10,10 @@ export interface Customer {
   phoneNumber: string;
   address: string | null;
   isActive: boolean;
+  creditLimit: number;
+  purchaseCount: number;
+  lifetimeRevenue: number;
+  currentMonthRevenue: number;
   outstandingDue?: number;
 }
 
@@ -18,6 +22,7 @@ export interface AddCustomerRequest {
   phoneNumber: string;
   address: string | null;
   isActive: boolean;
+  creditLimit: number;
 }
 
 export interface EditCustomerRequest {
@@ -25,6 +30,7 @@ export interface EditCustomerRequest {
   phoneNumber: string;
   address: string | null;
   isActive: boolean;
+  creditLimit: number;
 }
 
 export interface CustomerAccountSale {

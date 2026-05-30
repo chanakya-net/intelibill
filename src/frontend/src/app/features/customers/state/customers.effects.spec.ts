@@ -44,7 +44,17 @@ describe('CustomersEffects', () => {
     TestBed.resetTestingModule();
   });
 
-  const customer = { customerId: 'c1', name: 'Alice', phoneNumber: '+9198', address: null, isActive: true };
+  const customer = {
+    customerId: 'c1',
+    name: 'Alice',
+    phoneNumber: '+9198',
+    address: null,
+    isActive: true,
+    creditLimit: 0,
+    purchaseCount: 0,
+    lifetimeRevenue: 0,
+    currentMonthRevenue: 0,
+  };
 
   it('dispatches loadCustomersSucceeded on load success', async () => {
     customerService.getCustomers.mockReturnValue(of([customer]));
@@ -72,7 +82,7 @@ describe('CustomersEffects', () => {
 
   it('dispatches addCustomerSucceeded on add success', async () => {
     customerService.addCustomer.mockReturnValue(of(customer));
-    const payload = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true };
+    const payload = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 };
 
     const output = firstValueFrom(effects.addCustomer$.pipe(take(1)));
     actions$.next(CustomersActions.addCustomerRequested({ payload }));
@@ -88,7 +98,7 @@ describe('CustomersEffects', () => {
     );
 
     const output = firstValueFrom(effects.addCustomer$.pipe(take(1)));
-    actions$.next(CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true } }));
+    actions$.next(CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
 
     await expect(output).resolves.toEqual(
       CustomersActions.addCustomerFailed({ errorMessage: 'Failed to add customer' })
@@ -97,7 +107,7 @@ describe('CustomersEffects', () => {
 
   it('dispatches editCustomerSucceeded on edit success', async () => {
     customerService.editCustomer.mockReturnValue(of(customer));
-    const payload = { name: 'Alice Updated', phoneNumber: '+9198', address: null, isActive: true };
+    const payload = { name: 'Alice Updated', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 100 };
 
     const output = firstValueFrom(effects.editCustomer$.pipe(take(1)));
     actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload }));
@@ -113,7 +123,7 @@ describe('CustomersEffects', () => {
     );
 
     const output = firstValueFrom(effects.editCustomer$.pipe(take(1)));
-    actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true } }));
+    actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
 
     await expect(output).resolves.toEqual(
       CustomersActions.editCustomerFailed({ errorMessage: 'Edit failed' })

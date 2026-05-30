@@ -39,6 +39,21 @@
         <input pInputText type="text" formControlName="address" />
       </label>
 
+      <label>
+        <span>{{ 'customers.creditLimit' | transloco }}</span>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputNumber
+            formControlName="creditLimit"
+            mode="decimal"
+            [min]="0"
+            [max]="99999999.99"
+            [maxFractionDigits]="2"
+            [pt]="currencyInputPt"
+          />
+        </p-inputgroup>
+      </label>
+
       <label class="toggle-row" for="isActive">
         <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
         <span>{{ 'customers.isActive' | transloco }}</span>

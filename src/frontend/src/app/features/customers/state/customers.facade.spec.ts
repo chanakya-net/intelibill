@@ -17,7 +17,19 @@ import {
 
 describe('CustomersFacade', () => {
   const dispatch = vi.fn();
-  const customersSignal = signal<Customer[]>([{ customerId: 'c1', name: 'Alice', phoneNumber: '+9198', address: null, isActive: true }]);
+  const customersSignal = signal<Customer[]>([
+    {
+      customerId: 'c1',
+      name: 'Alice',
+      phoneNumber: '+9198',
+      address: null,
+      isActive: true,
+      creditLimit: 0,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+    },
+  ]);
   const boolSignal = signal(false);
   const errorSignal = signal('');
   const mutationTypeSignal = signal<'add-customer' | 'edit-customer' | null>(null);
@@ -55,13 +67,13 @@ describe('CustomersFacade', () => {
   });
 
   it('addCustomer dispatches addCustomerRequested', () => {
-    const payload = { name: 'Bob', phoneNumber: '+9199', address: null, isActive: true };
+    const payload = { name: 'Bob', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 0 };
     facade.addCustomer(payload);
     expect(dispatch).toHaveBeenCalledWith(CustomersActions.addCustomerRequested({ payload }));
   });
 
   it('editCustomer dispatches editCustomerRequested', () => {
-    const payload = { name: 'Bob Updated', phoneNumber: '+9199', address: null, isActive: true };
+    const payload = { name: 'Bob Updated', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 100 };
     facade.editCustomer('c1', payload);
     expect(dispatch).toHaveBeenCalledWith(CustomersActions.editCustomerRequested({ customerId: 'c1', payload }));
   });

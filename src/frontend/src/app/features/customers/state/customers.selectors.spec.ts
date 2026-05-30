@@ -11,8 +11,28 @@ import {
   selectSubmitting,
 } from './customers.selectors';
 
-const customerA: Customer = { customerId: 'c1', name: 'Alice', phoneNumber: '+9198', address: null, isActive: true };
-const customerB: Customer = { customerId: 'c2', name: 'Bob', phoneNumber: '+9199', address: null, isActive: true };
+const customerA: Customer = {
+  customerId: 'c1',
+  name: 'Alice',
+  phoneNumber: '+9198',
+  address: null,
+  isActive: true,
+  creditLimit: 0,
+  purchaseCount: 0,
+  lifetimeRevenue: 0,
+  currentMonthRevenue: 0,
+};
+const customerB: Customer = {
+  customerId: 'c2',
+  name: 'Bob',
+  phoneNumber: '+9199',
+  address: null,
+  isActive: true,
+  creditLimit: 100,
+  purchaseCount: 1,
+  lifetimeRevenue: 250,
+  currentMonthRevenue: 25,
+};
 
 function buildState(customers: Customer[] = [], overrides = {}) {
   const base = customersReducer(undefined, { type: '@@INIT' } as never);

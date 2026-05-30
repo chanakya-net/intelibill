@@ -74,6 +74,16 @@ label span {
   color: #57534e;
 }
 
+:host ::ng-deep .overlay-form .p-inputnumber,
+:host ::ng-deep .overlay-form .p-inputgroup {
+  width: 100%;
+}
+
+:host ::ng-deep .overlay-form .p-inputnumber-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

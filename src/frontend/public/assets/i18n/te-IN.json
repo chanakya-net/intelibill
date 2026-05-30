@@ -277,6 +277,7 @@
     "name": "పేరు",
     "phoneNumber": "ఫోన్ నంబర్",
     "address": "చిరునామా",
+    "creditLimit": "క్రెడిట్ పరిమితి",
     "status": "స్థితి",
     "active": "సక్రియంగా",
     "inactive": "నిష్క్రియంగా",

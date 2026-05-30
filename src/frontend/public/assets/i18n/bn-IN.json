@@ -277,6 +277,7 @@
     "name": "নাম",
     "phoneNumber": "ফোন নম্বর",
     "address": "ঠিকানা",
+    "creditLimit": "ক্রেডিট সীমা",
     "status": "স্ট্যাটাস",
     "active": "সক্রিয়",
     "inactive": "নিষ্ক্রিয়",
