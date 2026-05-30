@@ -314,9 +314,43 @@
       "saleDue": "అమ్మకపు బకాయి",
       "notFound": "కస్టమర్ ఖాతా కనుగొనబడలేదు.",
       "loadFailed": "ప్రస్తుతం కస్టమర్ ఖాతాను లోడ్ చేయలేకపోయాం.",
-      "paymentFailed": "ప్రస్తుతం చెల్లింపును నమోదు చేయలేకపోయాం."
+      "paymentFailed": "ప్రస్తుతం చెల్లింపును నమోదు చేయలేకపోయాం.",
+      "subtitle": "కస్టమర్ ఖాతా లెడ్జర్, చెల్లింపులు మరియు క్రెడిట్ వినియోగం.",
+      "lifetimeRevenue": "జీవితకాల రాబడి",
+      "purchases": "కొనుగోళ్లు",
+      "filterAll": "అన్నీ",
+      "filterPurchases": "కొనుగోళ్లు",
+      "filterPayments": "చెల్లింపులు",
+      "reference": "ಪ್ರಸ್ತಾವನ",
+      "debit": "డెబిట్",
+      "credit": "క్రెడిట్",
+      "balance": "నిల్వ",
+      "emptyLedger": "ఈ ఫిల్టర్‌తో ఏ లావాదేవీలు సరిపోలడం లేదు.",
+      "openingBalanceLabel": "ಪ್ರಾರಂಭಿಕ ನಿಲ್ವ",
+      "closingBalanceLabel": "ಮುಗಿಂಪು ನಿಲ್ವ"
     },
-    "searchPlaceholder": "కస్టమర్లను వెతుకు..."
+    "searchPlaceholder": "గ్రాహకులను పేరు, ఫోన్ లేదా చిరునామా ద్వారా వెతకండి...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "ఇన్వెంటరీ డైరెక్టరీ",

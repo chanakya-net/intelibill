@@ -314,9 +314,43 @@
       "saleDue": "ಮಾರಾಟ ಬಾಕಿ",
       "notFound": "ಗ್ರಾಹಕ ಖಾತೆ ಸಿಗಲಿಲ್ಲ.",
       "loadFailed": "ಈಗ ಗ್ರಾಹಕ ಖಾತೆಯನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
-      "paymentFailed": "ಈಗ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
+      "paymentFailed": "ಈಗ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+      "subtitle": "ಗ್ರಾಹಕರ ಖಾತೆ ಲೆಡ್ಜರ್, ಪಾವತಿಗಳು ಮತ್ತು ಕ್ರೆಡಿಟ್ ಬಳಕೆ.",
+      "lifetimeRevenue": "ಆಜೀವ ಆದಾಯ",
+      "purchases": "ಖರೀದಿಗಳು",
+      "filterAll": "ಎಲ್ಲಾ",
+      "filterPurchases": "ಖರೀದಿಗಳು",
+      "filterPayments": "ಪಾವತಿಗಳು",
+      "reference": "ಉಲ್ಲೇಖ",
+      "debit": "ಡೆಬೆಟ್",
+      "credit": "ಕ್ರೆಡಿಟ್",
+      "balance": "ಬಾಕಿ",
+      "emptyLedger": "ಈ ಫಿಲ್ಟರ್‌ಗೆ ಯಾವುದೇ ವಹಿವಾಟುಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ.",
+      "openingBalanceLabel": "ಆರಂಭಿಕ ಬಾಕಿ",
+      "closingBalanceLabel": "ಅಂತಿಮ ಬಾಕಿ"
     },
-    "searchPlaceholder": "ಗ್ರಾಹಕರನ್ನು ಹುಡುಕಿ..."
+    "searchPlaceholder": "ಗ್ರಾಹಕರನ್ನು ಹುಡುಕಿ...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "ಇನ್‌ವೆಂಟರಿ ಡೈರೆಕ್ಟರಿ",

@@ -314,9 +314,43 @@
       "saleDue": "વેચાણ બાકી",
       "notFound": "ગ્રાહક ખાતું મળ્યું નથી.",
       "loadFailed": "હમણાં ગ્રાહક ખાતું લોડ કરી શકાયું નથી.",
-      "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી."
+      "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી.",
+      "subtitle": "ગ્રાહક ખાતા લેજર, ચૂકવણી અને ક્રેડિટ વપરાશ.",
+      "lifetimeRevenue": "લાઈફટાઇમ આવક",
+      "purchases": "ખરીદી",
+      "filterAll": "બધા",
+      "filterPurchases": "ખરીદી",
+      "filterPayments": "ચૂકવણી",
+      "reference": "સંદર્ભ",
+      "debit": "ઉધાર",
+      "credit": "જમા",
+      "balance": "બાકી",
+      "emptyLedger": "આ ફિલ્ટર સાથે કોઈ વ્યવહારો મેળ ખાતા નથી.",
+      "openingBalanceLabel": "શરૂઆતની બાકી",
+      "closingBalanceLabel": "આખરની બાકી"
     },
-    "searchPlaceholder": "ગ્રાહક શોધો..."
+    "searchPlaceholder": "ગ્રાહક શોધો...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "ઇન્વેન્ટરી ડિરેક્ટરી",

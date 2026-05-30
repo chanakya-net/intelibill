@@ -314,9 +314,43 @@
       "saleDue": "விற்பனை நிலுவை",
       "notFound": "வாடிக்கையாளர் கணக்கு கிடைக்கவில்லை.",
       "loadFailed": "இப்போது வாடிக்கையாளர் கணக்கை ஏற்ற முடியவில்லை.",
-      "paymentFailed": "இப்போது பணம் பதிவுசெய்ய முடியவில்லை."
+      "paymentFailed": "இப்போது பணம் பதிவுசெய்ய முடியவில்லை.",
+      "subtitle": "வாடிக்கையாளர் கணக்கு பேரேடு, பணம் செலுத்துதல் மற்றும் கடன் பயன்பாடு.",
+      "lifetimeRevenue": "ஆயுட்கால வருவாய்",
+      "purchases": "கொள்முதல்",
+      "filterAll": "அனைத்தும்",
+      "filterPurchases": "கொள்முதல்",
+      "filterPayments": "பணம் செலுத்துதல்",
+      "reference": "குறிப்பு",
+      "debit": "பற்று",
+      "credit": "வரவு",
+      "balance": "இருப்பு",
+      "emptyLedger": "இந்த வடிகட்டியுடன் எந்த பரிவர்த்தனைகளும் பொருந்தவில்லை.",
+      "openingBalanceLabel": "துவக்க இருப்பு",
+      "closingBalanceLabel": "முடிவு இருப்பு"
     },
-    "searchPlaceholder": "வாடிக்கையாளர்களை தேடு..."
+    "searchPlaceholder": "வாடிக்கையாளர்களை பெயர், தொலைபேசி அல்லது முகவரியால் தேடவும்...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "சரக்கு அடைவகம்",

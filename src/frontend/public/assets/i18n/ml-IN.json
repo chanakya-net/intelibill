@@ -314,9 +314,43 @@
       "saleDue": "വിൽപ്പന കുടിശിക",
       "notFound": "ഉപഭോക്തൃ അക്കൗണ്ട് കണ്ടെത്തിയില്ല.",
       "loadFailed": "ഇപ്പോൾ ഉപഭോക്തൃ അക്കൗണ്ട് ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
-      "paymentFailed": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിഞ്ഞില്ല."
+      "paymentFailed": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിഞ്ഞില്ല.",
+      "subtitle": "ഉപഭോക്തൃ അക്കൗണ്ട് ലെഡ്ജർ, പേയ്‌മെന്റുകൾ, ക്രെഡിറ്റ് ഉപയോഗം.",
+      "lifetimeRevenue": "ലൈഫ് ടൈം വരുമാനം",
+      "purchases": "പർച്ചേസുകൾ",
+      "filterAll": "എല്ലാം",
+      "filterPurchases": "പർച്ചേസുകൾ",
+      "filterPayments": "പേയ്‌മെന്റുകൾ",
+      "reference": "റഫറൻസ്",
+      "debit": "ഡെബിറ്റ്",
+      "credit": "ക്രെഡിറ്റ്",
+      "balance": "ബാലൻസ്",
+      "emptyLedger": "ഈ ഫിൽട്ടറുമായി പൊരുത്തപ്പെടുന്ന ഇടപാടുകളൊന്നുമില്ല.",
+      "openingBalanceLabel": "ഓപ്പണിംഗ് ബാലൻസ്",
+      "closingBalanceLabel": "ക്ലോസിംഗ് ബാലൻസ്"
     },
-    "searchPlaceholder": "ഉപഭോക്താക്കളെ തിരയുക..."
+    "searchPlaceholder": "ഗ്രാഹകരെ തിരയുക...",
+    "summary": {
+      "totalCustomers": "Total Customers",
+      "outstandingBalance": "Outstanding Balance",
+      "overdueCount": "Overdue Accounts",
+      "totalCreditIssued": "Total Credit Issued",
+      "accountsWithCredit": "Accounts With Credit",
+      "monthlyRevenue": "Monthly Revenue",
+      "filteredRows": "Filtered Rows"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "overdue": "Overdue",
+      "inCredit": "In Credit"
+    },
+    "usage": "Usage",
+    "overdue": "Overdue",
+    "inCredit": "In Credit",
+    "monthlyRevenue": "Monthly Revenue",
+    "newTransaction": "New Transaction",
+    "showingCount": "Showing {{visible}} of {{total}} customers"
   },
   "inventory": {
     "directory": "ഇൻവെന്ററി ഡയറക്ടറി",

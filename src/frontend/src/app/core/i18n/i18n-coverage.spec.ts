@@ -42,6 +42,16 @@ function flattenLeaves(value: unknown, prefix = '', leaves = new Map<string, unk
   return leaves;
 }
 
+function resolvePath(locale: LocaleJson, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current === null || typeof current !== 'object' || Array.isArray(current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, locale);
+}
+
 function sortedKeys(locale: FlattenedLocale): string[] {
   return Array.from(locale.keys()).sort();
 }
@@ -100,6 +110,23 @@ describe('Global i18n coverage', () => {
   const enLocale = flattenLeaves(loadJson(DEFAULT_LOCALE));
   const enKeys = sortedKeys(enLocale);
   const enKeySet = new Set(enKeys);
+  const requiredCustomerKeys = [
+    'customers.summary.totalCustomers',
+    'customers.summary.outstandingBalance',
+    'customers.summary.overdueCount',
+    'customers.summary.totalCreditIssued',
+    'customers.summary.accountsWithCredit',
+    'customers.summary.monthlyRevenue',
+    'customers.summary.filteredRows',
+    'customers.creditLimit',
+    'customers.status',
+    'customers.usage',
+    'customers.overdue',
+    'customers.inCredit',
+    'customers.newTransaction',
+    'customers.showingCount',
+    'customers.searchPlaceholder',
+  ] as const;
 
   it('has a locale file for every supported language', () => {
     const missingFiles = SUPPORTED_LANGUAGES.filter((locale) => !existsSync(localePath(locale)));
@@ -126,6 +153,15 @@ describe('Global i18n coverage', () => {
       const mismatches = placeholderMismatches(enLocale, flattenLeaves(loadJson(locale)));
 
       expect(mismatches, formatPlaceholderDiff(locale, mismatches)).toHaveLength(0);
+    });
+  }
+
+  for (const locale of SUPPORTED_LANGUAGES) {
+    it(`${locale} includes the customer directory keys`, () => {
+      const localeJson = loadJson(locale);
+      const missing = requiredCustomerKeys.filter((key) => resolvePath(localeJson, key) === undefined);
+
+      expect(missing, `Missing customer keys in ${locale}: ${missing.join(', ')}`).toHaveLength(0);
     });
   }
 });

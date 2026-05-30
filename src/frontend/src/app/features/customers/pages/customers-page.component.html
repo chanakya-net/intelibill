@@ -1,93 +1,108 @@
 <section class="customers-page">
-  <header class="customers-header">
-    <div>
+  <header class="customers-hero">
+    <div class="customers-hero__copy">
       <p class="eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
       <h1>{{ 'customers.title' | transloco }}</h1>
       <p class="subtitle">{{ 'customers.subtitle' | transloco }}</p>
+      <div class="customers-hero__meta">
+        <span class="meta-chip meta-chip--primary">{{ 'customers.showingCount' | transloco:{ visible: filteredRowCount(), total: totalCustomers() } }}</span>
+        <span class="meta-chip">{{ 'customers.summary.totalCreditIssued' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ totalCreditIssued() | number:'1.2-2' }}</span>
+        <span class="meta-chip">{{ 'customers.summary.accountsWithCredit' | transloco }}: {{ accountsWithCredit() }}</span>
+      </div>
     </div>
 
-    <button
-      pButton
-      type="button"
-      [label]="'customers.addCustomer' | transloco"
-      icon="pi pi-plus"
-      (click)="onOpenAddCustomer()"
-    ></button>
+    <div class="customers-hero__actions">
+      <p-button
+        type="button"
+        [label]="'customers.addCustomer' | transloco"
+        icon="pi pi-plus"
+        (click)="onOpenAddCustomer()"
+      />
+    </div>
   </header>
+
+  <div class="summary-grid" aria-label="Customer summary">
+    @for (card of summaryCards(); track card.labelKey) {
+      <article class="summary-card" [class]="'summary-card--' + card.tone">
+        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value">
+          @if (card.variant === 'money') {
+            {{ 'common.currencySymbol' | transloco }}{{ card.value | number:'1.2-2' }}
+          } @else {
+            {{ card.value | number:'1.0-0' }}
+          }
+        </div>
+      </article>
+    }
+  </div>
 
   @if (serverError()) {
     <p class="error">{{ serverError() | transloco }}</p>
   }
 
   @if (isLoading()) {
-    <!-- Mobile Skeleton -->
-    <div class="mobile-grid-container">
-      <div class="mobile-search-bar">
-        <p-skeleton width="100%" height="3rem" styleClass="rounded-lg"></p-skeleton>
+    <section class="directory-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
+          <h2>{{ 'customers.title' | transloco }}</h2>
+        </div>
       </div>
-      <div class="customer-list flex flex-col gap-3 px-1">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <p-card [pt]="{
-            root: { class: 'border border-orange-100 shadow-none' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
-            <div class="flex items-center gap-4">
-              <p-skeleton shape="circle" size="3rem" styleClass="flex-shrink-0"></p-skeleton>
-              <div class="flex-1 flex flex-col gap-2">
-                <p-skeleton width="60%" height="1.25rem"></p-skeleton>
-                <p-skeleton width="40%" height="1rem"></p-skeleton>
-                <p-skeleton width="80%" height="1rem"></p-skeleton>
-              </div>
-              <div class="flex flex-col items-end gap-2">
-                <p-skeleton width="2rem" height="2rem" styleClass="rounded"></p-skeleton>
-              </div>
-            </div>
-          </p-card>
-        }
+      <div class="loading-shell">
+        <p-skeleton width="100%" height="3.25rem" styleClass="rounded-lg"></p-skeleton>
+        <div class="loading-grid">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <p-skeleton width="100%" height="7rem" styleClass="rounded-2xl"></p-skeleton>
+          }
+        </div>
+        <p-skeleton width="100%" height="25rem" styleClass="rounded-2xl"></p-skeleton>
       </div>
-    </div>
-
-    <!-- Desktop Skeleton -->
-    <div class="customers-table-card desktop-table">
-      <p-table [value]="[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" class="p-datatable-sm">
-        <ng-template pTemplate="header">
-          <tr>
-            <th><p-skeleton width="6rem"></p-skeleton></th>
-            <th><p-skeleton width="8rem"></p-skeleton></th>
-            <th><p-skeleton width="12rem"></p-skeleton></th>
-            <th><p-skeleton width="6rem"></p-skeleton></th>
-            <th><p-skeleton width="4rem"></p-skeleton></th>
-            <th><p-skeleton width="8rem"></p-skeleton></th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body">
-          <tr>
-            <td><p-skeleton width="80%"></p-skeleton></td>
-            <td><p-skeleton width="70%"></p-skeleton></td>
-            <td><p-skeleton width="90%"></p-skeleton></td>
-            <td><p-skeleton width="60%"></p-skeleton></td>
-            <td><p-skeleton width="50%"></p-skeleton></td>
-            <td><p-skeleton width="100%"></p-skeleton></td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
+    </section>
   }
 
   @if (!isLoading()) {
-    <app-customers-filter-bar
-      [searchValue]="searchValue()"
-      [statusFilter]="statusFilter()"
-      (searchValueChange)="searchValue.set($event)"
-      (statusFilterChange)="onStatusFilterChange($event)"
-    />
+    <section class="directory-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
+          <h2>{{ 'customers.title' | transloco }}</h2>
+          <p class="directory-panel__subtitle">{{ 'customers.subtitle' | transloco }}</p>
+        </div>
 
-    <app-customers-table
-      [customers]="filteredCustomers()"
-      (openCustomerAccount)="onOpenCustomerAccount($event)"
-      (openEditCustomer)="onOpenEditCustomer($event)"
-    />
+        <div class="directory-panel__metrics" aria-label="Customer directory metrics">
+          @for (metric of directoryMetrics(); track metric.labelKey) {
+            <span class="metric-chip">
+              <strong>
+                @if (metric.variant === 'money') {
+                  {{ 'common.currencySymbol' | transloco }}{{ metric.value | number:'1.2-2' }}
+                } @else {
+                  {{ metric.value | number:'1.0-0' }}
+                }
+              </strong>
+              <span>{{ metric.labelKey | transloco }}</span>
+            </span>
+          }
+        </div>
+      </header>
+
+      <app-customers-filter-bar
+        [searchValue]="searchValue()"
+        [statusFilter]="statusFilter()"
+        (searchValueChange)="searchValue.set($event)"
+        (statusFilterChange)="onStatusFilterChange($event)"
+      />
+
+      <div class="directory-panel__surface">
+        <app-customers-table
+          [customers]="filteredCustomers()"
+          [visibleRows]="filteredRowCount()"
+          [totalRows]="totalCustomers()"
+          (openCustomerAccount)="onOpenCustomerAccount($event)"
+          (newTransaction)="onOpenCustomerAccount($event)"
+          (openEditCustomer)="onOpenEditCustomer($event)"
+        />
+      </div>
+    </section>
   }
 
   @if (showAddCustomerOverlay()) {
@@ -128,10 +143,10 @@
           <div>
             <div class="account-status-row">
               <h2>{{ selectedAccount()!.name }}</h2>
-              <span class="active-pill">Active</span>
+              <span class="active-pill">{{ 'customers.active' | transloco }}</span>
             </div>
             <p>
-              Customer account ledger — purchases, payments, and outstanding balance.
+              {{ 'customers.account.subtitle' | transloco }}
             </p>
           </div>
         </header>
@@ -147,20 +162,20 @@
 
           <article class="statement-metric">
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong class="green">₹{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
-            <small class="warning-dot">{{ selectedAccountOverdueCount() }} overdue invoices</small>
+            <strong class="green">{{ 'common.currencySymbol' | transloco }}{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
+            <small class="warning-dot">{{ selectedAccountOverdueCount() }} {{ 'customers.overdue' | transloco }}</small>
           </article>
 
           <article class="statement-metric">
-            <span>Credit limit</span>
-            <strong>₹{{ selectedAccountCreditLimit() | number:'1.2-2' }}</strong>
-            <small class="success-dot">{{ selectedAccountAvailableCreditPercent() }}% available</small>
+            <span>{{ 'customers.creditLimit' | transloco }}</span>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ selectedAccountCreditLimit() | number:'1.2-2' }}</strong>
+            <small class="success-dot">{{ selectedAccountUsagePercent() }}% {{ 'customers.usage' | transloco }}</small>
           </article>
 
           <article class="statement-metric">
-            <span>Lifetime revenue</span>
-            <strong class="red">₹{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
-            <small class="success-dot">{{ selectedAccountPurchaseCount() }} purchases</small>
+            <span>{{ 'customers.account.lifetimeRevenue' | transloco }}</span>
+            <strong class="red">{{ 'common.currencySymbol' | transloco }}{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
+            <small class="success-dot">{{ selectedAccountPurchaseCount() }} {{ 'customers.account.purchases' | transloco }}</small>
           </article>
         </section>
 
@@ -194,25 +209,25 @@
 
         <section class="statement-ledger" aria-label="Transaction ledger">
           <header>
-            <h3>Transaction Ledger</h3>
+            <h3>{{ 'customers.account.ledger' | transloco }}</h3>
             <div class="statement-tabs" aria-label="Ledger filters">
-              <button type="button" [class.active]="accountLedgerFilter() === 'all'" (click)="onAccountLedgerFilterChange('all')">All</button>
-              <button type="button" [class.active]="accountLedgerFilter() === 'purchases'" (click)="onAccountLedgerFilterChange('purchases')">Purchases</button>
-              <button type="button" [class.active]="accountLedgerFilter() === 'payments'" (click)="onAccountLedgerFilterChange('payments')">Payments</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'all'" (click)="onAccountLedgerFilterChange('all')">{{ 'customers.account.filterAll' | transloco }}</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'purchases'" (click)="onAccountLedgerFilterChange('purchases')">{{ 'customers.account.filterPurchases' | transloco }}</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'payments'" (click)="onAccountLedgerFilterChange('payments')">{{ 'customers.account.filterPayments' | transloco }}</button>
             </div>
           </header>
 
           <div class="statement-table-wrap">
             <table class="statement-table">
               <thead>
-              <tr>
-                <th>{{ 'customers.account.date' | transloco }}</th>
-                <th>Reference</th>
-                <th>{{ 'customers.account.type' | transloco }}</th>
-                <th>Debit</th>
-                <th>Credit</th>
-                <th>Balance</th>
-              </tr>
+                <tr>
+                  <th>{{ 'customers.account.date' | transloco }}</th>
+                  <th>{{ 'customers.account.reference' | transloco }}</th>
+                  <th>{{ 'customers.account.type' | transloco }}</th>
+                  <th>{{ 'customers.account.debit' | transloco }}</th>
+                  <th>{{ 'customers.account.credit' | transloco }}</th>
+                  <th>{{ 'customers.account.balance' | transloco }}</th>
+                </tr>
               </thead>
               <tbody>
                 @for (row of selectedAccountFilteredLedgerRows(); track row.entry.entryId) {
@@ -221,16 +236,16 @@
                     <td class="reference">{{ row.reference }}</td>
                     <td>
                       <span class="statement-type" [class.payment]="row.kind === 'payment'">
-                        {{ row.kind === 'payment' ? 'Payment' : 'Purchase' }}
+                        {{ row.kind === 'payment' ? ('customers.account.paymentReceived' | transloco) : ('customers.account.saleDue' | transloco) }}
                       </span>
                     </td>
-                    <td class="money debit">{{ row.debit === null ? '—' : ('₹' + (row.debit | number:'1.2-2')) }}</td>
-                    <td class="money credit">{{ row.credit === null ? '—' : ('₹' + (row.credit | number:'1.2-2')) }}</td>
-                    <td class="money balance">₹{{ row.entry.runningBalance | number:'1.2-2' }}</td>
+                    <td class="money debit">{{ row.debit === null ? '—' : (('common.currencySymbol' | transloco) + (row.debit | number:'1.2-2')) }}</td>
+                    <td class="money credit">{{ row.credit === null ? '—' : (('common.currencySymbol' | transloco) + (row.credit | number:'1.2-2')) }}</td>
+                    <td class="money balance">{{ 'common.currencySymbol' | transloco }}{{ row.entry.runningBalance | number:'1.2-2' }}</td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="statement-empty">No transactions match this filter.</td>
+                    <td colspan="6" class="statement-empty">{{ 'customers.account.emptyLedger' | transloco }}</td>
                   </tr>
                 }
               </tbody>
@@ -238,10 +253,10 @@
           </div>
 
           <footer>
-            <span>Showing {{ selectedAccountFilteredLedgerRows().length }} transactions</span>
+            <span>{{ 'customers.showingCount' | transloco:{ visible: selectedAccountFilteredLedgerRows().length, total: selectedAccountLedgerRows().length } }}</span>
             <span>
-              Opening Balance: ₹{{ selectedAccountOpeningBalance() | number:'1.2-2' }}
-              · Closing Balance: ₹{{ selectedAccountClosingBalance() | number:'1.2-2' }}
+              {{ 'customers.account.openingBalanceLabel' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ selectedAccountOpeningBalance() | number:'1.2-2' }}
+              · {{ 'customers.account.closingBalanceLabel' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ selectedAccountClosingBalance() | number:'1.2-2' }}
             </span>
           </footer>
         </section>

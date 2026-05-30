@@ -1,193 +1,178 @@
-<div class="mobile-grid-container">
-  <div class="customer-list flex flex-col gap-3 px-1">
-    @for (customer of customers; track customer.customerId) {
-      <p-card
-        class="customer-card-item cursor-pointer"
-        [class.opacity-50]="!customer.isActive"
-        (click)="onOpenCustomerAccount(customer)"
-        [pt]="{
-          root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
-          body: { class: 'p-3' },
-          content: { class: 'p-0' }
-        }"
+<section class="customers-table-shell" aria-label="Customer directory results">
+  <div class="mobile-grid-container">
+    @for (customer of tableCustomers; track customer.customerId) {
+      <article
+        class="customer-card"
+        [class.customer-card--inactive]="customerStatus(customer) === 'inactive'"
+        [class.customer-card--warning]="customerStatus(customer) === 'overdue'"
+        [class.customer-card--credit]="customerStatus(customer) === 'inCredit'"
       >
-        <div class="flex items-center gap-4">
-          <!-- Left: Avatar -->
-          <p-avatar
-            [label]="customerInitials(customer.name)"
-            [style]="{'background-color': customerAvatarColor(customer.name), 'color': '#ffffff'}"
-            shape="circle"
-            size="large"
-            class="shadow-sm flex-shrink-0"
-          />
+        <header class="customer-card__header">
+          <button type="button" class="customer-card__identity" (click)="onOpenCustomerAccount(customer)">
+            <p-avatar
+              [label]="customerInitials(customer.name)"
+              [style]="{ 'background-color': customerAvatarColor(customer.name), color: '#ffffff' }"
+              shape="circle"
+              size="large"
+            />
+            <span>
+              <strong>{{ customer.name }}</strong>
+              <em>{{ customer.phoneNumber }}</em>
+            </span>
+          </button>
 
-          <!-- Center: Info -->
-          <div class="flex-1 flex flex-col gap-1 min-w-0">
-            <div class="customer-name-link font-bold text-blue-800">
-              {{ customer.name }}
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
-                {{ customer.phoneNumber }}
-              </span>
-              <span class="text-slate-300">•</span>
-              <p-tag [severity]="customer.isActive ? 'success' : 'danger'">
-                <ng-template pTemplate="content">
-                  <div class="flex items-center gap-1.5">
-                    <span class="status-dot" [class.bg-green-500]="customer.isActive" [class.bg-red-500]="!customer.isActive"></span>
-                    <span class="text-[10px] font-bold tracking-wide uppercase">
-                      {{ customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco) }}
-                    </span>
-                  </div>
-                </ng-template>
-              </p-tag>
-            </div>
-            <div class="text-xs font-semibold text-orange-700">
-              {{ 'customers.account.outstandingDue' | transloco }}: ₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}
-            </div>
+          <span class="status-badge" [ngClass]="customerStatusClass(customer)">
+            <span class="status-dot"></span>
+            {{ customerStatusLabelKey(customer) | transloco }}
+          </span>
+        </header>
+
+        <div class="customer-card__metrics">
+          <div>
+            <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</strong>
           </div>
-
-          <!-- Right: Actions -->
-          <div class="flex flex-col items-end gap-3">
-            <div class="flex gap-1.5">
-              <p-button
-                icon="pi pi-pencil"
-                [outlined]="true"
-                severity="secondary"
-                [pt]="{
-                  root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
-                }"
-                (click)="$event.stopPropagation(); onOpenEditCustomer(customer)"
-                [attr.aria-label]="'customers.editCustomer' | transloco"
-              />
-            </div>
+          <div>
+            <span>{{ 'customers.creditLimit' | transloco }}</span>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</strong>
           </div>
         </div>
-      </p-card>
+
+        <div class="usage-block" data-testid="usage-block">
+          <div class="usage-block__heading">
+            <span>{{ 'customers.usage' | transloco }}</span>
+            <strong>{{ customerUsageLabel(customer) }}</strong>
+          </div>
+          <div class="usage-bar" aria-hidden="true">
+            <span class="usage-bar__fill" [style.width.%]="customerUsagePercent(customer)"></span>
+          </div>
+        </div>
+
+        <footer class="customer-card__actions">
+          <p-button
+            type="button"
+            [label]="'customers.newTransaction' | transloco"
+            icon="pi pi-plus"
+            severity="help"
+            [outlined]="true"
+            (click)="onNewTransaction(customer)"
+          />
+          <p-button
+            type="button"
+            [label]="'customers.editCustomer' | transloco"
+            icon="pi pi-pencil"
+            severity="secondary"
+            (click)="onOpenEditCustomer(customer)"
+          />
+        </footer>
+      </article>
     }
 
-    @if (customers.length === 0) {
+    @if (tableCustomers.length === 0) {
       <div class="mobile-empty-state">
-        <h2 class="text-xl font-bold text-slate-700">{{ 'customers.noCustomersFound' | transloco }}</h2>
-        <p class="text-slate-500">{{ 'customers.noCustomersDescription' | transloco }}</p>
+        <h2>{{ 'customers.noCustomersFound' | transloco }}</h2>
+        <p>{{ 'customers.noCustomersDescription' | transloco }}</p>
       </div>
     }
   </div>
-</div>
 
-<!-- Desktop table -->
-<div class="customers-table-card desktop-table">
-  <p-table
-    [value]="tableCustomers"
-    [globalFilterFields]="['name','phoneNumber','address']"
-    [sortField]="'name'"
-    [sortOrder]="1"
-    [scrollable]="true"
-    scrollHeight="calc(100vh - 280px)"
-    class="p-datatable-sm"
-  >
-    <ng-template pTemplate="header">
-      <tr>
-        <th pSortableColumn="name">
-          <div class="flex items-center justify-between">
-            {{ 'customers.name' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="name" />
-              <p-columnFilter type="text" field="name" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="phoneNumber">
-          <div class="flex items-center justify-between">
-            {{ 'customers.phoneNumber' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="phoneNumber" />
-              <p-columnFilter type="text" field="phoneNumber" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="address">
-          <div class="flex items-center justify-between">
-            {{ 'customers.address' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="address" />
-              <p-columnFilter type="text" field="address" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="outstandingDue">
-          <div class="flex items-center justify-between">
-            {{ 'customers.account.outstandingDue' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="outstandingDue" />
-              <p-columnFilter type="numeric" field="outstandingDue" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="isActive">
-          <div class="flex items-center justify-between">
-            {{ 'customers.status' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="isActive" />
-              <p-columnFilter type="boolean" field="isActive" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th>{{ 'customers.actions' | transloco }}</th>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="body" let-customer>
-      <tr>
-        <td>
-          <button type="button" class="customer-name-link" (click)="onOpenCustomerAccount(customer)">
-            {{ customer.name }}
-          </button>
-        </td>
-        <td>{{ customer.phoneNumber }}</td>
-        <td>{{ customer.address || '-' }}</td>
-        <td class="font-semibold text-orange-700">₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
-        <td>
-          <p-tag [severity]="customer.isActive ? 'success' : 'danger'">
-            <ng-template pTemplate="content">
-              <div class="flex items-center gap-1.5 px-1">
-                <span class="status-dot" [class.bg-green-500]="customer.isActive" [class.bg-red-500]="!customer.isActive"></span>
-                <span class="text-[10px] font-bold tracking-wide uppercase">
-                  {{ customer.isActive ? ('customers.active' | transloco) : ('customers.inactive' | transloco) }}
-                </span>
+  <div class="customers-table-card desktop-table">
+    <p-table
+      [value]="tableCustomers"
+      [scrollable]="true"
+      scrollHeight="calc(100vh - 320px)"
+      class="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'customers.name' | transloco }}</th>
+          <th>{{ 'customers.phoneNumber' | transloco }}</th>
+          <th>{{ 'customers.account.outstandingDue' | transloco }}</th>
+          <th>{{ 'customers.creditLimit' | transloco }}</th>
+          <th>{{ 'customers.usage' | transloco }}</th>
+          <th>{{ 'customers.status' | transloco }}</th>
+          <th>{{ 'common.actions' | transloco }}</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-customer>
+        <tr [class.customer-row--inactive]="customerStatus(customer) === 'inactive'">
+          <td>
+            <button type="button" class="customer-name-link" (click)="onOpenCustomerAccount(customer)">
+              <span
+                class="customer-name-link__avatar"
+                [style.background-color]="customerAvatarColor(customer.name)"
+                aria-hidden="true"
+              >
+                {{ customerInitials(customer.name) }}
+              </span>
+              <span>
+                <strong>{{ customer.name }}</strong>
+                <small>{{ customer.address || '—' }}</small>
+              </span>
+            </button>
+          </td>
+          <td>{{ customer.phoneNumber }}</td>
+          <td class="money money--outstanding">{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
+          <td class="money">{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</td>
+          <td>
+            <div class="usage-cell">
+              <div class="usage-cell__top">
+                <span>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }} / {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</span>
+                <small>{{ customerUsageLabel(customer) }}</small>
               </div>
-            </ng-template>
-          </p-tag>
-        </td>
-        <td>
-    <p-button
-      type="button"
-      [label]="'customers.editCustomer' | transloco"
-      icon="pi pi-pencil"
-      size="small"
-      severity="secondary"
-      (click)="onOpenEditCustomer(customer)"
-    />
-    <p-button
-      type="button"
-      [label]="'customers.account.title' | transloco"
-      icon="pi pi-wallet"
-      size="small"
-      severity="info"
-      [outlined]="true"
-      (click)="onOpenCustomerAccount(customer)"
-    />
-        </td>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="6">
-          <div class="empty-state">
-            <h2>{{ 'customers.noCustomersFound' | transloco }}</h2>
-            <p>{{ 'customers.noCustomersDescription' | transloco }}</p>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-</div>
+              <div class="usage-bar" aria-hidden="true">
+                <span class="usage-bar__fill" [style.width.%]="customerUsagePercent(customer)"></span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="status-badge" [ngClass]="customerStatusClass(customer)">
+              <span class="status-dot"></span>
+              {{ customerStatusLabelKey(customer) | transloco }}
+            </span>
+          </td>
+          <td>
+            <div class="action-stack">
+              <p-button
+                type="button"
+                [label]="'customers.newTransaction' | transloco"
+                icon="pi pi-plus"
+                size="small"
+                severity="help"
+                [outlined]="true"
+                (click)="onNewTransaction(customer)"
+              />
+              <p-button
+                type="button"
+                [label]="'customers.editCustomer' | transloco"
+                icon="pi pi-pencil"
+                size="small"
+                severity="secondary"
+                (click)="onOpenEditCustomer(customer)"
+              />
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <h2>{{ 'customers.noCustomersFound' | transloco }}</h2>
+              <p>{{ 'customers.noCustomersDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="footer">
+        <tr>
+          <td colspan="7">
+            <div class="table-footer">
+              <span>{{ 'customers.showingCount' | transloco:{ visible: visibleRows, total: totalRows } }}</span>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</section>
