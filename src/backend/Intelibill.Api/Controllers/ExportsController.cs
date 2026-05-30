@@ -1,5 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Features.Exports.ProfitLoss;
+using Intelibill.Application.Features.Exports.ProfitLoss.Queries.ExportProfitLoss;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.Queries.ExportSales;
 using Microsoft.AspNetCore.Authorization;
@@ -41,6 +43,38 @@ public sealed class ExportsController : AuthenticatedControllerBase
                 level,
                 resolvedStartDate,
                 resolvedEndDate),
+            cancellationToken);
+
+        return result.ToActionResult(export =>
+            File(export.Content, export.ContentType, export.FileName));
+    }
+
+    [HttpGet("profit-loss")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> ExportProfitLoss(
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? type = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string format = "xlsx",
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var resolvedTo = to ?? today;
+        var resolvedFrom = from ?? resolvedTo.AddDays(-6);
+
+        var result = await Bus.InvokeAsync<ErrorOr<ProfitLossExportResult>>(
+            new ExportProfitLossQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                resolvedFrom,
+                resolvedTo,
+                type,
+                search,
+                format),
             cancellationToken);
 
         return result.ToActionResult(export =>

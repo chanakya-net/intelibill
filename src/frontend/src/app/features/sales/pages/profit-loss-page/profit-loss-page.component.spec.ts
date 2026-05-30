@@ -10,6 +10,9 @@ import type {
 import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
 import { SalesFacade } from '../../state/sales.facade';
 import { ProfitLossPageComponent } from './profit-loss-page.component';
+import { SalesExportService } from '../../services/sales-export.service';
+import { HttpResponse } from '@angular/common/http';
+import { of } from 'rxjs';
 
 describe('ProfitLossPageComponent', () => {
   const reportSignal = signal<readonly ProfitLossReportItemDto[]>([]);
@@ -25,6 +28,12 @@ describe('ProfitLossPageComponent', () => {
     loadingProfitLossReport: loadingSignal,
     errorMessage: errorSignal,
     loadProfitLossReport: vi.fn(),
+  };
+
+  const salesExportService = {
+    exportProfitLoss: vi.fn(),
+    extractFilenameWithPrefix: vi.fn(),
+    triggerDownload: vi.fn(),
   };
 
   const baseTranslation = {
@@ -133,6 +142,10 @@ describe('ProfitLossPageComponent', () => {
     paginationSignal.set({ totalCount: 0, pageNumber: 1, pageSize: 20 });
 
     salesFacade.loadProfitLossReport.mockReset();
+    salesExportService.exportProfitLoss.mockReset();
+    salesExportService.extractFilenameWithPrefix.mockReset();
+    salesExportService.triggerDownload.mockReset();
+    salesExportService.extractFilenameWithPrefix.mockReturnValue('profit-loss-export.xlsx');
 
     TestBed.configureTestingModule({
       imports: [
@@ -151,6 +164,7 @@ describe('ProfitLossPageComponent', () => {
       ],
       providers: [
         { provide: SalesFacade, useValue: salesFacade },
+        { provide: SalesExportService, useValue: salesExportService },
       ],
     });
   });
@@ -296,6 +310,36 @@ describe('ProfitLossPageComponent', () => {
     expect(text).toContain('₹2,200.00');
     expect(text).toContain('₹800.00');
     expect(text).toContain('18.6%');
+  });
+
+  it('exports the current profit-loss filters and downloads the file', () => {
+    const response = new HttpResponse({ status: 200, body: new Blob(['pl']) });
+    salesExportService.exportProfitLoss.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    const component = fixture.componentInstance;
+    const fromDate = new Date('2026-05-01T00:00:00.000Z');
+    const toDate = new Date('2026-05-13T23:59:59.999Z');
+    component.fromDate.set(fromDate);
+    component.toDate.set(toDate);
+    component.typeFilter.set('saleReturn');
+    component.searchValue.set('customer');
+    fixture.detectChanges();
+    vi.advanceTimersByTime(300);
+    fixture.detectChanges();
+
+    component.onExport();
+    fixture.detectChanges();
+
+    expect(salesExportService.exportProfitLoss).toHaveBeenCalledWith({
+      from: formatLocalIsoDate(fromDate),
+      to: formatLocalIsoDate(toDate),
+      type: 'saleReturn',
+      search: 'customer',
+      format: 'xlsx',
+    });
+    expect(salesExportService.extractFilenameWithPrefix).toHaveBeenCalledWith(response, 'profit-loss-export');
+    expect(salesExportService.triggerDownload).toHaveBeenCalledWith(response.body!, 'profit-loss-export.xlsx');
   });
 
   it('renders -- when margin is null', () => {

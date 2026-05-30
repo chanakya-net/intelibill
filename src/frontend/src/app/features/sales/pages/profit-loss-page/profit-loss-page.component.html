@@ -38,11 +38,15 @@
         [outlined]="true"
         severity="secondary"
         class="export-btn"
-        [disabled]="true"
+        [disabled]="isLoading() || isExporting()"
         (click)="onExport()"
         data-qa="profit-loss-export"
       ></button>
     </header>
+
+    @if (exportError()) {
+      <p class="error">{{ exportError() }}</p>
+    }
 
     @if (!serverError()) {
       <div class="controls-wrap">
