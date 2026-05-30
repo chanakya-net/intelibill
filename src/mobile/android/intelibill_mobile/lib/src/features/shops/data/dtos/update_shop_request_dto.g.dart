@@ -1,0 +1,33 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'update_shop_request_dto.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+_UpdateShopRequestDto _$UpdateShopRequestDtoFromJson(
+  Map<String, dynamic> json,
+) => _UpdateShopRequestDto(
+  name: json['name'] as String,
+  address: json['address'] as String,
+  city: json['city'] as String,
+  state: json['state'] as String,
+  pincode: json['pincode'] as String,
+  contactPerson: json['contactPerson'] as String?,
+  mobileNumber: json['mobileNumber'] as String?,
+  gstNumber: json['gstNumber'] as String?,
+);
+
+Map<String, dynamic> _$UpdateShopRequestDtoToJson(
+  _UpdateShopRequestDto instance,
+) => <String, dynamic>{
+  'name': instance.name,
+  'address': instance.address,
+  'city': instance.city,
+  'state': instance.state,
+  'pincode': instance.pincode,
+  'contactPerson': instance.contactPerson,
+  'mobileNumber': instance.mobileNumber,
+  'gstNumber': instance.gstNumber,
+};
