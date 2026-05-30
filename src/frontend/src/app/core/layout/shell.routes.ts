@@ -142,13 +142,6 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
-				path: 'customers/:customerId/account',
-				loadComponent: () =>
-					import('../../features/customers/pages/customer-account-page.component').then(
-						(m) => m.CustomerAccountPageComponent
-					),
-			},
-			{
 				path: 'customers',
 				loadComponent: () =>
 					import('../../features/customers/pages/customers-page.component').then(
