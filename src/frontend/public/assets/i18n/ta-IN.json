@@ -921,7 +921,59 @@
         "SaleReturn": "விற்பனை திரும்ப",
         "InventoryAdjustment": "சரக்கு சரிசெய்தல்"
       },
-      "noData": "P&L தரவு இல்லை"
+      "noData": "P&L தரவு இல்லை",
+      "reportingPeriod": "Reporting period: {{from}} - {{to}}",
+      "ledgerTitle": "P&L Ledger",
+      "ledgerSubtitle": "Track profitability with rich financial filters.",
+      "kpi": {
+        "netProfit": "Net profit (after tax)",
+        "revenue": "Revenue (incl tax)",
+        "totalCost": "Total cost",
+        "avgMargin": "Average margin"
+      },
+      "controls": {
+        "from": "From date",
+        "to": "To date",
+        "type": "Type",
+        "searchPlaceholder": "Search by reference or customer",
+        "clearFilters": "Clear filters"
+      },
+      "filters": {
+        "type": {
+          "all": "All",
+          "sale": "Sale",
+          "saleReturn": "Sale return",
+          "inventoryAdjustment": "Inventory adjustment"
+        }
+      },
+      "table": {
+        "reference": "Reference",
+        "date": "Date",
+        "type": "Type",
+        "customer": "Customer",
+        "margin": "Margin"
+      },
+      "footer": {
+        "invoices": "Invoices",
+        "returns": "Returns",
+        "adjustments": "Adjustments"
+      },
+      "emptyState": {
+        "title": "No P&L records",
+        "description": "No entries were found for the selected filters."
+      },
+      "actions": {
+        "export": "Export"
+      },
+      "pagination": {
+        "showing": "Showing {{start}} - {{end}} of {{total}}",
+        "pageSize": "Rows per page",
+        "pageStatus": "Page {{page}} of {{totalPages}}",
+        "prev": "Previous",
+        "next": "Next",
+        "page": "Page {{page}}",
+        "ariaLabel": "P&L pagination"
+      }
     },
     "returns": {
       "history": "வரலாறு திரும்பவும்",
