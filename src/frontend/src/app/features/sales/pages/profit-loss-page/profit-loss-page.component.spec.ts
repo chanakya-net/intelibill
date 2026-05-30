@@ -1,187 +1,400 @@
-import { TestBed } from '@angular/core/testing';
-import { ProfitLossPageComponent } from './profit-loss-page.component';
-import { SalesFacade } from '../../state/sales.facade';
 import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { TableModule } from 'primeng/table';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type {
+  ProfitLossReportItemDto,
+  ProfitLossSummaryDto,
+} from '../../services/sale.models';
+import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
+import { SalesFacade } from '../../state/sales.facade';
+import { ProfitLossPageComponent } from './profit-loss-page.component';
 
 describe('ProfitLossPageComponent', () => {
-  const mockSalesFacade = {
-    profitLossItems: signal<any[]>([]),
-    loadingProfitLossReport: signal(false),
-    errorMessage: signal(''),
+  const reportSignal = signal<readonly ProfitLossReportItemDto[]>([]);
+  const summarySignal = signal<ProfitLossSummaryDto | null>(null);
+  const paginationSignal = signal({ totalCount: 0, pageNumber: 1, pageSize: 20 });
+  const loadingSignal = signal(false);
+  const errorSignal = signal('');
+
+  const salesFacade = {
+    profitLossItems: reportSignal,
+    profitLossSummary: summarySignal,
+    profitLossPagination: paginationSignal,
+    loadingProfitLossReport: loadingSignal,
+    errorMessage: errorSignal,
     loadProfitLossReport: vi.fn(),
   };
 
-  async function setup(report: any[] = []) {
-    mockSalesFacade.profitLossItems.set(report);
-    mockSalesFacade.loadingProfitLossReport.set(false);
-    mockSalesFacade.errorMessage.set('');
-    mockSalesFacade.loadProfitLossReport.mockClear();
+  const baseTranslation = {
+    sales: {
+      profitLoss: {
+        eyebrow: 'Sales Report',
+        title: 'Profit & Loss Report',
+        subtitle: 'Analyze your margins from each sale',
+        reportingPeriod: 'Reporting period: {{from}} - {{to}}',
+        ledgerTitle: 'Ledger',
+        ledgerSubtitle: 'Browse and filter your profitability records.',
+        controls: {
+          from: 'From',
+          to: 'To',
+          type: 'Type',
+          searchPlaceholder: 'Search by reference or customer',
+          clearFilters: 'Clear filters',
+        },
+        filters: {
+          type: {
+            all: 'All',
+            sale: 'Sale',
+            saleReturn: 'Sale Return',
+            inventoryAdjustment: 'Inventory Adjustment',
+          },
+        },
+        kpi: {
+          netProfit: 'Net Profit (After Tax)',
+          revenue: 'Revenue (Incl Tax)',
+          totalCost: 'Total Cost',
+          avgMargin: 'Avg. Margin',
+        },
+        table: {
+          reference: 'Reference',
+          date: 'Date',
+          type: 'Type',
+          customer: 'Customer',
+          margin: 'Margin',
+        },
+        profitBeforeTax: 'Profit (Before Tax)',
+        profitAfterTax: 'Profit (After Tax)',
+        revenueInclTax: 'Revenue (Incl Tax)',
+        cost: 'Total Cost',
+        wastageCost: 'Wastage Cost',
+        rowTypes: {
+          Sale: 'Sale',
+          SaleReturn: 'Sale Return',
+          InventoryAdjustment: 'Inventory Adjustment',
+        },
+        adjustmentParty: 'Inventory adjustment',
+        emptyState: {
+          title: 'No records found',
+          description: 'No profit and loss rows match the current filters.',
+        },
+        footer: {
+          invoices: 'Invoices',
+          returns: 'Returns',
+          adjustments: 'Adjustments',
+        },
+        pagination: {
+          showing: 'Showing {{start}}-{{end}} of {{total}}',
+          pageSize: 'Rows',
+          pageStatus: 'Page {{page}} of {{totalPages}}',
+          prev: 'Previous',
+          next: 'Next',
+          page: 'Page {{page}}',
+          ariaLabel: 'Profit and loss pagination',
+        },
+        actions: {
+          export: 'Export',
+        },
+      },
+      history: {
+        walkIn: 'Walk-in',
+      },
+    },
+  };
 
-    await TestBed.configureTestingModule({
+  function createReportItem(overrides: Partial<ProfitLossReportItemDto> = {}): ProfitLossReportItemDto {
+    return {
+      saleId: 's1',
+      referenceNumber: 'INV-001',
+      occurredAt: new Date().toISOString(),
+      partyName: 'Customer',
+      totalCost: 120,
+      wastageCost: 10,
+      revenueBeforeTax: 220,
+      revenueAfterTax: 232,
+      profitBeforeTax: 100,
+      profitAfterTax: 90,
+      marginPercent: 38.4,
+      rowType: 'Sale',
+      inventoryAdjustmentId: null,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-30T10:00:00.000Z'));
+
+    reportSignal.set([]);
+    summarySignal.set(null);
+    loadingSignal.set(false);
+    errorSignal.set('');
+    paginationSignal.set({ totalCount: 0, pageNumber: 1, pageSize: 20 });
+
+    salesFacade.loadProfitLossReport.mockReset();
+
+    TestBed.configureTestingModule({
       imports: [
         ProfitLossPageComponent,
         TranslocoTestingModule.forRoot({
-          langs: {
-            en: {
-              sales: {
-                searchPlaceholder: 'Search',
-                history: { walkIn: 'Walk-in' },
-                profitLoss: {
-                  eyebrow: 'Sales Report',
-                  title: 'Profit & Loss Report',
-                  subtitle: 'Analyze your margins from each sale',
-                  search: 'Search',
-                  invoice: 'Reference',
-                  date: 'Date',
-                  customer: 'Party',
-                  rowType: 'Type',
-                  cost: 'Total Cost',
-                  wastageCost: 'Wastage Cost',
-                  revenueExclTax: 'Rev Excl Tax',
-                  revenueInclTax: 'Rev Incl Tax',
-                  profitBeforeTax: 'Profit Before Tax',
-                  profitAfterTax: 'Profit After Tax',
-                  noData: 'No data',
-                  adjustmentParty: 'Inventory adjustment',
-                  rowTypes: {
-                    Sale: 'Sale',
-                    SaleReturn: 'Sale return',
-                    InventoryAdjustment: 'Inventory adjustment',
-                  },
-                },
-              },
-            },
-          },
-          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
           preloadLangs: true,
+          translocoConfig: {
+            availableLangs: ['en-IN'],
+            defaultLang: 'en-IN',
+            reRenderOnLangChange: true,
+          },
+          langs: {
+            'en-IN': baseTranslation,
+          },
         }),
-        TableModule,
-        NoopAnimationsModule,
       ],
-      providers: [{ provide: SalesFacade, useValue: mockSalesFacade }],
-    }).compileComponents();
+      providers: [
+        { provide: SalesFacade, useValue: salesFacade },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    vi.useRealTimers();
+  });
+
+  it('loads report with default query params', () => {
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    const baseDate = new Date();
+    const expectedFrom = new Date(baseDate);
+    expectedFrom.setDate(expectedFrom.getDate() - 6);
+    expectedFrom.setHours(0, 0, 0, 0);
+    const expectedTo = new Date(baseDate);
+    expectedTo.setHours(23, 59, 59, 999);
+
+    expect(salesFacade.loadProfitLossReport).toHaveBeenCalledWith({
+      from: formatLocalIsoDate(expectedFrom),
+      to: formatLocalIsoDate(expectedTo),
+      type: undefined,
+      search: undefined,
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it('debounces search and reloads report', () => {
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    const component = fixture.componentInstance;
+
+    fixture.detectChanges();
+    salesFacade.loadProfitLossReport.mockClear();
+
+    component.searchValue.set('inv-9');
+    fixture.detectChanges();
+    vi.advanceTimersByTime(299);
+    expect(salesFacade.loadProfitLossReport).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(2);
+    expect(salesFacade.loadProfitLossReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: 'inv-9',
+        page: 1,
+      }),
+    );
+  });
+
+  it('resets page number on from/to/type/search/page size change', () => {
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    const component = fixture.componentInstance;
+
+    fixture.detectChanges();
+    component.pageNumber.set(4);
+    component.fromDate.set(new Date('2026-05-10T00:00:00.000Z'));
+
+    fixture.detectChanges();
+    expect(component.pageNumber()).toBe(1);
+
+    component.pageNumber.set(3);
+    component.typeFilter.set('sale');
+    fixture.detectChanges();
+
+    expect(component.pageNumber()).toBe(1);
+    expect(salesFacade.loadProfitLossReport).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'sale', page: 1 }),
+    );
+
+    component.pageSize.set(50);
+    fixture.detectChanges();
+    expect(component.pageNumber()).toBe(1);
+
+    component.searchValue.set('cust');
+    fixture.detectChanges();
+    vi.advanceTimersByTime(300);
+    fixture.detectChanges();
+    expect(component.pageNumber()).toBe(1);
+    expect(salesFacade.loadProfitLossReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: 'cust',
+        page: 1,
+      }),
+    );
+  });
+
+  it('clearFilters restores default state', () => {
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    const component = fixture.componentInstance;
+
+    component.searchValue.set('abc');
+    component.fromDate.set(new Date('2026-01-01T00:00:00.000Z'));
+    component.toDate.set(new Date('2026-01-04T00:00:00.000Z'));
+    component.typeFilter.set('sale');
+    component.pageNumber.set(4);
+    component.pageSize.set(50);
+    fixture.detectChanges();
+
+    component.clearFilters();
+
+    const expectedFrom = new Date();
+    expectedFrom.setDate(expectedFrom.getDate() - 6);
+    expectedFrom.setHours(0, 0, 0, 0);
+    const expectedTo = new Date();
+    expectedTo.setHours(23, 59, 59, 999);
+
+    expect(component.pageNumber()).toBe(1);
+    expect(component.pageSize()).toBe(20);
+    expect(component.typeFilter()).toBe('all');
+    expect(component.searchValue()).toBe('');
+    expect(formatLocalIsoDate(component.fromDate())).toBe(formatLocalIsoDate(expectedFrom));
+    expect(formatLocalIsoDate(component.toDate())).toBe(formatLocalIsoDate(expectedTo));
+  });
+
+  it('renders summary cards from report summary', () => {
+    const summary: ProfitLossSummaryDto = {
+      netProfitAfterTax: 1200,
+      revenueIncludingTax: 2200,
+      totalCost: 800,
+      averageMarginPercent: 18.57,
+      invoiceCount: 4,
+      returnCount: 1,
+      adjustmentCount: 2,
+    };
+
+    summarySignal.set(summary);
+    reportSignal.set([
+      createReportItem(),
+      createReportItem({
+        referenceNumber: 'INV-002',
+        profitAfterTax: 150,
+        marginPercent: 45,
+      }),
+    ]);
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('₹1,200.00');
+    expect(text).toContain('₹2,200.00');
+    expect(text).toContain('₹800.00');
+    expect(text).toContain('18.6%');
+  });
+
+  it('renders -- when margin is null', () => {
+    reportSignal.set([
+      createReportItem({
+        referenceNumber: 'INV-004',
+        marginPercent: null,
+      }),
+    ]);
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('--');
+  });
+
+  it('supports pagination helpers and navigation', () => {
+    paginationSignal.set({ totalCount: 95, pageNumber: 1, pageSize: 20 });
 
     const fixture = TestBed.createComponent(ProfitLossPageComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
-    return { fixture, component };
-  }
 
-  it('loads report on init', async () => {
-    await setup();
-    expect(mockSalesFacade.loadProfitLossReport).toHaveBeenCalled();
+    expect(component.totalPages()).toBe(5);
+    expect(component.rangeStart()).toBe(1);
+    expect(component.rangeEnd()).toBe(20);
+    expect(component.paginationItems().length).toBeGreaterThan(0);
+
+    component.onPageChange(3);
+    fixture.detectChanges();
+    expect(component.pageNumber()).toBe(3);
+    expect(salesFacade.loadProfitLossReport).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 3 }),
+    );
+
+    component.onPageChange(100);
+    fixture.detectChanges();
+    expect(component.pageNumber()).toBe(5);
   });
 
-  it('filters report based on search value', async () => {
-    const { component } = await setup([
-      {
-        saleId: 'sale-1',
-        referenceNumber: 'INV-1',
-        occurredAt: '2026-05-05T10:00:00Z',
-        partyName: 'Alice',
-        totalCost: 0,
-        wastageCost: 0,
-        revenueBeforeTax: 0,
-        revenueAfterTax: 0,
-        profitBeforeTax: 0,
-        profitAfterTax: 0,
-        rowType: 'Sale',
-        inventoryAdjustmentId: null,
-      },
-      {
-        saleId: 'sale-2',
-        referenceNumber: 'INV-2 / RET-1',
-        occurredAt: '2026-05-06T10:00:00Z',
-        partyName: 'Bob',
-        totalCost: -10,
-        wastageCost: 0,
-        revenueBeforeTax: -20,
-        revenueAfterTax: -22,
-        profitBeforeTax: -12,
-        profitAfterTax: -10,
-        rowType: 'SaleReturn',
-        inventoryAdjustmentId: null,
-      },
-    ]);
+  it('renders loading and error states', () => {
+    loadingSignal.set(true);
 
-    component.searchValue.set('Alice');
-    expect(component.filteredReport().length).toBe(1);
-    expect(component.filteredReport()[0].referenceNumber).toBe('INV-1');
+    const loadingFixture = TestBed.createComponent(ProfitLossPageComponent);
+    loadingFixture.detectChanges();
 
-    component.searchValue.set('RET-1');
-    expect(component.filteredReport().length).toBe(1);
-    expect(component.filteredReport()[0].partyName).toBe('Bob');
+    expect(loadingFixture.nativeElement.querySelector('.loading-state')).toBeTruthy();
+
+    loadingSignal.set(false);
+    errorSignal.set('Something went wrong');
+    reportSignal.set([]);
+
+    const errorFixture = TestBed.createComponent(ProfitLossPageComponent);
+    errorFixture.detectChanges();
+
+    expect(errorFixture.nativeElement.textContent).toContain('Something went wrong');
+    expect(errorFixture.nativeElement.querySelector('.empty-state')).toBeNull();
   });
 
-  it('renders inventory adjustment rows without customer or sale link assumptions', async () => {
-    const { fixture } = await setup([
-      {
-        saleId: null,
-        referenceNumber: 'ADJ-LOSS-1',
-        occurredAt: '2026-05-05T10:00:00Z',
+  it('renders mobile cards with core values', () => {
+    reportSignal.set([
+      createReportItem({
+        referenceNumber: 'INV-MOBILE',
+        occurredAt: '2026-05-27T09:15:00.000Z',
         partyName: null,
-        totalCost: 0,
-        wastageCost: 80,
-        revenueBeforeTax: 0,
-        revenueAfterTax: 0,
-        profitBeforeTax: -80,
-        profitAfterTax: -80,
-        rowType: 'InventoryAdjustment',
-        inventoryAdjustmentId: 'adjustment-1',
-      },
+      }),
     ]);
 
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
     fixture.detectChanges();
 
-    const text = fixture.nativeElement.textContent;
-    expect(text).toContain('ADJ-LOSS-1');
-    expect(text).toContain('Inventory adjustment');
-    expect(text).not.toContain('Walk-in');
+    const cards = fixture.nativeElement.querySelectorAll('.mobile-report-card');
+    expect(cards.length).toBe(1);
+    expect(cards[0].textContent).toContain('INV-MOBILE');
+    expect(cards[0].textContent).toContain('Revenue (Incl Tax)');
+    expect(cards[0].textContent).toContain('₹232.00');
   });
 
-  it('returns correct severity for profit/loss', async () => {
-    const { component } = await setup();
-    expect(component.getProfitSeverity(100)).toBe('success');
-    expect(component.getProfitSeverity(0)).toBe('success');
-    expect(component.getProfitSeverity(-50)).toBe('danger');
-  });
-
-  it('handles serverError cleanly by showing the error and hiding the table and cards', async () => {
-    const { fixture } = await setup([
-      {
-        saleId: 'sale-1',
-        referenceNumber: 'INV-1',
-        occurredAt: '2026-05-05T10:00:00Z',
+  it('handles serverError cleanly by showing the error and hiding the report surface', () => {
+    reportSignal.set([
+      createReportItem({
+        referenceNumber: 'INV-403',
         partyName: 'Alice',
-        totalCost: 10,
-        wastageCost: 0,
-        revenueBeforeTax: 20,
-        revenueAfterTax: 22,
-        profitBeforeTax: 10,
-        profitAfterTax: 12,
-        rowType: 'Sale',
-        inventoryAdjustmentId: null,
-      }
+      }),
     ]);
-    mockSalesFacade.errorMessage.set('Forbidden (403)');
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    errorSignal.set('Forbidden (403)');
     fixture.detectChanges();
 
     const element = fixture.nativeElement;
-    
-    // Assert error message is rendered
     const errorEl = element.querySelector('.error');
+
     expect(errorEl).not.toBeNull();
     expect(errorEl.textContent).toContain('Forbidden (403)');
-
-    // Assert that table elements are not shown
-    const tableEl = element.querySelector('p-table');
-    expect(tableEl).toBeNull();
-    
-    // Assert that mobile stacked list elements (cards) are not shown
-    const cardEl = element.querySelector('.report-list');
-    expect(cardEl).toBeNull();
+    expect(element.querySelector('p-table')).toBeNull();
+    expect(element.querySelector('.mobile-report-card')).toBeNull();
+    expect(element.querySelector('.report-footer')).toBeNull();
   });
 });
