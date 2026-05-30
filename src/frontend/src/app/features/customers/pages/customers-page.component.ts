@@ -129,7 +129,7 @@ export class CustomersPageComponent {
     }
 
     return byStatus.filter((customer) =>
-      [customer.name, customer.phoneNumber, customer.address ?? ''].some((value) =>
+      [customer.name, customer.phoneNumber, customer.address ?? '', customer.customerId].some((value) =>
         value.toLowerCase().includes(search),
       ),
     );

@@ -146,7 +146,7 @@
               <span class="active-pill">{{ 'customers.active' | transloco }}</span>
             </div>
             <p>
-              Customer account ledger, payments, and credit usage.
+              {{ 'customers.account.subtitle' | transloco }}
             </p>
           </div>
         </header>
@@ -162,20 +162,20 @@
 
           <article class="statement-metric">
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong class="green">₹{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
+            <strong class="green">{{ 'common.currencySymbol' | transloco }}{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
             <small class="warning-dot">{{ selectedAccountOverdueCount() }} {{ 'customers.overdue' | transloco }}</small>
           </article>
 
           <article class="statement-metric">
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong>₹{{ selectedAccountCreditLimit() | number:'1.2-2' }}</strong>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ selectedAccountCreditLimit() | number:'1.2-2' }}</strong>
             <small class="success-dot">{{ selectedAccountUsagePercent() }}% {{ 'customers.usage' | transloco }}</small>
           </article>
 
           <article class="statement-metric">
-            <span>Lifetime Revenue</span>
-            <strong class="red">₹{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
-            <small class="success-dot">{{ selectedAccountPurchaseCount() }} purchases</small>
+            <span>{{ 'customers.account.lifetimeRevenue' | transloco }}</span>
+            <strong class="red">{{ 'common.currencySymbol' | transloco }}{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
+            <small class="success-dot">{{ selectedAccountPurchaseCount() }} {{ 'customers.account.purchases' | transloco }}</small>
           </article>
         </section>
 
@@ -211,9 +211,9 @@
           <header>
             <h3>{{ 'customers.account.ledger' | transloco }}</h3>
             <div class="statement-tabs" aria-label="Ledger filters">
-              <button type="button" [class.active]="accountLedgerFilter() === 'all'" (click)="onAccountLedgerFilterChange('all')">All</button>
-              <button type="button" [class.active]="accountLedgerFilter() === 'purchases'" (click)="onAccountLedgerFilterChange('purchases')">Purchases</button>
-              <button type="button" [class.active]="accountLedgerFilter() === 'payments'" (click)="onAccountLedgerFilterChange('payments')">Payments</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'all'" (click)="onAccountLedgerFilterChange('all')">{{ 'customers.account.filterAll' | transloco }}</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'purchases'" (click)="onAccountLedgerFilterChange('purchases')">{{ 'customers.account.filterPurchases' | transloco }}</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'payments'" (click)="onAccountLedgerFilterChange('payments')">{{ 'customers.account.filterPayments' | transloco }}</button>
             </div>
           </header>
 
@@ -222,11 +222,11 @@
               <thead>
                 <tr>
                   <th>{{ 'customers.account.date' | transloco }}</th>
-                  <th>Reference</th>
+                  <th>{{ 'customers.account.reference' | transloco }}</th>
                   <th>{{ 'customers.account.type' | transloco }}</th>
-                  <th>Debit</th>
-                  <th>Credit</th>
-                  <th>Balance</th>
+                  <th>{{ 'customers.account.debit' | transloco }}</th>
+                  <th>{{ 'customers.account.credit' | transloco }}</th>
+                  <th>{{ 'customers.account.balance' | transloco }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -239,13 +239,13 @@
                         {{ row.kind === 'payment' ? ('customers.account.paymentReceived' | transloco) : ('customers.account.saleDue' | transloco) }}
                       </span>
                     </td>
-                    <td class="money debit">{{ row.debit === null ? '—' : ('₹' + (row.debit | number:'1.2-2')) }}</td>
-                    <td class="money credit">{{ row.credit === null ? '—' : ('₹' + (row.credit | number:'1.2-2')) }}</td>
-                    <td class="money balance">₹{{ row.entry.runningBalance | number:'1.2-2' }}</td>
+                    <td class="money debit">{{ row.debit === null ? '—' : (('common.currencySymbol' | transloco) + (row.debit | number:'1.2-2')) }}</td>
+                    <td class="money credit">{{ row.credit === null ? '—' : (('common.currencySymbol' | transloco) + (row.credit | number:'1.2-2')) }}</td>
+                    <td class="money balance">{{ 'common.currencySymbol' | transloco }}{{ row.entry.runningBalance | number:'1.2-2' }}</td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="statement-empty">No transactions match this filter.</td>
+                    <td colspan="6" class="statement-empty">{{ 'customers.account.emptyLedger' | transloco }}</td>
                   </tr>
                 }
               </tbody>
@@ -255,8 +255,8 @@
           <footer>
             <span>{{ 'customers.showingCount' | transloco:{ visible: selectedAccountFilteredLedgerRows().length, total: selectedAccountLedgerRows().length } }}</span>
             <span>
-              Opening Balance: ₹{{ selectedAccountOpeningBalance() | number:'1.2-2' }}
-              · Closing Balance: ₹{{ selectedAccountClosingBalance() | number:'1.2-2' }}
+              {{ 'customers.account.openingBalanceLabel' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ selectedAccountOpeningBalance() | number:'1.2-2' }}
+              · {{ 'customers.account.closingBalanceLabel' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ selectedAccountClosingBalance() | number:'1.2-2' }}
             </span>
           </footer>
         </section>

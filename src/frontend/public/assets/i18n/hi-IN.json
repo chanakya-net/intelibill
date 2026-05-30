@@ -314,7 +314,20 @@
       "saleDue": "बिक्री बकाया",
       "notFound": "ग्राहक खाता नहीं मिला।",
       "loadFailed": "अभी ग्राहक खाता लोड नहीं हो सका।",
-      "paymentFailed": "अभी भुगतान दर्ज नहीं हो सका।"
+      "paymentFailed": "अभी भुगतान दर्ज नहीं हो सका।",
+      "subtitle": "ग्राहक खाता बही, भुगतान और क्रेडिट उपयोग।",
+      "lifetimeRevenue": "लाइफटाइम राजस्व",
+      "purchases": "खरीदारी",
+      "filterAll": "सभी",
+      "filterPurchases": "खरीदारी",
+      "filterPayments": "भुगतान",
+      "reference": "संदर्भ",
+      "debit": "डेबिट",
+      "credit": "क्रेडिट",
+      "balance": "शेष राशि",
+      "emptyLedger": "इस फ़िल्टर से कोई लेनदेन मेल नहीं खाता।",
+      "openingBalanceLabel": "प्रारंभिक शेष",
+      "closingBalanceLabel": "अंतिम शेष"
     },
     "searchPlaceholder": "ग्राहक खोजें...",
     "summary": {

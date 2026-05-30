@@ -314,7 +314,20 @@
       "saleDue": "বিক্রয় বকেয়া",
       "notFound": "গ্রাহকের হিসাব পাওয়া যায়নি।",
       "loadFailed": "এই মুহূর্তে গ্রাহকের হিসাব লোড করা যাচ্ছে না।",
-      "paymentFailed": "এই মুহূর্তে পেমেন্ট নথিভুক্ত করা যাচ্ছে না।"
+      "paymentFailed": "এই মুহূর্তে পেমেন্ট নথিভুক্ত করা যাচ্ছে না।",
+      "subtitle": "গ্রাহক অ্যাকাউন্ট লেজার, অর্থপ্রদান এবং ক্রেডিট ব্যবহার।",
+      "lifetimeRevenue": "আজীবন রাজস্ব",
+      "purchases": "ক্রয়",
+      "filterAll": "সব",
+      "filterPurchases": "ক্রয়",
+      "filterPayments": "অর্থপ্রদান",
+      "reference": "রেফারেন্স",
+      "debit": "ডেবিট",
+      "credit": "ক্রেডিট",
+      "balance": "ব্যালেন্স",
+      "emptyLedger": "এই ফিল্টারের সাথে কোনো লেনদেন মিলছে না।",
+      "openingBalanceLabel": "প্রারম্ভিক ব্যালেন্স",
+      "closingBalanceLabel": "সমাপ্তি ব্যালেন্স"
     },
     "searchPlaceholder": "গ্রাহক খুঁজুন...",
     "summary": {

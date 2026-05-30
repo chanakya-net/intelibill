@@ -314,7 +314,20 @@
       "saleDue": "Sale Due",
       "notFound": "Customer account not found.",
       "loadFailed": "Unable to load customer account right now.",
-      "paymentFailed": "Unable to record payment right now."
+      "paymentFailed": "Unable to record payment right now.",
+      "subtitle": "Customer account ledger, payments, and credit usage.",
+      "lifetimeRevenue": "Lifetime Revenue",
+      "purchases": "purchases",
+      "filterAll": "All",
+      "filterPurchases": "Purchases",
+      "filterPayments": "Payments",
+      "reference": "Reference",
+      "debit": "Debit",
+      "credit": "Credit",
+      "balance": "Balance",
+      "emptyLedger": "No transactions match this filter.",
+      "openingBalanceLabel": "Opening Balance",
+      "closingBalanceLabel": "Closing Balance"
     },
     "searchPlaceholder": "Search customers by name, phone, or address...",
     "summary": {

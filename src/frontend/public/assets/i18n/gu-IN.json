@@ -314,7 +314,20 @@
       "saleDue": "વેચાણ બાકી",
       "notFound": "ગ્રાહક ખાતું મળ્યું નથી.",
       "loadFailed": "હમણાં ગ્રાહક ખાતું લોડ કરી શકાયું નથી.",
-      "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી."
+      "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી.",
+      "subtitle": "ગ્રાહક ખાતા લેજર, ચૂકવણી અને ક્રેડિટ વપરાશ.",
+      "lifetimeRevenue": "લાઈફટાઇમ આવક",
+      "purchases": "ખરીદી",
+      "filterAll": "બધા",
+      "filterPurchases": "ખરીદી",
+      "filterPayments": "ચૂકવણી",
+      "reference": "સંદર્ભ",
+      "debit": "ઉધાર",
+      "credit": "જમા",
+      "balance": "બાકી",
+      "emptyLedger": "આ ફિલ્ટર સાથે કોઈ વ્યવહારો મેળ ખાતા નથી.",
+      "openingBalanceLabel": "શરૂઆતની બાકી",
+      "closingBalanceLabel": "આખરની બાકી"
     },
     "searchPlaceholder": "ગ્રાહક શોધો...",
     "summary": {

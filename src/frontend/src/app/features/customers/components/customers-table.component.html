@@ -30,11 +30,11 @@
         <div class="customer-card__metrics">
           <div>
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong>₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</strong>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</strong>
           </div>
           <div>
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong>₹{{ customer.creditLimit | number:'1.2-2' }}</strong>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</strong>
           </div>
         </div>
 
@@ -112,13 +112,13 @@
             </button>
           </td>
           <td>{{ customer.phoneNumber }}</td>
-          <td class="money money--outstanding">₹{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
-          <td class="money">₹{{ customer.creditLimit | number:'1.2-2' }}</td>
+          <td class="money money--outstanding">{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
+          <td class="money">{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</td>
           <td>
             <div class="usage-cell">
               <div class="usage-cell__top">
-                <span>{{ customerUsageLabel(customer) }}</span>
-                <small>{{ customerUsagePercent(customer) }}%</small>
+                <span>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }} / {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</span>
+                <small>{{ customerUsageLabel(customer) }}</small>
               </div>
               <div class="usage-bar" aria-hidden="true">
                 <span class="usage-bar__fill" [style.width.%]="customerUsagePercent(customer)"></span>

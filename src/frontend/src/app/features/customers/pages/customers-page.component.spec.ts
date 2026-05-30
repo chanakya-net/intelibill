@@ -164,12 +164,15 @@ describe('CustomersPageComponent', () => {
     expect(component.monthlyRevenue()).toBe(680);
   });
 
-  it('filters by name, phone, and address without using numeric metrics', () => {
+  it('filters by name, phone, address, and reference (customerId) without using numeric metrics', () => {
     component.searchValue.set('warehouse');
     expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c2']);
 
     component.searchValue.set('8888');
     expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c2']);
+
+    component.searchValue.set('c1');
+    expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c1']);
 
     component.searchValue.set('120');
     expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual([]);

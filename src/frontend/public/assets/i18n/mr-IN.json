@@ -314,7 +314,20 @@
       "saleDue": "विक्री थकबाकी",
       "notFound": "ग्राहक खाते सापडले नाही.",
       "loadFailed": "सध्या ग्राहक खाते लोड करता आले नाही.",
-      "paymentFailed": "सध्या पेमेंट नोंदवता आले नाही."
+      "paymentFailed": "सध्या पेमेंट नोंदवता आले नाही.",
+      "subtitle": "ग्राहक खाते लेजर, पेमेंट आणि क्रेडिट वापर.",
+      "lifetimeRevenue": "लाइफटाइम महसूल",
+      "purchases": "खरेदी",
+      "filterAll": "सर्व",
+      "filterPurchases": "खरेदी",
+      "filterPayments": "पेमेंट्स",
+      "reference": "संदर्भ",
+      "debit": "डेबिट",
+      "credit": "क्रेडिट",
+      "balance": "शिल्लक",
+      "emptyLedger": "या फिल्टरशी कोणतेही व्यवहार जुळत नाहीत.",
+      "openingBalanceLabel": "प्रारंभिक शिल्लक",
+      "closingBalanceLabel": "अंतिम शिल्लक"
     },
     "searchPlaceholder": "ग्राहक शोधा...",
     "summary": {
