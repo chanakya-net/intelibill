@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="../../tests/backend/integration/Intelibill.Integration.Tests/Intelibill.Integration.Tests.csproj" />
+  <Project Path="../../tests/backend/unit/Intelibill.Api.Unit.Tests/Intelibill.Api.Unit.Tests.csproj" />
+  <Project Path="../../tests/backend/unit/Intelibill.Application.Unit.Tests/Intelibill.Application.Unit.Tests.csproj" />
+  <Project Path="../../tests/backend/unit/Intelibill.Domain.Unit.Tests/Intelibill.Domain.Unit.Tests.csproj" />
+  <Project Path="Intelibill.Api/Intelibill.Api.csproj" />
+  <Project Path="Intelibill.Application/Intelibill.Application.csproj" />
+  <Project Path="Intelibill.Domain/Intelibill.Domain.csproj" />
+  <Project Path="Intelibill.Infrastructure/Intelibill.Infrastructure.csproj" />
+</Solution>

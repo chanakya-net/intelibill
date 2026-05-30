@@ -1,0 +1,145 @@
+name: Frontend Main CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/frontend-main-ci.yml
+      - .github/workflows/frontend-pr-ci.yml
+      - src/frontend/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: frontend-main-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-frontend:
+    name: Build and Test Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend application
+        run: bun run build
+
+      - name: Run frontend tests
+        run: |
+          set -euo pipefail
+          mkdir -p ../../TestResults/frontend
+          CI=true FORCE_COLOR=0 bun run test --watch=false 2>&1 | tee ../../TestResults/frontend/test-output.log
+          # Strip ANSI escape codes so downstream parsing is deterministic.
+          sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../TestResults/frontend/test-output.log > ../../TestResults/frontend/test-output.clean.log
+
+      - name: Generate frontend badge data
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          mkdir -p .github/badges
+
+          test_log='TestResults/frontend/test-output.clean.log'
+          if [ ! -f "${test_log}" ]; then
+            test_log='TestResults/frontend/test-output.log'
+          fi
+
+          tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+          files_line=$(grep -E 'Test Files[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${test_log}" | tail -1 || true)
+
+          tests_passed=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+\([0-9][0-9]*\)[[:space:]]\+passed.*/\1/p')
+          tests_total=$(printf '%s\n' "${tests_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
+          test_files_total=$(printf '%s\n' "${files_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
+
+          tests_passed=${tests_passed:-0}
+          tests_total=${tests_total:-0}
+          test_files_total=${test_files_total:-0}
+
+          if [ "${test_files_total}" -gt 0 ] && [ "${tests_total}" -eq 0 ]; then
+            echo "Failed to parse tests summary from ${test_log} despite test files running."
+            echo "Last detected tests line: ${tests_line:-<none>}"
+            echo "Last detected test-files line: ${files_line:-<none>}"
+            exit 1
+          fi
+
+          tests_color='red'
+          if [ "${tests_total}" -eq 0 ]; then
+            tests_color='lightgrey'
+          elif [ "${tests_passed}" -eq "${tests_total}" ]; then
+            tests_color='brightgreen'
+          elif [ "${tests_passed}" -gt 0 ]; then
+            tests_color='yellow'
+          fi
+
+          tests_message="${tests_passed}/${tests_total} passed"
+
+          echo "Frontend CI parse summary: tests=${tests_message}, test_files_total=${test_files_total}"
+
+          cat > .github/badges/frontend-tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "frontend tests",
+            "message": "${tests_message}",
+            "color": "${tests_color}"
+          }
+          JSON
+
+          encoded_message=$(printf '%s' "${tests_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/frontend%20tests-${encoded_message}-${tests_color}.svg?style=flat" \
+            -o .github/badges/frontend-tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/frontend-build.svg
+
+      - name: Commit frontend badge updates
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain -- .github/badges/frontend-tests.json .github/badges/frontend-tests.svg .github/badges/frontend-build.svg)" ]; then
+            echo 'No frontend badge changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin main
+          git add .github/badges/frontend-tests.json .github/badges/frontend-tests.svg .github/badges/frontend-build.svg
+          git commit -m 'ci: update frontend test badges'
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Frontend badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push frontend badge updates after retries. Skipping failure.'

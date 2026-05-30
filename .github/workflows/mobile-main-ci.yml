@@ -1,0 +1,157 @@
+name: Mobile Main CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/mobile-pr-ci.yml
+      - .github/workflows/mobile-main-ci.yml
+      - src/mobile/android/intelibill_mobile/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-main-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-mobile:
+    name: Build and Test Mobile
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/mobile/android/intelibill_mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Print Flutter version
+        run: flutter --version
+
+      - name: Restore Flutter packages
+        run: flutter pub get
+
+      - name: Build generated code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Check for uncommitted generated changes
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code; then
+            echo "Generated code is not up to date. Run 'dart run build_runner build --delete-conflicting-outputs' and commit the changes."
+            exit 1
+          fi
+
+      - name: Check code formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Run static analysis
+        run: flutter analyze
+
+      - name: Run tests with coverage
+        run: |
+          set -euo pipefail
+          mkdir -p "${GITHUB_WORKSPACE}/TestResults/mobile"
+          flutter test --coverage --machine 2>&1 | tee "${GITHUB_WORKSPACE}/TestResults/mobile/test-output.log"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: src/mobile/android/intelibill_mobile/coverage/
+          retention-days: 5
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Generate mobile badge data
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          mkdir -p .github/badges
+
+          test_log='TestResults/mobile/test-output.log'
+          if [ ! -f "${test_log}" ]; then
+            echo "Mobile test log not found: ${test_log}"
+            exit 1
+          fi
+
+          total_tests=$(awk '/"type":"testDone"/ && /"hidden":false/ { count++ } END { print count + 0 }' "${test_log}")
+          passed_tests=$(awk '/"type":"testDone"/ && /"hidden":false/ && /"result":"success"/ { count++ } END { print count + 0 }' "${test_log}")
+
+          if [ "${total_tests}" -eq 0 ]; then
+            total_tests=$(awk '/"type":"testDone"/ { count++ } END { print count + 0 }' "${test_log}")
+            passed_tests=$(awk '/"type":"testDone"/ && /"result":"success"/ { count++ } END { print count + 0 }' "${test_log}")
+          fi
+
+          tests_color='red'
+          if [ "${total_tests}" -eq 0 ]; then
+            tests_color='lightgrey'
+          elif [ "${passed_tests}" -eq "${total_tests}" ]; then
+            tests_color='brightgreen'
+          elif [ "${passed_tests}" -gt 0 ]; then
+            tests_color='yellow'
+          fi
+
+          tests_message="${passed_tests}/${total_tests} passed"
+
+          echo "Mobile CI parse summary: tests=${tests_message}"
+
+          cat > .github/badges/mobile-tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "mobile tests",
+            "message": "${tests_message}",
+            "color": "${tests_color}"
+          }
+          JSON
+
+          encoded_message=$(printf '%s' "${tests_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/mobile%20tests-${encoded_message}-${tests_color}.svg?style=flat" \
+            -o .github/badges/mobile-tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/mobile-build.svg
+
+      - name: Commit mobile badge updates
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain -- .github/badges/mobile-tests.json .github/badges/mobile-tests.svg .github/badges/mobile-build.svg)" ]; then
+            echo 'No mobile badge changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin main
+          git add .github/badges/mobile-tests.json .github/badges/mobile-tests.svg .github/badges/mobile-build.svg
+          git commit -m 'ci: update mobile test badges'
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Mobile badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push mobile badge updates after retries. Skipping failure.'

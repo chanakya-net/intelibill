@@ -1,0 +1,160 @@
+name: Backend Main CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/backend-main-ci.yml
+      - .github/workflows/backend-pr-ci.yml
+      - src/backend/**
+      - tests/backend/**
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backend-main-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-backend:
+    name: Build and Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend solution
+        run: dotnet restore src/backend/Intelibill.slnx
+
+      - name: Build backend solution
+        run: dotnet build src/backend/Intelibill.slnx --configuration Release --no-restore
+
+      - name: Run backend tests
+        run: |
+          set -euo pipefail
+
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo 'No backend test projects found under tests/backend.'
+            exit 1
+          fi
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            project_results_dir="TestResults/${project_name}"
+
+            dotnet test "${project}" \
+              --configuration Debug \
+              --verbosity normal \
+              --logger "trx;LogFileName=${project_name}.trx" \
+              --results-directory "${project_results_dir}"
+          done
+
+      - name: Generate badge data
+        run: |
+          set -euo pipefail
+
+          mkdir -p .github/badges
+
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo 'No backend test projects found under tests/backend.'
+            exit 1
+          fi
+
+          total_tests=0
+          passed_tests=0
+          failed_tests=0
+          skipped_tests=0
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            trx_file="TestResults/${project_name}/${project_name}.trx"
+
+            if [ ! -f "${trx_file}" ]; then
+              echo "Expected TRX file not found for ${project_name}: ${trx_file}"
+              exit 1
+            fi
+
+            total=$(grep -oP 'Counters[^>]*total="\K[0-9]+' "${trx_file}" | head -1 || true)
+            passed=$(grep -oP 'Counters[^>]*passed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            failed=$(grep -oP 'Counters[^>]*failed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            skipped=$(grep -oP 'Counters[^>]*notExecuted="\K[0-9]+' "${trx_file}" | head -1 || true)
+
+            total=${total:-0}
+            passed=${passed:-0}
+            failed=${failed:-0}
+            skipped=${skipped:-0}
+
+            total_tests=$((total_tests + total))
+            passed_tests=$((passed_tests + passed))
+            failed_tests=$((failed_tests + failed))
+            skipped_tests=$((skipped_tests + skipped))
+          done
+
+          tests_color="red"
+          if [ "${total_tests}" -eq 0 ]; then
+            tests_color="lightgrey"
+          elif [ "${passed_tests}" -eq "${total_tests}" ]; then
+            tests_color="brightgreen"
+          elif [ "${passed_tests}" -gt 0 ]; then
+            tests_color="yellow"
+          fi
+
+          cat > .github/badges/tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "tests",
+            "message": "${passed_tests}/${total_tests} passed",
+            "color": "${tests_color}"
+          }
+          JSON
+
+          encoded_message=$(printf '%s' "${passed_tests}/${total_tests} passed" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/tests-${encoded_message}-${tests_color}.svg?style=flat" \
+            -o .github/badges/tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/backend-build.svg
+
+      - name: Commit badge updates
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain -- .github/badges/tests.json .github/badges/tests.svg .github/badges/backend-build.svg)" ]; then
+            echo 'No badge changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin main
+          git add .github/badges/tests.json .github/badges/tests.svg .github/badges/backend-build.svg
+          git commit -m 'ci: update test badges'
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push badge updates after retries. Skipping failure.'
