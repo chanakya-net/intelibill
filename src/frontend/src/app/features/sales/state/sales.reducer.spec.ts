@@ -378,7 +378,7 @@ describe('salesReducer', () => {
   it('sets loading state when load profit loss report is requested', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'existing error' },
-      SalesActions.loadProfitLossReportRequested()
+      SalesActions.loadProfitLossReportRequested({})
     );
 
     expect(next.loadingProfitLossReport).toBe(true);
@@ -386,7 +386,7 @@ describe('salesReducer', () => {
   });
 
   it('sets report when load succeeds', () => {
-    const report: ProfitLossReportItemDto[] = [
+    const items: ProfitLossReportItemDto[] = [
       {
         saleId: 's1',
         referenceNumber: 'INV-s1',
@@ -402,13 +402,30 @@ describe('salesReducer', () => {
         inventoryAdjustmentId: null,
       },
     ];
+    const summary = {
+      totalCost: 100,
+      totalRevenueBeforeTax: 120,
+      totalRevenueAfterTax: 140,
+      totalProfitBeforeTax: 40,
+      totalProfitAfterTax: 20,
+      totalWastageCost: 0,
+    };
     const next = salesReducer(
       { ...initialState, loadingProfitLossReport: true },
-      SalesActions.loadProfitLossReportSucceeded({ report })
+      SalesActions.loadProfitLossReportSucceeded({
+        items,
+        summary,
+        appliedFilters: {},
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+      })
     );
 
     expect(next.loadingProfitLossReport).toBe(false);
-    expect(next.profitLossReport).toEqual(report);
+    expect(next.profitLossItems).toEqual(items);
+    expect(next.profitLossSummary).toEqual(summary);
+    expect(next.profitLossTotalCount).toBe(1);
   });
 
   it('sets error when report load fails', () => {

@@ -39,9 +39,18 @@ export class SalesEffects {
   loadProfitLossReport$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.loadProfitLossReportRequested),
-      switchMap(() =>
-        this.saleService.getProfitLossReport().pipe(
-          map((report) => SalesActions.loadProfitLossReportSucceeded({ report })),
+      switchMap(({ queryParams }) =>
+        this.saleService.getProfitLossReport(queryParams).pipe(
+          map(({ items, summary, appliedFilters, totalCount, pageNumber, pageSize }) =>
+            SalesActions.loadProfitLossReportSucceeded({
+              items,
+              summary,
+              appliedFilters,
+              totalCount,
+              pageNumber,
+              pageSize,
+            })
+          ),
           catchError((error) =>
             of(
               SalesActions.loadProfitLossReportFailed({

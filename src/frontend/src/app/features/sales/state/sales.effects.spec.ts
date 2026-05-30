@@ -312,7 +312,7 @@ describe('SalesEffects', () => {
   });
 
   it('dispatches loadProfitLossReportSucceeded on success', async () => {
-    const report = [{
+    const items = [{
       saleId: '1',
       referenceNumber: 'INV-1',
       occurredAt: '2026-05-05T10:00:00Z',
@@ -326,13 +326,35 @@ describe('SalesEffects', () => {
       rowType: 'Sale' as const,
       inventoryAdjustmentId: null,
     }];
-    saleService.getProfitLossReport.mockReturnValue(of(report));
+    const result = {
+      items,
+      summary: {
+        totalCost: 0,
+        totalRevenueBeforeTax: 0,
+        totalRevenueAfterTax: 0,
+        totalProfitBeforeTax: 0,
+        totalProfitAfterTax: 0,
+        totalWastageCost: 0,
+      },
+      appliedFilters: {},
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+    saleService.getProfitLossReport.mockReturnValue(of(result));
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
-    actions$.next(SalesActions.loadProfitLossReportRequested());
+    actions$.next(SalesActions.loadProfitLossReportRequested({}));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadProfitLossReportSucceeded({ report })
+      SalesActions.loadProfitLossReportSucceeded({
+        items,
+        summary: result.summary,
+        appliedFilters: result.appliedFilters,
+        totalCount: result.totalCount,
+        pageNumber: result.pageNumber,
+        pageSize: result.pageSize,
+      })
     );
   });
 
@@ -342,7 +364,7 @@ describe('SalesEffects', () => {
     );
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
-    actions$.next(SalesActions.loadProfitLossReportRequested());
+    actions$.next(SalesActions.loadProfitLossReportRequested({}));
 
     await expect(output).resolves.toEqual(
       SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })

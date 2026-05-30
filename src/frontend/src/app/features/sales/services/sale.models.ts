@@ -408,6 +408,7 @@ export interface SaleListItemDto {
 }
 
 export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
+export type ProfitLossReportTypeFilter = 'All' | 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
 
 export interface ProfitLossReportItemDto {
   readonly saleId: string | null;
@@ -422,6 +423,41 @@ export interface ProfitLossReportItemDto {
   readonly profitAfterTax: number;
   readonly rowType: ProfitLossReportRowType;
   readonly inventoryAdjustmentId: string | null;
+  readonly marginPercent?: number;
+}
+
+export interface ProfitLossSummaryDto {
+  readonly totalCost: number;
+  readonly totalRevenueBeforeTax: number;
+  readonly totalRevenueAfterTax: number;
+  readonly totalProfitBeforeTax: number;
+  readonly totalProfitAfterTax: number;
+  readonly totalWastageCost: number;
+}
+
+export interface ProfitLossAppliedFiltersDto {
+  readonly from?: string;
+  readonly to?: string;
+  readonly type?: ProfitLossReportTypeFilter;
+  readonly search?: string;
+}
+
+export interface ProfitLossReportResultDto {
+  readonly items: readonly ProfitLossReportItemDto[];
+  readonly summary: ProfitLossSummaryDto;
+  readonly appliedFilters: ProfitLossAppliedFiltersDto;
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+}
+
+export interface ProfitLossReportQueryParams {
+  readonly from?: string;
+  readonly to?: string;
+  readonly type?: ProfitLossReportTypeFilter;
+  readonly search?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export interface OfflineSalesSyncLineRequest {

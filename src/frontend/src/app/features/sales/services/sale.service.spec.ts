@@ -8,6 +8,7 @@ import type {
   SaleDto,
   SaleListItemDto,
   ProfitLossReportItemDto,
+  ProfitLossReportResultDto,
   PreviewSaleRequest,
   SalesHistoryQueryParams,
   SalesHistoryResultDto,
@@ -324,54 +325,6 @@ describe('SaleService', () => {
     http.verify();
   });
 
-  it('loads profit loss report with neutral row fields', () => {
-    const { service, http } = setup();
-    const report: ProfitLossReportItemDto[] = [
-      {
-        saleId: 'sale-1',
-        referenceNumber: 'INV-001',
-        occurredAt: new Date().toISOString(),
-        partyName: 'John',
-        totalCost: 80,
-        wastageCost: 0,
-        revenueBeforeTax: 100,
-        revenueAfterTax: 118,
-        profitBeforeTax: 38,
-        profitAfterTax: 20,
-        rowType: 'Sale',
-        inventoryAdjustmentId: null,
-      },
-      {
-        saleId: null,
-        referenceNumber: 'ADJ-001',
-        occurredAt: new Date().toISOString(),
-        partyName: null,
-        totalCost: 0,
-        wastageCost: 80,
-        revenueBeforeTax: 0,
-        revenueAfterTax: 0,
-        profitBeforeTax: -80,
-        profitAfterTax: -80,
-        rowType: 'InventoryAdjustment',
-        inventoryAdjustmentId: 'adjustment-1',
-      },
-    ];
-
-    service.getProfitLossReport().subscribe((result) => {
-      expect(result[0].referenceNumber).toBe('INV-001');
-      expect(result[0].rowType).toBe('Sale');
-      expect(result[0].inventoryAdjustmentId).toBeNull();
-      expect(result[1].saleId).toBeNull();
-      expect(result[1].rowType).toBe('InventoryAdjustment');
-      expect(result[1].inventoryAdjustmentId).toBe('adjustment-1');
-    });
-
-    const req = http.expectOne(SALE_ENDPOINTS.profitLoss);
-    expect(req.request.method).toBe('GET');
-    req.flush(report);
-    http.verify();
-  });
-
   it('sends POST request to preview endpoint', () => {
     const { service, http } = setup();
     const payload: PreviewSaleRequest = {
@@ -498,6 +451,146 @@ describe('SaleService', () => {
         },
       ],
     });
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint with query params and maps response', () => {
+    const { service, http } = setup();
+    const queryParams = {
+      from: '2026-05-01',
+      to: '2026-05-12',
+      type: 'Sale' as const,
+      search: 'rice',
+      page: 1,
+      pageSize: 50,
+    };
+    const items: ProfitLossReportItemDto[] = [
+      {
+        saleId: 'sale-1',
+        referenceNumber: 'INV-001',
+        occurredAt: '2026-05-11T00:00:00.000Z',
+        partyName: 'John',
+        totalCost: 300,
+        wastageCost: 0,
+        revenueBeforeTax: 500,
+        revenueAfterTax: 550,
+        profitBeforeTax: 200,
+        profitAfterTax: 250,
+        rowType: 'Sale',
+        inventoryAdjustmentId: null,
+        marginPercent: 40,
+      },
+    ];
+    const result = {
+      items,
+      summary: {
+        totalCost: 300,
+        totalRevenueBeforeTax: 500,
+        totalRevenueAfterTax: 550,
+        totalProfitBeforeTax: 200,
+        totalProfitAfterTax: 250,
+        totalWastageCost: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-01',
+        to: '2026-05-12',
+        type: 'Sale',
+        search: 'rice',
+      },
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    };
+
+    service.getProfitLossReport(queryParams).subscribe((response) => {
+      expect(response.items).toHaveLength(1);
+      expect(response.items[0].referenceNumber).toBe('INV-001');
+      expect(response.items[0].marginPercent).toBe(40);
+      expect(response.summary.totalProfitAfterTax).toBe(250);
+      expect(response.appliedFilters.type).toBe('Sale');
+      expect(response.totalCount).toBe(1);
+      expect(response.pageNumber).toBe(1);
+      expect(response.pageSize).toBe(50);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('to')).toBe('2026-05-12');
+    expect(req.request.params.get('type')).toBe('Sale');
+    expect(req.request.params.get('search')).toBe('rice');
+    expect(req.request.params.get('page')).toBe('1');
+    expect(req.request.params.get('pageSize')).toBe('50');
+    req.flush(result);
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint with partial query params', () => {
+    const { service, http } = setup();
+    const queryParams = {
+      from: '2026-05-01',
+      page: 2,
+    };
+    const result = {
+      items: [],
+      summary: {
+        totalCost: 0,
+        totalRevenueBeforeTax: 0,
+        totalRevenueAfterTax: 0,
+        totalProfitBeforeTax: 0,
+        totalProfitAfterTax: 0,
+        totalWastageCost: 0,
+      },
+      appliedFilters: { from: '2026-05-01' },
+      totalCount: 0,
+      pageNumber: 2,
+      pageSize: 20,
+    };
+
+    service.getProfitLossReport(queryParams).subscribe((response) => {
+      expect(response.items).toHaveLength(0);
+      expect(response.pageNumber).toBe(2);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('from')).toBe('2026-05-01');
+    expect(req.request.params.get('page')).toBe('2');
+    expect(req.request.params.get('to')).toBeNull();
+    expect(req.request.params.get('type')).toBeNull();
+    expect(req.request.params.get('search')).toBeNull();
+    expect(req.request.params.get('pageSize')).toBeNull();
+    req.flush(result);
+    http.verify();
+  });
+
+  it('sends GET request to P&L endpoint without params', () => {
+    const { service, http } = setup();
+    const result = {
+      items: [],
+      summary: {
+        totalCost: 0,
+        totalRevenueBeforeTax: 0,
+        totalRevenueAfterTax: 0,
+        totalProfitBeforeTax: 0,
+        totalProfitAfterTax: 0,
+        totalWastageCost: 0,
+      },
+      appliedFilters: {},
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+
+    service.getProfitLossReport().subscribe((response) => {
+      expect(response.items).toHaveLength(0);
+      expect(response.pageNumber).toBe(1);
+    });
+
+    const req = http.expectOne((request) => request.url === SALE_ENDPOINTS.profitLoss);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush(result);
     http.verify();
   });
 });

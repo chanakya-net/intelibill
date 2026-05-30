@@ -8,6 +8,9 @@ import type {
   SaleDto,
   SaleListItemDto,
   ProfitLossReportItemDto,
+  ProfitLossReportQueryParams,
+  ProfitLossSummaryDto,
+  ProfitLossAppliedFiltersDto,
   SalesHistoryQueryParams,
   SalesHistorySummaryDto,
   SaleReturnPreviewDto,
@@ -31,7 +34,9 @@ export class SalesFacade {
   readonly returnPreview: Signal<SaleReturnPreviewDto | null> = this.store.selectSignal(SalesSelectors.selectReturnPreview);
   readonly loadingReturnPreview: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingReturnPreview);
   readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectReturnPreviewErrorMessage);
-  readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossReport);
+  readonly profitLossItems: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossItems);
+  readonly profitLossSummary: Signal<ProfitLossSummaryDto | null> = this.store.selectSignal(SalesSelectors.selectProfitLossSummary);
+  readonly profitLossAppliedFilters: Signal<ProfitLossAppliedFiltersDto> = this.store.selectSignal(SalesSelectors.selectProfitLossAppliedFilters);
   readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
   readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedSale);
   readonly salesPagination: Signal<{
@@ -40,13 +45,18 @@ export class SalesFacade {
     pageSize: number;
   }> = this.store.selectSignal(SalesSelectors.selectSalesPagination);
   readonly salesHistorySummary: Signal<SalesHistorySummaryDto | null> = this.store.selectSignal(SalesSelectors.selectSalesHistorySummary);
+  readonly profitLossPagination: Signal<{
+    totalCount: number;
+    pageNumber: number;
+    pageSize: number;
+  }> = this.store.selectSignal(SalesSelectors.selectProfitLossPagination);
 
   loadSales(params?: SalesHistoryQueryParams): void {
     this.store.dispatch(SalesActions.loadSalesRequested(params ? { queryParams: params } : {}));
   }
 
-  loadProfitLossReport(): void {
-    this.store.dispatch(SalesActions.loadProfitLossReportRequested());
+  loadProfitLossReport(params?: ProfitLossReportQueryParams): void {
+    this.store.dispatch(SalesActions.loadProfitLossReportRequested(params ? { queryParams: params } : {}));
   }
 
   loadSaleDetail(saleId: string): void {

@@ -39,14 +39,14 @@ import { TableFilterBarComponent } from '../../../../shared/components/table-fil
 export class ProfitLossPageComponent {
   private readonly salesFacade = inject(SalesFacade);
 
-  readonly report = this.salesFacade.profitLossReport;
+  readonly report = this.salesFacade.profitLossItems;
   readonly tableData = computed(() => [...this.report()]);
   readonly searchValue = signal('');
   readonly filteredReport = computed(() => {
     const q = this.searchValue().toLowerCase();
     if (!q) return [...this.report()];
     return this.report().filter(
-      (s) =>
+      (s: { referenceNumber: string; rowType: string; partyName: string | null }) =>
         s.referenceNumber.toLowerCase().includes(q) ||
         s.rowType.toLowerCase().includes(q) ||
         (s.partyName ?? '').toLowerCase().includes(q)

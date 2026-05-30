@@ -8,14 +8,14 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 describe('ProfitLossPageComponent', () => {
   const mockSalesFacade = {
-    profitLossReport: signal<any[]>([]),
+    profitLossItems: signal<any[]>([]),
     loadingProfitLossReport: signal(false),
     errorMessage: signal(''),
     loadProfitLossReport: vi.fn(),
   };
 
   async function setup(report: any[] = []) {
-    mockSalesFacade.profitLossReport.set(report);
+    mockSalesFacade.profitLossItems.set(report);
     mockSalesFacade.loadingProfitLossReport.set(false);
     mockSalesFacade.errorMessage.set('');
     mockSalesFacade.loadProfitLossReport.mockClear();

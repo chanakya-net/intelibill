@@ -24,7 +24,9 @@ export const selectLoadingSaleDetail = salesFeature.selectLoadingSaleDetail;
 export const selectReturnPreview = salesFeature.selectReturnPreview;
 export const selectLoadingReturnPreview = salesFeature.selectLoadingReturnPreview;
 export const selectReturnPreviewErrorMessage = salesFeature.selectReturnPreviewErrorMessage;
-export const selectProfitLossReport = salesFeature.selectProfitLossReport;
+export const selectProfitLossItems = salesFeature.selectProfitLossItems;
+export const selectProfitLossSummary = salesFeature.selectProfitLossSummary;
+export const selectProfitLossAppliedFilters = salesFeature.selectProfitLossAppliedFilters;
 export const selectLoadingProfitLossReport = salesFeature.selectLoadingProfitLossReport;
 export const selectLastRecordedSale = salesFeature.selectLastRecordedSale;
 export const selectSalesPagination = createSelector(
@@ -38,4 +40,12 @@ export const selectSalesPagination = createSelector(
 export const selectSalesHistorySummary = createSelector(
   salesFeature.selectSalesState,
   (salesState) => salesState.historySummary
+);
+export const selectProfitLossPagination = createSelector(
+  salesFeature.selectSalesState,
+  (salesState) => ({
+    totalCount: salesState.profitLossTotalCount,
+    pageNumber: salesState.profitLossPageNumber,
+    pageSize: salesState.profitLossPageSize,
+  })
 );

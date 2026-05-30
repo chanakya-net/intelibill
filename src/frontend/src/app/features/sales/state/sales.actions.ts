@@ -9,6 +9,10 @@ import type {
   SalesHistorySummaryDto,
   SaleListItemDto,
   ProfitLossReportItemDto,
+  ProfitLossReportQueryParams,
+  ProfitLossReportResultDto,
+  ProfitLossSummaryDto,
+  ProfitLossAppliedFiltersDto,
   SaleReturnPreviewDto,
   VoidSaleReturnRequest,
 } from '../services/sale.models';
@@ -28,8 +32,15 @@ export const SalesActions = createActionGroup({
     }>(),
     'Load Sales Failed': props<{ errorMessage: string }>(),
 
-    'Load Profit Loss Report Requested': emptyProps(),
-    'Load Profit Loss Report Succeeded': props<{ report: readonly ProfitLossReportItemDto[] }>(),
+    'Load Profit Loss Report Requested': props<{ queryParams?: ProfitLossReportQueryParams }>(),
+    'Load Profit Loss Report Succeeded': props<{
+      items: readonly ProfitLossReportItemDto[];
+      summary: ProfitLossSummaryDto;
+      appliedFilters: ProfitLossAppliedFiltersDto;
+      totalCount: number;
+      pageNumber: number;
+      pageSize: number;
+    }>(),
     'Load Profit Loss Report Failed': props<{ errorMessage: string }>(),
 
     'Load Sale Detail Requested': props<{ saleId: string }>(),
