@@ -33,6 +33,9 @@ public sealed class EditCustomerCommandValidator : AbstractValidator<EditCustome
             .GreaterThanOrEqualTo(0m)
             .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
             .WithMessage(Errors.Customer.CreditLimitInvalid.Description)
+            .PrecisionScale(10, 2, ignoreTrailingZeros: true)
+            .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
+            .WithMessage(Errors.Customer.CreditLimitInvalid.Description)
             .LessThanOrEqualTo(99999999.99m)
             .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
             .WithMessage(Errors.Customer.CreditLimitInvalid.Description);

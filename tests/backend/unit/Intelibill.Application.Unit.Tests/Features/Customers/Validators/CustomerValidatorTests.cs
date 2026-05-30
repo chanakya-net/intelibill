@@ -32,6 +32,10 @@ public class AddCustomerCommandValidatorTests
         _v.TestValidate(new AddCustomerCommand(Guid.NewGuid(), "Name", "+919876543210", null, true, 100000000m))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
+    [Fact] public void Validate_WhenCreditLimitHasMoreThanTwoDecimalPlaces_ReturnsError() =>
+        _v.TestValidate(new AddCustomerCommand(Guid.NewGuid(), "Name", "+919876543210", null, true, 10.999m))
+            .ShouldHaveValidationErrorFor(x => x.CreditLimit);
+
     [Fact] public void Validate_WhenCreditLimitIsZero_NoErrors() =>
         _v.TestValidate(new AddCustomerCommand(Guid.NewGuid(), "Name", "+919876543210", null, true, 0m))
             .ShouldNotHaveAnyValidationErrors();
@@ -67,6 +71,10 @@ public class EditCustomerCommandValidatorTests
 
     [Fact] public void Validate_WhenCreditLimitAboveMax_ReturnsError() =>
         _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.999m))
+            .ShouldHaveValidationErrorFor(x => x.CreditLimit);
+
+    [Fact] public void Validate_WhenCreditLimitHasMoreThanTwoDecimalPlaces_ReturnsError() =>
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 10.999m))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
