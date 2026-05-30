@@ -316,7 +316,7 @@
       "loadFailed": "ഇപ്പോൾ ഉപഭോക്തൃ അക്കൗണ്ട് ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
       "paymentFailed": "ഇപ്പോൾ പേയ്മെന്റ് രേഖപ്പെടുത്താൻ കഴിഞ്ഞില്ല."
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "ഗ്രാഹകരെ തിരയുക...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",

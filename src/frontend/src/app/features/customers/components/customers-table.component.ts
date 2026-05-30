@@ -9,8 +9,13 @@ import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
 import { Customer } from '../services/customer.service';
-
-type CustomerStatus = 'active' | 'inactive' | 'overdue' | 'inCredit';
+import {
+  customerStatus as deriveCustomerStatus,
+  customerStatusClass as deriveCustomerStatusClass,
+  customerStatusLabelKey as deriveCustomerStatusLabelKey,
+  customerUsageLabel as deriveCustomerUsageLabel,
+  customerUsagePercent as deriveCustomerUsagePercent,
+} from '../utils/customer-status.util';
 
 @Component({
   selector: 'app-customers-table',
@@ -27,6 +32,12 @@ export class CustomersTableComponent {
   @Output() openCustomerAccount = new EventEmitter<Customer>();
   @Output() openEditCustomer = new EventEmitter<Customer>();
   @Output() newTransaction = new EventEmitter<Customer>();
+
+  readonly customerStatus = deriveCustomerStatus;
+  readonly customerStatusLabelKey = deriveCustomerStatusLabelKey;
+  readonly customerStatusClass = deriveCustomerStatusClass;
+  readonly customerUsagePercent = deriveCustomerUsagePercent;
+  readonly customerUsageLabel = deriveCustomerUsageLabel;
 
   get tableCustomers(): Customer[] {
     return [...this.customers];
@@ -57,47 +68,5 @@ export class CustomersTableComponent {
       hash = name.charCodeAt(index) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
-  }
-
-  customerStatus(customer: Customer): CustomerStatus {
-    if (!customer.isActive) {
-      return 'inactive';
-    }
-
-    const outstandingDue = customer.outstandingDue ?? 0;
-
-    if (outstandingDue > 0) {
-      return 'overdue';
-    }
-
-    if (outstandingDue < 0) {
-      return 'inCredit';
-    }
-
-    return 'active';
-  }
-
-  customerStatusLabelKey(customer: Customer): string {
-    return `customers.statuses.${this.customerStatus(customer)}`;
-  }
-
-  customerStatusClass(customer: Customer): string {
-    const status = this.customerStatus(customer);
-    return `status-badge--${status === 'inCredit' ? 'in-credit' : status}`;
-  }
-
-  customerUsagePercent(customer: Customer): number {
-    const creditLimit = customer.creditLimit ?? 0;
-
-    if (creditLimit <= 0) {
-      return 0;
-    }
-
-    const usage = (Math.max(0, customer.outstandingDue ?? 0) / creditLimit) * 100;
-    return Math.min(100, Math.max(0, Math.round(usage)));
-  }
-
-  customerUsageLabel(customer: Customer): string {
-    return `${this.customerUsagePercent(customer)}%`;
   }
 }

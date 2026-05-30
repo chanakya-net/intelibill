@@ -316,7 +316,7 @@
       "loadFailed": "এই মুহূর্তে গ্রাহকের হিসাব লোড করা যাচ্ছে না।",
       "paymentFailed": "এই মুহূর্তে পেমেন্ট নথিভুক্ত করা যাচ্ছে না।"
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "গ্রাহক খুঁজুন...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",

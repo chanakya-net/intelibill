@@ -119,6 +119,7 @@ describe('Global i18n coverage', () => {
     'customers.summary.monthlyRevenue',
     'customers.summary.filteredRows',
     'customers.creditLimit',
+    'customers.status',
     'customers.usage',
     'customers.overdue',
     'customers.inCredit',

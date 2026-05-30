@@ -5,7 +5,7 @@
       <h1>{{ 'customers.title' | transloco }}</h1>
       <p class="subtitle">{{ 'customers.subtitle' | transloco }}</p>
       <div class="customers-hero__meta">
-        <span class="meta-chip meta-chip--primary">{{ 'customers.showingCount' | transloco:{ visible: displayRowCount(), total: totalCustomers() } }}</span>
+        <span class="meta-chip meta-chip--primary">{{ 'customers.showingCount' | transloco:{ visible: filteredRowCount(), total: totalCustomers() } }}</span>
         <span class="meta-chip">{{ 'customers.summary.totalCreditIssued' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ totalCreditIssued() | number:'1.2-2' }}</span>
         <span class="meta-chip">{{ 'customers.summary.accountsWithCredit' | transloco }}: {{ accountsWithCredit() }}</span>
       </div>
@@ -173,7 +173,7 @@
           </article>
 
           <article class="statement-metric">
-            <span>{{ 'customers.monthlyRevenue' | transloco }}</span>
+            <span>Lifetime Revenue</span>
             <strong class="red">₹{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
             <small class="success-dot">{{ selectedAccountPurchaseCount() }} purchases</small>
           </article>

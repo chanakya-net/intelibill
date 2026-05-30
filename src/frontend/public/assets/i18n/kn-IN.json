@@ -316,7 +316,7 @@
       "loadFailed": "ಈಗ ಗ್ರಾಹಕ ಖಾತೆಯನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
       "paymentFailed": "ಈಗ ಪಾವತಿಯನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "ಗ್ರಾಹಕರನ್ನು ಹುಡುಕಿ...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",

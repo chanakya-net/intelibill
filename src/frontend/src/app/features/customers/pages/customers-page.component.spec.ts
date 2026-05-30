@@ -96,6 +96,7 @@ describe('CustomersPageComponent', () => {
                 inactive: 'Inactive',
                 overdue: 'Overdue',
                 inCredit: 'In Credit',
+                status: 'Status',
                 usage: 'Usage',
                 newTransaction: 'New Transaction',
                 creditLimit: 'Credit Limit',

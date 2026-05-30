@@ -316,7 +316,7 @@
       "loadFailed": "હમણાં ગ્રાહક ખાતું લોડ કરી શકાયું નથી.",
       "paymentFailed": "હમણાં ચુકવણી નોંધવામાં આવી નથી."
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "ગ્રાહક શોધો...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",

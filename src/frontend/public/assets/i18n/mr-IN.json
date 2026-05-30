@@ -316,7 +316,7 @@
       "loadFailed": "सध्या ग्राहक खाते लोड करता आले नाही.",
       "paymentFailed": "सध्या पेमेंट नोंदवता आले नाही."
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "ग्राहक शोधा...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",

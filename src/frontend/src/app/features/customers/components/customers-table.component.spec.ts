@@ -48,6 +48,7 @@ describe('CustomersTableComponent', () => {
                 name: 'Customer',
                 phoneNumber: 'Phone',
                 creditLimit: 'Credit Limit',
+                status: 'Status',
                 usage: 'Usage',
                 overdue: 'Overdue',
                 inCredit: 'In Credit',

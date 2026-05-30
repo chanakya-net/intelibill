@@ -30,13 +30,19 @@ import {
   CustomerService,
 } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
+import {
+  customerStatus as deriveCustomerStatus,
+  customerStatusClass as deriveCustomerStatusClass,
+  customerStatusLabelKey as deriveCustomerStatusLabelKey,
+  customerUsageLabel as deriveCustomerUsageLabel,
+  customerUsagePercent as deriveCustomerUsagePercent,
+} from '../utils/customer-status.util';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 type CustomerStatusFilter = 'all' | 'active' | 'inactive';
 type AccountLedgerFilter = 'all' | 'purchases' | 'payments';
-type CustomerStatus = 'active' | 'inactive' | 'overdue' | 'inCredit';
 
 interface AccountLedgerRow {
   entry: CustomerLedgerEntry;
@@ -103,6 +109,11 @@ export class CustomersPageComponent {
   readonly customers = this.customersFacade.allCustomers;
   readonly searchValue = signal('');
   readonly statusFilter = signal<CustomerStatusFilter>('all');
+  readonly customerStatus = deriveCustomerStatus;
+  readonly customerStatusLabelKey = deriveCustomerStatusLabelKey;
+  readonly customerStatusClass = deriveCustomerStatusClass;
+  readonly customerUsagePercent = deriveCustomerUsagePercent;
+  readonly customerUsageLabel = deriveCustomerUsageLabel;
 
   readonly filteredCustomers = computed(() => {
     const search = this.searchValue().trim().toLowerCase();
@@ -139,7 +150,6 @@ export class CustomersPageComponent {
     this.sumBy(this.customers(), (customer) => customer.currentMonthRevenue ?? 0),
   );
   readonly filteredRowCount = computed(() => this.filteredCustomers().length);
-  readonly displayRowCount = computed(() => this.filteredCustomers().length);
   readonly summaryCards = computed<CustomerSummaryCard[]>(() => [
     {
       labelKey: 'customers.summary.totalCustomers',
@@ -179,7 +189,7 @@ export class CustomersPageComponent {
     },
     {
       labelKey: 'customers.summary.filteredRows',
-      value: this.displayRowCount(),
+      value: this.filteredRowCount(),
       variant: 'count',
     },
   ]);
@@ -236,13 +246,8 @@ export class CustomersPageComponent {
     }
 
     return this.customerUsagePercent({
-      ...account,
-      isActive: true,
-      address: null,
+      outstandingDue: account.outstandingDue,
       creditLimit: this.selectedAccountCreditLimit(),
-      purchaseCount: account.sales.length,
-      lifetimeRevenue: this.selectedAccountLifetimeRevenue(),
-      currentMonthRevenue: 0,
     });
   });
   readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.ledgerEntries.at(-1)?.runningBalance ?? 0);
@@ -397,48 +402,6 @@ export class CustomersPageComponent {
 
   onAccountLedgerFilterChange(filter: AccountLedgerFilter): void {
     this.accountLedgerFilter.set(filter);
-  }
-
-  customerStatus(customer: Customer): CustomerStatus {
-    if (!customer.isActive) {
-      return 'inactive';
-    }
-
-    const outstandingDue = customer.outstandingDue ?? 0;
-
-    if (outstandingDue > 0) {
-      return 'overdue';
-    }
-
-    if (outstandingDue < 0) {
-      return 'inCredit';
-    }
-
-    return 'active';
-  }
-
-  customerStatusLabelKey(customer: Customer): string {
-    return `customers.statuses.${this.customerStatus(customer)}`;
-  }
-
-  customerStatusClass(customer: Customer): string {
-    const status = this.customerStatus(customer);
-    return `status-badge--${status === 'inCredit' ? 'in-credit' : status}`;
-  }
-
-  customerUsagePercent(customer: Customer): number {
-    const creditLimit = customer.creditLimit ?? 0;
-
-    if (creditLimit <= 0) {
-      return 0;
-    }
-
-    const usage = (Math.max(0, customer.outstandingDue ?? 0) / creditLimit) * 100;
-    return Math.min(100, Math.max(0, Math.round(usage)));
-  }
-
-  customerUsageLabel(customer: Customer): string {
-    return `${this.customerUsagePercent(customer)}%`;
   }
 
   private loadCustomerAccount(customerId: string): void {

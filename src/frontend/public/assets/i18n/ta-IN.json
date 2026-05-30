@@ -316,7 +316,7 @@
       "loadFailed": "இப்போது வாடிக்கையாளர் கணக்கை ஏற்ற முடியவில்லை.",
       "paymentFailed": "இப்போது பணம் பதிவுசெய்ய முடியவில்லை."
     },
-    "searchPlaceholder": "Search customers by name, phone, or address...",
+    "searchPlaceholder": "வாடிக்கையாளர்களை பெயர், தொலைபேசி அல்லது முகவரியால் தேடவும்...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",
