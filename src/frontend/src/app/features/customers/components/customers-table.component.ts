@@ -51,7 +51,8 @@ export class CustomersTableComponent {
     this.openEditCustomer.emit(customer);
   }
 
-  onNewTransaction(customer: Customer): void {
+  onNewTransaction(customer: Customer, event?: MouseEvent): void {
+    event?.stopPropagation();
     this.newTransaction.emit(customer);
   }
 

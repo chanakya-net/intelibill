@@ -1,6 +1,6 @@
 import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -36,6 +36,7 @@ export abstract class NewSalePageStateService {
   protected readonly nowTick = signal(Date.now());
   protected readonly fb = inject(FormBuilder);
   protected readonly router = inject(Router);
+  protected readonly route = inject(ActivatedRoute, { optional: true });
   protected readonly authService = inject(AuthService);
   protected readonly catalogSync = inject(ProductCatalogSyncService);
   protected readonly inventoryService = inject(InventoryService);
@@ -114,6 +115,7 @@ export abstract class NewSalePageStateService {
   protected isSyncingPaymentControls = false;
   readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
   readonly selectedCustomer = signal<CustomerDto | null>(null);
+  readonly routeCustomerId = (this.route?.snapshot.queryParamMap.get('customerId') ?? '').trim();
   readonly customerSelectionPool = computed<readonly CustomerDto[]>(() => {
     if (this.isOfflineMode()) {
       return this.offlineCustomers().map((customer) => ({
@@ -169,7 +171,7 @@ export abstract class NewSalePageStateService {
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
   readonly lastMutationType = this.salesFacade.lastMutationType;
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
-  readonly customers = this.customersFacade.allCustomers;
+  readonly customers = computed(() => this.readFacadeValue(this.customersFacade.allCustomers));
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly cartBootstrapped = this.cartState.cartBootstrapped;
 
@@ -261,6 +263,7 @@ export abstract class NewSalePageStateService {
   readonly selectedPaymentMethod = computed(() =>
     this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value)
   );
+  readonly loadingCustomers = computed(() => this.readFacadeValue(this.customersFacade.loadingCustomers));
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
   readonly batchPickerQuantity = signal(1);
@@ -332,6 +335,10 @@ export abstract class NewSalePageStateService {
   });
 
   protected initialized = false;
+
+  protected readFacadeValue<T>(value: T | (() => T)): T {
+    return typeof value === 'function' ? (value as () => T)() : value;
+  }
 
   abstract onAddToCart(): void;
   abstract onIncreaseCartItem(index: number): void;

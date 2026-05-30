@@ -1,7 +1,9 @@
+import '@angular/compiler';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Customer, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
@@ -65,6 +67,9 @@ describe('CustomersPageComponent', () => {
     getCustomerAccount: vi.fn(),
     recordCustomerPayment: vi.fn(),
   };
+  const router = {
+    navigate: vi.fn().mockResolvedValue(true),
+  };
 
   let fixture: ComponentFixture<CustomersPageComponent>;
   let component: CustomersPageComponent;
@@ -73,6 +78,7 @@ describe('CustomersPageComponent', () => {
     facade.loadCustomers.mockClear();
     facade.clearError.mockClear();
     facade.clearMutationStatus.mockClear();
+    router.navigate.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [
@@ -147,6 +153,7 @@ describe('CustomersPageComponent', () => {
       providers: [
         { provide: CustomersFacade, useValue: facade },
         { provide: CustomerService, useValue: customerService },
+        { provide: Router, useValue: router },
       ],
     }).compileComponents();
 
@@ -187,5 +194,13 @@ describe('CustomersPageComponent', () => {
     expect(component.customerUsagePercent(customers[0])).toBe(24);
     expect(component.customerUsagePercent(customers[1])).toBe(0);
     expect(component.customerUsagePercent(customers[2])).toBe(0);
+  });
+
+  it('navigates to the new sale route with the selected customerId', () => {
+    component.onOpenNewTransaction(customersSignal()[0]);
+
+    expect(router.navigate).toHaveBeenCalledWith(['/sales/new'], {
+      queryParams: { customerId: 'c1' },
+    });
   });
 });

@@ -55,7 +55,7 @@
             icon="pi pi-plus"
             severity="help"
             [outlined]="true"
-            (click)="onNewTransaction(customer)"
+            (click)="onNewTransaction(customer, $event)"
           />
           <p-button
             type="button"
@@ -140,7 +140,7 @@
                 size="small"
                 severity="help"
                 [outlined]="true"
-                (click)="onNewTransaction(customer)"
+                (click)="onNewTransaction(customer, $event)"
               />
               <p-button
                 type="button"
