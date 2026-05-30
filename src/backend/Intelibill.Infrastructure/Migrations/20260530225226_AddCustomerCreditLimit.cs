@@ -13,8 +13,8 @@ namespace Intelibill.Infrastructure.Migrations
             migrationBuilder.AddColumn<decimal>(
                 name: "credit_limit",
                 table: "customers",
-                type: "numeric(18,2)",
-                precision: 18,
+                type: "numeric(10,2)",
+                precision: 10,
                 scale: 2,
                 nullable: false,
                 defaultValue: 0m);

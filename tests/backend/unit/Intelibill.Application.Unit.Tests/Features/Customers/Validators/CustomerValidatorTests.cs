@@ -77,6 +77,14 @@ public class EditCustomerCommandValidatorTests
         _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 10.999m))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
+    [Fact] public void Validate_WhenCreditLimitIsZero_NoErrors() =>
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m))
+            .ShouldNotHaveAnyValidationErrors();
+
+    [Fact] public void Validate_WhenCreditLimitAtMax_NoErrors() =>
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.99m))
+            .ShouldNotHaveAnyValidationErrors();
+
     [Fact] public void Validate_WhenValid_NoErrors() =>
         _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m))
             .ShouldNotHaveAnyValidationErrors();

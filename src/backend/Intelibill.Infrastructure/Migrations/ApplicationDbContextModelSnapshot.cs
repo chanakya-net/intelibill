@@ -102,8 +102,8 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.Property<decimal>("CreditLimit")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("numeric(18,2)")
-                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasPrecision(10, 2)
                         .HasDefaultValue(0m)
                         .HasColumnName("credit_limit");
 

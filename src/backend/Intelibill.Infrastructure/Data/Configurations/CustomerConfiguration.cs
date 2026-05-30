@@ -32,7 +32,7 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 
         builder.Property(c => c.CreditLimit)
             .IsRequired()
-            .HasColumnType("numeric(18,2)")
+            .HasColumnType("numeric(10,2)")
             .HasDefaultValue(0m);
 
         builder.HasIndex(c => c.ShopId);

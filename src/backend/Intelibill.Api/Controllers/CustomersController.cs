@@ -120,7 +120,7 @@ public sealed record EditCustomerRequest(
     string PhoneNumber,
     string? Address,
     bool IsActive,
-    decimal CreditLimit = 0m);
+    decimal CreditLimit);
 
 public sealed record RecordCustomerPaymentRequest(
     decimal Amount,
