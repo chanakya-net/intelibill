@@ -6,4 +6,5 @@ public sealed record EditCustomerCommand(
     string Name,
     string PhoneNumber,
     string? Address,
-    bool IsActive);
+    bool IsActive,
+    decimal CreditLimit);

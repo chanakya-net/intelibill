@@ -18,7 +18,8 @@ public sealed class AddCustomerCommandHandler(
             command.Name,
             command.PhoneNumber,
             command.Address,
-            command.IsActive);
+            command.IsActive,
+            command.CreditLimit);
 
         await customerRepository.AddAsync(customer, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -29,6 +30,7 @@ public sealed class AddCustomerCommandHandler(
             customer.PhoneNumber,
             customer.Address,
             customer.IsActive,
-            0m);
+            0m,
+            customer.CreditLimit);
     }
 }

@@ -20,7 +20,8 @@ public sealed class EditCustomerCommandHandler(
             command.Name,
             command.PhoneNumber,
             command.Address,
-            command.IsActive);
+            command.IsActive,
+            command.CreditLimit);
 
         customerRepository.Update(customer);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -31,6 +32,7 @@ public sealed class EditCustomerCommandHandler(
             customer.PhoneNumber,
             customer.Address,
             customer.IsActive,
-            0m);
+            0m,
+            customer.CreditLimit);
     }
 }

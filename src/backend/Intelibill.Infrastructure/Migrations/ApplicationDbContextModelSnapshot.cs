@@ -100,6 +100,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
+                    b.Property<decimal>("CreditLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(10,2)")
+                        .HasPrecision(10, 2)
+                        .HasDefaultValue(0m)
+                        .HasColumnName("credit_limit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(180)

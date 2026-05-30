@@ -26,7 +26,7 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Customer?)null);
 
-        var command = new EditCustomerCommand(shopId, Guid.NewGuid(), "New Name", "+919876543210", null, true);
+        var command = new EditCustomerCommand(shopId, Guid.NewGuid(), "New Name", "+919876543210", null, true, 0m);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
@@ -42,7 +42,7 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>())
             .Returns(customer);
 
-        var command = new EditCustomerCommand(shopId, customer.Id, "New Name", "+919999999999", "12 MG Road", false);
+        var command = new EditCustomerCommand(shopId, customer.Id, "New Name", "+919999999999", "12 MG Road", false, 750m);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
@@ -51,6 +51,7 @@ public class EditCustomerCommandHandlerTests
         Assert.Equal("+919999999999", result.Value.PhoneNumber);
         Assert.Equal("12 MG Road", result.Value.Address);
         Assert.False(result.Value.IsActive);
+        Assert.Equal(750m, result.Value.CreditLimit);
         _customerRepository.Received(1).Update(customer);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

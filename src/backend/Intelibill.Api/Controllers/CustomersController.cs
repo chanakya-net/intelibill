@@ -46,7 +46,8 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
-                request.IsActive),
+                request.IsActive,
+                request.CreditLimit),
             cancellationToken);
 
         return result.ToActionResult(customer => CreatedAtAction(nameof(GetCustomers), customer));
@@ -65,7 +66,8 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
-                request.IsActive),
+                request.IsActive,
+                request.CreditLimit),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -110,13 +112,15 @@ public sealed record AddCustomerRequest(
     string Name,
     string PhoneNumber,
     string? Address,
-    bool IsActive);
+    bool IsActive,
+    decimal CreditLimit = 0m);
 
 public sealed record EditCustomerRequest(
     string Name,
     string PhoneNumber,
     string? Address,
-    bool IsActive);
+    bool IsActive,
+    decimal CreditLimit);
 
 public sealed record RecordCustomerPaymentRequest(
     decimal Amount,

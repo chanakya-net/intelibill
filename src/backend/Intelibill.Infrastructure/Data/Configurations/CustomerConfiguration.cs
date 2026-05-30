@@ -30,6 +30,11 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(c => c.CreditLimit)
+            .IsRequired()
+            .HasColumnType("numeric(10,2)")
+            .HasDefaultValue(0m);
+
         builder.HasIndex(c => c.ShopId);
         builder.HasIndex(c => new { c.ShopId, c.IsActive });
         builder.HasIndex(c => new { c.ShopId, c.PhoneNumber });

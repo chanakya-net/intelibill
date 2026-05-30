@@ -5,4 +5,5 @@ public sealed record AddCustomerCommand(
     string Name,
     string PhoneNumber,
     string? Address,
-    bool IsActive);
+    bool IsActive,
+    decimal CreditLimit);

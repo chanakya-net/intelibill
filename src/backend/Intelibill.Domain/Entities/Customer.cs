@@ -9,6 +9,7 @@ public sealed class Customer : BaseEntity
     public string PhoneNumber { get; private set; } = string.Empty;
     public string? Address { get; private set; }
     public bool IsActive { get; private set; }
+    public decimal CreditLimit { get; private set; }
 
     private Customer() { }
 
@@ -17,7 +18,8 @@ public sealed class Customer : BaseEntity
         string name,
         string phoneNumber,
         string? address,
-        bool isActive = true)
+        bool isActive = true,
+        decimal creditLimit = 0m)
     {
         return new Customer
         {
@@ -26,6 +28,7 @@ public sealed class Customer : BaseEntity
             PhoneNumber = phoneNumber.Trim(),
             Address = NormalizeOptional(address),
             IsActive = isActive,
+            CreditLimit = creditLimit,
         };
     }
 
@@ -33,12 +36,14 @@ public sealed class Customer : BaseEntity
         string name,
         string phoneNumber,
         string? address,
-        bool isActive)
+        bool isActive,
+        decimal creditLimit)
     {
         Name = name.Trim();
         PhoneNumber = phoneNumber.Trim();
         Address = NormalizeOptional(address);
         IsActive = isActive;
+        CreditLimit = creditLimit;
     }
 
     private static string? NormalizeOptional(string? value)

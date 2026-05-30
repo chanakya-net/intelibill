@@ -23,6 +23,7 @@ public sealed class GetCustomersQueryHandler(
             c.PhoneNumber,
             c.Address,
             c.IsActive,
-            balances.TryGetValue(c.Id, out var due) ? due : 0m)).ToList();
+            balances.TryGetValue(c.Id, out var due) ? due : 0m,
+            c.CreditLimit)).ToList();
     }
 }
