@@ -34,7 +34,7 @@ public class CustomersControllerTests
     {
         var customers = new List<CustomerDto>
         {
-            new(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m)
+            new(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m, 0m)
         };
         ArrangeBusResponse<IReadOnlyList<CustomerDto>>(customers);
 
@@ -70,9 +70,9 @@ public class CustomersControllerTests
     [Fact]
     public async Task AddCustomer_WhenSuccessful_ReturnsCreated()
     {
-        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m);
+        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
-        var request = new AddCustomerRequest("Alice", "+919876543210", null, true);
+        var request = new AddCustomerRequest("Alice", "+919876543210", null, true, 0m);
 
         var result = await _controller.AddCustomer(request, CancellationToken.None);
 
@@ -84,7 +84,7 @@ public class CustomersControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true), CancellationToken.None);
+        var result = await _controller.AddCustomer(new AddCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
 
         Assert.IsType<ObjectResult>(result);
     }
@@ -94,7 +94,7 @@ public class CustomersControllerTests
     {
         ArrangeBusResponse<CustomerDto>(Error.Validation("Customer.NameRequired", "Name is required"));
 
-        var result = await _controller.AddCustomer(new AddCustomerRequest("", "+9198", null, true), CancellationToken.None);
+        var result = await _controller.AddCustomer(new AddCustomerRequest("", "+9198", null, true, 0m), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
@@ -105,9 +105,9 @@ public class CustomersControllerTests
     [Fact]
     public async Task EditCustomer_WhenSuccessful_ReturnsOk()
     {
-        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m);
+        var dto = new CustomerDto(Guid.NewGuid(), "Alice", "+919876543210", null, true, 0m, 0m);
         ArrangeBusResponse<CustomerDto>(dto);
-        var request = new EditCustomerRequest("Alice", "+919876543210", null, true);
+        var request = new EditCustomerRequest("Alice", "+919876543210", null, true, 0m);
 
         var result = await _controller.EditCustomer(Guid.NewGuid(), request, CancellationToken.None);
 
@@ -120,7 +120,7 @@ public class CustomersControllerTests
     {
         SetUserClaims();
 
-        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true), CancellationToken.None);
+        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
 
         Assert.IsType<ObjectResult>(result);
     }
@@ -130,7 +130,7 @@ public class CustomersControllerTests
     {
         ArrangeBusResponse<CustomerDto>(Error.NotFound("Customer.NotFound", "Customer not found"));
 
-        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true), CancellationToken.None);
+        var result = await _controller.EditCustomer(Guid.NewGuid(), new EditCustomerRequest("A", "+9198", null, true, 0m), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);

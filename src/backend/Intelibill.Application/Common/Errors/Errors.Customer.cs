@@ -18,6 +18,9 @@ public static partial class Errors
         public static Error CustomerNotFound =>
             Error.NotFound("Customer.CustomerNotFound", "Customer was not found.");
 
+        public static Error CreditLimitInvalid =>
+            Error.Validation("Customer.CreditLimitInvalid", "Credit limit must be between 0 and 99999999.99.");
+
         public static Error PaymentAmountMustBePositive =>
             Error.Validation("Customer.PaymentAmountMustBePositive", "Payment amount must be greater than zero.");
 

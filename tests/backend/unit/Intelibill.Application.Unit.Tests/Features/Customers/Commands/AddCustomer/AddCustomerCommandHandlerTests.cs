@@ -22,20 +22,23 @@ public class AddCustomerCommandHandlerTests
             "  John Doe  ",
             "  +919876543210  ",
             "  12 Market Road  ",
-            true), CancellationToken.None);
+            true,
+            250m), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("John Doe", result.Value.Name);
         Assert.Equal("+919876543210", result.Value.PhoneNumber);
         Assert.Equal("12 Market Road", result.Value.Address);
         Assert.True(result.Value.IsActive);
+        Assert.Equal(250m, result.Value.CreditLimit);
 
         await _customerRepository.Received(1).AddAsync(Arg.Is<Customer>(c =>
             c.ShopId == shopId
             && c.Name == "John Doe"
             && c.PhoneNumber == "+919876543210"
             && c.Address == "12 Market Road"
-            && c.IsActive), Arg.Any<CancellationToken>());
+            && c.IsActive
+            && c.CreditLimit == 250m), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

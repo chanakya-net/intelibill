@@ -25,5 +25,13 @@ public sealed class AddCustomerCommandValidator : AbstractValidator<AddCustomerC
         RuleFor(x => x.Address)
             .MaximumLength(320)
             .When(x => x.Address is not null);
+
+        RuleFor(x => x.CreditLimit)
+            .GreaterThanOrEqualTo(0m)
+            .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
+            .WithMessage(Errors.Customer.CreditLimitInvalid.Description)
+            .LessThanOrEqualTo(99999999.99m)
+            .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
+            .WithMessage(Errors.Customer.CreditLimitInvalid.Description);
     }
 }

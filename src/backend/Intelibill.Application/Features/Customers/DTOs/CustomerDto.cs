@@ -6,4 +6,5 @@ public sealed record CustomerDto(
     string PhoneNumber,
     string? Address,
     bool IsActive,
-    decimal OutstandingDue);
+    decimal OutstandingDue,
+    decimal CreditLimit);

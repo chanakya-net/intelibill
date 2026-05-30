@@ -21,6 +21,7 @@ public class CustomerTests
         Assert.Equal("+919876543210", customer.PhoneNumber);
         Assert.Equal("12 Market Road", customer.Address);
         Assert.True(customer.IsActive);
+        Assert.Equal(0m, customer.CreditLimit);
     }
 
     [Fact]
@@ -37,6 +38,20 @@ public class CustomerTests
     }
 
     [Fact]
+    public void Create_WithCreditLimit_SetsCreditLimit()
+    {
+        var customer = Customer.Create(
+            Guid.NewGuid(),
+            "Customer",
+            "+919876543210",
+            null,
+            true,
+            500m);
+
+        Assert.Equal(500m, customer.CreditLimit);
+    }
+
+    [Fact]
     public void Update_ChangesAllFields()
     {
         var customer = Customer.Create(
@@ -50,12 +65,14 @@ public class CustomerTests
             "  Updated Customer  ",
             "  +918888888888  ",
             "  42 MG Road  ",
-            false);
+            false,
+            1000m);
 
         Assert.Equal("Updated Customer", customer.Name);
         Assert.Equal("+918888888888", customer.PhoneNumber);
         Assert.Equal("42 MG Road", customer.Address);
         Assert.False(customer.IsActive);
+        Assert.Equal(1000m, customer.CreditLimit);
     }
 
     [Fact]
@@ -68,7 +85,7 @@ public class CustomerTests
             "Original Address",
             true);
 
-        customer.Update("Customer", "+919999999999", "   ", true);
+        customer.Update("Customer", "+919999999999", "   ", true, 0m);
 
         Assert.Null(customer.Address);
     }
