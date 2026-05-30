@@ -1,6 +1,7 @@
+import '@angular/compiler';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Customer } from '../services/customer.service';
 import { CustomersTableComponent } from './customers-table.component';
@@ -121,5 +122,16 @@ describe('CustomersTableComponent', () => {
     expect(accountSpy).toHaveBeenCalledWith(mockCustomers[0]);
     expect(transactionSpy).toHaveBeenCalledWith(mockCustomers[0]);
     expect(editSpy).toHaveBeenCalledWith(mockCustomers[0]);
+  });
+
+  it('stops propagation when starting a new transaction', () => {
+    const stopPropagation = vi.fn();
+    const transactionSpy = vi.fn();
+
+    component.newTransaction.subscribe(transactionSpy);
+    component.onNewTransaction(mockCustomers[0], { stopPropagation } as never);
+
+    expect(stopPropagation).toHaveBeenCalled();
+    expect(transactionSpy).toHaveBeenCalledWith(mockCustomers[0]);
   });
 });

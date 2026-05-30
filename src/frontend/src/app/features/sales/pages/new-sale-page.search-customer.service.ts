@@ -1,4 +1,5 @@
 import { NewSalePageLifecycleService } from './new-sale-page.lifecycle.service';
+import { effect, runInInjectionContext } from '@angular/core';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
@@ -9,6 +10,19 @@ import type { Subscription } from 'rxjs';
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
   private searchSuggestionsRequestSeq = 0;
   private searchSuggestionsSubscription: Subscription | null = null;
+  private routeCustomerPreselectionApplied = false;
+
+  override onInit(): void {
+    super.onInit();
+
+    runInInjectionContext(this.injector, () => {
+      effect(() => {
+        this.loadingCustomers();
+        this.customers();
+        this.preselectRouteCustomerIfPossible();
+      });
+    });
+  }
 
   onBatchSearchTermChanged(value: string): void {
     this.searchInput.set((value ?? '').toString());
@@ -219,6 +233,30 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     );
     this.selectedCustomerId.set(customer.customerId);
     this.selectedCustomerName.set(customer.name.trim().toLowerCase());
+  }
+
+  protected preselectRouteCustomerIfPossible(): void {
+    if (this.routeCustomerPreselectionApplied) {
+      return;
+    }
+
+    const customerId = this.routeCustomerId;
+    if (!customerId || this.loadingCustomers()) {
+      return;
+    }
+
+    const customer = this.customerSelectionPool().find((candidate) => candidate.customerId === customerId) ?? null;
+    if (customer) {
+      this.routeCustomerPreselectionApplied = true;
+      this.onCustomerSectionSelected(customer);
+      return;
+    }
+
+    if (this.customers().length === 0) {
+      return;
+    }
+
+    this.routeCustomerPreselectionApplied = true;
   }
 
   openScanner(): void {

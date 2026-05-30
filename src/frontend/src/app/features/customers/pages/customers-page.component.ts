@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AvatarModule } from 'primeng/avatar';
@@ -100,6 +101,7 @@ interface CustomerDirectoryMetric {
 export class CustomersPageComponent {
   private readonly customersFacade = inject(CustomersFacade);
   private readonly customerService = inject(CustomerService);
+  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
@@ -328,6 +330,14 @@ export class CustomersPageComponent {
     this.customersFacade.clearMutationStatus();
     this.editingCustomer.set(customer);
     this.showEditCustomerOverlay.set(true);
+  }
+
+  onOpenNewTransaction(customer: Customer): void {
+    void this.router.navigate(['/sales/new'], {
+      queryParams: {
+        customerId: customer.customerId,
+      },
+    });
   }
 
   onCloseEditCustomer(): void {
