@@ -20,7 +20,13 @@ import { TableModule } from 'primeng/table';
 
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { EditCustomerOverlayComponent } from '../components/edit-customer-overlay.component';
-import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
+import {
+  Customer,
+  CustomerAccount,
+  CustomerAccountSale,
+  CustomerLedgerEntry,
+  CustomerService,
+} from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import { CustomersFilterBarComponent } from '../components/customers-filter-bar.component';
 import { CustomersTableComponent } from '../components/customers-table.component';
@@ -29,6 +35,16 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 type CustomerStatusFilter = 'all' | 'active' | 'inactive';
+type AccountLedgerFilter = 'all' | 'purchases' | 'payments';
+
+interface AccountLedgerRow {
+  entry: CustomerLedgerEntry;
+  sale: CustomerAccountSale | null;
+  reference: string;
+  kind: 'purchase' | 'payment';
+  debit: number | null;
+  credit: number | null;
+}
 
 @Component({
   selector: 'app-customers-page',
@@ -104,6 +120,75 @@ export class CustomersPageComponent {
   readonly selectedAccount = signal<CustomerAccount | null>(null);
   readonly submittingPayment = signal(false);
   readonly hasAccount = computed(() => this.selectedAccount() !== null);
+  readonly accountLedgerFilter = signal<AccountLedgerFilter>('all');
+  readonly selectedAccountInitials = computed(() => {
+    const name = this.selectedAccount()?.name ?? this.selectedAccountCustomer()?.name ?? '';
+
+    return name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'CU';
+  });
+  readonly selectedAccountPurchaseCount = computed(() => this.selectedAccount()?.sales.length ?? 0);
+  readonly selectedAccountOverdueCount = computed(
+    () => this.selectedAccount()?.sales.filter((sale) => sale.dueAmount > 0).length ?? 0
+  );
+  readonly selectedAccountLifetimeRevenue = computed(() =>
+    this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount)
+  );
+  readonly selectedAccountCreditLimit = computed(() => {
+    const account = this.selectedAccount();
+
+    if (!account) {
+      return 0;
+    }
+
+    return Math.max(account.outstandingDue, this.selectedAccountLifetimeRevenue());
+  });
+  readonly selectedAccountAvailableCreditPercent = computed(() => {
+    const limit = this.selectedAccountCreditLimit();
+
+    if (limit <= 0) {
+      return 100;
+    }
+
+    return Math.max(0, Math.round(((limit - (this.selectedAccount()?.outstandingDue ?? 0)) / limit) * 100));
+  });
+  readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.ledgerEntries.at(-1)?.runningBalance ?? 0);
+  readonly selectedAccountClosingBalance = computed(() => this.selectedAccount()?.outstandingDue ?? 0);
+  readonly selectedAccountLedgerRows = computed<AccountLedgerRow[]>(() => {
+    const account = this.selectedAccount();
+    if (!account) {
+      return [];
+    }
+
+    return account.ledgerEntries.map((entry) => {
+      const sale = entry.saleId ? account.sales.find((item) => item.saleId === entry.saleId) ?? null : null;
+      const isPayment = this.isPaymentLedgerEntry(entry, sale);
+      const kind: AccountLedgerRow['kind'] = isPayment ? 'payment' : 'purchase';
+
+      return {
+        entry,
+        sale,
+        reference: this.accountLedgerReference(entry, sale),
+        kind,
+        debit: isPayment ? null : entry.amount,
+        credit: isPayment ? entry.amount : null,
+      };
+    });
+  });
+  readonly selectedAccountFilteredLedgerRows = computed(() => {
+    const rows = this.selectedAccountLedgerRows();
+    const filter = this.accountLedgerFilter();
+
+    if (filter === 'all') {
+      return rows;
+    }
+
+    return rows.filter((row) => row.kind === (filter === 'payments' ? 'payment' : 'purchase'));
+  });
 
   readonly paymentForm = this.fb.nonNullable.group({
     amount: [0, [Validators.required, Validators.min(0.01)]],
@@ -161,6 +246,7 @@ export class CustomersPageComponent {
     this.selectedAccountCustomer.set(customer);
     this.selectedAccount.set(null);
     this.accountError.set('');
+    this.accountLedgerFilter.set('all');
     this.showAccountOverlay.set(true);
     this.paymentForm.patchValue({ amount: 0, notes: '' });
     this.loadCustomerAccount(customer.customerId);
@@ -221,6 +307,10 @@ export class CustomersPageComponent {
     this.statusFilter.set(statusFilter);
   }
 
+  onAccountLedgerFilterChange(filter: AccountLedgerFilter): void {
+    this.accountLedgerFilter.set(filter);
+  }
+
   private loadCustomerAccount(customerId: string): void {
     this.accountError.set('');
     this.accountLoading.set(true);
@@ -235,5 +325,21 @@ export class CustomersPageComponent {
         this.accountLoading.set(false);
       },
     });
+  }
+
+  private accountLedgerReference(entry: CustomerLedgerEntry, sale: CustomerAccountSale | null): string {
+    if (sale) {
+      return sale.invoiceNumber;
+    }
+
+    return `PAY-${entry.entryDate.replaceAll('-', '')}`;
+  }
+
+  private isPaymentLedgerEntry(entry: CustomerLedgerEntry, sale: CustomerAccountSale | null): boolean {
+    return entry.entryType === 2 || String(entry.entryType).toLowerCase() === 'paymentreceived' || sale === null;
+  }
+
+  private sumBy<T>(items: readonly T[], selector: (item: T) => number): number {
+    return items.reduce((total, item) => total + selector(item), 0);
   }
 }

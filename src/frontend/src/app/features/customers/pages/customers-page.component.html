@@ -107,10 +107,10 @@
     [closable]="true"
     [draggable]="false"
     [resizable]="false"
-    [style]="{ width: 'min(96vw, 72rem)' }"
-    [contentStyle]="{ 'max-height': '80vh', overflow: 'auto' }"
+    [style]="{ width: 'min(96vw, 118rem)' }"
+    [contentStyle]="{ 'max-height': '88vh', overflow: 'auto', padding: '0' }"
     (visibleChange)="onCloseCustomerAccount()"
-    [header]="selectedAccountCustomer()?.name || ('customers.account.title' | transloco)"
+    styleClass="account-statement-dialog"
   >
     @if (accountError()) {
       <p class="error">{{ accountError().startsWith('customers.') ? (accountError() | transloco) : accountError() }}</p>
@@ -123,43 +123,65 @@
     }
 
     @if (hasAccount()) {
-      <div class="account-overlay-grid">
-        <p-card>
-          <ng-template pTemplate="header">
-            <div class="card-title">{{ 'customers.account.summary' | transloco }}</div>
-          </ng-template>
-          <div class="summary-row">
-            <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong>₹{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
+      <div class="account-statement">
+        <header class="account-statement-hero">
+          <div>
+            <div class="account-status-row">
+              <h2>{{ selectedAccount()!.name }}</h2>
+              <span class="active-pill">Active</span>
+            </div>
+            <p>
+              Customer account ledger — purchases, payments, and outstanding balance.
+            </p>
           </div>
-        </p-card>
+        </header>
 
-        <p-card>
-          <ng-template pTemplate="header">
-            <div class="card-title">{{ 'customers.account.recordPayment' | transloco }}</div>
-          </ng-template>
-          <form [formGroup]="paymentForm" class="payment-form">
-            <div class="field">
-              <label>{{ 'customers.account.amount' | transloco }}</label>
+        <section class="account-statement-summary" aria-label="Customer account summary">
+          <div class="statement-customer">
+            <div class="statement-avatar" aria-hidden="true">{{ selectedAccountInitials() }}</div>
+            <div>
+              <h3>{{ selectedAccount()!.name }}</h3>
+              <p>{{ selectedAccount()!.phoneNumber }}</p>
+            </div>
+          </div>
+
+          <article class="statement-metric">
+            <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
+            <strong class="green">₹{{ selectedAccount()!.outstandingDue | number:'1.2-2' }}</strong>
+            <small class="warning-dot">{{ selectedAccountOverdueCount() }} overdue invoices</small>
+          </article>
+
+          <article class="statement-metric">
+            <span>Credit limit</span>
+            <strong>₹{{ selectedAccountCreditLimit() | number:'1.2-2' }}</strong>
+            <small class="success-dot">{{ selectedAccountAvailableCreditPercent() }}% available</small>
+          </article>
+
+          <article class="statement-metric">
+            <span>Lifetime revenue</span>
+            <strong class="red">₹{{ selectedAccountLifetimeRevenue() | number:'1.2-2' }}</strong>
+            <small class="success-dot">{{ selectedAccountPurchaseCount() }} purchases</small>
+          </article>
+        </section>
+
+        <section class="account-payment-strip" aria-label="Record payment">
+          <h3>{{ 'customers.account.recordPayment' | transloco }}</h3>
+          <form [formGroup]="paymentForm" class="statement-payment-form">
+            <label>
+              <span>{{ 'customers.account.amount' | transloco }}</span>
               <p-inputgroup [pt]="currencyGroupPt">
                 <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
-                <p-inputNumber
-                  formControlName="amount"
-                  mode="decimal"
-                  [min]="0.01"
-                  [pt]="currencyInputPt"
-                />
+                <p-inputNumber formControlName="amount" mode="decimal" [min]="0.01" [pt]="currencyInputPt" />
               </p-inputgroup>
-            </div>
-
-            <div class="field">
-              <label>{{ 'customers.account.paymentDate' | transloco }}</label>
+            </label>
+            <label>
+              <span>{{ 'customers.account.paymentDate' | transloco }}</span>
               <input pInputText type="date" formControlName="paymentDate" />
-            </div>
-            <div class="field">
-              <label>{{ 'customers.account.notes' | transloco }}</label>
+            </label>
+            <label>
+              <span>{{ 'customers.account.notes' | transloco }}</span>
               <input pInputText type="text" formControlName="notes" />
-            </div>
+            </label>
             <p-button
               [label]="'customers.account.submitPayment' | transloco"
               icon="pi pi-check"
@@ -168,59 +190,61 @@
               (click)="onRecordPayment()"
             />
           </form>
-        </p-card>
+        </section>
 
-        <p-card>
-          <ng-template pTemplate="header">
-            <div class="card-title">{{ 'customers.account.sales' | transloco }}</div>
-          </ng-template>
-          <p-table [value]="selectedAccount()!.sales" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>{{ 'customers.account.invoice' | transloco }}</th>
-                <th>{{ 'customers.account.date' | transloco }}</th>
-                <th>{{ 'customers.account.total' | transloco }}</th>
-                <th>{{ 'customers.account.paid' | transloco }}</th>
-                <th>{{ 'customers.account.due' | transloco }}</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-sale>
-              <tr>
-                <td>{{ sale.invoiceNumber }}</td>
-                <td>{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
-                <td>₹{{ sale.totalAmount | number:'1.2-2' }}</td>
-                <td>₹{{ sale.paidAmount | number:'1.2-2' }}</td>
-                <td>₹{{ sale.dueAmount | number:'1.2-2' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
-        </p-card>
+        <section class="statement-ledger" aria-label="Transaction ledger">
+          <header>
+            <h3>Transaction Ledger</h3>
+            <div class="statement-tabs" aria-label="Ledger filters">
+              <button type="button" [class.active]="accountLedgerFilter() === 'all'" (click)="onAccountLedgerFilterChange('all')">All</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'purchases'" (click)="onAccountLedgerFilterChange('purchases')">Purchases</button>
+              <button type="button" [class.active]="accountLedgerFilter() === 'payments'" (click)="onAccountLedgerFilterChange('payments')">Payments</button>
+            </div>
+          </header>
 
-        <p-card>
-          <ng-template pTemplate="header">
-            <div class="card-title">{{ 'customers.account.ledger' | transloco }}</div>
-          </ng-template>
-          <p-table [value]="selectedAccount()!.ledgerEntries" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
+          <div class="statement-table-wrap">
+            <table class="statement-table">
+              <thead>
               <tr>
                 <th>{{ 'customers.account.date' | transloco }}</th>
+                <th>Reference</th>
                 <th>{{ 'customers.account.type' | transloco }}</th>
-                <th>{{ 'customers.account.amount' | transloco }}</th>
-                <th>{{ 'customers.account.runningBalance' | transloco }}</th>
-                <th>{{ 'customers.account.notes' | transloco }}</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Balance</th>
               </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-entry>
-              <tr>
-                <td>{{ entry.entryDate | dateOnly:'dd MMM yyyy' }}</td>
-                <td><p-tag [severity]="paymentTagSeverity(entry.entryType)" [value]="paymentTagLabel(entry.entryType) | transloco"></p-tag></td>
-                <td>₹{{ entry.amount | number:'1.2-2' }}</td>
-                <td>₹{{ entry.runningBalance | number:'1.2-2' }}</td>
-                <td>{{ entry.notes || '-' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
-        </p-card>
+              </thead>
+              <tbody>
+                @for (row of selectedAccountFilteredLedgerRows(); track row.entry.entryId) {
+                  <tr>
+                    <td>{{ row.entry.entryDate | dateOnly:'dd MMM yyyy' }}</td>
+                    <td class="reference">{{ row.reference }}</td>
+                    <td>
+                      <span class="statement-type" [class.payment]="row.kind === 'payment'">
+                        {{ row.kind === 'payment' ? 'Payment' : 'Purchase' }}
+                      </span>
+                    </td>
+                    <td class="money debit">{{ row.debit === null ? '—' : ('₹' + (row.debit | number:'1.2-2')) }}</td>
+                    <td class="money credit">{{ row.credit === null ? '—' : ('₹' + (row.credit | number:'1.2-2')) }}</td>
+                    <td class="money balance">₹{{ row.entry.runningBalance | number:'1.2-2' }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="statement-empty">No transactions match this filter.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <footer>
+            <span>Showing {{ selectedAccountFilteredLedgerRows().length }} transactions</span>
+            <span>
+              Opening Balance: ₹{{ selectedAccountOpeningBalance() | number:'1.2-2' }}
+              · Closing Balance: ₹{{ selectedAccountClosingBalance() | number:'1.2-2' }}
+            </span>
+          </footer>
+        </section>
       </div>
     }
   </p-dialog>
