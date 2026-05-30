@@ -6,7 +6,12 @@ import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
 import { SaleService } from '../services/sale.service';
-import type { SaleListItemDto, SalesHistoryQueryParams } from '../services/sale.models';
+import type {
+  ProfitLossReportQueryParams,
+  ProfitLossReportResultDto,
+  SaleListItemDto,
+  SalesHistoryQueryParams,
+} from '../services/sale.models';
 import { SalesActions } from './sales.actions';
 import { SalesEffects } from './sales.effects';
 
@@ -312,7 +317,16 @@ describe('SalesEffects', () => {
   });
 
   it('dispatches loadProfitLossReportSucceeded on success', async () => {
-    const report = [{
+    const queryParams: ProfitLossReportQueryParams = {
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'inventoryAdjustment',
+      search: 'INV',
+      page: 2,
+      pageSize: 10,
+    };
+    const result: ProfitLossReportResultDto = {
+      items: [{
       saleId: '1',
       referenceNumber: 'INV-1',
       occurredAt: '2026-05-05T10:00:00Z',
@@ -323,17 +337,40 @@ describe('SalesEffects', () => {
       revenueAfterTax: 0,
       profitBeforeTax: 0,
       profitAfterTax: 0,
+      marginPercent: null,
       rowType: 'Sale' as const,
       inventoryAdjustmentId: null,
-    }];
-    saleService.getProfitLossReport.mockReturnValue(of(report));
+    }],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 10,
+      summary: {
+        netProfitAfterTax: 0,
+        revenueIncludingTax: 0,
+        totalCost: 0,
+        averageMarginPercent: null,
+        invoiceCount: 1,
+        returnCount: 0,
+        adjustmentCount: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-01',
+        to: '2026-05-31',
+        type: 'inventoryAdjustment',
+        search: 'INV',
+        pageNumber: 2,
+        pageSize: 10,
+      },
+    };
+    saleService.getProfitLossReport.mockReturnValue(of(result));
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
-    actions$.next(SalesActions.loadProfitLossReportRequested());
+    actions$.next(SalesActions.loadProfitLossReportRequested({ queryParams }));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadProfitLossReportSucceeded({ report })
+      SalesActions.loadProfitLossReportSucceeded({ result })
     );
+    expect(saleService.getProfitLossReport).toHaveBeenCalledWith(queryParams);
   });
 
   it('dispatches loadProfitLossReportFailed on failure', async () => {
@@ -342,7 +379,7 @@ describe('SalesEffects', () => {
     );
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
-    actions$.next(SalesActions.loadProfitLossReportRequested());
+    actions$.next(SalesActions.loadProfitLossReportRequested({}));
 
     await expect(output).resolves.toEqual(
       SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })

@@ -1,7 +1,15 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import type { SaleDto, SaleListItemDto, ProfitLossReportItemDto, SaleReturnPreviewDto, SalesHistorySummaryDto } from '../services/sale.models';
+import type {
+  ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
+  ProfitLossSummaryDto,
+  SaleDto,
+  SaleListItemDto,
+  SaleReturnPreviewDto,
+  SalesHistorySummaryDto,
+} from '../services/sale.models';
 import { SaleMutationType, SalesActions } from './sales.actions';
 
 export const salesFeatureKey = 'sales';
@@ -23,8 +31,13 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly returnPreview: SaleReturnPreviewDto | null;
   readonly loadingReturnPreview: boolean;
   readonly returnPreviewErrorMessage: string;
-  readonly profitLossReport: readonly ProfitLossReportItemDto[];
+  readonly profitLossItems: readonly ProfitLossReportItemDto[];
   readonly loadingProfitLossReport: boolean;
+  readonly profitLossSummary: ProfitLossSummaryDto | null;
+  readonly profitLossAppliedFilters: ProfitLossAppliedFiltersDto | null;
+  readonly profitLossTotalCount: number;
+  readonly profitLossPageNumber: number;
+  readonly profitLossPageSize: number;
   readonly lastRecordedSale: SaleDto | null;
   readonly totalCount: number;
   readonly pageNumber: number;
@@ -43,8 +56,13 @@ const initialState: SalesState = salesAdapter.getInitialState({
   returnPreview: null,
   loadingReturnPreview: false,
   returnPreviewErrorMessage: '',
-  profitLossReport: [],
+  profitLossItems: [],
   loadingProfitLossReport: false,
+  profitLossSummary: null,
+  profitLossAppliedFilters: null,
+  profitLossTotalCount: 0,
+  profitLossPageNumber: 1,
+  profitLossPageSize: 0,
   lastRecordedSale: null,
   totalCount: 0,
   pageNumber: 1,
@@ -83,10 +101,15 @@ export const salesReducer = createReducer(
     loadingProfitLossReport: true,
     errorMessage: '',
   })),
-  on(SalesActions.loadProfitLossReportSucceeded, (state, { report }) => ({
+  on(SalesActions.loadProfitLossReportSucceeded, (state, { result }) => ({
     ...state,
     loadingProfitLossReport: false,
-    profitLossReport: report,
+    profitLossItems: result.items,
+    profitLossSummary: result.summary,
+    profitLossAppliedFilters: result.appliedFilters,
+    profitLossTotalCount: result.totalCount,
+    profitLossPageNumber: result.pageNumber,
+    profitLossPageSize: result.pageSize,
     errorMessage: '',
   })),
   on(SalesActions.loadProfitLossReportFailed, (state, { errorMessage }) => ({

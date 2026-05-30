@@ -1,6 +1,6 @@
 import { SalesActions } from './sales.actions';
 import { salesReducer, SalesState } from './sales.reducer';
-import type { SaleListItemDto, ProfitLossReportItemDto } from '../services/sale.models';
+import type { ProfitLossReportResultDto, SaleListItemDto } from '../services/sale.models';
 
 const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleListItemDto => ({
   saleId: id,
@@ -378,7 +378,7 @@ describe('salesReducer', () => {
   it('sets loading state when load profit loss report is requested', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'existing error' },
-      SalesActions.loadProfitLossReportRequested()
+      SalesActions.loadProfitLossReportRequested({})
     );
 
     expect(next.loadingProfitLossReport).toBe(true);
@@ -386,29 +386,57 @@ describe('salesReducer', () => {
   });
 
   it('sets report when load succeeds', () => {
-    const report: ProfitLossReportItemDto[] = [
-      {
-        saleId: 's1',
-        referenceNumber: 'INV-s1',
-        occurredAt: '',
-        partyName: null,
+    const result: ProfitLossReportResultDto = {
+      items: [
+        {
+          saleId: 's1',
+          referenceNumber: 'INV-s1',
+          occurredAt: '',
+          partyName: null,
+          totalCost: 100,
+          wastageCost: 0,
+          revenueBeforeTax: 120,
+          revenueAfterTax: 140,
+          profitBeforeTax: 40,
+          profitAfterTax: 20,
+          marginPercent: 20,
+          rowType: 'Sale',
+          inventoryAdjustmentId: null,
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 4,
+      pageSize: 12,
+      summary: {
+        netProfitAfterTax: 20,
+        revenueIncludingTax: 140,
         totalCost: 100,
-        wastageCost: 0,
-        revenueBeforeTax: 120,
-        revenueAfterTax: 140,
-        profitBeforeTax: 40,
-        profitAfterTax: 20,
-        rowType: 'Sale',
-        inventoryAdjustmentId: null,
+        averageMarginPercent: 20,
+        invoiceCount: 1,
+        returnCount: 0,
+        adjustmentCount: 0,
       },
-    ];
+      appliedFilters: {
+        from: '2026-05-01',
+        to: '2026-05-31',
+        type: 'all',
+        search: null,
+        pageNumber: 4,
+        pageSize: 12,
+      },
+    };
     const next = salesReducer(
       { ...initialState, loadingProfitLossReport: true },
-      SalesActions.loadProfitLossReportSucceeded({ report })
+      SalesActions.loadProfitLossReportSucceeded({ result })
     );
 
     expect(next.loadingProfitLossReport).toBe(false);
-    expect(next.profitLossReport).toEqual(report);
+    expect(next.profitLossItems).toEqual(result.items);
+    expect(next.profitLossSummary).toEqual(result.summary);
+    expect(next.profitLossAppliedFilters).toEqual(result.appliedFilters);
+    expect(next.profitLossTotalCount).toBe(1);
+    expect(next.profitLossPageNumber).toBe(4);
+    expect(next.profitLossPageSize).toBe(12);
   });
 
   it('sets error when report load fails', () => {

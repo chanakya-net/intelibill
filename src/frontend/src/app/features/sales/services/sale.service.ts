@@ -7,7 +7,9 @@ import type {
   InvoiceLeaseDto,
   OfflineSalesSyncRequest,
   OfflineSalesSyncResponseDto,
+  ProfitLossReportQueryParams,
   ProfitLossReportItemDto,
+  ProfitLossReportResultDto,
   SalesHistoryQueryParams,
   SalesHistoryResultDto,
   PreviewSaleRequest,
@@ -73,8 +75,17 @@ export class SaleService {
     return this.http.post<void>(`${SALE_ENDPOINTS.record}/returns/${saleReturnId}/void`, request);
   }
 
-  getProfitLossReport(): Observable<readonly ProfitLossReportItemDto[]> {
-    return this.http.get<readonly ProfitLossReportItemDto[]>(SALE_ENDPOINTS.profitLoss);
+  getProfitLossReport(params?: ProfitLossReportQueryParams): Observable<ProfitLossReportResultDto> {
+    let requestParams = new HttpParams();
+
+    if (params?.from) requestParams = requestParams.set('from', params.from);
+    if (params?.to) requestParams = requestParams.set('to', params.to);
+    if (params?.type) requestParams = requestParams.set('type', params.type);
+    if (params?.search) requestParams = requestParams.set('search', params.search);
+    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+
+    return this.http.get<ProfitLossReportResultDto>(SALE_ENDPOINTS.profitLoss, { params: requestParams });
   }
 
   getSellables(searchTerm: string): Observable<SellableDto[]> {

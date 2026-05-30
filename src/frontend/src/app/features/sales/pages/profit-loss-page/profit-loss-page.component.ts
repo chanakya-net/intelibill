@@ -39,7 +39,7 @@ import { TableFilterBarComponent } from '../../../../shared/components/table-fil
 export class ProfitLossPageComponent {
   private readonly salesFacade = inject(SalesFacade);
 
-  readonly report = this.salesFacade.profitLossReport;
+  readonly report = this.salesFacade.profitLossItems;
   readonly tableData = computed(() => [...this.report()]);
   readonly searchValue = signal('');
   readonly filteredReport = computed(() => {

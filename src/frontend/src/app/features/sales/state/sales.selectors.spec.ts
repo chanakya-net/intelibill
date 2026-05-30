@@ -3,6 +3,10 @@ import type { SaleListItemDto } from '../services/sale.models';
 import {
   selectAllSales,
   selectErrorMessage,
+  selectProfitLossAppliedFilters,
+  selectProfitLossItems,
+  selectProfitLossPagination,
+  selectProfitLossSummary,
   selectLastMutationSucceeded,
   selectLastMutationType,
   selectLoadingSales,
@@ -120,5 +124,52 @@ describe('sales selectors', () => {
     };
     const state = buildState([], { historySummary: summary });
     expect(selectSalesHistorySummary.projector(state)).toEqual(summary);
+  });
+
+  it('selectProfitLossItems reflects state', () => {
+    const items = [{ saleId: 's1' }] as any[];
+    const state = buildState([], { profitLossItems: items });
+    expect(selectProfitLossItems.projector(state)).toEqual(items);
+  });
+
+  it('selectProfitLossSummary reflects state', () => {
+    const summary = {
+      netProfitAfterTax: 100,
+      revenueIncludingTax: 200,
+      totalCost: 100,
+      averageMarginPercent: 50,
+      invoiceCount: 1,
+      returnCount: 0,
+      adjustmentCount: 0,
+    };
+    const state = buildState([], { profitLossSummary: summary });
+    expect(selectProfitLossSummary.projector(state)).toEqual(summary);
+  });
+
+  it('selectProfitLossAppliedFilters reflects state', () => {
+    const appliedFilters = {
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'sale',
+      search: 'INV',
+      pageNumber: 2,
+      pageSize: 10,
+    };
+    const state = buildState([], { profitLossAppliedFilters: appliedFilters });
+    expect(selectProfitLossAppliedFilters.projector(state)).toEqual(appliedFilters);
+  });
+
+  it('selectProfitLossPagination reflects state', () => {
+    const state = buildState([], {
+      profitLossTotalCount: 99,
+      profitLossPageNumber: 5,
+      profitLossPageSize: 25,
+    });
+
+    expect(selectProfitLossPagination.projector(state)).toEqual({
+      totalCount: 99,
+      pageNumber: 5,
+      pageSize: 25,
+    });
   });
 });
