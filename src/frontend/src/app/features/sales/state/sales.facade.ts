@@ -56,8 +56,8 @@ export class SalesFacade {
     this.store.dispatch(SalesActions.loadSalesRequested(params ? { queryParams: params } : {}));
   }
 
-  loadProfitLossReport(queryParams?: ProfitLossReportQueryParams): void {
-    this.store.dispatch(SalesActions.loadProfitLossReportRequested({ queryParams }));
+  loadProfitLossReport(params?: ProfitLossReportQueryParams): void {
+    this.store.dispatch(SalesActions.loadProfitLossReportRequested(params ? { queryParams: params } : {}));
   }
 
   loadSaleDetail(saleId: string): void {

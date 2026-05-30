@@ -8,7 +8,6 @@ import type {
   OfflineSalesSyncRequest,
   OfflineSalesSyncResponseDto,
   ProfitLossReportQueryParams,
-  ProfitLossReportItemDto,
   ProfitLossReportResultDto,
   SalesHistoryQueryParams,
   SalesHistoryResultDto,

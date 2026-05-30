@@ -66,7 +66,7 @@ const initialState: SalesState = salesAdapter.getInitialState({
   lastRecordedSale: null,
   totalCount: 0,
   pageNumber: 1,
-  pageSize: 0,
+  pageSize: 20,
   historySummary: null,
 });
 

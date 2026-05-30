@@ -385,4 +385,39 @@ describe('SalesEffects', () => {
       SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })
     );
   });
+
+  it('dispatches loadProfitLossReport with undefined query params when omitted', async () => {
+    const result: ProfitLossReportResultDto = {
+      items: [],
+      summary: {
+        netProfitAfterTax: 0,
+        revenueIncludingTax: 0,
+        totalCost: 0,
+        averageMarginPercent: null,
+        invoiceCount: 0,
+        returnCount: 0,
+        adjustmentCount: 0,
+      },
+      appliedFilters: {
+        from: '2026-05-24',
+        to: '2026-05-30',
+        type: 'all',
+        search: null,
+        pageNumber: 1,
+        pageSize: 20,
+      },
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+    saleService.getProfitLossReport.mockReturnValue(of(result));
+
+    const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
+    actions$.next(SalesActions.loadProfitLossReportRequested({}));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.loadProfitLossReportSucceeded({ result })
+    );
+    expect(saleService.getProfitLossReport).toHaveBeenCalledWith(undefined);
+  });
 });

@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 
 import type {
   ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
   ProfitLossReportQueryParams,
   ProfitLossSummaryDto,
   SalesHistorySummaryDto,
@@ -24,9 +25,10 @@ import {
   selectErrorMessage,
   selectLastMutationSucceeded,
   selectLastMutationType,
+  selectLoadingProfitLossReport,
+  selectLoadingReturnPreview,
   selectLoadingSaleDetail,
   selectLoadingSales,
-  selectLoadingReturnPreview,
   selectReturnPreview,
   selectReturnPreviewErrorMessage,
   selectSelectedSale,
@@ -47,7 +49,7 @@ describe('SalesFacade', () => {
     invoiceCount: 17,
     refundAmount: 100,
   });
-  const profitLossItemsSignal = signal([]);
+  const profitLossItemsSignal = signal<readonly ProfitLossReportItemDto[]>([]);
   const profitLossSummarySignal = signal<ProfitLossSummaryDto | null>({
     netProfitAfterTax: 100,
     revenueIncludingTax: 200,
@@ -66,8 +68,8 @@ describe('SalesFacade', () => {
     pageSize: 20,
   });
   const profitLossPaginationSignal = signal({
-    totalCount: 1,
-    pageNumber: 1,
+    totalCount: 17,
+    pageNumber: 2,
     pageSize: 20,
   });
   const paginationSignal = signal({
@@ -93,6 +95,7 @@ describe('SalesFacade', () => {
       if (selector === selectProfitLossItems) return profitLossItemsSignal;
       if (selector === selectProfitLossSummary) return profitLossSummarySignal;
       if (selector === selectProfitLossAppliedFilters) return profitLossAppliedFiltersSignal;
+      if (selector === selectLoadingProfitLossReport) return boolSignal;
       if (selector === selectProfitLossPagination) return profitLossPaginationSignal;
       if (selector === selectSalesHistorySummary) return summarySignal;
       if (selector === selectSalesPagination) return paginationSignal;
@@ -129,6 +132,11 @@ describe('SalesFacade', () => {
     expect(dispatch).toHaveBeenCalledWith(
       SalesActions.loadSalesRequested({ queryParams })
     );
+  });
+
+  it('loadProfitLossReport dispatches loadProfitLossReportRequested', () => {
+    facade.loadProfitLossReport();
+    expect(dispatch).toHaveBeenCalledWith(SalesActions.loadProfitLossReportRequested({}));
   });
 
   it('loadProfitLossReport dispatches loadProfitLossReportRequested with query params', () => {
@@ -191,5 +199,31 @@ describe('SalesFacade', () => {
   it('clearLastRecordedSale dispatches clearLastRecordedSale', () => {
     facade.clearLastRecordedSale();
     expect(dispatch).toHaveBeenCalledWith(SalesActions.clearLastRecordedSale());
+  });
+
+  it('exposes profit loss selectors', () => {
+    expect(facade.profitLossItems()).toEqual([]);
+    expect(facade.profitLossSummary()).toEqual({
+      netProfitAfterTax: 100,
+      revenueIncludingTax: 200,
+      totalCost: 100,
+      averageMarginPercent: 50,
+      invoiceCount: 1,
+      returnCount: 0,
+      adjustmentCount: 0,
+    });
+    expect(facade.profitLossAppliedFilters()).toEqual({
+      from: '2026-05-01',
+      to: '2026-05-31',
+      type: 'all',
+      search: null,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    expect(facade.profitLossPagination()).toEqual({
+      totalCount: 17,
+      pageNumber: 2,
+      pageSize: 20,
+    });
   });
 });

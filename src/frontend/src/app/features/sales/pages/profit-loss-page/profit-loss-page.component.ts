@@ -46,7 +46,7 @@ export class ProfitLossPageComponent {
     const q = this.searchValue().toLowerCase();
     if (!q) return [...this.report()];
     return this.report().filter(
-      (s) =>
+      (s: { referenceNumber: string; rowType: string; partyName: string | null }) =>
         s.referenceNumber.toLowerCase().includes(q) ||
         s.rowType.toLowerCase().includes(q) ||
         (s.partyName ?? '').toLowerCase().includes(q)

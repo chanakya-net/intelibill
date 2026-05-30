@@ -1,5 +1,10 @@
 import { salesAdapter, salesReducer } from './sales.reducer';
-import type { SaleListItemDto } from '../services/sale.models';
+import type {
+  ProfitLossAppliedFiltersDto,
+  ProfitLossReportItemDto,
+  ProfitLossSummaryDto,
+  SaleListItemDto,
+} from '../services/sale.models';
 import {
   selectAllSales,
   selectErrorMessage,
@@ -34,10 +39,26 @@ const makeSale = (id: string): SaleListItemDto => ({
   customerName: null,
   customerPhone: null,
   itemCount: 2,
-      returnNumbers: [],
+  returnNumbers: [],
   status: 'partiallyPaid',
   refundAmount: 0,
   dueReductionAmount: 0,
+});
+
+const makeProfitLossItem = (saleId: string): ProfitLossReportItemDto => ({
+  saleId,
+  referenceNumber: `INV-${saleId}`,
+  occurredAt: '2026-05-05T10:00:00Z',
+  partyName: null,
+  totalCost: 30,
+  wastageCost: 2,
+  revenueBeforeTax: 80,
+  revenueAfterTax: 88,
+  profitBeforeTax: 50,
+  profitAfterTax: 58,
+  marginPercent: 193.33,
+  rowType: 'Sale',
+  inventoryAdjustmentId: null,
 });
 
 function buildState(sales: SaleListItemDto[] = [], overrides = {}) {
@@ -127,7 +148,7 @@ describe('sales selectors', () => {
   });
 
   it('selectProfitLossItems reflects state', () => {
-    const items = [{ saleId: 's1' }] as any[];
+    const items = [makeProfitLossItem('sale-1')];
     const state = buildState([], { profitLossItems: items });
     expect(selectProfitLossItems.projector(state)).toEqual(items);
   });
@@ -141,7 +162,7 @@ describe('sales selectors', () => {
       invoiceCount: 1,
       returnCount: 0,
       adjustmentCount: 0,
-    };
+    } satisfies ProfitLossSummaryDto;
     const state = buildState([], { profitLossSummary: summary });
     expect(selectProfitLossSummary.projector(state)).toEqual(summary);
   });
@@ -154,7 +175,7 @@ describe('sales selectors', () => {
       search: 'INV',
       pageNumber: 2,
       pageSize: 10,
-    };
+    } satisfies ProfitLossAppliedFiltersDto;
     const state = buildState([], { profitLossAppliedFilters: appliedFilters });
     expect(selectProfitLossAppliedFilters.projector(state)).toEqual(appliedFilters);
   });
