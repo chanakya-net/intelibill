@@ -506,7 +506,27 @@
     "showingProducts": "Showing {{start}} to {{end}} of {{total}} products",
     "barcodeOrSku": "Barcode / SKU",
     "nameOrBarcode": "Search by product name or barcode",
-    "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products"
+    "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products",
+    "barcodeLabels": {
+      "title": "Print Barcode Labels",
+      "subtitle": "Review quantities and print labels for selected inventory items.",
+      "noItems": "No items selected for label printing.",
+      "table": {
+        "item": "Item",
+        "barcode": "Barcode",
+        "quantity": "Quantity"
+      },
+      "totalQuantity": "Total labels: {{ total }}",
+      "actions": {
+        "cancel": "Cancel",
+        "print": "Print"
+      },
+      "validation": {
+        "noItems": "No items available for printing.",
+        "invalidQuantity": "Quantity must be a positive integer.",
+        "totalLimitExceeded": "Total labels cannot exceed 500. Please reduce quantities."
+      }
+    }
   },
   "hsn": {
     "suggestion": "HSN Suggestion",

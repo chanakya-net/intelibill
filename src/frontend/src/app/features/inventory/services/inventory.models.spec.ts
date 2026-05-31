@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AddInventoryBatchRowRequest, AvailableBatchDto } from './inventory.models';
+import type {
+  AddInventoryBatchRowRequest,
+  AvailableBatchDto,
+  BarcodeLabelPrintRequest,
+  GenerateItemBarcodeResponse,
+} from './inventory.models';
 
 describe('inventory.models', () => {
   it('accepts inventory batch row request shapes', () => {
@@ -47,5 +52,33 @@ describe('inventory.models', () => {
 
     expect(batch.inventoryBatchId).toBe('batch-1');
     expect(batch.taxIncluded).toBe(false);
+  });
+
+  it('accepts generate barcode response shape', () => {
+    const response: GenerateItemBarcodeResponse = {
+      barcode: 'IT-000123',
+    };
+
+    expect(response.barcode.startsWith('IT-')).toBe(true);
+  });
+
+  it('accepts barcode label request payload shape', () => {
+    const request: BarcodeLabelPrintRequest = {
+      items: [
+        {
+          itemId: 'item-1',
+          quantity: 4,
+          inventoryBatchId: null,
+        },
+        {
+          itemId: 'item-2',
+          quantity: 10,
+          inventoryBatchId: 'batch-2',
+        },
+      ],
+    };
+
+    expect(request.items).toHaveLength(2);
+    expect(request.items[1].inventoryBatchId).toBe('batch-2');
   });
 });
