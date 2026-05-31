@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createBlobUrl, downloadBlob, openPdfBlobInNewTab } from './blob-file.util';
+import { createBlobUrl, downloadBlob, openPdfBlobInNewTab } from './blob-download.util';
 
 describe('blob file util', () => {
   it('opens a blob URL in a new tab and revokes it after a timeout', () => {
