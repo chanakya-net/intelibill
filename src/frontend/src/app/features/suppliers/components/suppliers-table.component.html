@@ -1,5 +1,5 @@
 <div class="mobile-grid-container">
-  <div class="supplier-list flex flex-col gap-3 px-1">
+  <div class="supplier-list">
     @for (supplier of suppliers; track supplier.supplierId) {
       <p-card
         class="supplier-card-item cursor-pointer"
@@ -11,7 +11,7 @@
           content: { class: 'p-0' }
         }"
       >
-        <div class="flex items-center gap-4">
+        <div class="supplier-card">
           <!-- Left: Avatar -->
           <p-avatar
             [label]="supplierInitials(supplier.name)"
@@ -22,16 +22,16 @@
           />
 
           <!-- Center: Info -->
-          <div class="flex-1 flex flex-col gap-1 min-w-0">
-            <div class="font-bold text-slate-800 text-base truncate leading-tight">
+          <div class="supplier-card__content">
+            <div class="supplier-card__name">
               {{ supplier.name }}
             </div>
-            <div class="flex items-center gap-2">
+            <div class="supplier-card__meta">
               @if (supplier.city) {
-                <span class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
+                <span>
                   {{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}
                 </span>
-                <span class="text-slate-300">•</span>
+                <span>•</span>
               }
               <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
                 <div class="flex items-center gap-1.5 px-1">
@@ -43,7 +43,7 @@
           </div>
 
           <!-- Right: Balance & Actions -->
-          <div class="flex flex-col items-end gap-3">
+          <div class="supplier-card__aside">
             <p-button
               [label]="(supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2') || ''"
               [title]="getBalanceLabel(supplier)"
@@ -54,7 +54,7 @@
               class="p-0 h-auto text-[11px] font-extrabold"
             />
 
-            <div class="flex gap-1.5">
+            <div class="supplier-card__actions">
               @if (canManageSuppliers) {
                 <p-button
                   icon="pi pi-pencil"
@@ -101,9 +101,10 @@
     [globalFilterFields]="['name','contactPersonName','contactPersonPhone','city','state']"
     [sortField]="'name'"
     [sortOrder]="1"
-    class="p-datatable-sm"
+    class="p-datatable-sm suppliers-directory-table"
     [scrollable]="true"
     scrollHeight="calc(100vh - 280px)"
+    [tableStyle]="{ 'width': '100%', 'min-width': '100%', 'table-layout': 'fixed' }"
   >
     <ng-template pTemplate="header">
       <tr>
@@ -195,7 +196,17 @@
     </ng-template>
     <ng-template pTemplate="body" let-supplier>
       <tr>
-        <td>{{ supplier.name }}</td>
+        <td>
+          <button type="button" class="supplier-name-link" (click)="onOpenSupplierDetail(supplier)">
+            <span class="supplier-name-link__avatar" [style.background-color]="supplierAvatarColor(supplier.name)">
+              {{ supplierInitials(supplier.name) }}
+            </span>
+            <span>
+              <strong>{{ supplier.name }}</strong>
+              <small>{{ supplier.address }}</small>
+            </span>
+          </button>
+        </td>
         <td>{{ supplier.contactPersonName || '-' }}</td>
         <td>{{ supplier.contactPersonPhone || '-' }}</td>
         <td>{{ supplier.city }}</td>
@@ -234,6 +245,7 @@
                   icon="pi pi-pencil"
                   size="small"
                   severity="secondary"
+                  [outlined]="true"
                   (click)="onOpenEditSupplier(supplier)"
                 ></p-button>
               }
@@ -244,6 +256,7 @@
                   icon="pi pi-wallet"
                   size="small"
                   severity="success"
+                  [outlined]="true"
                   (click)="onOpenMakePayment(supplier)"
                 ></p-button>
               }

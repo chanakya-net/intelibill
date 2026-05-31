@@ -231,6 +231,7 @@ Temporary Items
 .graphify_detect.json
 .graphify_incremental.json
 .graphify_python
+.superpowers/
 CLAUDE.md
 GEMINI.md
 band

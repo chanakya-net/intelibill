@@ -57,6 +57,12 @@ export class SuppliersPageComponent {
 
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly userSuppliers = computed(() => this.suppliers().filter((s) => !s.isSystem));
+  readonly totalSuppliers = computed(() => this.userSuppliers().length);
+  readonly activeSuppliers = computed(() => this.userSuppliers().filter((s) => s.isActive).length);
+  readonly preferredSuppliers = computed(() => this.userSuppliers().filter((s) => s.isPreferred).length);
+  readonly pendingPayables = computed(() =>
+    this.userSuppliers().reduce((total, supplier) => total + Math.max(supplier.balanceDue, 0), 0),
+  );
   readonly searchValue = signal('');
   readonly statusFilter = signal<SupplierStatusFilter>('all');
   readonly filteredSuppliers = computed(() => {
@@ -72,9 +78,13 @@ export class SuppliersPageComponent {
       (s) =>
         s.name.toLowerCase().includes(q) ||
         (s.city ?? '').toLowerCase().includes(q) ||
+        (s.state ?? '').toLowerCase().includes(q) ||
+        (s.pin ?? '').toLowerCase().includes(q) ||
+        (s.contactPersonPhone ?? '').toLowerCase().includes(q) ||
         (s.contactPersonName ?? '').toLowerCase().includes(q),
     );
   });
+  readonly filteredSupplierCount = computed(() => this.filteredSuppliers().length);
 
   readonly isLoading = this.suppliersFacade.isLoading;
   readonly serverError = this.suppliersFacade.errorMessage;

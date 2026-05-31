@@ -1,9 +1,20 @@
 <section class="suppliers-page">
-  <header class="suppliers-header">
-    <div>
+  <header class="suppliers-hero">
+    <div class="suppliers-hero__copy">
       <p class="eyebrow">{{ 'suppliers.supplierDirectory' | transloco }}</p>
       <h1>{{ 'suppliers.title' | transloco }}</h1>
       <p class="subtitle">{{ 'suppliers.subtitle' | transloco }}</p>
+      <div class="suppliers-hero__meta">
+        <span class="meta-chip meta-chip--primary">
+          {{ filteredSupplierCount() | number:'1.0-0' }} / {{ totalSuppliers() | number:'1.0-0' }} shown
+        </span>
+        <span class="meta-chip">
+          {{ activeSuppliers() | number:'1.0-0' }} {{ 'suppliers.active' | transloco | lowercase }}
+        </span>
+        <span class="meta-chip">
+          {{ preferredSuppliers() | number:'1.0-0' }} {{ 'suppliers.preferred' | transloco | lowercase }}
+        </span>
+      </div>
     </div>
 
     @if (canManageSuppliers()) {
@@ -17,105 +28,77 @@
     }
   </header>
 
+  <div class="summary-grid" aria-label="Supplier summary">
+    <article class="summary-card">
+      <div class="summary-card__label">Total suppliers</div>
+      <div class="summary-card__value">{{ totalSuppliers() | number:'1.0-0' }}</div>
+      <p class="summary-card__hint">{{ preferredSuppliers() | number:'1.0-0' }} preferred vendors</p>
+    </article>
+    <article class="summary-card">
+      <div class="summary-card__label">Pending payables</div>
+      <div class="summary-card__value">{{ pendingPayables() | currency: 'INR' : 'symbol' : '1.0-2' }}</div>
+      <p class="summary-card__hint">Outstanding supplier balance</p>
+    </article>
+    <article class="summary-card">
+      <div class="summary-card__label">Active suppliers</div>
+      <div class="summary-card__value">{{ activeSuppliers() | number:'1.0-0' }}</div>
+      <p class="summary-card__hint">Current vendor network</p>
+    </article>
+    <article class="summary-card">
+      <div class="summary-card__label">Preferred</div>
+      <div class="summary-card__value">{{ preferredSuppliers() | number:'1.0-0' }}</div>
+      <p class="summary-card__hint">Priority procurement partners</p>
+    </article>
+  </div>
+
   @if (serverError()) {
     <p class="error">{{ serverError() | transloco }}</p>
   }
 
   @if (isLoading()) {
-    <!-- Mobile Skeleton (≤1023px) -->
-    <div class="mobile-grid-container">
-      <div class="supplier-list flex flex-col gap-3 px-1">
-        @for (i of [1,2,3,4]; track i) {
-          <p-card class="supplier-card-item" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
-            <div class="flex items-center gap-4">
-              <!-- Left: Avatar Skeleton -->
-              <p-skeleton shape="circle" size="3rem" class="flex-shrink-0" />
-
-              <!-- Center: Info Skeleton -->
-              <div class="flex-1 flex flex-col gap-2 min-w-0">
-                <p-skeleton width="60%" height="1.25rem" />
-                <div class="flex items-center gap-2">
-                  <p-skeleton width="40%" height="1rem" />
-                  <p-skeleton width="20%" height="1rem" />
-                </div>
-              </div>
-
-              <!-- Right: Balance & Actions Skeleton -->
-              <div class="flex flex-col items-end gap-3">
-                <p-skeleton width="4rem" height="1.5rem" />
-                <div class="flex gap-2">
-                  <p-skeleton width="2rem" height="2rem" />
-                  <p-skeleton width="2rem" height="2rem" />
-                </div>
-              </div>
-            </div>
-          </p-card>
-        }
+    <section class="directory-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'suppliers.supplierDirectory' | transloco }}</p>
+          <h2>{{ 'suppliers.title' | transloco }}</h2>
+        </div>
       </div>
-    </div>
-
-    <!-- Desktop Table Skeleton (≥1024px) -->
-    <div class="suppliers-table-card desktop-table">
-      <p-table [value]="[1,2,3,4,5,6]" class="p-datatable-sm">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>{{ 'suppliers.name' | transloco }}</th>
-            <th>{{ 'suppliers.contactPerson' | transloco }}</th>
-            <th>{{ 'suppliers.contactPhone' | transloco }}</th>
-            <th>{{ 'suppliers.city' | transloco }}</th>
-            <th>{{ 'suppliers.state' | transloco }}</th>
-            <th>{{ 'suppliers.pin' | transloco }}</th>
-            <th>{{ 'suppliers.balance' | transloco }}</th>
-            <th>{{ 'suppliers.status' | transloco }}</th>
-            <th>{{ 'suppliers.preferred' | transloco }}</th>
-            @if (canManageSuppliers() || canMakePayment()) {
-              <th>{{ 'suppliers.actions' | transloco }}</th>
-            }
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body">
-          <tr>
-            <td><p-skeleton width="80%" /></td>
-            <td><p-skeleton width="60%" /></td>
-            <td><p-skeleton width="70%" /></td>
-            <td><p-skeleton width="50%" /></td>
-            <td><p-skeleton width="40%" /></td>
-            <td><p-skeleton width="30%" /></td>
-            <td><p-skeleton width="60%" /></td>
-            <td><p-skeleton width="4rem" height="1.5rem" /></td>
-            <td><p-skeleton width="3rem" height="1.5rem" /></td>
-            @if (canManageSuppliers() || canMakePayment()) {
-              <td>
-                <div class="flex gap-2">
-                  <p-skeleton width="6rem" height="2rem" />
-                  <p-skeleton width="6rem" height="2rem" />
-                </div>
-              </td>
-            }
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
+      <div class="loading-shell">
+        <p-skeleton width="100%" height="3.25rem" styleClass="rounded-lg"></p-skeleton>
+        <p-skeleton width="100%" height="25rem" styleClass="rounded-2xl"></p-skeleton>
+      </div>
+    </section>
   } @else {
-    <app-suppliers-filter-bar
-      [searchValue]="searchValue()"
-      [statusFilter]="statusFilter()"
-      (searchValueChange)="searchValue.set($event)"
-      (statusFilterChange)="onStatusFilterChange($event)"
-    />
+    <section class="directory-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'suppliers.supplierDirectory' | transloco }}</p>
+          <h2>{{ 'suppliers.supplierDirectory' | transloco }}</h2>
+        </div>
 
-    <app-suppliers-table
-      [suppliers]="filteredSuppliers()"
-      [canManageSuppliers]="canManageSuppliers()"
-      [canMakePayment]="canMakePayment()"
-      (openSupplierDetail)="onOpenSupplierDetail($event)"
-      (editSupplier)="onOpenEditSupplier($event)"
-      (makePayment)="onOpenMakePayment($event)"
-    />
+        <app-suppliers-filter-bar
+          [searchValue]="searchValue()"
+          [statusFilter]="statusFilter()"
+          (searchValueChange)="searchValue.set($event)"
+          (statusFilterChange)="onStatusFilterChange($event)"
+        />
+      </header>
+
+      <div class="directory-panel__surface">
+        <app-suppliers-table
+          [suppliers]="filteredSuppliers()"
+          [canManageSuppliers]="canManageSuppliers()"
+          [canMakePayment]="canMakePayment()"
+          (openSupplierDetail)="onOpenSupplierDetail($event)"
+          (editSupplier)="onOpenEditSupplier($event)"
+          (makePayment)="onOpenMakePayment($event)"
+        />
+      </div>
+
+      <footer class="directory-panel__footer">
+        Showing {{ filteredSupplierCount() | number:'1.0-0' }} of {{ totalSuppliers() | number:'1.0-0' }} suppliers
+      </footer>
+    </section>
   }
 
   @if (showAddSupplierOverlay()) {
