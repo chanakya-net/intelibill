@@ -241,7 +241,10 @@ graphify-out/
 opencode.json
 src/.claude/
 src/**/graphify-out/
+.run-with-it/
 technical_requirements.md
+prd.md
+issues.md
 .vscode/settings.json
 
 # ------------------------------------------------------------
