@@ -5,6 +5,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
+using Intelibill.Application.Features.Items.Barcodes.GenerateItemBarcode;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
@@ -128,6 +129,22 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.IsActive,
                 request.HsnCode,
                 request.DefaultTaxRatePercent),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("barcodes/generate")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> GenerateItemBarcode(CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(
+            new GenerateItemBarcodeCommand(
+                UserId!.Value,
+                ActiveShopId!.Value),
             cancellationToken);
 
         return result.ToActionResult(Ok);
