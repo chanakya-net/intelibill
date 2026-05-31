@@ -13,7 +13,6 @@ public class GenerateItemBarcodeCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IItemBarcodeSequenceRepository _itemBarcodeSequenceRepository = Substitute.For<IItemBarcodeSequenceRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
     public async Task HandleAsync_WhenActorMissing_ReturnsNotFound()
@@ -21,8 +20,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
         var result = await handler.HandleAsync(CreateCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
@@ -40,8 +38,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -60,8 +57,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -76,24 +72,18 @@ public class GenerateItemBarcodeCommandHandlerTests
         var command = CreateCommand(actor.Id, Guid.NewGuid());
         actor.AddShopMembership(ShopMembership.Create(command.ActiveShopId, actor.Id, ShopRole.Owner, true));
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemBarcodeSequenceRepository.GetByShopIdAsync(command.ActiveShopId, Arg.Any<CancellationToken>()).Returns((ItemBarcodeSequence?)null);
+        _itemBarcodeSequenceRepository.GetNextCodeAsync(command.ActiveShopId, Arg.Any<CancellationToken>()).Returns("IB-000001");
         _itemRepository.GetByBarcodeAsync(command.ActiveShopId, "IB-000001", Arg.Any<CancellationToken>()).Returns((Item?)null);
 
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("IB-000001", result.Value.Barcode);
-
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _itemBarcodeSequenceRepository.Received(1).AddAsync(
-            Arg.Any<ItemBarcodeSequence>(),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -101,10 +91,10 @@ public class GenerateItemBarcodeCommandHandlerTests
     {
         var actor = CreateActor("manager@test.com");
         var command = CreateCommand(actor.Id, Guid.NewGuid());
-        var sequence = ItemBarcodeSequence.Create(command.ActiveShopId);
         actor.AddShopMembership(ShopMembership.Create(command.ActiveShopId, actor.Id, ShopRole.Manager, true));
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemBarcodeSequenceRepository.GetByShopIdAsync(command.ActiveShopId, Arg.Any<CancellationToken>()).Returns(sequence);
+        _itemBarcodeSequenceRepository.GetNextCodeAsync(command.ActiveShopId, Arg.Any<CancellationToken>())
+            .Returns(_ => "IB-000001", _ => "IB-000002");
         _itemRepository.GetByBarcodeAsync(command.ActiveShopId, "IB-000001", Arg.Any<CancellationToken>())
             .Returns(CreateItem(command.ActiveShopId, "IB-000001"));
         _itemRepository.GetByBarcodeAsync(command.ActiveShopId, "IB-000002", Arg.Any<CancellationToken>())
@@ -113,63 +103,61 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("IB-000002", result.Value.Barcode);
-        Assert.Equal(3, sequence.NextNumber);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _itemRepository.Received(2).GetByBarcodeAsync(
+            command.ActiveShopId,
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_WhenSaveChangesFails_ReturnsFailure()
+    public async Task HandleAsync_WhenSequenceRepositoryThrows_PropagatesError()
     {
         var actor = CreateActor("owner@test.com");
         var command = CreateCommand(actor.Id, Guid.NewGuid());
         actor.AddShopMembership(ShopMembership.Create(command.ActiveShopId, actor.Id, ShopRole.Owner, true));
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemBarcodeSequenceRepository.GetByShopIdAsync(command.ActiveShopId, Arg.Any<CancellationToken>()).Returns((ItemBarcodeSequence?)null);
-        _itemRepository.GetByBarcodeAsync(command.ActiveShopId, "IB-000001", Arg.Any<CancellationToken>()).Returns((Item?)null);
-        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<int>(new InvalidOperationException("db")));
+        _itemBarcodeSequenceRepository
+            .GetNextCodeAsync(command.ActiveShopId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<string>(new InvalidOperationException("db")));
 
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+        var result = await Record.ExceptionAsync(() => handler.HandleAsync(command, CancellationToken.None));
 
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Item.BarcodeGenerationFailed.Code, result.FirstError.Code);
+        Assert.IsType<InvalidOperationException>(result);
     }
 
     [Fact]
-    public async Task HandleAsync_WhenSequenceCreationFails_ReturnsFailure()
+    public async Task HandleAsync_WhenSequenceGenerationIsCancelled_PropagatesCancellation()
     {
         var actor = CreateActor("owner@test.com");
         var command = CreateCommand(actor.Id, Guid.NewGuid());
         actor.AddShopMembership(ShopMembership.Create(command.ActiveShopId, actor.Id, ShopRole.Owner, true));
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemBarcodeSequenceRepository.GetByShopIdAsync(command.ActiveShopId, Arg.Any<CancellationToken>())
-            .Returns((ItemBarcodeSequence?)null);
-        _itemBarcodeSequenceRepository.AddAsync(Arg.Any<ItemBarcodeSequence>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(new InvalidOperationException("db")));
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        _itemBarcodeSequenceRepository
+            .GetNextCodeAsync(command.ActiveShopId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromCanceled<string>(cts.Token));
 
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository,
-            _unitOfWork);
+            _itemRepository);
 
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+        var result = await Record.ExceptionAsync(() => handler.HandleAsync(command, cts.Token));
 
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.Item.BarcodeGenerationFailed.Code, result.FirstError.Code);
+        Assert.IsAssignableFrom<OperationCanceledException>(result);
     }
 
     private static GenerateItemBarcodeCommand CreateCommand(Guid actorId, Guid activeShopId) =>

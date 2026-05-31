@@ -1,4 +1,5 @@
 using System.Net;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -349,6 +350,36 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal("IB-000001", barcodeShopA);
         Assert.Equal("IB-000001", barcodeShopB);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_ConcurrentRequests_ForSameShopReturnSequentialUniqueCodes()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcodeTasks = Enumerable
+            .Range(0, 8)
+            .Select(_ => GenerateItemBarcodeAsync(client, ownerToken))
+            .ToArray();
+
+        var barcodes = await Task.WhenAll(barcodeTasks);
+
+        Assert.Equal(8, barcodes.Length);
+        Assert.All(barcodes, barcode => Assert.Matches(@"^IB-\d{6}$", barcode));
+        Assert.Equal(8, barcodes.Distinct().Count());
+
+        var sequenceNumbers = barcodes
+            .Select(barcode => int.Parse(barcode["IB-".Length..], CultureInfo.InvariantCulture))
+            .OrderBy(value => value)
+            .ToArray();
+
+        Assert.Equal(8, sequenceNumbers.Length);
+        for (var i = 0; i < sequenceNumbers.Length; i++)
+        {
+            Assert.Equal(i + 1, sequenceNumbers[i]);
+        }
     }
 
     [Fact]
@@ -1028,6 +1059,17 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("id").GetGuid();
+    }
+
+    private static async Task<string> GenerateItemBarcodeAsync(HttpClient client, string ownerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("barcode").GetString()!;
     }
 
     private static async Task SeedInventoryAsync(
