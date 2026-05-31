@@ -14,7 +14,7 @@
       icon="pi pi-print"
       [label]="'inventory.printSelectedLabels' | transloco"
       (click)="onPrintSelectedBatches()"
-      [disabled]="selectedBatchIds().length === 0"
+      [disabled]="printableCandidates().length === 0"
     ></button>
   </div>
 

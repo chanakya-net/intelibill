@@ -79,6 +79,12 @@ export class InventoryBatchesListPageComponent {
       return true;
     });
   });
+  readonly printableCandidates = computed(() => {
+    const selectedIds = new Set(this.selectedBatchIds());
+    return this.filteredBatches()
+      .filter((batch) => selectedIds.has(batch.id) && !batch.isVoided)
+      .map((batch) => this.mapBatchToPrintCandidate(batch));
+  });
   readonly taxModeOptions = signal([{ label: 'With Tax', value: true }, { label: 'Without Tax', value: false }]);
   readonly directionOptions = signal<SelectOption<InventoryAdjustmentDirection>[]>([{ label: this.translate('inventory.adjustmentDirection.decrease'), value: 'Decrease' }, { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' }]);
   private readonly decreaseReasonOptions: SelectOption<InventoryAdjustmentReason>[] = [
@@ -147,11 +153,7 @@ export class InventoryBatchesListPageComponent {
   }
 
   onPrintSelectedBatches(): void {
-    const selectedIds = new Set(this.selectedBatchIds());
-    const candidates = this.batches()
-      .filter((batch) => selectedIds.has(batch.id) && !batch.isVoided)
-      .map((batch) => this.mapBatchToPrintCandidate(batch));
-    this.openBarcodeLabelPrintDialog(candidates);
+    this.openBarcodeLabelPrintDialog(this.printableCandidates());
   }
 
   onBatchTableSelect(batchId: string): void {
