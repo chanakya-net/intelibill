@@ -507,6 +507,10 @@
     "barcodeOrSku": "Barcode / SKU",
     "nameOrBarcode": "Search by product name or barcode",
     "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products",
+    "printLabels": "Print Labels",
+    "printSelectedLabels": "Print Selected Labels",
+    "selectAllBatches": "Select all batches",
+    "printSuccessfulRows": "Print labels for successful rows",
     "barcodeLabels": {
       "title": "Print Barcode Labels",
       "subtitle": "Review quantities and print labels for selected inventory items.",
@@ -521,6 +525,7 @@
         "cancel": "Cancel",
         "print": "Print"
       },
+      "printFailed": "Unable to print barcode labels. Please try again.",
       "validation": {
         "noItems": "No items available for printing.",
         "invalidQuantity": "Quantity must be a positive integer.",

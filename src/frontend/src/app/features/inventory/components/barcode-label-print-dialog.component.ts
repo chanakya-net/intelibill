@@ -11,6 +11,7 @@ export interface BarcodeLabelPrintCandidate {
   readonly itemName: string;
   readonly barcode: string;
   readonly inventoryBatchId: string | null;
+  readonly quantity?: number;
 }
 
 interface BarcodeLabelPrintDialogRow extends BarcodeLabelPrintCandidate {
@@ -35,7 +36,7 @@ export class BarcodeLabelPrintDialogComponent {
   set items(value: readonly BarcodeLabelPrintCandidate[]) {
     this.rows.set((value ?? []).map((item) => ({
       ...item,
-      quantity: 1,
+      quantity: Number.isInteger(item.quantity) && (item.quantity ?? 0) > 0 ? Number(item.quantity) : 1,
     })));
   }
 

@@ -5,7 +5,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
-import type { AddInventoryBatchResponse } from '../../services/inventory.models';
+import type { AddInventoryBatchResponse, AddInventoryBatchSucceededRow } from '../../services/inventory.models';
 import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-draft-indexeddb.service';
 
 @Component({
@@ -25,6 +25,7 @@ export class BatchSaveResultsComponent {
   @Output() readonly removeRow = new EventEmitter<string>();
   @Output() readonly clearAll = new EventEmitter<void>();
   @Output() readonly saveAll = new EventEmitter<void>();
+  @Output() readonly printSuccessfulRows = new EventEmitter<readonly AddInventoryBatchSucceededRow[]>();
 
   failedClientRowIds(): Set<string> {
     if (!this.saveSummary) {
@@ -72,5 +73,17 @@ export class BatchSaveResultsComponent {
 
   loadingDraft(): boolean {
     return this.draftState.loadingDraft();
+  }
+
+  hasSuccessfulRows(): boolean {
+    return (this.saveSummary?.succeeded.length ?? 0) > 0;
+  }
+
+  onPrintSuccessfulRows(): void {
+    if (!this.saveSummary || this.saveSummary.succeeded.length === 0) {
+      return;
+    }
+
+    this.printSuccessfulRows.emit(this.saveSummary.succeeded);
   }
 }

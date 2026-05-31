@@ -19,11 +19,20 @@
     (removeRow)="onRemoveRow($event)"
     (clearAll)="onClearAll()"
     (saveAll)="onSaveAll()"
+    (printSuccessfulRows)="onPrintSuccessfulRows($event)"
   />
 
   <app-barcode-scanner-dialog
     [visible]="isScannerOpen()"
     (visibleChange)="onScannerVisibilityChange($event)"
     (detected)="handleScannedBarcode($event)"
+  />
+
+  <app-barcode-label-print-dialog
+    [visible]="barcodeLabelPrintDialogVisible()"
+    [items]="barcodeLabelPrintCandidates()"
+    (visibleChange)="barcodeLabelPrintDialogVisible.set($event)"
+    (closeRequested)="onBarcodeLabelPrintDialogClosed()"
+    (printRequested)="onBarcodeLabelPrintRequested($event)"
   />
 </section>

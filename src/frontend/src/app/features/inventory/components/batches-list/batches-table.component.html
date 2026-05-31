@@ -19,6 +19,16 @@
         }"
       >
         <div class="flex items-center gap-4">
+          <div class="flex-shrink-0" (click)="$event.stopPropagation()">
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="isBatchSelected(batch.id)"
+              (ngModelChange)="onRowSelectionChange(batch, $event)"
+              [disabled]="batch.isVoided"
+              [attr.aria-label]="'inventory.selectBatch' | transloco"
+            />
+          </div>
+
           <p-avatar
             [label]="productInitials(batch.itemName)"
             [style]="{ 'background-color': productAvatarColor(batch.itemName), color: '#ffffff' }"
@@ -56,6 +66,15 @@
             </div>
 
             <div class="flex gap-1.5" (click)="$event.stopPropagation()">
+              <p-button
+                icon="pi pi-print"
+                [outlined]="true"
+                severity="secondary"
+                [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                (click)="$event.stopPropagation(); onRowAction('printLabels', batch.id)"
+                [disabled]="batch.isVoided"
+                [attr.aria-label]="'inventory.printLabels' | transloco"
+              />
               <p-button
                 icon="pi pi-sliders-h"
                 [outlined]="true"
@@ -113,6 +132,17 @@
   >
     <ng-template pTemplate="header">
       <tr>
+        <th style="min-width: 3rem; width: 3rem">
+          <div class="flex items-center justify-center" (click)="$event.stopPropagation()">
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="isAllSelectableSelected()"
+              (ngModelChange)="onSelectAllChange($event)"
+              [disabled]="!hasSelectableBatches()"
+              [attr.aria-label]="'inventory.selectAllBatches' | transloco"
+            />
+          </div>
+        </th>
         <th pSortableColumn="itemName" style="min-width: 12rem">
           <div class="flex items-center justify-between">
             {{ 'inventory.item' | transloco }}
@@ -175,6 +205,17 @@
 
     <ng-template pTemplate="body" let-batch>
       <tr [class.opacity-50]="batch.isVoided" (click)="onRowSelect(batch)" class="cursor-pointer">
+        <td>
+          <div class="flex items-center justify-center" (click)="$event.stopPropagation()">
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="isBatchSelected(batch.id)"
+              (ngModelChange)="onRowSelectionChange(batch, $event)"
+              [disabled]="batch.isVoided"
+              [attr.aria-label]="'inventory.selectBatch' | transloco"
+            />
+          </div>
+        </td>
         <td>{{ batch.itemName }}</td>
         <td>{{ batch.barcode }}</td>
         <td>{{ batch.batchNumber }}</td>
@@ -191,6 +232,14 @@
         </td>
         <td>
           <div class="flex gap-2">
+            <button
+              pButton
+              icon="pi pi-print"
+              class="p-button-text p-button-sm"
+              (click)="$event.stopPropagation(); onRowAction('printLabels', batch.id)"
+              [disabled]="batch.isVoided"
+              [attr.aria-label]="'inventory.printLabels' | transloco"
+            ></button>
             <button
               pButton
               icon="pi pi-sliders-h"
@@ -222,7 +271,7 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td [attr.colspan]="7">
+        <td [attr.colspan]="8">
           <div class="empty-state"><p>{{ 'inventory.noItemsFound' | transloco }}</p></div>
         </td>
       </tr>

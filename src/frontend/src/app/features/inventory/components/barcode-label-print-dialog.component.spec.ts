@@ -11,12 +11,14 @@ function createItems(): readonly BarcodeLabelPrintCandidate[] {
       itemName: 'Rice',
       barcode: 'RC-100',
       inventoryBatchId: null,
+      quantity: 12,
     },
     {
       itemId: 'item-2',
       itemName: 'Milk',
       barcode: 'ML-200',
       inventoryBatchId: 'batch-1',
+      quantity: 7,
     },
   ];
 }
@@ -36,12 +38,12 @@ describe('BarcodeLabelPrintDialogComponent', () => {
     return { fixture, component };
   }
 
-  it('initializes every row with quantity 1', () => {
+  it('initializes every row with its provided quantity', () => {
     const { component } = setup();
 
     expect(component.rows()).toHaveLength(2);
-    expect(component.rows()[0].quantity).toBe(1);
-    expect(component.rows()[1].quantity).toBe(1);
+    expect(component.rows()[0].quantity).toBe(12);
+    expect(component.rows()[1].quantity).toBe(7);
   });
 
   it('emits a valid print request when all quantities are valid and within limit', () => {
