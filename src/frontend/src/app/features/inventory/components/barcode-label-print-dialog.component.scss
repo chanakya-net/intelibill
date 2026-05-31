@@ -1,36 +1,90 @@
 .barcode-label-print-dialog__table {
   display: flex;
   flex-direction: column;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .barcode-label-print-dialog__header {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.5fr) 140px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) minmax(8rem, 9rem);
+  gap: 0.75rem;
   color: #334155;
   font-size: 0.875rem;
 }
 
 .barcode-label-print-dialog__row {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.5fr) 140px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) minmax(8rem, 9rem);
   gap: 0.75rem;
   align-items: center;
   padding: 0.5rem 0;
   border-top: 1px solid #e2e8f0;
+  min-width: 0;
 }
 
 .barcode-label-print-dialog__item,
 .barcode-label-print-dialog__barcode {
+  min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.barcode-label-print-dialog__quantity-input {
+  width: 100%;
+  max-width: 9rem;
+  min-width: 0;
+}
+
+:host ::ng-deep .barcode-label-print-dialog-panel {
+  max-width: 92vw;
+}
+
+:host ::ng-deep .barcode-label-print-dialog-panel .p-dialog-content {
+  overflow-x: hidden;
+}
+
+:host ::ng-deep .barcode-label-print-dialog__quantity-input.p-inputnumber {
+  display: flex;
+}
+
+:host ::ng-deep .barcode-label-print-dialog__quantity-input .p-inputtext {
+  min-width: 0;
+  width: 100%;
 }
 
 .barcode-label-print-dialog__actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
 }
 
 .barcode-label-print-dialog__validation {
   margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .barcode-label-print-dialog__header {
+    display: none;
+  }
+
+  .barcode-label-print-dialog__row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .barcode-label-print-dialog__quantity-input {
+    max-width: 100%;
+  }
+
+  .barcode-label-print-dialog__actions {
+    justify-content: stretch;
+  }
+
+  :host ::ng-deep .barcode-label-print-dialog__actions .p-button,
+  :host ::ng-deep .barcode-label-print-dialog__actions .p-button-label {
+    width: 100%;
+  }
 }

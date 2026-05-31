@@ -5,7 +5,8 @@
   [closable]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '640px' }"
+  styleClass="barcode-label-print-dialog-panel"
+  [style]="{ width: 'min(92vw, 640px)' }"
   (visibleChange)="onVisibleChange($event)"
 >
   @if (rows().length === 0) {
@@ -25,6 +26,7 @@
           <span class="barcode-label-print-dialog__item">{{ line.itemName }}</span>
           <span class="barcode-label-print-dialog__barcode">{{ line.barcode }}</span>
           <p-inputNumber
+            styleClass="barcode-label-print-dialog__quantity-input"
             [ngModel]="line.quantity"
             [showButtons]="true"
             buttonLayout="horizontal"

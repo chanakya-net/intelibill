@@ -101,6 +101,38 @@ label textarea[pInputTextarea] {
   min-height: 2.5rem;
 }
 
+.barcode-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.generate-barcode-btn {
+  min-width: 6.75rem;
+  white-space: nowrap;
+}
+
+.barcode-replace-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  color: #57534e;
+  font-size: 0.86rem;
+}
+
+.barcode-replace-confirm span {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+:host ::ng-deep .barcode-field-row .p-button,
+:host ::ng-deep .barcode-replace-confirm .p-button {
+  height: 2.5rem;
+}
+
 .stock-display {
   display: flex;
   align-items: center;
@@ -142,4 +174,44 @@ label textarea[pInputTextarea] {
   background: rgba(255, 255, 255, 0.72);
   border-radius: 1rem;
   margin: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .overlay-card {
+    padding: 1rem;
+    max-height: calc(100vh - 1rem);
+  }
+
+  h2 {
+    font-size: 1.2rem;
+  }
+
+  .barcode-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .generate-barcode-btn {
+    width: 100%;
+  }
+
+  .barcode-replace-confirm {
+    align-items: stretch;
+  }
+
+  .barcode-replace-confirm span {
+    flex-basis: 100%;
+  }
+
+  :host ::ng-deep .barcode-replace-confirm .p-button {
+    flex: 1 1 8rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }

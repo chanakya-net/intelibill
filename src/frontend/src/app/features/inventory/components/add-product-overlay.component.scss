@@ -115,6 +115,43 @@ label input[pInputText] {
   }
 }
 
+.barcode-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.generate-barcode-btn {
+  min-width: 6.75rem;
+  white-space: nowrap;
+}
+
+.barcode-replace-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  color: #57534e;
+  font-size: 0.86rem;
+}
+
+.barcode-replace-confirm span {
+  flex: 1 1 13rem;
+  min-width: 0;
+}
+
+:host ::ng-deep .barcode-field-row .p-autocomplete,
+:host ::ng-deep .barcode-field-row .p-inputtext {
+  width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep .barcode-field-row .p-button,
+:host ::ng-deep .barcode-replace-confirm .p-button {
+  height: 2.5rem;
+}
 
 .toggle-row {
   display: flex;
@@ -160,5 +197,25 @@ label input[pInputText] {
   .actions {
     flex-direction: column-reverse;
     align-items: stretch;
+  }
+
+  .barcode-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .generate-barcode-btn {
+    width: 100%;
+  }
+
+  .barcode-replace-confirm {
+    align-items: stretch;
+  }
+
+  .barcode-replace-confirm span {
+    flex-basis: 100%;
+  }
+
+  :host ::ng-deep .barcode-replace-confirm .p-button {
+    flex: 1 1 8rem;
   }
 }
