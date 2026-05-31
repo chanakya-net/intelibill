@@ -220,6 +220,31 @@ Temporary Items
 .apdisk
 
 # ------------------------------------------------------------
+# Local agent / graph tooling
+# ------------------------------------------------------------
+.angulardoc.json
+.antigravitycli/
+.claude/
+.codegraph/
+.gemini/
+.github/badges/
+.graphify_detect.json
+.graphify_incremental.json
+.graphify_python
+.superpowers/
+CLAUDE.md
+GEMINI.md
+band
+coverage-report/
+coveragereport/
+graphify-out/
+opencode.json
+src/.claude/
+src/**/graphify-out/
+technical_requirements.md
+.vscode/settings.json
+
+# ------------------------------------------------------------
 # Windows
 # ------------------------------------------------------------
 Thumbs.db

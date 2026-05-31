@@ -1,7 +1,9 @@
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { Select } from 'primeng/select';
 
 import { ExpensesFacade } from '../state/expenses.facade';
 import { CorrectExpenseOverlayComponent } from './correct-expense-overlay.component';
@@ -178,6 +180,18 @@ describe('CorrectExpenseOverlayComponent', () => {
 
     const names = component.selectableCategories().map((item) => item.name);
     expect(names).toEqual(['Rent']);
+  });
+
+  it('allows entering a new category from the category select', () => {
+    const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
+    const component = fixture.componentInstance;
+    component.expenseId = 'exp-1';
+    component.originalExpense = originalExpense;
+    fixture.detectChanges();
+
+    const categorySelect = fixture.debugElement.query(By.directive(Select)).componentInstance as Select;
+
+    expect(categorySelect.editable).toBe(true);
   });
 
   it('emits closeRequested on onClose when not submitting', () => {
