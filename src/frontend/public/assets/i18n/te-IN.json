@@ -526,6 +526,14 @@
         "invalidQuantity": "Quantity must be a positive integer.",
         "totalLimitExceeded": "Total labels cannot exceed 500. Please reduce quantities."
       }
+    },
+    "printLabel": "Print label",
+    "printLabels": "Print labels",
+    "printBarcode": {
+      "prompt": {
+        "header": "Print barcode?",
+        "message": "Do you want to print a barcode label for the newly created product?"
+      }
     }
   },
   "hsn": {

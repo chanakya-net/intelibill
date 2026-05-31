@@ -28,12 +28,23 @@ export class InventoryTableComponent {
   @Input() footerStart = 0;
   @Input() footerEnd = 0;
 
+  @Input() selectedItems: readonly Item[] = [];
+
+  @Output() selectedItemsChange = new EventEmitter<readonly Item[]>();
+  @Output() printLabelRequested = new EventEmitter<Item>();
+
   @Output() selectItem = new EventEmitter<Item>();
   @Output() editItem = new EventEmitter<Item>();
   @Output() pageChange = new EventEmitter<{ page: number; rows: number }>();
 
+  selected = new Set<string>();
+
   get tableItems(): Item[] {
     return [...this.items];
+  }
+
+  ngOnChanges(): void {
+    this.selected = new Set((this.selectedItems ?? []).map((item) => item.id));
   }
 
   onOpenItem(item: Item): void {
@@ -42,6 +53,35 @@ export class InventoryTableComponent {
 
   onEditItem(item: Item): void {
     this.editItem.emit(item);
+  }
+
+  onPrintLabel(item: Item): void {
+    this.printLabelRequested.emit(item);
+  }
+
+  onSelectionChange(nextSelection: readonly Item[]): void {
+    this.selected = new Set((nextSelection ?? []).map((item) => item.id));
+    this.selectedItems = [...(nextSelection ?? [])];
+    this.selectedItemsChange.emit([...nextSelection]);
+  }
+
+  toggleSelection(item: Item): void {
+    const next = new Set(this.selected);
+    if (next.has(item.id)) {
+      next.delete(item.id);
+    } else {
+      next.add(item.id);
+    }
+    this.selected = next;
+
+    const selectedItems = (this.selectedItems ?? []).filter((existing) => next.has(existing.id));
+    const alreadySelectedIds = new Set(selectedItems.map((existing) => existing.id));
+    const missing = this.items.filter((candidate) => next.has(candidate.id) && !alreadySelectedIds.has(candidate.id));
+    this.selectedItemsChange.emit([...selectedItems, ...missing]);
+  }
+
+  isSelected(item: Item): boolean {
+    return this.selected.has(item.id);
   }
 
   onPageChange(event: any): void {

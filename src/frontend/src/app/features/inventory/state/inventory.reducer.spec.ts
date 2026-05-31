@@ -106,6 +106,10 @@ describe('inventoryReducer', () => {
     expect(next.entities['item-1']).toEqual(milkItem);
     expect(next.entities['item-2']).toBeUndefined();
     expect(next.lastMutationSucceeded).toBe(true);
+    expect(next.lastAddedItem).toEqual({
+      ...milkItem,
+      id: 'item-2',
+    });
   });
 
   it('sets failure state when add item fails', () => {

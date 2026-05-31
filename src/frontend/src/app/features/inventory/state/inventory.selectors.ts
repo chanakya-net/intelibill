@@ -14,6 +14,7 @@ export const selectInventoryLastMutationSucceeded = createSelector(
   selectInventoryState,
   (state) => state.lastMutationSucceeded
 );
+export const selectInventoryLastAddedItem = createSelector(selectInventoryState, (state) => state.lastAddedItem);
 export const selectInventoryPagination = createSelector(selectInventoryState, (state) => ({
   totalCount: state.totalCount,
   pageNumber: state.pageNumber,
