@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerLedgerEntryRepository, CustomerLedgerEntryRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IItemRepository, ItemRepository>();
+        services.AddScoped<IItemBarcodeSequenceRepository, ItemBarcodeSequenceRepository>();
         services.AddScoped<IItemCatalogRepository, ItemRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IInventoryBatchRepository, InventoryBatchRepository>();

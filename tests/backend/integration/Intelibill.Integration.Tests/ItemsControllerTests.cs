@@ -1,4 +1,5 @@
 using System.Net;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -80,6 +81,76 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             var errorBody = await response.Content.ReadAsStringAsync();
             throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
         }
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("accessToken").GetString()!;
+    }
+
+    private static async Task<(Guid ShopId, string Token)> CreateShopAsyncWithId(HttpClient client, string token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name = $"Shop {Guid.NewGuid():N}",
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560001",
+        });
+
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddItem failed ({(int)response.StatusCode}): {errorBody}");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("activeShopId").GetGuid(), body.GetProperty("accessToken").GetString()!);
+    }
+
+    private static async Task<(Guid UserId, string Email, string Password)> AddUserAsync(
+        HttpClient client,
+        string ownerToken,
+        Guid shopId,
+        string role)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            shopIds = new[] { shopId },
+            email = UniqueEmail(),
+            firstName = "Shop",
+            lastName = role,
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
+            password = "Pass123!Aa",
+            confirmPassword = "Pass123!Aa",
+            role,
+        });
+
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"AddUser failed ({(int)response.StatusCode}): {errorBody}");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (
+            body.GetProperty("userId").GetGuid(),
+            body.GetProperty("email").GetString()!,
+            "Pass123!Aa");
+    }
+
+    private static async Task<string> LoginAsync(HttpClient client, string email, string password)
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login/email", new
+        {
+            email,
+            password,
+        });
+        response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;
     }
@@ -192,6 +263,123 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var secondResponse = await client.SendAsync(secondRequest);
 
         Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_AsOwner_Returns200WithShopScopedCode()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var barcode = body.GetProperty("barcode").GetString()!;
+
+        Assert.Matches(@"^IB-\d{6}$", barcode);
+
+        using var scopedRequest = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        scopedRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var secondResponse = await client.SendAsync(scopedRequest);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        var secondBody = await secondResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBarcode = secondBody.GetProperty("barcode").GetString()!;
+        Assert.Equal("IB-000002", secondBarcode);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_AsManager_Returns200()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsyncWithId(client, token);
+        var (_, email, password) = await AddUserAsync(client, ownerToken, shopId, "Manager");
+        var managerToken = await LoginAsync(client, email, password);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("IB-000001", body.GetProperty("barcode").GetString());
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_AsStaff_ReturnsForbidden()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsyncWithId(client, token);
+        var (_, staffEmail, staffPassword) = await AddUserAsync(client, ownerToken, shopId, "Staff");
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_IsShopScopedAcrossShops()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerTokenShopA) = await CreateShopAsyncWithId(client, token);
+        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, token);
+
+        using var requestShopA = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        requestShopA.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenShopA);
+        var responseShopA = await client.SendAsync(requestShopA);
+        Assert.Equal(HttpStatusCode.OK, responseShopA.StatusCode);
+        var bodyShopA = await responseShopA.Content.ReadFromJsonAsync<JsonElement>();
+        var barcodeShopA = bodyShopA.GetProperty("barcode").GetString()!;
+
+        using var requestShopB = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        requestShopB.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenShopB);
+        var responseShopB = await client.SendAsync(requestShopB);
+        Assert.Equal(HttpStatusCode.OK, responseShopB.StatusCode);
+        var bodyShopB = await responseShopB.Content.ReadFromJsonAsync<JsonElement>();
+        var barcodeShopB = bodyShopB.GetProperty("barcode").GetString()!;
+
+        Assert.Equal("IB-000001", barcodeShopA);
+        Assert.Equal("IB-000001", barcodeShopB);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_ConcurrentRequests_ForSameShopReturnSequentialUniqueCodes()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcodeTasks = Enumerable
+            .Range(0, 8)
+            .Select(_ => GenerateItemBarcodeAsync(client, ownerToken))
+            .ToArray();
+
+        var barcodes = await Task.WhenAll(barcodeTasks);
+
+        Assert.Equal(8, barcodes.Length);
+        Assert.All(barcodes, barcode => Assert.Matches(@"^IB-\d{6}$", barcode));
+        Assert.Equal(8, barcodes.Distinct().Count());
+
+        var sequenceNumbers = barcodes
+            .Select(barcode => int.Parse(barcode["IB-".Length..], CultureInfo.InvariantCulture))
+            .OrderBy(value => value)
+            .ToArray();
+
+        Assert.Equal(8, sequenceNumbers.Length);
+        for (var i = 0; i < sequenceNumbers.Length; i++)
+        {
+            Assert.Equal(i + 1, sequenceNumbers[i]);
+        }
     }
 
     [Fact]
@@ -871,6 +1059,17 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("id").GetGuid();
+    }
+
+    private static async Task<string> GenerateItemBarcodeAsync(HttpClient client, string ownerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("barcode").GetString()!;
     }
 
     private static async Task SeedInventoryAsync(

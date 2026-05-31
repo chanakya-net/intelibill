@@ -21,6 +21,9 @@ public static partial class Errors
         public static Error NameAlreadyExists =>
             Error.Conflict("Item.NameAlreadyExists", "An item with this name already exists in the active shop.");
 
+        public static Error BarcodeGenerationFailed =>
+            Error.Unexpected("Item.BarcodeGenerationFailed", "Unable to generate a unique item barcode.");
+
         public static Error UserIsNotOwnerOrManager =>
             Error.Forbidden("Item.UserIsNotOwnerOrManager", "Only owner or manager can add items.");
 
