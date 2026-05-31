@@ -130,6 +130,8 @@ export class InventoryPageComponent {
   readonly printDialogVisible = signal(false);
   readonly printDialogCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
 
+  private lastPrintDialogSource: 'bulk' | 'single' | null = null;
+
   private searchTimeout: any;
 
   constructor() {
@@ -142,8 +144,10 @@ export class InventoryPageComponent {
       }
 
       const mutationType = this.lastMutationType();
-      if (mutationType === 'add-item' && this.showAddProductOverlay()) {
-        this.showAddProductOverlay.set(false);
+      if (mutationType === 'add-item') {
+        if (this.showAddProductOverlay()) {
+          this.showAddProductOverlay.set(false);
+        }
 
         const item = this.lastAddedItem();
         if (item) {
@@ -154,7 +158,7 @@ export class InventoryPageComponent {
             acceptButtonStyleClass: 'p-button-primary',
             rejectButtonStyleClass: 'p-button-secondary p-button-text',
             accept: () => {
-              this.openPrintDialog([item]);
+              this.openPrintDialog([item], 'single');
             },
           });
         }
@@ -264,19 +268,20 @@ export class InventoryPageComponent {
     if (!this.canManageInventory()) {
       return;
     }
-    this.openPrintDialog(this.selectedCatalogItems());
+    this.openPrintDialog(this.selectedCatalogItems(), 'bulk');
   }
 
   onPrintLabel(item: Item): void {
     if (!this.canManageInventory()) {
       return;
     }
-    this.openPrintDialog([item]);
+    this.openPrintDialog([item], 'single');
   }
 
   onClosePrintDialog(): void {
     this.printDialogVisible.set(false);
     this.printDialogCandidates.set([]);
+    this.lastPrintDialogSource = null;
   }
 
   onPrintDialogRequested(request: BarcodeLabelPrintRequest): void {
@@ -291,6 +296,10 @@ export class InventoryPageComponent {
           }
         }
 
+        if (this.lastPrintDialogSource === 'bulk') {
+          this.selectedCatalogItems.set([]);
+        }
+
         this.onClosePrintDialog();
       },
       error: () => {
@@ -299,7 +308,8 @@ export class InventoryPageComponent {
     });
   }
 
-  private openPrintDialog(items: readonly Item[]): void {
+  private openPrintDialog(items: readonly Item[], source: 'bulk' | 'single'): void {
+    this.lastPrintDialogSource = source;
     const candidates = (items ?? []).map((item) => ({
       itemId: item.id,
       itemName: item.name,
