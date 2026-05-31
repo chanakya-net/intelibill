@@ -30,6 +30,8 @@ export class BatchRowFormStateService {
 
   readonly loadingProduct = signal(false);
   readonly isLoadingHsn = signal(false);
+  readonly barcodeGenerating = signal(false);
+  readonly barcodeGenerateError = signal('');
   readonly selectedHsnCode = signal<string | null>(null);
   readonly hsnResult = signal<HsnLookupResult | null>(null);
   readonly pickerOpen = signal(false);
@@ -228,6 +230,34 @@ export class BatchRowFormStateService {
     }
 
     this.form.controls.supplierName.setValue(supplier.name);
+  }
+
+  async generateBarcode(): Promise<{ needsConfirm: boolean; barcode: string } | { error: true }> {
+    if (this.barcodeGenerating()) {
+      return { error: true };
+    }
+
+    this.barcodeGenerating.set(true);
+    this.barcodeGenerateError.set('');
+    try {
+      const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
+      const currentBarcode = this.form.controls.barcode.value.trim();
+      if (currentBarcode) {
+        return { needsConfirm: true, barcode: result.barcode };
+      }
+      this.form.controls.barcode.setValue(result.barcode);
+      return { needsConfirm: false, barcode: result.barcode };
+    } catch {
+      this.barcodeGenerateError.set('inventory.generateBarcodeError');
+      return { error: true };
+    } finally {
+      this.barcodeGenerating.set(false);
+    }
+  }
+
+  patchGeneratedBarcode(barcode: string): void {
+    this.form.controls.barcode.setValue(barcode);
+    this.barcodeGenerateError.set('');
   }
 
   async fetchProductDetails(

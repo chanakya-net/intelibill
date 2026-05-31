@@ -1,0 +1,65 @@
+<p-dialog
+  [visible]="visible"
+  [header]="'inventory.barcodeLabels.title' | transloco"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="barcode-label-print-dialog-panel"
+  [style]="{ width: 'min(92vw, 640px)' }"
+  (visibleChange)="onVisibleChange($event)"
+>
+  @if (rows().length === 0) {
+    <p class="text-sm text-slate-500">{{ 'inventory.barcodeLabels.noItems' | transloco }}</p>
+  } @else {
+    <p class="text-sm text-slate-500 mb-3">{{ 'inventory.barcodeLabels.subtitle' | transloco }}</p>
+
+    <div class="barcode-label-print-dialog__table">
+      <div class="barcode-label-print-dialog__header row-gap-2 mb-2">
+        <span class="font-medium">{{ 'inventory.barcodeLabels.table.item' | transloco }}</span>
+        <span class="font-medium">{{ 'inventory.barcodeLabels.table.barcode' | transloco }}</span>
+        <span class="font-medium">{{ 'inventory.barcodeLabels.table.quantity' | transloco }}</span>
+      </div>
+
+      @for (line of rows(); track $index) {
+        <div class="barcode-label-print-dialog__row">
+          <span class="barcode-label-print-dialog__item">{{ line.itemName }}</span>
+          <span class="barcode-label-print-dialog__barcode">{{ line.barcode }}</span>
+          <p-inputNumber
+            styleClass="barcode-label-print-dialog__quantity-input"
+            [ngModel]="line.quantity"
+            [showButtons]="true"
+            buttonLayout="horizontal"
+            incrementButtonIcon="pi pi-plus"
+            decrementButtonIcon="pi pi-minus"
+            [min]="1"
+            [step]="1"
+            (ngModelChange)="onQuantityChange($index, $event)"
+          />
+        </div>
+      }
+
+      <p class="mt-2 text-sm text-slate-600">
+        {{ 'inventory.barcodeLabels.totalQuantity' | transloco: { total: getTotalQuantity() } }}
+      </p>
+    </div>
+  }
+
+  @if (validationMessage()) {
+    <p class="barcode-label-print-dialog__validation text-sm text-red-600 mt-3">{{ validationMessage() | transloco }}</p>
+  }
+
+  <div class="barcode-label-print-dialog__actions">
+    <p-button
+      [label]="'inventory.barcodeLabels.actions.cancel' | transloco"
+      [text]="true"
+      (click)="onClose()"
+    />
+    <p-button
+      [label]="'inventory.barcodeLabels.actions.print' | transloco"
+      [severity]="'secondary'"
+      [disabled]="!canPrint"
+      (click)="onPrint()"
+    />
+  </div>
+</p-dialog>

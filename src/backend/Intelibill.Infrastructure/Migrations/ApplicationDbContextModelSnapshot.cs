@@ -94,18 +94,17 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<decimal>("CreditLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(10,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("credit_limit");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
-
-                    b.Property<decimal>("CreditLimit")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("numeric(10,2)")
-                        .HasPrecision(10, 2)
-                        .HasDefaultValue(0m)
-                        .HasColumnName("credit_limit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1104,6 +1103,45 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDatabaseName("ix_items_shop_id_name");
 
                     b.ToTable("items", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ItemBarcodeSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("prefix");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_item_barcode_sequences");
+
+                    b.HasIndex("ShopId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_item_barcode_sequences_shop_id");
+
+                    b.ToTable("item_barcode_sequences", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PasswordResetToken", b =>
@@ -2794,6 +2832,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_items_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ItemBarcodeSequence", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_item_barcode_sequences_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PasswordResetToken", b =>

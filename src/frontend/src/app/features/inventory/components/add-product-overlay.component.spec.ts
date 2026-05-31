@@ -2,7 +2,7 @@ import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { InventoryActions } from '../state/inventory.actions';
@@ -61,6 +61,7 @@ describe('AddProductOverlayComponent', () => {
 
   const inventoryService = {
     lookupHsn: vi.fn(() => of(emptyLookupResult)),
+    generateItemBarcode: vi.fn(() => of({ barcode: 'GEN-0001' })),
   };
 
   function setup(): AddProductOverlayComponent {
@@ -87,6 +88,8 @@ describe('AddProductOverlayComponent', () => {
     productCatalogSync.findByBarcode.mockClear();
     inventoryService.lookupHsn.mockReset();
     inventoryService.lookupHsn.mockReturnValue(of(emptyLookupResult));
+    inventoryService.generateItemBarcode.mockReset();
+    inventoryService.generateItemBarcode.mockReturnValue(of({ barcode: 'GEN-0001' }));
     isSubmittingSignal.set(false);
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
@@ -248,6 +251,77 @@ describe('AddProductOverlayComponent', () => {
     expect(inventoryService.lookupHsn).toHaveBeenCalledWith('Syrup');
     expect(component.form.controls.hsnCode.value).toBe('3004');
     expect(component.form.controls.defaultTaxRatePercent.value).toBe(5);
+  });
+
+  it('generates barcode and patches form when barcode field is empty', async () => {
+    const component = setup();
+    component.form.controls.barcode.setValue('');
+
+    await component.onGenerateBarcode();
+
+    expect(inventoryService.generateItemBarcode).toHaveBeenCalled();
+    expect(component.form.controls.barcode.value).toBe('GEN-0001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+    expect(component.barcodeGenerateError()).toBe('');
+  });
+
+  it('shows replace confirmation when barcode field has value', async () => {
+    const component = setup();
+    component.form.controls.barcode.setValue('EXISTING-BAR');
+
+    await component.onGenerateBarcode();
+
+    expect(inventoryService.generateItemBarcode).toHaveBeenCalled();
+    expect(component.barcodeReplaceConfirmVisible()).toBe(true);
+    expect(component.form.controls.barcode.value).toBe('EXISTING-BAR');
+  });
+
+  it('patches barcode on confirmation', async () => {
+    const component = setup();
+    component.form.controls.barcode.setValue('EXISTING-BAR');
+
+    await component.onGenerateBarcode();
+    component.confirmBarcodeReplace();
+
+    expect(component.form.controls.barcode.value).toBe('GEN-0001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('keeps existing barcode on cancellation', async () => {
+    const component = setup();
+    component.form.controls.barcode.setValue('EXISTING-BAR');
+
+    await component.onGenerateBarcode();
+    component.cancelBarcodeReplace();
+
+    expect(component.form.controls.barcode.value).toBe('EXISTING-BAR');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('sets error signal when generate barcode fails', async () => {
+    inventoryService.generateItemBarcode.mockReturnValue(throwError(() => new Error('network')));
+    const component = setup();
+    component.form.controls.barcode.setValue('');
+
+    await component.onGenerateBarcode();
+
+    expect(component.barcodeGenerateError()).toBe('inventory.generateBarcodeError');
+    expect(component.form.controls.barcode.value).toBe('');
+  });
+
+  it('does not submit generate while already generating', async () => {
+    let resolve!: (v: { barcode: string }) => void;
+    inventoryService.generateItemBarcode.mockReturnValue(
+      new (await import('rxjs')).Observable((sub) => { resolve = (v) => { sub.next(v); sub.complete(); }; }),
+    );
+    const component = setup();
+
+    const p1 = component.onGenerateBarcode();
+    const p2 = component.onGenerateBarcode();
+    resolve({ barcode: 'GEN-X' });
+    await Promise.all([p1, p2]);
+
+    expect(inventoryService.generateItemBarcode).toHaveBeenCalledTimes(1);
   });
 
   it('does not call lookup for short product names', async () => {

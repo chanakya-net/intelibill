@@ -52,6 +52,11 @@ export const INVENTORY_ENDPOINTS = {
   availableBatches: (searchTerm: string) => `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
 } as const;
 
+export const ITEM_BARCODE_ENDPOINTS = {
+  generate: `${API_BASE_URL}/items/barcodes/generate`,
+  printLabels: `${API_BASE_URL}/items/barcodes/labels`,
+} as const;
+
 export const SALE_ENDPOINTS = {
   list: `${API_BASE_URL}/sales`,
   record: `${API_BASE_URL}/sales`,

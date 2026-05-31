@@ -6,8 +6,11 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
+using Intelibill.Application.Features.Items.Barcodes.GenerateItemBarcode;
+using Intelibill.Application.Features.Items.Barcodes.PrintBarcodeLabels;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Application.Features.Items.DTOs;
+using Intelibill.Application.Features.Items.Barcodes;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.AspNetCore.Http;
@@ -197,6 +200,104 @@ public class ItemsControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GenerateItemBarcode(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_WhenNoActiveShop_ReturnsBadRequest()
+    {
+        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+
+        var result = await _controller.GenerateItemBarcode(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_WhenValid_ReturnsOk()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = new GenerateItemBarcodeResultDto("IB-000001");
+        _bus.InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.GenerateItemBarcode(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(
+            Arg.Is<GenerateItemBarcodeCommand>(c => c.ActorUserId == userId && c.ActiveShopId == shopId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateItemBarcode_WhenFailed_ReturnsProblemResult()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Item.BarcodeGenerationFailed);
+
+        var result = await _controller.GenerateItemBarcode(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task PrintBarcodeLabels_WhenValid_ReturnsFileResult()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = new PrintBarcodeLabelsRequest(
+        [
+            new PrintBarcodeLabelItemRequest(itemId, 2, null),
+        ]);
+
+        var expectedResult = new BarcodeLabelPrintResult([1, 2, 3], "application/pdf", "barcode-labels.pdf");
+        _bus.InvokeAsync<ErrorOr<BarcodeLabelPrintResult>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(expectedResult);
+
+        var result = await _controller.PrintBarcodeLabels(request, CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.Equal("barcode-labels.pdf", file.FileDownloadName);
+        Assert.Equal(expectedResult.Content, file.FileContents);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<BarcodeLabelPrintResult>>(
+            Arg.Is<PrintBarcodeLabelsCommand>(command =>
+                command.ActorUserId == userId
+                && command.ActiveShopId == shopId
+                && command.Items.Count == 1
+                && command.Items[0].ItemId == itemId
+                && command.Items[0].Quantity == 2),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

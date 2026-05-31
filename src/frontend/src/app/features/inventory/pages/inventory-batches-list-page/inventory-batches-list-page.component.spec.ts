@@ -275,4 +275,68 @@ describe('InventoryBatchesListPageComponent', () => {
 
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
   });
+
+  it('should prepare selected batches for barcode label printing with batch quantities', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onBatchSelectionChange(['b1']);
+    component.onPrintSelectedBatches();
+
+    expect(component.barcodeLabelPrintDialogVisible()).toBe(true);
+    expect(component.barcodeLabelPrintCandidates()).toEqual([
+      {
+        itemId: 'i1',
+        itemName: 'Rice',
+        barcode: '111',
+        inventoryBatchId: 'b1',
+        quantity: 10,
+      },
+    ]);
+  });
+
+  it('should prepare a single batch row for label printing from the table action', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onBatchTableAction({ action: 'printLabels', batchId: 'b1' });
+
+    expect(component.barcodeLabelPrintDialogVisible()).toBe(true);
+    expect(component.barcodeLabelPrintCandidates()).toEqual([
+      {
+        itemId: 'i1',
+        itemName: 'Rice',
+        barcode: '111',
+        inventoryBatchId: 'b1',
+        quantity: 10,
+      },
+    ]);
+  });
+
+  it('should open and download the PDF returned by the print API', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onBarcodeLabelPrintRequested({
+      items: [{ itemId: 'i1', quantity: 10, inventoryBatchId: 'b1' }],
+    });
+
+    const printReq = httpMock.expectOne(`${API_BASE_URL}/items/barcodes/labels`);
+    expect(printReq.request.method).toBe('POST');
+    expect(printReq.request.body).toEqual({
+      items: [{ itemId: 'i1', quantity: 10, inventoryBatchId: 'b1' }],
+    });
+    expect(printReq.request.responseType).toBe('blob');
+
+    printReq.flush(new Blob(['pdf-data'], { type: 'application/pdf' }), {
+      status: 200,
+      statusText: 'OK',
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank');
+  });
 });

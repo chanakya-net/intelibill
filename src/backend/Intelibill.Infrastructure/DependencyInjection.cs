@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Exports.ProfitLoss;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Features.Items.Barcodes;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -11,6 +12,7 @@ using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
 using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
 using Intelibill.Infrastructure.Services.Exports;
+using Intelibill.Infrastructure.Services.Barcodes;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Microsoft.EntityFrameworkCore;
@@ -77,6 +79,8 @@ public static class DependencyInjection
         services.AddScoped<ICustomerLedgerEntryRepository, CustomerLedgerEntryRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IItemRepository, ItemRepository>();
+        services.AddScoped<IItemBarcodeSequenceRepository, ItemBarcodeSequenceRepository>();
+        services.AddScoped<IBarcodeLabelRepository, BarcodeLabelRepository>();
         services.AddScoped<IItemCatalogRepository, ItemRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IInventoryBatchRepository, InventoryBatchRepository>();
@@ -116,6 +120,7 @@ public static class DependencyInjection
         services.AddScoped<ISalesPdfExportRenderer, Services.Exports.SalesPdfExportRenderer>();
         services.AddScoped<ISalesTallyXmlExportRenderer, Services.Exports.SalesTallyXmlExportRenderer>();
         services.AddScoped<IProfitLossExcelExportRenderer, Services.Exports.ProfitLossExcelExportRenderer>();
+        services.AddScoped<IBarcodeLabelPdfRenderer, BarcodeLabelPdfRenderer>();
 
         // ── External auth providers ───────────────────────────────────────────
         // Named HttpClients for providers that call external HTTP APIs.

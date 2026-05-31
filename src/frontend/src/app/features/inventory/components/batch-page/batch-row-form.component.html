@@ -48,6 +48,19 @@
               [attr.aria-label]="'inventory.openScanner' | transloco"
             ></button>
           </p-inputgroup-addon>
+          <p-inputgroup-addon class="generate-barcode-addon">
+            <button
+              pButton
+              type="button"
+              [label]="'inventory.generateBarcode' | transloco"
+              severity="secondary"
+              text
+              class="generate-barcode-button"
+              [loading]="state.barcodeGenerating()"
+              (click)="onGenerateBarcode()"
+              [attr.aria-label]="'inventory.generateBarcode' | transloco"
+            ></button>
+          </p-inputgroup-addon>
         </p-inputgroup>
         @if (state.loadingProduct()) {
           <div class="barcode-loading-overlay">
@@ -55,6 +68,16 @@
           </div>
         }
       </div>
+      @if (state.barcodeGenerateError()) {
+        <p class="error-message">{{ state.barcodeGenerateError() | transloco }}</p>
+      }
+      @if (barcodeReplaceConfirmVisible()) {
+        <div class="barcode-replace-confirm">
+          <span>{{ 'inventory.generateBarcodeReplaceConfirm' | transloco }}</span>
+          <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmBarcodeReplace()"></button>
+          <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelBarcodeReplace()"></button>
+        </div>
+      }
     </label>
 
     <label>

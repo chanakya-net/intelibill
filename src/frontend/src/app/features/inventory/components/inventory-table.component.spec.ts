@@ -81,4 +81,34 @@ describe('InventoryTableComponent', () => {
     const paginator = host.querySelector('.mobile-grid-container p-paginator');
     expect(paginator).not.toBeNull();
   });
+
+  it('emits selected items when selection changes', () => {
+    const spy = vi.spyOn(component.selectedItemsChange, 'emit');
+    component.onSelectionChange([mockItems[0]]);
+
+    expect(spy).toHaveBeenCalledWith([mockItems[0]]);
+  });
+
+  it('toggles selection for mobile cards', () => {
+    const spy = vi.spyOn(component.selectedItemsChange, 'emit');
+    component.selectedItems = [];
+    component.ngOnChanges();
+
+    component.toggleSelection(mockItems[0]);
+    expect(spy).toHaveBeenCalledWith([mockItems[0]]);
+    expect(component.isSelected(mockItems[0])).toBe(true);
+
+    spy.mockClear();
+    component.selectedItems = [mockItems[0]];
+    component.ngOnChanges();
+    component.toggleSelection(mockItems[0]);
+    expect(spy).toHaveBeenCalledWith([]);
+    expect(component.isSelected(mockItems[0])).toBe(false);
+  });
+
+  it('emits print request for an item', () => {
+    const spy = vi.spyOn(component.printLabelRequested, 'emit');
+    component.onPrintLabel(mockItems[0]);
+    expect(spy).toHaveBeenCalledWith(mockItems[0]);
+  });
 });

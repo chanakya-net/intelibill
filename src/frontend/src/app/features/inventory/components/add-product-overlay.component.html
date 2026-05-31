@@ -39,14 +39,35 @@
 
       <label>
         <span>{{ 'inventory.barcode' | transloco }}</span>
-        <p-autocomplete
-          formControlName="barcode"
-          [suggestions]="barcodeSuggestions()"
-          (completeMethod)="onFilterBarcode($event)"
-          (onSelect)="onBarcodeSelected($event.value)"
-          appendTo="body"
-          [fluid]="true"
-        ></p-autocomplete>
+        <div class="barcode-field-row">
+          <p-autocomplete
+            formControlName="barcode"
+            [suggestions]="barcodeSuggestions()"
+            (completeMethod)="onFilterBarcode($event)"
+            (onSelect)="onBarcodeSelected($event.value)"
+            appendTo="body"
+            [fluid]="true"
+          ></p-autocomplete>
+          <button
+            pButton
+            type="button"
+            [label]="'inventory.generateBarcode' | transloco"
+            severity="secondary"
+            [loading]="barcodeGenerating()"
+            (click)="onGenerateBarcode()"
+            class="generate-barcode-btn"
+          ></button>
+        </div>
+        @if (barcodeGenerateError()) {
+          <p class="error-message">{{ barcodeGenerateError() | transloco }}</p>
+        }
+        @if (barcodeReplaceConfirmVisible()) {
+          <div class="barcode-replace-confirm">
+            <span>{{ 'inventory.generateBarcodeReplaceConfirm' | transloco }}</span>
+            <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmBarcodeReplace()"></button>
+            <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelBarcodeReplace()"></button>
+          </div>
+        }
       </label>
 
       <label>

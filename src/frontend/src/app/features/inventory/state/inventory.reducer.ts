@@ -20,6 +20,7 @@ export interface InventoryState extends EntityState<Item> {
   readonly errorMessage: string;
   readonly lastMutationType: ItemMutationType | null;
   readonly lastMutationSucceeded: boolean;
+  readonly lastAddedItem: Item | null;
   readonly totalCount: number;
   readonly pageNumber: number;
   readonly pageSize: number;
@@ -33,6 +34,7 @@ const initialState: InventoryState = inventoryAdapter.getInitialState({
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
+  lastAddedItem: null,
   totalCount: 0,
   pageNumber: 1,
   pageSize: 20,
@@ -77,12 +79,13 @@ export const inventoryReducer = createReducer(
     lastMutationType: 'add-item',
     lastMutationSucceeded: false,
   })),
-  on(InventoryActions.addItemSucceeded, (state) => ({
+  on(InventoryActions.addItemSucceeded, (state, { item }) => ({
     ...state,
     submitting: false,
     errorMessage: '',
     lastMutationType: 'add-item',
     lastMutationSucceeded: true,
+    lastAddedItem: item,
   })),
   on(InventoryActions.addItemFailed, (state, { errorMessage }) => ({
     ...state,
@@ -122,6 +125,7 @@ export const inventoryReducer = createReducer(
     ...state,
     lastMutationType: null,
     lastMutationSucceeded: false,
+    lastAddedItem: null,
   }))
 );
 

@@ -73,12 +73,24 @@
         <i class="pi pi-list text-orange-500"></i>
         {{ 'inventory.productCatalog' | transloco }}
       </h2>
-      
-      @if (pagination().totalCount) {
-        <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full font-medium">
-          {{ 'inventory.paginationFooter' | transloco: { start: footerStart(), end: footerEnd(), total: pagination().totalCount } }}
-        </span>
-      }
+
+      <div class="flex items-center gap-2">
+        @if (canManageInventory() && selectedCatalogItems().length > 0) {
+          <button
+            pButton
+            type="button"
+            icon="pi pi-print"
+            [label]="'inventory.printLabels' | transloco"
+            (click)="onPrintSelectedLabels()"
+          ></button>
+        }
+
+        @if (pagination().totalCount) {
+          <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full font-medium">
+            {{ 'inventory.paginationFooter' | transloco: { start: footerStart(), end: footerEnd(), total: pagination().totalCount } }}
+          </span>
+        }
+      </div>
     </div>
 
     @if (isLoadingItems()) {
@@ -116,6 +128,7 @@
         <p-table [value]="[1, 2, 3, 4, 5, 6]" class="p-datatable-sm">
           <ng-template pTemplate="header">
             <tr>
+              <th style="width: 3.25rem"></th>
               <th style="min-width: 14rem">{{ 'inventory.name' | transloco }}</th>
               <th style="min-width: 10rem">{{ 'inventory.barcodeOrSku' | transloco }}</th>
               <th style="min-width: 8rem">{{ 'inventory.uom' | transloco }}</th>
@@ -128,6 +141,7 @@
           </ng-template>
           <ng-template pTemplate="body">
             <tr>
+              <td><p-skeleton width="1rem" height="1rem" class="mx-auto"></p-skeleton></td>
               <td>
                 <div class="flex items-center gap-3">
                   <p-skeleton shape="circle" size="2rem" class="flex-shrink-0"></p-skeleton>
@@ -159,6 +173,7 @@
         [items]="items()"
         [canManageInventory]="canManageInventory()"
         [isSubmitting]="isSubmitting()"
+        [selectedItems]="selectedCatalogItems()"
         [pageNumber]="pageNumber()"
         [pageSize]="pageSize()"
         [totalCount]="pagination().totalCount"
@@ -166,10 +181,20 @@
         [footerEnd]="footerEnd()"
         (selectItem)="onEditItem($event)"
         (editItem)="onEditItem($event)"
+        (selectedItemsChange)="onCatalogSelectionChange($event)"
+        (printLabelRequested)="onPrintLabel($event)"
         (pageChange)="onTablePageChange($event)"
       />
     }
   </div>
+
+  <app-barcode-label-print-dialog
+    [visible]="printDialogVisible()"
+    [items]="printDialogCandidates()"
+    (visibleChange)="printDialogVisible.set($event)"
+    (closeRequested)="onClosePrintDialog()"
+    (printRequested)="onPrintDialogRequested($event)"
+  ></app-barcode-label-print-dialog>
 
   @if (showAddProductOverlay()) {
     <app-add-product-overlay (closeRequested)="onCloseAddProduct()"></app-add-product-overlay>
@@ -181,4 +206,6 @@
       (closeRequested)="onCloseEditItem()"
     ></app-edit-item-overlay>
   }
+
+  <p-confirmDialog appendTo="body"></p-confirmDialog>
 </section>

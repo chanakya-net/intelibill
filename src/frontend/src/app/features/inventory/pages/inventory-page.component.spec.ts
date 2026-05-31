@@ -1,16 +1,22 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { HttpResponse } from '@angular/common/http';
 import { Action } from '@ngrx/store';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
+import { of } from 'rxjs';
+import { ConfirmationService } from 'primeng/api';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { InventoryService } from '../services/inventory.service';
+import { BlobDownloadService } from '../../../shared/utils/blob-download.service';
 import type { Item } from '../services/inventory.models';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
   selectInventoryItems,
+  selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
   selectInventoryLoadingItems,
@@ -61,6 +67,7 @@ describe('InventoryPageComponent', () => {
   const errorSignal = signal('');
   const lastMutationTypeSignal = signal<'add-item' | 'update-item' | null>(null);
   const lastMutationSucceededSignal = signal(false);
+  const lastAddedItemSignal = signal<Item | null>(null);
   const paginationSignal = signal({ totalCount: 1, pageNumber: 1, pageSize: 20 });
   const summarySignal = signal({
     totalItems: 1,
@@ -98,6 +105,10 @@ describe('InventoryPageComponent', () => {
         return lastMutationSucceededSignal;
       }
 
+      if (selector === selectInventoryLastAddedItem) {
+        return lastAddedItemSignal;
+      }
+
       if (selector === selectInventoryPagination) {
         return paginationSignal;
       }
@@ -114,6 +125,7 @@ describe('InventoryPageComponent', () => {
     if (action.type === InventoryActions.clearMutationStatus.type) {
       lastMutationTypeSignal.set(null);
       lastMutationSucceededSignal.set(false);
+      lastAddedItemSignal.set(null);
     }
 
     if (action.type === InventoryActions.clearError.type) {
@@ -127,8 +139,20 @@ describe('InventoryPageComponent', () => {
     session: sessionSignal,
   };
 
+  const inventoryService = {
+    printBarcodeLabels: vi.fn(),
+  };
+
+  const blobDownloadService = {
+    openPdf: vi.fn(),
+    download: vi.fn(),
+  };
+
   beforeEach(() => {
     store.dispatch.mockReset();
+    inventoryService.printBarcodeLabels.mockReset();
+    blobDownloadService.openPdf.mockReset();
+    blobDownloadService.download.mockReset();
     itemsSignal.set([
       {
         id: 'item-1',
@@ -152,6 +176,7 @@ describe('InventoryPageComponent', () => {
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
+    lastAddedItemSignal.set(null);
     sessionSignal.set(ownerSession);
 
     TestBed.configureTestingModule({
@@ -159,6 +184,8 @@ describe('InventoryPageComponent', () => {
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },
+        { provide: InventoryService, useValue: inventoryService },
+        { provide: BlobDownloadService, useValue: blobDownloadService },
       ],
     });
   });
@@ -380,5 +407,80 @@ describe('InventoryPageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
 
     expect(host.textContent).toContain('en.inventory.paginationFooter');
+  });
+
+  it('opens barcode label print dialog for selected items', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const item = itemsSignal()[0];
+
+    component.onCatalogSelectionChange([item]);
+    component.onPrintSelectedLabels();
+
+    expect(component.printDialogVisible()).toBe(true);
+    expect(component.printDialogCandidates()).toEqual([
+      {
+        itemId: item.id,
+        itemName: item.name,
+        barcode: item.barcode,
+        inventoryBatchId: null,
+      },
+    ]);
+  });
+
+  it('constructs print request and opens PDF blob response', () => {
+    const blob = new Blob(['labels'], { type: 'application/pdf' });
+    inventoryService.printBarcodeLabels.mockReturnValue(of(new HttpResponse({ status: 200, body: blob })));
+
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    component.printDialogVisible.set(true);
+
+    component.onPrintDialogRequested({
+      items: [{ itemId: 'item-1', quantity: 1, inventoryBatchId: null }],
+    });
+
+    expect(inventoryService.printBarcodeLabels).toHaveBeenCalledWith({
+      items: [{ itemId: 'item-1', quantity: 1, inventoryBatchId: null }],
+    });
+    expect(blobDownloadService.openPdf).toHaveBeenCalledWith(blob);
+    expect(component.printDialogVisible()).toBe(false);
+  });
+
+  it('falls back to downloading when PDF open fails', () => {
+    const blob = new Blob(['labels'], { type: 'application/pdf' });
+    inventoryService.printBarcodeLabels.mockReturnValue(of(new HttpResponse({ status: 200, body: blob })));
+    blobDownloadService.openPdf.mockImplementation(() => {
+      throw new Error('popup blocked');
+    });
+
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    component.printDialogVisible.set(true);
+
+    component.onPrintDialogRequested({
+      items: [{ itemId: 'item-1', quantity: 1, inventoryBatchId: null }],
+    });
+
+    expect(blobDownloadService.download).toHaveBeenCalledWith(blob, 'barcode-labels.pdf');
+  });
+
+  it('prompts to print barcode after add item succeeds', () => {
+    const fixture = TestBed.createComponent(InventoryPageComponent);
+    const component = fixture.componentInstance;
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    const confirmSpy = vi.spyOn(confirmationService, 'confirm');
+
+    component.onOpenAddProduct();
+    lastAddedItemSignal.set(itemsSignal()[0]);
+    lastMutationTypeSignal.set('add-item');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+
+    expect(confirmSpy).toHaveBeenCalled();
+    const call = confirmSpy.mock.calls[0][0];
+    expect(call.message).toBe('en.inventory.printBarcode.prompt.message');
+    expect(call.header).toBe('en.inventory.printBarcode.prompt.header');
+    expect(typeof call.accept).toBe('function');
   });
 });

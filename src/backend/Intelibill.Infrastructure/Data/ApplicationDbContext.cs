@@ -38,6 +38,7 @@ public class ApplicationDbContext(
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<ItemBarcodeSequence> ItemBarcodeSequences => Set<ItemBarcodeSequence>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<ServiceCodeSequence> ServiceCodeSequences => Set<ServiceCodeSequence>();
     public DbSet<Expense> Expenses => Set<Expense>();

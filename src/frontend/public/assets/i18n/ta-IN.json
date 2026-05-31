@@ -506,7 +506,46 @@
     "showingProducts": "Showing {{start}} to {{end}} of {{total}} products",
     "barcodeOrSku": "Barcode / SKU",
     "nameOrBarcode": "Search by product name or barcode",
-    "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products"
+    "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products",
+    "printLabels": "Print Labels",
+    "printSelectedLabels": "Print Selected Labels",
+    "selectAllBatches": "Select all batches",
+    "printSuccessfulRows": "Print labels for successful rows",
+    "barcodeLabels": {
+      "title": "Print Barcode Labels",
+      "subtitle": "Review quantities and print labels for selected inventory items.",
+      "noItems": "No items selected for label printing.",
+      "table": {
+        "item": "Item",
+        "barcode": "Barcode",
+        "quantity": "Quantity"
+      },
+      "totalQuantity": "Total labels: {{ total }}",
+      "actions": {
+        "cancel": "Cancel",
+        "print": "Print"
+      },
+      "printFailed": "Unable to print barcode labels. Please try again.",
+      "validation": {
+        "noItems": "No items available for printing.",
+        "invalidQuantity": "Quantity must be a positive integer.",
+        "totalLimitExceeded": "Total labels cannot exceed 500. Please reduce quantities."
+      }
+    },
+    "generateBarcode": "Generate",
+    "generateBarcodeError": "Failed to generate barcode. Please try again.",
+    "generateBarcodeReplaceConfirm": "This will replace the current barcode. Replace it?",
+    "generateBarcodeReplaceConfirmEdit": "Replacing this barcode may affect existing sales and inventory lookup. Replace it?",
+    "confirmReplace": "Replace",
+    "keepCurrentBarcode": "Keep current",
+    "printLabel": "Print label",
+    "printLabels": "Print labels",
+    "printBarcode": {
+      "prompt": {
+        "header": "Print barcode?",
+        "message": "Do you want to print a barcode label for the newly created product?"
+      }
+    }
   },
   "hsn": {
     "suggestion": "HSN Suggestion",

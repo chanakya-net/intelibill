@@ -3,6 +3,7 @@ import { InventoryState } from './inventory.reducer';
 import {
   selectInventoryErrorMessage,
   selectInventoryItems,
+  selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
   selectInventoryLatestQuery,
@@ -58,6 +59,7 @@ describe('inventory selectors', () => {
     errorMessage: 'errors.items.unableToLoadItems',
     lastMutationType: 'add-item',
     lastMutationSucceeded: true,
+    lastAddedItem: itemTwo,
     totalCount: 2,
     pageNumber: 3,
     pageSize: 25,
@@ -103,6 +105,10 @@ describe('inventory selectors', () => {
 
   it('selects last mutation status', () => {
     expect(selectInventoryLastMutationSucceeded(rootState as never)).toBe(true);
+  });
+
+  it('selects last added item', () => {
+    expect(selectInventoryLastAddedItem(rootState as never)).toEqual(itemTwo);
   });
 
   it('selects catalog pagination', () => {

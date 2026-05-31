@@ -141,6 +141,17 @@
   }
 
   <div class="table-actions">
+    @if (hasSuccessfulRows()) {
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [label]="'inventory.printSuccessfulRows' | transloco"
+        icon="pi pi-print"
+        (click)="onPrintSuccessfulRows()"
+        [disabled]="isSaving"
+      ></button>
+    }
     <button
       pButton
       type="button"
