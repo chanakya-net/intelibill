@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 
 import { Observable } from 'rxjs';
 
 import {
   API_BASE_URL,
+  ITEM_BARCODE_ENDPOINTS,
   INVENTORY_ENDPOINTS,
   ITEM_ENDPOINTS,
 } from '../../../core/auth/auth.constants';
@@ -21,6 +22,8 @@ import type {
   InventoryBatchDto,
   InventoryCatalogQuery,
   InventoryCatalogResponse,
+  BarcodeLabelPrintRequest,
+  GenerateItemBarcodeResponse,
   Item,
   ProductDetailsDto,
   UpdateInventoryBatchRequest,
@@ -50,6 +53,17 @@ export class InventoryService {
 
   updateItem(itemId: string, payload: UpdateItemRequest): Observable<void> {
     return this.http.patch<void>(ITEM_ENDPOINTS.update(itemId), payload);
+  }
+
+  generateItemBarcode(): Observable<GenerateItemBarcodeResponse> {
+    return this.http.post<GenerateItemBarcodeResponse>(ITEM_BARCODE_ENDPOINTS.generate, {});
+  }
+
+  printBarcodeLabels(payload: BarcodeLabelPrintRequest): Observable<HttpResponse<Blob>> {
+    return this.http.post(ITEM_BARCODE_ENDPOINTS.printLabels, payload, {
+      responseType: 'blob',
+      observe: 'response',
+    }) as Observable<HttpResponse<Blob>>;
   }
 
   getProductDetailsByNameOrBarcode(

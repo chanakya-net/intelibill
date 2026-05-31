@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import {
   API_BASE_URL,
+  ITEM_BARCODE_ENDPOINTS,
   INVENTORY_ENDPOINTS,
   ITEM_ENDPOINTS,
 } from '../../../core/auth/auth.constants';
@@ -481,6 +482,52 @@ describe('InventoryService', () => {
       pageSize: 25,
     });
 
+    http.verify();
+  });
+
+  it('generates a new item barcode', () => {
+    const { service, http } = setup();
+
+    service.generateItemBarcode().subscribe((response) => {
+      expect(response.barcode).toBe('IT-000123');
+    });
+
+    const request = http.expectOne(ITEM_BARCODE_ENDPOINTS.generate);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+
+    request.flush({ barcode: 'IT-000123' });
+    http.verify();
+  });
+
+  it('sends barcode label print request as a blob response', () => {
+    const { service, http } = setup();
+    const requestPayload = {
+      items: [
+        {
+          itemId: 'item-1',
+          quantity: 2,
+          inventoryBatchId: null,
+        },
+        {
+          itemId: 'item-2',
+          quantity: 1,
+          inventoryBatchId: 'batch-2',
+        },
+      ],
+    };
+
+    service.printBarcodeLabels(requestPayload).subscribe((response) => {
+      expect(response.status).toBe(200);
+      expect(response.body).toBeInstanceOf(Blob);
+    });
+
+    const request = http.expectOne(ITEM_BARCODE_ENDPOINTS.printLabels);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(requestPayload);
+    expect(request.request.responseType).toBe('blob');
+
+    request.flush(new Blob(['label']), { status: 200, statusText: 'OK' });
     http.verify();
   });
 });

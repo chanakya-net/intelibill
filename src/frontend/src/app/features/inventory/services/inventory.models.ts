@@ -284,6 +284,20 @@ export interface HsnLookupResult {
   readonly taxScenarios: readonly HsnTaxScenario[];
 }
 
+export interface GenerateItemBarcodeResponse {
+  readonly barcode: string;
+}
+
+export interface BarcodeLabelPrintRequestItem {
+  readonly itemId: string;
+  readonly quantity: number;
+  readonly inventoryBatchId: string | null;
+}
+
+export interface BarcodeLabelPrintRequest {
+  readonly items: readonly BarcodeLabelPrintRequestItem[];
+}
+
 export interface InventoryBatchOption {
   readonly id: string;
   readonly label: string;
