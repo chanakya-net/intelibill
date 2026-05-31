@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoService } from '@ngneat/transloco';
 
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
@@ -79,6 +80,7 @@ export class InventoryPageComponent {
   private readonly inventoryService = inject(InventoryService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly blobDownloadService = inject(BlobDownloadService);
+  private readonly translocoService = inject(TranslocoService);
 
   readonly items = this.store.selectSignal(selectInventoryItems);
   readonly searchValue = signal('');
@@ -152,8 +154,8 @@ export class InventoryPageComponent {
         const item = this.lastAddedItem();
         if (item) {
           this.confirmationService.confirm({
-            message: 'inventory.printBarcode.prompt.message',
-            header: 'inventory.printBarcode.prompt.header',
+            message: this.translocoService.translate('inventory.printBarcode.prompt.message'),
+            header: this.translocoService.translate('inventory.printBarcode.prompt.header'),
             icon: 'pi pi-barcode',
             acceptButtonStyleClass: 'p-button-primary',
             rejectButtonStyleClass: 'p-button-secondary p-button-text',

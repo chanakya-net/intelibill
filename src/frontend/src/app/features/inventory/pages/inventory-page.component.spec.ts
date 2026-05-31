@@ -479,8 +479,8 @@ describe('InventoryPageComponent', () => {
 
     expect(confirmSpy).toHaveBeenCalled();
     const call = confirmSpy.mock.calls[0][0];
-    expect(call.message).toBe('inventory.printBarcode.prompt.message');
-    expect(call.header).toBe('inventory.printBarcode.prompt.header');
+    expect(call.message).toBe('en.inventory.printBarcode.prompt.message');
+    expect(call.header).toBe('en.inventory.printBarcode.prompt.header');
     expect(typeof call.accept).toBe('function');
   });
 });
