@@ -37,10 +37,19 @@ export interface BatchTableAction {
 export class BatchesTableComponent {
   @Input({ required: true }) batches: InventoryBatchDto[] = [];
   @Input() loading = false;
-  @Input() selectedBatchIds: readonly string[] = [];
+  @Input() set selectedBatchIds(value: readonly string[] | null | undefined) {
+    this._selectedBatchIds = value ?? [];
+    this.selectedBatchIdSet = new Set(this._selectedBatchIds);
+  }
+  get selectedBatchIds(): readonly string[] {
+    return this._selectedBatchIds;
+  }
   @Output() batchClicked = new EventEmitter<string>();
   @Output() batchAction = new EventEmitter<BatchTableAction>();
   @Output() selectionChange = new EventEmitter<readonly string[]>();
+
+  private _selectedBatchIds: readonly string[] = [];
+  private selectedBatchIdSet = new Set<string>();
 
   onRowAction(action: 'edit' | 'adjust' | 'void' | 'printLabels', batchId: string): void {
     this.batchAction.emit({ action, batchId });
@@ -67,12 +76,12 @@ export class BatchesTableComponent {
   }
 
   isBatchSelected(batchId: string): boolean {
-    return this.selectedBatchIds.includes(batchId);
+    return this.selectedBatchIdSet.has(batchId);
   }
 
   isAllSelectableSelected(): boolean {
     const selectableIds = this.batches.filter((batch) => !batch.isVoided).map((batch) => batch.id);
-    return selectableIds.length > 0 && selectableIds.every((batchId) => this.selectedBatchIds.includes(batchId));
+    return selectableIds.length > 0 && selectableIds.every((batchId) => this.selectedBatchIdSet.has(batchId));
   }
 
   hasSelectableBatches(): boolean {

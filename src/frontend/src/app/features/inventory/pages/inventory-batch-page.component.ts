@@ -14,6 +14,7 @@ import {
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
   AddInventoryBatchSucceededRow,
+  type BarcodeLabelPrintRequest,
 } from '../services/inventory.models';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
@@ -115,7 +116,7 @@ export class InventoryBatchPageComponent {
     this.openBarcodeLabelPrintDialog(this.mapSuccessfulRowsToPrintCandidates(rows));
   }
 
-  onBarcodeLabelPrintRequested(request: { readonly items: readonly { readonly itemId: string; readonly quantity: number; readonly inventoryBatchId: string | null; }[] }): void {
+  onBarcodeLabelPrintRequested(request: BarcodeLabelPrintRequest): void {
     this.inventoryService.printBarcodeLabels(request).subscribe({
       next: (response) => {
         const blob = response.body;

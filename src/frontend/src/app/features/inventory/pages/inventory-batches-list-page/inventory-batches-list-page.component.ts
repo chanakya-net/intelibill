@@ -14,7 +14,15 @@ import { ToastModule } from 'primeng/toast';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { SelectModule } from 'primeng/select';
 import { finalize } from 'rxjs';
-import { AdjustInventoryBatchRequest, BatchFilters, InventoryAdjustmentDirection, InventoryAdjustmentReason, InventoryBatchDto, UpdateInventoryBatchRequest } from '../../services/inventory.models';
+import {
+  AdjustInventoryBatchRequest,
+  BatchFilters,
+  BarcodeLabelPrintRequest,
+  InventoryAdjustmentDirection,
+  InventoryAdjustmentReason,
+  InventoryBatchDto,
+  UpdateInventoryBatchRequest,
+} from '../../services/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
 import { BatchesTableComponent, BatchTableAction } from '../../components/batches-list/batches-table.component';
@@ -152,7 +160,7 @@ export class InventoryBatchesListPageComponent {
     this.onEditBatch(batch);
   }
 
-  onBarcodeLabelPrintRequested(request: { readonly items: readonly { readonly itemId: string; readonly quantity: number; readonly inventoryBatchId: string | null; }[] }): void {
+  onBarcodeLabelPrintRequested(request: BarcodeLabelPrintRequest): void {
     this.inventoryService.printBarcodeLabels(request).subscribe({
       next: (response) => {
         const blob = response.body;
@@ -174,6 +182,7 @@ export class InventoryBatchesListPageComponent {
     this.barcodeLabelPrintDialogVisible.set(false);
     this.barcodeLabelPrintCandidates.set([]);
   }
+
   loadBatches(): void {
     this.loading.set(true);
     this.inventoryService.getInventoryBatches().pipe(finalize(() => this.loading.set(false))).subscribe({
@@ -328,6 +337,7 @@ export class InventoryBatchesListPageComponent {
       quantity: batch.quantity,
     };
   }
+
   private openBarcodeLabelPrintDialog(items: readonly BarcodeLabelPrintCandidate[]): void {
     if (items.length === 0) {
       return;
@@ -336,6 +346,7 @@ export class InventoryBatchesListPageComponent {
     this.barcodeLabelPrintCandidates.set(items);
     this.barcodeLabelPrintDialogVisible.set(true);
   }
+
   private openOrDownloadLabelBlob(blob: Blob): void {
     try {
       openPdfBlobInNewTab(blob);

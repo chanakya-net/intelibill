@@ -66,6 +66,14 @@ describe('BatchesTableComponent', () => {
     expect(events).toEqual([['b1']]);
   });
 
+  it('should reflect selected batch ids in selection helpers', () => {
+    component.selectedBatchIds = ['b1'];
+
+    expect(component.isBatchSelected('b1')).toBe(true);
+    expect(component.isBatchSelected('missing')).toBe(false);
+    expect(component.isAllSelectableSelected()).toBe(true);
+  });
+
   it('should emit batch clicked when non-voided row selected', () => {
     const events: string[] = [];
     component.batchClicked.subscribe((value) => events.push(value));
