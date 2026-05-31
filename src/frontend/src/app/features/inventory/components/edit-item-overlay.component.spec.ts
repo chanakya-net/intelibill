@@ -2,6 +2,7 @@ import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { InventoryActions } from '../state/inventory.actions';
@@ -12,6 +13,7 @@ import {
   selectInventorySubmitting,
 } from '../state/inventory.selectors';
 import { EditItemOverlayComponent } from './edit-item-overlay.component';
+import { InventoryService } from '../services/inventory.service';
 import type { Item } from '../services/inventory.models';
 
 describe('EditItemOverlayComponent', () => {
@@ -44,6 +46,10 @@ describe('EditItemOverlayComponent', () => {
     }),
   };
 
+  const inventoryService = {
+    generateItemBarcode: vi.fn(() => of({ barcode: 'GEN-0001' })),
+  };
+
   const mockItem: Item = {
     id: '123',
     name: 'Rice',
@@ -64,7 +70,10 @@ describe('EditItemOverlayComponent', () => {
   function setup(item: Item = mockItem): EditItemOverlayComponent {
     TestBed.configureTestingModule({
       imports: [EditItemOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
     });
 
     const fixture = TestBed.createComponent(EditItemOverlayComponent);
@@ -76,6 +85,8 @@ describe('EditItemOverlayComponent', () => {
   beforeEach(() => {
     dispatch.mockReset();
     store.selectSignal.mockClear();
+    inventoryService.generateItemBarcode.mockReset();
+    inventoryService.generateItemBarcode.mockReturnValue(of({ barcode: 'GEN-0001' }));
     isSubmittingSignal.set(false);
     errorSignal.set('');
     lastMutationTypeSignal.set(null);
@@ -230,6 +241,51 @@ describe('EditItemOverlayComponent', () => {
         }),
       })
     );
+  });
+
+  it('always shows replace confirmation when generating barcode (existing item has a barcode)', async () => {
+    const component = setup();
+    component.ngOnInit();
+
+    await component.onGenerateBarcode();
+
+    expect(inventoryService.generateItemBarcode).toHaveBeenCalled();
+    expect(component.barcodeReplaceConfirmVisible()).toBe(true);
+    expect(component.form.controls.barcode.value).toBe('B001');
+  });
+
+  it('patches barcode after confirmation', async () => {
+    const component = setup();
+    component.ngOnInit();
+
+    await component.onGenerateBarcode();
+    component.confirmBarcodeReplace();
+
+    expect(component.form.controls.barcode.value).toBe('GEN-0001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('keeps existing barcode on cancellation', async () => {
+    const component = setup();
+    component.ngOnInit();
+
+    await component.onGenerateBarcode();
+    component.cancelBarcodeReplace();
+
+    expect(component.form.controls.barcode.value).toBe('B001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('sets error when generate barcode fails', async () => {
+    inventoryService.generateItemBarcode.mockReturnValue(throwError(() => new Error('network')));
+    const component = setup();
+    component.ngOnInit();
+
+    await component.onGenerateBarcode();
+
+    expect(component.barcodeGenerateError()).toBe('inventory.generateBarcodeError');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+    expect(component.form.controls.barcode.value).toBe('B001');
   });
 
   it('does not submit when already submitting', () => {
