@@ -532,7 +532,15 @@
     "generateBarcodeReplaceConfirm": "This will replace the current barcode. Replace it?",
     "generateBarcodeReplaceConfirmEdit": "Replacing this barcode may affect existing sales and inventory lookup. Replace it?",
     "confirmReplace": "Replace",
-    "keepCurrentBarcode": "Keep current"
+    "keepCurrentBarcode": "Keep current",
+    "printLabel": "Print label",
+    "printLabels": "Print labels",
+    "printBarcode": {
+      "prompt": {
+        "header": "Print barcode?",
+        "message": "Do you want to print a barcode label for the newly created product?"
+      }
+    }
   },
   "hsn": {
     "suggestion": "HSN Suggestion",

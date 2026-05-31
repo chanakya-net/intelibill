@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoService } from '@ngneat/transloco';
 
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
@@ -14,19 +15,29 @@ import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService } from 'primeng/api';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddProductOverlayComponent } from '../components/add-product-overlay.component';
+import {
+  BarcodeLabelPrintCandidate,
+  BarcodeLabelPrintDialogComponent,
+} from '../components/barcode-label-print-dialog.component';
 import { EditItemOverlayComponent } from '../components/edit-item-overlay.component';
 import { InventoryFilterBarComponent } from '../components/inventory-filter-bar.component';
 import { InventoryTableComponent } from '../components/inventory-table.component';
 import type { Item } from '../services/inventory.models';
 import type { ItemCatalogStatusFilter } from '../services/inventory.models';
+import type { BarcodeLabelPrintRequest } from '../services/inventory.models';
+import { InventoryService } from '../services/inventory.service';
+import { BlobDownloadService } from '../../../shared/utils/blob-download.service';
 import { InventoryActions } from '../state/inventory.actions';
 import {
   selectInventoryErrorMessage,
   selectInventoryItems,
+  selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
   selectInventoryLoadingItems,
@@ -50,19 +61,26 @@ import {
     InputTextModule,
     SkeletonModule,
     TableModule,
+    ConfirmDialogModule,
     AddProductOverlayComponent,
+    BarcodeLabelPrintDialogComponent,
     EditItemOverlayComponent,
     InventoryFilterBarComponent,
     InventoryTableComponent,
     TranslocoPipe,
     DecimalPipe,
   ],
+  providers: [ConfirmationService],
   templateUrl: './inventory-page.component.html',
   styleUrl: './inventory-page.component.scss',
 })
 export class InventoryPageComponent {
   private readonly store = inject(Store<RootState>);
   private readonly authService = inject(AuthService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly blobDownloadService = inject(BlobDownloadService);
+  private readonly translocoService = inject(TranslocoService);
 
   readonly items = this.store.selectSignal(selectInventoryItems);
   readonly searchValue = signal('');
@@ -90,6 +108,7 @@ export class InventoryPageComponent {
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectInventoryLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectInventoryLastMutationSucceeded);
+  readonly lastAddedItem = this.store.selectSignal(selectInventoryLastAddedItem);
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -109,6 +128,12 @@ export class InventoryPageComponent {
   readonly showEditItemOverlay = signal(false);
   readonly selectedItemForEdit = signal<Item | null>(null);
 
+  readonly selectedCatalogItems = signal<readonly Item[]>([]);
+  readonly printDialogVisible = signal(false);
+  readonly printDialogCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
+
+  private lastPrintDialogSource: 'bulk' | 'single' | null = null;
+
   private searchTimeout: any;
 
   constructor() {
@@ -121,8 +146,25 @@ export class InventoryPageComponent {
       }
 
       const mutationType = this.lastMutationType();
-      if (mutationType === 'add-item' && this.showAddProductOverlay()) {
-        this.showAddProductOverlay.set(false);
+      if (mutationType === 'add-item') {
+        if (this.showAddProductOverlay()) {
+          this.showAddProductOverlay.set(false);
+        }
+
+        const item = this.lastAddedItem();
+        if (item) {
+          this.confirmationService.confirm({
+            message: this.translocoService.translate('inventory.printBarcode.prompt.message'),
+            header: this.translocoService.translate('inventory.printBarcode.prompt.header'),
+            icon: 'pi pi-barcode',
+            acceptButtonStyleClass: 'p-button-primary',
+            rejectButtonStyleClass: 'p-button-secondary p-button-text',
+            accept: () => {
+              this.openPrintDialog([item], 'single');
+            },
+          });
+        }
+
         this.store.dispatch(InventoryActions.clearMutationStatus());
       }
 
@@ -218,5 +260,66 @@ export class InventoryPageComponent {
     this.pageNumber.set(event.page);
     this.pageSize.set(event.rows);
     this.loadItems();
+  }
+
+  onCatalogSelectionChange(items: readonly Item[]): void {
+    this.selectedCatalogItems.set(items ?? []);
+  }
+
+  onPrintSelectedLabels(): void {
+    if (!this.canManageInventory()) {
+      return;
+    }
+    this.openPrintDialog(this.selectedCatalogItems(), 'bulk');
+  }
+
+  onPrintLabel(item: Item): void {
+    if (!this.canManageInventory()) {
+      return;
+    }
+    this.openPrintDialog([item], 'single');
+  }
+
+  onClosePrintDialog(): void {
+    this.printDialogVisible.set(false);
+    this.printDialogCandidates.set([]);
+    this.lastPrintDialogSource = null;
+  }
+
+  onPrintDialogRequested(request: BarcodeLabelPrintRequest): void {
+    this.inventoryService.printBarcodeLabels(request).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (blob) {
+          try {
+            this.blobDownloadService.openPdf(blob);
+          } catch {
+            this.blobDownloadService.download(blob, 'barcode-labels.pdf');
+          }
+        }
+
+        if (this.lastPrintDialogSource === 'bulk') {
+          this.selectedCatalogItems.set([]);
+        }
+
+        this.onClosePrintDialog();
+      },
+      error: () => {
+        this.onClosePrintDialog();
+      },
+    });
+  }
+
+  private openPrintDialog(items: readonly Item[], source: 'bulk' | 'single'): void {
+    this.lastPrintDialogSource = source;
+    const candidates = (items ?? []).map((item) => ({
+      itemId: item.id,
+      itemName: item.name,
+      barcode: item.barcode,
+      inventoryBatchId: null,
+    }));
+
+    this.printDialogCandidates.set(candidates);
+    this.printDialogVisible.set(true);
   }
 }
