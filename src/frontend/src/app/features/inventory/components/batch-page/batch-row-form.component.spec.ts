@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProductCatalogSyncService } from '../../../../core/services/product-catalog-sync.service';
@@ -30,6 +30,7 @@ describe('BatchRowFormComponent', () => {
     lookupHsn: vi.fn(() =>
       of({ hsnCodes: [] as string[], taxScenarios: [] as { condition: string; taxPercentage: string }[] }),
     ),
+    generateItemBarcode: vi.fn(() => of({ barcode: 'GEN-BATCH-001' })),
   };
 
   const catalogSync = {
@@ -62,6 +63,8 @@ describe('BatchRowFormComponent', () => {
   beforeEach(() => {
     inventoryService.getProductDetailsByNameOrBarcode.mockClear();
     inventoryService.lookupHsn.mockClear();
+    inventoryService.generateItemBarcode.mockReset();
+    inventoryService.generateItemBarcode.mockReturnValue(of({ barcode: 'GEN-BATCH-001' }));
     catalogSync.filterByName.mockClear();
     catalogSync.filterByBarcode.mockClear();
     catalogSync.findByName.mockClear();
@@ -193,6 +196,81 @@ describe('BatchRowFormComponent', () => {
 
     expect(component.optionalDetailsExpanded()).toBe(true);
     expect(fixture.debugElement.query(By.css('#batch-row-form-optional-details'))).not.toBeNull();
+  });
+
+  it('generates and patches barcode when barcode field is empty', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.state.form.controls.barcode.setValue('');
+
+    await component.onGenerateBarcode();
+
+    expect(inventoryService.generateItemBarcode).toHaveBeenCalled();
+    expect(component.state.form.controls.barcode.value).toBe('GEN-BATCH-001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('shows replace confirmation when row barcode already set', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.state.form.controls.barcode.setValue('EXISTING');
+
+    await component.onGenerateBarcode();
+
+    expect(component.barcodeReplaceConfirmVisible()).toBe(true);
+    expect(component.state.form.controls.barcode.value).toBe('EXISTING');
+  });
+
+  it('patches barcode after batch row confirmation', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.state.form.controls.barcode.setValue('EXISTING');
+
+    await component.onGenerateBarcode();
+    component.confirmBarcodeReplace();
+
+    expect(component.state.form.controls.barcode.value).toBe('GEN-BATCH-001');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('keeps existing barcode in batch row on cancel', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.state.form.controls.barcode.setValue('EXISTING');
+
+    await component.onGenerateBarcode();
+    component.cancelBarcodeReplace();
+
+    expect(component.state.form.controls.barcode.value).toBe('EXISTING');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('sets error when batch row barcode generation fails', async () => {
+    inventoryService.generateItemBarcode.mockReturnValue(throwError(() => new Error('fail')));
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    await component.onGenerateBarcode();
+
+    expect(component.state.barcodeGenerateError()).toBe('inventory.generateBarcodeError');
+    expect(component.barcodeReplaceConfirmVisible()).toBe(false);
+  });
+
+  it('generated barcode flows into draft row built by state service', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.state.form.controls.barcode.setValue('');
+    component.state.form.controls.itemName.setValue('Milk');
+    component.state.form.controls.uom.setValue('ltr');
+    component.state.form.controls.batchNumber.setValue('BN-1');
+    component.state.form.controls.totalPurchaseCost.setValue(42);
+    component.state.form.controls.mrp.setValue(50);
+    component.state.form.controls.salesPrice.setValue(48);
+
+    await component.onGenerateBarcode();
+
+    const row = component.state.buildDraftRow();
+    expect(row?.barcode).toBe('GEN-BATCH-001');
   });
 
   it('emits scannerRequested when the camera button is clicked', () => {

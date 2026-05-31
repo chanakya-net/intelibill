@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { firstValueFrom } from 'rxjs';
 
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
@@ -13,6 +14,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { RootState } from '../../../core/state/app.state';
 import { InventoryActions } from '../state/inventory.actions';
 import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state/inventory.selectors';
+import { InventoryService } from '../services/inventory.service';
 import type { Item } from '../services/inventory.models';
 
 @Component({
@@ -34,6 +36,7 @@ import type { Item } from '../services/inventory.models';
 export class EditItemOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
+  private readonly inventoryService = inject(InventoryService);
 
   @Input({ required: true }) item!: Item;
 
@@ -41,6 +44,10 @@ export class EditItemOverlayComponent implements OnInit {
 
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
+  readonly barcodeGenerating = signal(false);
+  readonly barcodeGenerateError = signal('');
+  readonly barcodeReplaceConfirmVisible = signal(false);
+  private pendingGeneratedBarcode: string | null = null;
 
   readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(180)]],
@@ -61,6 +68,37 @@ export class EditItemOverlayComponent implements OnInit {
     this.form.controls.uom.setValue(this.item.uom);
     this.form.controls.hsnCode.setValue(this.item.hsnCode ?? '');
     this.form.controls.defaultTaxRatePercent.setValue(this.item.defaultTaxRatePercent);
+  }
+
+  async onGenerateBarcode(): Promise<void> {
+    if (this.barcodeGenerating()) {
+      return;
+    }
+
+    this.barcodeGenerating.set(true);
+    this.barcodeGenerateError.set('');
+    try {
+      const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
+      this.pendingGeneratedBarcode = result.barcode;
+      this.barcodeReplaceConfirmVisible.set(true);
+    } catch {
+      this.barcodeGenerateError.set('inventory.generateBarcodeError');
+    } finally {
+      this.barcodeGenerating.set(false);
+    }
+  }
+
+  confirmBarcodeReplace(): void {
+    if (this.pendingGeneratedBarcode) {
+      this.form.controls.barcode.setValue(this.pendingGeneratedBarcode);
+    }
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
+  }
+
+  cancelBarcodeReplace(): void {
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
   }
 
   onClose(): void {

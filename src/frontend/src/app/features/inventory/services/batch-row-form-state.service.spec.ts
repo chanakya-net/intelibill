@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -13,6 +13,7 @@ describe('BatchRowFormStateService', () => {
   const inventoryService = {
     getProductDetailsByNameOrBarcode: vi.fn(),
     lookupHsn: vi.fn(),
+    generateItemBarcode: vi.fn(() => of({ barcode: 'GEN-SVC-001' })),
   };
 
   const catalogSync = {
@@ -43,6 +44,8 @@ describe('BatchRowFormStateService', () => {
   beforeEach(() => {
     inventoryService.getProductDetailsByNameOrBarcode.mockReset();
     inventoryService.lookupHsn.mockReset();
+    inventoryService.generateItemBarcode.mockReset();
+    inventoryService.generateItemBarcode.mockReturnValue(of({ barcode: 'GEN-SVC-001' }));
     catalogSync.filterByName.mockClear();
     catalogSync.filterByBarcode.mockClear();
     catalogSync.findByName.mockClear();
@@ -147,6 +150,46 @@ describe('BatchRowFormStateService', () => {
     state.form.controls.salesPrice.setValue(48);
 
     expect(state.canAutoAddScannedRow()).toBe(true);
+  });
+
+  it('generateBarcode patches barcode when field is empty', async () => {
+    const state = setup();
+    state.form.controls.barcode.setValue('');
+
+    const result = await state.generateBarcode();
+
+    expect(result).toEqual({ needsConfirm: false, barcode: 'GEN-SVC-001' });
+    expect(state.form.controls.barcode.value).toBe('GEN-SVC-001');
+    expect(state.barcodeGenerateError()).toBe('');
+  });
+
+  it('generateBarcode returns needsConfirm when field is non-empty', async () => {
+    const state = setup();
+    state.form.controls.barcode.setValue('EXISTING');
+
+    const result = await state.generateBarcode();
+
+    expect(result).toEqual({ needsConfirm: true, barcode: 'GEN-SVC-001' });
+    expect(state.form.controls.barcode.value).toBe('EXISTING');
+  });
+
+  it('patchGeneratedBarcode updates barcode in form', () => {
+    const state = setup();
+    state.form.controls.barcode.setValue('OLD');
+
+    state.patchGeneratedBarcode('GEN-SVC-001');
+
+    expect(state.form.controls.barcode.value).toBe('GEN-SVC-001');
+  });
+
+  it('generateBarcode returns error on service failure', async () => {
+    inventoryService.generateItemBarcode.mockReturnValue(throwError(() => new Error('fail')));
+    const state = setup();
+
+    const result = await state.generateBarcode();
+
+    expect(result).toEqual({ error: true });
+    expect(state.barcodeGenerateError()).toBe('inventory.generateBarcodeError');
   });
 
   it('requires MRP and sales price before auto-adding scanned row', () => {

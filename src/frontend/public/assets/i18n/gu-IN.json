@@ -526,7 +526,13 @@
         "invalidQuantity": "Quantity must be a positive integer.",
         "totalLimitExceeded": "Total labels cannot exceed 500. Please reduce quantities."
       }
-    }
+    },
+    "generateBarcode": "Generate",
+    "generateBarcodeError": "Failed to generate barcode. Please try again.",
+    "generateBarcodeReplaceConfirm": "This will replace the current barcode. Replace it?",
+    "generateBarcodeReplaceConfirmEdit": "Replacing this barcode may affect existing sales and inventory lookup. Replace it?",
+    "confirmReplace": "Replace",
+    "keepCurrentBarcode": "Keep current"
   },
   "hsn": {
     "suggestion": "HSN Suggestion",

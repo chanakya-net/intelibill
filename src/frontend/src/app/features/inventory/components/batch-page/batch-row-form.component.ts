@@ -41,6 +41,8 @@ export class BatchRowFormComponent {
 
   readonly optionalDetailsExpanded = signal(false);
   readonly pricingGuardVisible = signal(false);
+  readonly barcodeReplaceConfirmVisible = signal(false);
+  private pendingGeneratedBarcode: string | null = null;
 
   @Output() readonly rowSubmitted = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly rowAdded = new EventEmitter<InventoryInboundDraftRow>();
@@ -148,5 +150,29 @@ export class BatchRowFormComponent {
   requestScanner(): void {
     this.scannerRequested.emit();
     this.scanRequested.emit();
+  }
+
+  async onGenerateBarcode(): Promise<void> {
+    const result = await this.state.generateBarcode();
+    if ('error' in result) {
+      return;
+    }
+    if (result.needsConfirm) {
+      this.pendingGeneratedBarcode = result.barcode;
+      this.barcodeReplaceConfirmVisible.set(true);
+    }
+  }
+
+  confirmBarcodeReplace(): void {
+    if (this.pendingGeneratedBarcode) {
+      this.state.patchGeneratedBarcode(this.pendingGeneratedBarcode);
+    }
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
+  }
+
+  cancelBarcodeReplace(): void {
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
   }
 }

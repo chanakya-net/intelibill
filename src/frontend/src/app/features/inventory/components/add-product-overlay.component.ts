@@ -44,6 +44,10 @@ export class AddProductOverlayComponent implements OnInit {
   readonly barcodeSuggestions = signal<string[]>([]);
   readonly suggestedHsnCodes = signal<string[]>([]);
   readonly suggestedTaxSlabs = signal<string[]>([]);
+  readonly barcodeGenerating = signal(false);
+  readonly barcodeGenerateError = signal('');
+  readonly barcodeReplaceConfirmVisible = signal(false);
+  private pendingGeneratedBarcode: string | null = null;
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -102,6 +106,52 @@ export class AddProductOverlayComponent implements OnInit {
     if (parsedTaxRate !== null) {
       this.form.controls.defaultTaxRatePercent.setValue(parsedTaxRate);
     }
+  }
+
+  async onGenerateBarcode(): Promise<void> {
+    if (this.barcodeGenerating()) {
+      return;
+    }
+
+    const currentBarcode = this.form.controls.barcode.value.trim();
+    if (currentBarcode) {
+      this.barcodeGenerating.set(true);
+      this.barcodeGenerateError.set('');
+      try {
+        const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
+        this.pendingGeneratedBarcode = result.barcode;
+        this.barcodeReplaceConfirmVisible.set(true);
+      } catch {
+        this.barcodeGenerateError.set('inventory.generateBarcodeError');
+      } finally {
+        this.barcodeGenerating.set(false);
+      }
+      return;
+    }
+
+    this.barcodeGenerating.set(true);
+    this.barcodeGenerateError.set('');
+    try {
+      const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
+      this.form.controls.barcode.setValue(result.barcode);
+    } catch {
+      this.barcodeGenerateError.set('inventory.generateBarcodeError');
+    } finally {
+      this.barcodeGenerating.set(false);
+    }
+  }
+
+  confirmBarcodeReplace(): void {
+    if (this.pendingGeneratedBarcode) {
+      this.form.controls.barcode.setValue(this.pendingGeneratedBarcode);
+    }
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
+  }
+
+  cancelBarcodeReplace(): void {
+    this.pendingGeneratedBarcode = null;
+    this.barcodeReplaceConfirmVisible.set(false);
   }
 
   onClose(): void {
