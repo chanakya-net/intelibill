@@ -383,6 +383,117 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task PrintBarcodeLabels_AsOwner_ReturnsPdf()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var itemId = await AddItemAsync(client, ownerToken, $"Label Item {Guid.NewGuid():N}", $"LBL-{Guid.NewGuid():N}", isActive: true);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var item = await db.Items.SingleAsync(x => x.Id == itemId);
+            await SeedInventoryAsync(
+                db,
+                item.ShopId,
+                item.Id,
+                item.CreatedBy,
+                quantity: 5m,
+                reorderLevel: 1m,
+                new CatalogBatchSeed("LBL-B1", 5m, 75m, 100m, 90m, DateTimeOffset.UtcNow));
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/labels");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    itemId,
+                    quantity = 2,
+                    inventoryBatchId = (Guid?)null,
+                },
+            },
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        var content = await response.Content.ReadAsByteArrayAsync();
+        Assert.NotEmpty(content);
+        Assert.True(content.AsSpan(0, Math.Min(content.Length, 5)).SequenceEqual("%PDF-"u8));
+    }
+
+    [Fact]
+    public async Task PrintBarcodeLabels_AsStaff_ReturnsForbidden()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (shopId, ownerToken) = await CreateShopAsyncWithId(client, token);
+        var (_, staffEmail, staffPassword) = await AddUserAsync(client, ownerToken, shopId, "Staff");
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/labels");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        request.Content = JsonContent.Create(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    itemId = Guid.NewGuid(),
+                    quantity = 1,
+                    inventoryBatchId = (Guid?)null,
+                },
+            },
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PrintBarcodeLabels_WhenItemFromAnotherShop_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var (_, ownerTokenShopA) = await CreateShopAsyncWithId(client, token);
+        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, token);
+        var itemIdFromShopA = await AddItemAsync(
+            client,
+            ownerTokenShopA,
+            $"Cross Shop Item {Guid.NewGuid():N}",
+            $"XSHOP-{Guid.NewGuid():N}",
+            isActive: true);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/labels");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenShopB);
+        request.Content = JsonContent.Create(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    itemId = itemIdFromShopA,
+                    quantity = 1,
+                    inventoryBatchId = (Guid?)null,
+                },
+            },
+        });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Item.BarcodeLabelItemNotFound", body.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task GetProductDetails_WithValidProductName_Returns200WithDetails()
     {
         using var client = CreateClient();

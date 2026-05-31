@@ -5,7 +5,9 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
+using Intelibill.Application.Features.Items.Barcodes;
 using Intelibill.Application.Features.Items.Barcodes.GenerateItemBarcode;
+using Intelibill.Application.Features.Items.Barcodes.PrintBarcodeLabels;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
@@ -148,6 +150,25 @@ public sealed class ItemsController : AuthenticatedControllerBase
             cancellationToken);
 
         return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("barcodes/labels")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> PrintBarcodeLabels(
+        [FromBody] PrintBarcodeLabelsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<BarcodeLabelPrintResult>>(
+            new PrintBarcodeLabelsCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.Items),
+            cancellationToken);
+
+        return result.ToActionResult(printResult => File(printResult.Content, printResult.ContentType, printResult.FileName));
     }
 
     [HttpPatch("{itemId:guid}")]
