@@ -36,6 +36,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.10.0" />
     <PackageVersion Include="QuestPDF" Version="2026.5.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.4.0" />
+    <PackageVersion Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.22" />
   </ItemGroup>
   <!-- ── API layer ──────────────────────────────────────────────────── -->
   <ItemGroup Label="Api">

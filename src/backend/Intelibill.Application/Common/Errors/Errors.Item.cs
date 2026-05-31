@@ -29,5 +29,23 @@ public static partial class Errors
 
         public static Error ItemNotFound =>
             Error.NotFound("Item.ItemNotFound", "Item not found.");
+
+        public static Error BarcodeLabelItemsRequired =>
+            Error.Validation("Item.BarcodeLabelItemsRequired", "At least one item is required for barcode label printing.");
+
+        public static Error BarcodeLabelItemIdRequired =>
+            Error.Validation("Item.BarcodeLabelItemIdRequired", "Item id is required for barcode label printing.");
+
+        public static Error BarcodeLabelQuantityInvalid =>
+            Error.Validation("Item.BarcodeLabelQuantityInvalid", "Label quantity must be greater than zero.");
+
+        public static Error BarcodeLabelQuantityLimitExceeded(int maxQuantity) =>
+            Error.Validation("Item.BarcodeLabelQuantityLimitExceeded", $"Total label quantity cannot exceed {maxQuantity}.");
+
+        public static Error BarcodeLabelItemNotFound(Guid itemId) =>
+            Error.Validation("Item.BarcodeLabelItemNotFound", $"Item '{itemId}' was not found in the active shop.");
+
+        public static Error BarcodeLabelBatchNotFound(Guid itemId, Guid batchId) =>
+            Error.Validation("Item.BarcodeLabelBatchNotFound", $"Batch '{batchId}' for item '{itemId}' was not found in the active shop.");
     }
 }
