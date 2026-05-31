@@ -18,10 +18,12 @@ import { AdjustInventoryBatchRequest, BatchFilters, InventoryAdjustmentDirection
 import { InventoryService } from '../../services/inventory.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
 import { BatchesTableComponent, BatchTableAction } from '../../components/batches-list/batches-table.component';
+import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } from '../../components/barcode-label-print-dialog.component';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { Supplier } from '../../../suppliers/services/supplier.service';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT, CURRENCY_SELECT_PT } from '../../../../shared/primeng-pt.config';
 import { formatLocalIsoDate, formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
+import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob-download.util';
 interface SelectOption<T extends string | boolean> {
   label: string;
   value: T;
@@ -29,7 +31,7 @@ interface SelectOption<T extends string | boolean> {
 @Component({
   selector: 'app-inventory-batches-list-page',
   standalone: true,
-  imports: [ReactiveFormsModule, TranslocoPipe, DecimalPipe, ButtonModule, DialogModule, InputGroupAddonModule, InputGroupModule, InputNumberModule, InputTextModule, TextareaModule, ToastModule, AutoCompleteModule, SelectModule, BatchesFilterBarComponent, BatchesTableComponent],
+  imports: [ReactiveFormsModule, TranslocoPipe, DecimalPipe, ButtonModule, DialogModule, InputGroupAddonModule, InputGroupModule, InputNumberModule, InputTextModule, TextareaModule, ToastModule, AutoCompleteModule, SelectModule, BatchesFilterBarComponent, BatchesTableComponent, BarcodeLabelPrintDialogComponent],
   providers: [MessageService],
   templateUrl: './inventory-batches-list-page.component.html',
   styleUrl: './inventory-batches-list-page.component.scss',
@@ -46,8 +48,11 @@ export class InventoryBatchesListPageComponent {
   readonly currencySelectPt = CURRENCY_SELECT_PT;
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly loading = signal(false);
+  readonly selectedBatchIds = signal<readonly string[]>([]);
   readonly isEditDialogOpen = signal(false);
   readonly isAdjustmentDialogOpen = signal(false);
+  readonly barcodeLabelPrintDialogVisible = signal(false);
+  readonly barcodeLabelPrintCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
   readonly isSaving = signal(false);
   readonly isAdjustmentSaving = signal(false);
   readonly selectedBatch = signal<InventoryBatchDto | null>(null);
@@ -122,16 +127,52 @@ export class InventoryBatchesListPageComponent {
   onBatchTableAction(event: BatchTableAction): void {
     const batch = this.batches().find((entry) => entry.id === event.batchId);
     if (!batch) return;
+    if (event.action === 'printLabels') return this.openBarcodeLabelPrintDialog([this.mapBatchToPrintCandidate(batch)]);
     if (event.action === 'edit') return this.onEditBatch(batch);
     if (event.action === 'adjust') return this.onAdjustBatch(batch);
     if (event.action === 'void') return this.onVoidBatch(batch.id);
     this.onEditBatch(batch);
   }
 
+  onBatchSelectionChange(batchIds: readonly string[]): void {
+    this.selectedBatchIds.set([...batchIds]);
+  }
+
+  onPrintSelectedBatches(): void {
+    const selectedIds = new Set(this.selectedBatchIds());
+    const candidates = this.batches()
+      .filter((batch) => selectedIds.has(batch.id) && !batch.isVoided)
+      .map((batch) => this.mapBatchToPrintCandidate(batch));
+    this.openBarcodeLabelPrintDialog(candidates);
+  }
+
   onBatchTableSelect(batchId: string): void {
     const batch = this.batches().find((entry) => entry.id === batchId);
     if (!batch) return;
     this.onEditBatch(batch);
+  }
+
+  onBarcodeLabelPrintRequested(request: { readonly items: readonly { readonly itemId: string; readonly quantity: number; readonly inventoryBatchId: string | null; }[] }): void {
+    this.inventoryService.printBarcodeLabels(request).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          this.showError('inventory.barcodeLabels.printFailed');
+          return;
+        }
+
+        this.openOrDownloadLabelBlob(blob);
+        this.barcodeLabelPrintDialogVisible.set(false);
+        this.barcodeLabelPrintCandidates.set([]);
+        this.selectedBatchIds.set([]);
+      },
+      error: () => this.showError('inventory.barcodeLabels.printFailed'),
+    });
+  }
+
+  onBarcodeLabelPrintDialogClosed(): void {
+    this.barcodeLabelPrintDialogVisible.set(false);
+    this.barcodeLabelPrintCandidates.set([]);
   }
   loadBatches(): void {
     this.loading.set(true);
@@ -277,6 +318,30 @@ export class InventoryBatchesListPageComponent {
     if (includeDayEnd) date.setHours(23, 59, 59, 999);
     else date.setHours(0, 0, 0, 0);
     return date.getTime();
+  }
+  private mapBatchToPrintCandidate(batch: InventoryBatchDto): BarcodeLabelPrintCandidate {
+    return {
+      itemId: batch.itemId,
+      itemName: batch.itemName,
+      barcode: batch.barcode,
+      inventoryBatchId: batch.id,
+      quantity: batch.quantity,
+    };
+  }
+  private openBarcodeLabelPrintDialog(items: readonly BarcodeLabelPrintCandidate[]): void {
+    if (items.length === 0) {
+      return;
+    }
+
+    this.barcodeLabelPrintCandidates.set(items);
+    this.barcodeLabelPrintDialogVisible.set(true);
+  }
+  private openOrDownloadLabelBlob(blob: Blob): void {
+    try {
+      openPdfBlobInNewTab(blob);
+    } catch {
+      downloadBlob(blob, 'barcode-labels.pdf');
+    }
   }
   private showSuccess(messageKey: string): void {
     this.messageService.add({ severity: 'success', summary: this.translate(messageKey), life: 3000 });

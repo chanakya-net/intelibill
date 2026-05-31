@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { AudioService } from '../../../core/services/audio.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
+import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } from '../components/barcode-label-print-dialog.component';
 import {
   AddInventoryBatchFailedRow,
   AddInventoryBatchResponse,
@@ -19,6 +20,7 @@ import { BatchRowFormStateService } from '../services/batch-row-form-state.servi
 import { InventoryService } from '../services/inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
+import { downloadBlob, openPdfBlobInNewTab } from '../../../shared/utils/blob-download.util';
 import { BatchRowFormComponent } from '../components/batch-page/batch-row-form.component';
 import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-results.component';
 
@@ -29,6 +31,7 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
     ToastModule,
     TranslocoPipe,
     BarcodeScannerDialogComponent,
+    BarcodeLabelPrintDialogComponent,
     BatchRowFormComponent,
     BatchSaveResultsComponent,
   ],
@@ -52,6 +55,8 @@ export class InventoryBatchPageComponent {
   readonly isSaving = signal(false);
   readonly isScannerOpen = signal(false);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
+  readonly barcodeLabelPrintDialogVisible = signal(false);
+  readonly barcodeLabelPrintCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
   readonly scannerLastAction = signal('');
   readonly scannerSessionCount = signal(0);
   readonly highlightedRowId = signal<string | null>(null);
@@ -104,6 +109,32 @@ export class InventoryBatchPageComponent {
 
     this.isSaving.set(true);
     void this.saveRowsInChunks();
+  }
+
+  onPrintSuccessfulRows(rows: readonly AddInventoryBatchSucceededRow[]): void {
+    this.openBarcodeLabelPrintDialog(this.mapSuccessfulRowsToPrintCandidates(rows));
+  }
+
+  onBarcodeLabelPrintRequested(request: { readonly items: readonly { readonly itemId: string; readonly quantity: number; readonly inventoryBatchId: string | null; }[] }): void {
+    this.inventoryService.printBarcodeLabels(request).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          this.showError('inventory.barcodeLabels.printFailed');
+          return;
+        }
+
+        this.openOrDownloadLabelBlob(blob);
+        this.barcodeLabelPrintDialogVisible.set(false);
+        this.barcodeLabelPrintCandidates.set([]);
+      },
+      error: () => this.showError('inventory.barcodeLabels.printFailed'),
+    });
+  }
+
+  onBarcodeLabelPrintDialogClosed(): void {
+    this.barcodeLabelPrintDialogVisible.set(false);
+    this.barcodeLabelPrintCandidates.set([]);
   }
 
   openScanner(): void {
@@ -245,6 +276,33 @@ export class InventoryBatchPageComponent {
       notes: row.notes,
       performedAt: new Date().toISOString(),
     }));
+  }
+
+  private mapSuccessfulRowsToPrintCandidates(rows: readonly AddInventoryBatchSucceededRow[]): readonly BarcodeLabelPrintCandidate[] {
+    return rows.map((row) => ({
+      itemId: row.result.itemId,
+      itemName: row.result.itemName,
+      barcode: row.result.barcode,
+      inventoryBatchId: row.result.batchId,
+      quantity: row.result.batchQuantity,
+    }));
+  }
+
+  private openBarcodeLabelPrintDialog(items: readonly BarcodeLabelPrintCandidate[]): void {
+    if (items.length === 0) {
+      return;
+    }
+
+    this.barcodeLabelPrintCandidates.set(items);
+    this.barcodeLabelPrintDialogVisible.set(true);
+  }
+
+  private openOrDownloadLabelBlob(blob: Blob): void {
+    try {
+      openPdfBlobInNewTab(blob);
+    } catch {
+      downloadBlob(blob, 'barcode-labels.pdf');
+    }
   }
 
   private showInfo(key: string): void { this.notify('info', key, 2500); }

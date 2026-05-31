@@ -6,6 +6,18 @@
     <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
   </header>
 
+  <div class="flex justify-end mb-4">
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      icon="pi pi-print"
+      [label]="'inventory.printSelectedLabels' | transloco"
+      (click)="onPrintSelectedBatches()"
+      [disabled]="selectedBatchIds().length === 0"
+    ></button>
+  </div>
+
   <app-batches-filter-bar
     class="mb-6"
     [filters]="batchFilters()"
@@ -15,10 +27,20 @@
   <app-batches-table
     [batches]="filteredBatches()"
     [loading]="loading()"
+    [selectedBatchIds]="selectedBatchIds()"
     (batchClicked)="onBatchTableSelect($event)"
     (batchAction)="onBatchTableAction($event)"
+    (selectionChange)="onBatchSelectionChange($event)"
   />
 </section>
+
+<app-barcode-label-print-dialog
+  [visible]="barcodeLabelPrintDialogVisible()"
+  [items]="barcodeLabelPrintCandidates()"
+  (visibleChange)="barcodeLabelPrintDialogVisible.set($event)"
+  (closeRequested)="onBarcodeLabelPrintDialogClosed()"
+  (printRequested)="onBarcodeLabelPrintRequested($event)"
+/>
 
 <p-dialog
   [header]="'inventory.correctBatch' | transloco"

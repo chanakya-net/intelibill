@@ -39,6 +39,40 @@ describe('BatchSaveResultsComponent', () => {
     return fixture;
   }
 
+  function setupWithSuccessRows() {
+    TestBed.configureTestingModule({
+      imports: [BatchSaveResultsComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      providers: [{ provide: BatchDraftStateService, useValue: draftState }],
+    });
+
+    const fixture = TestBed.createComponent(BatchSaveResultsComponent);
+    fixture.componentInstance.saveSummary = {
+      requestedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      succeeded: [
+        {
+          clientRowId: 'row-1',
+          result: {
+            itemId: 'item-1',
+            itemName: 'Milk',
+            barcode: 'B001',
+            batchId: 'batch-1',
+            batchNumber: 'BN-1',
+            batchQuantity: 3,
+            totalQuantity: 3,
+            supplierId: null,
+            stockTransactionId: 'tx-1',
+            performedAt: new Date().toISOString(),
+          },
+        },
+      ],
+      failed: [],
+    };
+    fixture.detectChanges();
+    return fixture;
+  }
+
   beforeEach(() => {
     draftState.pendingRows.set([
       {
@@ -128,6 +162,20 @@ describe('BatchSaveResultsComponent', () => {
     expect(removals).toEqual(['row-1']);
     expect(clearCount).toBe(1);
     expect(saveCount).toBe(1);
+  });
+
+  it('shows print labels action when rows succeeded and emits successful rows', () => {
+    const fixture = setupWithSuccessRows();
+    const component = fixture.componentInstance;
+    const printed: any[] = [];
+    component.printSuccessfulRows.subscribe((value) => printed.push(...value));
+
+    const printButton = fixture.debugElement.query(By.css('.table-actions button[icon=\"pi pi-print\"]'));
+    expect(printButton).not.toBeNull();
+    printButton.triggerEventHandler('click');
+
+    expect(printed).toHaveLength(1);
+    expect(printed[0].result.batchQuantity).toBe(3);
   });
 
   it('desktop actions buttons respect isSaving state', () => {

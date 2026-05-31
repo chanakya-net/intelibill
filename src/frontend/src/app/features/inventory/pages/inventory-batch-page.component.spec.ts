@@ -40,6 +40,7 @@ describe('InventoryBatchPageComponent', () => {
     getProductDetailsByNameOrBarcode: vi.fn(() => of(productDetails)),
     addInventoryBatch: vi.fn(),
     lookupHsn: vi.fn(() => of(emptyLookupResult)),
+    printBarcodeLabels: vi.fn(),
   };
 
   const draftStorage = {
@@ -124,6 +125,7 @@ describe('InventoryBatchPageComponent', () => {
     inventoryService.addInventoryBatch.mockReset();
     inventoryService.lookupHsn.mockReset();
     inventoryService.lookupHsn.mockReturnValue(of(emptyLookupResult));
+    inventoryService.printBarcodeLabels.mockReset();
     draftStorage.loadRows.mockClear();
     draftStorage.saveRows.mockClear();
     draftStorage.clearRows.mockClear();
@@ -564,6 +566,41 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.pendingRows()[0].clientRowId).toBe(rows[0].clientRowId);
     expect(component.saveSummary()?.successCount).toBe(99);
     expect(component.saveSummary()?.failedCount).toBe(1);
+  });
+
+  it('prepares successful inbound rows for barcode label printing with saved batch quantities', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const succeededRows = [
+      {
+        clientRowId: 'row-1',
+        result: {
+          itemId: 'item-1',
+          itemName: 'Milk',
+          barcode: 'B001',
+          batchId: 'batch-1',
+          batchNumber: 'BN-1',
+          batchQuantity: 4,
+          totalQuantity: 4,
+          supplierId: null,
+          stockTransactionId: 'tx-1',
+          performedAt: new Date().toISOString(),
+        },
+      },
+    ];
+
+    component.onPrintSuccessfulRows(succeededRows as any);
+
+    expect(component.barcodeLabelPrintDialogVisible()).toBe(true);
+    expect(component.barcodeLabelPrintCandidates()).toEqual([
+      {
+        itemId: 'item-1',
+        itemName: 'Milk',
+        barcode: 'B001',
+        inventoryBatchId: 'batch-1',
+        quantity: 4,
+      },
+    ]);
   });
 
   function createDraftRow(

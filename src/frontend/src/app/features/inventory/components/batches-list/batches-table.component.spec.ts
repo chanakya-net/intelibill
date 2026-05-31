@@ -45,12 +45,25 @@ describe('BatchesTableComponent', () => {
   });
 
   it('should emit batch action payload', () => {
-    const events: Array<{ action: 'edit' | 'adjust' | 'void'; batchId: string }> = [];
+    const events: Array<{ action: 'edit' | 'adjust' | 'void' | 'printLabels'; batchId: string }> = [];
     component.batchAction.subscribe((value) => events.push(value));
 
     component.onRowAction('edit', 'b1');
+    component.onRowAction('printLabels', 'b1');
 
-    expect(events).toEqual([{ action: 'edit', batchId: 'b1' }]);
+    expect(events).toEqual([
+      { action: 'edit', batchId: 'b1' },
+      { action: 'printLabels', batchId: 'b1' },
+    ]);
+  });
+
+  it('should emit selection updates for selectable rows', () => {
+    const events: string[][] = [];
+    component.selectionChange.subscribe((value) => events.push([...value]));
+
+    component.onRowSelectionChange(mockBatches[0], true);
+
+    expect(events).toEqual([['b1']]);
   });
 
   it('should emit batch clicked when non-voided row selected', () => {
