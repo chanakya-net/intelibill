@@ -132,3 +132,7 @@ SignalR is embedded in the ASP.NET Core app. To enable WebSockets on Azure App S
 **Portal → App Service → Configuration → General Settings → Web Sockets: On**
 
 SignalR automatically falls back to Server-Sent Events (SSE) or Long Polling if WebSockets are disabled — no code change required. WebSockets should be enabled in production for lowest latency.
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE) for details.
