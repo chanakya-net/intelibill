@@ -227,7 +227,6 @@ Temporary Items
 .claude/
 .codegraph/
 .gemini/
-.github/badges/
 .graphify_detect.json
 .graphify_incremental.json
 .graphify_python
