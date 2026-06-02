@@ -25,7 +25,10 @@ const item = {
 describe('CartTableComponent', () => {
   it('renders empty cart state when no rows are present', () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
@@ -36,7 +39,10 @@ describe('CartTableComponent', () => {
 
   it('keeps advanced line controls hidden until toggled open', async () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
@@ -45,9 +51,10 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.getUnitSubtotal = () => 100;
     fixture.componentInstance.getUnitTaxAmount = () => 18;
     fixture.componentInstance.getLineTotal = () => 118;
-    fixture.componentInstance.getPreviewLine = () => ({
-      configuredBatchRulePercentage: 12,
-    } as never);
+    fixture.componentInstance.getPreviewLine = () =>
+      ({
+        configuredBatchRulePercentage: 12,
+      }) as never;
     fixture.componentInstance.getCartItemHsnError = () => 'sales.newSale.hsnInvalid';
     fixture.componentInstance.getCartItemTaxError = () => 'sales.newSale.taxInvalid';
     fixture.componentInstance.getCartItemDiscountError = () => 'sales.newSale.discountInvalid';
@@ -64,8 +71,10 @@ describe('CartTableComponent', () => {
     expect(text).toContain('B1');
     expect(text).toContain('en.sales.newSale.price');
     expect(text).toContain('en.sales.newSale.advancedLineEdit');
-    const advancedPanel = fixture.nativeElement.querySelector('.advanced-line-edit') as HTMLElement;
-    expect(advancedPanel.hidden).toBe(true);
+    const advancedRow = fixture.nativeElement.querySelector(
+      '.advanced-line-edit-row',
+    ) as HTMLTableRowElement;
+    expect(advancedRow.hidden).toBe(true);
 
     fixture.componentInstance.toggleLineDiscountEditor('line-1');
     expect(toggleSpy).toHaveBeenCalledWith('line-1');
@@ -73,11 +82,15 @@ describe('CartTableComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(advancedPanel.hidden).toBe(false);
+    const advancedPanel = fixture.nativeElement.querySelector('.advanced-line-edit') as HTMLElement;
+    expect(advancedRow.hidden).toBe(false);
+    expect(advancedPanel).toBeTruthy();
     const expandedText = (advancedPanel.textContent as string).replace(/\s+/g, ' ');
     expect(expandedText).toContain('en.sales.newSale.hsnCode');
     expect(expandedText).toContain('en.sales.newSale.taxRatePercent');
-    const discountInput = fixture.nativeElement.querySelector('input[placeholder="en.sales.newSale.discounts.value"]') as HTMLInputElement;
+    const discountInput = fixture.nativeElement.querySelector(
+      'input[placeholder="en.sales.newSale.discounts.value"]',
+    ) as HTMLInputElement;
     expect(discountInput).toBeTruthy();
     expect(expandedText).toContain('en.sales.newSale.hsnInvalid');
     expect(expandedText).toContain('en.sales.newSale.taxInvalid');
@@ -86,7 +99,10 @@ describe('CartTableComponent', () => {
 
   it('emits item quantity updates and removal', () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
@@ -113,7 +129,10 @@ describe('CartTableComponent', () => {
 
   it('normalizes tax rate to 2 decimal places before emitting', () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
@@ -138,7 +157,10 @@ describe('CartTableComponent', () => {
 
   it('normalizes discount value to 2 decimal places before emitting', () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
@@ -163,7 +185,10 @@ describe('CartTableComponent', () => {
 
   it('renders per-unit final price in breakdown', () => {
     TestBed.configureTestingModule({
-      imports: [CartTableComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartTableComponent);
