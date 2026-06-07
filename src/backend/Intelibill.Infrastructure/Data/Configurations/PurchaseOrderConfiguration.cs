@@ -43,6 +43,13 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         builder.Property(po => po.CancellationReason)
             .HasMaxLength(500);
 
+        builder.Property(po => po.ClosedAt);
+
+        builder.Property(po => po.ClosedBy);
+
+        builder.Property(po => po.CloseReason)
+            .HasMaxLength(500);
+
         builder.HasIndex(po => po.ShopId);
         builder.HasIndex(po => new { po.ShopId, po.PurchaseOrderNumber })
             .IsUnique();
@@ -55,6 +62,11 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         builder.HasOne<Supplier>()
             .WithMany()
             .HasForeignKey(po => po.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(po => po.ClosedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(po => po.Lines)

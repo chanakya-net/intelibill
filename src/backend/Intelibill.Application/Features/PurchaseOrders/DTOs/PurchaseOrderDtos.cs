@@ -17,10 +17,17 @@ public sealed record PurchaseOrderReceiptLineDto(
     Guid PurchaseOrderLineId,
     Guid ItemId,
     Guid InventoryBatchId,
+    string? BatchNumber,
+    bool? BatchVoided,
     Guid StockTransactionId,
     decimal Quantity,
     decimal TotalPurchaseCost,
-    decimal UnitCost);
+    decimal UnitCost,
+    decimal Mrp,
+    decimal SalesPrice,
+    decimal TaxRatePercent,
+    bool TaxIncluded,
+    bool PurchaseTaxIncluded);
 
 public sealed record PurchaseOrderReceiptDto(
     Guid ReceiptId,
@@ -28,6 +35,8 @@ public sealed record PurchaseOrderReceiptDto(
     DateTimeOffset ReceivedAt,
     string? ReferenceNumber,
     string? Notes,
+    Guid ReceivedByUserId,
+    string? ReceivedByDisplayName,
     IReadOnlyList<PurchaseOrderReceiptLineDto> Lines);
 
 public sealed record PurchaseOrderListItemDto(
@@ -64,4 +73,7 @@ public sealed record PurchaseOrderDetailDto(
     string? SupplierName = null,
     string? SupplierReference = null,
     int ReceivedQuantity = 0,
-    IReadOnlyList<PurchaseOrderReceiptDto>? Receipts = null);
+    IReadOnlyList<PurchaseOrderReceiptDto>? Receipts = null,
+    DateTimeOffset? ClosedAt = null,
+    Guid? ClosedBy = null,
+    string? CloseReason = null);

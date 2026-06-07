@@ -3,6 +3,7 @@ import { Store } from '@ngrx/store';
 
 import {
   CancelPurchaseOrderRequest,
+  ClosePurchaseOrderRequest,
   CreatePurchaseOrderDraftRequest,
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   PurchaseOrderDetail,
@@ -68,6 +69,10 @@ export class PurchaseOrdersFacade {
 
   cancelOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): void {
     this.store.dispatch(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId, payload }));
+  }
+
+  closeOrder(purchaseOrderId: string, payload: ClosePurchaseOrderRequest): void {
+    this.store.dispatch(PurchaseOrdersActions.closeOrderRequested({ purchaseOrderId, payload }));
   }
 
   receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {

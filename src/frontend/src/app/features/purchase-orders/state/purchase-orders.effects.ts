@@ -167,6 +167,24 @@ export class PurchaseOrdersEffects {
       )
     )
   );
+
+  readonly closeOrder$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.closeOrderRequested),
+      switchMap(({ purchaseOrderId, payload }) =>
+        this.service.closePurchaseOrder(purchaseOrderId, payload).pipe(
+          map((order) => PurchaseOrdersActions.closeOrderSucceeded({ order })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.closeOrderFailed({
+                errorMessage: getCloseOrderErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
 }
 
 function getPurchaseOrderDetailErrorMessage(error: ApiErrorPayload | undefined): string {
@@ -234,4 +252,13 @@ function getReceiveOrderErrorMessage(error: ApiErrorPayload | undefined): string
   if (title === 'Inventory.BatchNumberAlreadyExists') return 'purchaseOrders.errors.batchNumberAlreadyExists';
   if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
   return 'purchaseOrders.errors.unableToReceive';
+}
+
+function getCloseOrderErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.CannotCloseInvalidStatus') return 'purchaseOrders.errors.cannotCloseInvalidStatus';
+  if (title === 'PurchaseOrder.CloseReasonRequired') return 'purchaseOrders.errors.closeReasonRequired';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToClose';
 }

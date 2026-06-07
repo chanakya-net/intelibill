@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder;
+using Intelibill.Application.Features.PurchaseOrders.Commands.ClosePurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
@@ -169,6 +170,22 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    [HttpPost("{purchaseOrderId:guid}/close")]
+    public async Task<IActionResult> ClosePurchaseOrder(
+        Guid purchaseOrderId,
+        [FromBody] ClosePurchaseOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new ClosePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPost("{purchaseOrderId:guid}/receipts")]
     public async Task<IActionResult> ReceivePurchaseOrder(
         Guid purchaseOrderId,
@@ -237,6 +254,8 @@ public sealed record UpdatePurchaseOrderDraftRequest(
     IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);
 
 public sealed record CancelPurchaseOrderRequest(string? Reason);
+
+public sealed record ClosePurchaseOrderRequest(string? Reason);
 
 public sealed record ReceivePurchaseOrderLineRequest(
     Guid PurchaseOrderLineId,

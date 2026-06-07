@@ -7,9 +7,15 @@ internal sealed class ReceivePurchaseOrderCommandValidator : AbstractValidator<R
     public ReceivePurchaseOrderCommandValidator()
     {
         RuleFor(c => c.PurchaseOrderId).NotEmpty();
-        RuleFor(c => c.Lines).Must(lines => lines.Count == 1)
+        RuleFor(c => c.Lines).NotEmpty()
             .WithErrorCode("PurchaseOrder.ReceiptLineRequired")
-            .WithMessage("Exactly one receipt line is required.");
+            .WithMessage("At least one receipt line is required.");
+
+        RuleFor(c => c.Lines)
+            .Must(lines => lines.Select(line => line.PurchaseOrderLineId).Distinct().Count() == lines.Count)
+            .When(c => c.Lines.Count > 0)
+            .WithErrorCode("PurchaseOrder.DuplicateReceiptLine")
+            .WithMessage("A purchase order line can only appear once in a receipt.");
 
         RuleForEach(c => c.Lines).ChildRules(line =>
         {

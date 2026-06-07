@@ -33,8 +33,11 @@ public sealed class ReceivePurchaseOrderCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.PurchaseOrder.UserCannotMutatePurchaseOrder;
 
-        if (command.Lines.Count != 1)
+        if (command.Lines.Count == 0)
             return Errors.PurchaseOrder.ReceiptLineRequired;
+
+        if (command.Lines.Select(line => line.PurchaseOrderLineId).Distinct().Count() != command.Lines.Count)
+            return Errors.PurchaseOrder.DuplicateReceiptLine;
 
         var receivedAt = (command.ReceivedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
         await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -53,64 +56,41 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 return Errors.PurchaseOrder.CannotReceiveInvalidStatus;
             }
 
-            var lineInput = command.Lines[0];
-            var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
-            if (poLine is null)
+            var resolvedLines = new List<(ReceivePurchaseOrderLineInput Input, PurchaseOrderLine Line)>(command.Lines.Count);
+            foreach (var lineInput in command.Lines)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Errors.PurchaseOrder.ReceiptLineNotFound;
+                var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
+                if (poLine is null)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.ReceiptLineNotFound;
+                }
+
+                if (lineInput.Quantity <= 0)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.ReceiptQuantityInvalid;
+                }
+
+                if (lineInput.Quantity > poLine.RemainingQuantity)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
+                }
+
+                resolvedLines.Add((lineInput, poLine));
             }
 
-            if (lineInput.Quantity <= 0)
+            var duplicateBatch = resolvedLines
+                .GroupBy(item => new { item.Line.ItemId, BatchNumber = item.Input.BatchNumber.Trim() })
+                .Any(group => group.Key.BatchNumber.Length > 0 && group.Count() > 1);
+            if (duplicateBatch)
             {
                 await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Errors.PurchaseOrder.ReceiptQuantityInvalid;
-            }
-
-            if (lineInput.Quantity > poLine.RemainingQuantity)
-            {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
+                return Errors.Inventory.BatchNumberAlreadyExists;
             }
 
             var receiptNumber = await receiptNumberGenerator.GenerateAsync(command.ActiveShopId, receivedAt.Year, cancellationToken);
-
-            var inboundInput = new InboundInventoryLineInput(
-                poLine.ItemId,
-                poLine.Description,
-                string.Empty,
-                null,
-                string.Empty,
-                lineInput.BatchNumber,
-                lineInput.Quantity,
-                lineInput.TotalPurchaseCost,
-                lineInput.Mrp,
-                lineInput.SalesPrice,
-                lineInput.TaxRatePercent,
-                lineInput.TaxIncluded,
-                lineInput.PurchaseTaxIncluded,
-                lineInput.ExpiryDate,
-                lineInput.ManufacturingDate,
-                po.SupplierId,
-                command.ReferenceNumber,
-                command.Notes,
-                receivedAt,
-                null);
-
-            var inboundResult = await inboundInventoryLineProcessor.ProcessAsync(
-                command.ActiveShopId,
-                inboundInput,
-                command.ActorUserId,
-                new ItemResolutionContext(),
-                new InventoryUpdateContext(),
-                cancellationToken);
-
-            if (inboundResult.IsError)
-            {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return inboundResult.Errors;
-            }
-
             var receipt = PurchaseOrderReceipt.Create(
                 command.ActiveShopId,
                 po.Id,
@@ -120,20 +100,62 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 command.Notes,
                 command.ActorUserId);
 
-            receipt.AddLine(
-                poLine.Id,
-                poLine.ItemId,
-                inboundResult.Value.Batch.Id,
-                inboundResult.Value.StockTransaction.Id,
-                lineInput.Quantity,
-                lineInput.TotalPurchaseCost,
-                lineInput.Mrp,
-                lineInput.SalesPrice,
-                lineInput.TaxRatePercent,
-                lineInput.TaxIncluded,
-                lineInput.PurchaseTaxIncluded);
+            var itemResolutionContext = new ItemResolutionContext();
+            var inventoryUpdateContext = new InventoryUpdateContext();
 
-            po.ApplyReceipt(poLine.Id, lineInput.Quantity);
+            foreach (var (lineInput, poLine) in resolvedLines)
+            {
+                var inboundInput = new InboundInventoryLineInput(
+                    poLine.ItemId,
+                    poLine.Description,
+                    string.Empty,
+                    null,
+                    string.Empty,
+                    lineInput.BatchNumber,
+                    lineInput.Quantity,
+                    lineInput.TotalPurchaseCost,
+                    lineInput.Mrp,
+                    lineInput.SalesPrice,
+                    lineInput.TaxRatePercent,
+                    lineInput.TaxIncluded,
+                    lineInput.PurchaseTaxIncluded,
+                    lineInput.ExpiryDate,
+                    lineInput.ManufacturingDate,
+                    po.SupplierId,
+                    command.ReferenceNumber,
+                    command.Notes,
+                    receivedAt,
+                    null);
+
+                var inboundResult = await inboundInventoryLineProcessor.ProcessAsync(
+                    command.ActiveShopId,
+                    inboundInput,
+                    command.ActorUserId,
+                    itemResolutionContext,
+                    inventoryUpdateContext,
+                    cancellationToken);
+
+                if (inboundResult.IsError)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return inboundResult.Errors;
+                }
+
+                receipt.AddLine(
+                    poLine.Id,
+                    poLine.ItemId,
+                    inboundResult.Value.Batch.Id,
+                    inboundResult.Value.StockTransaction.Id,
+                    lineInput.Quantity,
+                    lineInput.TotalPurchaseCost,
+                    lineInput.Mrp,
+                    lineInput.SalesPrice,
+                    lineInput.TaxRatePercent,
+                    lineInput.TaxIncluded,
+                    lineInput.PurchaseTaxIncluded);
+
+                po.ApplyReceipt(poLine.Id, lineInput.Quantity);
+            }
             po.AddReceipt(receipt);
 
             await receiptRepository.AddAsync(receipt, cancellationToken);

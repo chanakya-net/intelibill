@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { PURCHASE_ORDER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled' | 'PartiallyReceived' | 'Received';
+export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled' | 'PartiallyReceived' | 'Received' | 'Closed';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
@@ -22,10 +22,17 @@ export interface PurchaseOrderReceiptLine {
   readonly purchaseOrderLineId: string;
   readonly itemId: string;
   readonly inventoryBatchId: string;
+  readonly batchNumber?: string | null;
+  readonly batchVoided?: boolean | null;
   readonly stockTransactionId: string;
   readonly quantity: number;
   readonly totalPurchaseCost: number;
   readonly unitCost: number;
+  readonly mrp?: number;
+  readonly salesPrice?: number;
+  readonly taxRatePercent?: number;
+  readonly taxIncluded?: boolean;
+  readonly purchaseTaxIncluded?: boolean;
 }
 
 export interface PurchaseOrderReceipt {
@@ -34,6 +41,8 @@ export interface PurchaseOrderReceipt {
   readonly receivedAt: string;
   readonly referenceNumber: string | null;
   readonly notes: string | null;
+  readonly receivedByUserId?: string;
+  readonly receivedByDisplayName?: string | null;
   readonly lines: readonly PurchaseOrderReceiptLine[];
 }
 
@@ -83,6 +92,9 @@ export interface PurchaseOrderDetail {
   readonly createdAt: string;
   readonly cancellationReason: string | null;
   readonly receipts?: readonly PurchaseOrderReceipt[];
+  readonly closedAt?: string | null;
+  readonly closedBy?: string | null;
+  readonly closeReason?: string | null;
 }
 
 export interface CreatePurchaseOrderLineRequest {
@@ -104,6 +116,10 @@ export interface CreatePurchaseOrderDraftRequest {
 }
 
 export interface CancelPurchaseOrderRequest {
+  readonly reason: string | null;
+}
+
+export interface ClosePurchaseOrderRequest {
   readonly reason: string | null;
 }
 
@@ -177,6 +193,10 @@ export class PurchaseOrderService {
 
   cancelPurchaseOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): Observable<PurchaseOrderDetail> {
     return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.cancel(purchaseOrderId), payload);
+  }
+
+  closePurchaseOrder(purchaseOrderId: string, payload: ClosePurchaseOrderRequest): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.close(purchaseOrderId), payload);
   }
 
   receivePurchaseOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): Observable<PurchaseOrderDetail> {

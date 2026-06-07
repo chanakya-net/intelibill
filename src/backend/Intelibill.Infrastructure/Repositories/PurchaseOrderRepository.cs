@@ -19,6 +19,7 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             .Include(po => po.Lines)
             .Include(po => po.Receipts)
                 .ThenInclude(r => r.Lines)
+                    .ThenInclude(l => l.InventoryBatch)
             .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
 
     public async Task<PurchaseOrder?> GetDetailAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default) =>
@@ -26,6 +27,7 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             .Include(po => po.Lines)
             .Include(po => po.Receipts)
                 .ThenInclude(r => r.Lines)
+                    .ThenInclude(l => l.InventoryBatch)
             .FirstOrDefaultAsync(po => po.Id == purchaseOrderId, cancellationToken);
 
     public async Task<PurchaseOrder?> GetReceiptDetailAsync(
@@ -36,6 +38,7 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             .Include(po => po.Lines)
             .Include(po => po.Receipts)
                 .ThenInclude(r => r.Lines)
+                    .ThenInclude(l => l.InventoryBatch)
             .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
 
     public async Task<PurchaseOrder?> GetReceiptDetailForUpdateAsync(
@@ -76,6 +79,7 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             .Collection(po => po.Receipts)
             .Query()
             .Include(receipt => receipt.Lines)
+                .ThenInclude(line => line.InventoryBatch)
             .LoadAsync(cancellationToken);
 
         return purchaseOrder;

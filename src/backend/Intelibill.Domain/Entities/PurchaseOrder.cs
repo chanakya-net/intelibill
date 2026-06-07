@@ -19,6 +19,9 @@ public sealed class PurchaseOrder : BaseEntity
     public string? SupplierReference { get; private set; }
     public PurchaseOrderStatus Status { get; private set; }
     public string? CancellationReason { get; private set; }
+    public DateTimeOffset? ClosedAt { get; private set; }
+    public Guid? ClosedBy { get; private set; }
+    public string? CloseReason { get; private set; }
     public IReadOnlyList<PurchaseOrderLine> Lines => _lines.AsReadOnly();
     public IReadOnlyList<PurchaseOrderReceipt> Receipts => _receipts.AsReadOnly();
 
@@ -135,6 +138,20 @@ public sealed class PurchaseOrder : BaseEntity
         Status = _lines.All(l => l.ReceivedQuantity == l.ExpectedQuantity)
             ? PurchaseOrderStatus.Received
             : PurchaseOrderStatus.PartiallyReceived;
+    }
+
+    public void Close(Guid closedBy, string reason, DateTimeOffset closedAt)
+    {
+        if (Status != PurchaseOrderStatus.PartiallyReceived)
+            throw new InvalidOperationException("Only partially received purchase orders can be closed.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidOperationException("Close reason is required.");
+
+        ClosedBy = closedBy;
+        ClosedAt = closedAt.ToUniversalTime();
+        CloseReason = reason.Trim();
+        Status = PurchaseOrderStatus.Closed;
     }
 
     public void AddReceipt(PurchaseOrderReceipt receipt)

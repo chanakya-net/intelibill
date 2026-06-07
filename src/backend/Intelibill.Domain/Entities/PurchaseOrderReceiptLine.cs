@@ -17,6 +17,7 @@ public sealed class PurchaseOrderReceiptLine : BaseEntity
     public decimal TaxRatePercent { get; private set; }
     public bool TaxIncluded { get; private set; }
     public bool PurchaseTaxIncluded { get; private set; }
+    public InventoryBatch? InventoryBatch { get; private set; }
 
     private PurchaseOrderReceiptLine() { }
 
