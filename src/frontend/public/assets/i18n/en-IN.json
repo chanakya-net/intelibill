@@ -1508,6 +1508,7 @@
       "receivedAt": "Received at",
       "receivedBy": "Received by",
       "quantity": "Quantity",
+      "totalCost": "Total cost",
       "noReceipts": "No receipts found.",
       "batch": "Batch",
       "unitCost": "Unit cost",
