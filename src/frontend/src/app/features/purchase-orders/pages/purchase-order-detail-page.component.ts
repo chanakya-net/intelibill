@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { TranslocoService } from '@ngneat/transloco';
 
@@ -45,6 +45,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <div class="po-detail-header">
               <h2>{{ order.purchaseOrderNumber }}</h2>
               <div class="po-detail-actions">
+                <button type="button" (click)="openPrintView(order.purchaseOrderId)">
+                  {{ 'purchaseOrders.actions.print' | transloco }}
+                </button>
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
                   <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
                     {{ 'purchaseOrders.editPo' | transloco }}
@@ -72,8 +75,8 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             </div>
           </ng-template>
           <p>
-            <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
-            <p-tag [value]="order.status" severity="info" />
+            <strong>{{ 'purchaseOrders.statusLabel' | transloco }}:</strong>
+            <p-tag [value]="'purchaseOrders.status.' + order.status | transloco" severity="info" />
           </p>
           @if (order.cancellationReason) {
             <p>
@@ -149,6 +152,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
 
@@ -167,6 +171,10 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
 
   protected placeOrder(purchaseOrderId: string): void {
     this.facade.placeOrder(purchaseOrderId);
+  }
+
+  protected openPrintView(purchaseOrderId: string): void {
+    void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId, 'print']);
   }
 
   protected deleteDraft(purchaseOrderId: string): void {

@@ -1,0 +1,101 @@
+<main class="po-print-page">
+  <div class="screen-controls" aria-label="Purchase order print controls">
+    <button type="button" class="screen-controls__button" (click)="onPrintAgain()">
+      {{ 'purchaseOrders.print.printAgain' | transloco }}
+    </button>
+    <button type="button" class="screen-controls__button screen-controls__button--secondary" (click)="onClose()">
+      {{ 'purchaseOrders.print.close' | transloco }}
+    </button>
+  </div>
+
+  <section *ngIf="isLoading()" class="print-state" aria-live="polite">{{ 'common.loading' | transloco }}</section>
+
+  <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
+    {{ errorMessage() }}
+  </section>
+
+  <article *ngIf="!isLoading() && !errorMessage() && order() as loadedOrder" class="po-document">
+    <header class="po-document__header">
+      <div>
+        <p class="po-document__eyebrow">{{ 'purchaseOrders.print.title' | transloco }}</p>
+        <h1>{{ loadedOrder.purchaseOrderNumber }}</h1>
+        <p>{{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}</p>
+      </div>
+      <div *ngIf="shop() as loadedShop" class="po-document__shop">
+        <strong>{{ loadedShop.name }}</strong>
+        <span>{{ loadedShop.address }}</span>
+        <span>{{ loadedShop.city }}{{ loadedShop.city && loadedShop.state ? ', ' : '' }}{{ loadedShop.state }} {{ loadedShop.pincode }}</span>
+        <span *ngIf="loadedShop.mobileNumber">{{ loadedShop.mobileNumber }}</span>
+        <span *ngIf="loadedShop.gstNumber">{{ 'purchaseOrders.print.gstNumber' | transloco }}: {{ loadedShop.gstNumber }}</span>
+      </div>
+    </header>
+
+    <section class="po-document__grid">
+      <div>
+        <h2>{{ 'purchaseOrders.print.supplierSection' | transloco }}</h2>
+        <dl>
+          <div>
+            <dt>{{ 'purchaseOrders.builder.supplier' | transloco }}</dt>
+            <dd>{{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}</dd>
+          </div>
+          <div *ngIf="loadedOrder.supplierReference || loadedOrder.supplierReferenceNumber">
+            <dt>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</dt>
+            <dd>{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div>
+        <h2>{{ 'purchaseOrders.print.orderSection' | transloco }}</h2>
+        <dl>
+          <div>
+            <dt>{{ 'purchaseOrders.poNumber' | transloco }}</dt>
+            <dd>{{ loadedOrder.purchaseOrderNumber }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'purchaseOrders.statusLabel' | transloco }}</dt>
+            <dd>{{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'purchaseOrders.builder.orderDate' | transloco }}</dt>
+            <dd>{{ loadedOrder.orderDate || '-' }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</dt>
+            <dd>{{ loadedOrder.expectedDeliveryDate || '-' }}</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section *ngIf="loadedOrder.notes" class="po-document__notes">
+      <h2>{{ 'purchaseOrders.notes' | transloco }}</h2>
+      <p>{{ loadedOrder.notes }}</p>
+    </section>
+
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'purchaseOrders.lineDescription' | transloco }}</th>
+          <th class="numeric">{{ 'purchaseOrders.expectedQuantity' | transloco }}</th>
+          <th class="numeric">{{ 'purchaseOrders.unitCost' | transloco }}</th>
+          <th class="numeric">{{ 'purchaseOrders.lineTotal' | transloco }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let line of loadedOrder.lines">
+          <td>{{ line.description }}</td>
+          <td class="numeric">{{ line.expectedQuantity }}</td>
+          <td class="numeric">{{ line.unitCost | number:'1.2-2' }}</td>
+          <td class="numeric">{{ line.lineTotal | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="3" class="numeric">{{ 'purchaseOrders.print.grandTotal' | transloco }}</th>
+          <th class="numeric">{{ loadedOrder.expectedTotal | number:'1.2-2' }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </article>
+</main>

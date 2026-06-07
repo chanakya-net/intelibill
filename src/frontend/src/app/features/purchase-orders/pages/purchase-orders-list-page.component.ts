@@ -79,7 +79,7 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
             <ng-template pTemplate="header">
               <tr>
                 <th>{{ 'purchaseOrders.poNumber' | transloco }}</th>
-                <th>{{ 'purchaseOrders.status' | transloco }}</th>
+                <th>{{ 'purchaseOrders.statusLabel' | transloco }}</th>
                 <th>{{ 'purchaseOrders.receivedProgress' | transloco }}</th>
                 <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
                 <th>{{ 'purchaseOrders.expectedTotal' | transloco }}</th>
@@ -91,7 +91,7 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
               <tr class="cursor-pointer" (click)="openOrder(order.purchaseOrderId)">
                 <td>{{ order.purchaseOrderNumber }}</td>
                 <td>
-                  <p-tag [value]="order.status" severity="info" />
+                  <p-tag [value]="'purchaseOrders.status.' + order.status | transloco" severity="info" />
                 </td>
                 <td>{{ receivedProgress(order.receivedQuantity, order.expectedQuantity) }}</td>
                 <td>{{ order.lineCount }}</td>
