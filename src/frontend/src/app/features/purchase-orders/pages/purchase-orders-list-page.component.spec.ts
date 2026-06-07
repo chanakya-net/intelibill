@@ -50,6 +50,7 @@ const facade = {
   loadOrders: vi.fn(),
   loadDetail: vi.fn(),
   createDraft: vi.fn(),
+  deleteDraft: vi.fn(),
   clearDetail: vi.fn(),
   clearError: vi.fn(),
   resetListFilters: vi.fn(),
@@ -68,6 +69,7 @@ describe('PurchaseOrdersListPageComponent', () => {
     loadingSignal.set(false);
     canManagePurchaseOrdersSignal.set(true);
     facade.loadOrders.mockReset();
+    facade.deleteDraft.mockReset();
     facade.resetListFilters.mockReset();
     router.navigate.mockReset();
     purchaseOrderSignal.set([
@@ -151,11 +153,20 @@ describe('PurchaseOrdersListPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
     fixture.detectChanges();
 
-    fixture.componentInstance['onOrderDateFromChange']('2026-06-01');
-    fixture.componentInstance['onOrderDateToChange']('2026-06-30');
+    fixture.componentInstance['onOrderDateFromChange'](new Date(2026, 5, 1));
+    fixture.componentInstance['onOrderDateToChange'](new Date(2026, 5, 30));
 
     expect(facade.loadOrders).toHaveBeenNthCalledWith(2, { orderDateFrom: '2026-06-01', page: 1 });
     expect(facade.loadOrders).toHaveBeenNthCalledWith(3, { orderDateTo: '2026-06-30', page: 1 });
+  });
+
+  it('uses PrimeNG date pickers for date filters', () => {
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('p-datepicker').length).toBe(2);
+    expect(host.querySelector('input[type="date"]')).toBeNull();
   });
 
   it('clears filters back to defaults', () => {
@@ -198,16 +209,20 @@ describe('PurchaseOrdersListPageComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders', 'po-1']);
   });
 
-  it('shows new-PO link for Owner/Manager', () => {
+  it('shows new-PO button for Owner/Manager', () => {
     canManagePurchaseOrdersSignal.set(true);
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('purchaseOrders.newPo');
+    const newPoButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.newPo'));
+
+    expect(newPoButton).toBeTruthy();
+    expect(newPoButton?.classList.contains('p-button')).toBe(true);
   });
 
-  it('hides new-PO link for Staff', () => {
+  it('hides new-PO button for Staff', () => {
     canManagePurchaseOrdersSignal.set(false);
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
     fixture.detectChanges();
@@ -239,6 +254,37 @@ describe('PurchaseOrdersListPageComponent', () => {
     expect(host.textContent).toContain('purchaseOrders.editPo');
   });
 
+  it('shows delete action for Draft order and confirms before deleting', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set([
+      {
+        purchaseOrderId: 'po-1',
+        purchaseOrderNumber: 'PO-2026-000001',
+        status: 'Draft',
+        supplierName: null,
+        supplierReference: null,
+        lineCount: 1,
+        expectedQuantity: 1,
+        receivedQuantity: 0,
+        expectedTotal: 100,
+        createdAt: '2026-06-01T00:00:00Z',
+      },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const deleteButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.actions.deleteDraft')) as HTMLButtonElement;
+
+    expect(deleteButton).toBeTruthy();
+    deleteButton.click();
+
+    expect(facade.deleteDraft).not.toHaveBeenCalled();
+    fixture.componentInstance['confirmDeleteDraft']('po-1');
+    expect(facade.deleteDraft).toHaveBeenCalledWith('po-1');
+  });
+
   it('hides edit link for non-Draft order', () => {
     canManagePurchaseOrdersSignal.set(true);
     purchaseOrderSignal.set([
@@ -260,6 +306,7 @@ describe('PurchaseOrdersListPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).not.toContain('purchaseOrders.editPo');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.deleteDraft');
   });
 
   it('hides edit link for Staff even on Draft order', () => {

@@ -1,7 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Output, ViewEncapsulation, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { firstValueFrom } from 'rxjs';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -12,30 +15,66 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
 @Component({
   selector: 'app-purchase-order-line-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslocoPipe],
+  encapsulation: ViewEncapsulation.None,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    TranslocoPipe,
+    AutoCompleteModule,
+    ButtonModule,
+    InputNumberModule,
+  ],
   template: `
     <form class="po-line-form" [formGroup]="form" (ngSubmit)="submitLine()">
       <label>
         <span>{{ 'purchaseOrders.builder.item' | transloco }}</span>
-        <input type="text" formControlName="description" list="po-item-suggestions" />
-        <datalist id="po-item-suggestions">
-          @for (entry of itemSuggestions(); track entry.itemId) {
-            <option [value]="entry.name"></option>
-          }
-        </datalist>
+        <p-autocomplete
+          formControlName="description"
+          [suggestions]="itemSuggestions()"
+          (completeMethod)="onItemSearch($event)"
+          appendTo="body"
+          [fluid]="true"
+        ></p-autocomplete>
       </label>
       <label>
         <span>{{ 'purchaseOrders.builder.qty' | transloco }}</span>
-        <input type="number" min="1" step="1" formControlName="expectedQuantity" />
+        <p-inputNumber
+          formControlName="expectedQuantity"
+          [min]="1"
+          [showButtons]="true"
+          buttonLayout="horizontal"
+          decrementButtonIcon="pi pi-minus"
+          incrementButtonIcon="pi pi-plus"
+          [fluid]="true"
+        ></p-inputNumber>
       </label>
       <label>
         <span>{{ 'purchaseOrders.builder.unitCost' | transloco }}</span>
-        <input type="number" min="0" step="0.01" formControlName="unitCost" />
+        <p-inputNumber
+          formControlName="unitCost"
+          mode="decimal"
+          [min]="0"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="2"
+          [fluid]="true"
+        ></p-inputNumber>
       </label>
-      <button type="submit" [disabled]="form.invalid">{{ 'purchaseOrders.builder.addLine' | transloco }}</button>
-      <button type="button" (click)="quickCreateProduct()" [disabled]="form.controls.description.invalid">
-        {{ 'purchaseOrders.builder.quickCreateProduct' | transloco }}
-      </button>
+      <button
+        pButton
+        type="submit"
+        icon="pi pi-plus"
+        [label]="'purchaseOrders.builder.addLine' | transloco"
+        [disabled]="form.invalid"
+      ></button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        icon="pi pi-bolt"
+        [label]="'purchaseOrders.builder.quickCreateProduct' | transloco"
+        (click)="quickCreateProduct()"
+        [disabled]="form.controls.description.invalid"
+      ></button>
       @if (quickCreateError()) {
         <p class="po-line-form__error" aria-live="polite">{{ quickCreateError() | transloco }}</p>
       }
@@ -43,10 +82,37 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
   `,
   styles: [`
     .po-line-form { display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) 7rem 9rem auto auto; align-items: end; }
-    label { display: grid; gap: .25rem; font-size: .875rem; }
-    input { min-height: 2.25rem; padding: .35rem .5rem; }
-    button { min-height: 2.25rem; }
+    label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; color: #1f2937; }
     .po-line-form__error { grid-column: 1 / -1; margin: 0; color: #b42318; font-size: .875rem; }
+    .po-line-form .p-autocomplete,
+    .po-line-form .p-inputnumber {
+      width: 100%;
+    }
+    .po-line-form .p-inputtext,
+    .po-line-form .p-autocomplete-input,
+    .po-line-form .p-inputnumber-input {
+      width: 100%;
+      min-height: 2.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.75rem;
+      background: #ffffff;
+      color: #111827;
+      padding: 0.65rem 0.85rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .po-line-form .p-inputtext:enabled:focus,
+    .po-line-form .p-autocomplete-input:enabled:focus,
+    .po-line-form .p-inputnumber-input:enabled:focus {
+      border-color: #ea580c;
+      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.16);
+      outline: 0;
+    }
+    .po-line-form .p-inputnumber-button {
+      border-color: #cbd5e1;
+      background: #fff7ed;
+      color: #c2410c;
+    }
     @media (max-width: 760px) { .po-line-form { grid-template-columns: 1fr; } }
   `],
 })
@@ -57,14 +123,16 @@ export class PurchaseOrderLineFormComponent {
 
   @Output() readonly lineSubmitted = new EventEmitter<CreatePurchaseOrderLineRequest>();
   readonly quickCreateError = signal('');
+  readonly itemSuggestions = signal<string[]>([]);
 
   readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.maxLength(500)]],
     expectedQuantity: [1, [Validators.required, Validators.min(1)]],
     unitCost: [0, [Validators.required, Validators.min(0)]],
   });
-  itemSuggestions() {
-    return this.catalogSync.filterByName(this.form.controls.description.value).slice(0, 20);
+
+  onItemSearch(event: AutoCompleteCompleteEvent): void {
+    this.itemSuggestions.set(this.filterItemNames(event.query));
   }
 
   submitLine(): void {
@@ -134,5 +202,11 @@ export class PurchaseOrderLineFormComponent {
       expectedQuantity: Number(value.expectedQuantity),
       unitCost: Number(value.unitCost),
     };
+  }
+
+  private filterItemNames(query: string): string[] {
+    return this.catalogSync.filterByName(query)
+      .map((entry) => entry.name)
+      .slice(0, 20);
   }
 }

@@ -91,6 +91,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
   it('preserves supplier id when detail loads before supplier suggestions and another header field is autosaved', async () => {
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
     const component = fixture.componentInstance;
+    component.purchaseOrderId = 'po-1';
     await component.ngOnInit();
 
     (component as unknown as {
@@ -126,6 +127,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     });
 
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
     await fixture.componentInstance.ngOnInit();
 
     const draftState = (fixture.componentInstance as unknown as {
@@ -146,6 +148,36 @@ describe('PurchaseOrderBuilderPageComponent', () => {
 
     expect(facade.loadDetail).not.toHaveBeenCalled();
     expect(storage.loadDraft).not.toHaveBeenCalled();
+  });
+
+  it('renders the builder with PrimeNG form and table controls', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    await fixture.componentInstance.ngOnInit();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('p-autocomplete')).toBeTruthy();
+    expect(host.querySelectorAll('p-datepicker').length).toBe(2);
+    expect(host.querySelector('p-inputnumber')).toBeTruthy();
+    expect(host.querySelector('p-table')).toBeTruthy();
+    expect(host.querySelector('textarea[ptextarea]')).toBeTruthy();
+  });
+
+  it('updates supplier autocomplete suggestions from the query', async () => {
+    suppliers.set([
+      { supplierId: 'supplier-1', name: 'Acme Traders', isActive: true, isSystem: false },
+      { supplierId: 'supplier-2', name: 'Beta Wholesale', isActive: true, isSystem: false },
+      { supplierId: 'supplier-3', name: 'System Supplier', isActive: true, isSystem: true },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    await fixture.componentInstance.ngOnInit();
+
+    fixture.componentInstance['onSupplierSearch']({ query: 'ac' } as never);
+
+    const suggestions = (fixture.componentInstance as unknown as {
+      supplierNameSuggestions: () => string[];
+    }).supplierNameSuggestions();
+    expect(suggestions).toEqual(['Acme Traders']);
   });
 });
 

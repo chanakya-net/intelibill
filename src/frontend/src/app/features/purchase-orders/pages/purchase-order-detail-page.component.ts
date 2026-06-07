@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { TranslocoService } from '@ngneat/transloco';
 
@@ -18,6 +18,7 @@ import { ShopPermissionsService } from '../../../core/layout/shop-permissions.se
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderReceiptHistoryComponent } from '../components/purchase-order-receipt-history.component';
+import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
 import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service';
 
 @Component({
@@ -25,7 +26,6 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
   standalone: true,
   imports: [
     CommonModule,
-    RouterLink,
     FormsModule,
     TranslocoPipe,
     CardModule,
@@ -37,6 +37,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
     ConfirmDialogModule,
     ReceivePurchaseOrderDialogComponent,
     PurchaseOrderReceiptHistoryComponent,
+    PurchaseOrderBuilderPageComponent,
   ],
   providers: [ConfirmationService],
   template: `
@@ -54,9 +55,9 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
                   {{ 'purchaseOrders.actions.print' | transloco }}
                 </button>
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
-                  <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
+                  <button type="button" (click)="openEditOverlay(order.purchaseOrderId)">
                     {{ 'purchaseOrders.editPo' | transloco }}
-                  </a>
+                  </button>
                   <button type="button" (click)="placeOrder(order.purchaseOrderId)">
                     {{ 'purchaseOrders.actions.placeOrder' | transloco }}
                   </button>
@@ -184,6 +185,13 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
         }
       </p-card>
     </div>
+
+    @if (showEditOverlay()) {
+      <app-purchase-order-builder-page
+        [purchaseOrderId]="editingPoId()"
+        (closeRequested)="closeEditOverlay()"
+      />
+    }
   `,
   styles: [`
     .po-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -201,6 +209,8 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected cancelReason = '';
   protected closeReason = '';
   protected showReceiveDialog = signal(false);
+  protected showEditOverlay = signal(false);
+  protected editingPoId = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('purchaseOrderId');
@@ -211,6 +221,18 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.facade.clearDetail();
+  }
+
+  protected openEditOverlay(purchaseOrderId: string): void {
+    this.editingPoId.set(purchaseOrderId);
+    this.showEditOverlay.set(true);
+  }
+
+  protected closeEditOverlay(): void {
+    const id = this.editingPoId();
+    this.showEditOverlay.set(false);
+    this.editingPoId.set(null);
+    if (id) this.facade.loadDetail(id);
   }
 
   protected placeOrder(purchaseOrderId: string): void {

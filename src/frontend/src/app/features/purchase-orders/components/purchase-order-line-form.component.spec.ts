@@ -50,6 +50,18 @@ describe('PurchaseOrderLineFormComponent', () => {
     expect(emitted).toEqual([{ itemId: 'item-1', description: 'Widget', expectedQuantity: 2, unitCost: 10 }]);
   });
 
+  it('updates item autocomplete suggestions from the query', () => {
+    catalog.filterByName.mockReturnValue([
+      { itemId: 'item-1', name: 'Widget', barcode: 'W1' },
+      { itemId: 'item-2', name: 'Wide Box', barcode: 'W2' },
+    ]);
+
+    component.onItemSearch({ query: 'wid' } as never);
+
+    expect(catalog.filterByName).toHaveBeenCalledWith('wid');
+    expect(component.itemSuggestions()).toEqual(['Widget', 'Wide Box']);
+  });
+
   it('quick-creates product and emits the created item identity', async () => {
     const emitted: unknown[] = [];
     component.lineSubmitted.subscribe((line) => emitted.push(line));

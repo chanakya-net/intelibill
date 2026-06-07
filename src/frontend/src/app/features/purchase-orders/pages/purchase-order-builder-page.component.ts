@@ -1,11 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, effect, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
+import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
+import { InputTextModule } from 'primeng/inputtext';
+import { TextareaModule } from 'primeng/textarea';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
+import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { PurchaseOrderLineFormComponent } from '../components/purchase-order-line-form.component';
 import { PurchaseOrderLinesTableComponent } from '../components/purchase-order-lines-table.component';
@@ -16,84 +22,184 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 @Component({
   selector: 'app-purchase-order-builder-page',
   standalone: true,
+  encapsulation: ViewEncapsulation.None,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink,
     TranslocoPipe,
+    AutoCompleteModule,
+    ButtonModule,
+    DatePickerModule,
+    InputTextModule,
+    TextareaModule,
     PurchaseOrderLineFormComponent,
     PurchaseOrderLinesTableComponent,
   ],
   template: `
-    <section class="po-builder">
-      <header class="po-builder__header">
-        <div>
-          <h1>{{ (purchaseOrderId ? 'purchaseOrders.builder.editTitle' : 'purchaseOrders.builder.newTitle') | transloco }}</h1>
-          @if (draftState.loadingDraft()) {
-            <p>{{ 'purchaseOrders.builder.autosaveLoaded' | transloco }}</p>
-          }
-        </div>
-        <a routerLink="/inventory/purchase-orders">{{ 'purchaseOrders.actions.cancel' | transloco }}</a>
-      </header>
+    <section class="overlay" aria-modal="true" role="dialog">
+      <div class="overlay-backdrop" (click)="closeRequested.emit()"></div>
 
-      <form class="po-builder__form" [formGroup]="form">
-        <label>
-          <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
-          <input type="text" formControlName="supplierName" list="po-suppliers" />
-          <datalist id="po-suppliers">
-            @for (supplier of supplierSuggestions(); track supplier.supplierId) {
-              <option [value]="supplier.name"></option>
+      <div class="overlay-card">
+        <header class="po-builder__header">
+          <div>
+            <p class="eyebrow">{{ 'purchaseOrders.title' | transloco }}</p>
+            <h2>{{ (purchaseOrderId ? 'purchaseOrders.builder.editTitle' : 'purchaseOrders.builder.newTitle') | transloco }}</h2>
+            @if (draftState.loadingDraft()) {
+              <p class="autosave-hint">{{ 'purchaseOrders.builder.autosaveLoaded' | transloco }}</p>
             }
-          </datalist>
-        </label>
-        <label>
-          <span>{{ 'purchaseOrders.builder.orderDate' | transloco }}</span>
-          <input type="date" formControlName="orderDate" />
-        </label>
-        <label>
-          <span>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</span>
-          <input type="date" formControlName="expectedDeliveryDate" />
-        </label>
-        <label>
-          <span>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</span>
-          <input type="text" formControlName="supplierReferenceNumber" />
-        </label>
-        <label class="po-builder__notes">
-          <span>{{ 'purchaseOrders.builder.notes' | transloco }}</span>
-          <textarea rows="3" formControlName="notes"></textarea>
-        </label>
-      </form>
+          </div>
+          <button type="button" class="close-button" [attr.aria-label]="'common.close' | transloco" (click)="closeRequested.emit()">
+            <i class="pi pi-times" aria-hidden="true"></i>
+          </button>
+        </header>
 
-      <app-purchase-order-line-form (lineSubmitted)="addLine($event)" />
-      <app-purchase-order-lines-table [lines]="draftState.lines()" (removeLine)="removeLine($event)" />
+        <form class="po-builder__form" [formGroup]="form">
+          <label>
+            <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
+            <p-autocomplete
+              formControlName="supplierName"
+              [suggestions]="supplierNameSuggestions()"
+              (completeMethod)="onSupplierSearch($event)"
+              appendTo="body"
+              [fluid]="true"
+            ></p-autocomplete>
+          </label>
+          <label>
+            <span>{{ 'purchaseOrders.builder.orderDate' | transloco }}</span>
+            <p-datepicker
+              ngSkipHydration
+              formControlName="orderDate"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              [showButtonBar]="true"
+              appendTo="body"
+              [fluid]="true"
+            ></p-datepicker>
+          </label>
+          <label>
+            <span>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</span>
+            <p-datepicker
+              ngSkipHydration
+              formControlName="expectedDeliveryDate"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              [showButtonBar]="true"
+              appendTo="body"
+              [fluid]="true"
+            ></p-datepicker>
+          </label>
+          <label>
+            <span>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</span>
+            <input pInputText type="text" formControlName="supplierReferenceNumber" />
+          </label>
+          <label class="po-builder__notes">
+            <span>{{ 'purchaseOrders.builder.notes' | transloco }}</span>
+            <textarea pTextarea rows="3" formControlName="notes"></textarea>
+          </label>
+        </form>
 
-      @if (facade.errorMessage()) {
-        <p class="po-builder__error">{{ facade.errorMessage() | transloco }}</p>
-      }
+        <app-purchase-order-line-form (lineSubmitted)="addLine($event)" />
+        <app-purchase-order-lines-table [lines]="draftState.lines()" (removeLine)="removeLine($event)" />
 
-      <footer class="po-builder__actions">
-        <button type="button" (click)="discardDraft()">{{ 'purchaseOrders.builder.discard' | transloco }}</button>
-        <button type="button" [disabled]="facade.isSubmitting()" (click)="saveDraft()">
-          {{ 'purchaseOrders.builder.saveDraft' | transloco }}
-        </button>
-      </footer>
+        @if (facade.errorMessage()) {
+          <p class="po-builder__error">{{ facade.errorMessage() | transloco }}</p>
+        }
+
+        <footer class="po-builder__actions">
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            icon="pi pi-trash"
+            [label]="'purchaseOrders.builder.discard' | transloco"
+            (click)="discardDraft()"
+          ></button>
+          <button
+            pButton
+            type="button"
+            icon="pi pi-save"
+            [label]="'purchaseOrders.builder.saveDraft' | transloco"
+            [disabled]="facade.isSubmitting()"
+            (click)="saveDraft()"
+          ></button>
+        </footer>
+      </div>
     </section>
   `,
   styles: [`
-    .po-builder { display: grid; gap: 1rem; padding: 1rem; max-width: 1120px; margin: 0 auto; }
-    .po-builder__header, .po-builder__actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .overlay { position: fixed; inset: 0; z-index: 60; }
+    .overlay-backdrop {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 190, 120, 0.35), rgba(22, 18, 12, 0.5));
+      backdrop-filter: blur(2px);
+    }
+    .overlay-card {
+      position: relative; margin: 2vh auto;
+      width: min(1120px, calc(100vw - 2rem));
+      max-height: 96vh; overflow-y: auto;
+      border-radius: 1rem; border: 1px solid rgba(251, 191, 36, 0.35);
+      background: #fffdf8; padding: 1.25rem;
+      box-shadow: 0 24px 50px rgba(24, 24, 27, 0.2);
+      display: grid; gap: 1rem;
+    }
+    .po-builder__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .po-builder__actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
     .po-builder__form { display: grid; gap: .75rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    label { display: grid; gap: .25rem; font-size: .875rem; }
-    input, textarea { min-height: 2.25rem; padding: .35rem .5rem; }
+    label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; color: #1f2937; }
     .po-builder__notes { grid-column: 1 / -1; }
-    .po-builder__error { color: #b42318; }
+    .po-builder__notes textarea { width: 100%; resize: vertical; }
+    .po-builder__error { color: #b42318; margin: 0; }
+    .eyebrow { margin: 0; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #b45309; }
+    h2 { margin: 0.3rem 0 0; font-size: 1.4rem; color: #1c1917; }
+    .autosave-hint { margin: 0.25rem 0 0; color: #57534e; font-size: 0.92rem; }
+    .close-button { width: 2.5rem; height: 2.5rem; border: 0; border-radius: 999px; background: transparent; color: #57534e; cursor: pointer; }
+    .close-button:hover { background: #fff7ed; color: #c2410c; }
+    .po-builder__form .p-datepicker,
+    .po-builder__form .p-autocomplete {
+      width: 100%;
+    }
+    .po-builder__form .p-inputtext,
+    .po-builder__form .p-autocomplete-input,
+    .po-builder__form .p-datepicker-input,
+    .po-builder__form input[pInputText],
+    .po-builder__form textarea[pTextarea] {
+      width: 100%;
+      min-height: 2.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.75rem;
+      background: #ffffff;
+      color: #111827;
+      padding: 0.65rem 0.85rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .po-builder__form .p-inputtext:enabled:focus,
+    .po-builder__form .p-autocomplete-input:enabled:focus,
+    .po-builder__form .p-datepicker-input:enabled:focus,
+    .po-builder__form input[pInputText]:focus,
+    .po-builder__form textarea[pTextarea]:focus {
+      border-color: #ea580c;
+      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.16);
+      outline: 0;
+    }
+    .po-builder__form .p-datepicker:has(.p-datepicker-dropdown) .p-datepicker-input {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .po-builder__form .p-datepicker-dropdown {
+      min-width: 2.75rem;
+      border: 1px solid #cbd5e1;
+      border-left: 0;
+      border-radius: 0 0.75rem 0.75rem 0;
+      background: #fff7ed;
+      color: #c2410c;
+    }
     @media (max-width: 860px) { .po-builder__form { grid-template-columns: 1fr; } }
   `],
 })
 export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly permissions = inject(ShopPermissionsService);
@@ -101,18 +207,21 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   protected readonly draftState = inject(PurchaseOrderDraftStateService);
   protected readonly facade = inject(PurchaseOrdersFacade);
 
-  protected readonly purchaseOrderId = this.route.snapshot.paramMap.get('purchaseOrderId');
-  protected readonly supplierSuggestions = computed(() =>
-    this.suppliersFacade.suppliers().filter((supplier) => supplier.isActive && !supplier.isSystem)
-  );
+  @Input() purchaseOrderId: string | null = null;
+  @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.fb.group({
     supplierName: [''],
-    orderDate: [''],
-    expectedDeliveryDate: [''],
+    orderDate: [null as Date | null],
+    expectedDeliveryDate: [null as Date | null],
     supplierReferenceNumber: [''],
     notes: [''],
   });
+
+  protected readonly supplierSuggestions = computed(() =>
+    this.suppliersFacade.suppliers().filter((supplier) => supplier.isActive && !supplier.isSystem)
+  );
+  protected readonly supplierNameSuggestions = signal<string[]>([]);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private clearLocalDraftAfterCreate = false;
@@ -122,7 +231,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
         if (order.status !== 'Draft') {
-          void this.router.navigate(['/inventory/purchase-orders', order.purchaseOrderId]);
+          this.closeRequested.emit();
           return;
         }
         if (this.draftState.hasRestoredLocalDraft() && this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
@@ -144,6 +253,9 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       this.patchHeaderForm();
     });
     effect(() => {
+      this.supplierNameSuggestions.set(this.filterSupplierNames(this.form.controls.supplierName.value ?? ''));
+    });
+    effect(() => {
       const order = this.facade.selectedOrder();
       if (!this.clearLocalDraftAfterCreate || !order || this.purchaseOrderId) return;
       this.clearLocalDraftAfterCreate = false;
@@ -160,11 +272,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     if (!this.permissions.canManagePurchaseOrders()) {
-      if (this.purchaseOrderId) {
-        void this.router.navigate(['/inventory/purchase-orders', this.purchaseOrderId]);
-      } else {
-        void this.router.navigate(['/inventory/purchase-orders']);
-      }
+      this.closeRequested.emit();
       return;
     }
 
@@ -189,8 +297,12 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     void this.draftState.addOrMergeLine(this.activeShopId(), line);
   }
 
-  removeLine(description: string): void {
-    void this.draftState.removeLine(this.activeShopId(), description);
+  removeLine(itemId: string): void {
+    void this.draftState.removeLine(this.activeShopId(), itemId);
+  }
+
+  protected onSupplierSearch(_event: AutoCompleteCompleteEvent): void {
+    this.supplierNameSuggestions.set(this.filterSupplierNames(_event.query));
   }
 
   saveDraft(): void {
@@ -205,7 +317,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
 
   async discardDraft(): Promise<void> {
     await this.draftState.clearDraft(this.activeShopId());
-    await this.router.navigate(['/inventory/purchase-orders']);
+    this.closeRequested.emit();
   }
 
   private scheduleAutosave(): void {
@@ -216,8 +328,8 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       void this.draftState.updateHeader(this.activeShopId(), {
         purchaseOrderId: this.purchaseOrderId,
         supplier,
-        orderDate: raw.orderDate || null,
-        expectedDeliveryDate: raw.expectedDeliveryDate || null,
+        orderDate: this.toIsoDateOrNull(raw.orderDate),
+        expectedDeliveryDate: this.toIsoDateOrNull(raw.expectedDeliveryDate),
         supplierReferenceNumber: raw.supplierReferenceNumber || null,
         notes: raw.notes || null,
       });
@@ -229,11 +341,23 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     const supplierName = header.supplier?.name || this.supplierSuggestions().find((supplier) => supplier.supplierId === header.supplier?.id)?.name || '';
     this.form.patchValue({
       supplierName,
-      orderDate: header.orderDate ?? '',
-      expectedDeliveryDate: header.expectedDeliveryDate ?? '',
+      orderDate: header.orderDate ? parseDateOnlyAsLocalDate(header.orderDate) : null,
+      expectedDeliveryDate: header.expectedDeliveryDate ? parseDateOnlyAsLocalDate(header.expectedDeliveryDate) : null,
       supplierReferenceNumber: header.supplierReferenceNumber ?? '',
       notes: header.notes ?? '',
     }, { emitEvent: false });
+  }
+
+  private toIsoDateOrNull(value: Date | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    return formatLocalIsoDate(value);
   }
 
   private resolveSupplier(name: string): { readonly id: string; readonly name: string } | null {
@@ -248,6 +372,14 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     }
 
     return null;
+  }
+
+  private filterSupplierNames(query: string): string[] {
+    const normalizedQuery = query.trim().toLowerCase();
+    return this.supplierSuggestions()
+      .filter((supplier) => !normalizedQuery || supplier.name.toLowerCase().includes(normalizedQuery))
+      .map((supplier) => supplier.name)
+      .slice(0, 20);
   }
 
   private activeShopId(): string {
