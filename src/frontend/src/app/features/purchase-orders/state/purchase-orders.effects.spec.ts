@@ -45,23 +45,32 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches loadPurchaseOrdersSucceeded on load success', async () => {
-    const list = [
-      {
-        purchaseOrderId: 'po1',
-        purchaseOrderNumber: 'PO-2026-000001',
-        status: 'Draft' as const,
-        lineCount: 0,
-        expectedTotal: 0,
-        createdAt: '2026-06-01T00:00:00Z',
-      },
-    ];
-    service.getPurchaseOrders.mockReturnValue(of(list));
+    const result = {
+      items: [
+        {
+          purchaseOrderId: 'po1',
+          purchaseOrderNumber: 'PO-2026-000001',
+          status: 'Draft' as const,
+          supplierName: null,
+          supplierReference: null,
+          lineCount: 0,
+          expectedQuantity: 1,
+          receivedQuantity: 0,
+          expectedTotal: 0,
+          createdAt: '2026-06-01T00:00:00Z',
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+    service.getPurchaseOrders.mockReturnValue(of(result));
 
     const output = firstValueFrom(effects.loadOrders$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.loadPurchaseOrdersRequested());
+    actions$.next(PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: { search: 'rice' } }));
 
     await expect(output).resolves.toEqual(
-      PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ orders: list })
+      PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ result })
     );
   });
 
@@ -69,7 +78,7 @@ describe('PurchaseOrdersEffects', () => {
     service.getPurchaseOrders.mockReturnValue(throwError(() => new Error('network')));
 
     const output = firstValueFrom(effects.loadOrders$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.loadPurchaseOrdersRequested());
+    actions$.next(PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: {} }));
 
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.loadPurchaseOrdersFailed({

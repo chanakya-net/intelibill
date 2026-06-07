@@ -65,15 +65,30 @@ public class PurchaseOrdersControllerTests
     public async Task GetPurchaseOrders_WhenValid_ReturnsOk()
     {
         SetValidClaims(out var userId, out var shopId);
-        var list = new List<PurchaseOrderListItemDto>().AsReadOnly();
-        _bus.InvokeAsync<ErrorOr<IReadOnlyList<PurchaseOrderListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
-            .Returns(ErrorOrFactory.From<IReadOnlyList<PurchaseOrderListItemDto>>(list));
+        var list = new PurchaseOrderPagedResultDto([], 0, 1, 20);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderPagedResultDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(ErrorOrFactory.From(list));
 
-        var result = await _controller.GetPurchaseOrders(cancellationToken: CancellationToken.None);
+        var result = await _controller.GetPurchaseOrders(
+            search: "rice",
+            status: PurchaseOrderStatus.Draft,
+            orderDateFrom: new DateOnly(2026, 6, 1),
+            orderDateTo: new DateOnly(2026, 6, 30),
+            page: 0,
+            pageSize: 999,
+            cancellationToken: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
-        await _bus.Received(1).InvokeAsync<ErrorOr<IReadOnlyList<PurchaseOrderListItemDto>>>(
-            Arg.Is<GetPurchaseOrdersQuery>(q => q.ActorUserId == userId && q.ActiveShopId == shopId),
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderPagedResultDto>>(
+            Arg.Is<GetPurchaseOrdersQuery>(q =>
+                q.ActorUserId == userId
+                && q.ActiveShopId == shopId
+                && q.Search == "rice"
+                && q.Status == PurchaseOrderStatus.Draft
+                && q.OrderDateFrom == new DateOnly(2026, 6, 1)
+                && q.OrderDateTo == new DateOnly(2026, 6, 30)
+                && q.Page == 0
+                && q.PageSize == 999),
             Arg.Any<CancellationToken>());
     }
 

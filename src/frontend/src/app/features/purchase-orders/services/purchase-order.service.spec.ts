@@ -4,7 +4,11 @@ import { vi } from 'vitest';
 import { of } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 
-import { PurchaseOrderService, PurchaseOrderListItem } from './purchase-order.service';
+import {
+  PurchaseOrderListItem,
+  PurchaseOrderListResult,
+  PurchaseOrderService,
+} from './purchase-order.service';
 
 describe('PurchaseOrderService', () => {
   const http = {
@@ -26,24 +30,50 @@ describe('PurchaseOrderService', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('getPurchaseOrders calls correct URL and returns list', async () => {
-    const list: readonly PurchaseOrderListItem[] = [
+  it('getPurchaseOrders passes filters as query params and returns paged result', async () => {
+    const items: readonly PurchaseOrderListItem[] = [
       {
         purchaseOrderId: 'po1',
         purchaseOrderNumber: 'PO-2026-000001',
         status: 'Draft',
+        supplierName: null,
+        supplierReference: null,
         lineCount: 2,
+        expectedQuantity: 5,
+        receivedQuantity: 0,
         expectedTotal: 500,
         createdAt: '2026-06-01T00:00:00Z',
       },
     ];
-    http.get.mockReturnValue(of(list));
+    const response: PurchaseOrderListResult = {
+      items,
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+    http.get.mockReturnValue(of(response));
 
     const service = TestBed.inject(PurchaseOrderService);
-    const result = await firstValueFrom(service.getPurchaseOrders());
+    const result = await firstValueFrom(
+      service.getPurchaseOrders({
+        search: 'rice',
+        status: 'Draft',
+        orderDateFrom: '2026-06-01',
+        orderDateTo: '2026-06-30',
+        page: 2,
+        pageSize: 50,
+      })
+    );
 
-    expect(result).toEqual(list);
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders'));
+    expect(result).toEqual(response);
+    expect(http.get).toHaveBeenCalledWith(
+      expect.stringContaining('/purchase-orders'),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          get: expect.any(Function),
+        }),
+      })
+    );
   });
 
   it('getPurchaseOrderDetail calls correct URL', async () => {

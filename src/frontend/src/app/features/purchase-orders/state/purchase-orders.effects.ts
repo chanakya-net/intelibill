@@ -3,7 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
-import { PurchaseOrderService } from '../services/purchase-order.service';
+import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 
 @Injectable()
@@ -14,9 +14,9 @@ export class PurchaseOrdersEffects {
   readonly loadOrders$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.loadPurchaseOrdersRequested),
-      switchMap(() =>
-        this.service.getPurchaseOrders().pipe(
-          map((orders) => PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ orders })),
+      switchMap(({ filters }) =>
+        this.service.getPurchaseOrders({ ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters }).pipe(
+          map((result) => PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ result })),
           catchError(() =>
             of(
               PurchaseOrdersActions.loadPurchaseOrdersFailed({

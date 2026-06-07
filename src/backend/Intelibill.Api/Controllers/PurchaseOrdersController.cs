@@ -4,6 +4,7 @@ using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrde
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -21,6 +22,10 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetPurchaseOrders(
+        [FromQuery] string? search = null,
+        [FromQuery] PurchaseOrderStatus? status = null,
+        [FromQuery(Name = "order_date_from")] DateOnly? orderDateFrom = null,
+        [FromQuery(Name = "order_date_to")] DateOnly? orderDateTo = null,
         [FromQuery] int page = 1,
         [FromQuery(Name = "page_size")] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -28,8 +33,16 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<PurchaseOrderListItemDto>>>(
-            new GetPurchaseOrdersQuery(UserId!.Value, ActiveShopId!.Value, page, pageSize),
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderPagedResultDto>>(
+            new GetPurchaseOrdersQuery(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                search,
+                status,
+                orderDateFrom,
+                orderDateTo,
+                page,
+                pageSize),
             cancellationToken);
 
         return result.ToActionResult(Ok);

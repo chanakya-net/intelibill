@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { PURCHASE_ORDER_ENDPOINTS } from '../../../core/auth/auth.constants';
@@ -18,9 +18,29 @@ export interface PurchaseOrderListItem {
   readonly purchaseOrderId: string;
   readonly purchaseOrderNumber: string;
   readonly status: PurchaseOrderStatus;
+  readonly supplierName: string | null;
+  readonly supplierReference: string | null;
   readonly lineCount: number;
+  readonly expectedQuantity: number;
+  readonly receivedQuantity: number;
   readonly expectedTotal: number;
   readonly createdAt: string;
+}
+
+export interface PurchaseOrderListFilters {
+  readonly search: string;
+  readonly status: PurchaseOrderStatus | '';
+  readonly orderDateFrom: string;
+  readonly orderDateTo: string;
+  readonly page: number;
+  readonly pageSize: number;
+}
+
+export interface PurchaseOrderListResult {
+  readonly items: readonly PurchaseOrderListItem[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
 }
 
 export interface PurchaseOrderDetail {
@@ -44,14 +64,31 @@ export interface CreatePurchaseOrderDraftRequest {
   readonly lines: readonly CreatePurchaseOrderLineRequest[];
 }
 
+export const DEFAULT_PURCHASE_ORDER_LIST_FILTERS: PurchaseOrderListFilters = {
+  search: '',
+  status: '',
+  orderDateFrom: '',
+  orderDateTo: '',
+  page: 1,
+  pageSize: 20,
+};
+
 @Injectable({ providedIn: 'root' })
 export class PurchaseOrderService {
   private readonly http = inject(HttpClient);
 
-  getPurchaseOrders(page = 1, pageSize = 20): Observable<readonly PurchaseOrderListItem[]> {
-    return this.http.get<readonly PurchaseOrderListItem[]>(
-      `${PURCHASE_ORDER_ENDPOINTS.list}?page=${page}&page_size=${pageSize}`
-    );
+  getPurchaseOrders(filters: Partial<PurchaseOrderListFilters> = {}): Observable<PurchaseOrderListResult> {
+    const request = { ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters };
+    let params = new HttpParams()
+      .set('page', request.page.toString())
+      .set('page_size', request.pageSize.toString());
+
+    if (request.search.trim()) params = params.set('search', request.search.trim());
+    if (request.status) params = params.set('status', request.status);
+    if (request.orderDateFrom) params = params.set('order_date_from', request.orderDateFrom);
+    if (request.orderDateTo) params = params.set('order_date_to', request.orderDateTo);
+
+    return this.http.get<PurchaseOrderListResult>(PURCHASE_ORDER_ENDPOINTS.list, { params });
   }
 
   getPurchaseOrderDetail(purchaseOrderId: string): Observable<PurchaseOrderDetail> {

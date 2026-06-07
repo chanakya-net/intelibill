@@ -198,6 +198,47 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
+    public async Task ListPurchaseOrders_SupportsSearchStatusDateAndNormalizedPagination()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+
+        var alphaDraft = await CreateDraftAsync(client, ownerToken, "Alpha Rice");
+        await CreateDraftAsync(client, ownerToken, "Beta Oil");
+
+        var createdAt = alphaDraft.GetProperty("createdAt").GetDateTimeOffset();
+        var orderDate = DateOnly.FromDateTime(createdAt.UtcDateTime);
+        var poNumber = alphaDraft.GetProperty("purchaseOrderNumber").GetString()!;
+
+        using var poNumberRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/purchase-orders?search={Uri.EscapeDataString(poNumber)}&status=Draft&page=0&page_size=999");
+        poNumberRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var poNumberResponse = await client.SendAsync(poNumberRequest);
+        poNumberResponse.EnsureSuccessStatusCode();
+        var poNumberBody = await poNumberResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(1, poNumberBody.GetProperty("totalCount").GetInt32());
+        Assert.Equal(1, poNumberBody.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(100, poNumberBody.GetProperty("pageSize").GetInt32());
+        Assert.Equal(1, poNumberBody.GetProperty("items").GetArrayLength());
+
+        using var lineSearchRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/purchase-orders?search={Uri.EscapeDataString("Item A")}&order_date_from={orderDate:yyyy-MM-dd}&order_date_to={orderDate:yyyy-MM-dd}");
+        lineSearchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var lineSearchResponse = await client.SendAsync(lineSearchRequest);
+        lineSearchResponse.EnsureSuccessStatusCode();
+        var lineSearchBody = await lineSearchResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(2, lineSearchBody.GetProperty("totalCount").GetInt32());
+        Assert.Equal(20, lineSearchBody.GetProperty("pageSize").GetInt32());
+        Assert.All(
+            lineSearchBody.GetProperty("items").EnumerateArray(),
+            item => Assert.Equal("Draft", item.GetProperty("status").GetString()));
+    }
+
+    [Fact]
     public async Task GetPurchaseOrderDetail_ForOtherShopReturnsNotFound()
     {
         using var client = CreateClient();

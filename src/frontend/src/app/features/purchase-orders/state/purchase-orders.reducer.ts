@@ -1,7 +1,12 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { PurchaseOrderDetail, PurchaseOrderListItem } from '../services/purchase-order.service';
+import {
+  DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
+  PurchaseOrderDetail,
+  PurchaseOrderListFilters,
+  PurchaseOrderListItem,
+} from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 
 export const purchaseOrdersFeatureKey = 'purchaseOrders';
@@ -19,6 +24,10 @@ export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> 
   readonly errorMessage: string;
   readonly selectedOrder: PurchaseOrderDetail | null;
   readonly createSucceeded: boolean;
+  readonly totalCount: number;
+  readonly currentPage: number;
+  readonly pageSize: number;
+  readonly filters: PurchaseOrderListFilters;
 }
 
 const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState({
@@ -28,21 +37,37 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   errorMessage: '',
   selectedOrder: null,
   createSucceeded: false,
+  totalCount: 0,
+  currentPage: 1,
+  pageSize: 20,
+  filters: DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
 });
 
 export const purchaseOrdersReducer = createReducer(
   initialState,
 
-  on(PurchaseOrdersActions.loadPurchaseOrdersRequested, (state) => ({
+  on(PurchaseOrdersActions.loadPurchaseOrdersRequested, (state, { filters }) => ({
     ...state,
     loadingList: true,
     errorMessage: '',
+    filters: {
+      ...state.filters,
+      ...filters,
+    },
   })),
-  on(PurchaseOrdersActions.loadPurchaseOrdersSucceeded, (state, { orders }) =>
-    purchaseOrdersAdapter.setAll([...orders], {
+  on(PurchaseOrdersActions.loadPurchaseOrdersSucceeded, (state, { result }) =>
+    purchaseOrdersAdapter.setAll([...result.items], {
       ...state,
       loadingList: false,
       errorMessage: '',
+      totalCount: result.totalCount,
+      currentPage: result.pageNumber,
+      pageSize: result.pageSize,
+      filters: {
+        ...state.filters,
+        page: result.pageNumber,
+        pageSize: result.pageSize,
+      },
     })
   ),
   on(PurchaseOrdersActions.loadPurchaseOrdersFailed, (state, { errorMessage }) => ({
@@ -95,6 +120,10 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.clearError, (state) => ({
     ...state,
     errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.resetListFilters, (state) => ({
+    ...state,
+    filters: DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   }))
 );
 

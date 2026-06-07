@@ -1,6 +1,10 @@
 import { purchaseOrdersReducer, PurchaseOrdersState, purchaseOrdersAdapter } from './purchase-orders.reducer';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
-import { PurchaseOrderListItem, PurchaseOrderDetail } from '../services/purchase-order.service';
+import {
+  DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
+  PurchaseOrderDetail,
+  PurchaseOrderListItem,
+} from '../services/purchase-order.service';
 
 const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState({
   loadingList: false,
@@ -9,13 +13,21 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   errorMessage: '',
   selectedOrder: null,
   createSucceeded: false,
+  totalCount: 0,
+  currentPage: 1,
+  pageSize: 20,
+  filters: DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
 });
 
 const mockListItem: PurchaseOrderListItem = {
   purchaseOrderId: 'po1',
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
+  supplierName: null,
+  supplierReference: null,
   lineCount: 1,
+  expectedQuantity: 1,
+  receivedQuantity: 0,
   expectedTotal: 100,
   createdAt: '2026-06-01T00:00:00Z',
 };
@@ -34,20 +46,26 @@ describe('purchaseOrdersReducer', () => {
   it('sets loadingList on load requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.loadPurchaseOrdersRequested()
+      PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: { search: 'rice', page: 1 } })
     );
     expect(next.loadingList).toBe(true);
     expect(next.errorMessage).toBe('');
+    expect(next.filters.search).toBe('rice');
   });
 
   it('populates list on load succeeded', () => {
     const next = purchaseOrdersReducer(
       { ...initialState, loadingList: true },
-      PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ orders: [mockListItem] })
+      PurchaseOrdersActions.loadPurchaseOrdersSucceeded({
+        result: { items: [mockListItem], totalCount: 1, pageNumber: 2, pageSize: 50 },
+      })
     );
     expect(next.loadingList).toBe(false);
     const ids = next.ids as string[];
     expect(ids).toContain('po1');
+    expect(next.totalCount).toBe(1);
+    expect(next.currentPage).toBe(2);
+    expect(next.pageSize).toBe(50);
   });
 
   it('sets error on load failed', () => {
