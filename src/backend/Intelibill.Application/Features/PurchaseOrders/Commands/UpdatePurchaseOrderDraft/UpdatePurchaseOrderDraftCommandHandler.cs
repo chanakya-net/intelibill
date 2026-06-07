@@ -11,6 +11,7 @@ namespace Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchase
 
 public sealed class UpdatePurchaseOrderDraftCommandHandler(
     IUserRepository userRepository,
+    IItemRepository itemRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
     IUnitOfWork unitOfWork)
 {
@@ -86,6 +87,19 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                 }
 
                 linesToUpdate.Add((lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost));
+            }
+
+            if (itemIds.Count > 0)
+            {
+                var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, itemIds.ToList(), cancellationToken);
+                var returnedItemIds = items.Select(item => item.Id).ToHashSet();
+                if (items.Count != itemIds.Count ||
+                    items.Any(item => item.ShopId != command.ActiveShopId) ||
+                    itemIds.Any(itemId => !returnedItemIds.Contains(itemId)))
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.LineItemNotFound;
+                }
             }
 
             po.UpdateDraft(

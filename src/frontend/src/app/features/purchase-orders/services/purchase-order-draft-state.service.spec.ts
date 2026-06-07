@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { PurchaseOrderDraftIndexedDbService, type PurchaseOrderDraftRecord } from '../../../core/storage/purchase-order-draft-indexeddb.service';
+import type { PurchaseOrderDetail } from './purchase-order.service';
 import { PurchaseOrderDraftStateService } from './purchase-order-draft-state.service';
 
 describe('PurchaseOrderDraftStateService', () => {
@@ -93,4 +94,35 @@ describe('PurchaseOrderDraftStateService', () => {
     expect(service.header().notes).toBe('Other shop');
     expect(service.lines()).toEqual([{ itemId: 'item-2', description: 'Other', expectedQuantity: 1, unitCost: 5 }]);
   });
+
+  it('does not persist server hydration as a restored local draft', async () => {
+    const firstServerDraft = makeDetail('po-1', 'server v1');
+    const secondServerDraft = makeDetail('po-1', 'server v2');
+
+    service.replaceFromServer(firstServerDraft);
+
+    expect(storage.saveDraft).not.toHaveBeenCalled();
+    expect(service.hasRestoredLocalDraft()).toBe(false);
+
+    service.replaceFromServer(secondServerDraft);
+
+    expect(service.header().notes).toBe('server v2');
+    expect(records.has('shop-1')).toBe(false);
+  });
 });
+
+function makeDetail(purchaseOrderId: string, notes: string): PurchaseOrderDetail {
+  return {
+    purchaseOrderId,
+    purchaseOrderNumber: 'PO-2026-000001',
+    status: 'Draft',
+    supplierId: null,
+    orderDate: null,
+    expectedDeliveryDate: null,
+    supplierReferenceNumber: null,
+    notes,
+    lines: [],
+    expectedTotal: 0,
+    createdAt: '2026-06-01T00:00:00Z',
+  };
+}

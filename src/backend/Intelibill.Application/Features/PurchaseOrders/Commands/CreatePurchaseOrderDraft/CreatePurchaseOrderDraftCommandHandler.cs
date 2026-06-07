@@ -27,6 +27,7 @@ public sealed record CreatePurchaseOrderDraftCommand(
 
 public sealed class CreatePurchaseOrderDraftCommandHandler(
     IUserRepository userRepository,
+    IItemRepository itemRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
     IPurchaseOrderNumberGenerator numberGenerator,
     IUnitOfWork unitOfWork)
@@ -96,6 +97,19 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                 }
 
                 po.AddLine(lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost);
+            }
+
+            if (itemIds.Count > 0)
+            {
+                var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, itemIds.ToList(), cancellationToken);
+                var returnedItemIds = items.Select(item => item.Id).ToHashSet();
+                if (items.Count != itemIds.Count ||
+                    items.Any(item => item.ShopId != command.ActiveShopId) ||
+                    itemIds.Any(itemId => !returnedItemIds.Contains(itemId)))
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.LineItemNotFound;
+                }
             }
 
             await purchaseOrderRepository.AddAsync(po, cancellationToken);

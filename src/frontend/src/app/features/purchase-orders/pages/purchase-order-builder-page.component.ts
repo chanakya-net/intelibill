@@ -119,13 +119,23 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     effect(() => {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
-        if (this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
+        if (this.draftState.hasRestoredLocalDraft() && this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
           this.patchHeaderForm();
           return;
         }
-        void this.draftState.replaceFromServer(this.activeShopId(), order);
+        this.draftState.replaceFromServer(order);
         this.patchHeaderForm();
       }
+    });
+    effect(() => {
+      const supplierId = this.draftState.header().supplier?.id;
+      if (!supplierId) return;
+
+      const supplier = this.supplierSuggestions().find((candidate) => candidate.supplierId === supplierId);
+      if (!supplier) return;
+
+      this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
+      this.patchHeaderForm();
     });
     effect(() => {
       const order = this.facade.selectedOrder();
@@ -187,10 +197,10 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => {
       const raw = this.form.getRawValue();
-      const supplier = this.supplierSuggestions().find((candidate) => candidate.name === raw.supplierName) ?? null;
+      const supplier = this.resolveSupplier(raw.supplierName ?? '');
       void this.draftState.updateHeader(this.activeShopId(), {
         purchaseOrderId: this.purchaseOrderId,
-        supplier: supplier ? { id: supplier.supplierId, name: supplier.name } : null,
+        supplier,
         orderDate: raw.orderDate || null,
         expectedDeliveryDate: raw.expectedDeliveryDate || null,
         supplierReferenceNumber: raw.supplierReferenceNumber || null,
@@ -209,6 +219,20 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       supplierReferenceNumber: header.supplierReferenceNumber ?? '',
       notes: header.notes ?? '',
     }, { emitEvent: false });
+  }
+
+  private resolveSupplier(name: string): { readonly id: string; readonly name: string } | null {
+    const supplier = this.supplierSuggestions().find((candidate) => candidate.name === name);
+    if (supplier) {
+      return { id: supplier.supplierId, name: supplier.name };
+    }
+
+    const current = this.draftState.header().supplier;
+    if (current && (name === current.name || (!name && !current.name))) {
+      return current;
+    }
+
+    return null;
   }
 
   private activeShopId(): string {

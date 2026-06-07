@@ -31,6 +31,7 @@ export class PurchaseOrderDraftStateService {
   readonly loadingDraft = signal(false);
   readonly duplicateBlocked = signal(false);
   readonly restoredPurchaseOrderId = signal<string | null>(null);
+  readonly hasRestoredLocalDraft = signal(false);
 
   constructor() {
     effect(() => {
@@ -57,6 +58,7 @@ export class PurchaseOrderDraftStateService {
         });
         this.lines.set(record.lines);
         this.restoredPurchaseOrderId.set(record.purchaseOrderId);
+        this.hasRestoredLocalDraft.set(true);
       } else {
         this.resetInMemory();
       }
@@ -82,12 +84,13 @@ export class PurchaseOrderDraftStateService {
     this.lines.set([]);
     this.duplicateBlocked.set(false);
     this.restoredPurchaseOrderId.set(null);
+    this.hasRestoredLocalDraft.set(false);
     if (shopId) {
       await this.storage.clearDraft(shopId);
     }
   }
 
-  async replaceFromServer(shopId: string, order: PurchaseOrderDetail): Promise<void> {
+  replaceFromServer(order: PurchaseOrderDetail): void {
     this.header.set({
       ...emptyHeader(),
       purchaseOrderId: order.purchaseOrderId,
@@ -103,13 +106,25 @@ export class PurchaseOrderDraftStateService {
       expectedQuantity: line.expectedQuantity,
       unitCost: line.unitCost,
     })));
-    await this.saveDraft(shopId);
     this.restoredPurchaseOrderId.set(order.purchaseOrderId);
+    this.hasRestoredLocalDraft.set(false);
   }
 
   async updateHeader(shopId: string, update: Partial<PurchaseOrderDraftHeader>): Promise<void> {
     this.header.update((current) => ({ ...current, ...update }));
+    this.restoredPurchaseOrderId.set(this.header().purchaseOrderId);
+    this.hasRestoredLocalDraft.set(true);
     await this.saveDraft(shopId);
+  }
+
+  resolveSupplierName(supplierId: string, name: string): void {
+    this.header.update((current) => {
+      if (current.supplier?.id !== supplierId || current.supplier.name) {
+        return current;
+      }
+
+      return { ...current, supplier: { id: supplierId, name } };
+    });
   }
 
   async addOrMergeLine(shopId: string, line: CreatePurchaseOrderLineRequest): Promise<'added' | 'merged'> {
@@ -119,17 +134,20 @@ export class PurchaseOrderDraftStateService {
       this.lines.update((lines) => lines.map((candidate) => candidate.itemId === line.itemId
         ? { ...candidate, expectedQuantity: candidate.expectedQuantity + line.expectedQuantity, unitCost: line.unitCost }
         : candidate));
+      this.hasRestoredLocalDraft.set(true);
       await this.saveDraft(shopId);
       return 'merged';
     }
 
     this.lines.update((lines) => [...lines, { ...line, description }]);
+    this.hasRestoredLocalDraft.set(true);
     await this.saveDraft(shopId);
     return 'added';
   }
 
   async removeLine(shopId: string, itemId: string): Promise<void> {
     this.lines.update((lines) => lines.filter((line) => line.itemId !== itemId));
+    this.hasRestoredLocalDraft.set(true);
     await this.saveDraft(shopId);
   }
 
@@ -150,6 +168,7 @@ export class PurchaseOrderDraftStateService {
     this.lines.set([]);
     this.duplicateBlocked.set(false);
     this.restoredPurchaseOrderId.set(null);
+    this.hasRestoredLocalDraft.set(false);
   }
 }
 
