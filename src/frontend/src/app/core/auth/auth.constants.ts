@@ -112,3 +112,9 @@ export const EXPORT_ENDPOINTS = {
 export const CONNECTIVITY_ENDPOINTS = {
   ping: `${API_BASE_URL}/ping`,
 } as const;
+
+export const PURCHASE_ORDER_ENDPOINTS = {
+  list: `${API_BASE_URL}/purchase-orders`,
+  create: `${API_BASE_URL}/purchase-orders`,
+  detail: (purchaseOrderId: string) => `${API_BASE_URL}/purchase-orders/${purchaseOrderId}`,
+} as const;

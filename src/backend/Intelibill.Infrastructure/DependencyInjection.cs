@@ -3,6 +3,7 @@ using Intelibill.Application.Features.Exports.ProfitLoss;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Items.Barcodes;
 using Intelibill.Application.Features.Items.Queries.GetItems;
+using Intelibill.Application.Features.PurchaseOrders.Services;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -15,6 +16,7 @@ using Intelibill.Infrastructure.Services.Exports;
 using Intelibill.Infrastructure.Services.Barcodes;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
+using Intelibill.Infrastructure.Services.PurchaseOrders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -98,6 +100,8 @@ public static class DependencyInjection
         services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
         services.AddScoped<IDiscountRuleRepository, DiscountRuleRepository>();
         services.AddScoped<IHsnCacheRepository, HsnCacheRepository>();
+        services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+        services.AddScoped<IPurchaseOrderSequenceRepository, PurchaseOrderSequenceRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
@@ -183,6 +187,8 @@ public static class DependencyInjection
             return handler;
         });
         services.AddScoped<IExternalHsnLookupService, Services.Hsn.ExternalHsnLookupService>();
+
+        services.AddScoped<IPurchaseOrderNumberGenerator, PurchaseOrderNumberGenerator>();
 
         return services;
     }
