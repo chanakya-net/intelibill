@@ -1,8 +1,9 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MenuItem } from 'primeng/api';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationService } from '../i18n/localization.service';
 import { ShopPermissionsService } from './shop-permissions.service';
@@ -68,10 +69,18 @@ describe('ShellMenuService', () => {
 
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
+
+    const poItem = inventoryItems.find((item) => item.label === 'i18n:shell.purchaseOrders');
+    expect(poItem).toBeDefined();
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate');
+    poItem?.command?.({} as any);
+    expect(navigateSpy).toHaveBeenCalledWith(['/inventory/purchase-orders']);
   });
 
   it('hides owner-only sections for staff while keeping adjustments', () => {
@@ -84,6 +93,7 @@ describe('ShellMenuService', () => {
 
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(false);
+    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(false);

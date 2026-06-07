@@ -1,0 +1,181 @@
+using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
+
+namespace Intelibill.Domain.Entities;
+
+public sealed class PurchaseOrder : BaseEntity
+{
+    private readonly List<PurchaseOrderLine> _lines = [];
+    private readonly List<PurchaseOrderReceipt> _receipts = [];
+
+    public Guid ShopId { get; private set; }
+    public Guid? SupplierId { get; private set; }
+    public string PurchaseOrderNumber { get; private set; } = string.Empty;
+    public DateOnly? OrderDate { get; private set; }
+    public DateOnly? ExpectedDeliveryDate { get; private set; }
+    public string? SupplierReferenceNumber { get; private set; }
+    public string? Notes { get; private set; }
+    public string? SupplierName { get; private set; }
+    public string? SupplierReference { get; private set; }
+    public PurchaseOrderStatus Status { get; private set; }
+    public string? CancellationReason { get; private set; }
+    public DateTimeOffset? ClosedAt { get; private set; }
+    public Guid? ClosedBy { get; private set; }
+    public string? CloseReason { get; private set; }
+    public IReadOnlyList<PurchaseOrderLine> Lines => _lines.AsReadOnly();
+    public IReadOnlyList<PurchaseOrderReceipt> Receipts => _receipts.AsReadOnly();
+
+    public decimal ExpectedTotal => _lines.Sum(l => l.LineTotal);
+
+    public bool CanDeleteDraft => Status == PurchaseOrderStatus.Draft;
+
+    private PurchaseOrder() { }
+
+    public static PurchaseOrder CreateDraft(
+        Guid shopId,
+        string purchaseOrderNumber,
+        Guid? supplierId,
+        DateOnly? orderDate,
+        DateOnly? expectedDeliveryDate,
+        string? supplierReferenceNumber,
+        string? notes,
+        string? supplierName = null,
+        string? supplierReference = null)
+    {
+        return new PurchaseOrder
+        {
+            ShopId = shopId,
+            SupplierId = supplierId,
+            PurchaseOrderNumber = purchaseOrderNumber,
+            OrderDate = orderDate,
+            ExpectedDeliveryDate = expectedDeliveryDate,
+            SupplierReferenceNumber = NormalizeOptional(supplierReferenceNumber),
+            Notes = NormalizeOptional(notes),
+            SupplierName = NormalizeOptional(supplierName),
+            SupplierReference = NormalizeOptional(supplierReference),
+            Status = PurchaseOrderStatus.Draft,
+        };
+    }
+
+    public PurchaseOrderLine AddLine(
+        Guid itemId,
+        string description,
+        int expectedQuantity,
+        decimal unitCost,
+        int receivedQuantity = 0)
+    {
+        var line = PurchaseOrderLine.Create(Id, itemId, description, expectedQuantity, unitCost, receivedQuantity);
+        _lines.Add(line);
+        return line;
+    }
+
+    public void UpdateSupplierDetails(string? supplierName, string? supplierReference)
+    {
+        SupplierName = NormalizeOptional(supplierName);
+        SupplierReference = NormalizeOptional(supplierReference);
+    }
+
+    public void UpdateDraft(
+        Guid? supplierId,
+        DateOnly? orderDate,
+        DateOnly? expectedDeliveryDate,
+        string? supplierReferenceNumber,
+        string? notes,
+        IReadOnlyList<(Guid ItemId, string Description, int ExpectedQuantity, decimal UnitCost)> lines)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can be updated.");
+
+        SupplierId = supplierId;
+        OrderDate = orderDate;
+        ExpectedDeliveryDate = expectedDeliveryDate;
+        SupplierReferenceNumber = NormalizeOptional(supplierReferenceNumber);
+        Notes = NormalizeOptional(notes);
+
+        var requestedItemIds = lines.Select(line => line.ItemId).ToHashSet();
+        _lines.RemoveAll(line => !requestedItemIds.Contains(line.ItemId));
+
+        foreach (var line in lines)
+        {
+            var existingLine = _lines.FirstOrDefault(existing => existing.ItemId == line.ItemId);
+            if (existingLine is not null)
+            {
+                existingLine.Update(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
+                continue;
+            }
+
+            AddLine(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
+        }
+    }
+
+    public void Place(Guid supplierId)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can be placed.");
+
+        if (_lines.Count == 0)
+            throw new InvalidOperationException("Cannot place a purchase order with no lines.");
+
+        SupplierId = supplierId;
+        Status = PurchaseOrderStatus.Placed;
+    }
+
+    public void Cancel(string reason)
+    {
+        if (Status != PurchaseOrderStatus.Placed)
+            throw new InvalidOperationException("Only placed purchase orders can be cancelled.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidOperationException("Cancellation reason is required.");
+
+        var totalReceived = _lines.Sum(l => l.ReceivedQuantity);
+        if (totalReceived > 0)
+            throw new InvalidOperationException("Cannot cancel a purchase order that has received items.");
+
+        CancellationReason = reason.Trim();
+        Status = PurchaseOrderStatus.Cancelled;
+    }
+
+    public void ApplyReceipt(Guid purchaseOrderLineId, int quantity)
+    {
+        if (Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
+            throw new InvalidOperationException("Only placed purchase orders can be received.");
+
+        var line = _lines.FirstOrDefault(l => l.Id == purchaseOrderLineId)
+            ?? throw new InvalidOperationException("Purchase order line was not found.");
+
+        line.ApplyReceipt(quantity);
+        Status = _lines.All(l => l.ReceivedQuantity == l.ExpectedQuantity)
+            ? PurchaseOrderStatus.Received
+            : PurchaseOrderStatus.PartiallyReceived;
+    }
+
+    public void Close(Guid closedBy, string reason, DateTimeOffset closedAt)
+    {
+        if (Status != PurchaseOrderStatus.PartiallyReceived)
+            throw new InvalidOperationException("Only partially received purchase orders can be closed.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidOperationException("Close reason is required.");
+
+        ClosedBy = closedBy;
+        ClosedAt = closedAt.ToUniversalTime();
+        CloseReason = reason.Trim();
+        Status = PurchaseOrderStatus.Closed;
+    }
+
+    public void AddReceipt(PurchaseOrderReceipt receipt)
+    {
+        if (receipt.PurchaseOrderId != Id)
+            throw new InvalidOperationException("Receipt belongs to a different purchase order.");
+
+        _receipts.Add(receipt);
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return value.Trim();
+    }
+}

@@ -349,6 +349,17 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
 
         var inventory = await db.Inventory.SingleAsync(i => i.ItemId == item.Id);
         Assert.Equal(5m, inventory.Quantity);
+
+        var batch = await db.InventoryBatches.SingleAsync(b => b.ItemId == item.Id);
+        var transaction = await db.StockTransactions.SingleAsync(t => t.ItemId == item.Id);
+        Assert.Equal(batch.Id, transaction.InventoryBatchId);
+        Assert.Equal(StockTransactionType.In, transaction.TransactionType);
+        Assert.Equal(5m, transaction.Quantity);
+
+        var ledgerEntry = await db.SupplierLedgerEntries.SingleAsync(e => e.BatchId == batch.Id);
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, ledgerEntry.EntryType);
+        Assert.Equal(450m, ledgerEntry.Amount);
+        Assert.Equal(batch.SupplierId, ledgerEntry.SupplierId);
     }
 
     [Fact]

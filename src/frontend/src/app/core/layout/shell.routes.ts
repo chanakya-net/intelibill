@@ -21,6 +21,8 @@ import { BankAccountsEffects } from '../../features/bank-accounts/state/bank-acc
 import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-accounts.reducer';
 import { DashboardEffects } from '../../features/dashboard/state/dashboard.effects';
 import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
+import { PurchaseOrdersEffects } from '../../features/purchase-orders/state/purchase-orders.effects';
+import { purchaseOrdersFeature } from '../../features/purchase-orders/state/purchase-orders.reducer';
 import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
 import { servicesGuard } from '../guards/services.guard';
@@ -40,6 +42,7 @@ export const shellRoutes: Routes = [
 			provideState(expensesFeature),
 			provideState(bankAccountsFeature),
 			provideState(dashboardFeature),
+			provideState(purchaseOrdersFeature),
 			provideEffects(
 				ShopsEffects,
 				UsersEffects,
@@ -49,7 +52,8 @@ export const shellRoutes: Routes = [
 				SalesEffects,
 				ExpensesEffects,
 				BankAccountsEffects,
-				DashboardEffects
+				DashboardEffects,
+				PurchaseOrdersEffects
 			),
 		],
 		children: [
@@ -96,6 +100,24 @@ export const shellRoutes: Routes = [
 				loadChildren: () =>
 					import('../../features/bank-accounts/bank-accounts.routes').then(
 						(m) => m.bankAccountsRoutes
+					),
+			},
+			{
+				path: 'inventory/purchase-orders/builder',
+				redirectTo: '/inventory/purchase-orders',
+			},
+			{
+				path: 'inventory/purchase-orders/:purchaseOrderId',
+				loadComponent: () =>
+					import('../../features/purchase-orders/pages/purchase-order-detail-page.component').then(
+						(m) => m.PurchaseOrderDetailPageComponent
+					),
+			},
+			{
+				path: 'inventory/purchase-orders',
+				loadComponent: () =>
+					import('../../features/purchase-orders/pages/purchase-orders-list-page.component').then(
+						(m) => m.PurchaseOrdersListPageComponent
 					),
 			},
 			{
