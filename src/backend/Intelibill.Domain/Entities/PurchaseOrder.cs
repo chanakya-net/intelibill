@@ -91,9 +91,19 @@ public sealed class PurchaseOrder : BaseEntity
         ExpectedDeliveryDate = expectedDeliveryDate;
         SupplierReferenceNumber = NormalizeOptional(supplierReferenceNumber);
         Notes = NormalizeOptional(notes);
-        _lines.Clear();
+
+        var requestedItemIds = lines.Select(line => line.ItemId).ToHashSet();
+        _lines.RemoveAll(line => !requestedItemIds.Contains(line.ItemId));
+
         foreach (var line in lines)
         {
+            var existingLine = _lines.FirstOrDefault(existing => existing.ItemId == line.ItemId);
+            if (existingLine is not null)
+            {
+                existingLine.Update(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
+                continue;
+            }
+
             AddLine(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
         }
     }

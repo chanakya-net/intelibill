@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Linq;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,29 +93,35 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         return body.EnumerateArray().First().GetProperty("shopId").GetGuid();
     }
 
-    private static async Task<(string Email, string Password)> AddStaffAsync(HttpClient client, string ownerToken, Guid shopId)
+    private static async Task<(string Email, string Password)> AddUserAsync(HttpClient client, string ownerToken, Guid shopId, string role)
     {
-        var staffEmail = UniqueEmail();
-        var staffPassword = "Pass123!Aa";
+        var userEmail = UniqueEmail();
+        var userPassword = "Pass123!Aa";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         request.Content = JsonContent.Create(new
         {
             shopIds = new[] { shopId },
-            email = staffEmail,
+            email = userEmail,
             firstName = "Shop",
-            lastName = "Staff",
+            lastName = role,
             phoneNumber = UniquePhone(),
-            password = staffPassword,
-            confirmPassword = staffPassword,
-            role = "Staff",
+            password = userPassword,
+            confirmPassword = userPassword,
+            role,
         });
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
-        return (staffEmail, staffPassword);
+        return (userEmail, userPassword);
     }
+
+    private static async Task<(string Email, string Password)> AddStaffAsync(HttpClient client, string ownerToken, Guid shopId) =>
+        await AddUserAsync(client, ownerToken, shopId, "Staff");
+
+    private static async Task<(string Email, string Password)> AddManagerAsync(HttpClient client, string ownerToken, Guid shopId) =>
+        await AddUserAsync(client, ownerToken, shopId, "Manager");
 
     private static async Task<Guid> CreateItemAsync(HttpClient client, string token, string name)
     {
@@ -366,6 +373,67 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
+    public async Task PurchaseOrderMutations_ForOtherActiveShopReturnNotFoundAndDoNotMutateSourceShopData()
+    {
+        using var client = CreateClient();
+        var ownerTokenA = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierIdA = await CreateSupplierAsync(client, ownerTokenA, "Isolation Supplier A");
+        var draftForUpdate = await CreateDraftWithSupplierAsync(client, ownerTokenA, supplierIdA, "IsoUpdate");
+        var draftForDelete = await CreateDraftWithSupplierAsync(client, ownerTokenA, supplierIdA, "IsoDelete");
+        var placedForCancel = await CreatePlacedSingleLinePoAsync(client, ownerTokenA, supplierIdA, "IsoCancel");
+        var placedForReceive = await CreatePlacedSingleLinePoAsync(client, ownerTokenA, supplierIdA, "IsoReceive");
+        var partialForClose = await CreatePlacedSingleLinePoAsync(client, ownerTokenA, supplierIdA, "IsoClose", expectedQuantity: 2);
+
+        using (var receiveRequest = CreateReceiveRequest(ownerTokenA, partialForClose.PurchaseOrderId, partialForClose.LineId, $"B-{Guid.NewGuid():N}", quantity: 1))
+        {
+            (await client.SendAsync(receiveRequest)).EnsureSuccessStatusCode();
+        }
+
+        var ownerTokenB = await CreateShopAsync(client, await RegisterAsync(client));
+        var otherShopItemId = await CreateItemAsync(client, ownerTokenB, "Other shop replacement item");
+
+        var updatePoId = draftForUpdate.GetProperty("purchaseOrderId").GetGuid();
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/purchase-orders/{updatePoId}");
+        updateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        updateRequest.Content = JsonContent.Create(new
+        {
+            lines = new[] { new { itemId = otherShopItemId, description = "Other shop item", expectedQuantity = 1, unitCost = 1m } },
+        });
+
+        using var placeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{draftForUpdate.GetProperty("purchaseOrderId").GetGuid()}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/purchase-orders/{draftForDelete.GetProperty("purchaseOrderId").GetGuid()}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+
+        using var cancelRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{placedForCancel.PurchaseOrderId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        cancelRequest.Content = JsonContent.Create(new { reason = "Other shop cancel" });
+
+        using var closeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{partialForClose.PurchaseOrderId}/close");
+        closeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenB);
+        closeRequest.Content = JsonContent.Create(new { reason = "Other shop close" });
+
+        using var receiveRequestB = CreateReceiveRequest(ownerTokenB, placedForReceive.PurchaseOrderId, placedForReceive.LineId, $"B-{Guid.NewGuid():N}");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(updateRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(placeRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(deleteRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(cancelRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(receiveRequestB)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(closeRequest)).StatusCode);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(PurchaseOrderStatus.Draft, (await db.PurchaseOrders.SingleAsync(p => p.Id == updatePoId)).Status);
+        Assert.Equal(PurchaseOrderStatus.Draft, (await db.PurchaseOrders.SingleAsync(p => p.Id == draftForDelete.GetProperty("purchaseOrderId").GetGuid())).Status);
+        Assert.Equal(PurchaseOrderStatus.Placed, (await db.PurchaseOrders.SingleAsync(p => p.Id == placedForCancel.PurchaseOrderId)).Status);
+        Assert.Equal(PurchaseOrderStatus.Placed, (await db.PurchaseOrders.SingleAsync(p => p.Id == placedForReceive.PurchaseOrderId)).Status);
+        Assert.Equal(PurchaseOrderStatus.PartiallyReceived, (await db.PurchaseOrders.SingleAsync(p => p.Id == partialForClose.PurchaseOrderId)).Status);
+        Assert.Equal(1, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == partialForClose.PurchaseOrderId));
+    }
+
+    [Fact]
     public async Task CreatePurchaseOrderDraft_GeneratesSequencePerShopAndYear()
     {
         using var client = CreateClient();
@@ -582,10 +650,30 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.Equal(1, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == poId));
-        Assert.Equal(1, await db.InventoryBatches.CountAsync());
-        Assert.Equal(1, await db.StockTransactions.CountAsync());
-        Assert.Equal(1, await db.SupplierLedgerEntries.CountAsync());
+        var receipt = await db.PurchaseOrderReceipts
+            .Include(r => r.Lines)
+            .SingleAsync(r => r.PurchaseOrderId == poId);
+        var receiptLine = Assert.Single(receipt.Lines);
+        Assert.Equal(lineId, receiptLine.PurchaseOrderLineId);
+        Assert.Equal(10m, receiptLine.TotalPurchaseCost);
+
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == receiptLine.InventoryBatchId);
+        Assert.Equal(1m, batch.Quantity);
+        Assert.Equal(10m, batch.CostPrice);
+        Assert.Equal(supplierId, batch.SupplierId);
+
+        var transaction = await db.StockTransactions.SingleAsync(t => t.Id == receiptLine.StockTransactionId);
+        Assert.Equal(batch.Id, transaction.InventoryBatchId);
+        Assert.Equal(StockTransactionType.In, transaction.TransactionType);
+        Assert.Equal(1m, transaction.Quantity);
+
+        var ledgerEntry = await db.SupplierLedgerEntries.SingleAsync(e => e.BatchId == batch.Id);
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, ledgerEntry.EntryType);
+        Assert.Equal(receiptLine.TotalPurchaseCost, ledgerEntry.Amount);
+        Assert.Equal(supplierId, ledgerEntry.SupplierId);
+
+        var inventory = await db.Inventory.SingleAsync(i => i.ItemId == batch.ItemId && i.ShopId == batch.ShopId);
+        Assert.Equal(receiptLine.Quantity, inventory.Quantity);
     }
 
     [Fact]
@@ -871,6 +959,137 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
 
         var placeResponse = await client.SendAsync(placeRequest);
         Assert.Equal(HttpStatusCode.Forbidden, placeResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PurchaseOrderLifecycle_AsManager_CanCreateUpdatePlaceReceiveCloseCancelAndDeleteDrafts()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Manager Supplier");
+        var (managerEmail, managerPassword) = await AddManagerAsync(client, ownerToken, shopId);
+        var managerToken = await LoginAsync(client, managerEmail, managerPassword);
+
+        var draft = await CreateDraftWithSupplierAsync(client, managerToken, supplierId, "ManagerLifecycle");
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+        var itemId = draft.GetProperty("lines")[0].GetProperty("itemId").GetGuid();
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/purchase-orders/{poId}");
+        updateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        updateRequest.Content = JsonContent.Create(new
+        {
+            supplierId,
+            notes = "Manager updated",
+            lines = new[] { new { itemId, description = "Manager Item Updated", expectedQuantity = 2, unitCost = 15m } },
+        });
+        var updateResponse = await client.SendAsync(updateRequest);
+        Assert.True(updateResponse.IsSuccessStatusCode, await updateResponse.Content.ReadAsStringAsync());
+        var updated = await updateResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(30m, updated.GetProperty("expectedTotal").GetDecimal());
+        Assert.Equal("Manager updated", updated.GetProperty("notes").GetString());
+
+        using var placeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{poId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        var placeResponse = await client.SendAsync(placeRequest);
+        placeResponse.EnsureSuccessStatusCode();
+        var placed = await placeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Placed", placed.GetProperty("status").GetString());
+
+        var lineId = placed.GetProperty("lines")[0].GetProperty("lineId").GetGuid();
+        using var receiveRequest = CreateReceiveRequest(managerToken, poId, lineId, $"B-{Guid.NewGuid():N}", quantity: 1);
+        var receiveResponse = await client.SendAsync(receiveRequest);
+        receiveResponse.EnsureSuccessStatusCode();
+        Assert.Equal("PartiallyReceived", (await receiveResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        using var closeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{poId}/close");
+        closeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        closeRequest.Content = JsonContent.Create(new { reason = "Manager short close" });
+        var closeResponse = await client.SendAsync(closeRequest);
+        closeResponse.EnsureSuccessStatusCode();
+        Assert.Equal("Closed", (await closeResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        var cancelDraft = await CreateDraftWithSupplierAsync(client, managerToken, supplierId, "ManagerCancel");
+        var cancelPoId = cancelDraft.GetProperty("purchaseOrderId").GetGuid();
+        using var cancelPlaceRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{cancelPoId}/place");
+        cancelPlaceRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        (await client.SendAsync(cancelPlaceRequest)).EnsureSuccessStatusCode();
+        using var cancelRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{cancelPoId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = "Manager cancelled" });
+        var cancelResponse = await client.SendAsync(cancelRequest);
+        cancelResponse.EnsureSuccessStatusCode();
+        Assert.Equal("Cancelled", (await cancelResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        var deleteDraft = await CreateDraftWithSupplierAsync(client, managerToken, supplierId, "ManagerDelete");
+        var deletePoId = deleteDraft.GetProperty("purchaseOrderId").GetGuid();
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/purchase-orders/{deletePoId}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(deleteRequest)).StatusCode);
+    }
+
+    [Fact]
+    public async Task PurchaseOrderLifecycle_AsStaffCanListAndDetailButCannotMutate()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Staff Matrix Supplier");
+        var draft = await CreateDraftWithSupplierAsync(client, ownerToken, supplierId, "StaffMatrixDraft");
+        var draftPoId = draft.GetProperty("purchaseOrderId").GetGuid();
+        var draftLineItemId = draft.GetProperty("lines")[0].GetProperty("itemId").GetGuid();
+        var placed = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "StaffMatrixPlaced", expectedQuantity: 2);
+
+        var (staffEmail, staffPassword) = await AddStaffAsync(client, ownerToken, shopId);
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/purchase-orders");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        (await client.SendAsync(listRequest)).EnsureSuccessStatusCode();
+
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/purchase-orders/{draftPoId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        (await client.SendAsync(detailRequest)).EnsureSuccessStatusCode();
+
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/purchase-orders");
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        createRequest.Content = JsonContent.Create(new
+        {
+            supplierId,
+            lines = new[] { new { itemId = draftLineItemId, description = "Staff create", expectedQuantity = 1, unitCost = 10m } },
+        });
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/purchase-orders/{draftPoId}");
+        updateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        updateRequest.Content = JsonContent.Create(new
+        {
+            supplierId,
+            lines = new[] { new { itemId = draftLineItemId, description = "Staff update", expectedQuantity = 1, unitCost = 10m } },
+        });
+
+        using var placeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{draftPoId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/purchase-orders/{draftPoId}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+
+        using var cancelRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{placed.PurchaseOrderId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = "Staff cancel" });
+
+        using var receiveRequest = CreateReceiveRequest(staffToken, placed.PurchaseOrderId, placed.LineId, $"B-{Guid.NewGuid():N}", quantity: 1);
+
+        using var closeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{placed.PurchaseOrderId}/close");
+        closeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        closeRequest.Content = JsonContent.Create(new { reason = "Staff close" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(createRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(updateRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(placeRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(deleteRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(cancelRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(receiveRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(closeRequest)).StatusCode);
     }
 
     [Fact]
