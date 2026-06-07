@@ -37,6 +37,9 @@ const mockDetail: PurchaseOrderDetail = {
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
   supplierId: null,
+  supplierName: null,
+  supplierReference: null,
+  receivedQuantity: 0,
   orderDate: null,
   expectedDeliveryDate: null,
   supplierReferenceNumber: null,
@@ -236,5 +239,44 @@ describe('purchaseOrdersReducer', () => {
     expect(next.submitting).toBe(false);
     expect(next.selectedOrder?.status).toBe('Cancelled');
     expect(next.selectedOrder?.cancellationReason).toBe('Too late');
+  });
+
+  it('preserves supplierName, supplierReference, and receivedQuantity in list entity after update/place/cancel', () => {
+    const detail: PurchaseOrderDetail = {
+      ...mockDetail,
+      supplierName: 'Acme Traders',
+      supplierReference: 'SUP-REF-001',
+      receivedQuantity: 5,
+    };
+    
+    // Test update draft
+    const state1 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.updateDraftSucceeded({ order: detail })
+    );
+    const item1 = state1.entities['po1'];
+    expect(item1?.supplierName).toBe('Acme Traders');
+    expect(item1?.supplierReference).toBe('SUP-REF-001');
+    expect(item1?.receivedQuantity).toBe(5);
+
+    // Test place order
+    const state2 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.placeOrderSucceeded({ order: { ...detail, status: 'Placed' } })
+    );
+    const item2 = state2.entities['po1'];
+    expect(item2?.supplierName).toBe('Acme Traders');
+    expect(item2?.supplierReference).toBe('SUP-REF-001');
+    expect(item2?.receivedQuantity).toBe(5);
+
+    // Test cancel order
+    const state3 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.cancelOrderSucceeded({ order: { ...detail, status: 'Cancelled', cancellationReason: 'reason' } })
+    );
+    const item3 = state3.entities['po1'];
+    expect(item3?.supplierName).toBe('Acme Traders');
+    expect(item3?.supplierReference).toBe('SUP-REF-001');
+    expect(item3?.receivedQuantity).toBe(5);
   });
 });

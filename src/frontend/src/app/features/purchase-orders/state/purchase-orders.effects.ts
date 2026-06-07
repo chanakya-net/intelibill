@@ -203,6 +203,7 @@ function getCancelOrderErrorMessage(error: ApiErrorPayload | undefined): string 
   if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
   if (title === 'PurchaseOrder.CannotCancelAfterReceipt') return 'purchaseOrders.errors.cannotCancelAfterReceipt';
   if (title === 'PurchaseOrder.CannotCancelInvalidStatus') return 'purchaseOrders.errors.cannotCancelInvalidStatus';
+  if (title === 'PurchaseOrder.CancellationReasonRequired') return 'purchaseOrders.errors.cancellationReasonRequired';
   if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
   return 'purchaseOrders.errors.unableToCancel';
 }

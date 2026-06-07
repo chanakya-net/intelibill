@@ -49,6 +49,9 @@ export interface PurchaseOrderDetail {
   readonly purchaseOrderNumber: string;
   readonly status: PurchaseOrderStatus;
   readonly supplierId: string | null;
+  readonly supplierName: string | null;
+  readonly supplierReference: string | null;
+  readonly receivedQuantity: number;
   readonly orderDate: string | null;
   readonly expectedDeliveryDate: string | null;
   readonly supplierReferenceNumber: string | null;

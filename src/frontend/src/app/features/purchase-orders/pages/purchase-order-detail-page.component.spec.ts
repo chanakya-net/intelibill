@@ -38,6 +38,9 @@ const selectedOrder: PurchaseOrderDetail = {
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
   supplierId: null,
+  supplierName: null,
+  supplierReference: null,
+  receivedQuantity: 0,
   orderDate: null,
   expectedDeliveryDate: null,
   supplierReferenceNumber: null,
@@ -99,7 +102,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   cancelOrder: 'Cancel Order',
                 },
                 dialog: {
-                  cancelReasonLabel: 'Reason (optional)'
+                  cancelReasonLabel: 'Reason (required)'
                 }
               }
             }
@@ -204,7 +207,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
 
     const input = host.querySelector('input') as HTMLInputElement;
     expect(input).toBeTruthy();
-    expect(input.placeholder).toBe('Reason (optional)');
+    expect(input.placeholder).toBe('Reason (required)');
   });
 
   it('hides cancel form for Placed order when Staff', () => {
@@ -263,5 +266,37 @@ describe('PurchaseOrderDetailPageComponent', () => {
     deleteButton?.click();
 
     expect(facade.deleteDraft).toHaveBeenCalledWith('po-1');
+  });
+
+  it('enables/disables cancel button based on reason and dispatches cancelOrder on click', async () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Placed' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const input = host.querySelector('input') as HTMLInputElement;
+    const cancelBtn = Array.from(host.querySelectorAll('button'))
+      .find((btn) => btn.textContent?.includes('Cancel Order')) as HTMLButtonElement;
+
+    expect(cancelBtn).toBeTruthy();
+    expect(cancelBtn.disabled).toBe(true); // initially disabled since reason is empty
+
+    // Input some whitespace
+    input.value = '   ';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(cancelBtn.disabled).toBe(true); // still disabled for whitespace
+
+    // Input a valid reason
+    input.value = 'Ordered wrong items';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(cancelBtn.disabled).toBe(false); // enabled now
+
+    // Click it
+    cancelBtn.click();
+    expect(facade.cancelOrder).toHaveBeenCalledWith('po-1', { reason: 'Ordered wrong items' });
   });
 });

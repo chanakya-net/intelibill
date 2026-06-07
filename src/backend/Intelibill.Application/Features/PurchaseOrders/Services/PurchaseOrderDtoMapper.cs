@@ -31,7 +31,10 @@ public static class PurchaseOrderDtoMapper
             po.Lines.Select(ToLineDto).ToList(),
             po.ExpectedTotal,
             po.CreatedAt,
-            po.CancellationReason);
+            po.CancellationReason,
+            po.SupplierName,
+            po.SupplierReference,
+            po.Lines.Sum(l => l.ReceivedQuantity));
 
     private static PurchaseOrderLineDto ToLineDto(PurchaseOrderLine line) =>
         new(

@@ -6,7 +6,7 @@ import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
-import { PurchaseOrderService } from '../services/purchase-order.service';
+import { PurchaseOrderDetail, PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 import { PurchaseOrdersEffects } from './purchase-orders.effects';
 
@@ -118,11 +118,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches createDraftSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po2',
       purchaseOrderNumber: 'PO-2026-000002',
       status: 'Draft' as const,
       supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -182,11 +185,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches updateDraftSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po1',
       purchaseOrderNumber: 'PO-2026-000001',
       status: 'Draft' as const,
       supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -220,11 +226,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches placeOrderSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po1',
       purchaseOrderNumber: 'PO-2026-000001',
       status: 'Placed' as const,
       supplierId: 'sup1',
+      supplierName: 'Acme Traders',
+      supplierReference: 'SUP-REF-001',
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -282,11 +291,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches cancelOrderSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po1',
       purchaseOrderNumber: 'PO-2026-000001',
       status: 'Cancelled' as const,
       supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -315,6 +327,21 @@ describe('PurchaseOrdersEffects', () => {
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.cancelOrderFailed({
         errorMessage: 'purchaseOrders.errors.cannotCancelAfterReceipt',
+      })
+    );
+  });
+
+  it('maps CancellationReasonRequired error on cancel failure', async () => {
+    service.cancelPurchaseOrder.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.CancellationReasonRequired' } }))
+    );
+
+    const output = firstValueFrom(effects.cancelOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId: 'po1', payload: { reason: null } }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.cancelOrderFailed({
+        errorMessage: 'purchaseOrders.errors.cancellationReasonRequired',
       })
     );
   });

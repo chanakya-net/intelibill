@@ -50,6 +50,7 @@ public sealed class PlacePurchaseOrderCommandHandler(
         if (po.Lines.Count == 0)
             return Errors.PurchaseOrder.AtLeastOneLineRequired;
 
+        po.UpdateSupplierDetails(supplier.Name, po.SupplierReference);
         po.Place(po.SupplierId.Value);
 
         purchaseOrderRepository.Update(po);

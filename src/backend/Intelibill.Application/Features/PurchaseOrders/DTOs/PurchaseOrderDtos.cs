@@ -40,4 +40,7 @@ public sealed record PurchaseOrderDetailDto(
     IReadOnlyList<PurchaseOrderLineDto> Lines,
     decimal ExpectedTotal,
     DateTimeOffset CreatedAt,
-    string? CancellationReason = null);
+    string? CancellationReason = null,
+    string? SupplierName = null,
+    string? SupplierReference = null,
+    int ReceivedQuantity = 0);
