@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
@@ -122,5 +123,49 @@ public class PurchaseOrdersControllerTests
 
         var obj = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePurchaseOrderDraft_WhenValid_ReturnsOk()
+    {
+        SetValidClaims(out var userId, out var shopId);
+        var poId = Guid.NewGuid();
+        var dto = new PurchaseOrderDetailDto(
+            poId, "PO-2026-000001", PurchaseOrderStatus.Draft,
+            "Updated notes", [], 0m, DateTimeOffset.UtcNow);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
+
+        var result = await _controller.UpdatePurchaseOrderDraft(
+            poId,
+            new UpdatePurchaseOrderDraftRequest("Updated notes", []),
+            CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, okResult.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<UpdatePurchaseOrderDraftCommand>(q =>
+                q.ActorUserId == userId &&
+                q.ActiveShopId == shopId &&
+                q.PurchaseOrderId == poId &&
+                q.Notes == "Updated notes"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdatePurchaseOrderDraft_WhenNotFound_ReturnsNotFound()
+    {
+        SetValidClaims(out _, out _);
+        var poId = Guid.NewGuid();
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.NotFound);
+
+        var result = await _controller.UpdatePurchaseOrderDraft(
+            poId,
+            new UpdatePurchaseOrderDraftRequest(null, []),
+            CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, obj.StatusCode);
     }
 }

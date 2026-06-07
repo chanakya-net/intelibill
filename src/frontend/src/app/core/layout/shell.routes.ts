@@ -103,6 +103,24 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'inventory/purchase-orders/new',
+				loadComponent: () =>
+					import('../../features/purchase-orders/pages/purchase-order-builder-page.component').then(
+						(m) => m.PurchaseOrderBuilderPageComponent
+					),
+			},
+			{
+				path: 'inventory/purchase-orders/builder',
+				redirectTo: '/inventory/purchase-orders/new',
+			},
+			{
+				path: 'inventory/purchase-orders/:purchaseOrderId/edit',
+				loadComponent: () =>
+					import('../../features/purchase-orders/pages/purchase-order-builder-page.component').then(
+						(m) => m.PurchaseOrderBuilderPageComponent
+					),
+			},
+			{
 				path: 'inventory/purchase-orders/:purchaseOrderId',
 				loadComponent: () =>
 					import('../../features/purchase-orders/pages/purchase-order-detail-page.component').then(

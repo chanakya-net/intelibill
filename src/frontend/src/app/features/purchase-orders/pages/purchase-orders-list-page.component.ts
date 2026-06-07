@@ -28,7 +28,12 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
     <div class="page-container">
       <p-card>
         <ng-template pTemplate="title">
-          <h2>{{ 'purchaseOrders.title' | transloco }}</h2>
+          <div class="po-list-header">
+            <h2>{{ 'purchaseOrders.title' | transloco }}</h2>
+            <a routerLink="/inventory/purchase-orders/new">
+              {{ 'purchaseOrders.newPo' | transloco }}
+            </a>
+          </div>
         </ng-template>
         @if (facade.isLoadingList()) {
           <p-progressSpinner />
@@ -41,6 +46,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                 <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
                 <th>{{ 'purchaseOrders.expectedTotal' | transloco }}</th>
                 <th>{{ 'purchaseOrders.createdAt' | transloco }}</th>
+                <th></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-order>
@@ -56,11 +62,16 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                 <td>{{ order.lineCount }}</td>
                 <td>{{ order.expectedTotal | number:'1.2-2' }}</td>
                 <td>{{ order.createdAt | date:'short' }}</td>
+                <td>
+                  <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
+                    {{ 'purchaseOrders.editPo' | transloco }}
+                  </a>
+                </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="5">{{ 'purchaseOrders.noDrafts' | transloco }}</td>
+                <td colspan="6">{{ 'purchaseOrders.noDrafts' | transloco }}</td>
               </tr>
             </ng-template>
           </p-table>
@@ -68,6 +79,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
       </p-card>
     </div>
   `,
+  styles: [`
+    .po-list-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  `],
 })
 export class PurchaseOrdersListPageComponent implements OnInit {
   protected readonly facade = inject(PurchaseOrdersFacade);

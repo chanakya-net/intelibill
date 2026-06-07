@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
@@ -72,6 +73,28 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
             new { purchaseOrderId = po.PurchaseOrderId },
             po));
     }
+
+    [HttpPut("{purchaseOrderId:guid}")]
+    public async Task<IActionResult> UpdatePurchaseOrderDraft(
+        Guid purchaseOrderId,
+        [FromBody] UpdatePurchaseOrderDraftRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new UpdatePurchaseOrderDraftCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                purchaseOrderId,
+                request.Notes,
+                request.Lines.Select(l => new UpdatePurchaseOrderLineInput(
+                    l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record CreatePurchaseOrderDraftLineRequest(
@@ -82,3 +105,12 @@ public sealed record CreatePurchaseOrderDraftLineRequest(
 public sealed record CreatePurchaseOrderDraftRequest(
     string? Notes,
     IReadOnlyList<CreatePurchaseOrderDraftLineRequest> Lines);
+
+public sealed record UpdatePurchaseOrderDraftLineRequest(
+    string Description,
+    int ExpectedQuantity,
+    decimal UnitCost);
+
+public sealed record UpdatePurchaseOrderDraftRequest(
+    string? Notes,
+    IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);

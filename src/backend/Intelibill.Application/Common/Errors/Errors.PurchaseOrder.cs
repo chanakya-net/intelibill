@@ -29,5 +29,8 @@ public static partial class Errors
 
         public static Error SequenceError =>
             Error.Unexpected("PurchaseOrder.SequenceError", "Failed to generate purchase order number.");
+
+        public static Error CannotUpdateNonDraft =>
+            Error.Validation("PurchaseOrder.CannotUpdateNonDraft", "Only draft purchase orders can be updated.");
     }
 }

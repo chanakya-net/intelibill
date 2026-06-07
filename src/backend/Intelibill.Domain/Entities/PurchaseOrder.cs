@@ -38,6 +38,21 @@ public sealed class PurchaseOrder : BaseEntity
         return line;
     }
 
+    public void UpdateDraft(
+        string? notes,
+        IReadOnlyList<(string Description, int ExpectedQuantity, decimal UnitCost)> lines)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can be updated.");
+
+        Notes = NormalizeOptional(notes);
+        _lines.Clear();
+        foreach (var line in lines)
+        {
+            AddLine(line.Description, line.ExpectedQuantity, line.UnitCost);
+        }
+    }
+
     private static string? NormalizeOptional(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

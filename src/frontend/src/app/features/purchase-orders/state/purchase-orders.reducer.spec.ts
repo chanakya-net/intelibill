@@ -87,6 +87,26 @@ describe('purchaseOrdersReducer', () => {
     expect(next.selectedOrder).toEqual(mockDetail);
   });
 
+  it('sets submitting on update requested', () => {
+    const next = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { notes: 'Updated', lines: [] } })
+    );
+    expect(next.submitting).toBe(true);
+  });
+
+  it('updates selectedOrder and upserts order in adapter list on update succeeded', () => {
+    const updatedDetail: PurchaseOrderDetail = { ...mockDetail, notes: 'Updated notes' };
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.updateDraftSucceeded({ order: updatedDetail })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.selectedOrder).toEqual(updatedDetail);
+    expect(next.entities['po1']).toBeDefined();
+    expect(next.entities['po1']?.expectedTotal).toBe(0);
+  });
+
   it('clears detail on clearDetail', () => {
     const next = purchaseOrdersReducer(
       { ...initialState, selectedOrder: mockDetail },

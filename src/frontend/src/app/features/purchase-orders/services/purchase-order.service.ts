@@ -61,4 +61,8 @@ export class PurchaseOrderService {
   createDraft(payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
     return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.create, payload);
   }
+
+  updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
+    return this.http.put<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.detail(purchaseOrderId), payload);
+  }
 }

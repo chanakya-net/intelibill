@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CardModule } from 'primeng/card';
@@ -15,6 +15,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     TranslocoPipe,
     CardModule,
     ProgressSpinnerModule,
@@ -28,7 +29,12 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           <p-progressSpinner />
         } @else if (facade.selectedOrder(); as order) {
           <ng-template pTemplate="title">
-            <h2>{{ order.purchaseOrderNumber }}</h2>
+            <div class="po-detail-header">
+              <h2>{{ order.purchaseOrderNumber }}</h2>
+              <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
+                {{ 'purchaseOrders.editPo' | transloco }}
+              </a>
+            </div>
           </ng-template>
           <p>
             <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
@@ -68,6 +74,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
       </p-card>
     </div>
   `,
+  styles: [`
+    .po-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  `],
 })
 export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
