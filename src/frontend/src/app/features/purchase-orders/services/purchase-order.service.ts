@@ -8,6 +8,7 @@ export type PurchaseOrderStatus = 'Draft';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
+  readonly itemId: string;
   readonly description: string;
   readonly expectedQuantity: number;
   readonly unitCost: number;
@@ -27,6 +28,10 @@ export interface PurchaseOrderDetail {
   readonly purchaseOrderId: string;
   readonly purchaseOrderNumber: string;
   readonly status: PurchaseOrderStatus;
+  readonly supplierId: string | null;
+  readonly orderDate: string | null;
+  readonly expectedDeliveryDate: string | null;
+  readonly supplierReferenceNumber: string | null;
   readonly notes: string | null;
   readonly lines: readonly PurchaseOrderLine[];
   readonly expectedTotal: number;
@@ -34,12 +39,17 @@ export interface PurchaseOrderDetail {
 }
 
 export interface CreatePurchaseOrderLineRequest {
+  readonly itemId: string;
   readonly description: string;
   readonly expectedQuantity: number;
   readonly unitCost: number;
 }
 
 export interface CreatePurchaseOrderDraftRequest {
+  readonly supplierId: string | null;
+  readonly orderDate: string | null;
+  readonly expectedDeliveryDate: string | null;
+  readonly supplierReferenceNumber: string | null;
   readonly notes: string | null;
   readonly lines: readonly CreatePurchaseOrderLineRequest[];
 }

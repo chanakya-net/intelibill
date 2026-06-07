@@ -40,6 +40,30 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
             <p-tag [value]="order.status" severity="info" />
           </p>
+          @if (order.supplierId) {
+            <p>
+              <strong>{{ 'purchaseOrders.builder.supplier' | transloco }}:</strong>
+              {{ order.supplierId }}
+            </p>
+          }
+          @if (order.orderDate) {
+            <p>
+              <strong>{{ 'purchaseOrders.builder.orderDate' | transloco }}:</strong>
+              {{ order.orderDate }}
+            </p>
+          }
+          @if (order.expectedDeliveryDate) {
+            <p>
+              <strong>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}:</strong>
+              {{ order.expectedDeliveryDate }}
+            </p>
+          }
+          @if (order.supplierReferenceNumber) {
+            <p>
+              <strong>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}:</strong>
+              {{ order.supplierReferenceNumber }}
+            </p>
+          }
           @if (order.notes) {
             <p>
               <strong>{{ 'purchaseOrders.notes' | transloco }}:</strong>

@@ -10,6 +10,7 @@ using ErrorOr;
 namespace Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 
 public sealed record CreatePurchaseOrderLineInput(
+    Guid ItemId,
     string Description,
     int ExpectedQuantity,
     decimal UnitCost);
@@ -17,6 +18,10 @@ public sealed record CreatePurchaseOrderLineInput(
 public sealed record CreatePurchaseOrderDraftCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
     string? Notes,
     IReadOnlyList<CreatePurchaseOrderLineInput> Lines);
 
@@ -47,11 +52,24 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
             var now = DateTimeOffset.UtcNow;
             var poNumber = await numberGenerator.GenerateAsync(command.ActiveShopId, now.Year, cancellationToken);
 
-            var po = PurchaseOrder.CreateDraft(command.ActiveShopId, poNumber, command.Notes);
+            var po = PurchaseOrder.CreateDraft(
+                command.ActiveShopId,
+                poNumber,
+                command.SupplierId,
+                command.OrderDate,
+                command.ExpectedDeliveryDate,
+                command.SupplierReferenceNumber,
+                command.Notes);
 
-            var descriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var itemIds = new HashSet<Guid>();
             foreach (var lineInput in command.Lines)
             {
+                if (lineInput.ItemId == Guid.Empty)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.LineDescriptionRequired;
+                }
+
                 var description = lineInput.Description?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(description))
                 {
@@ -59,7 +77,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                     return Errors.PurchaseOrder.LineDescriptionRequired;
                 }
 
-                if (!descriptions.Add(description))
+                if (!itemIds.Add(lineInput.ItemId))
                 {
                     await unitOfWork.RollbackTransactionAsync(cancellationToken);
                     return Errors.PurchaseOrder.DuplicateItem;
@@ -77,7 +95,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                     return Errors.PurchaseOrder.InvalidLineUnitCost;
                 }
 
-                po.AddLine(description, lineInput.ExpectedQuantity, lineInput.UnitCost);
+                po.AddLine(lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost);
             }
 
             await purchaseOrderRepository.AddAsync(po, cancellationToken);

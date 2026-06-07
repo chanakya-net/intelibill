@@ -41,7 +41,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, []),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -57,7 +57,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
             .Returns((PurchaseOrder)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, []),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -68,14 +68,14 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
     public async Task HandleAsync_WhenPoNotDraft_ReturnsValidationError()
     {
         var (actor, shop) = MakeOwner();
-        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null);
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, null);
         typeof(PurchaseOrder).GetProperty("Status")!.SetValue(po, PurchaseOrderStatus.Approved);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, null, null, null, null, null, []),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -86,34 +86,8 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
     public async Task HandleAsync_ValidDraftUpdate_Succeeds()
     {
         var (actor, shop) = MakeOwner();
-        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", "old notes");
-        po.AddLine("old line", 10, 15m);
-
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
-
-        var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(
-                actor.Id,
-                shop.Id,
-                po.Id,
-                "new notes",
-                [new UpdatePurchaseOrderLineInput("new line 1", 5, 20m), new UpdatePurchaseOrderLineInput("new line 2", 2, 50m)]),
-            CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal("new notes", result.Value.Notes);
-        Assert.Equal(2, result.Value.Lines.Count);
-        Assert.Equal(200m, result.Value.ExpectedTotal);
-        _poRepository.Received(1).Update(po);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_DuplicateDescription_ReturnsValidationError()
-    {
-        var (actor, shop) = MakeOwner();
-        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null);
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, "old notes");
+        po.AddLine(Guid.NewGuid(), "old line", 10, 15m);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
@@ -124,7 +98,43 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 shop.Id,
                 po.Id,
                 null,
-                [new UpdatePurchaseOrderLineInput("Widget", 2, 10m), new UpdatePurchaseOrderLineInput("widget", 3, 5m)]),
+                DateOnly.FromDateTime(DateTime.UtcNow.Date),
+                DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(2)),
+                "SUP-1",
+                "new notes",
+                [new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "new line 1", 5, 20m), new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "new line 2", 2, 50m)]),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("new notes", result.Value.Notes);
+        Assert.Equal("SUP-1", result.Value.SupplierReferenceNumber);
+        Assert.Equal(2, result.Value.Lines.Count);
+        Assert.Equal(200m, result.Value.ExpectedTotal);
+        _poRepository.Received(1).Update(po);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_DuplicateDescription_ReturnsValidationError()
+    {
+        var (actor, shop) = MakeOwner();
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, null);
+        var itemId = Guid.NewGuid();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+
+        var result = await CreateHandler().HandleAsync(
+            new UpdatePurchaseOrderDraftCommand(
+                actor.Id,
+                shop.Id,
+                po.Id,
+                null,
+                null,
+                null,
+                null,
+                null,
+                [new UpdatePurchaseOrderLineInput(itemId, "Widget", 2, 10m), new UpdatePurchaseOrderLineInput(itemId, "Other display", 3, 5m)]),
             CancellationToken.None);
 
         Assert.True(result.IsError);

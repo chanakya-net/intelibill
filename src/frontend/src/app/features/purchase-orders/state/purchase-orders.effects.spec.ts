@@ -100,6 +100,10 @@ describe('PurchaseOrdersEffects', () => {
       purchaseOrderId: 'po2',
       purchaseOrderNumber: 'PO-2026-000002',
       status: 'Draft' as const,
+      supplierId: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
       notes: null,
       lines: [],
       expectedTotal: 0,
@@ -108,7 +112,7 @@ describe('PurchaseOrdersEffects', () => {
     service.createDraft.mockReturnValue(of(detail));
 
     const output = firstValueFrom(effects.createDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { notes: null, lines: [] } }));
+    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: null, lines: [] } }));
 
     await expect(output).resolves.toEqual(PurchaseOrdersActions.createDraftSucceeded({ order: detail }));
   });
@@ -119,7 +123,7 @@ describe('PurchaseOrdersEffects', () => {
     );
 
     const output = firstValueFrom(effects.createDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { notes: null, lines: [] } }));
+    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: null, lines: [] } }));
 
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.createDraftFailed({
@@ -133,6 +137,10 @@ describe('PurchaseOrdersEffects', () => {
       purchaseOrderId: 'po1',
       purchaseOrderNumber: 'PO-2026-000001',
       status: 'Draft' as const,
+      supplierId: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
       notes: 'Updated notes',
       lines: [],
       expectedTotal: 0,
@@ -141,7 +149,7 @@ describe('PurchaseOrdersEffects', () => {
     service.updateDraft.mockReturnValue(of(detail));
 
     const output = firstValueFrom(effects.updateDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { notes: 'Updated notes', lines: [] } }));
+    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: 'Updated notes', lines: [] } }));
 
     await expect(output).resolves.toEqual(PurchaseOrdersActions.updateDraftSucceeded({ order: detail }));
   });
@@ -152,7 +160,7 @@ describe('PurchaseOrdersEffects', () => {
     );
 
     const output = firstValueFrom(effects.updateDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { notes: null, lines: [] } }));
+    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: null, lines: [] } }));
 
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.updateDraftFailed({

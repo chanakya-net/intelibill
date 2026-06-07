@@ -10,12 +10,19 @@ internal sealed class UpdatePurchaseOrderDraftCommandValidator : AbstractValidat
         RuleFor(x => x.Notes)
             .MaximumLength(1000);
 
+        RuleFor(x => x.SupplierReferenceNumber)
+            .MaximumLength(100);
+
         RuleFor(x => x.Lines)
             .NotNull();
 
         RuleForEach(x => x.Lines)
             .ChildRules(line =>
             {
+                line.RuleFor(l => l.ItemId)
+                    .NotEmpty()
+                    .WithErrorCode(Errors.PurchaseOrder.LineDescriptionRequired.Code);
+
                 line.RuleFor(l => l.Description)
                     .NotEmpty()
                     .WithErrorCode(Errors.PurchaseOrder.LineDescriptionRequired.Code)

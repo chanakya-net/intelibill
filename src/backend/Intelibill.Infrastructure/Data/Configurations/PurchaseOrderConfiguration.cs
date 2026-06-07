@@ -15,9 +15,18 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         builder.Property(po => po.ShopId)
             .IsRequired();
 
+        builder.Property(po => po.SupplierId);
+
         builder.Property(po => po.PurchaseOrderNumber)
             .HasMaxLength(32)
             .IsRequired();
+
+        builder.Property(po => po.OrderDate);
+
+        builder.Property(po => po.ExpectedDeliveryDate);
+
+        builder.Property(po => po.SupplierReferenceNumber)
+            .HasMaxLength(100);
 
         builder.Property(po => po.Notes)
             .HasMaxLength(1000);
@@ -33,6 +42,11 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
             .WithMany()
             .HasForeignKey(po => po.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Supplier>()
+            .WithMany()
+            .HasForeignKey(po => po.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(po => po.Lines)
             .WithOne()

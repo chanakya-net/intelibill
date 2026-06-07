@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import type { AddItemRequest } from '../../inventory/services/inventory.models';
 import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.service';
@@ -10,24 +12,29 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
 @Component({
   selector: 'app-purchase-order-line-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslocoPipe],
   template: `
     <form class="po-line-form" [formGroup]="form" (ngSubmit)="submitLine()">
       <label>
-        <span>Item</span>
+        <span>{{ 'purchaseOrders.builder.item' | transloco }}</span>
         <input type="text" formControlName="description" list="po-item-suggestions" />
+        <datalist id="po-item-suggestions">
+          @for (entry of itemSuggestions(); track entry.itemId) {
+            <option [value]="entry.name"></option>
+          }
+        </datalist>
       </label>
       <label>
-        <span>Qty</span>
+        <span>{{ 'purchaseOrders.builder.qty' | transloco }}</span>
         <input type="number" min="1" step="1" formControlName="expectedQuantity" />
       </label>
       <label>
-        <span>Unit cost</span>
+        <span>{{ 'purchaseOrders.builder.unitCost' | transloco }}</span>
         <input type="number" min="0" step="0.01" formControlName="unitCost" />
       </label>
-      <button type="submit" [disabled]="form.invalid">Add line</button>
+      <button type="submit" [disabled]="form.invalid">{{ 'purchaseOrders.builder.addLine' | transloco }}</button>
       <button type="button" (click)="quickCreateProduct()" [disabled]="form.controls.description.invalid">
-        Quick-create product
+        {{ 'purchaseOrders.builder.quickCreateProduct' | transloco }}
       </button>
     </form>
   `,
@@ -42,6 +49,7 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
 export class PurchaseOrderLineFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly inventoryService = inject(InventoryService);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
 
   @Output() readonly lineSubmitted = new EventEmitter<CreatePurchaseOrderLineRequest>();
 
@@ -50,17 +58,22 @@ export class PurchaseOrderLineFormComponent {
     expectedQuantity: [1, [Validators.required, Validators.min(1)]],
     unitCost: [0, [Validators.required, Validators.min(0)]],
   });
+  itemSuggestions() {
+    return this.catalogSync.filterByName(this.form.controls.description.value).slice(0, 20);
+  }
 
   submitLine(): void {
     if (this.form.invalid) return;
-    this.lineSubmitted.emit(this.buildLine());
+    const line = this.buildLineFromSelectedItem();
+    if (!line) return;
+    this.lineSubmitted.emit(line);
     this.form.reset({ description: '', expectedQuantity: 1, unitCost: 0 });
   }
 
   async quickCreateProduct(): Promise<void> {
     if (this.form.controls.description.invalid) return;
 
-    const line = this.buildLine();
+    const line = this.buildLineValues();
     const payload: AddItemRequest = {
       name: line.description,
       barcode: '',
@@ -71,7 +84,9 @@ export class PurchaseOrderLineFormComponent {
       defaultTaxRatePercent: 0,
     };
     const item = await firstValueFrom(this.inventoryService.addItem(payload));
+    this.catalogSync.upsertEntry({ itemId: item.id, name: item.name, barcode: item.barcode });
     this.lineSubmitted.emit({
+      itemId: item.id,
       description: item.name,
       expectedQuantity: line.expectedQuantity,
       unitCost: line.unitCost,
@@ -79,7 +94,19 @@ export class PurchaseOrderLineFormComponent {
     this.form.reset({ description: '', expectedQuantity: 1, unitCost: 0 });
   }
 
-  private buildLine(): CreatePurchaseOrderLineRequest {
+  private buildLineFromSelectedItem(): CreatePurchaseOrderLineRequest | null {
+    const value = this.buildLineValues();
+    const entry = this.catalogSync.findByName(value.description);
+    if (!entry) return null;
+    return {
+      itemId: entry.itemId,
+      description: entry.name,
+      expectedQuantity: value.expectedQuantity,
+      unitCost: value.unitCost,
+    };
+  }
+
+  private buildLineValues(): Omit<CreatePurchaseOrderLineRequest, 'itemId'> {
     const value = this.form.getRawValue();
     return {
       description: value.description.trim(),

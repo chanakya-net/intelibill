@@ -18,7 +18,11 @@ namespace Intelibill.Infrastructure.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     shop_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    supplier_id = table.Column<Guid>(type: "uuid", nullable: true),
                     purchase_order_number = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    order_date = table.Column<DateOnly>(type: "date", nullable: true),
+                    expected_delivery_date = table.Column<DateOnly>(type: "date", nullable: true),
+                    supplier_reference_number = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     status = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -33,6 +37,12 @@ namespace Intelibill.Infrastructure.Migrations
                         principalTable: "shops",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_purchase_orders_suppliers_supplier_id",
+                        column: x => x.supplier_id,
+                        principalTable: "suppliers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -41,6 +51,7 @@ namespace Intelibill.Infrastructure.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     purchase_order_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    item_id = table.Column<Guid>(type: "uuid", nullable: false),
                     description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     expected_quantity = table.Column<int>(type: "integer", nullable: false),
                     unit_cost = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
@@ -56,6 +67,12 @@ namespace Intelibill.Infrastructure.Migrations
                         principalTable: "purchase_orders",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_purchase_order_lines_items_item_id",
+                        column: x => x.item_id,
+                        principalTable: "items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -90,6 +107,16 @@ namespace Intelibill.Infrastructure.Migrations
                 table: "purchase_orders",
                 columns: new[] { "shop_id", "purchase_order_number" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_purchase_orders_supplier_id",
+                table: "purchase_orders",
+                column: "supplier_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_purchase_order_lines_item_id",
+                table: "purchase_order_lines",
+                column: "item_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_purchase_order_lines_purchase_order_id",

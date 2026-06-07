@@ -63,9 +63,13 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
             new CreatePurchaseOrderDraftCommand(
                 UserId!.Value,
                 ActiveShopId!.Value,
+                request.SupplierId,
+                request.OrderDate,
+                request.ExpectedDeliveryDate,
+                request.SupplierReferenceNumber,
                 request.Notes,
                 request.Lines.Select(l => new CreatePurchaseOrderLineInput(
-                    l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(po => CreatedAtAction(
@@ -88,9 +92,13 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 purchaseOrderId,
+                request.SupplierId,
+                request.OrderDate,
+                request.ExpectedDeliveryDate,
+                request.SupplierReferenceNumber,
                 request.Notes,
                 request.Lines.Select(l => new UpdatePurchaseOrderLineInput(
-                    l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -98,19 +106,29 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
 }
 
 public sealed record CreatePurchaseOrderDraftLineRequest(
+    Guid ItemId,
     string Description,
     int ExpectedQuantity,
     decimal UnitCost);
 
 public sealed record CreatePurchaseOrderDraftRequest(
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
     string? Notes,
     IReadOnlyList<CreatePurchaseOrderDraftLineRequest> Lines);
 
 public sealed record UpdatePurchaseOrderDraftLineRequest(
+    Guid ItemId,
     string Description,
     int ExpectedQuantity,
     decimal UnitCost);
 
 public sealed record UpdatePurchaseOrderDraftRequest(
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
     string? Notes,
     IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);

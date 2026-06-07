@@ -15,6 +15,9 @@ internal sealed class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<
         builder.Property(l => l.PurchaseOrderId)
             .IsRequired();
 
+        builder.Property(l => l.ItemId)
+            .IsRequired();
+
         builder.Property(l => l.Description)
             .HasMaxLength(500)
             .IsRequired();
@@ -29,5 +32,11 @@ internal sealed class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<
         builder.Ignore(l => l.LineTotal);
 
         builder.HasIndex(l => l.PurchaseOrderId);
+        builder.HasIndex(l => l.ItemId);
+
+        builder.HasOne<Item>()
+            .WithMany()
+            .HasForeignKey(l => l.ItemId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

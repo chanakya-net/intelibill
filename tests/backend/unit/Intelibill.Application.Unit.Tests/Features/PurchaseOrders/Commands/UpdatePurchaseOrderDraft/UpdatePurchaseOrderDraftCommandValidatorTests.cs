@@ -17,8 +17,12 @@ public class UpdatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
             "Notes",
-            [new UpdatePurchaseOrderLineInput("Widget", 10, 15m)]);
+            [new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 10, 15m)]);
 
         var result = await _validator.ValidateAsync(command);
 
@@ -32,8 +36,12 @@ public class UpdatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
             "Notes",
-            [new UpdatePurchaseOrderLineInput("", 10, 15m)]);
+            [new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "", 10, 15m)]);
 
         var result = await _validator.ValidateAsync(command);
 
@@ -48,8 +56,12 @@ public class UpdatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
             "Notes",
-            [new UpdatePurchaseOrderLineInput("Widget", 0, 15m)]);
+            [new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 0, 15m)]);
 
         var result = await _validator.ValidateAsync(command);
 
@@ -64,8 +76,12 @@ public class UpdatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
             "Notes",
-            [new UpdatePurchaseOrderLineInput("Widget", 10, -1m)]);
+            [new UpdatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 10, -1m)]);
 
         var result = await _validator.ValidateAsync(command);
 

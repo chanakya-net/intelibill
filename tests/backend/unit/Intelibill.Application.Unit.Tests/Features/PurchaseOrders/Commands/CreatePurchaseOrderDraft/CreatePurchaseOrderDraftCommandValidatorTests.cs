@@ -14,7 +14,11 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
-            [new CreatePurchaseOrderLineInput("  ", 1, 10m)]);
+            null,
+            null,
+            null,
+            null,
+            [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "  ", 1, 10m)]);
 
         var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor("Lines[0].Description");
@@ -27,7 +31,11 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
-            [new CreatePurchaseOrderLineInput("Item", 0, 10m)]);
+            null,
+            null,
+            null,
+            null,
+            [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Item", 0, 10m)]);
 
         var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor("Lines[0].ExpectedQuantity");
@@ -40,7 +48,11 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
-            [new CreatePurchaseOrderLineInput("Item", 1, -1m)]);
+            null,
+            null,
+            null,
+            null,
+            [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Item", 1, -1m)]);
 
         var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor("Lines[0].UnitCost");
@@ -53,7 +65,11 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
-            [new CreatePurchaseOrderLineInput("Item", 1, 0m)]);
+            null,
+            null,
+            null,
+            null,
+            [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Item", 1, 0m)]);
 
         var result = _validator.TestValidate(command);
         result.ShouldNotHaveAnyValidationErrors();

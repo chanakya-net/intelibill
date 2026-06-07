@@ -19,6 +19,10 @@ public static class PurchaseOrderDtoMapper
             po.Id,
             po.PurchaseOrderNumber,
             po.Status,
+            po.SupplierId,
+            po.OrderDate,
+            po.ExpectedDeliveryDate,
+            po.SupplierReferenceNumber,
             po.Notes,
             po.Lines.Select(ToLineDto).ToList(),
             po.ExpectedTotal,
@@ -27,6 +31,7 @@ public static class PurchaseOrderDtoMapper
     private static PurchaseOrderLineDto ToLineDto(PurchaseOrderLine line) =>
         new(
             line.Id,
+            line.ItemId,
             line.Description,
             line.ExpectedQuantity,
             line.UnitCost,

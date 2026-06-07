@@ -24,6 +24,10 @@ const mockDetail: PurchaseOrderDetail = {
   purchaseOrderId: 'po1',
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
+  supplierId: null,
+  orderDate: null,
+  expectedDeliveryDate: null,
+  supplierReferenceNumber: null,
   notes: null,
   lines: [],
   expectedTotal: 0,
@@ -90,7 +94,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets submitting on update requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { notes: 'Updated', lines: [] } })
+      PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: 'Updated', lines: [] } })
     );
     expect(next.submitting).toBe(true);
   });

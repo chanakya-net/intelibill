@@ -22,7 +22,7 @@ describe('PurchaseOrderDraftIndexedDbService', () => {
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
       notes: 'Notes here',
-      lines: [{ description: 'Line A', expectedQuantity: 5, unitCost: 10 }],
+      lines: [{ itemId: 'item-1', description: 'Line A', expectedQuantity: 5, unitCost: 10 }],
       updatedAt: ''
     };
 

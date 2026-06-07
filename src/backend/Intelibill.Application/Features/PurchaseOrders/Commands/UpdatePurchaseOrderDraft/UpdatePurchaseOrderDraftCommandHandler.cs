@@ -49,11 +49,17 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                 return Errors.PurchaseOrder.CannotUpdateNonDraft;
             }
 
-            var descriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var linesToUpdate = new List<(string Description, int ExpectedQuantity, decimal UnitCost)>();
+            var itemIds = new HashSet<Guid>();
+            var linesToUpdate = new List<(Guid ItemId, string Description, int ExpectedQuantity, decimal UnitCost)>();
 
             foreach (var lineInput in command.Lines)
             {
+                if (lineInput.ItemId == Guid.Empty)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.LineDescriptionRequired;
+                }
+
                 var description = lineInput.Description?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(description))
                 {
@@ -61,7 +67,7 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                     return Errors.PurchaseOrder.LineDescriptionRequired;
                 }
 
-                if (!descriptions.Add(description))
+                if (!itemIds.Add(lineInput.ItemId))
                 {
                     await unitOfWork.RollbackTransactionAsync(cancellationToken);
                     return Errors.PurchaseOrder.DuplicateItem;
@@ -79,10 +85,16 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                     return Errors.PurchaseOrder.InvalidLineUnitCost;
                 }
 
-                linesToUpdate.Add((description, lineInput.ExpectedQuantity, lineInput.UnitCost));
+                linesToUpdate.Add((lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost));
             }
 
-            po.UpdateDraft(command.Notes, linesToUpdate);
+            po.UpdateDraft(
+                command.SupplierId,
+                command.OrderDate,
+                command.ExpectedDeliveryDate,
+                command.SupplierReferenceNumber,
+                command.Notes,
+                linesToUpdate);
 
             purchaseOrderRepository.Update(po);
             await unitOfWork.SaveChangesAsync(cancellationToken);

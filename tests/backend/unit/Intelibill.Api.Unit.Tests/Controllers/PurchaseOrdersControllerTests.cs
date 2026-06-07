@@ -97,12 +97,12 @@ public class PurchaseOrdersControllerTests
         SetValidClaims(out var userId, out var shopId);
         var dto = new PurchaseOrderDetailDto(
             Guid.NewGuid(), "PO-2026-000001", PurchaseOrderStatus.Draft,
-            null, [], 0m, DateTimeOffset.UtcNow);
+            null, null, null, null, null, [], 0m, DateTimeOffset.UtcNow);
         _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
 
         var result = await _controller.CreatePurchaseOrderDraft(
-            new CreatePurchaseOrderDraftRequest(null, []),
+            new CreatePurchaseOrderDraftRequest(null, null, null, null, null, []),
             CancellationToken.None);
 
         var created = Assert.IsType<CreatedAtActionResult>(result);
@@ -118,7 +118,7 @@ public class PurchaseOrdersControllerTests
             .Returns(Errors.PurchaseOrder.UserCannotCreatePurchaseOrder);
 
         var result = await _controller.CreatePurchaseOrderDraft(
-            new CreatePurchaseOrderDraftRequest(null, []),
+            new CreatePurchaseOrderDraftRequest(null, null, null, null, null, []),
             CancellationToken.None);
 
         var obj = Assert.IsType<ObjectResult>(result);
@@ -132,13 +132,13 @@ public class PurchaseOrdersControllerTests
         var poId = Guid.NewGuid();
         var dto = new PurchaseOrderDetailDto(
             poId, "PO-2026-000001", PurchaseOrderStatus.Draft,
-            "Updated notes", [], 0m, DateTimeOffset.UtcNow);
+            null, null, null, "SUP-1", "Updated notes", [], 0m, DateTimeOffset.UtcNow);
         _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
 
         var result = await _controller.UpdatePurchaseOrderDraft(
             poId,
-            new UpdatePurchaseOrderDraftRequest("Updated notes", []),
+            new UpdatePurchaseOrderDraftRequest(null, null, null, "SUP-1", "Updated notes", []),
             CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -148,6 +148,7 @@ public class PurchaseOrdersControllerTests
                 q.ActorUserId == userId &&
                 q.ActiveShopId == shopId &&
                 q.PurchaseOrderId == poId &&
+                q.SupplierReferenceNumber == "SUP-1" &&
                 q.Notes == "Updated notes"),
             Arg.Any<CancellationToken>());
     }
@@ -162,7 +163,7 @@ public class PurchaseOrdersControllerTests
 
         var result = await _controller.UpdatePurchaseOrderDraft(
             poId,
-            new UpdatePurchaseOrderDraftRequest(null, []),
+            new UpdatePurchaseOrderDraftRequest(null, null, null, null, null, []),
             CancellationToken.None);
 
         var obj = Assert.IsType<ObjectResult>(result);

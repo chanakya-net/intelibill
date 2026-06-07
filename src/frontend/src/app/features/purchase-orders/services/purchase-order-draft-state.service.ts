@@ -1,5 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import {
   PurchaseOrderDraftIndexedDbService,
   type PurchaseOrderDraftRecord,
@@ -21,12 +22,25 @@ export interface PurchaseOrderDraftHeader {
 
 @Injectable({ providedIn: 'root' })
 export class PurchaseOrderDraftStateService {
+  private readonly authService = inject(AuthService);
   private readonly storage = inject(PurchaseOrderDraftIndexedDbService);
+  private activeShopId: string | null = null;
 
   readonly header = signal<PurchaseOrderDraftHeader>(emptyHeader());
   readonly lines = signal<readonly CreatePurchaseOrderLineRequest[]>([]);
   readonly loadingDraft = signal(false);
   readonly duplicateBlocked = signal(false);
+  readonly restoredPurchaseOrderId = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      const shopId = this.authService.session()?.activeShopId ?? null;
+      if (shopId === this.activeShopId) return;
+      this.resetInMemory();
+      this.activeShopId = shopId;
+      if (shopId) void this.loadDraft(shopId);
+    });
+  }
 
   async loadDraft(shopId: string): Promise<PurchaseOrderDraftRecord | null> {
     this.loadingDraft.set(true);
@@ -42,6 +56,9 @@ export class PurchaseOrderDraftStateService {
           notes: record.notes,
         });
         this.lines.set(record.lines);
+        this.restoredPurchaseOrderId.set(record.purchaseOrderId);
+      } else {
+        this.resetInMemory();
       }
       return record;
     } finally {
@@ -64,6 +81,7 @@ export class PurchaseOrderDraftStateService {
     this.header.set(emptyHeader());
     this.lines.set([]);
     this.duplicateBlocked.set(false);
+    this.restoredPurchaseOrderId.set(null);
     if (shopId) {
       await this.storage.clearDraft(shopId);
     }
@@ -73,14 +91,20 @@ export class PurchaseOrderDraftStateService {
     this.header.set({
       ...emptyHeader(),
       purchaseOrderId: order.purchaseOrderId,
+      supplier: order.supplierId ? { id: order.supplierId, name: '' } : null,
+      orderDate: order.orderDate,
+      expectedDeliveryDate: order.expectedDeliveryDate,
+      supplierReferenceNumber: order.supplierReferenceNumber,
       notes: order.notes,
     });
     this.lines.set(order.lines.map((line) => ({
+      itemId: line.itemId,
       description: line.description,
       expectedQuantity: line.expectedQuantity,
       unitCost: line.unitCost,
     })));
     await this.saveDraft(shopId);
+    this.restoredPurchaseOrderId.set(order.purchaseOrderId);
   }
 
   async updateHeader(shopId: string, update: Partial<PurchaseOrderDraftHeader>): Promise<void> {
@@ -90,9 +114,9 @@ export class PurchaseOrderDraftStateService {
 
   async addOrMergeLine(shopId: string, line: CreatePurchaseOrderLineRequest): Promise<'added' | 'merged'> {
     const description = line.description.trim();
-    const existing = this.lines().find((candidate) => sameDescription(candidate.description, description));
+    const existing = this.lines().find((candidate) => candidate.itemId === line.itemId);
     if (existing) {
-      this.lines.update((lines) => lines.map((candidate) => sameDescription(candidate.description, description)
+      this.lines.update((lines) => lines.map((candidate) => candidate.itemId === line.itemId
         ? { ...candidate, expectedQuantity: candidate.expectedQuantity + line.expectedQuantity, unitCost: line.unitCost }
         : candidate));
       await this.saveDraft(shopId);
@@ -105,15 +129,27 @@ export class PurchaseOrderDraftStateService {
   }
 
   async removeLine(shopId: string, description: string): Promise<void> {
-    this.lines.update((lines) => lines.filter((line) => !sameDescription(line.description, description)));
+    this.lines.update((lines) => lines.filter((line) => line.itemId !== description));
     await this.saveDraft(shopId);
   }
 
   toPayload(): CreatePurchaseOrderDraftRequest {
+    const header = this.header();
     return {
-      notes: this.header().notes,
+      supplierId: header.supplier?.id ?? null,
+      orderDate: header.orderDate,
+      expectedDeliveryDate: header.expectedDeliveryDate,
+      supplierReferenceNumber: header.supplierReferenceNumber,
+      notes: header.notes,
       lines: this.lines(),
     };
+  }
+
+  private resetInMemory(): void {
+    this.header.set(emptyHeader());
+    this.lines.set([]);
+    this.duplicateBlocked.set(false);
+    this.restoredPurchaseOrderId.set(null);
   }
 }
 
@@ -126,8 +162,4 @@ function emptyHeader(): PurchaseOrderDraftHeader {
     supplierReferenceNumber: null,
     notes: null,
   };
-}
-
-function sameDescription(left: string, right: string): boolean {
-  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
 }

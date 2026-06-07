@@ -1,34 +1,35 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.service';
 
 @Component({
   selector: 'app-purchase-order-lines-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslocoPipe],
   template: `
     <table class="po-lines-table">
       <thead>
         <tr>
-          <th>Item</th>
-          <th>Qty</th>
-          <th>Unit cost</th>
-          <th>Total</th>
+          <th>{{ 'purchaseOrders.builder.item' | transloco }}</th>
+          <th>{{ 'purchaseOrders.builder.qty' | transloco }}</th>
+          <th>{{ 'purchaseOrders.builder.unitCost' | transloco }}</th>
+          <th>{{ 'purchaseOrders.builder.total' | transloco }}</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        @for (line of lines; track line.description) {
+        @for (line of lines; track line.itemId) {
           <tr>
             <td>{{ line.description }}</td>
             <td>{{ line.expectedQuantity }}</td>
             <td>{{ line.unitCost | number:'1.2-2' }}</td>
             <td>{{ line.expectedQuantity * line.unitCost | number:'1.2-2' }}</td>
-            <td><button type="button" (click)="removeLine.emit(line.description)">Remove</button></td>
+            <td><button type="button" (click)="removeLine.emit(line.itemId)">{{ 'purchaseOrders.builder.remove' | transloco }}</button></td>
           </tr>
         } @empty {
-          <tr><td colspan="5">No lines</td></tr>
+          <tr><td colspan="5">{{ 'purchaseOrders.builder.noLines' | transloco }}</td></tr>
         }
       </tbody>
     </table>

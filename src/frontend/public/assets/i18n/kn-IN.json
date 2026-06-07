@@ -1428,9 +1428,39 @@
       "forbidden": "Only owner or manager can create purchase orders.",
       "invalidLineQuantity": "Expected quantity must be positive.",
       "invalidLineUnitCost": "Unit cost cannot be negative.",
-      "duplicateItem": "Order contains duplicate line descriptions.",
+      "duplicateItem": "Order contains duplicate catalog items.",
       "lineDescriptionRequired": "Line description is required.",
       "cannotUpdateNonDraft": "Only draft purchase orders can be updated."
+    },
+    "builder": {
+      "newTitle": "New Purchase Order",
+      "editTitle": "Edit Purchase Order Draft",
+      "supplier": "Supplier",
+      "orderDate": "Order date",
+      "expectedDeliveryDate": "Expected delivery",
+      "supplierReferenceNumber": "Supplier ref",
+      "notes": "Notes",
+      "item": "Item",
+      "qty": "Qty",
+      "unitCost": "Unit Cost",
+      "total": "Line Total",
+      "addLine": "Add line",
+      "quickCreateProduct": "Quick Create Product",
+      "remove": "Remove",
+      "noLines": "No lines",
+      "saveDraft": "Save Draft",
+      "discard": "Discard draft",
+      "autosaveLoaded": "Loaded auto-saved draft.",
+      "validation": {
+        "selectCatalogItem": "Select a catalog item before adding a line.",
+        "itemRequired": "Item is required.",
+        "quantityPositive": "Expected quantity must be positive.",
+        "unitCostNonNegative": "Unit cost cannot be negative."
+      },
+      "discardCopy": {
+        "title": "Discard local draft?",
+        "body": "Discarding removes the local autosaved purchase order draft for this shop."
+      }
     }
   }
 }

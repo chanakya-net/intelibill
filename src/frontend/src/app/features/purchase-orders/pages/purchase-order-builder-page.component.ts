@@ -27,9 +27,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
     <section class="po-builder">
       <header class="po-builder__header">
         <div>
-          <h1>{{ (purchaseOrderId ? 'purchaseOrders.editPo' : 'purchaseOrders.newPo') | transloco }}</h1>
+          <h1>{{ (purchaseOrderId ? 'purchaseOrders.builder.editTitle' : 'purchaseOrders.builder.newTitle') | transloco }}</h1>
           @if (draftState.loadingDraft()) {
-            <p>{{ 'purchaseOrders.autosaveLoaded' | transloco }}</p>
+            <p>{{ 'purchaseOrders.builder.autosaveLoaded' | transloco }}</p>
           }
         </div>
         <a routerLink="/inventory/purchase-orders">{{ 'purchaseOrders.actions.cancel' | transloco }}</a>
@@ -37,7 +37,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 
       <form class="po-builder__form" [formGroup]="form">
         <label>
-          <span>{{ 'purchaseOrders.supplier' | transloco }}</span>
+          <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
           <input type="text" formControlName="supplierName" list="po-suppliers" />
           <datalist id="po-suppliers">
             @for (supplier of supplierSuggestions(); track supplier.supplierId) {
@@ -46,19 +46,19 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           </datalist>
         </label>
         <label>
-          <span>Order date</span>
+          <span>{{ 'purchaseOrders.builder.orderDate' | transloco }}</span>
           <input type="date" formControlName="orderDate" />
         </label>
         <label>
-          <span>Expected delivery</span>
+          <span>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</span>
           <input type="date" formControlName="expectedDeliveryDate" />
         </label>
         <label>
-          <span>Supplier ref</span>
+          <span>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</span>
           <input type="text" formControlName="supplierReferenceNumber" />
         </label>
         <label class="po-builder__notes">
-          <span>{{ 'purchaseOrders.notes' | transloco }}</span>
+          <span>{{ 'purchaseOrders.builder.notes' | transloco }}</span>
           <textarea rows="3" formControlName="notes"></textarea>
         </label>
       </form>
@@ -71,9 +71,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
       }
 
       <footer class="po-builder__actions">
-        <button type="button" (click)="discardDraft()">{{ 'purchaseOrders.actions.cancel' | transloco }}</button>
+        <button type="button" (click)="discardDraft()">{{ 'purchaseOrders.builder.discard' | transloco }}</button>
         <button type="button" [disabled]="facade.isSubmitting()" (click)="saveDraft()">
-          {{ 'purchaseOrders.actions.saveDraft' | transloco }}
+          {{ 'purchaseOrders.builder.saveDraft' | transloco }}
         </button>
       </footer>
     </section>
@@ -113,13 +113,31 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   });
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private clearLocalDraftAfterCreate = false;
 
   constructor() {
     effect(() => {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
+        if (this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
+          this.patchHeaderForm();
+          return;
+        }
         void this.draftState.replaceFromServer(this.activeShopId(), order);
         this.patchHeaderForm();
+      }
+    });
+    effect(() => {
+      const order = this.facade.selectedOrder();
+      if (!this.clearLocalDraftAfterCreate || !order || this.purchaseOrderId) return;
+      this.clearLocalDraftAfterCreate = false;
+      void this.draftState.clearDraft(this.activeShopId()).then(() =>
+        this.router.navigate(['/inventory/purchase-orders', order.purchaseOrderId])
+      );
+    });
+    effect(() => {
+      if (this.clearLocalDraftAfterCreate && this.facade.errorMessage()) {
+        this.clearLocalDraftAfterCreate = false;
       }
     });
   }
@@ -155,9 +173,9 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     if (this.purchaseOrderId) {
       this.facade.updateDraft(this.purchaseOrderId, payload);
     } else {
+      this.clearLocalDraftAfterCreate = true;
       this.facade.createDraft(payload);
     }
-    void this.draftState.clearDraft(this.activeShopId());
   }
 
   async discardDraft(): Promise<void> {
@@ -183,8 +201,9 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
 
   private patchHeaderForm(): void {
     const header = this.draftState.header();
+    const supplierName = header.supplier?.name || this.supplierSuggestions().find((supplier) => supplier.supplierId === header.supplier?.id)?.name || '';
     this.form.patchValue({
-      supplierName: header.supplier?.name ?? '',
+      supplierName,
       orderDate: header.orderDate ?? '',
       expectedDeliveryDate: header.expectedDeliveryDate ?? '',
       supplierReferenceNumber: header.supplierReferenceNumber ?? '',

@@ -37,7 +37,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, []),
+            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, null, null, null, null, []),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -59,8 +59,12 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
             new CreatePurchaseOrderDraftCommand(
                 actor.Id,
                 shop.Id,
+                null,
+                null,
+                null,
+                null,
                 "Test notes",
-                [new CreatePurchaseOrderLineInput("Widget", 5, 10m)]),
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 5, 10m)]),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -83,7 +87,11 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
-                [new CreatePurchaseOrderLineInput("Widget", 0, 10m)]),
+                null,
+                null,
+                null,
+                null,
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 0, 10m)]),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -103,7 +111,11 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
-                [new CreatePurchaseOrderLineInput("Widget", 1, -1m)]),
+                null,
+                null,
+                null,
+                null,
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 1, -1m)]),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -123,7 +135,11 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
-                [new CreatePurchaseOrderLineInput("   ", 1, 5m)]),
+                null,
+                null,
+                null,
+                null,
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "   ", 1, 5m)]),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -143,7 +159,11 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
-                [new CreatePurchaseOrderLineInput("Item A", 2, 100m)]),
+                null,
+                null,
+                null,
+                null,
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Item A", 2, 100m)]),
             CancellationToken.None);
 
         Assert.False(result.IsError);
