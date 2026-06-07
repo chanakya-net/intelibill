@@ -10,11 +10,11 @@
 
   <section *ngIf="isLoading()" class="print-state" aria-live="polite">{{ 'common.loading' | transloco }}</section>
 
-  <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
-    {{ errorMessage() }}
+  <section *ngIf="errorMessageKey()" class="print-state print-state--error" role="alert">
+    {{ errorMessageKey() | transloco }}
   </section>
 
-  <article *ngIf="!isLoading() && !errorMessage() && order() as loadedOrder" class="po-document">
+  <article *ngIf="!isLoading() && !errorMessageKey() && order() as loadedOrder" class="po-document">
     <header class="po-document__header">
       <div>
         <p class="po-document__eyebrow">{{ 'purchaseOrders.print.title' | transloco }}</p>

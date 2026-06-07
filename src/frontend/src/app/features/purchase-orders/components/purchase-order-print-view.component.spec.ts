@@ -4,7 +4,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -78,7 +78,7 @@ describe('PurchaseOrderPrintViewComponent', () => {
     session: vi.fn(),
   };
 
-  const createComponent = (): ComponentFixture<PurchaseOrderPrintViewComponent> => {
+  const createComponent = (purchaseOrderId: string | null = 'po-1'): ComponentFixture<PurchaseOrderPrintViewComponent> => {
     TestBed.configureTestingModule({
       imports: [
         CommonModule,
@@ -92,7 +92,7 @@ describe('PurchaseOrderPrintViewComponent', () => {
       providers: [
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ purchaseOrderId: 'po-1' }) } },
+          useValue: { snapshot: { paramMap: convertToParamMap(purchaseOrderId ? { purchaseOrderId } : {}) } },
         },
         { provide: PurchaseOrderService, useValue: purchaseOrderService },
         { provide: ShopService, useValue: shopService },
@@ -145,5 +145,30 @@ describe('PurchaseOrderPrintViewComponent', () => {
     expect(host.textContent).toContain('150.00');
     expect(host.textContent).toContain('200.00');
     expect(window.print).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a translated not-found message when the route is missing a purchase order id', () => {
+    const fixture = createComponent(null);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Purchase order not found.');
+    expect(host.textContent).not.toContain('Purchase order was not found.');
+    expect(purchaseOrderService.getPurchaseOrderDetail).not.toHaveBeenCalled();
+    expect(window.print).not.toHaveBeenCalled();
+  });
+
+  it('renders a translated print error when purchase order loading fails', () => {
+    purchaseOrderService.getPurchaseOrderDetail.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Backend detail should not render.' } })),
+    );
+
+    const fixture = createComponent();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Unable to load printable purchase order.');
+    expect(host.textContent).not.toContain('Backend detail should not render.');
+    expect(window.print).not.toHaveBeenCalled();
   });
 });

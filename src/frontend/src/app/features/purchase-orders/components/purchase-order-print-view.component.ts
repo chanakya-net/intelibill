@@ -23,7 +23,7 @@ export class PurchaseOrderPrintViewComponent {
   private readonly authService = inject(AuthService);
 
   readonly isLoading = signal(false);
-  readonly errorMessage = signal('');
+  readonly errorMessageKey = signal('');
   readonly order = signal<PurchaseOrderDetail | null>(null);
   readonly shop = signal<ShopDetails | null>(null);
 
@@ -44,12 +44,12 @@ export class PurchaseOrderPrintViewComponent {
     const activeShopId = this.authService.session()?.activeShopId;
 
     if (!purchaseOrderId) {
-      this.errorMessage.set('Purchase order was not found.');
+      this.errorMessageKey.set('purchaseOrders.errors.notFound');
       return;
     }
 
     this.isLoading.set(true);
-    this.errorMessage.set('');
+    this.errorMessageKey.set('');
 
     forkJoin({
       order: this.purchaseOrderService.getPurchaseOrderDetail(purchaseOrderId),
@@ -64,7 +64,11 @@ export class PurchaseOrderPrintViewComponent {
         setTimeout(() => window.print());
       },
       error: (error) => {
-        this.errorMessage.set(error.error?.detail || 'Unable to load purchase order.');
+        this.errorMessageKey.set(
+          error.error?.title === 'PurchaseOrder.NotFound'
+            ? 'purchaseOrders.errors.notFound'
+            : 'purchaseOrders.errors.unableToPrint',
+        );
         this.isLoading.set(false);
       },
     });
