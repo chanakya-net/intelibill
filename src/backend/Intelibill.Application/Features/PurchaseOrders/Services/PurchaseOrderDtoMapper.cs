@@ -10,11 +10,11 @@ public static class PurchaseOrderDtoMapper
             po.Id,
             po.PurchaseOrderNumber,
             po.Status,
-            SupplierName: null,
-            SupplierReference: null,
+            po.SupplierName,
+            po.SupplierReference,
             po.Lines.Count,
             po.Lines.Sum(line => line.ExpectedQuantity),
-            ReceivedQuantity: 0,
+            po.Lines.Sum(line => line.ReceivedQuantity),
             po.ExpectedTotal,
             po.CreatedAt);
 

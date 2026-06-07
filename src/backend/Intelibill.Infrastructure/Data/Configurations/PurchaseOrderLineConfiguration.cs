@@ -22,6 +22,9 @@ internal sealed class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<
         builder.Property(l => l.ExpectedQuantity)
             .IsRequired();
 
+        builder.Property(l => l.ReceivedQuantity)
+            .IsRequired();
+
         builder.Property(l => l.UnitCost)
             .HasPrecision(18, 2)
             .IsRequired();

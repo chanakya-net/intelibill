@@ -51,7 +51,8 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             var term = filter.Search.Trim();
             query = query.Where(po =>
                 EF.Functions.ILike(po.PurchaseOrderNumber, $"%{term}%")
-                || (po.Notes != null && EF.Functions.ILike(po.Notes, $"%{term}%"))
+                || (po.SupplierName != null && EF.Functions.ILike(po.SupplierName, $"%{term}%"))
+                || (po.SupplierReference != null && EF.Functions.ILike(po.SupplierReference, $"%{term}%"))
                 || po.Lines.Any(line => EF.Functions.ILike(line.Description, $"%{term}%")));
         }
 

@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { provideRouter } from '@angular/router';
 
 import {
@@ -17,11 +17,11 @@ const purchaseOrderSignal = signal<readonly PurchaseOrderListItem[]>([
     purchaseOrderId: 'po-1',
     purchaseOrderNumber: 'PO-2026-000001',
     status: 'Draft',
-    supplierName: null,
-    supplierReference: null,
+    supplierName: 'Acme Traders',
+    supplierReference: 'SUP-REF-001',
     lineCount: 2,
     expectedQuantity: 5,
-    receivedQuantity: 0,
+    receivedQuantity: 3,
     expectedTotal: 1500,
     createdAt: '2026-06-01T00:00:00Z',
   },
@@ -63,11 +63,11 @@ describe('PurchaseOrdersListPageComponent', () => {
         purchaseOrderId: 'po-1',
         purchaseOrderNumber: 'PO-2026-000001',
         status: 'Draft',
-        supplierName: null,
-        supplierReference: null,
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
         lineCount: 2,
         expectedQuantity: 5,
-        receivedQuantity: 0,
+        receivedQuantity: 3,
         expectedTotal: 1500,
         createdAt: '2026-06-01T00:00:00Z',
       },
@@ -102,7 +102,7 @@ describe('PurchaseOrdersListPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('PO-2026-000001');
-    expect(host.textContent).toContain('0 / 5');
+    expect(host.textContent).toContain('3 / 5');
     expect(host.textContent).toContain('2');
     expect(host.textContent).toContain('purchaseOrders.title');
   });

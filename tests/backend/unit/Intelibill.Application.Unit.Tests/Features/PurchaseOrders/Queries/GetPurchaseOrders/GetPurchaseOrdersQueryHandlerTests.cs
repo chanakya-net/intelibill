@@ -88,4 +88,36 @@ public class GetPurchaseOrdersQueryHandlerTests
                 && filter.PageSize == 100),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_MapsSupplierFieldsAndReceivedProgress()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "O", "U");
+        var shop = Shop.Create("Main", "Addr", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var order = PurchaseOrder.CreateDraft(
+            shop.Id,
+            "PO-2026-000001",
+            null,
+            "Acme Traders",
+            "SUP-REF-001");
+        order.AddLine("Rice", 5, 10m, receivedQuantity: 3);
+        order.AddLine("Oil", 2, 20m, receivedQuantity: 2);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetByShopAsync(Arg.Any<PurchaseOrderListFilter>(), Arg.Any<CancellationToken>())
+            .Returns((new[] { order }, 1));
+
+        var result = await CreateHandler().HandleAsync(
+            new GetPurchaseOrdersQuery(actor.Id, shop.Id),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var item = Assert.Single(result.Value.Items);
+        Assert.Equal("Acme Traders", item.SupplierName);
+        Assert.Equal("SUP-REF-001", item.SupplierReference);
+        Assert.Equal(7, item.ExpectedQuantity);
+        Assert.Equal(5, item.ReceivedQuantity);
+    }
 }

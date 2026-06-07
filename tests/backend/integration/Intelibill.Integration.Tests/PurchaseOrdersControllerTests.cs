@@ -3,6 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Linq;
+using Intelibill.Domain.Entities;
+using Intelibill.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -133,6 +137,24 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    private async Task UpdatePurchaseOrderMetadataAsync(
+        Guid purchaseOrderId,
+        string supplierName,
+        string supplierReference,
+        int receivedQuantity)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var order = await db.Set<PurchaseOrder>()
+            .Include(po => po.Lines)
+            .SingleAsync(po => po.Id == purchaseOrderId);
+
+        order.UpdateSupplierDetails(supplierName, supplierReference);
+        order.Lines[0].RecordReceivedQuantity(receivedQuantity);
+
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task CreatePurchaseOrderDraft_AsOwner_ReturnsGeneratedPoNumberAndDraftStatus()
     {
@@ -189,10 +211,11 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenA);
         var listResponse = await client.SendAsync(listRequest);
         listResponse.EnsureSuccessStatusCode();
-        var list = await listResponse.Content.ReadFromJsonAsync<JsonElement[]>();
-        Assert.NotNull(list);
+        var list = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
 
-        var ids = list!.Select(item => item.GetProperty("purchaseOrderId").GetGuid()).ToArray();
+        var ids = list.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("purchaseOrderId").GetGuid())
+            .ToArray();
         Assert.Contains(poAId, ids);
         Assert.DoesNotContain(poBId, ids);
     }
@@ -236,6 +259,48 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         Assert.All(
             lineSearchBody.GetProperty("items").EnumerateArray(),
             item => Assert.Equal("Draft", item.GetProperty("status").GetString()));
+    }
+
+    [Fact]
+    public async Task ListPurchaseOrders_SearchesSupplierFieldsAndReturnsReceivedProgress()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+
+        var matchingDraft = await CreateDraftAsync(client, ownerToken, "Alpha Rice");
+        var matchingId = matchingDraft.GetProperty("purchaseOrderId").GetGuid();
+        var nonMatchingDraft = await CreateDraftAsync(client, ownerToken, "Beta Oil");
+        var nonMatchingId = nonMatchingDraft.GetProperty("purchaseOrderId").GetGuid();
+
+        await UpdatePurchaseOrderMetadataAsync(matchingId, "Acme Traders", "SUP-REF-001", receivedQuantity: 3);
+        await UpdatePurchaseOrderMetadataAsync(nonMatchingId, "Bravo Foods", "SUP-REF-999", receivedQuantity: 1);
+
+        using var supplierNameRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/purchase-orders?search={Uri.EscapeDataString("Acme")}");
+        supplierNameRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var supplierNameResponse = await client.SendAsync(supplierNameRequest);
+        supplierNameResponse.EnsureSuccessStatusCode();
+        var supplierNameBody = await supplierNameResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(1, supplierNameBody.GetProperty("totalCount").GetInt32());
+        var supplierNameItem = Assert.Single(supplierNameBody.GetProperty("items").EnumerateArray());
+        Assert.Equal(matchingId, supplierNameItem.GetProperty("purchaseOrderId").GetGuid());
+        Assert.Equal("Acme Traders", supplierNameItem.GetProperty("supplierName").GetString());
+        Assert.Equal("SUP-REF-001", supplierNameItem.GetProperty("supplierReference").GetString());
+        Assert.Equal(3, supplierNameItem.GetProperty("receivedQuantity").GetInt32());
+
+        using var supplierReferenceRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/purchase-orders?search={Uri.EscapeDataString("SUP-REF-001")}");
+        supplierReferenceRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var supplierReferenceResponse = await client.SendAsync(supplierReferenceRequest);
+        supplierReferenceResponse.EnsureSuccessStatusCode();
+        var supplierReferenceBody = await supplierReferenceResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(1, supplierReferenceBody.GetProperty("totalCount").GetInt32());
+        var supplierReferenceItem = Assert.Single(supplierReferenceBody.GetProperty("items").EnumerateArray());
+        Assert.Equal(matchingId, supplierReferenceItem.GetProperty("purchaseOrderId").GetGuid());
     }
 
     [Fact]
