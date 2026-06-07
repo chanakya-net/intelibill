@@ -172,21 +172,23 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     [HttpPost("{purchaseOrderId:guid}/receipts")]
     public async Task<IActionResult> ReceivePurchaseOrder(
         Guid purchaseOrderId,
-        [FromBody] ReceivePurchaseOrderRequest request,
+        [FromBody] ReceivePurchaseOrderRequest? request,
         CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+
+        var lines = request?.Lines ?? [];
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
             new ReceivePurchaseOrderCommand(
                 UserId!.Value,
                 ActiveShopId!.Value,
                 purchaseOrderId,
-                request.ReferenceNumber,
-                request.Notes,
-                request.ReceivedAt,
-                request.Lines.Select(l => new ReceivePurchaseOrderLineInput(
+                request?.ReferenceNumber,
+                request?.Notes,
+                request?.ReceivedAt,
+                lines.Select(l => new ReceivePurchaseOrderLineInput(
                     l.PurchaseOrderLineId,
                     l.BatchNumber,
                     l.Quantity,

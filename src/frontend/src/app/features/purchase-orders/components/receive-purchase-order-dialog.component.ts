@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
@@ -116,8 +117,9 @@ import {
     @media (max-width: 640px) { .receive-form { grid-template-columns: 1fr; } }
   `],
 })
-export class ReceivePurchaseOrderDialogComponent implements OnChanges {
+export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   @Input({ required: true }) order!: PurchaseOrderDetail;
   @Input() visible = false;
@@ -149,6 +151,14 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges {
     return this.selectedRemaining > 0 && this.form.controls.quantity.value > this.selectedRemaining;
   }
 
+  ngOnInit(): void {
+    this.form.controls.purchaseOrderLineId.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((lineId) => {
+        this.updateSelectedRemaining(lineId);
+      });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['order'] && this.order) {
       this.receivableLines = [...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0)];
@@ -159,14 +169,14 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges {
           quantity: firstLine.remainingQuantity ?? firstLine.expectedQuantity,
           totalPurchaseCost: firstLine.unitCost * (firstLine.remainingQuantity ?? firstLine.expectedQuantity),
         });
-        this.selectedRemaining = firstLine.remainingQuantity ?? firstLine.expectedQuantity;
+        this.updateSelectedRemaining(firstLine.lineId);
       }
     }
+  }
 
-    this.form.controls.purchaseOrderLineId.valueChanges.subscribe((lineId) => {
-      const line = this.receivableLines.find((item) => item.lineId === lineId);
-      this.selectedRemaining = line?.remainingQuantity ?? line?.expectedQuantity ?? 0;
-    });
+  private updateSelectedRemaining(lineId: string): void {
+    const line = this.receivableLines.find((item) => item.lineId === lineId);
+    this.selectedRemaining = line?.remainingQuantity ?? line?.expectedQuantity ?? 0;
   }
 
   protected hide(): void {

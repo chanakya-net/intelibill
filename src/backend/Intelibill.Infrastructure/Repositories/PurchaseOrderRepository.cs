@@ -9,6 +9,8 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
     : RepositoryBase<PurchaseOrder>(context), IPurchaseOrderRepository
 {
+    private readonly ApplicationDbContext _context = context;
+
     public async Task<PurchaseOrder?> GetByShopAndIdAsync(
         Guid shopId,
         Guid purchaseOrderId,
@@ -35,6 +37,49 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
             .Include(po => po.Receipts)
                 .ThenInclude(r => r.Lines)
             .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
+
+    public async Task<PurchaseOrder?> GetReceiptDetailForUpdateAsync(
+        Guid shopId,
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_context.Database.IsNpgsql())
+        {
+            return await GetReceiptDetailAsync(shopId, purchaseOrderId, cancellationToken);
+        }
+
+        var purchaseOrder = await DbSet
+            .FromSqlRaw(
+                """
+                SELECT * FROM purchase_orders
+                WHERE shop_id = {0} AND id = {1}
+                FOR UPDATE
+                """,
+                shopId,
+                purchaseOrderId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (purchaseOrder is null)
+            return null;
+
+        await _context.PurchaseOrderLines
+            .FromSqlRaw(
+                """
+                SELECT * FROM purchase_order_lines
+                WHERE purchase_order_id = {0}
+                FOR UPDATE
+                """,
+                purchaseOrderId)
+            .LoadAsync(cancellationToken);
+
+        await _context.Entry(purchaseOrder)
+            .Collection(po => po.Receipts)
+            .Query()
+            .Include(receipt => receipt.Lines)
+            .LoadAsync(cancellationToken);
+
+        return purchaseOrder;
+    }
 
     public async Task<(IReadOnlyList<PurchaseOrder> Items, int TotalCount)> GetByShopAsync(
         PurchaseOrderListFilter filter,

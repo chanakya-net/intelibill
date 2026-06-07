@@ -36,28 +36,43 @@ public sealed class ReceivePurchaseOrderCommandHandler(
         if (command.Lines.Count != 1)
             return Errors.PurchaseOrder.ReceiptLineRequired;
 
-        var po = await purchaseOrderRepository.GetReceiptDetailAsync(command.ActiveShopId, command.PurchaseOrderId, cancellationToken);
-        if (po is null)
-            return Errors.PurchaseOrder.NotFound;
-
-        if (po.Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
-            return Errors.PurchaseOrder.CannotReceiveInvalidStatus;
-
-        var lineInput = command.Lines[0];
-        var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
-        if (poLine is null)
-            return Errors.PurchaseOrder.ReceiptLineNotFound;
-
-        if (lineInput.Quantity <= 0)
-            return Errors.PurchaseOrder.ReceiptQuantityInvalid;
-
-        if (lineInput.Quantity > poLine.RemainingQuantity)
-            return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
-
         var receivedAt = (command.ReceivedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var po = await purchaseOrderRepository.GetReceiptDetailForUpdateAsync(command.ActiveShopId, command.PurchaseOrderId, cancellationToken);
+            if (po is null)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.NotFound;
+            }
+
+            if (po.Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.CannotReceiveInvalidStatus;
+            }
+
+            var lineInput = command.Lines[0];
+            var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
+            if (poLine is null)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.ReceiptLineNotFound;
+            }
+
+            if (lineInput.Quantity <= 0)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.ReceiptQuantityInvalid;
+            }
+
+            if (lineInput.Quantity > poLine.RemainingQuantity)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
+            }
+
             var receiptNumber = await receiptNumberGenerator.GenerateAsync(command.ActiveShopId, receivedAt.Year, cancellationToken);
 
             var inboundInput = new InboundInventoryLineInput(
