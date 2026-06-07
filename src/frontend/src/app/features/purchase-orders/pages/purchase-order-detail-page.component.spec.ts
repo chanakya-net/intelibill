@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { ConfirmationService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -75,6 +75,10 @@ describe('PurchaseOrderDetailPageComponent', () => {
   const permissions = {
     canManagePurchaseOrders: canManagePurchaseOrdersSignal,
   };
+  const router = {
+    navigate: vi.fn(),
+  };
+  const originalOpen = window.open;
 
   beforeEach(() => {
     facade.loadDetail.mockReset();
@@ -82,6 +86,8 @@ describe('PurchaseOrderDetailPageComponent', () => {
     facade.placeOrder.mockReset();
     facade.deleteDraft.mockReset();
     facade.cancelOrder.mockReset();
+    router.navigate.mockReset();
+    window.open = vi.fn();
     loadingDetailSignal.set(false);
     purchaseOrderSignal.set(null);
     errorMessageSignal.set('');
@@ -95,9 +101,15 @@ describe('PurchaseOrderDetailPageComponent', () => {
             en: {
               purchaseOrders: {
                 editPo: 'Edit Purchase Order Draft',
-                status: 'Status',
+                statusLabel: 'Status',
                 expectedTotal: 'Expected Total',
+                status: {
+                  Draft: 'Draft',
+                  Placed: 'Placed',
+                  Cancelled: 'Cancelled',
+                },
                 actions: {
+                  print: 'Print',
                   placeOrder: 'Place Order',
                   deleteDraft: 'Delete Draft',
                   cancelOrder: 'Cancel Order',
@@ -121,11 +133,13 @@ describe('PurchaseOrderDetailPageComponent', () => {
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: ActivatedRoute, useValue: route },
         { provide: ShopPermissionsService, useValue: permissions },
+        { provide: Router, useValue: router },
       ],
     });
   });
 
   afterEach(() => {
+    window.open = originalOpen;
     TestBed.resetTestingModule();
   });
 
@@ -241,6 +255,35 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(host.textContent).not.toContain('Delete Draft');
     expect(host.textContent).not.toContain('Cancel Order');
     expect(host.textContent).toContain('Supplier unavailable');
+  });
+
+  it.each(['Draft', 'Placed', 'Cancelled'] as const)('shows print action for %s order without mutation permission', (status) => {
+    canManagePurchaseOrdersSignal.set(false);
+    purchaseOrderSignal.set({ ...selectedOrder, status });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Print');
+  });
+
+  it('opens print route in a new browser tab when print action is clicked', () => {
+    canManagePurchaseOrdersSignal.set(false);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Placed' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const printButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((btn) => btn.textContent?.includes('Print'));
+    printButton?.click();
+
+    expect(window.open).toHaveBeenCalledWith('/inventory/purchase-orders/po-1/print', '_blank');
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(facade.placeOrder).not.toHaveBeenCalled();
+    expect(facade.deleteDraft).not.toHaveBeenCalled();
+    expect(facade.cancelOrder).not.toHaveBeenCalled();
   });
 
   it('dispatches placeOrder when place button clicked', () => {

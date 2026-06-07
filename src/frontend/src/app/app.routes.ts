@@ -45,6 +45,14 @@ export const routes: Routes = [
 			).then((m) => m.SaleInvoicePrintPageComponent),
 	},
 	{
+		path: 'inventory/purchase-orders/:purchaseOrderId/print',
+		canActivate: [authGuard],
+		loadComponent: () =>
+			import(
+				'./features/purchase-orders/components/purchase-order-print-view.component'
+			).then((m) => m.PurchaseOrderPrintViewComponent),
+	},
+	{
 		path: '',
 		canActivate: [authGuard],
 		data: { allowOfflineSalesGracePaths: ['/sales/new'] },

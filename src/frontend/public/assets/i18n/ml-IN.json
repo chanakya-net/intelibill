@@ -1386,7 +1386,6 @@
   "purchaseOrders": {
     "title": "Purchase Orders",
     "poNumber": "PO Number",
-    "status": "Status",
     "searchPlaceholder": "Search PO number, supplier, reference, or item",
     "receivedProgress": "Received",
     "lineCount": "Lines",
@@ -1425,7 +1424,10 @@
       "deleteDraft": "Delete Draft",
       "cancelOrder": "Cancel Order",
       "confirmDelete": "Delete",
-      "confirmCancel": "Cancel Order"
+      "confirmCancel": "Cancel Order",
+      "print": "Print",
+      "receive": "Receive",
+      "viewReceipts": "View receipts"
     },
     "errors": {
       "unableToLoad": "Unable to load purchase orders.",
@@ -1449,7 +1451,8 @@
       "unableToPlace": "Unable to place purchase order.",
       "unableToDelete": "Unable to delete purchase order.",
       "unableToCancel": "Unable to cancel purchase order.",
-      "cancellationReasonRequired": "Cancellation reason is required."
+      "cancellationReasonRequired": "Cancellation reason is required.",
+      "unableToPrint": "Unable to load printable purchase order."
     },
     "builder": {
       "newTitle": "New Purchase Order",
@@ -1494,6 +1497,63 @@
       "cancelOrderBody": "Are you sure you want to cancel this purchase order?",
       "cancelReasonLabel": "Reason (required)"
     },
-    "cancellationReason": "Cancellation Reason"
+    "cancellationReason": "Cancellation Reason",
+    "statusLabel": "Status",
+    "list": {
+      "title": "Purchase Orders",
+      "poNumber": "PO Number",
+      "status": "Status",
+      "searchPlaceholder": "Search PO number, supplier, reference, or item",
+      "receivedProgress": "Received",
+      "lineCount": "Lines",
+      "expectedTotal": "Expected Total",
+      "createdAt": "Created At",
+      "noDrafts": "No draft purchase orders found.",
+      "noResults": "No purchase orders found.",
+      "supplier": "Supplier",
+      "supplierReference": "Supplier Reference"
+    },
+    "detail": {
+      "title": "Purchase Order Details",
+      "supplier": "Supplier",
+      "orderDate": "Order date",
+      "expectedDeliveryDate": "Expected delivery",
+      "supplierReferenceNumber": "Supplier ref",
+      "notes": "Notes",
+      "receivedQuantity": "Received quantity",
+      "cancellationReason": "Cancellation Reason",
+      "lines": "Lines"
+    },
+    "receive": {
+      "title": "Receive Purchase Order",
+      "quantityReceived": "Quantity received",
+      "receivedDate": "Received date",
+      "batchNumber": "Batch number",
+      "saveReceipt": "Save receipt",
+      "noReceivableLines": "No receivable lines"
+    },
+    "receipts": {
+      "title": "Receipts",
+      "receiptNumber": "Receipt number",
+      "receivedAt": "Received at",
+      "receivedBy": "Received by",
+      "quantity": "Quantity",
+      "noReceipts": "No receipts found."
+    },
+    "status": {
+      "Draft": "Draft",
+      "Placed": "Placed",
+      "Cancelled": "Cancelled"
+    },
+    "print": {
+      "title": "Purchase Order",
+      "controlsLabel": "Purchase order print actions",
+      "printAgain": "Print",
+      "close": "Close",
+      "supplierSection": "Supplier",
+      "orderSection": "Order details",
+      "gstNumber": "GSTIN",
+      "grandTotal": "Grand Total"
+    }
   }
 }

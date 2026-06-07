@@ -45,6 +45,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <div class="po-detail-header">
               <h2>{{ order.purchaseOrderNumber }}</h2>
               <div class="po-detail-actions">
+                <button type="button" (click)="openPrintView(order.purchaseOrderId)">
+                  {{ 'purchaseOrders.actions.print' | transloco }}
+                </button>
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
                   <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
                     {{ 'purchaseOrders.editPo' | transloco }}
@@ -72,8 +75,8 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             </div>
           </ng-template>
           <p>
-            <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
-            <p-tag [value]="order.status" severity="info" />
+            <strong>{{ 'purchaseOrders.statusLabel' | transloco }}:</strong>
+            <p-tag [value]="'purchaseOrders.status.' + order.status | transloco" severity="info" />
           </p>
           @if (order.cancellationReason) {
             <p>
@@ -167,6 +170,10 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
 
   protected placeOrder(purchaseOrderId: string): void {
     this.facade.placeOrder(purchaseOrderId);
+  }
+
+  protected openPrintView(purchaseOrderId: string): void {
+    window.open(`/inventory/purchase-orders/${purchaseOrderId}/print`, '_blank');
   }
 
   protected deleteDraft(purchaseOrderId: string): void {
