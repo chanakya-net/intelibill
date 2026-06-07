@@ -4,15 +4,37 @@ import { Observable } from 'rxjs';
 
 import { PURCHASE_ORDER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled';
+export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled' | 'PartiallyReceived' | 'Received';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
   readonly itemId: string;
   readonly description: string;
   readonly expectedQuantity: number;
+  readonly receivedQuantity?: number;
+  readonly remainingQuantity?: number;
   readonly unitCost: number;
   readonly lineTotal: number;
+}
+
+export interface PurchaseOrderReceiptLine {
+  readonly receiptLineId: string;
+  readonly purchaseOrderLineId: string;
+  readonly itemId: string;
+  readonly inventoryBatchId: string;
+  readonly stockTransactionId: string;
+  readonly quantity: number;
+  readonly totalPurchaseCost: number;
+  readonly unitCost: number;
+}
+
+export interface PurchaseOrderReceipt {
+  readonly receiptId: string;
+  readonly receiptNumber: string;
+  readonly receivedAt: string;
+  readonly referenceNumber: string | null;
+  readonly notes: string | null;
+  readonly lines: readonly PurchaseOrderReceiptLine[];
 }
 
 export interface PurchaseOrderListItem {
@@ -60,6 +82,7 @@ export interface PurchaseOrderDetail {
   readonly expectedTotal: number;
   readonly createdAt: string;
   readonly cancellationReason: string | null;
+  readonly receipts?: readonly PurchaseOrderReceipt[];
 }
 
 export interface CreatePurchaseOrderLineRequest {
@@ -82,6 +105,27 @@ export interface CreatePurchaseOrderDraftRequest {
 
 export interface CancelPurchaseOrderRequest {
   readonly reason: string | null;
+}
+
+export interface ReceivePurchaseOrderLineRequest {
+  readonly purchaseOrderLineId: string;
+  readonly batchNumber: string;
+  readonly quantity: number;
+  readonly totalPurchaseCost: number;
+  readonly mrp: number;
+  readonly salesPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly purchaseTaxIncluded: boolean;
+  readonly expiryDate: string | null;
+  readonly manufacturingDate: string | null;
+}
+
+export interface ReceivePurchaseOrderRequest {
+  readonly referenceNumber: string | null;
+  readonly notes: string | null;
+  readonly receivedAt: string | null;
+  readonly lines: readonly ReceivePurchaseOrderLineRequest[];
 }
 
 export const DEFAULT_PURCHASE_ORDER_LIST_FILTERS: PurchaseOrderListFilters = {
@@ -133,5 +177,9 @@ export class PurchaseOrderService {
 
   cancelPurchaseOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): Observable<PurchaseOrderDetail> {
     return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.cancel(purchaseOrderId), payload);
+  }
+
+  receivePurchaseOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.receipts(purchaseOrderId), payload);
   }
 }

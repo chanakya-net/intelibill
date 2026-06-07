@@ -16,6 +16,8 @@ import { FormsModule } from '@angular/forms';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
+import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
+import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service';
 
 @Component({
   selector: 'app-purchase-order-detail-page',
@@ -32,6 +34,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
     ButtonModule,
     InputTextModule,
     ConfirmDialogModule,
+    ReceivePurchaseOrderDialogComponent,
   ],
   providers: [ConfirmationService],
   template: `
@@ -57,6 +60,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                   </button>
                 }
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
+                  <button type="button" (click)="showReceiveDialog.set(true)">
+                    Receive
+                  </button>
                   <div class="po-cancel-form">
                     <input
                       pInputText
@@ -68,9 +74,23 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                     </button>
                   </div>
                 }
+                @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
+                  <button type="button" (click)="showReceiveDialog.set(true)">
+                    Receive
+                  </button>
+                }
               </div>
             </div>
           </ng-template>
+          @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+            <app-receive-purchase-order-dialog
+              [order]="order"
+              [visible]="showReceiveDialog()"
+              (visibleChange)="showReceiveDialog.set($event)"
+              [submitting]="facade.isSubmitting?.() ?? false"
+              (receive)="receiveOrder(order.purchaseOrderId, $event)"
+            />
+          }
           <p>
             <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
             <p-tag [value]="order.status" severity="info" />
@@ -116,6 +136,8 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
               <tr>
                 <th>{{ 'purchaseOrders.lineDescription' | transloco }}</th>
                 <th>{{ 'purchaseOrders.expectedQuantity' | transloco }}</th>
+                <th>Received</th>
+                <th>Remaining</th>
                 <th>{{ 'purchaseOrders.unitCost' | transloco }}</th>
                 <th>{{ 'purchaseOrders.lineTotal' | transloco }}</th>
               </tr>
@@ -124,6 +146,8 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
               <tr>
                 <td>{{ line.description }}</td>
                 <td>{{ line.expectedQuantity }}</td>
+                <td>{{ line.receivedQuantity ?? 0 }}</td>
+                <td>{{ line.remainingQuantity ?? line.expectedQuantity }}</td>
                 <td>{{ line.unitCost | number:'1.2-2' }}</td>
                 <td>{{ line.lineTotal | number:'1.2-2' }}</td>
               </tr>
@@ -133,6 +157,27 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <strong>{{ 'purchaseOrders.expectedTotal' | transloco }}:</strong>
             {{ order.expectedTotal | number:'1.2-2' }}
           </p>
+          @if ((order.receipts?.length ?? 0) > 0) {
+            <h3>Receipts</h3>
+            <p-table [value]="[...(order.receipts ?? [])]" dataKey="receiptId">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Receipt</th>
+                  <th>Received at</th>
+                  <th>Quantity</th>
+                  <th>Total cost</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-receipt>
+                <tr>
+                  <td>{{ receipt.receiptNumber }}</td>
+                  <td>{{ receipt.receivedAt }}</td>
+                  <td>{{ receipt.lines[0]?.quantity }}</td>
+                  <td>{{ receipt.lines[0]?.totalPurchaseCost | number:'1.2-2' }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
         } @else if (facade.errorMessage()) {
           <p>{{ facade.errorMessage() }}</p>
         }
@@ -153,6 +198,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   private readonly translocoService = inject(TranslocoService);
 
   protected cancelReason = '';
+  protected showReceiveDialog = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('purchaseOrderId');
@@ -187,5 +233,10 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     if (!reason) return;
     this.facade.cancelOrder(purchaseOrderId, { reason });
     this.cancelReason = '';
+  }
+
+  protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+    this.facade.receiveOrder(purchaseOrderId, payload);
+    this.showReceiveDialog.set(false);
   }
 }

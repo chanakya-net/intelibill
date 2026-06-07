@@ -7,8 +7,28 @@ public sealed record PurchaseOrderLineDto(
     Guid ItemId,
     string Description,
     int ExpectedQuantity,
+    int ReceivedQuantity,
+    int RemainingQuantity,
     decimal UnitCost,
     decimal LineTotal);
+
+public sealed record PurchaseOrderReceiptLineDto(
+    Guid ReceiptLineId,
+    Guid PurchaseOrderLineId,
+    Guid ItemId,
+    Guid InventoryBatchId,
+    Guid StockTransactionId,
+    decimal Quantity,
+    decimal TotalPurchaseCost,
+    decimal UnitCost);
+
+public sealed record PurchaseOrderReceiptDto(
+    Guid ReceiptId,
+    string ReceiptNumber,
+    DateTimeOffset ReceivedAt,
+    string? ReferenceNumber,
+    string? Notes,
+    IReadOnlyList<PurchaseOrderReceiptLineDto> Lines);
 
 public sealed record PurchaseOrderListItemDto(
     Guid PurchaseOrderId,
@@ -43,4 +63,5 @@ public sealed record PurchaseOrderDetailDto(
     string? CancellationReason = null,
     string? SupplierName = null,
     string? SupplierReference = null,
-    int ReceivedQuantity = 0);
+    int ReceivedQuantity = 0,
+    IReadOnlyList<PurchaseOrderReceiptDto>? Receipts = null);

@@ -97,10 +97,10 @@ public class AddInventoryBatchCommandHandlerTests
         _itemResolver.ResolveAsync(shop.Id, "Different Name", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Inventory.ItemNameBarcodeMismatch);
 
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var row = callInfo.Arg<InboundInventoryLineInput>();
                 var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
                 var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
@@ -152,11 +152,11 @@ public class AddInventoryBatchCommandHandlerTests
                 return Item.Create(shop.Id, name, desc, uom, barcode, true, actor.Id);
             });
 
-        _batchFactory.CreateBatchAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
                 var itemId = callInfo.ArgAt<Guid>(1);
-                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var row = callInfo.Arg<InboundInventoryLineInput>();
                 var batch = InventoryBatch.Create(shop.Id, itemId, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
                 var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
@@ -204,10 +204,10 @@ public class AddInventoryBatchCommandHandlerTests
 
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
 
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var row = callInfo.Arg<InboundInventoryLineInput>();
                 var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
                 var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
@@ -248,10 +248,10 @@ public class AddInventoryBatchCommandHandlerTests
 
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
 
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var row = callInfo.Arg<InboundInventoryLineInput>();
                 var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
                 var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
@@ -296,12 +296,12 @@ public class AddInventoryBatchCommandHandlerTests
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(failedItem);
         _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns(succeededItem);
 
-        _batchFactory.CreateBatchAsync(shop.Id, failedItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, failedItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(Error.Validation("Inventory.BatchRejected", "Batch rejected."));
-        _batchFactory.CreateBatchAsync(shop.Id, succeededItem.Id, Arg.Any<AddInventoryBatchRowCommand>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
+        _batchFactory.CreateBatchAsync(shop.Id, succeededItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var row = callInfo.Arg<AddInventoryBatchRowCommand>();
+                var row = callInfo.Arg<InboundInventoryLineInput>();
                 var batch = InventoryBatch.Create(shop.Id, succeededItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
                 var tx = StockTransaction.Create(shop.Id, succeededItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
                 var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
@@ -371,5 +371,8 @@ public class AddInventoryBatchCommandHandlerTests
             HsnCode: hsnCode);
 
     private static decimal ComputeUnitCost(AddInventoryBatchRowCommand row) =>
+        decimal.Round(row.TotalPurchaseCost / row.Quantity, 2, MidpointRounding.AwayFromZero);
+
+    private static decimal ComputeUnitCost(InboundInventoryLineInput row) =>
         decimal.Round(row.TotalPurchaseCost / row.Quantity, 2, MidpointRounding.AwayFromZero);
 }

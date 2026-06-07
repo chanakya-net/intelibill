@@ -149,6 +149,24 @@ export class PurchaseOrdersEffects {
       )
     )
   );
+
+  readonly receiveOrder$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.receiveOrderRequested),
+      switchMap(({ purchaseOrderId, payload }) =>
+        this.service.receivePurchaseOrder(purchaseOrderId, payload).pipe(
+          map((order) => PurchaseOrdersActions.receiveOrderSucceeded({ order })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.receiveOrderFailed({
+                errorMessage: getReceiveOrderErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
 }
 
 function getPurchaseOrderDetailErrorMessage(error: ApiErrorPayload | undefined): string {
@@ -206,4 +224,14 @@ function getCancelOrderErrorMessage(error: ApiErrorPayload | undefined): string 
   if (title === 'PurchaseOrder.CancellationReasonRequired') return 'purchaseOrders.errors.cancellationReasonRequired';
   if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
   return 'purchaseOrders.errors.unableToCancel';
+}
+
+function getReceiveOrderErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.CannotReceiveInvalidStatus') return 'purchaseOrders.errors.cannotReceiveInvalidStatus';
+  if (title === 'PurchaseOrder.ReceiptQuantityOverRemaining') return 'purchaseOrders.errors.receiptQuantityOverRemaining';
+  if (title === 'Inventory.BatchNumberAlreadyExists') return 'purchaseOrders.errors.batchNumberAlreadyExists';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToReceive';
 }

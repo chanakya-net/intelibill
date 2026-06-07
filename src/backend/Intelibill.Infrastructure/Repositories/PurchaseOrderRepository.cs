@@ -15,12 +15,26 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
         CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(po => po.Lines)
+            .Include(po => po.Receipts)
+                .ThenInclude(r => r.Lines)
             .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
 
     public async Task<PurchaseOrder?> GetDetailAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(po => po.Lines)
+            .Include(po => po.Receipts)
+                .ThenInclude(r => r.Lines)
             .FirstOrDefaultAsync(po => po.Id == purchaseOrderId, cancellationToken);
+
+    public async Task<PurchaseOrder?> GetReceiptDetailAsync(
+        Guid shopId,
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(po => po.Lines)
+            .Include(po => po.Receipts)
+                .ThenInclude(r => r.Lines)
+            .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
 
     public async Task<(IReadOnlyList<PurchaseOrder> Items, int TotalCount)> GetByShopAsync(
         PurchaseOrderListFilter filter,

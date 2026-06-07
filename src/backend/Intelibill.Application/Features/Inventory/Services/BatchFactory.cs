@@ -15,7 +15,7 @@ internal sealed class BatchFactory(
     public async Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
         Guid shopId,
         Guid itemId,
-        AddInventoryBatchRowCommand row,
+        InboundInventoryLineInput row,
         Supplier supplier,
         Guid actorUserId,
         CancellationToken cancellationToken)
@@ -92,6 +92,15 @@ internal sealed class BatchFactory(
 
         return new BatchCreationResult(batch, stockTransaction, ledgerEntry);
     }
+
+    public Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
+        Guid shopId,
+        Guid itemId,
+        AddInventoryBatchRowCommand row,
+        Supplier supplier,
+        Guid actorUserId,
+        CancellationToken cancellationToken) =>
+        CreateBatchAsync(shopId, itemId, row.ToInboundInput(), supplier, actorUserId, cancellationToken);
 
     private static decimal ComputeUnitCost(decimal totalPurchaseCost, decimal quantity) =>
         decimal.Round(totalPurchaseCost / quantity, 2, MidpointRounding.AwayFromZero);

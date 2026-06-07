@@ -12,6 +12,7 @@ public sealed class PurchaseOrderLine : BaseEntity
     public int ReceivedQuantity { get; private set; }
     public decimal UnitCost { get; private set; }
     public decimal LineTotal => ExpectedQuantity * UnitCost;
+    public int RemainingQuantity => ExpectedQuantity - ReceivedQuantity;
 
     private PurchaseOrderLine() { }
 
@@ -52,6 +53,14 @@ public sealed class PurchaseOrderLine : BaseEntity
     {
         ValidateQuantities(ExpectedQuantity, receivedQuantity);
         ReceivedQuantity = receivedQuantity;
+    }
+
+    public void ApplyReceipt(int quantity)
+    {
+        if (quantity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Receipt quantity must be positive.");
+
+        RecordReceivedQuantity(checked(ReceivedQuantity + quantity));
     }
 
     private static void ValidateQuantities(int expectedQuantity, int receivedQuantity)

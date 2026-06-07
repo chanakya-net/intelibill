@@ -68,5 +68,20 @@ public static partial class Errors
 
         public static Error UserCannotMutatePurchaseOrder =>
             Error.Forbidden("PurchaseOrder.UserCannotMutatePurchaseOrder", "Only owner or manager can perform this action.");
+
+        public static Error CannotReceiveInvalidStatus =>
+            Error.Validation("PurchaseOrder.CannotReceiveInvalidStatus", "Only placed or partially received purchase orders can be received.");
+
+        public static Error ReceiptLineRequired =>
+            Error.Validation("PurchaseOrder.ReceiptLineRequired", "Exactly one receipt line is required.");
+
+        public static Error ReceiptLineNotFound =>
+            Error.Validation("PurchaseOrder.ReceiptLineNotFound", "Purchase order receipt line was not found.");
+
+        public static Error ReceiptQuantityInvalid =>
+            Error.Validation("PurchaseOrder.ReceiptQuantityInvalid", "Receipt quantity must be greater than zero.");
+
+        public static Error ReceiptQuantityOverRemaining =>
+            Error.Validation("PurchaseOrder.ReceiptQuantityOverRemaining", "Receipt quantity cannot exceed remaining purchase order quantity.");
     }
 }

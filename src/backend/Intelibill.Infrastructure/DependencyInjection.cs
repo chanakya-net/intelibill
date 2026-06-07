@@ -102,6 +102,8 @@ public static class DependencyInjection
         services.AddScoped<IHsnCacheRepository, HsnCacheRepository>();
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
         services.AddScoped<IPurchaseOrderSequenceRepository, PurchaseOrderSequenceRepository>();
+        services.AddScoped<IPurchaseOrderReceiptRepository, PurchaseOrderReceiptRepository>();
+        services.AddScoped<IPurchaseOrderReceiptSequenceRepository, PurchaseOrderReceiptSequenceRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
@@ -189,6 +191,7 @@ public static class DependencyInjection
         services.AddScoped<IExternalHsnLookupService, Services.Hsn.ExternalHsnLookupService>();
 
         services.AddScoped<IPurchaseOrderNumberGenerator, PurchaseOrderNumberGenerator>();
+        services.AddScoped<IPurchaseOrderReceiptNumberGenerator, PurchaseOrderReceiptNumberGenerator>();
 
         return services;
     }

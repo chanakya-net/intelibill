@@ -15,6 +15,7 @@ public sealed record PurchaseOrderListFilter(
 public interface IPurchaseOrderRepository : IRepository<PurchaseOrder>
 {
     Task<PurchaseOrder?> GetDetailAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default);
+    Task<PurchaseOrder?> GetReceiptDetailAsync(Guid shopId, Guid purchaseOrderId, CancellationToken cancellationToken = default);
     Task<PurchaseOrder?> GetByShopAndIdAsync(Guid shopId, Guid purchaseOrderId, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<PurchaseOrder> Items, int TotalCount)> GetByShopAsync(
         PurchaseOrderListFilter filter,

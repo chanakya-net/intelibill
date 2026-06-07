@@ -6,6 +6,7 @@ namespace Intelibill.Domain.Entities;
 public sealed class PurchaseOrder : BaseEntity
 {
     private readonly List<PurchaseOrderLine> _lines = [];
+    private readonly List<PurchaseOrderReceipt> _receipts = [];
 
     public Guid ShopId { get; private set; }
     public Guid? SupplierId { get; private set; }
@@ -19,6 +20,7 @@ public sealed class PurchaseOrder : BaseEntity
     public PurchaseOrderStatus Status { get; private set; }
     public string? CancellationReason { get; private set; }
     public IReadOnlyList<PurchaseOrderLine> Lines => _lines.AsReadOnly();
+    public IReadOnlyList<PurchaseOrderReceipt> Receipts => _receipts.AsReadOnly();
 
     public decimal ExpectedTotal => _lines.Sum(l => l.LineTotal);
 
@@ -119,6 +121,28 @@ public sealed class PurchaseOrder : BaseEntity
 
         CancellationReason = reason.Trim();
         Status = PurchaseOrderStatus.Cancelled;
+    }
+
+    public void ApplyReceipt(Guid purchaseOrderLineId, int quantity)
+    {
+        if (Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
+            throw new InvalidOperationException("Only placed purchase orders can be received.");
+
+        var line = _lines.FirstOrDefault(l => l.Id == purchaseOrderLineId)
+            ?? throw new InvalidOperationException("Purchase order line was not found.");
+
+        line.ApplyReceipt(quantity);
+        Status = _lines.All(l => l.ReceivedQuantity == l.ExpectedQuantity)
+            ? PurchaseOrderStatus.Received
+            : PurchaseOrderStatus.PartiallyReceived;
+    }
+
+    public void AddReceipt(PurchaseOrderReceipt receipt)
+    {
+        if (receipt.PurchaseOrderId != Id)
+            throw new InvalidOperationException("Receipt belongs to a different purchase order.");
+
+        _receipts.Add(receipt);
     }
 
     private static string? NormalizeOptional(string? value)

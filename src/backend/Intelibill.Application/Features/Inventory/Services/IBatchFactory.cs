@@ -15,6 +15,14 @@ public interface IBatchFactory
     Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
         Guid shopId,
         Guid itemId,
+        InboundInventoryLineInput row,
+        Supplier supplier,
+        Guid actorUserId,
+        CancellationToken cancellationToken);
+
+    Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
+        Guid shopId,
+        Guid itemId,
         AddInventoryBatchRowCommand row,
         Supplier supplier,
         Guid actorUserId,

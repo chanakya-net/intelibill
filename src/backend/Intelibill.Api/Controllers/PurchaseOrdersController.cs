@@ -4,6 +4,7 @@ using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrde
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
+using Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
@@ -167,6 +168,40 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
 
         return result.ToActionResult(Ok);
     }
+
+    [HttpPost("{purchaseOrderId:guid}/receipts")]
+    public async Task<IActionResult> ReceivePurchaseOrder(
+        Guid purchaseOrderId,
+        [FromBody] ReceivePurchaseOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new ReceivePurchaseOrderCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                purchaseOrderId,
+                request.ReferenceNumber,
+                request.Notes,
+                request.ReceivedAt,
+                request.Lines.Select(l => new ReceivePurchaseOrderLineInput(
+                    l.PurchaseOrderLineId,
+                    l.BatchNumber,
+                    l.Quantity,
+                    l.TotalPurchaseCost,
+                    l.Mrp,
+                    l.SalesPrice,
+                    l.TaxRatePercent,
+                    l.TaxIncluded,
+                    l.PurchaseTaxIncluded,
+                    l.ExpiryDate,
+                    l.ManufacturingDate)).ToList()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record CreatePurchaseOrderDraftLineRequest(
@@ -200,3 +235,22 @@ public sealed record UpdatePurchaseOrderDraftRequest(
     IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);
 
 public sealed record CancelPurchaseOrderRequest(string? Reason);
+
+public sealed record ReceivePurchaseOrderLineRequest(
+    Guid PurchaseOrderLineId,
+    string BatchNumber,
+    int Quantity,
+    decimal TotalPurchaseCost,
+    decimal Mrp,
+    decimal SalesPrice,
+    decimal TaxRatePercent,
+    bool TaxIncluded,
+    bool PurchaseTaxIncluded,
+    DateOnly? ExpiryDate,
+    DateOnly? ManufacturingDate);
+
+public sealed record ReceivePurchaseOrderRequest(
+    string? ReferenceNumber,
+    string? Notes,
+    DateTimeOffset? ReceivedAt,
+    IReadOnlyList<ReceivePurchaseOrderLineRequest> Lines);
