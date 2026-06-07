@@ -4,7 +4,11 @@ import { vi } from 'vitest';
 import { of } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 
-import { PurchaseOrderService, PurchaseOrderListItem } from './purchase-order.service';
+import {
+  PurchaseOrderListItem,
+  PurchaseOrderListResult,
+  PurchaseOrderService,
+} from './purchase-order.service';
 
 describe('PurchaseOrderService', () => {
   const http = {
@@ -26,24 +30,49 @@ describe('PurchaseOrderService', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('getPurchaseOrders calls correct URL and returns list', async () => {
-    const list: readonly PurchaseOrderListItem[] = [
+  it('getPurchaseOrders passes filters as query params and returns paged result', async () => {
+    const items: readonly PurchaseOrderListItem[] = [
       {
         purchaseOrderId: 'po1',
         purchaseOrderNumber: 'PO-2026-000001',
         status: 'Draft',
+        supplierName: null,
+        supplierReference: null,
         lineCount: 2,
+        expectedQuantity: 5,
+        receivedQuantity: 0,
         expectedTotal: 500,
         createdAt: '2026-06-01T00:00:00Z',
       },
     ];
-    http.get.mockReturnValue(of(list));
+    const response: PurchaseOrderListResult = {
+      items,
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    };
+    http.get.mockReturnValue(of(response));
 
     const service = TestBed.inject(PurchaseOrderService);
-    const result = await firstValueFrom(service.getPurchaseOrders());
+    const result = await firstValueFrom(
+      service.getPurchaseOrders({
+        search: 'rice',
+        status: 'Draft',
+        orderDateFrom: '2026-06-01',
+        orderDateTo: '2026-06-30',
+        page: 2,
+        pageSize: 50,
+      })
+    );
 
-    expect(result).toEqual(list);
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders'));
+    expect(result).toEqual(response);
+    const [, options] = http.get.mock.calls[0] as [string, { params: { get: (name: string) => string | null } }];
+    expect(options.params.get('search')).toBe('rice');
+    expect(options.params.get('status')).toBe('Draft');
+    expect(options.params.get('order_date_from')).toBe('2026-06-01');
+    expect(options.params.get('order_date_to')).toBe('2026-06-30');
+    expect(options.params.get('page')).toBe('2');
+    expect(options.params.get('page_size')).toBe('50');
   });
 
   it('getPurchaseOrderDetail calls correct URL', async () => {
@@ -78,12 +107,24 @@ describe('PurchaseOrderService', () => {
     http.post.mockReturnValue(of(detail));
 
     const service = TestBed.inject(PurchaseOrderService);
-    const result = await firstValueFrom(service.createDraft({ notes: null, lines: [] }));
+    const result = await firstValueFrom(
+      service.createDraft({
+        notes: null,
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
+        lines: [],
+      })
+    );
 
     expect(result).toEqual(detail);
     expect(http.post).toHaveBeenCalledWith(
       expect.stringContaining('/purchase-orders'),
-      { notes: null, lines: [] }
+      {
+        notes: null,
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
+        lines: [],
+      }
     );
   });
 });

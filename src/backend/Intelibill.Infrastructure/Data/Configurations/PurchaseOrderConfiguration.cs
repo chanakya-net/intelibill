@@ -22,6 +22,12 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         builder.Property(po => po.Notes)
             .HasMaxLength(1000);
 
+        builder.Property(po => po.SupplierName)
+            .HasMaxLength(200);
+
+        builder.Property(po => po.SupplierReference)
+            .HasMaxLength(120);
+
         builder.Property(po => po.Status)
             .IsRequired();
 

@@ -18,6 +18,8 @@ public sealed record CreatePurchaseOrderDraftCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     string? Notes,
+    string? SupplierName,
+    string? SupplierReference,
     IReadOnlyList<CreatePurchaseOrderLineInput> Lines);
 
 public sealed class CreatePurchaseOrderDraftCommandHandler(
@@ -47,7 +49,12 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
             var now = DateTimeOffset.UtcNow;
             var poNumber = await numberGenerator.GenerateAsync(command.ActiveShopId, now.Year, cancellationToken);
 
-            var po = PurchaseOrder.CreateDraft(command.ActiveShopId, poNumber, command.Notes);
+            var po = PurchaseOrder.CreateDraft(
+                command.ActiveShopId,
+                poNumber,
+                command.Notes,
+                command.SupplierName,
+                command.SupplierReference);
 
             var descriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var lineInput in command.Lines)

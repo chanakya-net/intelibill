@@ -13,9 +13,19 @@ public sealed record PurchaseOrderListItemDto(
     Guid PurchaseOrderId,
     string PurchaseOrderNumber,
     PurchaseOrderStatus Status,
+    string? SupplierName,
+    string? SupplierReference,
     int LineCount,
+    int ExpectedQuantity,
+    int ReceivedQuantity,
     decimal ExpectedTotal,
     DateTimeOffset CreatedAt);
+
+public sealed record PurchaseOrderPagedResultDto(
+    IReadOnlyList<PurchaseOrderListItemDto> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
 
 public sealed record PurchaseOrderDetailDto(
     Guid PurchaseOrderId,

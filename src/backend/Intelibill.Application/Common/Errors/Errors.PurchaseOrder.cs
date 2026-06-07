@@ -27,6 +27,9 @@ public static partial class Errors
         public static Error InvalidPageSize =>
             Error.Validation("PurchaseOrder.InvalidPageSize", "Page size must be between 1 and 100.");
 
+        public static Error InvalidOrderDateRange =>
+            Error.Validation("PurchaseOrder.InvalidOrderDateRange", "Order date from must be on or before order date to.");
+
         public static Error SequenceError =>
             Error.Unexpected("PurchaseOrder.SequenceError", "Failed to generate purchase order number.");
     }

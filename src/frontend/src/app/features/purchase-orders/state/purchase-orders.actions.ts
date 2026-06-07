@@ -3,14 +3,16 @@ import { createActionGroup, emptyProps, props } from '@ngrx/store';
 import {
   CreatePurchaseOrderDraftRequest,
   PurchaseOrderDetail,
+  PurchaseOrderListFilters,
   PurchaseOrderListItem,
+  PurchaseOrderListResult,
 } from '../services/purchase-order.service';
 
 export const PurchaseOrdersActions = createActionGroup({
   source: 'PurchaseOrders',
   events: {
-    'Load Purchase Orders Requested': emptyProps(),
-    'Load Purchase Orders Succeeded': props<{ orders: readonly PurchaseOrderListItem[] }>(),
+    'Load Purchase Orders Requested': props<{ filters: Partial<PurchaseOrderListFilters> }>(),
+    'Load Purchase Orders Succeeded': props<{ result: PurchaseOrderListResult }>(),
     'Load Purchase Orders Failed': props<{ errorMessage: string }>(),
 
     'Load Purchase Order Detail Requested': props<{ purchaseOrderId: string }>(),
@@ -23,5 +25,6 @@ export const PurchaseOrdersActions = createActionGroup({
 
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),
+    'Reset List Filters': emptyProps(),
   },
 });

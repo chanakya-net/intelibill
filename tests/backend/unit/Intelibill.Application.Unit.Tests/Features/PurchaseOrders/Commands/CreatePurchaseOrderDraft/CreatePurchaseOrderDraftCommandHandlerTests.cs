@@ -37,7 +37,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, []),
+            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, null, null, []),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -60,6 +60,8 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 "Test notes",
+                "Acme Traders",
+                "SUP-REF-001",
                 [new CreatePurchaseOrderLineInput("Widget", 5, 10m)]),
             CancellationToken.None);
 
@@ -83,6 +85,8 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
+                null,
+                null,
                 [new CreatePurchaseOrderLineInput("Widget", 0, 10m)]),
             CancellationToken.None);
 
@@ -102,6 +106,8 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
             new CreatePurchaseOrderDraftCommand(
                 actor.Id,
                 shop.Id,
+                null,
+                null,
                 null,
                 [new CreatePurchaseOrderLineInput("Widget", 1, -1m)]),
             CancellationToken.None);
@@ -123,6 +129,8 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
+                null,
+                null,
                 [new CreatePurchaseOrderLineInput("   ", 1, 5m)]),
             CancellationToken.None);
 
@@ -143,12 +151,18 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 actor.Id,
                 shop.Id,
                 null,
+                " Acme Traders ",
+                " SUP-REF-001 ",
                 [new CreatePurchaseOrderLineInput("Item A", 2, 100m)]),
             CancellationToken.None);
 
         Assert.False(result.IsError);
         await _poRepository.Received(1).AddAsync(
-            Arg.Is<PurchaseOrder>(po => po.ShopId == shop.Id && po.PurchaseOrderNumber == "PO-2026-000001"),
+            Arg.Is<PurchaseOrder>(po =>
+                po.ShopId == shop.Id
+                && po.PurchaseOrderNumber == "PO-2026-000001"
+                && po.SupplierName == "Acme Traders"
+                && po.SupplierReference == "SUP-REF-001"),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

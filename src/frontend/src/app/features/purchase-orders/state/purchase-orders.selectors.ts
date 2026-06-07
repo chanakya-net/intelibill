@@ -22,6 +22,15 @@ export const selectPurchaseOrdersErrorMessage = createSelector(
   selectPurchaseOrdersState,
   (state) => state.errorMessage
 );
+export const selectPurchaseOrdersPagination = createSelector(selectPurchaseOrdersState, (state) => ({
+  totalCount: state.totalCount,
+  pageNumber: state.currentPage,
+  pageSize: state.pageSize,
+}));
+export const selectPurchaseOrdersFilters = createSelector(
+  selectPurchaseOrdersState,
+  (state) => state.filters
+);
 export const selectSelectedPurchaseOrder = createSelector(
   selectPurchaseOrdersState,
   (state) => state.selectedOrder
