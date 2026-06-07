@@ -140,6 +140,30 @@ public class PurchaseOrderTests
         Assert.Throws<InvalidOperationException>(() => po.UpdateDraft(null, null, null, null, null, []));
     }
 
+    [Fact]
+    public void UpdateDraft_WhenSameItemLineChanges_PreservesLineIdentity()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, "old");
+        var itemId = Guid.NewGuid();
+        var line = po.AddLine(itemId, "Widget", 1, 10m);
+
+        po.UpdateDraft(
+            Guid.NewGuid(),
+            null,
+            null,
+            null,
+            "new",
+            [(itemId, "Updated widget", 2, 15m)]);
+
+        var updatedLine = Assert.Single(po.Lines);
+        Assert.Equal(line.Id, updatedLine.Id);
+        Assert.Equal("Updated widget", updatedLine.Description);
+        Assert.Equal(2, updatedLine.ExpectedQuantity);
+        Assert.Equal(15m, updatedLine.UnitCost);
+        Assert.Equal(30m, po.ExpectedTotal);
+        Assert.Equal("new", po.Notes);
+    }
+
     // ---- Cancel ----
 
     [Fact]
