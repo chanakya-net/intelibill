@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { ConfirmationService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
@@ -102,6 +103,8 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   cancelOrder: 'Cancel Order',
                 },
                 dialog: {
+                  deleteDraftTitle: 'Delete Draft',
+                  deleteDraftBody: 'Are you sure you want to delete this draft purchase order?',
                   cancelReasonLabel: 'Reason (required)'
                 }
               }
@@ -254,17 +257,27 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
   });
 
-  it('dispatches deleteDraft when delete button clicked', () => {
+  it('confirms before dispatching deleteDraft when delete button clicked', () => {
     canManagePurchaseOrdersSignal.set(true);
     purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
 
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    const confirmSpy = vi.spyOn(confirmationService, 'confirm');
     fixture.detectChanges();
 
     const deleteButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
       .find((btn) => btn.textContent?.includes('Delete Draft'));
     deleteButton?.click();
 
+    expect(confirmSpy).toHaveBeenCalled();
+    const call = confirmSpy.mock.calls[0][0];
+    expect(call.header).toBe('Delete Draft');
+    expect(call.message).toBe('Are you sure you want to delete this draft purchase order?');
+    expect(typeof call.accept).toBe('function');
+    expect(facade.deleteDraft).not.toHaveBeenCalled();
+
+    call.accept?.();
     expect(facade.deleteDraft).toHaveBeenCalledWith('po-1');
   });
 

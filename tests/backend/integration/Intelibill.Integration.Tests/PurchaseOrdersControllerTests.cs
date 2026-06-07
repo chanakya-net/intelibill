@@ -717,4 +717,28 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         var cancelResponse = await client.SendAsync(cancelRequest);
         Assert.Equal(HttpStatusCode.BadRequest, cancelResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task CancelPurchaseOrder_WithOversizedReason_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Active Supplier 8");
+        var draft = await CreateDraftWithSupplierAsync(client, ownerToken, supplierId, "LongReason");
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+
+        using var placeRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        (await client.SendAsync(placeRequest)).EnsureSuccessStatusCode();
+
+        using var cancelRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = new string('A', 501) });
+
+        var cancelResponse = await client.SendAsync(cancelRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, cancelResponse.StatusCode);
+    }
 }

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoService } from '@ngneat/transloco';
 
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -9,6 +10,8 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
@@ -28,9 +31,12 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
     TagModule,
     ButtonModule,
     InputTextModule,
+    ConfirmDialogModule,
   ],
+  providers: [ConfirmationService],
   template: `
     <div class="page-container">
+      <p-confirmDialog />
       <p-card>
         @if (facade.isLoadingDetail()) {
           <p-progressSpinner />
@@ -143,6 +149,8 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly translocoService = inject(TranslocoService);
 
   protected cancelReason = '';
 
@@ -162,7 +170,16 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   }
 
   protected deleteDraft(purchaseOrderId: string): void {
-    this.facade.deleteDraft(purchaseOrderId);
+    this.confirmationService.confirm({
+      message: this.translocoService.translate('purchaseOrders.dialog.deleteDraftBody'),
+      header: this.translocoService.translate('purchaseOrders.dialog.deleteDraftTitle'),
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-secondary p-button-text',
+      accept: () => {
+        this.facade.deleteDraft(purchaseOrderId);
+      },
+    });
   }
 
   protected cancelOrder(purchaseOrderId: string): void {
