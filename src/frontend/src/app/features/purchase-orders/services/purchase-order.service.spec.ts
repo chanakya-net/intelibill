@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   PurchaseOrderListItem,
   PurchaseOrderListResult,
+  ReceivePurchaseOrderRequest,
   PurchaseOrderService,
 } from './purchase-order.service';
 
@@ -177,5 +178,50 @@ describe('PurchaseOrderService', () => {
 
     expect(result).toEqual(detail);
     expect(http.put).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders/po2'), payload);
+  });
+
+  it('receivePurchaseOrder posts one-line receipt payload to receipts endpoint', async () => {
+    const detail = {
+      purchaseOrderId: 'po2',
+      purchaseOrderNumber: 'PO-2026-000002',
+      status: 'PartiallyReceived' as const,
+      supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 2,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: null,
+      lines: [],
+      expectedTotal: 100,
+      createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: null,
+    };
+    const payload: ReceivePurchaseOrderRequest = {
+      referenceNumber: 'GRN-1',
+      notes: 'Received at dock',
+      receivedAt: null,
+      lines: [{
+        purchaseOrderLineId: 'line-1',
+        batchNumber: 'BATCH-1',
+        quantity: 2,
+        totalPurchaseCost: 100,
+        mrp: 70,
+        salesPrice: 60,
+        taxRatePercent: 5,
+        taxIncluded: false,
+        purchaseTaxIncluded: true,
+        expiryDate: null,
+        manufacturingDate: null,
+      }],
+    };
+    http.post.mockReturnValue(of(detail));
+
+    const service = TestBed.inject(PurchaseOrderService);
+    const result = await firstValueFrom(service.receivePurchaseOrder('po2', payload));
+
+    expect(result).toEqual(detail);
+    expect(http.post).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders/po2/receipts'), payload);
   });
 });

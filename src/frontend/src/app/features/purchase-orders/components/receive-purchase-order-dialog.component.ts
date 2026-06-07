@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
@@ -22,6 +23,7 @@ import {
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    TranslocoPipe,
     ButtonModule,
     CheckboxModule,
     DialogModule,
@@ -32,7 +34,7 @@ import {
   ],
   template: `
     <p-dialog
-      header="Receive purchase order"
+      [header]="'purchaseOrders.receiveDialog.title' | transloco"
       [(visible)]="visible"
       [modal]="true"
       [style]="{ width: 'min(720px, 96vw)' }"
@@ -40,69 +42,69 @@ import {
     >
       <form class="receive-form" [formGroup]="form" (ngSubmit)="submit()">
         <label>
-          Line
+          {{ 'purchaseOrders.receiveDialog.line' | transloco }}
           <p-select
             formControlName="purchaseOrderLineId"
             [options]="receivableLines"
             optionLabel="description"
             optionValue="lineId"
-            placeholder="Select line"
+            [placeholder]="'purchaseOrders.receiveDialog.selectLine' | transloco"
           />
         </label>
         <label>
-          Batch number
+          {{ 'purchaseOrders.receiveDialog.batchNumber' | transloco }}
           <input pInputText formControlName="batchNumber" />
         </label>
         <label>
-          Quantity
+          {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
           <p-inputNumber formControlName="quantity" [min]="1" [max]="selectedRemaining" />
         </label>
         <label>
-          Total purchase cost
+          {{ 'purchaseOrders.receiveDialog.totalPurchaseCost' | transloco }}
           <p-inputNumber formControlName="totalPurchaseCost" mode="decimal" [min]="0" [minFractionDigits]="2" />
         </label>
         <label>
-          MRP
+          {{ 'purchaseOrders.receiveDialog.mrp' | transloco }}
           <p-inputNumber formControlName="mrp" mode="decimal" [min]="0" [minFractionDigits]="2" />
         </label>
         <label>
-          Sales price
+          {{ 'purchaseOrders.receiveDialog.salesPrice' | transloco }}
           <p-inputNumber formControlName="salesPrice" mode="decimal" [min]="0" [minFractionDigits]="2" />
         </label>
         <label>
-          Tax rate
+          {{ 'purchaseOrders.receiveDialog.taxRate' | transloco }}
           <p-inputNumber formControlName="taxRatePercent" mode="decimal" [min]="0" [max]="100" />
         </label>
         <label>
-          Expiry date
+          {{ 'purchaseOrders.receiveDialog.expiryDate' | transloco }}
           <input pInputText type="date" formControlName="expiryDate" />
         </label>
         <label>
-          Manufacturing date
+          {{ 'purchaseOrders.receiveDialog.manufacturingDate' | transloco }}
           <input pInputText type="date" formControlName="manufacturingDate" />
         </label>
         <label>
-          Reference
+          {{ 'purchaseOrders.receiveDialog.reference' | transloco }}
           <input pInputText formControlName="referenceNumber" />
         </label>
         <label class="full-width">
-          Notes
+          {{ 'purchaseOrders.receiveDialog.notes' | transloco }}
           <textarea pTextarea formControlName="notes"></textarea>
         </label>
         <label class="checkbox-row">
           <p-checkbox formControlName="taxIncluded" [binary]="true" />
-          Tax included
+          {{ 'purchaseOrders.receiveDialog.taxIncluded' | transloco }}
         </label>
         <label class="checkbox-row">
           <p-checkbox formControlName="purchaseTaxIncluded" [binary]="true" />
-          Purchase tax included
+          {{ 'purchaseOrders.receiveDialog.purchaseTaxIncluded' | transloco }}
         </label>
         @if (remainingError) {
-          <p class="error">Quantity cannot exceed remaining quantity.</p>
+          <p class="error">{{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}</p>
         }
         <div class="actions">
-          <button pButton type="button" severity="secondary" label="Cancel" (click)="hide()"></button>
-          <button pButton type="submit" label="Receive" [disabled]="form.invalid || remainingError || submitting"></button>
+          <button pButton type="button" severity="secondary" [label]="'purchaseOrders.actions.cancel' | transloco" (click)="hide()"></button>
+          <button pButton type="submit" [label]="'purchaseOrders.actions.receive' | transloco" [disabled]="form.invalid || remainingError || submitting"></button>
         </div>
       </form>
     </p-dialog>

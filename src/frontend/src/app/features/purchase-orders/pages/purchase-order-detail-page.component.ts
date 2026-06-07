@@ -61,7 +61,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
                 }
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
                   <button type="button" (click)="showReceiveDialog.set(true)">
-                    Receive
+                    {{ 'purchaseOrders.actions.receive' | transloco }}
                   </button>
                   <div class="po-cancel-form">
                     <input
@@ -76,7 +76,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
                 }
                 @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
                   <button type="button" (click)="showReceiveDialog.set(true)">
-                    Receive
+                    {{ 'purchaseOrders.actions.receive' | transloco }}
                   </button>
                 }
               </div>
@@ -87,7 +87,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
               [order]="order"
               [visible]="showReceiveDialog()"
               (visibleChange)="showReceiveDialog.set($event)"
-              [submitting]="facade.isSubmitting?.() ?? false"
+              [submitting]="facade.isSubmitting()"
               (receive)="receiveOrder(order.purchaseOrderId, $event)"
             />
           }
@@ -136,8 +136,8 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
               <tr>
                 <th>{{ 'purchaseOrders.lineDescription' | transloco }}</th>
                 <th>{{ 'purchaseOrders.expectedQuantity' | transloco }}</th>
-                <th>Received</th>
-                <th>Remaining</th>
+                <th>{{ 'purchaseOrders.receivedQuantity' | transloco }}</th>
+                <th>{{ 'purchaseOrders.remainingQuantity' | transloco }}</th>
                 <th>{{ 'purchaseOrders.unitCost' | transloco }}</th>
                 <th>{{ 'purchaseOrders.lineTotal' | transloco }}</th>
               </tr>
@@ -158,14 +158,14 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
             {{ order.expectedTotal | number:'1.2-2' }}
           </p>
           @if ((order.receipts?.length ?? 0) > 0) {
-            <h3>Receipts</h3>
+            <h3>{{ 'purchaseOrders.receipts.title' | transloco }}</h3>
             <p-table [value]="[...(order.receipts ?? [])]" dataKey="receiptId">
               <ng-template pTemplate="header">
                 <tr>
-                  <th>Receipt</th>
-                  <th>Received at</th>
-                  <th>Quantity</th>
-                  <th>Total cost</th>
+                  <th>{{ 'purchaseOrders.receipts.receipt' | transloco }}</th>
+                  <th>{{ 'purchaseOrders.receipts.receivedAt' | transloco }}</th>
+                  <th>{{ 'purchaseOrders.receipts.quantity' | transloco }}</th>
+                  <th>{{ 'purchaseOrders.receipts.totalCost' | transloco }}</th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-receipt>
