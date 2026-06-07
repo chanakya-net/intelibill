@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 import { PURCHASE_ORDER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-export type PurchaseOrderStatus = 'Draft';
+export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
@@ -49,6 +49,9 @@ export interface PurchaseOrderDetail {
   readonly purchaseOrderNumber: string;
   readonly status: PurchaseOrderStatus;
   readonly supplierId: string | null;
+  readonly supplierName: string | null;
+  readonly supplierReference: string | null;
+  readonly receivedQuantity: number;
   readonly orderDate: string | null;
   readonly expectedDeliveryDate: string | null;
   readonly supplierReferenceNumber: string | null;
@@ -56,6 +59,7 @@ export interface PurchaseOrderDetail {
   readonly lines: readonly PurchaseOrderLine[];
   readonly expectedTotal: number;
   readonly createdAt: string;
+  readonly cancellationReason: string | null;
 }
 
 export interface CreatePurchaseOrderLineRequest {
@@ -74,6 +78,10 @@ export interface CreatePurchaseOrderDraftRequest {
   readonly supplierName?: string | null;
   readonly supplierReference?: string | null;
   readonly lines: readonly CreatePurchaseOrderLineRequest[];
+}
+
+export interface CancelPurchaseOrderRequest {
+  readonly reason: string | null;
 }
 
 export const DEFAULT_PURCHASE_ORDER_LIST_FILTERS: PurchaseOrderListFilters = {
@@ -113,5 +121,17 @@ export class PurchaseOrderService {
 
   updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
     return this.http.put<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.detail(purchaseOrderId), payload);
+  }
+
+  placePurchaseOrder(purchaseOrderId: string): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.place(purchaseOrderId), {});
+  }
+
+  deleteDraft(purchaseOrderId: string): Observable<void> {
+    return this.http.delete<void>(PURCHASE_ORDER_ENDPOINTS.delete(purchaseOrderId));
+  }
+
+  cancelPurchaseOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.cancel(purchaseOrderId), payload);
   }
 }

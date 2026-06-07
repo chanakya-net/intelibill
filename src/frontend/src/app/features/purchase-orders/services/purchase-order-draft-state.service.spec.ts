@@ -138,6 +138,9 @@ function makeDetail(purchaseOrderId: string, notes: string): PurchaseOrderDetail
     purchaseOrderNumber: 'PO-2026-000001',
     status: 'Draft',
     supplierId: null,
+    supplierName: null,
+    supplierReference: null,
+    receivedQuantity: 0,
     orderDate: null,
     expectedDeliveryDate: null,
     supplierReferenceNumber: null,
@@ -145,5 +148,6 @@ function makeDetail(purchaseOrderId: string, notes: string): PurchaseOrderDetail
     lines: [],
     expectedTotal: 0,
     createdAt: '2026-06-01T00:00:00Z',
+    cancellationReason: null,
   };
 }

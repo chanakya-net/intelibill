@@ -40,6 +40,9 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         builder.Property(po => po.Status)
             .IsRequired();
 
+        builder.Property(po => po.CancellationReason)
+            .HasMaxLength(500);
+
         builder.HasIndex(po => po.ShopId);
         builder.HasIndex(po => new { po.ShopId, po.PurchaseOrderNumber })
             .IsUnique();

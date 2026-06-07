@@ -15,12 +15,14 @@ describe('PurchaseOrderService', () => {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    delete: vi.fn(),
   };
 
   beforeEach(() => {
     http.get.mockReset();
     http.post.mockReset();
     http.put.mockReset();
+    http.delete.mockReset();
 
     TestBed.configureTestingModule({
       providers: [

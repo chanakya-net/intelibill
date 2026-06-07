@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { Action } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
+import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
-import { PurchaseOrderService } from '../services/purchase-order.service';
+import { PurchaseOrderDetail, PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 import { PurchaseOrdersEffects } from './purchase-orders.effects';
 
@@ -18,6 +19,13 @@ describe('PurchaseOrdersEffects', () => {
     getPurchaseOrderDetail: vi.fn<PurchaseOrderService['getPurchaseOrderDetail']>(),
     createDraft: vi.fn<PurchaseOrderService['createDraft']>(),
     updateDraft: vi.fn<PurchaseOrderService['updateDraft']>(),
+    placePurchaseOrder: vi.fn<PurchaseOrderService['placePurchaseOrder']>(),
+    deleteDraft: vi.fn<PurchaseOrderService['deleteDraft']>(),
+    cancelPurchaseOrder: vi.fn<PurchaseOrderService['cancelPurchaseOrder']>(),
+  };
+
+  const mockRouter = {
+    navigate: vi.fn(),
   };
 
   beforeEach(() => {
@@ -26,11 +34,16 @@ describe('PurchaseOrdersEffects', () => {
     service.getPurchaseOrderDetail.mockReset();
     service.createDraft.mockReset();
     service.updateDraft.mockReset();
+    service.placePurchaseOrder.mockReset();
+    service.deleteDraft.mockReset();
+    service.cancelPurchaseOrder.mockReset();
+    mockRouter.navigate.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
         PurchaseOrdersEffects,
         { provide: PurchaseOrderService, useValue: service },
+        { provide: Router, useValue: mockRouter },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -105,11 +118,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches createDraftSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po2',
       purchaseOrderNumber: 'PO-2026-000002',
       status: 'Draft' as const,
       supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -117,6 +133,7 @@ describe('PurchaseOrdersEffects', () => {
       lines: [],
       expectedTotal: 0,
       createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: null,
     };
     service.createDraft.mockReturnValue(of(detail));
 
@@ -168,11 +185,14 @@ describe('PurchaseOrdersEffects', () => {
   });
 
   it('dispatches updateDraftSucceeded on success', async () => {
-    const detail = {
+    const detail: PurchaseOrderDetail = {
       purchaseOrderId: 'po1',
       purchaseOrderNumber: 'PO-2026-000001',
       status: 'Draft' as const,
       supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
       orderDate: null,
       expectedDeliveryDate: null,
       supplierReferenceNumber: null,
@@ -180,6 +200,7 @@ describe('PurchaseOrdersEffects', () => {
       lines: [],
       expectedTotal: 0,
       createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: null,
     };
     service.updateDraft.mockReturnValue(of(detail));
 
@@ -202,5 +223,132 @@ describe('PurchaseOrdersEffects', () => {
         errorMessage: 'purchaseOrders.errors.cannotUpdateNonDraft',
       })
     );
+  });
+
+  it('dispatches placeOrderSucceeded on success', async () => {
+    const detail: PurchaseOrderDetail = {
+      purchaseOrderId: 'po1',
+      purchaseOrderNumber: 'PO-2026-000001',
+      status: 'Placed' as const,
+      supplierId: 'sup1',
+      supplierName: 'Acme Traders',
+      supplierReference: 'SUP-REF-001',
+      receivedQuantity: 0,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: null,
+      lines: [],
+      expectedTotal: 0,
+      createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: null,
+    };
+    service.placePurchaseOrder.mockReturnValue(of(detail));
+
+    const output = firstValueFrom(effects.placeOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId: 'po1' }));
+
+    await expect(output).resolves.toEqual(PurchaseOrdersActions.placeOrderSucceeded({ order: detail }));
+  });
+
+  it('maps SupplierRequired error on place failure', async () => {
+    service.placePurchaseOrder.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.SupplierRequired' } }))
+    );
+
+    const output = firstValueFrom(effects.placeOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId: 'po1' }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.placeOrderFailed({
+        errorMessage: 'purchaseOrders.errors.supplierRequired',
+      })
+    );
+  });
+
+  it('dispatches deleteDraftSucceeded on success', async () => {
+    service.deleteDraft.mockReturnValue(of(undefined as unknown as void));
+
+    const output = firstValueFrom(effects.deleteDraft$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.deleteDraftRequested({ purchaseOrderId: 'po1' }));
+
+    await expect(output).resolves.toEqual(PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
+  });
+
+  it('maps CannotDeleteNonDraft error on delete failure', async () => {
+    service.deleteDraft.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.CannotDeleteNonDraft' } }))
+    );
+
+    const output = firstValueFrom(effects.deleteDraft$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.deleteDraftRequested({ purchaseOrderId: 'po1' }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.deleteDraftFailed({
+        errorMessage: 'purchaseOrders.errors.cannotDeleteNonDraft',
+      })
+    );
+  });
+
+  it('dispatches cancelOrderSucceeded on success', async () => {
+    const detail: PurchaseOrderDetail = {
+      purchaseOrderId: 'po1',
+      purchaseOrderNumber: 'PO-2026-000001',
+      status: 'Cancelled' as const,
+      supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 0,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: null,
+      lines: [],
+      expectedTotal: 0,
+      createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: 'Supplier unavailable',
+    };
+    service.cancelPurchaseOrder.mockReturnValue(of(detail));
+
+    const output = firstValueFrom(effects.cancelOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId: 'po1', payload: { reason: 'Supplier unavailable' } }));
+
+    await expect(output).resolves.toEqual(PurchaseOrdersActions.cancelOrderSucceeded({ order: detail }));
+  });
+
+  it('maps CannotCancelAfterReceipt error on cancel failure', async () => {
+    service.cancelPurchaseOrder.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.CannotCancelAfterReceipt' } }))
+    );
+
+    const output = firstValueFrom(effects.cancelOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId: 'po1', payload: { reason: null } }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.cancelOrderFailed({
+        errorMessage: 'purchaseOrders.errors.cannotCancelAfterReceipt',
+      })
+    );
+  });
+
+  it('maps CancellationReasonRequired error on cancel failure', async () => {
+    service.cancelPurchaseOrder.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.CancellationReasonRequired' } }))
+    );
+
+    const output = firstValueFrom(effects.cancelOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId: 'po1', payload: { reason: null } }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.cancelOrderFailed({
+        errorMessage: 'purchaseOrders.errors.cancellationReasonRequired',
+      })
+    );
+  });
+
+  it('navigates to list page on deleteDraftSucceeded', () => {
+    effects.deleteDraftSucceeded$.subscribe();
+    actions$.next(PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders']);
   });
 });

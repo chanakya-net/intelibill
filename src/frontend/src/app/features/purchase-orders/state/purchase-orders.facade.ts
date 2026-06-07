@@ -2,6 +2,7 @@ import { Injectable, Signal, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 
 import {
+  CancelPurchaseOrderRequest,
   CreatePurchaseOrderDraftRequest,
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   PurchaseOrderDetail,
@@ -54,6 +55,18 @@ export class PurchaseOrdersFacade {
 
   updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): void {
     this.store.dispatch(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId, payload }));
+  }
+
+  placeOrder(purchaseOrderId: string): void {
+    this.store.dispatch(PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId }));
+  }
+
+  deleteDraft(purchaseOrderId: string): void {
+    this.store.dispatch(PurchaseOrdersActions.deleteDraftRequested({ purchaseOrderId }));
+  }
+
+  cancelOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): void {
+    this.store.dispatch(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId, payload }));
   }
 
   clearDetail(): void {

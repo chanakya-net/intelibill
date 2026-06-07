@@ -37,6 +37,9 @@ const mockDetail: PurchaseOrderDetail = {
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
   supplierId: null,
+  supplierName: null,
+  supplierReference: null,
+  receivedQuantity: 0,
   orderDate: null,
   expectedDeliveryDate: null,
   supplierReferenceNumber: null,
@@ -44,6 +47,7 @@ const mockDetail: PurchaseOrderDetail = {
   lines: [],
   expectedTotal: 0,
   createdAt: '2026-06-01T00:00:00Z',
+  cancellationReason: null,
 };
 
 describe('purchaseOrdersReducer', () => {
@@ -183,5 +187,96 @@ describe('purchaseOrdersReducer', () => {
     );
 
     expect(next.filters).toEqual(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
+  });
+
+  it('sets submitting on place requested', () => {
+    const next = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId: 'po1' })
+    );
+    expect(next.submitting).toBe(true);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('updates selectedOrder and upserts in adapter on place succeeded', () => {
+    const placedDetail: PurchaseOrderDetail = { ...mockDetail, status: 'Placed', cancellationReason: null };
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.placeOrderSucceeded({ order: placedDetail })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.selectedOrder?.status).toBe('Placed');
+    expect(next.entities['po1']).toBeDefined();
+  });
+
+  it('sets error on place failed', () => {
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.placeOrderFailed({ errorMessage: 'err.place' })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.errorMessage).toBe('err.place');
+  });
+
+  it('removes entity and clears selectedOrder on delete succeeded', () => {
+    const stateWithPo = purchaseOrdersAdapter.setOne(mockListItem, {
+      ...initialState,
+      selectedOrder: mockDetail,
+      submitting: true,
+    });
+    const next = purchaseOrdersReducer(stateWithPo, PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
+    expect(next.submitting).toBe(false);
+    expect(next.selectedOrder).toBeNull();
+    expect(next.ids).not.toContain('po1');
+  });
+
+  it('updates selectedOrder on cancel succeeded', () => {
+    const cancelledDetail: PurchaseOrderDetail = { ...mockDetail, status: 'Cancelled', cancellationReason: 'Too late', };
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.cancelOrderSucceeded({ order: cancelledDetail })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.selectedOrder?.status).toBe('Cancelled');
+    expect(next.selectedOrder?.cancellationReason).toBe('Too late');
+  });
+
+  it('preserves supplierName, supplierReference, and receivedQuantity in list entity after update/place/cancel', () => {
+    const detail: PurchaseOrderDetail = {
+      ...mockDetail,
+      supplierName: 'Acme Traders',
+      supplierReference: 'SUP-REF-001',
+      receivedQuantity: 5,
+    };
+    
+    // Test update draft
+    const state1 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.updateDraftSucceeded({ order: detail })
+    );
+    const item1 = state1.entities['po1'];
+    expect(item1?.supplierName).toBe('Acme Traders');
+    expect(item1?.supplierReference).toBe('SUP-REF-001');
+    expect(item1?.receivedQuantity).toBe(5);
+
+    // Test place order
+    const state2 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.placeOrderSucceeded({ order: { ...detail, status: 'Placed' } })
+    );
+    const item2 = state2.entities['po1'];
+    expect(item2?.supplierName).toBe('Acme Traders');
+    expect(item2?.supplierReference).toBe('SUP-REF-001');
+    expect(item2?.receivedQuantity).toBe(5);
+
+    // Test cancel order
+    const state3 = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.cancelOrderSucceeded({ order: { ...detail, status: 'Cancelled', cancellationReason: 'reason' } })
+    );
+    const item3 = state3.entities['po1'];
+    expect(item3?.supplierName).toBe('Acme Traders');
+    expect(item3?.supplierReference).toBe('SUP-REF-001');
+    expect(item3?.receivedQuantity).toBe(5);
   });
 });

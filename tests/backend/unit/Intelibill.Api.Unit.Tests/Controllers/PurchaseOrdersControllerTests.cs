@@ -3,7 +3,10 @@ using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
@@ -222,5 +225,129 @@ public class PurchaseOrdersControllerTests
 
         var obj = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, obj.StatusCode);
+    }
+
+    // ---- Place ----
+
+    [Fact]
+    public async Task PlacePurchaseOrder_WhenValid_ReturnsOk()
+    {
+        SetValidClaims(out var userId, out var shopId);
+        var poId = Guid.NewGuid();
+        var dto = new PurchaseOrderDetailDto(
+            poId, "PO-2026-000001", PurchaseOrderStatus.Placed,
+            Guid.NewGuid(), null, null, null, null, [], 0m, DateTimeOffset.UtcNow);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
+
+        var result = await _controller.PlacePurchaseOrder(poId, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, okResult.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<PlacePurchaseOrderCommand>(c =>
+                c.ActorUserId == userId && c.ActiveShopId == shopId && c.PurchaseOrderId == poId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PlacePurchaseOrder_WhenForbidden_ReturnsForbidden()
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.UserCannotMutatePurchaseOrder);
+
+        var result = await _controller.PlacePurchaseOrder(Guid.NewGuid(), CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
+    }
+
+    [Fact]
+    public async Task PlacePurchaseOrder_WhenNotFound_ReturnsNotFound()
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.NotFound);
+
+        var result = await _controller.PlacePurchaseOrder(Guid.NewGuid(), CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, obj.StatusCode);
+    }
+
+    // ---- Delete Draft ----
+
+    [Fact]
+    public async Task DeletePurchaseOrderDraft_WhenValid_ReturnsNoContent()
+    {
+        SetValidClaims(out var userId, out var shopId);
+        var poId = Guid.NewGuid();
+        _bus.InvokeAsync<ErrorOr<Deleted>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(ErrorOrFactory.From(Result.Deleted));
+
+        var result = await _controller.DeletePurchaseOrderDraft(poId, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Deleted>>(
+            Arg.Is<DeletePurchaseOrderDraftCommand>(c =>
+                c.ActorUserId == userId && c.ActiveShopId == shopId && c.PurchaseOrderId == poId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeletePurchaseOrderDraft_WhenCannotDeleteNonDraft_ReturnsBadRequest()
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<Deleted>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.CannotDeleteNonDraft);
+
+        var result = await _controller.DeletePurchaseOrderDraft(Guid.NewGuid(), CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
+    }
+
+    // ---- Cancel ----
+
+    [Fact]
+    public async Task CancelPurchaseOrder_WhenValid_ReturnsOk()
+    {
+        SetValidClaims(out var userId, out var shopId);
+        var poId = Guid.NewGuid();
+        var dto = new PurchaseOrderDetailDto(
+            poId, "PO-2026-000001", PurchaseOrderStatus.Cancelled,
+            null, null, null, null, null, [], 0m, DateTimeOffset.UtcNow, "Too expensive");
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
+
+        var result = await _controller.CancelPurchaseOrder(
+            poId,
+            new CancelPurchaseOrderRequest("Too expensive"),
+            CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, okResult.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<CancelPurchaseOrderCommand>(c =>
+                c.ActorUserId == userId && c.ActiveShopId == shopId
+                && c.PurchaseOrderId == poId && c.Reason == "Too expensive"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CancelPurchaseOrder_WhenCannotCancelAfterReceipt_ReturnsUnprocessable()
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.CannotCancelAfterReceipt);
+
+        var result = await _controller.CancelPurchaseOrder(
+            Guid.NewGuid(),
+            new CancelPurchaseOrderRequest(null),
+            CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
     }
 }

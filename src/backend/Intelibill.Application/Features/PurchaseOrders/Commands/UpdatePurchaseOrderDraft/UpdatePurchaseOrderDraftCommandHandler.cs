@@ -31,9 +31,10 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
 
+        Supplier? supplier = null;
         if (command.SupplierId is Guid supplierId)
         {
-            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
             if (supplier is null || supplier.ShopId != command.ActiveShopId)
                 return Errors.Supplier.SupplierNotFound;
         }
@@ -117,6 +118,15 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                 command.SupplierReferenceNumber,
                 command.Notes,
                 linesToUpdate);
+
+            if (supplier is not null)
+            {
+                po.UpdateSupplierDetails(supplier.Name, po.SupplierReference);
+            }
+            else
+            {
+                po.UpdateSupplierDetails(null, null);
+            }
 
             purchaseOrderRepository.Update(po);
             await unitOfWork.SaveChangesAsync(cancellationToken);

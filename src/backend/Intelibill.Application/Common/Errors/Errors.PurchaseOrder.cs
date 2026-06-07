@@ -41,5 +41,32 @@ public static partial class Errors
 
         public static Error CannotUpdateNonDraft =>
             Error.Validation("PurchaseOrder.CannotUpdateNonDraft", "Only draft purchase orders can be updated.");
+
+        public static Error SupplierRequired =>
+            Error.Validation("PurchaseOrder.SupplierRequired", "A supplier is required to place a purchase order.");
+
+        public static Error SupplierInvalidForPlacement =>
+            Error.Validation("PurchaseOrder.SupplierInvalidForPlacement", "Supplier must be active, non-system, and belong to this shop.");
+
+        public static Error AtLeastOneLineRequired =>
+            Error.Validation("PurchaseOrder.AtLeastOneLineRequired", "At least one line is required to place a purchase order.");
+
+        public static Error CannotPlaceNonDraft =>
+            Error.Validation("PurchaseOrder.CannotPlaceNonDraft", "Only draft purchase orders can be placed.");
+
+        public static Error CannotDeleteNonDraft =>
+            Error.Validation("PurchaseOrder.CannotDeleteNonDraft", "Only draft purchase orders can be deleted.");
+
+        public static Error CannotCancelAfterReceipt =>
+            Error.Validation("PurchaseOrder.CannotCancelAfterReceipt", "Cannot cancel a purchase order that has received items.");
+
+        public static Error CannotCancelInvalidStatus =>
+            Error.Validation("PurchaseOrder.CannotCancelInvalidStatus", "Only placed purchase orders can be cancelled.");
+
+        public static Error CancellationReasonRequired =>
+            Error.Validation("PurchaseOrder.CancellationReasonRequired", "Cancellation reason is required.");
+
+        public static Error UserCannotMutatePurchaseOrder =>
+            Error.Forbidden("PurchaseOrder.UserCannotMutatePurchaseOrder", "Only owner or manager can perform this action.");
     }
 }

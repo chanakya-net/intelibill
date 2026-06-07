@@ -17,9 +17,12 @@ public sealed class PurchaseOrder : BaseEntity
     public string? SupplierName { get; private set; }
     public string? SupplierReference { get; private set; }
     public PurchaseOrderStatus Status { get; private set; }
+    public string? CancellationReason { get; private set; }
     public IReadOnlyList<PurchaseOrderLine> Lines => _lines.AsReadOnly();
 
     public decimal ExpectedTotal => _lines.Sum(l => l.LineTotal);
+
+    public bool CanDeleteDraft => Status == PurchaseOrderStatus.Draft;
 
     private PurchaseOrder() { }
 
@@ -88,6 +91,34 @@ public sealed class PurchaseOrder : BaseEntity
         {
             AddLine(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
         }
+    }
+
+    public void Place(Guid supplierId)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can be placed.");
+
+        if (_lines.Count == 0)
+            throw new InvalidOperationException("Cannot place a purchase order with no lines.");
+
+        SupplierId = supplierId;
+        Status = PurchaseOrderStatus.Placed;
+    }
+
+    public void Cancel(string reason)
+    {
+        if (Status != PurchaseOrderStatus.Placed)
+            throw new InvalidOperationException("Only placed purchase orders can be cancelled.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidOperationException("Cancellation reason is required.");
+
+        var totalReceived = _lines.Sum(l => l.ReceivedQuantity);
+        if (totalReceived > 0)
+            throw new InvalidOperationException("Cannot cancel a purchase order that has received items.");
+
+        CancellationReason = reason.Trim();
+        Status = PurchaseOrderStatus.Cancelled;
     }
 
     private static string? NormalizeOptional(string? value)

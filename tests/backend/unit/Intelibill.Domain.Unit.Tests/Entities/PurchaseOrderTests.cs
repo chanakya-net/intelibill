@@ -75,4 +75,122 @@ public class PurchaseOrderTests
         Assert.Equal(0m, po.Lines[0].LineTotal);
         Assert.Equal(0m, po.ExpectedTotal);
     }
+
+    // ---- Place ----
+
+    [Fact]
+    public void Place_DraftWithLines_SetsStatusToPlacedAndSetsSupplier()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        var supplierId = Guid.NewGuid();
+
+        po.Place(supplierId);
+
+        Assert.Equal(PurchaseOrderStatus.Placed, po.Status);
+        Assert.Equal(supplierId, po.SupplierId);
+    }
+
+    [Fact]
+    public void Place_DraftWithNoLines_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+
+        Assert.Throws<InvalidOperationException>(() => po.Place(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void Place_AlreadyPlaced_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => po.Place(Guid.NewGuid()));
+    }
+
+    // ---- CanDeleteDraft ----
+
+    [Fact]
+    public void CanDeleteDraft_WhenDraft_ReturnsTrue()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        Assert.True(po.CanDeleteDraft);
+    }
+
+    [Fact]
+    public void CanDeleteDraft_WhenPlaced_ReturnsFalse()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 1, 10m);
+        po.Place(Guid.NewGuid());
+
+        Assert.False(po.CanDeleteDraft);
+    }
+
+    // ---- UpdateDraft immutability ----
+
+    [Fact]
+    public void UpdateDraft_WhenPlaced_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 1, 10m);
+        po.Place(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => po.UpdateDraft(null, null, null, null, null, []));
+    }
+
+    // ---- Cancel ----
+
+    [Fact]
+    public void Cancel_Draft_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("Ordered by mistake"));
+    }
+
+    [Fact]
+    public void Cancel_PlacedWithZeroReceived_SetsCancelledStatus()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
+
+        po.Cancel("Supplier unavailable");
+
+        Assert.Equal(PurchaseOrderStatus.Cancelled, po.Status);
+        Assert.Equal("Supplier unavailable", po.CancellationReason);
+    }
+
+    [Fact]
+    public void Cancel_AlreadyCancelled_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
+        po.Cancel("First reason");
+
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("Second reason"));
+    }
+
+    [Fact]
+    public void Cancel_WithEmptyReason_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("   "));
+    }
+
+    [Fact]
+    public void Cancel_WithReceivedItems_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m, receivedQuantity: 2);
+        po.Place(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("Too late"));
+    }
 }

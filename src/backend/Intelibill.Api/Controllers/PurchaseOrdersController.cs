@@ -1,6 +1,9 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
@@ -118,6 +121,52 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
 
         return result.ToActionResult(Ok);
     }
+
+    [HttpPost("{purchaseOrderId:guid}/place")]
+    public async Task<IActionResult> PlacePurchaseOrder(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new PlacePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpDelete("{purchaseOrderId:guid}")]
+    public async Task<IActionResult> DeletePurchaseOrderDraft(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<Deleted>>(
+            new DeletePurchaseOrderDraftCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            cancellationToken);
+
+        return result.ToActionResult(_ => NoContent());
+    }
+
+    [HttpPost("{purchaseOrderId:guid}/cancel")]
+    public async Task<IActionResult> CancelPurchaseOrder(
+        Guid purchaseOrderId,
+        [FromBody] CancelPurchaseOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new CancelPurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record CreatePurchaseOrderDraftLineRequest(
@@ -149,3 +198,5 @@ public sealed record UpdatePurchaseOrderDraftRequest(
     string? SupplierReferenceNumber,
     string? Notes,
     IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);
+
+public sealed record CancelPurchaseOrderRequest(string? Reason);

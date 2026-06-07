@@ -50,9 +50,10 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
 
+        Supplier? supplier = null;
         if (command.SupplierId is Guid supplierId)
         {
-            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
             if (supplier is null || supplier.ShopId != command.ActiveShopId)
                 return Errors.Supplier.SupplierNotFound;
         }
@@ -71,7 +72,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                 command.ExpectedDeliveryDate,
                 command.SupplierReferenceNumber,
                 command.Notes,
-                command.SupplierName,
+                supplier?.Name ?? command.SupplierName,
                 command.SupplierReference);
 
             var itemIds = new HashSet<Guid>();

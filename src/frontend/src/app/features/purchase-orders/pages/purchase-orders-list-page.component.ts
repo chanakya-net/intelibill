@@ -14,6 +14,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, PurchaseOrderStatus } from '../services/purchase-order.service';
 
@@ -40,9 +41,11 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
         <ng-template pTemplate="title">
           <div class="po-list-header">
             <h2>{{ 'purchaseOrders.title' | transloco }}</h2>
-            <a routerLink="/inventory/purchase-orders/new">
-              {{ 'purchaseOrders.newPo' | transloco }}
-            </a>
+            @if (permissions.canManagePurchaseOrders()) {
+              <a routerLink="/inventory/purchase-orders/new">
+                {{ 'purchaseOrders.newPo' | transloco }}
+              </a>
+            }
           </div>
         </ng-template>
         <div class="mb-4 flex flex-wrap gap-3">
@@ -95,9 +98,11 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
                 <td>{{ order.expectedTotal | number:'1.2-2' }}</td>
                 <td>{{ order.createdAt | date:'short' }}</td>
                 <td>
-                  <a href="" (click)="openEditOrder(order.purchaseOrderId, $event)">
-                    {{ 'purchaseOrders.editPo' | transloco }}
-                  </a>
+                  @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
+                    <a href="" (click)="openEditOrder(order.purchaseOrderId, $event)">
+                      {{ 'purchaseOrders.editPo' | transloco }}
+                    </a>
+                  }
                 </td>
               </tr>
             </ng-template>
@@ -124,11 +129,14 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
 })
 export class PurchaseOrdersListPageComponent implements OnInit {
   protected readonly facade = inject(PurchaseOrdersFacade);
+  protected readonly permissions = inject(ShopPermissionsService);
   private readonly router = inject(Router);
 
   protected readonly statusOptions: { label: string; value: PurchaseOrderStatus | '' }[] = [
     { label: 'All', value: '' },
     { label: 'Draft', value: 'Draft' },
+    { label: 'Placed', value: 'Placed' },
+    { label: 'Cancelled', value: 'Cancelled' },
   ];
 
   protected get filters(): PurchaseOrderListFilters {

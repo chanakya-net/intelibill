@@ -1420,7 +1420,12 @@
     "actions": {
       "saveDraft": "Save Draft",
       "createPo": "Create Purchase Order",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "placeOrder": "Place Order",
+      "deleteDraft": "Delete Draft",
+      "cancelOrder": "Cancel Order",
+      "confirmDelete": "Delete",
+      "confirmCancel": "Cancel Order"
     },
     "errors": {
       "unableToLoad": "Unable to load purchase orders.",
@@ -1433,7 +1438,18 @@
       "invalidLineUnitCost": "Unit cost cannot be negative.",
       "duplicateItem": "Order contains duplicate catalog items.",
       "lineDescriptionRequired": "Line description is required.",
-      "cannotUpdateNonDraft": "Only draft purchase orders can be updated."
+      "cannotUpdateNonDraft": "Only draft purchase orders can be updated.",
+      "supplierRequired": "A supplier is required to place this purchase order.",
+      "supplierInvalidForPlacement": "The selected supplier is inactive or invalid.",
+      "atLeastOneLineRequired": "At least one line is required to place the order.",
+      "cannotPlaceNonDraft": "Only draft purchase orders can be placed.",
+      "cannotDeleteNonDraft": "Only draft purchase orders can be deleted.",
+      "cannotCancelAfterReceipt": "Cannot cancel an order that has received items.",
+      "cannotCancelInvalidStatus": "Only placed purchase orders can be cancelled.",
+      "unableToPlace": "Unable to place purchase order.",
+      "unableToDelete": "Unable to delete purchase order.",
+      "unableToCancel": "Unable to cancel purchase order.",
+      "cancellationReasonRequired": "Cancellation reason is required."
     },
     "builder": {
       "newTitle": "New Purchase Order",
@@ -1465,6 +1481,19 @@
         "title": "Discard local draft?",
         "body": "Discarding removes the local autosaved purchase order draft for this shop."
       }
-    }
+    },
+    "statuses": {
+      "Draft": "Draft",
+      "Placed": "Placed",
+      "Cancelled": "Cancelled"
+    },
+    "dialog": {
+      "deleteDraftTitle": "Delete Draft",
+      "deleteDraftBody": "Are you sure you want to delete this draft purchase order? This cannot be undone.",
+      "cancelOrderTitle": "Cancel Purchase Order",
+      "cancelOrderBody": "Are you sure you want to cancel this purchase order?",
+      "cancelReasonLabel": "Reason (required)"
+    },
+    "cancellationReason": "Cancellation Reason"
   }
 }

@@ -1,13 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoService } from '@ngneat/transloco';
 
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService } from 'primeng/api';
+import { FormsModule } from '@angular/forms';
 
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 
 @Component({
@@ -16,14 +23,20 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
   imports: [
     CommonModule,
     RouterLink,
+    FormsModule,
     TranslocoPipe,
     CardModule,
     ProgressSpinnerModule,
     TableModule,
     TagModule,
+    ButtonModule,
+    InputTextModule,
+    ConfirmDialogModule,
   ],
+  providers: [ConfirmationService],
   template: `
     <div class="page-container">
+      <p-confirmDialog />
       <p-card>
         @if (facade.isLoadingDetail()) {
           <p-progressSpinner />
@@ -31,15 +44,43 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           <ng-template pTemplate="title">
             <div class="po-detail-header">
               <h2>{{ order.purchaseOrderNumber }}</h2>
-              <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
-                {{ 'purchaseOrders.editPo' | transloco }}
-              </a>
+              <div class="po-detail-actions">
+                @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
+                  <a [routerLink]="['/inventory/purchase-orders', order.purchaseOrderId, 'edit']">
+                    {{ 'purchaseOrders.editPo' | transloco }}
+                  </a>
+                  <button type="button" (click)="placeOrder(order.purchaseOrderId)">
+                    {{ 'purchaseOrders.actions.placeOrder' | transloco }}
+                  </button>
+                  <button type="button" (click)="deleteDraft(order.purchaseOrderId)">
+                    {{ 'purchaseOrders.actions.deleteDraft' | transloco }}
+                  </button>
+                }
+                @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
+                  <div class="po-cancel-form">
+                    <input
+                      pInputText
+                      [(ngModel)]="cancelReason"
+                      [placeholder]="'purchaseOrders.dialog.cancelReasonLabel' | transloco"
+                    />
+                    <button type="button" [disabled]="!cancelReason.trim()" (click)="cancelOrder(order.purchaseOrderId)">
+                      {{ 'purchaseOrders.actions.cancelOrder' | transloco }}
+                    </button>
+                  </div>
+                }
+              </div>
             </div>
           </ng-template>
           <p>
             <strong>{{ 'purchaseOrders.status' | transloco }}:</strong>
             <p-tag [value]="order.status" severity="info" />
           </p>
+          @if (order.cancellationReason) {
+            <p>
+              <strong>{{ 'purchaseOrders.cancellationReason' | transloco }}:</strong>
+              {{ order.cancellationReason }}
+            </p>
+          }
           @if (order.supplierId) {
             <p>
               <strong>{{ 'purchaseOrders.builder.supplier' | transloco }}:</strong>
@@ -100,11 +141,18 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
   `,
   styles: [`
     .po-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .po-detail-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .po-cancel-form { display: flex; align-items: center; gap: .5rem; }
   `],
 })
 export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
+  protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly translocoService = inject(TranslocoService);
+
+  protected cancelReason = '';
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('purchaseOrderId');
@@ -115,5 +163,29 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.facade.clearDetail();
+  }
+
+  protected placeOrder(purchaseOrderId: string): void {
+    this.facade.placeOrder(purchaseOrderId);
+  }
+
+  protected deleteDraft(purchaseOrderId: string): void {
+    this.confirmationService.confirm({
+      message: this.translocoService.translate('purchaseOrders.dialog.deleteDraftBody'),
+      header: this.translocoService.translate('purchaseOrders.dialog.deleteDraftTitle'),
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-secondary p-button-text',
+      accept: () => {
+        this.facade.deleteDraft(purchaseOrderId);
+      },
+    });
+  }
+
+  protected cancelOrder(purchaseOrderId: string): void {
+    const reason = this.cancelReason.trim();
+    if (!reason) return;
+    this.facade.cancelOrder(purchaseOrderId, { reason });
+    this.cancelReason = '';
   }
 }
