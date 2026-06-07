@@ -23,6 +23,10 @@ export const PurchaseOrdersActions = createActionGroup({
     'Create Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Create Draft Failed': props<{ errorMessage: string }>(),
 
+    'Update Draft Requested': props<{ purchaseOrderId: string; payload: CreatePurchaseOrderDraftRequest }>(),
+    'Update Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
+    'Update Draft Failed': props<{ errorMessage: string }>(),
+
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),
     'Reset List Filters': emptyProps(),

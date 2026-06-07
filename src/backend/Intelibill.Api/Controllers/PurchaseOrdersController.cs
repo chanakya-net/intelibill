@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
@@ -75,11 +76,15 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
             new CreatePurchaseOrderDraftCommand(
                 UserId!.Value,
                 ActiveShopId!.Value,
+                request.SupplierId,
+                request.OrderDate,
+                request.ExpectedDeliveryDate,
+                request.SupplierReferenceNumber,
                 request.Notes,
                 request.SupplierName,
                 request.SupplierReference,
                 request.Lines.Select(l => new CreatePurchaseOrderLineInput(
-                    l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
             cancellationToken);
 
         return result.ToActionResult(po => CreatedAtAction(
@@ -87,15 +92,60 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
             new { purchaseOrderId = po.PurchaseOrderId },
             po));
     }
+
+    [HttpPut("{purchaseOrderId:guid}")]
+    public async Task<IActionResult> UpdatePurchaseOrderDraft(
+        Guid purchaseOrderId,
+        [FromBody] UpdatePurchaseOrderDraftRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            new UpdatePurchaseOrderDraftCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                purchaseOrderId,
+                request.SupplierId,
+                request.OrderDate,
+                request.ExpectedDeliveryDate,
+                request.SupplierReferenceNumber,
+                request.Notes,
+                request.Lines.Select(l => new UpdatePurchaseOrderLineInput(
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record CreatePurchaseOrderDraftLineRequest(
+    Guid ItemId,
     string Description,
     int ExpectedQuantity,
     decimal UnitCost);
 
 public sealed record CreatePurchaseOrderDraftRequest(
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
     string? Notes,
     string? SupplierName,
     string? SupplierReference,
     IReadOnlyList<CreatePurchaseOrderDraftLineRequest> Lines);
+
+public sealed record UpdatePurchaseOrderDraftLineRequest(
+    Guid ItemId,
+    string Description,
+    int ExpectedQuantity,
+    decimal UnitCost);
+
+public sealed record UpdatePurchaseOrderDraftRequest(
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
+    string? Notes,
+    IReadOnlyList<UpdatePurchaseOrderDraftLineRequest> Lines);

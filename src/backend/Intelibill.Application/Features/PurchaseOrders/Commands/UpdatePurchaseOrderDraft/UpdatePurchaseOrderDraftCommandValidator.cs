@@ -1,20 +1,14 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
 
-namespace Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+namespace Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 
-internal sealed class CreatePurchaseOrderDraftCommandValidator : AbstractValidator<CreatePurchaseOrderDraftCommand>
+internal sealed class UpdatePurchaseOrderDraftCommandValidator : AbstractValidator<UpdatePurchaseOrderDraftCommand>
 {
-    public CreatePurchaseOrderDraftCommandValidator()
+    public UpdatePurchaseOrderDraftCommandValidator()
     {
         RuleFor(x => x.Notes)
             .MaximumLength(1000);
-
-        RuleFor(x => x.SupplierName)
-            .MaximumLength(200);
-
-        RuleFor(x => x.SupplierReference)
-            .MaximumLength(120);
 
         RuleFor(x => x.SupplierReferenceNumber)
             .MaximumLength(100);

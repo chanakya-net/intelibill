@@ -1197,10 +1197,18 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateOnly?>("ExpectedDeliveryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expected_delivery_date");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
+
+                    b.Property<DateOnly?>("OrderDate")
+                        .HasColumnType("date")
+                        .HasColumnName("order_date");
 
                     b.Property<string>("PurchaseOrderNumber")
                         .IsRequired()
@@ -1226,6 +1234,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("supplier_reference");
 
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("SupplierReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("supplier_reference_number");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1239,6 +1256,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "PurchaseOrderNumber")
                         .IsUnique()
                         .HasDatabaseName("ix_purchase_orders_shop_id_purchase_order_number");
+
+                    b.HasIndex("SupplierId")
+                        .HasDatabaseName("ix_purchase_orders_supplier_id");
 
                     b.ToTable("purchase_orders", (string)null);
                 });
@@ -1264,6 +1284,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("expected_quantity");
 
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
                     b.Property<Guid>("PurchaseOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_order_id");
@@ -1283,6 +1307,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_purchase_order_lines");
+
+                    b.HasIndex("ItemId")
+                        .HasDatabaseName("ix_purchase_order_lines_item_id");
 
                     b.HasIndex("PurchaseOrderId")
                         .HasDatabaseName("ix_purchase_order_lines_purchase_order_id");
@@ -3005,10 +3032,23 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_purchase_orders_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_purchase_orders_suppliers_supplier_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrderLine", b =>
                 {
+                    b.HasOne("Intelibill.Domain.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_lines_items_item_id");
+
                     b.HasOne("Intelibill.Domain.Entities.PurchaseOrder", null)
                         .WithMany("Lines")
                         .HasForeignKey("PurchaseOrderId")

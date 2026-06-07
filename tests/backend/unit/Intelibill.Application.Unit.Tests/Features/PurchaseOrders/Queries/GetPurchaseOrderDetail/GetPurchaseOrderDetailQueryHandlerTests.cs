@@ -44,8 +44,16 @@ public class GetPurchaseOrderDetailQueryHandlerTests
         var shop = Shop.Create("Main", "Addr", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", "some notes");
-        po.AddLine("Widget", 3, 50m);
+        var itemId = Guid.NewGuid();
+        var po = PurchaseOrder.CreateDraft(
+            shop.Id,
+            "PO-2026-000001",
+            null,
+            DateOnly.FromDateTime(DateTime.UtcNow.Date),
+            DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(3)),
+            "SUP-1",
+            "some notes");
+        po.AddLine(itemId, "Widget", 3, 50m);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _poRepository.GetByShopAndIdAsync(
@@ -60,8 +68,10 @@ public class GetPurchaseOrderDetailQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal("PO-2026-000001", result.Value.PurchaseOrderNumber);
+        Assert.Equal("SUP-1", result.Value.SupplierReferenceNumber);
         Assert.Equal("some notes", result.Value.Notes);
         Assert.Single(result.Value.Lines);
+        Assert.Equal(itemId, result.Value.Lines[0].ItemId);
         Assert.Equal(150m, result.Value.ExpectedTotal);
 
         await _poRepository.Received(1).GetByShopAndIdAsync(
@@ -98,7 +108,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
         var otherShop = Shop.Create("Other Shop", "Addr", "City", "State", "560002", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(activeShop.Id, actor.Id, ShopRole.Staff, true));
 
-        var po = PurchaseOrder.CreateDraft(otherShop.Id, "PO-2026-000001", "other notes");
+        var po = PurchaseOrder.CreateDraft(otherShop.Id, "PO-2026-000001", null, null, null, null, "other notes");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         // Stabbing it so that querying by activeShop.Id and po.Id returns null

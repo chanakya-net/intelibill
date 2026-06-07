@@ -38,7 +38,12 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
     <div class="page-container">
       <p-card>
         <ng-template pTemplate="title">
-          <h2>{{ 'purchaseOrders.title' | transloco }}</h2>
+          <div class="po-list-header">
+            <h2>{{ 'purchaseOrders.title' | transloco }}</h2>
+            <a routerLink="/inventory/purchase-orders/new">
+              {{ 'purchaseOrders.newPo' | transloco }}
+            </a>
+          </div>
         </ng-template>
         <div class="mb-4 flex flex-wrap gap-3">
           <input
@@ -76,6 +81,7 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
                 <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
                 <th>{{ 'purchaseOrders.expectedTotal' | transloco }}</th>
                 <th>{{ 'purchaseOrders.createdAt' | transloco }}</th>
+                <th></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-order>
@@ -88,11 +94,16 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
                 <td>{{ order.lineCount }}</td>
                 <td>{{ order.expectedTotal | number:'1.2-2' }}</td>
                 <td>{{ order.createdAt | date:'short' }}</td>
+                <td>
+                  <a href="" (click)="openEditOrder(order.purchaseOrderId, $event)">
+                    {{ 'purchaseOrders.editPo' | transloco }}
+                  </a>
+                </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="6">{{ 'purchaseOrders.noResults' | transloco }}</td>
+                <td colspan="7">{{ 'purchaseOrders.noResults' | transloco }}</td>
               </tr>
             </ng-template>
           </p-table>
@@ -107,6 +118,9 @@ import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, Purchase
       </p-card>
     </div>
   `,
+  styles: [`
+    .po-list-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  `],
 })
 export class PurchaseOrdersListPageComponent implements OnInit {
   protected readonly facade = inject(PurchaseOrdersFacade);
@@ -162,6 +176,12 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected openOrder(purchaseOrderId: string): void {
     void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId]);
+  }
+
+  protected openEditOrder(purchaseOrderId: string, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId, 'edit']);
   }
 
   protected receivedProgress(receivedQuantity: number, expectedQuantity: number): string {

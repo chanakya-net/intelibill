@@ -15,6 +15,7 @@ const errorMessageSignal = signal('');
 const orderLines: readonly PurchaseOrderLine[] = [
   {
     lineId: 'line-1',
+    itemId: 'item-1',
     description: 'Widget',
     expectedQuantity: 3,
     unitCost: 50,
@@ -22,6 +23,7 @@ const orderLines: readonly PurchaseOrderLine[] = [
   },
   {
     lineId: 'line-2',
+    itemId: 'item-2',
     description: 'Service Fee',
     expectedQuantity: 1,
     unitCost: 25,
@@ -33,6 +35,10 @@ const selectedOrder: PurchaseOrderDetail = {
   purchaseOrderId: 'po-1',
   purchaseOrderNumber: 'PO-2026-000001',
   status: 'Draft',
+  supplierId: null,
+  orderDate: null,
+  expectedDeliveryDate: null,
+  supplierReferenceNumber: null,
   notes: 'First draft',
   lines: orderLines,
   expectedTotal: 175,

@@ -15,6 +15,12 @@ public static partial class Errors
         public static Error LineDescriptionRequired =>
             Error.Validation("PurchaseOrder.LineDescriptionRequired", "Line description is required.");
 
+        public static Error LineItemRequired =>
+            Error.Validation("PurchaseOrder.LineItemRequired", "Line item is required.");
+
+        public static Error LineItemNotFound =>
+            Error.Validation("PurchaseOrder.LineItemNotFound", "Line item does not belong to the active shop.");
+
         public static Error InvalidLineQuantity =>
             Error.Validation("PurchaseOrder.InvalidLineQuantity", "Expected quantity must be greater than zero.");
 
@@ -32,5 +38,8 @@ public static partial class Errors
 
         public static Error SequenceError =>
             Error.Unexpected("PurchaseOrder.SequenceError", "Failed to generate purchase order number.");
+
+        public static Error CannotUpdateNonDraft =>
+            Error.Validation("PurchaseOrder.CannotUpdateNonDraft", "Only draft purchase orders can be updated.");
     }
 }

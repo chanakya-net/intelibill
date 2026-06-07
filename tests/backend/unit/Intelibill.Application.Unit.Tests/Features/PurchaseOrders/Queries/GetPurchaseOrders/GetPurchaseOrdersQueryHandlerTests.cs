@@ -100,10 +100,14 @@ public class GetPurchaseOrdersQueryHandlerTests
             shop.Id,
             "PO-2026-000001",
             null,
+            null,
+            null,
+            null,
+            null,
             "Acme Traders",
             "SUP-REF-001");
-        order.AddLine("Rice", 5, 10m, receivedQuantity: 3);
-        order.AddLine("Oil", 2, 20m, receivedQuantity: 2);
+        order.AddLine(Guid.NewGuid(), "Rice", 5, 10m, receivedQuantity: 3);
+        order.AddLine(Guid.NewGuid(), "Oil", 2, 20m, receivedQuantity: 2);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _poRepository.GetByShopAsync(Arg.Any<PurchaseOrderListFilter>(), Arg.Any<CancellationToken>())

@@ -17,6 +17,7 @@ describe('PurchaseOrdersEffects', () => {
     getPurchaseOrders: vi.fn<PurchaseOrderService['getPurchaseOrders']>(),
     getPurchaseOrderDetail: vi.fn<PurchaseOrderService['getPurchaseOrderDetail']>(),
     createDraft: vi.fn<PurchaseOrderService['createDraft']>(),
+    updateDraft: vi.fn<PurchaseOrderService['updateDraft']>(),
   };
 
   beforeEach(() => {
@@ -24,6 +25,7 @@ describe('PurchaseOrdersEffects', () => {
     service.getPurchaseOrders.mockReset();
     service.getPurchaseOrderDetail.mockReset();
     service.createDraft.mockReset();
+    service.updateDraft.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -107,6 +109,10 @@ describe('PurchaseOrdersEffects', () => {
       purchaseOrderId: 'po2',
       purchaseOrderNumber: 'PO-2026-000002',
       status: 'Draft' as const,
+      supplierId: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
       notes: null,
       lines: [],
       expectedTotal: 0,
@@ -118,6 +124,10 @@ describe('PurchaseOrdersEffects', () => {
     actions$.next(
       PurchaseOrdersActions.createDraftRequested({
         payload: {
+          supplierId: null,
+          orderDate: null,
+          expectedDeliveryDate: null,
+          supplierReferenceNumber: null,
           notes: null,
           supplierName: null,
           supplierReference: null,
@@ -138,6 +148,10 @@ describe('PurchaseOrdersEffects', () => {
     actions$.next(
       PurchaseOrdersActions.createDraftRequested({
         payload: {
+          supplierId: null,
+          orderDate: null,
+          expectedDeliveryDate: null,
+          supplierReferenceNumber: null,
           notes: null,
           supplierName: null,
           supplierReference: null,
@@ -149,6 +163,43 @@ describe('PurchaseOrdersEffects', () => {
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.createDraftFailed({
         errorMessage: 'purchaseOrders.errors.forbidden',
+      })
+    );
+  });
+
+  it('dispatches updateDraftSucceeded on success', async () => {
+    const detail = {
+      purchaseOrderId: 'po1',
+      purchaseOrderNumber: 'PO-2026-000001',
+      status: 'Draft' as const,
+      supplierId: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: 'Updated notes',
+      lines: [],
+      expectedTotal: 0,
+      createdAt: '2026-06-01T00:00:00Z',
+    };
+    service.updateDraft.mockReturnValue(of(detail));
+
+    const output = firstValueFrom(effects.updateDraft$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: 'Updated notes', lines: [] } }));
+
+    await expect(output).resolves.toEqual(PurchaseOrdersActions.updateDraftSucceeded({ order: detail }));
+  });
+
+  it('maps cannotUpdateNonDraft error on update failure', async () => {
+    service.updateDraft.mockReturnValue(
+      throwError(() => ({ error: { title: 'PurchaseOrder.CannotUpdateNonDraft' } }))
+    );
+
+    const output = firstValueFrom(effects.updateDraft$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: null, lines: [] } }));
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.updateDraftFailed({
+        errorMessage: 'purchaseOrders.errors.cannotUpdateNonDraft',
       })
     );
   });

@@ -52,6 +52,10 @@ export class PurchaseOrdersFacade {
     this.store.dispatch(PurchaseOrdersActions.createDraftRequested({ payload }));
   }
 
+  updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): void {
+    this.store.dispatch(PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId, payload }));
+  }
+
   clearDetail(): void {
     this.store.dispatch(PurchaseOrdersActions.clearDetail());
   }

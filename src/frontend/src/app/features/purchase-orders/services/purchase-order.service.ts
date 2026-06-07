@@ -8,6 +8,7 @@ export type PurchaseOrderStatus = 'Draft';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
+  readonly itemId: string;
   readonly description: string;
   readonly expectedQuantity: number;
   readonly unitCost: number;
@@ -47,6 +48,10 @@ export interface PurchaseOrderDetail {
   readonly purchaseOrderId: string;
   readonly purchaseOrderNumber: string;
   readonly status: PurchaseOrderStatus;
+  readonly supplierId: string | null;
+  readonly orderDate: string | null;
+  readonly expectedDeliveryDate: string | null;
+  readonly supplierReferenceNumber: string | null;
   readonly notes: string | null;
   readonly lines: readonly PurchaseOrderLine[];
   readonly expectedTotal: number;
@@ -54,15 +59,20 @@ export interface PurchaseOrderDetail {
 }
 
 export interface CreatePurchaseOrderLineRequest {
+  readonly itemId: string;
   readonly description: string;
   readonly expectedQuantity: number;
   readonly unitCost: number;
 }
 
 export interface CreatePurchaseOrderDraftRequest {
+  readonly supplierId: string | null;
+  readonly orderDate: string | null;
+  readonly expectedDeliveryDate: string | null;
+  readonly supplierReferenceNumber: string | null;
   readonly notes: string | null;
-  readonly supplierName: string | null;
-  readonly supplierReference: string | null;
+  readonly supplierName?: string | null;
+  readonly supplierReference?: string | null;
   readonly lines: readonly CreatePurchaseOrderLineRequest[];
 }
 
@@ -99,5 +109,9 @@ export class PurchaseOrderService {
 
   createDraft(payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
     return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.create, payload);
+  }
+
+  updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
+    return this.http.put<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.detail(purchaseOrderId), payload);
   }
 }

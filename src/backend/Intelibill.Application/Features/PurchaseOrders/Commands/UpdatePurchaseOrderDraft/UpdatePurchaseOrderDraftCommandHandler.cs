@@ -7,36 +7,17 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using ErrorOr;
 
-namespace Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
+namespace Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 
-public sealed record CreatePurchaseOrderLineInput(
-    Guid ItemId,
-    string Description,
-    int ExpectedQuantity,
-    decimal UnitCost);
-
-public sealed record CreatePurchaseOrderDraftCommand(
-    Guid ActorUserId,
-    Guid ActiveShopId,
-    Guid? SupplierId,
-    DateOnly? OrderDate,
-    DateOnly? ExpectedDeliveryDate,
-    string? SupplierReferenceNumber,
-    string? Notes,
-    string? SupplierName,
-    string? SupplierReference,
-    IReadOnlyList<CreatePurchaseOrderLineInput> Lines);
-
-public sealed class CreatePurchaseOrderDraftCommandHandler(
+public sealed class UpdatePurchaseOrderDraftCommandHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
     ISupplierRepository supplierRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
-    IPurchaseOrderNumberGenerator numberGenerator,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
-        CreatePurchaseOrderDraftCommand command,
+        UpdatePurchaseOrderDraftCommand command,
         CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
@@ -60,21 +41,26 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var now = DateTimeOffset.UtcNow;
-            var poNumber = await numberGenerator.GenerateAsync(command.ActiveShopId, now.Year, cancellationToken);
-
-            var po = PurchaseOrder.CreateDraft(
+            var po = await purchaseOrderRepository.GetByShopAndIdAsync(
                 command.ActiveShopId,
-                poNumber,
-                command.SupplierId,
-                command.OrderDate,
-                command.ExpectedDeliveryDate,
-                command.SupplierReferenceNumber,
-                command.Notes,
-                command.SupplierName,
-                command.SupplierReference);
+                command.PurchaseOrderId,
+                cancellationToken);
+
+            if (po is null)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.NotFound;
+            }
+
+            if (po.Status != PurchaseOrderStatus.Draft)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Errors.PurchaseOrder.CannotUpdateNonDraft;
+            }
 
             var itemIds = new HashSet<Guid>();
+            var linesToUpdate = new List<(Guid ItemId, string Description, int ExpectedQuantity, decimal UnitCost)>();
+
             foreach (var lineInput in command.Lines)
             {
                 if (lineInput.ItemId == Guid.Empty)
@@ -108,7 +94,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                     return Errors.PurchaseOrder.InvalidLineUnitCost;
                 }
 
-                po.AddLine(lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost);
+                linesToUpdate.Add((lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost));
             }
 
             if (itemIds.Count > 0)
@@ -124,7 +110,15 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                 }
             }
 
-            await purchaseOrderRepository.AddAsync(po, cancellationToken);
+            po.UpdateDraft(
+                command.SupplierId,
+                command.OrderDate,
+                command.ExpectedDeliveryDate,
+                command.SupplierReferenceNumber,
+                command.Notes,
+                linesToUpdate);
+
+            purchaseOrderRepository.Update(po);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await unitOfWork.CommitTransactionAsync(cancellationToken);
 

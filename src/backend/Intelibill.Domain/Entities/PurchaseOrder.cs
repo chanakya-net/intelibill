@@ -8,7 +8,11 @@ public sealed class PurchaseOrder : BaseEntity
     private readonly List<PurchaseOrderLine> _lines = [];
 
     public Guid ShopId { get; private set; }
+    public Guid? SupplierId { get; private set; }
     public string PurchaseOrderNumber { get; private set; } = string.Empty;
+    public DateOnly? OrderDate { get; private set; }
+    public DateOnly? ExpectedDeliveryDate { get; private set; }
+    public string? SupplierReferenceNumber { get; private set; }
     public string? Notes { get; private set; }
     public string? SupplierName { get; private set; }
     public string? SupplierReference { get; private set; }
@@ -22,6 +26,10 @@ public sealed class PurchaseOrder : BaseEntity
     public static PurchaseOrder CreateDraft(
         Guid shopId,
         string purchaseOrderNumber,
+        Guid? supplierId,
+        DateOnly? orderDate,
+        DateOnly? expectedDeliveryDate,
+        string? supplierReferenceNumber,
         string? notes,
         string? supplierName = null,
         string? supplierReference = null)
@@ -29,7 +37,11 @@ public sealed class PurchaseOrder : BaseEntity
         return new PurchaseOrder
         {
             ShopId = shopId,
+            SupplierId = supplierId,
             PurchaseOrderNumber = purchaseOrderNumber,
+            OrderDate = orderDate,
+            ExpectedDeliveryDate = expectedDeliveryDate,
+            SupplierReferenceNumber = NormalizeOptional(supplierReferenceNumber),
             Notes = NormalizeOptional(notes),
             SupplierName = NormalizeOptional(supplierName),
             SupplierReference = NormalizeOptional(supplierReference),
@@ -38,12 +50,13 @@ public sealed class PurchaseOrder : BaseEntity
     }
 
     public PurchaseOrderLine AddLine(
+        Guid itemId,
         string description,
         int expectedQuantity,
         decimal unitCost,
         int receivedQuantity = 0)
     {
-        var line = PurchaseOrderLine.Create(Id, description, expectedQuantity, unitCost, receivedQuantity);
+        var line = PurchaseOrderLine.Create(Id, itemId, description, expectedQuantity, unitCost, receivedQuantity);
         _lines.Add(line);
         return line;
     }
@@ -52,6 +65,29 @@ public sealed class PurchaseOrder : BaseEntity
     {
         SupplierName = NormalizeOptional(supplierName);
         SupplierReference = NormalizeOptional(supplierReference);
+    }
+
+    public void UpdateDraft(
+        Guid? supplierId,
+        DateOnly? orderDate,
+        DateOnly? expectedDeliveryDate,
+        string? supplierReferenceNumber,
+        string? notes,
+        IReadOnlyList<(Guid ItemId, string Description, int ExpectedQuantity, decimal UnitCost)> lines)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can be updated.");
+
+        SupplierId = supplierId;
+        OrderDate = orderDate;
+        ExpectedDeliveryDate = expectedDeliveryDate;
+        SupplierReferenceNumber = NormalizeOptional(supplierReferenceNumber);
+        Notes = NormalizeOptional(notes);
+        _lines.Clear();
+        foreach (var line in lines)
+        {
+            AddLine(line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost);
+        }
     }
 
     private static string? NormalizeOptional(string? value)

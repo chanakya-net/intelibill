@@ -1399,16 +1399,72 @@
     "expectedQuantity": "Qty",
     "unitCost": "Unit Cost",
     "lineTotal": "Line Total",
+    "builderTitle": "Purchase Order Builder",
+    "newPo": "New Purchase Order",
+    "editPo": "Edit Purchase Order Draft",
+    "supplier": "Supplier",
+    "searchSupplier": "Search Supplier...",
+    "searchItem": "Search Item...",
+    "quickCreateProduct": "Quick Create Product",
+    "productName": "Product Name",
+    "barcode": "Barcode",
+    "description": "Description",
+    "uom": "UOM",
+    "taxRate": "Default Tax Rate (%)",
+    "mergeDuplicate": "Merge Duplicate",
+    "blockDuplicate": "Block Duplicate",
+    "duplicateFound": "Item '{name}' is already in the purchase order. What would you like to do?",
+    "mergedToast": "Merged {qty} unit(s) of '{name}' into the existing line.",
+    "blockedToast": "Blocked duplicate item '{name}'.",
+    "autosaveLoaded": "Loaded auto-saved draft.",
+    "actions": {
+      "saveDraft": "Save Draft",
+      "createPo": "Create Purchase Order",
+      "cancel": "Cancel"
+    },
     "errors": {
       "unableToLoad": "Unable to load purchase orders.",
       "unableToLoadDetail": "Unable to load purchase order details.",
       "unableToCreate": "Unable to create purchase order.",
+      "unableToUpdate": "Unable to update purchase order.",
       "notFound": "Purchase order not found.",
       "forbidden": "Only owner or manager can create purchase orders.",
       "invalidLineQuantity": "Expected quantity must be positive.",
       "invalidLineUnitCost": "Unit cost cannot be negative.",
-      "duplicateItem": "Order contains duplicate line descriptions.",
-      "lineDescriptionRequired": "Line description is required."
+      "duplicateItem": "Order contains duplicate catalog items.",
+      "lineDescriptionRequired": "Line description is required.",
+      "cannotUpdateNonDraft": "Only draft purchase orders can be updated."
+    },
+    "builder": {
+      "newTitle": "New Purchase Order",
+      "editTitle": "Edit Purchase Order Draft",
+      "supplier": "Supplier",
+      "orderDate": "Order date",
+      "expectedDeliveryDate": "Expected delivery",
+      "supplierReferenceNumber": "Supplier ref",
+      "notes": "Notes",
+      "item": "Item",
+      "qty": "Qty",
+      "unitCost": "Unit Cost",
+      "total": "Line Total",
+      "addLine": "Add line",
+      "quickCreateProduct": "Quick Create Product",
+      "quickCreateFailed": "Unable to create product.",
+      "remove": "Remove",
+      "noLines": "No lines",
+      "saveDraft": "Save Draft",
+      "discard": "Discard draft",
+      "autosaveLoaded": "Loaded auto-saved draft.",
+      "validation": {
+        "selectCatalogItem": "Select a catalog item before adding a line.",
+        "itemRequired": "Item is required.",
+        "quantityPositive": "Expected quantity must be positive.",
+        "unitCostNonNegative": "Unit cost cannot be negative."
+      },
+      "discardCopy": {
+        "title": "Discard local draft?",
+        "body": "Discarding removes the local autosaved purchase order draft for this shop."
+      }
     }
   }
 }

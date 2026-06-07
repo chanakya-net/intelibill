@@ -64,6 +64,24 @@ export class PurchaseOrdersEffects {
       )
     )
   );
+
+  readonly updateDraft$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.updateDraftRequested),
+      switchMap(({ purchaseOrderId, payload }) =>
+        this.service.updateDraft(purchaseOrderId, payload).pipe(
+          map((order) => PurchaseOrdersActions.updateDraftSucceeded({ order })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.updateDraftFailed({
+                errorMessage: getUpdateDraftErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
 }
 
 function getPurchaseOrderDetailErrorMessage(error: ApiErrorPayload | undefined): string {
@@ -80,4 +98,16 @@ function getCreateDraftErrorMessage(error: ApiErrorPayload | undefined): string 
   if (title === 'PurchaseOrder.LineDescriptionRequired') return 'purchaseOrders.errors.lineDescriptionRequired';
   if (title === 'PurchaseOrder.DuplicateItem') return 'purchaseOrders.errors.duplicateItem';
   return 'purchaseOrders.errors.unableToCreate';
+}
+
+function getUpdateDraftErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotCreatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.InvalidLineQuantity') return 'purchaseOrders.errors.invalidLineQuantity';
+  if (title === 'PurchaseOrder.InvalidLineUnitCost') return 'purchaseOrders.errors.invalidLineUnitCost';
+  if (title === 'PurchaseOrder.LineDescriptionRequired') return 'purchaseOrders.errors.lineDescriptionRequired';
+  if (title === 'PurchaseOrder.DuplicateItem') return 'purchaseOrders.errors.duplicateItem';
+  if (title === 'PurchaseOrder.CannotUpdateNonDraft') return 'purchaseOrders.errors.cannotUpdateNonDraft';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToUpdate';
 }

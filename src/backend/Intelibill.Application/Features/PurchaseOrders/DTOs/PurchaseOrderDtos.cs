@@ -4,6 +4,7 @@ namespace Intelibill.Application.Features.PurchaseOrders.DTOs;
 
 public sealed record PurchaseOrderLineDto(
     Guid LineId,
+    Guid ItemId,
     string Description,
     int ExpectedQuantity,
     decimal UnitCost,
@@ -31,6 +32,10 @@ public sealed record PurchaseOrderDetailDto(
     Guid PurchaseOrderId,
     string PurchaseOrderNumber,
     PurchaseOrderStatus Status,
+    Guid? SupplierId,
+    DateOnly? OrderDate,
+    DateOnly? ExpectedDeliveryDate,
+    string? SupplierReferenceNumber,
     string? Notes,
     IReadOnlyList<PurchaseOrderLineDto> Lines,
     decimal ExpectedTotal,

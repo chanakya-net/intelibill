@@ -110,6 +110,36 @@ export const purchaseOrdersReducer = createReducer(
     createSucceeded: false,
   })),
 
+  on(PurchaseOrdersActions.updateDraftRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.updateDraftSucceeded, (state, { order }) => {
+    const item: PurchaseOrderListItem = {
+      purchaseOrderId: order.purchaseOrderId,
+      purchaseOrderNumber: order.purchaseOrderNumber,
+      status: order.status,
+      supplierName: null,
+      supplierReference: order.supplierReferenceNumber,
+      lineCount: order.lines.length,
+      expectedQuantity: order.lines.reduce((total, line) => total + line.expectedQuantity, 0),
+      receivedQuantity: 0,
+      expectedTotal: order.expectedTotal,
+      createdAt: order.createdAt,
+    };
+    return purchaseOrdersAdapter.upsertOne(item, {
+      ...state,
+      submitting: false,
+      selectedOrder: order,
+    });
+  }),
+  on(PurchaseOrdersActions.updateDraftFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+  })),
+
   on(PurchaseOrdersActions.clearDetail, (state) => ({
     ...state,
     selectedOrder: null,

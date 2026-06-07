@@ -6,6 +6,7 @@ namespace Intelibill.Domain.Entities;
 public sealed class PurchaseOrderLine : BaseEntity
 {
     public Guid PurchaseOrderId { get; private set; }
+    public Guid ItemId { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public int ExpectedQuantity { get; private set; }
     public int ReceivedQuantity { get; private set; }
@@ -16,6 +17,7 @@ public sealed class PurchaseOrderLine : BaseEntity
 
     internal static PurchaseOrderLine Create(
         Guid purchaseOrderId,
+        Guid itemId,
         string description,
         int expectedQuantity,
         decimal unitCost,
@@ -27,6 +29,7 @@ public sealed class PurchaseOrderLine : BaseEntity
         return new PurchaseOrderLine
         {
             PurchaseOrderId = purchaseOrderId,
+            ItemId = itemId,
             Description = description.Trim(),
             ExpectedQuantity = expectedQuantity,
             ReceivedQuantity = receivedQuantity,
@@ -34,11 +37,12 @@ public sealed class PurchaseOrderLine : BaseEntity
         };
     }
 
-    internal void Update(string description, int expectedQuantity, decimal unitCost)
+    internal void Update(Guid itemId, string description, int expectedQuantity, decimal unitCost)
     {
         ValidateQuantities(expectedQuantity, ReceivedQuantity);
         ValidateUnitCost(unitCost);
 
+        ItemId = itemId;
         Description = description.Trim();
         ExpectedQuantity = expectedQuantity;
         UnitCost = unitCost;
