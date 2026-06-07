@@ -115,7 +115,16 @@ describe('PurchaseOrdersEffects', () => {
     service.createDraft.mockReturnValue(of(detail));
 
     const output = firstValueFrom(effects.createDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { notes: null, lines: [] } }));
+    actions$.next(
+      PurchaseOrdersActions.createDraftRequested({
+        payload: {
+          notes: null,
+          supplierName: null,
+          supplierReference: null,
+          lines: [],
+        },
+      })
+    );
 
     await expect(output).resolves.toEqual(PurchaseOrdersActions.createDraftSucceeded({ order: detail }));
   });
@@ -126,7 +135,16 @@ describe('PurchaseOrdersEffects', () => {
     );
 
     const output = firstValueFrom(effects.createDraft$.pipe(take(1)));
-    actions$.next(PurchaseOrdersActions.createDraftRequested({ payload: { notes: null, lines: [] } }));
+    actions$.next(
+      PurchaseOrdersActions.createDraftRequested({
+        payload: {
+          notes: null,
+          supplierName: null,
+          supplierReference: null,
+          lines: [],
+        },
+      })
+    );
 
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.createDraftFailed({

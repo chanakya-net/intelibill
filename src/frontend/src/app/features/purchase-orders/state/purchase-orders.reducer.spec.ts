@@ -68,6 +68,35 @@ describe('purchaseOrdersReducer', () => {
     expect(next.pageSize).toBe(50);
   });
 
+  it('preserves backend ordering on load succeeded', () => {
+    const olderOpen = {
+      ...mockListItem,
+      purchaseOrderId: 'po-open',
+      status: 'Draft' as const,
+      createdAt: '2026-06-01T00:00:00Z',
+    };
+    const newerClosedLikeItem = {
+      ...mockListItem,
+      purchaseOrderId: 'po-closed',
+      status: 'Draft' as const,
+      createdAt: '2026-06-02T00:00:00Z',
+    };
+
+    const next = purchaseOrdersReducer(
+      { ...initialState, loadingList: true },
+      PurchaseOrdersActions.loadPurchaseOrdersSucceeded({
+        result: {
+          items: [olderOpen, newerClosedLikeItem],
+          totalCount: 2,
+          pageNumber: 1,
+          pageSize: 20,
+        },
+      })
+    );
+
+    expect(next.ids).toEqual(['po-open', 'po-closed']);
+  });
+
   it('sets error on load failed', () => {
     const next = purchaseOrdersReducer(
       initialState,
@@ -111,5 +140,24 @@ describe('purchaseOrdersReducer', () => {
       PurchaseOrdersActions.clearDetail()
     );
     expect(next.selectedOrder).toBeNull();
+  });
+
+  it('resets list filters', () => {
+    const next = purchaseOrdersReducer(
+      {
+        ...initialState,
+        filters: {
+          search: 'rice',
+          status: 'Draft',
+          orderDateFrom: '2026-06-01',
+          orderDateTo: '2026-06-02',
+          page: 3,
+          pageSize: 50,
+        },
+      },
+      PurchaseOrdersActions.resetListFilters()
+    );
+
+    expect(next.filters).toEqual(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
   });
 });

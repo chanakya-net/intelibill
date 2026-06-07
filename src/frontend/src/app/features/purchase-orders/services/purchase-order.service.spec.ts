@@ -66,14 +66,13 @@ describe('PurchaseOrderService', () => {
     );
 
     expect(result).toEqual(response);
-    expect(http.get).toHaveBeenCalledWith(
-      expect.stringContaining('/purchase-orders'),
-      expect.objectContaining({
-        params: expect.objectContaining({
-          get: expect.any(Function),
-        }),
-      })
-    );
+    const [, options] = http.get.mock.calls[0] as [string, { params: { get: (name: string) => string | null } }];
+    expect(options.params.get('search')).toBe('rice');
+    expect(options.params.get('status')).toBe('Draft');
+    expect(options.params.get('order_date_from')).toBe('2026-06-01');
+    expect(options.params.get('order_date_to')).toBe('2026-06-30');
+    expect(options.params.get('page')).toBe('2');
+    expect(options.params.get('page_size')).toBe('50');
   });
 
   it('getPurchaseOrderDetail calls correct URL', async () => {
@@ -108,12 +107,24 @@ describe('PurchaseOrderService', () => {
     http.post.mockReturnValue(of(detail));
 
     const service = TestBed.inject(PurchaseOrderService);
-    const result = await firstValueFrom(service.createDraft({ notes: null, lines: [] }));
+    const result = await firstValueFrom(
+      service.createDraft({
+        notes: null,
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
+        lines: [],
+      })
+    );
 
     expect(result).toEqual(detail);
     expect(http.post).toHaveBeenCalledWith(
       expect.stringContaining('/purchase-orders'),
-      { notes: null, lines: [] }
+      {
+        notes: null,
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
+        lines: [],
+      }
     );
   });
 });

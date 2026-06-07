@@ -13,8 +13,6 @@ export const purchaseOrdersFeatureKey = 'purchaseOrders';
 
 export const purchaseOrdersAdapter = createEntityAdapter<PurchaseOrderListItem>({
   selectId: (order) => order.purchaseOrderId,
-  sortComparer: (a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 
 export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> {

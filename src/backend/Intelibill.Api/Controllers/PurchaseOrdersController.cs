@@ -76,6 +76,8 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 request.Notes,
+                request.SupplierName,
+                request.SupplierReference,
                 request.Lines.Select(l => new CreatePurchaseOrderLineInput(
                     l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
             cancellationToken);
@@ -94,4 +96,6 @@ public sealed record CreatePurchaseOrderDraftLineRequest(
 
 public sealed record CreatePurchaseOrderDraftRequest(
     string? Notes,
+    string? SupplierName,
+    string? SupplierReference,
     IReadOnlyList<CreatePurchaseOrderDraftLineRequest> Lines);

@@ -116,12 +116,19 @@ public class PurchaseOrdersControllerTests
             .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
 
         var result = await _controller.CreatePurchaseOrderDraft(
-            new CreatePurchaseOrderDraftRequest(null, []),
+            new CreatePurchaseOrderDraftRequest(null, "Acme Traders", "SUP-REF-001", []),
             CancellationToken.None);
 
         var created = Assert.IsType<CreatedAtActionResult>(result);
         Assert.Equal(nameof(PurchaseOrdersController.GetPurchaseOrderDetail), created.ActionName);
         Assert.Equal(dto, created.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<CreatePurchaseOrderDraftCommand>(command =>
+                command.ActorUserId == userId
+                && command.ActiveShopId == shopId
+                && command.SupplierName == "Acme Traders"
+                && command.SupplierReference == "SUP-REF-001"),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -132,7 +139,7 @@ public class PurchaseOrdersControllerTests
             .Returns(Errors.PurchaseOrder.UserCannotCreatePurchaseOrder);
 
         var result = await _controller.CreatePurchaseOrderDraft(
-            new CreatePurchaseOrderDraftRequest(null, []),
+            new CreatePurchaseOrderDraftRequest(null, null, null, []),
             CancellationToken.None);
 
         var obj = Assert.IsType<ObjectResult>(result);

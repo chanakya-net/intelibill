@@ -61,6 +61,8 @@ export interface CreatePurchaseOrderLineRequest {
 
 export interface CreatePurchaseOrderDraftRequest {
   readonly notes: string | null;
+  readonly supplierName: string | null;
+  readonly supplierReference: string | null;
   readonly lines: readonly CreatePurchaseOrderLineRequest[];
 }
 

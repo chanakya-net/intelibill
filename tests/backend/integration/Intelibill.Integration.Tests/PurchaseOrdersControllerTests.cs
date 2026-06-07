@@ -3,11 +3,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Linq;
-using Intelibill.Domain.Entities;
-using Intelibill.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
@@ -118,13 +113,20 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         return (staffEmail, staffPassword);
     }
 
-    private static async Task<JsonElement> CreateDraftAsync(HttpClient client, string token, string prefix)
+    private static async Task<JsonElement> CreateDraftAsync(
+        HttpClient client,
+        string token,
+        string prefix,
+        string? supplierName = null,
+        string? supplierReference = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/purchase-orders");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
         {
             notes = $"Draft for {prefix}",
+            supplierName,
+            supplierReference,
             lines = new[]
             {
                 new { description = "Item A", expectedQuantity = 3, unitCost = 100m },
@@ -135,24 +137,6 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
-    }
-
-    private async Task UpdatePurchaseOrderMetadataAsync(
-        Guid purchaseOrderId,
-        string supplierName,
-        string supplierReference,
-        int receivedQuantity)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var order = await db.Set<PurchaseOrder>()
-            .Include(po => po.Lines)
-            .SingleAsync(po => po.Id == purchaseOrderId);
-
-        order.UpdateSupplierDetails(supplierName, supplierReference);
-        order.Lines[0].RecordReceivedQuantity(receivedQuantity);
-
-        await db.SaveChangesAsync();
     }
 
     [Fact]
@@ -170,6 +154,32 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         Assert.Equal(350m, body.GetProperty("expectedTotal").GetDecimal());
         Assert.Equal(2, body.GetProperty("lines").GetArrayLength());
         Assert.Equal("Item A", body.GetProperty("lines")[0].GetProperty("description").GetString());
+    }
+
+    [Fact]
+    public async Task CreatePurchaseOrderDraft_PersistsSupplierMetadata()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var body = await CreateDraftAsync(client, ownerToken, "Owner", "Acme Traders", "SUP-REF-001");
+
+        var purchaseOrderId = body.GetProperty("purchaseOrderId").GetGuid();
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/purchase-orders?search={Uri.EscapeDataString("Acme")}");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+
+        var listResponse = await client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var listBody = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(1, listBody.GetProperty("totalCount").GetInt32());
+        var item = Assert.Single(listBody.GetProperty("items").EnumerateArray());
+        Assert.Equal(purchaseOrderId, item.GetProperty("purchaseOrderId").GetGuid());
+        Assert.Equal("Acme Traders", item.GetProperty("supplierName").GetString());
+        Assert.Equal("SUP-REF-001", item.GetProperty("supplierReference").GetString());
     }
 
     [Fact]
@@ -262,18 +272,25 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
-    public async Task ListPurchaseOrders_SearchesSupplierFieldsAndReturnsReceivedProgress()
+    public async Task ListPurchaseOrders_SearchesSupplierFieldsCreatedViaApiFlow()
     {
         using var client = CreateClient();
         var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
 
-        var matchingDraft = await CreateDraftAsync(client, ownerToken, "Alpha Rice");
+        var matchingDraft = await CreateDraftAsync(
+            client,
+            ownerToken,
+            "Alpha Rice",
+            "Acme Traders",
+            "SUP-REF-001");
         var matchingId = matchingDraft.GetProperty("purchaseOrderId").GetGuid();
-        var nonMatchingDraft = await CreateDraftAsync(client, ownerToken, "Beta Oil");
+        var nonMatchingDraft = await CreateDraftAsync(
+            client,
+            ownerToken,
+            "Beta Oil",
+            "Bravo Foods",
+            "SUP-REF-999");
         var nonMatchingId = nonMatchingDraft.GetProperty("purchaseOrderId").GetGuid();
-
-        await UpdatePurchaseOrderMetadataAsync(matchingId, "Acme Traders", "SUP-REF-001", receivedQuantity: 3);
-        await UpdatePurchaseOrderMetadataAsync(nonMatchingId, "Bravo Foods", "SUP-REF-999", receivedQuantity: 1);
 
         using var supplierNameRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -288,7 +305,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         Assert.Equal(matchingId, supplierNameItem.GetProperty("purchaseOrderId").GetGuid());
         Assert.Equal("Acme Traders", supplierNameItem.GetProperty("supplierName").GetString());
         Assert.Equal("SUP-REF-001", supplierNameItem.GetProperty("supplierReference").GetString());
-        Assert.Equal(3, supplierNameItem.GetProperty("receivedQuantity").GetInt32());
+        Assert.Equal(0, supplierNameItem.GetProperty("receivedQuantity").GetInt32());
 
         using var supplierReferenceRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -301,6 +318,9 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         Assert.Equal(1, supplierReferenceBody.GetProperty("totalCount").GetInt32());
         var supplierReferenceItem = Assert.Single(supplierReferenceBody.GetProperty("items").EnumerateArray());
         Assert.Equal(matchingId, supplierReferenceItem.GetProperty("purchaseOrderId").GetGuid());
+        Assert.DoesNotContain(
+            supplierReferenceBody.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("purchaseOrderId").GetGuid()),
+            id => id == nonMatchingId);
     }
 
     [Fact]

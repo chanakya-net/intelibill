@@ -14,6 +14,8 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
+            null,
+            null,
             [new CreatePurchaseOrderLineInput("  ", 1, 10m)]);
 
         var result = _validator.TestValidate(command);
@@ -26,6 +28,8 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
         var command = new CreatePurchaseOrderDraftCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
+            null,
+            null,
             null,
             [new CreatePurchaseOrderLineInput("Item", 0, 10m)]);
 
@@ -40,6 +44,8 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
+            null,
+            null,
             [new CreatePurchaseOrderLineInput("Item", 1, -1m)]);
 
         var result = _validator.TestValidate(command);
@@ -53,9 +59,27 @@ public class CreatePurchaseOrderDraftCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             null,
+            null,
+            null,
             [new CreatePurchaseOrderLineInput("Item", 1, 0m)]);
 
         var result = _validator.TestValidate(command);
         result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WhenSupplierFieldsExceedLimits_ReturnsErrors()
+    {
+        var command = new CreatePurchaseOrderDraftCommand(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            new string('A', 201),
+            new string('B', 121),
+            [new CreatePurchaseOrderLineInput("Item", 1, 0m)]);
+
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.SupplierName);
+        result.ShouldHaveValidationErrorFor(x => x.SupplierReference);
     }
 }

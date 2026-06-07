@@ -10,6 +10,12 @@ internal sealed class CreatePurchaseOrderDraftCommandValidator : AbstractValidat
         RuleFor(x => x.Notes)
             .MaximumLength(1000);
 
+        RuleFor(x => x.SupplierName)
+            .MaximumLength(200);
+
+        RuleFor(x => x.SupplierReference)
+            .MaximumLength(120);
+
         RuleFor(x => x.Lines)
             .NotNull();
 
