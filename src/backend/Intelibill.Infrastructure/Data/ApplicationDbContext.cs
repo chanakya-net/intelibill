@@ -48,6 +48,9 @@ public class ApplicationDbContext(
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
     public DbSet<PurchaseOrderSequence> PurchaseOrderSequences => Set<PurchaseOrderSequence>();
+    public DbSet<PurchaseOrderReceipt> PurchaseOrderReceipts => Set<PurchaseOrderReceipt>();
+    public DbSet<PurchaseOrderReceiptLine> PurchaseOrderReceiptLines => Set<PurchaseOrderReceiptLine>();
+    public DbSet<PurchaseOrderReceiptSequence> PurchaseOrderReceiptSequences => Set<PurchaseOrderReceiptSequence>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -3,6 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Linq;
+using Intelibill.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
@@ -452,6 +455,226 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<(Guid PurchaseOrderId, Guid LineId)> CreatePlacedSingleLinePoAsync(
+        HttpClient client,
+        string token,
+        Guid supplierId,
+        string prefix,
+        int expectedQuantity = 1)
+    {
+        var itemId = await CreateItemAsync(client, token, $"Receive Item {prefix}");
+
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/purchase-orders");
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        createRequest.Content = JsonContent.Create(new
+        {
+            supplierId,
+            notes = $"Receive draft {prefix}",
+            lines = new[]
+            {
+                new { itemId, description = "Receive Item", expectedQuantity, unitCost = 10m },
+            },
+        });
+
+        var createResponse = await client.SendAsync(createRequest);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var draft = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+        var lineId = draft.GetProperty("lines")[0].GetProperty("lineId").GetGuid();
+
+        using var placeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{poId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        (await client.SendAsync(placeRequest)).EnsureSuccessStatusCode();
+
+        return (poId, lineId);
+    }
+
+    private static HttpRequestMessage CreateReceiveRequest(
+        string token,
+        Guid purchaseOrderId,
+        Guid lineId,
+        string batchNumber,
+        int quantity = 1)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{purchaseOrderId}/receipts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            referenceNumber = $"REF-{batchNumber}",
+            notes = "Received via test",
+            lines = new[]
+            {
+                new
+                {
+                    purchaseOrderLineId = lineId,
+                    batchNumber,
+                    quantity,
+                    totalPurchaseCost = 10m,
+                    mrp = 12m,
+                    salesPrice = 11m,
+                    taxRatePercent = 5m,
+                    taxIncluded = false,
+                    purchaseTaxIncluded = false,
+                    expiryDate = (DateOnly?)null,
+                    manufacturingDate = (DateOnly?)null,
+                },
+            },
+        });
+
+        return request;
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_AsOwner_PersistsLinkedInventoryReceiptAndPartialStatus()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Receive Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "Partial", expectedQuantity: 2);
+
+        using var receiveRequest = CreateReceiveRequest(ownerToken, poId, lineId, $"B-{Guid.NewGuid():N}", quantity: 1);
+        var receiveResponse = await client.SendAsync(receiveRequest);
+
+        receiveResponse.EnsureSuccessStatusCode();
+        var body = await receiveResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("PartiallyReceived", body.GetProperty("status").GetString());
+        Assert.Equal(1, body.GetProperty("lines")[0].GetProperty("receivedQuantity").GetInt32());
+        Assert.Equal(1, body.GetProperty("receipts").GetArrayLength());
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == poId));
+        Assert.Equal(1, await db.InventoryBatches.CountAsync());
+        Assert.Equal(1, await db.StockTransactions.CountAsync());
+        Assert.Equal(1, await db.SupplierLedgerEntries.CountAsync());
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_AsStaff_ReturnsForbidden()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Staff Receive Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "Staff");
+        var (staffEmail, staffPassword) = await AddStaffAsync(client, ownerToken, shopId);
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+
+        using var request = CreateReceiveRequest(staffToken, poId, lineId, $"B-{Guid.NewGuid():N}");
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_WhenOverRemaining_ReturnsBadRequestAndNoSideEffects()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Over Receive Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "Over", expectedQuantity: 1);
+
+        using var request = CreateReceiveRequest(ownerToken, poId, lineId, $"B-{Guid.NewGuid():N}", quantity: 2);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(0, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == poId));
+        Assert.Equal(0, await db.InventoryBatches.CountAsync());
+        Assert.Equal(0, await db.StockTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_WhenDuplicateBatch_RollsBackReceiptAndPoQuantity()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Duplicate Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "Duplicate", expectedQuantity: 2);
+        var batchNumber = $"B-{Guid.NewGuid():N}";
+
+        using var first = CreateReceiveRequest(ownerToken, poId, lineId, batchNumber, quantity: 1);
+        (await client.SendAsync(first)).EnsureSuccessStatusCode();
+        using var duplicate = CreateReceiveRequest(ownerToken, poId, lineId, batchNumber, quantity: 1);
+        var duplicateResponse = await client.SendAsync(duplicate);
+
+        Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var line = await db.PurchaseOrderLines.SingleAsync(l => l.Id == lineId);
+        Assert.Equal(1, line.ReceivedQuantity);
+        Assert.Equal(1, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == poId));
+        Assert.Equal(1, await db.InventoryBatches.CountAsync());
+        Assert.Equal(1, await db.StockTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_WhenFinalLineReceived_ReturnsReceivedStatus()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Full Receive Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, "Full");
+
+        using var request = CreateReceiveRequest(ownerToken, poId, lineId, $"B-{Guid.NewGuid():N}");
+        var response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Received", body.GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("""{"lines":null}""")]
+    [InlineData("""{"lines":[]}""")]
+    [InlineData("""{"lines":[{"purchaseOrderLineId":"00000000-0000-0000-0000-000000000001","batchNumber":"B-1","quantity":1,"totalPurchaseCost":10,"mrp":12,"salesPrice":11,"taxRatePercent":5,"taxIncluded":false,"purchaseTaxIncluded":false},{"purchaseOrderLineId":"00000000-0000-0000-0000-000000000001","batchNumber":"B-2","quantity":1,"totalPurchaseCost":10,"mrp":12,"salesPrice":11,"taxRatePercent":5,"taxIncluded":false,"purchaseTaxIncluded":false}]}""")]
+    public async Task ReceivePurchaseOrder_WhenMalformedLinePayload_ReturnsBadRequest(string json)
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Malformed Supplier");
+        var (poId, _) = await CreatePlacedSingleLinePoAsync(client, ownerToken, supplierId, $"Malformed-{Guid.NewGuid():N}");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/purchase-orders/{poId}/receipts");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_ConcurrentReceives_OnlyOneConsumesRemainingQuantity()
+    {
+        using var setupClient = CreateClient();
+        var ownerToken = await CreateShopAsync(setupClient, await RegisterAsync(setupClient));
+        var supplierId = await CreateSupplierAsync(setupClient, ownerToken, "Concurrent Receive Supplier");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(setupClient, ownerToken, supplierId, "Concurrent");
+
+        var responses = await Task.WhenAll(Enumerable.Range(1, 2).Select(async index =>
+        {
+            using var client = CreateClient();
+            using var request = CreateReceiveRequest(ownerToken, poId, lineId, $"B-{Guid.NewGuid():N}-{index}");
+            return await client.SendAsync(request);
+        }));
+
+        Assert.Equal(1, responses.Count(response => response.IsSuccessStatusCode));
+        Assert.Equal(1, responses.Count(response => response.StatusCode == HttpStatusCode.BadRequest));
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var line = await db.PurchaseOrderLines.SingleAsync(l => l.Id == lineId);
+        Assert.Equal(1, line.ReceivedQuantity);
+        Assert.Equal(1, await db.PurchaseOrderReceipts.CountAsync(r => r.PurchaseOrderId == poId));
+        Assert.Equal(1, await db.InventoryBatches.CountAsync());
+        Assert.Equal(1, await db.StockTransactions.CountAsync());
     }
 
     [Fact]

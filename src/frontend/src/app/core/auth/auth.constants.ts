@@ -120,4 +120,5 @@ export const PURCHASE_ORDER_ENDPOINTS = {
   place: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/place`,
   delete: (id: string) => `${API_BASE_URL}/purchase-orders/${id}`,
   cancel: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/cancel`,
+  receipts: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/receipts`,
 } as const;

@@ -8,6 +8,7 @@ import {
   PurchaseOrderDetail,
   PurchaseOrderListFilters,
   PurchaseOrderListItem,
+  ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 import {
@@ -67,6 +68,10 @@ export class PurchaseOrdersFacade {
 
   cancelOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): void {
     this.store.dispatch(PurchaseOrdersActions.cancelOrderRequested({ purchaseOrderId, payload }));
+  }
+
+  receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+    this.store.dispatch(PurchaseOrdersActions.receiveOrderRequested({ purchaseOrderId, payload }));
   }
 
   clearDetail(): void {

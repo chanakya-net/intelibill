@@ -22,6 +22,7 @@ describe('PurchaseOrdersEffects', () => {
     placePurchaseOrder: vi.fn<PurchaseOrderService['placePurchaseOrder']>(),
     deleteDraft: vi.fn<PurchaseOrderService['deleteDraft']>(),
     cancelPurchaseOrder: vi.fn<PurchaseOrderService['cancelPurchaseOrder']>(),
+    receivePurchaseOrder: vi.fn<PurchaseOrderService['receivePurchaseOrder']>(),
   };
 
   const mockRouter = {
@@ -37,6 +38,7 @@ describe('PurchaseOrdersEffects', () => {
     service.placePurchaseOrder.mockReset();
     service.deleteDraft.mockReset();
     service.cancelPurchaseOrder.mockReset();
+    service.receivePurchaseOrder.mockReset();
     mockRouter.navigate.mockReset();
 
     TestBed.configureTestingModule({
@@ -342,6 +344,88 @@ describe('PurchaseOrdersEffects', () => {
     await expect(output).resolves.toEqual(
       PurchaseOrdersActions.cancelOrderFailed({
         errorMessage: 'purchaseOrders.errors.cancellationReasonRequired',
+      })
+    );
+  });
+
+  it('dispatches receiveOrderSucceeded on receive success', async () => {
+    const detail: PurchaseOrderDetail = {
+      purchaseOrderId: 'po1',
+      purchaseOrderNumber: 'PO-2026-000001',
+      status: 'PartiallyReceived' as const,
+      supplierId: null,
+      supplierName: null,
+      supplierReference: null,
+      receivedQuantity: 2,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: null,
+      lines: [],
+      expectedTotal: 100,
+      createdAt: '2026-06-01T00:00:00Z',
+      cancellationReason: null,
+    };
+    const payload = {
+      referenceNumber: null,
+      notes: null,
+      receivedAt: null,
+      lines: [{
+        purchaseOrderLineId: 'line-1',
+        batchNumber: 'BATCH-1',
+        quantity: 2,
+        totalPurchaseCost: 100,
+        mrp: 70,
+        salesPrice: 60,
+        taxRatePercent: 5,
+        taxIncluded: false,
+        purchaseTaxIncluded: true,
+        expiryDate: null,
+        manufacturingDate: null,
+      }],
+    };
+    service.receivePurchaseOrder.mockReturnValue(of(detail));
+
+    const output = firstValueFrom(effects.receiveOrder$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.receiveOrderRequested({ purchaseOrderId: 'po1', payload }));
+
+    await expect(output).resolves.toEqual(PurchaseOrdersActions.receiveOrderSucceeded({ order: detail }));
+    expect(service.receivePurchaseOrder).toHaveBeenCalledWith('po1', payload);
+  });
+
+  it('maps receive errors to purchase-order receive error keys', async () => {
+    service.receivePurchaseOrder.mockReturnValue(
+      throwError(() => ({ error: { title: 'Inventory.BatchNumberAlreadyExists' } }))
+    );
+
+    const output = firstValueFrom(effects.receiveOrder$.pipe(take(1)));
+    actions$.next(
+      PurchaseOrdersActions.receiveOrderRequested({
+        purchaseOrderId: 'po1',
+        payload: {
+          referenceNumber: null,
+          notes: null,
+          receivedAt: null,
+          lines: [{
+            purchaseOrderLineId: 'line-1',
+            batchNumber: 'BATCH-1',
+            quantity: 1,
+            totalPurchaseCost: 10,
+            mrp: 12,
+            salesPrice: 11,
+            taxRatePercent: 0,
+            taxIncluded: false,
+            purchaseTaxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+          }],
+        },
+      })
+    );
+
+    await expect(output).resolves.toEqual(
+      PurchaseOrdersActions.receiveOrderFailed({
+        errorMessage: 'purchaseOrders.errors.batchNumberAlreadyExists',
       })
     );
   });

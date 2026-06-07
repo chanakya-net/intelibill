@@ -34,7 +34,8 @@ public static class PurchaseOrderDtoMapper
             po.CancellationReason,
             po.SupplierName,
             po.SupplierReference,
-            po.Lines.Sum(l => l.ReceivedQuantity));
+            po.Lines.Sum(l => l.ReceivedQuantity),
+            po.Receipts.OrderByDescending(r => r.ReceivedAt).Select(ToReceiptDto).ToList());
 
     private static PurchaseOrderLineDto ToLineDto(PurchaseOrderLine line) =>
         new(
@@ -42,6 +43,25 @@ public static class PurchaseOrderDtoMapper
             line.ItemId,
             line.Description,
             line.ExpectedQuantity,
+            line.ReceivedQuantity,
+            line.RemainingQuantity,
             line.UnitCost,
             line.LineTotal);
+
+    private static PurchaseOrderReceiptDto ToReceiptDto(PurchaseOrderReceipt receipt) =>
+        new(
+            receipt.Id,
+            receipt.ReceiptNumber,
+            receipt.ReceivedAt,
+            receipt.ReferenceNumber,
+            receipt.Notes,
+            receipt.Lines.Select(line => new PurchaseOrderReceiptLineDto(
+                line.Id,
+                line.PurchaseOrderLineId,
+                line.ItemId,
+                line.InventoryBatchId,
+                line.StockTransactionId,
+                line.Quantity,
+                line.TotalPurchaseCost,
+                line.UnitCost)).ToList());
 }

@@ -241,6 +241,61 @@ describe('purchaseOrdersReducer', () => {
     expect(next.selectedOrder?.cancellationReason).toBe('Too late');
   });
 
+  it('sets submitting on receive requested', () => {
+    const next = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.receiveOrderRequested({
+        purchaseOrderId: 'po1',
+        payload: {
+          referenceNumber: null,
+          notes: null,
+          receivedAt: null,
+          lines: [{
+            purchaseOrderLineId: 'line-1',
+            batchNumber: 'BATCH-1',
+            quantity: 1,
+            totalPurchaseCost: 10,
+            mrp: 12,
+            salesPrice: 11,
+            taxRatePercent: 0,
+            taxIncluded: false,
+            purchaseTaxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+          }],
+        },
+      })
+    );
+    expect(next.submitting).toBe(true);
+    expect(next.errorMessage).toBe('');
+  });
+
+  it('updates selectedOrder and upserts list entity on receive succeeded', () => {
+    const receivedDetail: PurchaseOrderDetail = {
+      ...mockDetail,
+      status: 'PartiallyReceived',
+      receivedQuantity: 1,
+      lines: [{ lineId: 'line-1', itemId: 'item-1', description: 'Widget', expectedQuantity: 2, receivedQuantity: 1, remainingQuantity: 1, unitCost: 50, lineTotal: 100 }],
+    };
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.receiveOrderSucceeded({ order: receivedDetail })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.selectedOrder).toEqual(receivedDetail);
+    expect(next.entities['po1']?.status).toBe('PartiallyReceived');
+    expect(next.entities['po1']?.receivedQuantity).toBe(1);
+  });
+
+  it('sets error on receive failed', () => {
+    const next = purchaseOrdersReducer(
+      { ...initialState, submitting: true },
+      PurchaseOrdersActions.receiveOrderFailed({ errorMessage: 'purchaseOrders.errors.unableToReceive' })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.errorMessage).toBe('purchaseOrders.errors.unableToReceive');
+  });
+
   it('preserves supplierName, supplierReference, and receivedQuantity in list entity after update/place/cancel', () => {
     const detail: PurchaseOrderDetail = {
       ...mockDetail,

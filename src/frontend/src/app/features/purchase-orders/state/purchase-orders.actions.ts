@@ -7,6 +7,7 @@ import {
   PurchaseOrderListFilters,
   PurchaseOrderListItem,
   PurchaseOrderListResult,
+  ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
 
 export const PurchaseOrdersActions = createActionGroup({
@@ -39,6 +40,10 @@ export const PurchaseOrdersActions = createActionGroup({
     'Cancel Order Requested': props<{ purchaseOrderId: string; payload: CancelPurchaseOrderRequest }>(),
     'Cancel Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Cancel Order Failed': props<{ errorMessage: string }>(),
+
+    'Receive Order Requested': props<{ purchaseOrderId: string; payload: ReceivePurchaseOrderRequest }>(),
+    'Receive Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
+    'Receive Order Failed': props<{ errorMessage: string }>(),
 
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),

@@ -7,6 +7,7 @@ using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrde
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
+using Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchaseOrder;
 using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
@@ -349,5 +350,88 @@ public class PurchaseOrdersControllerTests
 
         var obj = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
+    }
+
+    // ---- Receive ----
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_WhenValid_MapsOneLineAndReturnsOk()
+    {
+        SetValidClaims(out var userId, out var shopId);
+        var poId = Guid.NewGuid();
+        var lineId = Guid.NewGuid();
+        var dto = new PurchaseOrderDetailDto(
+            poId,
+            "PO-2026-000001",
+            PurchaseOrderStatus.PartiallyReceived,
+            Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
+            [],
+            0m,
+            DateTimeOffset.UtcNow);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<PurchaseOrderDetailDto>)dto);
+
+        var result = await _controller.ReceivePurchaseOrder(
+            poId,
+            new ReceivePurchaseOrderRequest(
+                "REF-1",
+                "Notes",
+                DateTimeOffset.UtcNow,
+                [new ReceivePurchaseOrderLineRequest(lineId, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null)]),
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<ReceivePurchaseOrderCommand>(c =>
+                c.ActorUserId == userId
+                && c.ActiveShopId == shopId
+                && c.PurchaseOrderId == poId
+                && c.ReferenceNumber == "REF-1"
+                && c.Notes == "Notes"
+                && c.Lines.Count == 1
+                && c.Lines[0].PurchaseOrderLineId == lineId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("null-body")]
+    [InlineData("null-lines")]
+    [InlineData("empty-lines")]
+    [InlineData("two-lines")]
+    public async Task ReceivePurchaseOrder_WhenLineShapeInvalid_ForwardsEmptyOrInvalidLinesForValidation(string scenario)
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.PurchaseOrder.ReceiptLineRequired);
+
+        var lineId = Guid.NewGuid();
+        ReceivePurchaseOrderRequest? request = scenario switch
+        {
+            "null-body" => null,
+            "null-lines" => new ReceivePurchaseOrderRequest(null, null, null, null!),
+            "empty-lines" => new ReceivePurchaseOrderRequest(null, null, null, []),
+            _ => new ReceivePurchaseOrderRequest(
+                null,
+                null,
+                null,
+                [
+                    new ReceivePurchaseOrderLineRequest(lineId, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                    new ReceivePurchaseOrderLineRequest(lineId, "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                ]),
+        };
+
+        var result = await _controller.ReceivePurchaseOrder(Guid.NewGuid(), request, CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, obj.StatusCode);
+        await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
+            Arg.Is<ReceivePurchaseOrderCommand>(c =>
+                scenario == "two-lines" ? c.Lines.Count == 2 : c.Lines.Count == 0),
+            Arg.Any<CancellationToken>());
     }
 }

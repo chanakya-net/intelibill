@@ -70,6 +70,8 @@ describe('PurchaseOrderDetailPageComponent', () => {
     placeOrder: vi.fn(),
     deleteDraft: vi.fn(),
     cancelOrder: vi.fn(),
+    receiveOrder: vi.fn(),
+    isSubmitting: signal(false),
   };
 
   const permissions = {
@@ -87,6 +89,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     facade.deleteDraft.mockReset();
     facade.cancelOrder.mockReset();
     router.navigate.mockReset();
+    facade.receiveOrder.mockReset();
     window.open = vi.fn();
     loadingDetailSignal.set(false);
     purchaseOrderSignal.set(null);
@@ -113,6 +116,34 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   placeOrder: 'Place Order',
                   deleteDraft: 'Delete Draft',
                   cancelOrder: 'Cancel Order',
+                  receive: 'Receive',
+                },
+                receivedQuantity: 'Received',
+                remainingQuantity: 'Remaining',
+                receipts: {
+                  title: 'Receipts',
+                  receipt: 'Receipt',
+                  receivedAt: 'Received at',
+                  quantity: 'Quantity',
+                  totalCost: 'Total cost',
+                },
+                receiveDialog: {
+                  title: 'Receive purchase order',
+                  line: 'Line',
+                  selectLine: 'Select line',
+                  batchNumber: 'Batch number',
+                  quantity: 'Quantity',
+                  totalPurchaseCost: 'Total purchase cost',
+                  mrp: 'MRP',
+                  salesPrice: 'Sales price',
+                  taxRate: 'Tax rate',
+                  expiryDate: 'Expiry date',
+                  manufacturingDate: 'Manufacturing date',
+                  reference: 'Reference',
+                  notes: 'Notes',
+                  taxIncluded: 'Tax included',
+                  purchaseTaxIncluded: 'Purchase tax included',
+                  quantityOverRemaining: 'Quantity cannot exceed remaining quantity.',
                 },
                 dialog: {
                   deleteDraftTitle: 'Delete Draft',
@@ -225,6 +256,52 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const input = host.querySelector('input') as HTMLInputElement;
     expect(input).toBeTruthy();
     expect(input.placeholder).toBe('Reason (required)');
+  });
+
+  it('shows receive action for placed order and dispatches receiveOrder from dialog submit', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({
+      ...selectedOrder,
+      status: 'Placed',
+      lines: [{ ...orderLines[0], receivedQuantity: 0, remainingQuantity: 3 }],
+    });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const receiveButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((btn) => btn.textContent?.includes('Receive')) as HTMLButtonElement;
+    expect(receiveButton).toBeTruthy();
+
+    receiveButton.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('app-receive-purchase-order-dialog');
+    expect(dialog).toBeTruthy();
+    const component = fixture.componentInstance as unknown as {
+      receiveOrder: (purchaseOrderId: string, payload: unknown) => void;
+    };
+    const payload = {
+      referenceNumber: null,
+      notes: null,
+      receivedAt: null,
+      lines: [{
+        purchaseOrderLineId: 'line-1',
+        batchNumber: 'BATCH-1',
+        quantity: 1,
+        totalPurchaseCost: 50,
+        mrp: 60,
+        salesPrice: 55,
+        taxRatePercent: 0,
+        taxIncluded: false,
+        purchaseTaxIncluded: false,
+        expiryDate: null,
+        manufacturingDate: null,
+      }],
+    };
+    component.receiveOrder('po-1', payload);
+
+    expect(facade.receiveOrder).toHaveBeenCalledWith('po-1', payload);
   });
 
   it('hides cancel form for Placed order when Staff', () => {

@@ -4,7 +4,6 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
-using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -13,13 +12,24 @@ namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 
 public sealed class AddInventoryBatchCommandHandler(
     IUserRepository userRepository,
-    IItemResolver itemResolver,
-    IItemRepository itemRepository,
-    ISupplierResolver supplierResolver,
-    IBatchFactory batchFactory,
-    IInventoryUpdater inventoryUpdater,
+    IInboundInventoryLineProcessor inboundInventoryLineProcessor,
     IUnitOfWork unitOfWork)
 {
+    public AddInventoryBatchCommandHandler(
+        IUserRepository userRepository,
+        IItemResolver itemResolver,
+        IItemRepository itemRepository,
+        ISupplierResolver supplierResolver,
+        IBatchFactory batchFactory,
+        IInventoryUpdater inventoryUpdater,
+        IUnitOfWork unitOfWork)
+        : this(
+            userRepository,
+            new InboundInventoryLineProcessor(itemResolver, itemRepository, supplierResolver, batchFactory, inventoryUpdater),
+            unitOfWork)
+    {
+    }
+
     private const int MaxBatchSize = 100;
     private static readonly AddInventoryCommandValidator RowValidator = new();
 
@@ -94,76 +104,29 @@ public sealed class AddInventoryBatchCommandHandler(
         InventoryUpdateContext inventoryUpdateContext,
         CancellationToken cancellationToken)
     {
-        var itemOrError = await itemResolver.ResolveAsync(
+        var input = row.ToInboundInput();
+        var rowResult = await inboundInventoryLineProcessor.ProcessAsync(
             command.ActiveShopId,
-            row.ItemName,
-            row.Barcode,
-            row.ItemDescription,
-            row.Uom,
+            input,
             command.ActorUserId,
             itemResolutionContext,
-            cancellationToken);
-
-        if (itemOrError.IsError)
-            return itemOrError.Errors;
-
-        var item = itemOrError.Value;
-
-        var supplierOrError = await supplierResolver.ResolveAsync(
-            command.ActiveShopId,
-            row.SupplierId,
-            cancellationToken);
-
-        if (supplierOrError.IsError)
-            return supplierOrError.Errors;
-
-        var supplier = supplierOrError.Value;
-
-        var batchOrError = await batchFactory.CreateBatchAsync(
-            command.ActiveShopId,
-            item.Id,
-            row,
-            supplier,
-            command.ActorUserId,
-            cancellationToken);
-
-        if (batchOrError.IsError)
-            return batchOrError.Errors;
-
-        var (batch, stockTransaction, _) = batchOrError.Value;
-
-        var inventoryOrError = await inventoryUpdater.GetOrUpdateAsync(
-            command.ActiveShopId,
-            item.Id,
-            row.Quantity,
-            command.ActorUserId,
             inventoryUpdateContext,
             cancellationToken);
 
-        if (inventoryOrError.IsError)
-            return inventoryOrError.Errors;
-
-        var inventory = inventoryOrError.Value;
-
-        var hsnCode = string.IsNullOrWhiteSpace(row.HsnCode) ? item.HsnCode : row.HsnCode;
-        item.UpdateTaxDefaults(hsnCode, row.TaxRatePercent, row.TaxIncluded);
-
-        // Avoid switching a newly-added item (Added) to Modified; that would prevent INSERT and break FK integrity.
-        var existingItem = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, row.Barcode.Trim(), cancellationToken);
-        if (existingItem is not null)
-            itemRepository.Update(item);
+        if (rowResult.IsError)
+            return rowResult.Errors;
 
         return new AddInventoryResultDto(
-            item.Id,
-            item.Name,
-            item.Barcode,
-            batch.Id,
-            batch.BatchNumber,
-            batch.Quantity,
-            inventory.Quantity,
-            batch.SupplierId,
-            stockTransaction.Id,
-            stockTransaction.PerformedAt);
+            rowResult.Value.Item.Id,
+            rowResult.Value.Item.Name,
+            rowResult.Value.Item.Barcode,
+            rowResult.Value.Batch.Id,
+            rowResult.Value.Batch.BatchNumber,
+            rowResult.Value.Batch.Quantity,
+            rowResult.Value.Inventory.Quantity,
+            rowResult.Value.Batch.SupplierId,
+            rowResult.Value.StockTransaction.Id,
+            rowResult.Value.StockTransaction.PerformedAt);
     }
 
     private static List<Error> ValidateRow(AddInventoryBatchRowCommand row)
