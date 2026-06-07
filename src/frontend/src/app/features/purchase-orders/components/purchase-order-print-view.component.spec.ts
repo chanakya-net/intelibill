@@ -130,6 +130,7 @@ describe('PurchaseOrderPrintViewComponent', () => {
     vi.runOnlyPendingTimers();
 
     const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.screen-controls')?.getAttribute('aria-label')).toBe('Purchase order print actions');
     expect(host.textContent).toContain('Main Shop');
     expect(host.textContent).toContain('Acme Supplies');
     expect(host.textContent).toContain('PO-2026-000001');
@@ -144,6 +145,32 @@ describe('PurchaseOrderPrintViewComponent', () => {
     expect(host.textContent).toContain('50.00');
     expect(host.textContent).toContain('150.00');
     expect(host.textContent).toContain('200.00');
+    expect(window.print).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps supplier reference and notes sections visible with fallback values when empty', () => {
+    purchaseOrderService.getPurchaseOrderDetail.mockReturnValue(
+      of({
+        ...order,
+        supplierReference: null,
+        supplierReferenceNumber: null,
+        notes: null,
+      }),
+    );
+
+    const fixture = createComponent();
+    fixture.detectChanges();
+    vi.runOnlyPendingTimers();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const supplierReferenceLabel = Array.from(host.querySelectorAll('dt')).find((item) =>
+      item.textContent?.includes('Supplier ref'),
+    );
+    const notesSection = host.querySelector('.po-document__notes');
+
+    expect(supplierReferenceLabel?.nextElementSibling?.textContent?.trim()).toBe('-');
+    expect(notesSection?.textContent).toContain('Notes');
+    expect(notesSection?.textContent).toContain('-');
     expect(window.print).toHaveBeenCalledTimes(1);
   });
 

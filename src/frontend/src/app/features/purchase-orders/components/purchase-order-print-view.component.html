@@ -1,5 +1,5 @@
 <main class="po-print-page">
-  <div class="screen-controls" aria-label="Purchase order print controls">
+  <div class="screen-controls" [attr.aria-label]="'purchaseOrders.print.controlsLabel' | transloco">
     <button type="button" class="screen-controls__button" (click)="onPrintAgain()">
       {{ 'purchaseOrders.print.printAgain' | transloco }}
     </button>
@@ -38,9 +38,9 @@
             <dt>{{ 'purchaseOrders.builder.supplier' | transloco }}</dt>
             <dd>{{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}</dd>
           </div>
-          <div *ngIf="loadedOrder.supplierReference || loadedOrder.supplierReferenceNumber">
+          <div>
             <dt>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</dt>
-            <dd>{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference }}</dd>
+            <dd>{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference || '-' }}</dd>
           </div>
         </dl>
       </div>
@@ -68,9 +68,9 @@
       </div>
     </section>
 
-    <section *ngIf="loadedOrder.notes" class="po-document__notes">
+    <section class="po-document__notes">
       <h2>{{ 'purchaseOrders.notes' | transloco }}</h2>
-      <p>{{ loadedOrder.notes }}</p>
+      <p>{{ loadedOrder.notes || '-' }}</p>
     </section>
 
     <table>

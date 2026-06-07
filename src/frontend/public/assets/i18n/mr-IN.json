@@ -1547,6 +1547,7 @@
     },
     "print": {
       "title": "Purchase Order",
+      "controlsLabel": "Purchase order print actions",
       "printAgain": "Print",
       "close": "Close",
       "supplierSection": "Supplier",
