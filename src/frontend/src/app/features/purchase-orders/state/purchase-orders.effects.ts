@@ -82,6 +82,60 @@ export class PurchaseOrdersEffects {
       )
     )
   );
+
+  readonly placeOrder$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.placeOrderRequested),
+      switchMap(({ purchaseOrderId }) =>
+        this.service.placePurchaseOrder(purchaseOrderId).pipe(
+          map((order) => PurchaseOrdersActions.placeOrderSucceeded({ order })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.placeOrderFailed({
+                errorMessage: getPlaceOrderErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly deleteDraft$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.deleteDraftRequested),
+      switchMap(({ purchaseOrderId }) =>
+        this.service.deleteDraft(purchaseOrderId).pipe(
+          map(() => PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.deleteDraftFailed({
+                errorMessage: getDeleteDraftErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly cancelOrder$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PurchaseOrdersActions.cancelOrderRequested),
+      switchMap(({ purchaseOrderId, payload }) =>
+        this.service.cancelPurchaseOrder(purchaseOrderId, payload).pipe(
+          map((order) => PurchaseOrdersActions.cancelOrderSucceeded({ order })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              PurchaseOrdersActions.cancelOrderFailed({
+                errorMessage: getCancelOrderErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
 }
 
 function getPurchaseOrderDetailErrorMessage(error: ApiErrorPayload | undefined): string {
@@ -110,4 +164,32 @@ function getUpdateDraftErrorMessage(error: ApiErrorPayload | undefined): string 
   if (title === 'PurchaseOrder.CannotUpdateNonDraft') return 'purchaseOrders.errors.cannotUpdateNonDraft';
   if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
   return 'purchaseOrders.errors.unableToUpdate';
+}
+
+function getPlaceOrderErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.SupplierRequired') return 'purchaseOrders.errors.supplierRequired';
+  if (title === 'PurchaseOrder.SupplierInvalidForPlacement') return 'purchaseOrders.errors.supplierInvalidForPlacement';
+  if (title === 'PurchaseOrder.AtLeastOneLineRequired') return 'purchaseOrders.errors.atLeastOneLineRequired';
+  if (title === 'PurchaseOrder.CannotPlaceNonDraft') return 'purchaseOrders.errors.cannotPlaceNonDraft';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToPlace';
+}
+
+function getDeleteDraftErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.CannotDeleteNonDraft') return 'purchaseOrders.errors.cannotDeleteNonDraft';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToDelete';
+}
+
+function getCancelOrderErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder') return 'purchaseOrders.errors.forbidden';
+  if (title === 'PurchaseOrder.CannotCancelAfterReceipt') return 'purchaseOrders.errors.cannotCancelAfterReceipt';
+  if (title === 'PurchaseOrder.CannotCancelInvalidStatus') return 'purchaseOrders.errors.cannotCancelInvalidStatus';
+  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
+  return 'purchaseOrders.errors.unableToCancel';
 }

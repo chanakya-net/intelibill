@@ -43,6 +43,7 @@ const selectedOrder: PurchaseOrderDetail = {
   lines: orderLines,
   expectedTotal: 175,
   createdAt: '2026-06-01T00:00:00Z',
+  cancellationReason: null,
 };
 
 const route = {

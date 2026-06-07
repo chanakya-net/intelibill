@@ -1,6 +1,7 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import {
+  CancelPurchaseOrderRequest,
   CreatePurchaseOrderDraftRequest,
   PurchaseOrderDetail,
   PurchaseOrderListFilters,
@@ -26,6 +27,18 @@ export const PurchaseOrdersActions = createActionGroup({
     'Update Draft Requested': props<{ purchaseOrderId: string; payload: CreatePurchaseOrderDraftRequest }>(),
     'Update Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Update Draft Failed': props<{ errorMessage: string }>(),
+
+    'Place Order Requested': props<{ purchaseOrderId: string }>(),
+    'Place Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
+    'Place Order Failed': props<{ errorMessage: string }>(),
+
+    'Delete Draft Requested': props<{ purchaseOrderId: string }>(),
+    'Delete Draft Succeeded': props<{ purchaseOrderId: string }>(),
+    'Delete Draft Failed': props<{ errorMessage: string }>(),
+
+    'Cancel Order Requested': props<{ purchaseOrderId: string; payload: CancelPurchaseOrderRequest }>(),
+    'Cancel Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
+    'Cancel Order Failed': props<{ errorMessage: string }>(),
 
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),

@@ -116,5 +116,8 @@ export const CONNECTIVITY_ENDPOINTS = {
 export const PURCHASE_ORDER_ENDPOINTS = {
   list: `${API_BASE_URL}/purchase-orders`,
   create: `${API_BASE_URL}/purchase-orders`,
-  detail: (purchaseOrderId: string) => `${API_BASE_URL}/purchase-orders/${purchaseOrderId}`,
+  detail: (id: string) => `${API_BASE_URL}/purchase-orders/${id}`,
+  place: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/place`,
+  delete: (id: string) => `${API_BASE_URL}/purchase-orders/${id}`,
+  cancel: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/cancel`,
 } as const;

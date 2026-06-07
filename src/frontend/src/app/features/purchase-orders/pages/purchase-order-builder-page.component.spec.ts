@@ -153,5 +153,6 @@ function makeDetail(): PurchaseOrderDetail {
     lines: [],
     expectedTotal: 0,
     createdAt: '2026-06-01T00:00:00Z',
+    cancellationReason: null,
   };
 }

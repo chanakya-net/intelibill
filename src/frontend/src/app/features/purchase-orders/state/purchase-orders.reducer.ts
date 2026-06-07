@@ -41,6 +41,21 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   filters: DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
 });
 
+function toListItem(order: PurchaseOrderDetail): PurchaseOrderListItem {
+  return {
+    purchaseOrderId: order.purchaseOrderId,
+    purchaseOrderNumber: order.purchaseOrderNumber,
+    status: order.status,
+    supplierName: null,
+    supplierReference: order.supplierReferenceNumber,
+    lineCount: order.lines.length,
+    expectedQuantity: order.lines.reduce((total, line) => total + line.expectedQuantity, 0),
+    receivedQuantity: 0,
+    expectedTotal: order.expectedTotal,
+    createdAt: order.createdAt,
+  };
+}
+
 export const purchaseOrdersReducer = createReducer(
   initialState,
 
@@ -115,26 +130,68 @@ export const purchaseOrdersReducer = createReducer(
     submitting: true,
     errorMessage: '',
   })),
-  on(PurchaseOrdersActions.updateDraftSucceeded, (state, { order }) => {
-    const item: PurchaseOrderListItem = {
-      purchaseOrderId: order.purchaseOrderId,
-      purchaseOrderNumber: order.purchaseOrderNumber,
-      status: order.status,
-      supplierName: null,
-      supplierReference: order.supplierReferenceNumber,
-      lineCount: order.lines.length,
-      expectedQuantity: order.lines.reduce((total, line) => total + line.expectedQuantity, 0),
-      receivedQuantity: 0,
-      expectedTotal: order.expectedTotal,
-      createdAt: order.createdAt,
-    };
-    return purchaseOrdersAdapter.upsertOne(item, {
+  on(PurchaseOrdersActions.updateDraftSucceeded, (state, { order }) =>
+    purchaseOrdersAdapter.upsertOne(toListItem(order), {
       ...state,
       submitting: false,
       selectedOrder: order,
-    });
-  }),
+    })
+  ),
   on(PurchaseOrdersActions.updateDraftFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+  })),
+
+  on(PurchaseOrdersActions.placeOrderRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.placeOrderSucceeded, (state, { order }) =>
+    purchaseOrdersAdapter.upsertOne(toListItem(order), {
+      ...state,
+      submitting: false,
+      selectedOrder: order,
+    })
+  ),
+  on(PurchaseOrdersActions.placeOrderFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+  })),
+
+  on(PurchaseOrdersActions.deleteDraftRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.deleteDraftSucceeded, (state, { purchaseOrderId }) =>
+    purchaseOrdersAdapter.removeOne(purchaseOrderId, {
+      ...state,
+      submitting: false,
+      selectedOrder: null,
+    })
+  ),
+  on(PurchaseOrdersActions.deleteDraftFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+  })),
+
+  on(PurchaseOrdersActions.cancelOrderRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.cancelOrderSucceeded, (state, { order }) =>
+    purchaseOrdersAdapter.upsertOne(toListItem(order), {
+      ...state,
+      submitting: false,
+      selectedOrder: order,
+    })
+  ),
+  on(PurchaseOrdersActions.cancelOrderFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
     errorMessage,
