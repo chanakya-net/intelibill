@@ -73,7 +73,10 @@ public static partial class Errors
             Error.Validation("PurchaseOrder.CannotReceiveInvalidStatus", "Only placed or partially received purchase orders can be received.");
 
         public static Error ReceiptLineRequired =>
-            Error.Validation("PurchaseOrder.ReceiptLineRequired", "Exactly one receipt line is required.");
+            Error.Validation("PurchaseOrder.ReceiptLineRequired", "At least one receipt line is required.");
+
+        public static Error DuplicateReceiptLine =>
+            Error.Validation("PurchaseOrder.DuplicateReceiptLine", "A purchase order line can only appear once in a receipt.");
 
         public static Error ReceiptLineNotFound =>
             Error.Validation("PurchaseOrder.ReceiptLineNotFound", "Purchase order receipt line was not found.");
@@ -83,5 +86,11 @@ public static partial class Errors
 
         public static Error ReceiptQuantityOverRemaining =>
             Error.Validation("PurchaseOrder.ReceiptQuantityOverRemaining", "Receipt quantity cannot exceed remaining purchase order quantity.");
+
+        public static Error CannotCloseInvalidStatus =>
+            Error.Validation("PurchaseOrder.CannotCloseInvalidStatus", "Only partially received purchase orders can be closed.");
+
+        public static Error CloseReasonRequired =>
+            Error.Validation("PurchaseOrder.CloseReasonRequired", "Close reason is required.");
     }
 }

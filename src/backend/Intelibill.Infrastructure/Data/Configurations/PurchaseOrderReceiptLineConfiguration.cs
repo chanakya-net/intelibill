@@ -40,7 +40,7 @@ internal sealed class PurchaseOrderReceiptLineConfiguration : IEntityTypeConfigu
             .HasForeignKey(l => l.ItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<InventoryBatch>()
+        builder.HasOne(l => l.InventoryBatch)
             .WithMany()
             .HasForeignKey(l => l.InventoryBatchId)
             .OnDelete(DeleteBehavior.Restrict);

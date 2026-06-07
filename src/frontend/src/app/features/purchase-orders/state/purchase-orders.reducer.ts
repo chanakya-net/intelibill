@@ -197,6 +197,24 @@ export const purchaseOrdersReducer = createReducer(
     errorMessage,
   })),
 
+  on(PurchaseOrdersActions.closeOrderRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+  })),
+  on(PurchaseOrdersActions.closeOrderSucceeded, (state, { order }) =>
+    purchaseOrdersAdapter.upsertOne(toListItem(order), {
+      ...state,
+      submitting: false,
+      selectedOrder: order,
+    })
+  ),
+  on(PurchaseOrdersActions.closeOrderFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+  })),
+
   on(PurchaseOrdersActions.receiveOrderRequested, (state) => ({
     ...state,
     submitting: true,

@@ -17,6 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
+import { PurchaseOrderReceiptHistoryComponent } from '../components/purchase-order-receipt-history.component';
 import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service';
 
 @Component({
@@ -35,6 +36,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
     InputTextModule,
     ConfirmDialogModule,
     ReceivePurchaseOrderDialogComponent,
+    PurchaseOrderReceiptHistoryComponent,
   ],
   providers: [ConfirmationService],
   template: `
@@ -81,6 +83,16 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
                   <button type="button" (click)="showReceiveDialog.set(true)">
                     {{ 'purchaseOrders.actions.receive' | transloco }}
                   </button>
+                  <div class="po-cancel-form">
+                    <input
+                      pInputText
+                      [(ngModel)]="closeReason"
+                      [placeholder]="'purchaseOrders.dialog.closeReasonLabel' | transloco"
+                    />
+                    <button type="button" [disabled]="!closeReason.trim()" (click)="closeOrder(order.purchaseOrderId)">
+                      {{ 'purchaseOrders.actions.close' | transloco }}
+                    </button>
+                  </div>
                 }
               </div>
             </div>
@@ -102,6 +114,12 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
             <p>
               <strong>{{ 'purchaseOrders.cancellationReason' | transloco }}:</strong>
               {{ order.cancellationReason }}
+            </p>
+          }
+          @if (order.closeReason) {
+            <p>
+              <strong>{{ 'purchaseOrders.closeReason' | transloco }}:</strong>
+              {{ order.closeReason }}
             </p>
           }
           @if (order.supplierId) {
@@ -160,27 +178,7 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
             <strong>{{ 'purchaseOrders.expectedTotal' | transloco }}:</strong>
             {{ order.expectedTotal | number:'1.2-2' }}
           </p>
-          @if ((order.receipts?.length ?? 0) > 0) {
-            <h3>{{ 'purchaseOrders.receipts.title' | transloco }}</h3>
-            <p-table [value]="[...(order.receipts ?? [])]" dataKey="receiptId">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>{{ 'purchaseOrders.receipts.receipt' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.receipts.receivedAt' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.receipts.quantity' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.receipts.totalCost' | transloco }}</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-receipt>
-                <tr>
-                  <td>{{ receipt.receiptNumber }}</td>
-                  <td>{{ receipt.receivedAt }}</td>
-                  <td>{{ receipt.lines[0]?.quantity }}</td>
-                  <td>{{ receipt.lines[0]?.totalPurchaseCost | number:'1.2-2' }}</td>
-                </tr>
-              </ng-template>
-            </p-table>
-          }
+          <app-purchase-order-receipt-history [receipts]="order.receipts ?? []" />
         } @else if (facade.errorMessage()) {
           <p>{{ facade.errorMessage() }}</p>
         }
@@ -201,6 +199,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   private readonly translocoService = inject(TranslocoService);
 
   protected cancelReason = '';
+  protected closeReason = '';
   protected showReceiveDialog = signal(false);
 
   ngOnInit(): void {
@@ -240,6 +239,13 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     if (!reason) return;
     this.facade.cancelOrder(purchaseOrderId, { reason });
     this.cancelReason = '';
+  }
+
+  protected closeOrder(purchaseOrderId: string): void {
+    const reason = this.closeReason.trim();
+    if (!reason) return;
+    this.facade.closeOrder(purchaseOrderId, { reason });
+    this.closeReason = '';
   }
 
   protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {

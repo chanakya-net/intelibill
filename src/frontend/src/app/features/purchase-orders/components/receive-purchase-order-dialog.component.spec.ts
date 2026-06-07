@@ -73,6 +73,9 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
                   taxIncluded: 'Tax included',
                   purchaseTaxIncluded: 'Purchase tax included',
                   quantityOverRemaining: 'Quantity cannot exceed remaining quantity.',
+                  addLine: 'Add line',
+                  removeLine: 'Remove',
+                  duplicateLine: 'Duplicate line',
                 },
               },
             },
@@ -97,29 +100,29 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
   it('initializes with only receivable lines and remaining quantity', () => {
     const component = fixture.componentInstance as unknown as {
       receivableLines: readonly { lineId: string }[];
-      selectedRemaining: number;
-      form: { controls: { purchaseOrderLineId: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } };
+      lines: { controls: Array<{ controls: { purchaseOrderLineId: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } }> };
+      remainingFor: (lineId: string) => number;
     };
 
     expect(component.receivableLines.map((line) => line.lineId)).toEqual(['line-1']);
-    expect(component.selectedRemaining).toBe(3);
-    expect(component.form.controls.purchaseOrderLineId.value).toBe('line-1');
-    expect(component.form.controls.quantity.value).toBe(3);
-    expect(component.form.controls.totalPurchaseCost.value).toBe(30);
+    expect(component.remainingFor('line-1')).toBe(3);
+    expect(component.lines.controls[0].controls.purchaseOrderLineId.value).toBe('line-1');
+    expect(component.lines.controls[0].controls.quantity.value).toBe(3);
+    expect(component.lines.controls[0].controls.totalPurchaseCost.value).toBe(30);
   });
 
   it('prevents submission when quantity exceeds remaining quantity', () => {
     const component = fixture.componentInstance as unknown as {
       receive: { emit: ReturnType<typeof vi.fn> };
-      form: { patchValue: (value: unknown) => void };
-      remainingError: boolean;
+      lines: { controls: Array<{ patchValue: (value: unknown) => void }> };
+      remainingError: () => boolean;
     };
     const emitSpy = vi.spyOn(component.receive, 'emit');
 
-    component.form.patchValue({ quantity: 4, batchNumber: 'BATCH-1', totalPurchaseCost: 40, mrp: 12, salesPrice: 11 });
+    component.lines.controls[0].patchValue({ quantity: 4, batchNumber: 'BATCH-1', totalPurchaseCost: 40, mrp: 12, salesPrice: 11 });
     fixture.detectChanges();
 
-    expect(component.remainingError).toBe(true);
+    expect(component.remainingError()).toBe(true);
     (fixture.componentInstance as unknown as { submit: () => void }).submit();
     expect(emitSpy).not.toHaveBeenCalled();
   });
@@ -128,11 +131,16 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     const component = fixture.componentInstance as unknown as {
       receive: { emit: ReturnType<typeof vi.fn> };
       form: { patchValue: (value: unknown) => void };
+      lines: { controls: Array<{ patchValue: (value: unknown) => void }> };
       submit: () => void;
     };
     const emitSpy = vi.spyOn(component.receive, 'emit');
 
     component.form.patchValue({
+      referenceNumber: ' REF-1 ',
+      notes: ' Dock 2 ',
+    });
+    component.lines.controls[0].patchValue({
       batchNumber: ' BATCH-1 ',
       quantity: 2,
       totalPurchaseCost: 20,
@@ -143,8 +151,6 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       purchaseTaxIncluded: false,
       expiryDate: '2026-12-31',
       manufacturingDate: '',
-      referenceNumber: ' REF-1 ',
-      notes: ' Dock 2 ',
     });
     component.submit();
 
@@ -166,5 +172,34 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
         manufacturingDate: null,
       }],
     });
+  });
+
+  it('adds a second receipt row and emits a multi-line payload', () => {
+    const twoLineOrder: PurchaseOrderDetail = {
+      ...order,
+      lines: [
+        order.lines[0],
+        { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 },
+      ],
+    };
+    fixture.componentRef.setInput('order', twoLineOrder);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      receive: { emit: ReturnType<typeof vi.fn> };
+      lines: { controls: Array<{ patchValue: (value: unknown) => void }> };
+      addLine: () => void;
+      submit: () => void;
+    };
+    const emitSpy = vi.spyOn(component.receive, 'emit');
+
+    component.lines.controls[0].patchValue({ batchNumber: 'BATCH-1', quantity: 1, totalPurchaseCost: 10, mrp: 12, salesPrice: 11 });
+    component.addLine();
+    component.lines.controls[1].patchValue({ batchNumber: 'BATCH-2', quantity: 2, totalPurchaseCost: 8, mrp: 6, salesPrice: 5 });
+    component.submit();
+
+    expect(emitSpy.mock.calls[0][0].lines).toEqual([
+      expect.objectContaining({ purchaseOrderLineId: 'line-1', batchNumber: 'BATCH-1' }),
+      expect.objectContaining({ purchaseOrderLineId: 'line-2', batchNumber: 'BATCH-2' }),
+    ]);
   });
 });

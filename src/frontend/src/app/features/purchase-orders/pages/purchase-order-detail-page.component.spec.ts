@@ -70,6 +70,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     placeOrder: vi.fn(),
     deleteDraft: vi.fn(),
     cancelOrder: vi.fn(),
+    closeOrder: vi.fn(),
     receiveOrder: vi.fn(),
     isSubmitting: signal(false),
   };
@@ -88,6 +89,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     facade.placeOrder.mockReset();
     facade.deleteDraft.mockReset();
     facade.cancelOrder.mockReset();
+    facade.closeOrder.mockReset();
     router.navigate.mockReset();
     facade.receiveOrder.mockReset();
     window.open = vi.fn();
@@ -110,6 +112,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   Draft: 'Draft',
                   Placed: 'Placed',
                   Cancelled: 'Cancelled',
+                  PartiallyReceived: 'Partially received',
+                  Received: 'Received',
+                  Closed: 'Closed',
                 },
                 actions: {
                   print: 'Print',
@@ -117,7 +122,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   deleteDraft: 'Delete Draft',
                   cancelOrder: 'Cancel Order',
                   receive: 'Receive',
+                  close: 'Close Order',
                 },
+                closeReason: 'Close reason',
                 receivedQuantity: 'Received',
                 remainingQuantity: 'Remaining',
                 receipts: {
@@ -126,6 +133,12 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   receivedAt: 'Received at',
                   quantity: 'Quantity',
                   totalCost: 'Total cost',
+                  batch: 'Batch',
+                  unitCost: 'Unit cost',
+                  pricing: 'Sales / MRP',
+                  tax: 'Tax',
+                  stockTransaction: 'Stock transaction',
+                  voided: 'Voided',
                 },
                 receiveDialog: {
                   title: 'Receive purchase order',
@@ -144,11 +157,15 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   taxIncluded: 'Tax included',
                   purchaseTaxIncluded: 'Purchase tax included',
                   quantityOverRemaining: 'Quantity cannot exceed remaining quantity.',
+                  addLine: 'Add line',
+                  removeLine: 'Remove',
+                  duplicateLine: 'Duplicate line',
                 },
                 dialog: {
                   deleteDraftTitle: 'Delete Draft',
                   deleteDraftBody: 'Are you sure you want to delete this draft purchase order?',
-                  cancelReasonLabel: 'Reason (required)'
+                  cancelReasonLabel: 'Reason (required)',
+                  closeReasonLabel: 'Close reason (required)'
                 }
               }
             }
@@ -313,6 +330,70 @@ describe('PurchaseOrderDetailPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).not.toContain('Cancel Order');
+  });
+
+  it('shows close action only for partially received order and dispatches closeOrder', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'PartiallyReceived' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Close Order');
+    const input = host.querySelector('input[placeholder="Close reason (required)"]') as HTMLInputElement;
+    const closeBtn = Array.from(host.querySelectorAll('button'))
+      .find((btn) => btn.textContent?.includes('Close Order')) as HTMLButtonElement;
+
+    expect(closeBtn.disabled).toBe(true);
+    input.value = 'Supplier short shipped';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    closeBtn.click();
+
+    expect(facade.closeOrder).toHaveBeenCalledWith('po-1', { reason: 'Supplier short shipped' });
+  });
+
+  it('renders receipt history with batch metadata', () => {
+    purchaseOrderSignal.set({
+      ...selectedOrder,
+      status: 'PartiallyReceived',
+      receipts: [{
+        receiptId: 'receipt-1',
+        receiptNumber: 'POR-2026-000001',
+        receivedAt: '2026-06-07T10:00:00Z',
+        referenceNumber: 'REF-1',
+        notes: null,
+        receivedByUserId: 'user-1',
+        receivedByDisplayName: null,
+        lines: [{
+          receiptLineId: 'receipt-line-1',
+          purchaseOrderLineId: 'line-1',
+          itemId: 'item-1',
+          inventoryBatchId: 'batch-1',
+          batchNumber: 'BATCH-1',
+          batchVoided: true,
+          stockTransactionId: 'stock-1',
+          quantity: 1,
+          totalPurchaseCost: 10,
+          unitCost: 10,
+          mrp: 12,
+          salesPrice: 11,
+          taxRatePercent: 5,
+          taxIncluded: false,
+          purchaseTaxIncluded: false,
+        }],
+      }],
+    });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('POR-2026-000001');
+    expect(host.textContent).toContain('BATCH-1');
+    expect(host.textContent).toContain('Voided');
+    expect(host.textContent).toContain('stock-1');
   });
 
   it('shows no lifecycle actions for Cancelled order', () => {

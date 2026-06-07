@@ -39,6 +39,15 @@ public class ReceivePurchaseOrderCommandHandlerTests
         return po;
     }
 
+    private static PurchaseOrder MakePlacedPoWithLines(Guid shopId, Guid supplierId, int expectedQuantity = 2)
+    {
+        var po = PurchaseOrder.CreateDraft(shopId, "PO-2026-000002", supplierId, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget A", expectedQuantity, 10m);
+        po.AddLine(Guid.NewGuid(), "Widget B", expectedQuantity, 20m);
+        po.Place(supplierId);
+        return po;
+    }
+
     private static ReceivePurchaseOrderCommand MakeCommand(Guid actorId, Guid shopId, PurchaseOrder po, Guid lineId, int quantity = 1) =>
         new(
             actorId,
@@ -187,6 +196,84 @@ public class ReceivePurchaseOrderCommandHandlerTests
             Arg.Is<PurchaseOrderReceipt>(receipt => receipt.Lines.Count == 1),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenReceivingMultipleLines_PersistsOneReceiptAndReceivedStatus()
+    {
+        var (actor, shop) = MakeActor(ShopRole.Manager);
+        var supplierId = Guid.NewGuid();
+        var po = MakePlacedPoWithLines(shop.Id, supplierId, expectedQuantity: 1);
+        var lines = po.Lines.ToArray();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _receiptNumberGenerator.GenerateAsync(shop.Id, 2026, Arg.Any<CancellationToken>()).Returns("POR-2026-000001");
+        _inboundProcessor.ProcessAsync(
+                shop.Id,
+                Arg.Any<InboundInventoryLineInput>(),
+                actor.Id,
+                Arg.Any<ItemResolutionContext>(),
+                Arg.Any<InventoryUpdateContext>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                MakeInboundResult(shop.Id, lines[0].ItemId, supplierId, actor.Id),
+                MakeInboundResult(shop.Id, lines[1].ItemId, supplierId, actor.Id));
+
+        var command = new ReceivePurchaseOrderCommand(
+            actor.Id,
+            shop.Id,
+            po.Id,
+            "REF-1",
+            "Received",
+            new DateTimeOffset(2026, 6, 7, 10, 0, 0, TimeSpan.Zero),
+            lines.Select(line => new ReceivePurchaseOrderLineInput(
+                line.Id,
+                $"B-{Guid.NewGuid():N}",
+                1,
+                line.UnitCost,
+                line.UnitCost + 2,
+                line.UnitCost + 1,
+                5m,
+                false,
+                false,
+                null,
+                null)).ToList());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(PurchaseOrderStatus.Received, result.Value.Status);
+        Assert.All(result.Value.Lines, line => Assert.Equal(1, line.ReceivedQuantity));
+        await _receiptRepository.Received(1).AddAsync(
+            Arg.Is<PurchaseOrderReceipt>(receipt => receipt.Lines.Count == 2),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenDuplicateReceiptLine_ReturnsValidationWithoutTransaction()
+    {
+        var (actor, shop) = MakeActor();
+        var po = MakePlacedPo(shop.Id, Guid.NewGuid());
+        var line = po.Lines.Single();
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+
+        var command = MakeCommand(actor.Id, shop.Id, po, line.Id) with
+        {
+            Lines =
+            [
+                new ReceivePurchaseOrderLineInput(line.Id, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                new ReceivePurchaseOrderLineInput(line.Id, "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+            ],
+        };
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.PurchaseOrder.DuplicateReceiptLine.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
