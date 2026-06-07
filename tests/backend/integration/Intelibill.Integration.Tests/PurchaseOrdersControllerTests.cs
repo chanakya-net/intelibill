@@ -113,6 +113,24 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         return (staffEmail, staffPassword);
     }
 
+    private static async Task<Guid> CreateItemAsync(HttpClient client, string token, string name)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/items");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            barcode = $"ITM-{Guid.NewGuid():N}",
+            uom = "pcs",
+            isActive = true,
+        });
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("id").GetGuid();
+    }
+
     private static async Task<JsonElement> CreateDraftAsync(
         HttpClient client,
         string token,
@@ -120,6 +138,9 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         string? supplierName = null,
         string? supplierReference = null)
     {
+        var itemAId = await CreateItemAsync(client, token, $"Item A {prefix}");
+        var itemBId = await CreateItemAsync(client, token, $"Item B {prefix}");
+
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/purchase-orders");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
@@ -129,8 +150,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             supplierReference,
             lines = new[]
             {
-                new { description = "Item A", expectedQuantity = 3, unitCost = 100m },
-                new { description = "Item B", expectedQuantity = 2, unitCost = 25m },
+                new { itemId = itemAId, description = "Item A", expectedQuantity = 3, unitCost = 100m },
+                new { itemId = itemBId, description = "Item B", expectedQuantity = 2, unitCost = 25m },
             },
         });
 
@@ -188,6 +209,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         using var client = CreateClient();
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
+        var itemId = await CreateItemAsync(client, ownerToken, "Staff Attempt Item");
 
         var ownerShopId = await GetShopIdFromTokenAsync(client, ownerToken);
         var (staffEmail, staffPassword) = await AddStaffAsync(client, ownerToken, ownerShopId);
@@ -198,7 +220,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         request.Content = JsonContent.Create(new
         {
             notes = "Staff attempt",
-            lines = new[] { new { description = "Item", expectedQuantity = 1, unitCost = 10m } },
+            lines = new[] { new { itemId, description = "Item", expectedQuantity = 1, unitCost = 10m } },
         });
 
         var response = await client.SendAsync(request);
@@ -393,6 +415,10 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         request.Content = JsonContent.Create(new
         {
             name,
+            address = "42 MG Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pin = "560001",
             isActive = true,
             isPreferred = false,
         });
@@ -409,6 +435,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         Guid supplierId,
         string prefix)
     {
+        var itemId = await CreateItemAsync(client, token, $"Item {prefix}");
+
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/purchase-orders");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
@@ -417,7 +445,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             notes = $"Draft for {prefix}",
             lines = new[]
             {
-                new { description = "Item A", expectedQuantity = 3, unitCost = 100m },
+                new { itemId, description = "Item A", expectedQuantity = 3, unitCost = 100m },
             },
         });
 
@@ -622,5 +650,71 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         listResponse.EnsureSuccessStatusCode();
         var body = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.GetProperty("totalCount").GetInt32() >= 1);
+    }
+
+    [Fact]
+    public async Task CancelPurchaseOrder_Draft_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var draft = await CreateDraftAsync(client, ownerToken, "CancelDraftAttempt");
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+
+        using var cancelRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = "Attempted cancel of draft" });
+
+        var cancelResponse = await client.SendAsync(cancelRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, cancelResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CancelPurchaseOrder_WithBlankReason_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Active Supplier 6");
+        var draft = await CreateDraftWithSupplierAsync(client, ownerToken, supplierId, "BlankReason");
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+
+        using var placeRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        (await client.SendAsync(placeRequest)).EnsureSuccessStatusCode();
+
+        using var cancelRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = "   " });
+
+        var cancelResponse = await client.SendAsync(cancelRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, cancelResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CancelPurchaseOrder_WithNullReason_ReturnsBadRequest()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var supplierId = await CreateSupplierAsync(client, ownerToken, "Active Supplier 7");
+        var draft = await CreateDraftWithSupplierAsync(client, ownerToken, supplierId, "NullReason");
+        var poId = draft.GetProperty("purchaseOrderId").GetGuid();
+
+        using var placeRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/place");
+        placeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        (await client.SendAsync(placeRequest)).EnsureSuccessStatusCode();
+
+        using var cancelRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/purchase-orders/{poId}/cancel");
+        cancelRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        cancelRequest.Content = JsonContent.Create(new { reason = (string?)null });
+
+        var cancelResponse = await client.SendAsync(cancelRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, cancelResponse.StatusCode);
     }
 }

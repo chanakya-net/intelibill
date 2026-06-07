@@ -107,14 +107,17 @@ public sealed class PurchaseOrder : BaseEntity
 
     public void Cancel(string reason)
     {
-        if (Status != PurchaseOrderStatus.Draft && Status != PurchaseOrderStatus.Placed)
-            throw new InvalidOperationException("Only draft or placed purchase orders can be cancelled.");
+        if (Status != PurchaseOrderStatus.Placed)
+            throw new InvalidOperationException("Only placed purchase orders can be cancelled.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidOperationException("Cancellation reason is required.");
 
         var totalReceived = _lines.Sum(l => l.ReceivedQuantity);
         if (totalReceived > 0)
             throw new InvalidOperationException("Cannot cancel a purchase order that has received items.");
 
-        CancellationReason = NormalizeOptional(reason);
+        CancellationReason = reason.Trim();
         Status = PurchaseOrderStatus.Cancelled;
     }
 

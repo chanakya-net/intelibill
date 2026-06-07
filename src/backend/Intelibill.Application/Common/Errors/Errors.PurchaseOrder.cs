@@ -61,7 +61,10 @@ public static partial class Errors
             Error.Validation("PurchaseOrder.CannotCancelAfterReceipt", "Cannot cancel a purchase order that has received items.");
 
         public static Error CannotCancelInvalidStatus =>
-            Error.Validation("PurchaseOrder.CannotCancelInvalidStatus", "Only draft or placed purchase orders can be cancelled.");
+            Error.Validation("PurchaseOrder.CannotCancelInvalidStatus", "Only placed purchase orders can be cancelled.");
+
+        public static Error CancellationReasonRequired =>
+            Error.Validation("PurchaseOrder.CancellationReasonRequired", "Cancellation reason is required.");
 
         public static Error UserCannotMutatePurchaseOrder =>
             Error.Forbidden("PurchaseOrder.UserCannotMutatePurchaseOrder", "Only owner or manager can perform this action.");

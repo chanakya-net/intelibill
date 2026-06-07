@@ -2,8 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { PurchaseOrderDetail, PurchaseOrderLine } from '../services/purchase-order.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { PurchaseOrderDetailPageComponent } from './purchase-order-detail-page.component';
@@ -11,6 +12,7 @@ import { PurchaseOrderDetailPageComponent } from './purchase-order-detail-page.c
 const purchaseOrderSignal = signal<PurchaseOrderDetail | null>(null);
 const loadingDetailSignal = signal(false);
 const errorMessageSignal = signal('');
+const canManagePurchaseOrdersSignal = signal(true);
 
 const orderLines: readonly PurchaseOrderLine[] = [
   {
@@ -61,20 +63,32 @@ describe('PurchaseOrderDetailPageComponent', () => {
     errorMessage: errorMessageSignal,
     loadDetail: vi.fn(),
     clearDetail: vi.fn(),
+    placeOrder: vi.fn(),
+    deleteDraft: vi.fn(),
+    cancelOrder: vi.fn(),
+  };
+
+  const permissions = {
+    canManagePurchaseOrders: canManagePurchaseOrdersSignal,
   };
 
   beforeEach(() => {
     facade.loadDetail.mockReset();
     facade.clearDetail.mockReset();
+    facade.placeOrder.mockReset();
+    facade.deleteDraft.mockReset();
+    facade.cancelOrder.mockReset();
     loadingDetailSignal.set(false);
     purchaseOrderSignal.set(null);
     errorMessageSignal.set('');
+    canManagePurchaseOrdersSignal.set(true);
 
     TestBed.configureTestingModule({
       imports: [PurchaseOrderDetailPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: ActivatedRoute, useValue: route },
+        { provide: ShopPermissionsService, useValue: permissions },
       ],
     });
   });
@@ -123,5 +137,101 @@ describe('PurchaseOrderDetailPageComponent', () => {
 
     expect(facade.clearDetail).toHaveBeenCalled();
     expect(component).toBeDefined();
+  });
+
+  it('shows edit/place/delete actions for Draft order when Owner/Manager', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('purchaseOrders.editPo');
+    expect(host.textContent).toContain('purchaseOrders.actions.place');
+    expect(host.textContent).toContain('purchaseOrders.actions.delete');
+  });
+
+  it('hides edit/place/delete actions for Draft when Staff', () => {
+    canManagePurchaseOrdersSignal.set(false);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.editPo');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.place');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.delete');
+  });
+
+  it('shows cancel form for Placed order when Owner/Manager', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Placed' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('purchaseOrders.actions.cancel');
+    expect(host.textContent).not.toContain('purchaseOrders.editPo');
+  });
+
+  it('hides cancel form for Placed order when Staff', () => {
+    canManagePurchaseOrdersSignal.set(false);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Placed' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.actions.cancel');
+  });
+
+  it('shows no lifecycle actions for Cancelled order', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({
+      ...selectedOrder,
+      status: 'Cancelled',
+      cancellationReason: 'Supplier unavailable',
+    });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.editPo');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.place');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.delete');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.cancel');
+    expect(host.textContent).toContain('Supplier unavailable');
+  });
+
+  it('dispatches placeOrder when place button clicked', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const placeButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((btn) => btn.textContent?.includes('purchaseOrders.actions.place'));
+    placeButton?.click();
+
+    expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
+  });
+
+  it('dispatches deleteDraft when delete button clicked', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const deleteButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((btn) => btn.textContent?.includes('purchaseOrders.actions.delete'));
+    deleteButton?.click();
+
+    expect(facade.deleteDraft).toHaveBeenCalledWith('po-1');
   });
 });

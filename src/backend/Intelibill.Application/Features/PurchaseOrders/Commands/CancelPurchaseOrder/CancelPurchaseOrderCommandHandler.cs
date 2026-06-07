@@ -36,13 +36,16 @@ public sealed class CancelPurchaseOrderCommandHandler(
         if (po is null)
             return Errors.PurchaseOrder.NotFound;
 
-        if (po.Status != PurchaseOrderStatus.Draft && po.Status != PurchaseOrderStatus.Placed)
+        if (po.Status != PurchaseOrderStatus.Placed)
             return Errors.PurchaseOrder.CannotCancelInvalidStatus;
+
+        if (string.IsNullOrWhiteSpace(command.Reason))
+            return Errors.PurchaseOrder.CancellationReasonRequired;
 
         if (po.Lines.Sum(l => l.ReceivedQuantity) > 0)
             return Errors.PurchaseOrder.CannotCancelAfterReceipt;
 
-        po.Cancel(command.Reason ?? string.Empty);
+        po.Cancel(command.Reason);
 
         purchaseOrderRepository.Update(po);
         await unitOfWork.SaveChangesAsync(cancellationToken);

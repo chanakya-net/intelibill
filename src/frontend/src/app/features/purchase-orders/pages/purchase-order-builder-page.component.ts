@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { PurchaseOrderLineFormComponent } from '../components/purchase-order-line-form.component';
 import { PurchaseOrderLinesTableComponent } from '../components/purchase-order-lines-table.component';
@@ -95,6 +96,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly suppliersFacade = inject(SuppliersFacade);
+  private readonly permissions = inject(ShopPermissionsService);
 
   protected readonly draftState = inject(PurchaseOrderDraftStateService);
   protected readonly facade = inject(PurchaseOrdersFacade);
@@ -119,6 +121,10 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     effect(() => {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
+        if (order.status !== 'Draft') {
+          void this.router.navigate(['/inventory/purchase-orders', order.purchaseOrderId]);
+          return;
+        }
         if (this.draftState.hasRestoredLocalDraft() && this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
           this.patchHeaderForm();
           return;
@@ -153,6 +159,15 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    if (!this.permissions.canManagePurchaseOrders()) {
+      if (this.purchaseOrderId) {
+        void this.router.navigate(['/inventory/purchase-orders', this.purchaseOrderId]);
+      } else {
+        void this.router.navigate(['/inventory/purchase-orders']);
+      }
+      return;
+    }
+
     this.suppliersFacade.load();
     const shopId = this.activeShopId();
     await this.draftState.loadDraft(shopId, this.purchaseOrderId);

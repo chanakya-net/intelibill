@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import {
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   PurchaseOrderListItem,
@@ -34,6 +35,7 @@ const createSucceededSignal = signal(false);
 const errorMessageSignal = signal('');
 const filtersSignal = signal(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
 const paginationSignal = signal({ totalCount: 1, pageNumber: 1, pageSize: 20 });
+const canManagePurchaseOrdersSignal = signal(true);
 
 const facade = {
   orders: purchaseOrderSignal,
@@ -53,6 +55,10 @@ const facade = {
   resetListFilters: vi.fn(),
 };
 
+const permissions = {
+  canManagePurchaseOrders: canManagePurchaseOrdersSignal,
+};
+
 const router = {
   navigate: vi.fn(),
 };
@@ -60,6 +66,7 @@ const router = {
 describe('PurchaseOrdersListPageComponent', () => {
   beforeEach(() => {
     loadingSignal.set(false);
+    canManagePurchaseOrdersSignal.set(true);
     facade.loadOrders.mockReset();
     facade.resetListFilters.mockReset();
     router.navigate.mockReset();
@@ -86,6 +93,7 @@ describe('PurchaseOrdersListPageComponent', () => {
         { provide: Router, useValue: router },
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: PurchaseOrderService, useValue: {} },
+        { provide: ShopPermissionsService, useValue: permissions },
       ],
     });
   });
@@ -188,5 +196,78 @@ describe('PurchaseOrdersListPageComponent', () => {
     await fixture.whenStable();
 
     expect(router.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders', 'po-1']);
+  });
+
+  it('shows new-PO link for Owner/Manager', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('purchaseOrders.newPo');
+  });
+
+  it('hides new-PO link for Staff', () => {
+    canManagePurchaseOrdersSignal.set(false);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.newPo');
+  });
+
+  it('shows edit link for Draft order when Owner/Manager', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set([
+      {
+        purchaseOrderId: 'po-1',
+        purchaseOrderNumber: 'PO-2026-000001',
+        status: 'Draft',
+        supplierName: null,
+        supplierReference: null,
+        lineCount: 1,
+        expectedQuantity: 1,
+        receivedQuantity: 0,
+        expectedTotal: 100,
+        createdAt: '2026-06-01T00:00:00Z',
+      },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('purchaseOrders.editPo');
+  });
+
+  it('hides edit link for non-Draft order', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set([
+      {
+        purchaseOrderId: 'po-2',
+        purchaseOrderNumber: 'PO-2026-000002',
+        status: 'Placed',
+        supplierName: null,
+        supplierReference: null,
+        lineCount: 1,
+        expectedQuantity: 3,
+        receivedQuantity: 0,
+        expectedTotal: 300,
+        createdAt: '2026-06-01T00:00:00Z',
+      },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.editPo');
+  });
+
+  it('hides edit link for Staff even on Draft order', () => {
+    canManagePurchaseOrdersSignal.set(false);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).not.toContain('purchaseOrders.editPo');
   });
 });

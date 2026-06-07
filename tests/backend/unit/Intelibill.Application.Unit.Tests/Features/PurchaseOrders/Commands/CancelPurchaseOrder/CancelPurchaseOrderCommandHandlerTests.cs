@@ -62,8 +62,11 @@ public class CancelPurchaseOrderCommandHandlerTests
     public async Task HandleAsync_WhenAlreadyCancelled_ReturnsCannotCancelInvalidStatus()
     {
         var (actor, shop) = MakeOwner();
-        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, null);
-        po.Cancel("first");
+        var supplier = Supplier.Create(shop.Id, "Acme", null, null, null, null, null, null, true, false);
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", supplier.Id, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(supplier.Id);
+        po.Cancel("first reason");
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
@@ -96,7 +99,7 @@ public class CancelPurchaseOrderCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_DraftWithNoReceipts_CancelsAndSaves()
+    public async Task HandleAsync_WhenDraft_ReturnsCannotCancelInvalidStatus()
     {
         var (actor, shop) = MakeOwner();
         var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, null);
@@ -105,14 +108,51 @@ public class CancelPurchaseOrderCommandHandlerTests
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new CancelPurchaseOrderCommand(actor.Id, shop.Id, po.Id, "Ordered by mistake"),
+            new CancelPurchaseOrderCommand(actor.Id, shop.Id, po.Id, "reason"),
             CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Equal(PurchaseOrderStatus.Cancelled, result.Value.Status);
-        Assert.Equal("Ordered by mistake", result.Value.CancellationReason);
-        _poRepository.Received(1).Update(Arg.Is<PurchaseOrder>(p => p.Status == PurchaseOrderStatus.Cancelled));
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.PurchaseOrder.CannotCancelInvalidStatus.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenNullReason_ReturnsCancellationReasonRequired()
+    {
+        var (actor, shop) = MakeOwner();
+        var supplier = Supplier.Create(shop.Id, "Acme", null, null, null, null, null, null, true, false);
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", supplier.Id, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(supplier.Id);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+
+        var result = await CreateHandler().HandleAsync(
+            new CancelPurchaseOrderCommand(actor.Id, shop.Id, po.Id, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.PurchaseOrder.CancellationReasonRequired.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenBlankReason_ReturnsCancellationReasonRequired()
+    {
+        var (actor, shop) = MakeOwner();
+        var supplier = Supplier.Create(shop.Id, "Acme", null, null, null, null, null, null, true, false);
+        var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", supplier.Id, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(supplier.Id);
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+
+        var result = await CreateHandler().HandleAsync(
+            new CancelPurchaseOrderCommand(actor.Id, shop.Id, po.Id, "   "),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.PurchaseOrder.CancellationReasonRequired.Code, result.FirstError.Code);
     }
 
     [Fact]

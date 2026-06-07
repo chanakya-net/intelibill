@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { PurchaseOrderDraftIndexedDbService, type PurchaseOrderDraftRecord } from '../../../core/storage/purchase-order-draft-indexeddb.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
@@ -19,6 +20,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
   const selectedOrder = signal<PurchaseOrderDetail | null>(null);
   const suppliers = signal<readonly SupplierStub[]>([]);
   const session = signal({ activeShopId: 'shop-1' });
+  const canManagePurchaseOrders = signal(true);
   const records = new Map<string, PurchaseOrderDraftRecord>();
   const facade = {
     selectedOrder,
@@ -47,6 +49,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     selectedOrder.set(null);
     suppliers.set([]);
     records.clear();
+    canManagePurchaseOrders.set(true);
     facade.loadDetail.mockReset();
     facade.updateDraft.mockReset();
     facade.createDraft.mockReset();
@@ -62,6 +65,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (key: string) => key === 'purchaseOrderId' ? 'po-1' : null } } } },
         { provide: AuthService, useValue: { session } },
+        { provide: ShopPermissionsService, useValue: { canManagePurchaseOrders } },
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: SuppliersFacade, useValue: suppliersFacade },
         { provide: PurchaseOrderDraftIndexedDbService, useValue: storage },
@@ -130,6 +134,15 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(draftState.header().notes).toBeNull();
     expect(draftState.lines()).toEqual([]);
     expect(facade.loadDetail).toHaveBeenCalledWith('po-1');
+  });
+
+  it('redirects to list when Staff tries to access builder', async () => {
+    canManagePurchaseOrders.set(false);
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    await fixture.componentInstance.ngOnInit();
+
+    expect(facade.loadDetail).not.toHaveBeenCalled();
+    expect(storage.loadDraft).not.toHaveBeenCalled();
   });
 });
 

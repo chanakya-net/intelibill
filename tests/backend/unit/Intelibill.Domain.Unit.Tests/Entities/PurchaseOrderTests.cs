@@ -143,14 +143,11 @@ public class PurchaseOrderTests
     // ---- Cancel ----
 
     [Fact]
-    public void Cancel_DraftWithNoReceipts_SetsCancelledStatus()
+    public void Cancel_Draft_Throws()
     {
         var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
 
-        po.Cancel("Ordered by mistake");
-
-        Assert.Equal(PurchaseOrderStatus.Cancelled, po.Status);
-        Assert.Equal("Ordered by mistake", po.CancellationReason);
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("Ordered by mistake"));
     }
 
     [Fact]
@@ -163,15 +160,28 @@ public class PurchaseOrderTests
         po.Cancel("Supplier unavailable");
 
         Assert.Equal(PurchaseOrderStatus.Cancelled, po.Status);
+        Assert.Equal("Supplier unavailable", po.CancellationReason);
     }
 
     [Fact]
     public void Cancel_AlreadyCancelled_Throws()
     {
         var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
         po.Cancel("First reason");
 
         Assert.Throws<InvalidOperationException>(() => po.Cancel("Second reason"));
+    }
+
+    [Fact]
+    public void Cancel_WithEmptyReason_Throws()
+    {
+        var po = PurchaseOrder.CreateDraft(Guid.NewGuid(), "PO-2026-000001", null, null, null, null, null);
+        po.AddLine(Guid.NewGuid(), "Widget", 5, 10m);
+        po.Place(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => po.Cancel("   "));
     }
 
     [Fact]
