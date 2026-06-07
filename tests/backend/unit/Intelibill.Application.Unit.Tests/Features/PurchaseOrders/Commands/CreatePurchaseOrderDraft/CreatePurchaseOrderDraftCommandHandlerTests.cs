@@ -147,6 +147,30 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_EmptyLineItemId_ReturnsItemRequiredError()
+    {
+        var (actor, shop) = MakeOwner();
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _numberGenerator.GenerateAsync(shop.Id, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns("PO-2026-000001");
+
+        var result = await CreateHandler().HandleAsync(
+            new CreatePurchaseOrderDraftCommand(
+                actor.Id,
+                shop.Id,
+                null,
+                null,
+                null,
+                null,
+                null,
+                [new CreatePurchaseOrderLineInput(Guid.Empty, "Widget", 1, 5m)]),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.PurchaseOrder.LineItemRequired.Code, result.FirstError.Code);
+    }
+
+    [Fact]
     public async Task HandleAsync_ValidOwner_AddsPoAndSaves()
     {
         var (actor, shop) = MakeOwner();

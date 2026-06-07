@@ -67,7 +67,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
                 if (lineInput.ItemId == Guid.Empty)
                 {
                     await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.LineDescriptionRequired;
+                    return Errors.PurchaseOrder.LineItemRequired;
                 }
 
                 var description = lineInput.Description?.Trim() ?? string.Empty;

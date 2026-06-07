@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -36,6 +36,9 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
       <button type="button" (click)="quickCreateProduct()" [disabled]="form.controls.description.invalid">
         {{ 'purchaseOrders.builder.quickCreateProduct' | transloco }}
       </button>
+      @if (quickCreateError()) {
+        <p class="po-line-form__error" aria-live="polite">{{ quickCreateError() | transloco }}</p>
+      }
     </form>
   `,
   styles: [`
@@ -43,6 +46,7 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
     label { display: grid; gap: .25rem; font-size: .875rem; }
     input { min-height: 2.25rem; padding: .35rem .5rem; }
     button { min-height: 2.25rem; }
+    .po-line-form__error { grid-column: 1 / -1; margin: 0; color: #b42318; font-size: .875rem; }
     @media (max-width: 760px) { .po-line-form { grid-template-columns: 1fr; } }
   `],
 })
@@ -52,6 +56,7 @@ export class PurchaseOrderLineFormComponent {
   private readonly catalogSync = inject(ProductCatalogSyncService);
 
   @Output() readonly lineSubmitted = new EventEmitter<CreatePurchaseOrderLineRequest>();
+  readonly quickCreateError = signal('');
 
   readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.maxLength(500)]],
@@ -73,25 +78,41 @@ export class PurchaseOrderLineFormComponent {
   async quickCreateProduct(): Promise<void> {
     if (this.form.controls.description.invalid) return;
 
+    this.quickCreateError.set('');
     const line = this.buildLineValues();
-    const payload: AddItemRequest = {
-      name: line.description,
-      barcode: '',
-      description: null,
-      uom: 'pcs',
-      isActive: true,
-      hsnCode: null,
-      defaultTaxRatePercent: 0,
-    };
-    const item = await firstValueFrom(this.inventoryService.addItem(payload));
-    this.catalogSync.upsertEntry({ itemId: item.id, name: item.name, barcode: item.barcode });
-    this.lineSubmitted.emit({
-      itemId: item.id,
-      description: item.name,
-      expectedQuantity: line.expectedQuantity,
-      unitCost: line.unitCost,
-    });
-    this.form.reset({ description: '', expectedQuantity: 1, unitCost: 0 });
+    if (!line.description) {
+      this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
+      return;
+    }
+
+    try {
+      const barcode = (await firstValueFrom(this.inventoryService.generateItemBarcode())).barcode.trim();
+      if (!barcode) {
+        this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
+        return;
+      }
+
+      const payload: AddItemRequest = {
+        name: line.description,
+        barcode,
+        description: null,
+        uom: 'pcs',
+        isActive: true,
+        hsnCode: null,
+        defaultTaxRatePercent: 0,
+      };
+      const item = await firstValueFrom(this.inventoryService.addItem(payload));
+      this.catalogSync.upsertEntry({ itemId: item.id, name: item.name, barcode: item.barcode });
+      this.lineSubmitted.emit({
+        itemId: item.id,
+        description: item.name,
+        expectedQuantity: line.expectedQuantity,
+        unitCost: line.unitCost,
+      });
+      this.form.reset({ description: '', expectedQuantity: 1, unitCost: 0 });
+    } catch {
+      this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
+    }
   }
 
   private buildLineFromSelectedItem(): CreatePurchaseOrderLineRequest | null {

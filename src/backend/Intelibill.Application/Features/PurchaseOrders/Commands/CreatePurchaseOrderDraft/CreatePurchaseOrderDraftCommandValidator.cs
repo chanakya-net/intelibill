@@ -21,7 +21,7 @@ internal sealed class CreatePurchaseOrderDraftCommandValidator : AbstractValidat
             {
                 line.RuleFor(l => l.ItemId)
                     .NotEmpty()
-                    .WithErrorCode(Errors.PurchaseOrder.LineDescriptionRequired.Code);
+                    .WithErrorCode(Errors.PurchaseOrder.LineItemRequired.Code);
 
                 line.RuleFor(l => l.Description)
                     .NotEmpty()

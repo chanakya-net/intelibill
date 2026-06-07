@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 
 namespace Intelibill.Application.Unit.Tests.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
@@ -6,6 +7,24 @@ namespace Intelibill.Application.Unit.Tests.Features.PurchaseOrders.Commands.Cre
 public class CreatePurchaseOrderDraftCommandValidatorTests
 {
     private readonly CreatePurchaseOrderDraftCommandValidator _validator = new();
+
+    [Fact]
+    public void Validate_WhenLineItemIdEmpty_ReturnsItemRequiredError()
+    {
+        var command = new CreatePurchaseOrderDraftCommand(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            [new CreatePurchaseOrderLineInput(Guid.Empty, "Item", 1, 10m)]);
+
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor("Lines[0].ItemId")
+            .WithErrorCode(Errors.PurchaseOrder.LineItemRequired.Code);
+    }
 
     [Fact]
     public void Validate_WhenLineDescriptionEmpty_ReturnsError()

@@ -128,8 +128,8 @@ export class PurchaseOrderDraftStateService {
     return 'added';
   }
 
-  async removeLine(shopId: string, description: string): Promise<void> {
-    this.lines.update((lines) => lines.filter((line) => line.itemId !== description));
+  async removeLine(shopId: string, itemId: string): Promise<void> {
+    this.lines.update((lines) => lines.filter((line) => line.itemId !== itemId));
     await this.saveDraft(shopId);
   }
 

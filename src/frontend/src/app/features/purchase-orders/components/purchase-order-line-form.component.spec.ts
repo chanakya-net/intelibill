@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -14,7 +14,8 @@ describe('PurchaseOrderLineFormComponent', () => {
     upsertEntry: vi.fn(),
   };
   const inventory = {
-    addItem: vi.fn(() => of({ id: 'item-2', name: 'New Item', barcode: '' })),
+    generateItemBarcode: vi.fn(() => of({ barcode: 'IT-PO-000001' })),
+    addItem: vi.fn(() => of({ id: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' })),
   };
 
   let fixture: ComponentFixture<PurchaseOrderLineFormComponent>;
@@ -24,7 +25,10 @@ describe('PurchaseOrderLineFormComponent', () => {
     catalog.filterByName.mockClear();
     catalog.findByName.mockClear();
     catalog.upsertEntry.mockClear();
+    inventory.generateItemBarcode.mockReset();
+    inventory.generateItemBarcode.mockReturnValue(of({ barcode: 'IT-PO-000001' }));
     inventory.addItem.mockClear();
+    inventory.addItem.mockReturnValue(of({ id: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' }));
     TestBed.configureTestingModule({
       imports: [PurchaseOrderLineFormComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
@@ -53,8 +57,23 @@ describe('PurchaseOrderLineFormComponent', () => {
 
     await component.quickCreateProduct();
 
-    expect(inventory.addItem).toHaveBeenCalled();
-    expect(catalog.upsertEntry).toHaveBeenCalledWith({ itemId: 'item-2', name: 'New Item', barcode: '' });
+    expect(inventory.addItem).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'New Item',
+      barcode: 'IT-PO-000001',
+    }));
+    expect(catalog.upsertEntry).toHaveBeenCalledWith({ itemId: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' });
     expect(emitted).toEqual([{ itemId: 'item-2', description: 'New Item', expectedQuantity: 3, unitCost: 12 }]);
+  });
+
+  it('shows an error and does not emit when quick-create fails', async () => {
+    const emitted: unknown[] = [];
+    inventory.addItem.mockReturnValue(throwError(() => new Error('failed')));
+    component.lineSubmitted.subscribe((line) => emitted.push(line));
+    component.form.setValue({ description: 'New Item', expectedQuantity: 3, unitCost: 12 });
+
+    await component.quickCreateProduct();
+
+    expect(emitted).toEqual([]);
+    expect(component.quickCreateError()).toBe('purchaseOrders.builder.quickCreateFailed');
   });
 });

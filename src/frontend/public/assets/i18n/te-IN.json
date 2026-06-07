@@ -1446,6 +1446,7 @@
       "total": "Line Total",
       "addLine": "Add line",
       "quickCreateProduct": "Quick Create Product",
+      "quickCreateFailed": "Unable to create product.",
       "remove": "Remove",
       "noLines": "No lines",
       "saveDraft": "Save Draft",

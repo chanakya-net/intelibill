@@ -15,6 +15,9 @@ public static partial class Errors
         public static Error LineDescriptionRequired =>
             Error.Validation("PurchaseOrder.LineDescriptionRequired", "Line description is required.");
 
+        public static Error LineItemRequired =>
+            Error.Validation("PurchaseOrder.LineItemRequired", "Line item is required.");
+
         public static Error InvalidLineQuantity =>
             Error.Validation("PurchaseOrder.InvalidLineQuantity", "Expected quantity must be greater than zero.");
 
