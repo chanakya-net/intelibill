@@ -553,5 +553,9 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         }
 
         public void ClearChanges() { }
+
+        public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

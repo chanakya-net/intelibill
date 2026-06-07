@@ -115,7 +115,8 @@
     "manageBankAccounts": "बैंक खाते",
     "profitLossReport": "लाभ और हानि",
     "dashboard": "डैशबोर्ड",
-    "manageDiscounts": "छूट"
+    "manageDiscounts": "छूट",
+    "purchaseOrders": "Manage Purchase Orders"
   },
   "services": {
     "directory": "Service Directory",
@@ -507,7 +508,7 @@
     "barcodeOrSku": "Barcode / SKU",
     "nameOrBarcode": "Search by product name or barcode",
     "paginationFooter": "Showing {{start}} to {{end}} of {{total}} products",
-    "printLabels": "Print Labels",
+    "printLabels": "Print labels",
     "printSelectedLabels": "Print Selected Labels",
     "selectAllBatches": "Select all batches",
     "printSuccessfulRows": "Print labels for successful rows",
@@ -539,7 +540,6 @@
     "confirmReplace": "Replace",
     "keepCurrentBarcode": "Keep current",
     "printLabel": "Print label",
-    "printLabels": "Print labels",
     "printBarcode": {
       "prompt": {
         "header": "Print barcode?",
@@ -1381,6 +1381,31 @@
       "snapshotIncomplete": "Snapshot setup did not complete. Please retry.",
       "leaseUnavailable": "Invoice lease could not be reserved. Please retry.",
       "enableFailed": "Offline setup failed. Please retry."
+    }
+  },
+  "purchaseOrders": {
+    "title": "Purchase Orders",
+    "poNumber": "PO Number",
+    "status": "Status",
+    "lineCount": "Lines",
+    "expectedTotal": "Expected Total",
+    "createdAt": "Created At",
+    "noDrafts": "No draft purchase orders found.",
+    "notes": "Notes",
+    "lineDescription": "Description",
+    "expectedQuantity": "Qty",
+    "unitCost": "Unit Cost",
+    "lineTotal": "Line Total",
+    "errors": {
+      "unableToLoad": "Unable to load purchase orders.",
+      "unableToLoadDetail": "Unable to load purchase order details.",
+      "unableToCreate": "Unable to create purchase order.",
+      "notFound": "Purchase order not found.",
+      "forbidden": "Only owner or manager can create purchase orders.",
+      "invalidLineQuantity": "Expected quantity must be positive.",
+      "invalidLineUnitCost": "Unit cost cannot be negative.",
+      "duplicateItem": "Order contains duplicate line descriptions.",
+      "lineDescriptionRequired": "Line description is required."
     }
   }
 }

@@ -1186,6 +1186,133 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("password_reset_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("PurchaseOrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("purchase_order_number");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_orders");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_purchase_orders_shop_id");
+
+                    b.HasIndex("ShopId", "PurchaseOrderNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_orders_shop_id_purchase_order_number");
+
+                    b.ToTable("purchase_orders", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("ExpectedQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("expected_quantity");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_order_id");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_order_lines");
+
+                    b.HasIndex("PurchaseOrderId")
+                        .HasDatabaseName("ix_purchase_order_lines_purchase_order_id");
+
+                    b.ToTable("purchase_order_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrderSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_order_sequences");
+
+                    b.HasIndex("ShopId", "Year")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_order_sequences_shop_id_year");
+
+                    b.ToTable("purchase_order_sequences", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2856,6 +2983,36 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_orders_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrderLine", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseOrder", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_lines_purchase_orders_purchase_order_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrderSequence", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_sequences_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
@@ -3123,6 +3280,11 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("Inventory");
 
                     b.Navigation("StockTransactions");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Sale", b =>
