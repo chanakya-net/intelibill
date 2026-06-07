@@ -58,7 +58,7 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-            .OrderBy(po => GetStatusSortOrder(po.Status))
+            .OrderBy(po => po.Status == PurchaseOrderStatus.Draft ? 0 : 99)
             .ThenByDescending(po => po.CreatedAt)
             .ThenByDescending(po => po.Id)
             .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -70,11 +70,4 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
 
     private static DateTimeOffset ToUtcStart(DateOnly date) =>
         new(DateTime.SpecifyKind(date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
-
-    private static int GetStatusSortOrder(PurchaseOrderStatus status) =>
-        status switch
-        {
-            PurchaseOrderStatus.Draft => 0,
-            _ => 99,
-        };
 }

@@ -9,7 +9,7 @@ internal sealed class GetPurchaseOrdersQueryValidator : AbstractValidator<GetPur
     {
         RuleFor(x => x)
             .Must(x => x.OrderDateFrom is null || x.OrderDateTo is null || x.OrderDateFrom <= x.OrderDateTo)
-            .WithErrorCode(Errors.PurchaseOrder.InvalidPageSize.Code)
-            .WithMessage("Order date from must be on or before order date to.");
+            .WithErrorCode(Errors.PurchaseOrder.InvalidOrderDateRange.Code)
+            .WithMessage(Errors.PurchaseOrder.InvalidOrderDateRange.Description);
     }
 }

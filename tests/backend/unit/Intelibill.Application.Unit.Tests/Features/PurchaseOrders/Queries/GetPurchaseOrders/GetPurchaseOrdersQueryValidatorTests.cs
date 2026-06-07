@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
 
 namespace Intelibill.Application.Unit.Tests.Features.PurchaseOrders.Queries.GetPurchaseOrders;
@@ -16,7 +17,8 @@ public class GetPurchaseOrdersQueryValidatorTests
             OrderDateFrom: new DateOnly(2026, 6, 2),
             OrderDateTo: new DateOnly(2026, 6, 1));
         var result = _validator.TestValidate(query);
-        result.ShouldHaveValidationErrorFor(x => x);
+        var failure = result.ShouldHaveValidationErrorFor(x => x).First();
+        Assert.Equal(Errors.PurchaseOrder.InvalidOrderDateRange.Code, failure.ErrorCode);
     }
 
     [Fact]
