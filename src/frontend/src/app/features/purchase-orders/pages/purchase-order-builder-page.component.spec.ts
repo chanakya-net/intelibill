@@ -62,7 +62,10 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [PurchaseOrderBuilderPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
-        provideRouter([]),
+        provideRouter([
+          { path: 'inventory/purchase-orders', redirectTo: '' },
+          { path: 'inventory/purchase-orders/:purchaseOrderId', redirectTo: '' }
+        ]),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (key: string) => key === 'purchaseOrderId' ? 'po-1' : null } } } },
         { provide: AuthService, useValue: { session } },
         { provide: ShopPermissionsService, useValue: { canManagePurchaseOrders } },

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Action } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
+import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
@@ -23,6 +24,10 @@ describe('PurchaseOrdersEffects', () => {
     cancelPurchaseOrder: vi.fn<PurchaseOrderService['cancelPurchaseOrder']>(),
   };
 
+  const mockRouter = {
+    navigate: vi.fn(),
+  };
+
   beforeEach(() => {
     actions$ = new Subject<Action>();
     service.getPurchaseOrders.mockReset();
@@ -32,11 +37,13 @@ describe('PurchaseOrdersEffects', () => {
     service.placePurchaseOrder.mockReset();
     service.deleteDraft.mockReset();
     service.cancelPurchaseOrder.mockReset();
+    mockRouter.navigate.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
         PurchaseOrdersEffects,
         { provide: PurchaseOrderService, useValue: service },
+        { provide: Router, useValue: mockRouter },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -310,5 +317,11 @@ describe('PurchaseOrdersEffects', () => {
         errorMessage: 'purchaseOrders.errors.cannotCancelAfterReceipt',
       })
     );
+  });
+
+  it('navigates to list page on deleteDraftSucceeded', () => {
+    effects.deleteDraftSucceeded$.subscribe();
+    actions$.next(PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders']);
   });
 });

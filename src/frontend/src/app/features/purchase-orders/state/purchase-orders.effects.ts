@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { Router } from '@angular/router';
+import { catchError, map, of, switchMap, tap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderService } from '../services/purchase-order.service';
@@ -10,6 +11,7 @@ import { PurchaseOrdersActions } from './purchase-orders.actions';
 export class PurchaseOrdersEffects {
   private readonly actions$ = inject(Actions);
   private readonly service = inject(PurchaseOrderService);
+  private readonly router = inject(Router);
 
   readonly loadOrders$ = createEffect(() =>
     this.actions$.pipe(
@@ -117,6 +119,17 @@ export class PurchaseOrdersEffects {
         )
       )
     )
+  );
+
+  readonly deleteDraftSucceeded$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(PurchaseOrdersActions.deleteDraftSucceeded),
+        tap(() => {
+          void this.router.navigate(['/inventory/purchase-orders']);
+        })
+      ),
+    { dispatch: false }
   );
 
   readonly cancelOrder$ = createEffect(() =>

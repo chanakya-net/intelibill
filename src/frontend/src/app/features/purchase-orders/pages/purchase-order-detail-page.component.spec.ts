@@ -84,7 +84,33 @@ describe('PurchaseOrderDetailPageComponent', () => {
     canManagePurchaseOrdersSignal.set(true);
 
     TestBed.configureTestingModule({
-      imports: [PurchaseOrderDetailPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        PurchaseOrderDetailPageComponent,
+        TranslocoTestingModule.forRoot({
+          langs: {
+            en: {
+              purchaseOrders: {
+                editPo: 'Edit Purchase Order Draft',
+                status: 'Status',
+                expectedTotal: 'Expected Total',
+                actions: {
+                  placeOrder: 'Place Order',
+                  deleteDraft: 'Delete Draft',
+                  cancelOrder: 'Cancel Order',
+                },
+                dialog: {
+                  cancelReasonLabel: 'Reason (optional)'
+                }
+              }
+            }
+          },
+          translocoConfig: {
+            defaultLang: 'en',
+            availableLangs: ['en'],
+          },
+          preloadLangs: true
+        })
+      ],
       providers: [
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: ActivatedRoute, useValue: route },
@@ -147,9 +173,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('purchaseOrders.editPo');
-    expect(host.textContent).toContain('purchaseOrders.actions.place');
-    expect(host.textContent).toContain('purchaseOrders.actions.delete');
+    expect(host.textContent).toContain('Edit Purchase Order Draft');
+    expect(host.textContent).toContain('Place Order');
+    expect(host.textContent).toContain('Delete Draft');
   });
 
   it('hides edit/place/delete actions for Draft when Staff', () => {
@@ -160,9 +186,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).not.toContain('purchaseOrders.editPo');
-    expect(host.textContent).not.toContain('purchaseOrders.actions.place');
-    expect(host.textContent).not.toContain('purchaseOrders.actions.delete');
+    expect(host.textContent).not.toContain('Edit Purchase Order Draft');
+    expect(host.textContent).not.toContain('Place Order');
+    expect(host.textContent).not.toContain('Delete Draft');
   });
 
   it('shows cancel form for Placed order when Owner/Manager', () => {
@@ -173,8 +199,12 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('purchaseOrders.actions.cancel');
-    expect(host.textContent).not.toContain('purchaseOrders.editPo');
+    expect(host.textContent).toContain('Cancel Order');
+    expect(host.textContent).not.toContain('Edit Purchase Order Draft');
+
+    const input = host.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.placeholder).toBe('Reason (optional)');
   });
 
   it('hides cancel form for Placed order when Staff', () => {
@@ -185,7 +215,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).not.toContain('purchaseOrders.actions.cancel');
+    expect(host.textContent).not.toContain('Cancel Order');
   });
 
   it('shows no lifecycle actions for Cancelled order', () => {
@@ -200,10 +230,10 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).not.toContain('purchaseOrders.editPo');
-    expect(host.textContent).not.toContain('purchaseOrders.actions.place');
-    expect(host.textContent).not.toContain('purchaseOrders.actions.delete');
-    expect(host.textContent).not.toContain('purchaseOrders.actions.cancel');
+    expect(host.textContent).not.toContain('Edit Purchase Order Draft');
+    expect(host.textContent).not.toContain('Place Order');
+    expect(host.textContent).not.toContain('Delete Draft');
+    expect(host.textContent).not.toContain('Cancel Order');
     expect(host.textContent).toContain('Supplier unavailable');
   });
 
@@ -215,7 +245,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const placeButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('purchaseOrders.actions.place'));
+      .find((btn) => btn.textContent?.includes('Place Order'));
     placeButton?.click();
 
     expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
@@ -229,7 +259,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     fixture.detectChanges();
 
     const deleteButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('purchaseOrders.actions.delete'));
+      .find((btn) => btn.textContent?.includes('Delete Draft'));
     deleteButton?.click();
 
     expect(facade.deleteDraft).toHaveBeenCalledWith('po-1');

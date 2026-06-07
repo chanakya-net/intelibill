@@ -44,10 +44,10 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                     {{ 'purchaseOrders.editPo' | transloco }}
                   </a>
                   <button type="button" (click)="placeOrder(order.purchaseOrderId)">
-                    {{ 'purchaseOrders.actions.place' | transloco }}
+                    {{ 'purchaseOrders.actions.placeOrder' | transloco }}
                   </button>
                   <button type="button" (click)="deleteDraft(order.purchaseOrderId)">
-                    {{ 'purchaseOrders.actions.delete' | transloco }}
+                    {{ 'purchaseOrders.actions.deleteDraft' | transloco }}
                   </button>
                 }
                 @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
@@ -55,10 +55,10 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
                     <input
                       pInputText
                       [(ngModel)]="cancelReason"
-                      [placeholder]="'purchaseOrders.actions.cancelReasonPlaceholder' | transloco"
+                      [placeholder]="'purchaseOrders.dialog.cancelReasonLabel' | transloco"
                     />
                     <button type="button" [disabled]="!cancelReason.trim()" (click)="cancelOrder(order.purchaseOrderId)">
-                      {{ 'purchaseOrders.actions.cancel' | transloco }}
+                      {{ 'purchaseOrders.actions.cancelOrder' | transloco }}
                     </button>
                   </div>
                 }
