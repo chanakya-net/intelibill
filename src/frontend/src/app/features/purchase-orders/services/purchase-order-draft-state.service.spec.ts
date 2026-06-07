@@ -74,7 +74,7 @@ describe('PurchaseOrderDraftStateService', () => {
     });
   });
 
-  it('resets in-memory draft and loads the destination shop draft on active shop change', async () => {
+  it('resets in-memory draft on active shop change', async () => {
     records.set('shop-2', {
       shopId: 'shop-2',
       purchaseOrderId: null,
@@ -91,8 +91,29 @@ describe('PurchaseOrderDraftStateService', () => {
     session.set({ activeShopId: 'shop-2' });
     await new Promise((resolve) => setTimeout(resolve));
 
-    expect(service.header().notes).toBe('Other shop');
-    expect(service.lines()).toEqual([{ itemId: 'item-2', description: 'Other', expectedQuantity: 1, unitCost: 5 }]);
+    expect(service.header().notes).toBeNull();
+    expect(service.lines()).toEqual([]);
+  });
+
+  it('clears a saved draft when it belongs to a different purchase order than the edit route', async () => {
+    records.set('shop-1', {
+      shopId: 'shop-1',
+      purchaseOrderId: 'po-2',
+      supplier: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: 'Wrong draft',
+      lines: [{ itemId: 'item-2', description: 'Other', expectedQuantity: 1, unitCost: 5 }],
+      updatedAt: '2026-06-01T00:00:00Z',
+    });
+
+    const result = await service.loadDraft('shop-1', 'po-1');
+
+    expect(result).toBeNull();
+    expect(service.header().purchaseOrderId).toBeNull();
+    expect(service.lines()).toEqual([]);
+    expect(storage.clearDraft).toHaveBeenCalledWith('shop-1');
   });
 
   it('does not persist server hydration as a restored local draft', async () => {

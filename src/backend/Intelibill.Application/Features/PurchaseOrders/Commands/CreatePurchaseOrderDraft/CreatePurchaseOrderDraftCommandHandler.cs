@@ -28,6 +28,7 @@ public sealed record CreatePurchaseOrderDraftCommand(
 public sealed class CreatePurchaseOrderDraftCommandHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
+    ISupplierRepository supplierRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
     IPurchaseOrderNumberGenerator numberGenerator,
     IUnitOfWork unitOfWork)
@@ -46,6 +47,13 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
 
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
+
+        if (command.SupplierId is Guid supplierId)
+        {
+            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            if (supplier is null || supplier.ShopId != command.ActiveShopId)
+                return Errors.Supplier.SupplierNotFound;
+        }
 
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         try

@@ -104,6 +104,33 @@ describe('PurchaseOrderBuilderPageComponent', () => {
       notes: 'edited notes',
     }));
   });
+
+  it('ignores a saved local draft from another purchase order on an edit route', async () => {
+    records.set('shop-1', {
+      shopId: 'shop-1',
+      purchaseOrderId: 'po-2',
+      supplier: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: 'wrong draft',
+      lines: [{ itemId: 'item-2', description: 'Other', expectedQuantity: 1, unitCost: 5 }],
+      updatedAt: '2026-06-01T00:00:00Z',
+    });
+
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    await fixture.componentInstance.ngOnInit();
+
+    const draftState = (fixture.componentInstance as unknown as {
+      draftState: { header: () => { purchaseOrderId: string | null; notes: string | null }; lines: () => readonly unknown[] };
+    }).draftState;
+
+    expect(storage.clearDraft).toHaveBeenCalledWith('shop-1');
+    expect(draftState.header().purchaseOrderId).toBeNull();
+    expect(draftState.header().notes).toBeNull();
+    expect(draftState.lines()).toEqual([]);
+    expect(facade.loadDetail).toHaveBeenCalledWith('po-1');
+  });
 });
 
 interface SupplierStub {

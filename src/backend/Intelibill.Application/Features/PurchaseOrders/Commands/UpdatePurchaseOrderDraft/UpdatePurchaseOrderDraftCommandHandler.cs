@@ -12,6 +12,7 @@ namespace Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchase
 public sealed class UpdatePurchaseOrderDraftCommandHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
+    ISupplierRepository supplierRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
     IUnitOfWork unitOfWork)
 {
@@ -29,6 +30,13 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
 
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
+
+        if (command.SupplierId is Guid supplierId)
+        {
+            var supplier = await supplierRepository.GetByIdAsync(supplierId, cancellationToken);
+            if (supplier is null || supplier.ShopId != command.ActiveShopId)
+                return Errors.Supplier.SupplierNotFound;
+        }
 
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         try

@@ -155,7 +155,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.suppliersFacade.load();
     const shopId = this.activeShopId();
-    await this.draftState.loadDraft(shopId);
+    await this.draftState.loadDraft(shopId, this.purchaseOrderId);
     this.patchHeaderForm();
 
     if (this.purchaseOrderId) {

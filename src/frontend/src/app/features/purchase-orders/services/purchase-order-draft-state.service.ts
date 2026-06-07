@@ -39,14 +39,18 @@ export class PurchaseOrderDraftStateService {
       if (shopId === this.activeShopId) return;
       this.resetInMemory();
       this.activeShopId = shopId;
-      if (shopId) void this.loadDraft(shopId);
     });
   }
 
-  async loadDraft(shopId: string): Promise<PurchaseOrderDraftRecord | null> {
+  async loadDraft(shopId: string, purchaseOrderId: string | null = null): Promise<PurchaseOrderDraftRecord | null> {
     this.loadingDraft.set(true);
     try {
       const record = await this.storage.loadDraft(shopId);
+      if (record && record.purchaseOrderId !== purchaseOrderId) {
+        await this.clearDraft(shopId);
+        return null;
+      }
+
       if (record) {
         this.header.set({
           purchaseOrderId: record.purchaseOrderId,

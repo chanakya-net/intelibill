@@ -126,6 +126,21 @@ public class PurchaseOrdersControllerTests
     }
 
     [Fact]
+    public async Task CreatePurchaseOrderDraft_WhenSupplierNotFound_ReturnsNotFound()
+    {
+        SetValidClaims(out _, out _);
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Supplier.SupplierNotFound);
+
+        var result = await _controller.CreatePurchaseOrderDraft(
+            new CreatePurchaseOrderDraftRequest(Guid.NewGuid(), null, null, null, null, []),
+            CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, obj.StatusCode);
+    }
+
+    [Fact]
     public async Task UpdatePurchaseOrderDraft_WhenValid_ReturnsOk()
     {
         SetValidClaims(out var userId, out var shopId);
@@ -164,6 +179,23 @@ public class PurchaseOrdersControllerTests
         var result = await _controller.UpdatePurchaseOrderDraft(
             poId,
             new UpdatePurchaseOrderDraftRequest(null, null, null, null, null, []),
+            CancellationToken.None);
+
+        var obj = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, obj.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePurchaseOrderDraft_WhenSupplierNotFound_ReturnsNotFound()
+    {
+        SetValidClaims(out _, out _);
+        var poId = Guid.NewGuid();
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Supplier.SupplierNotFound);
+
+        var result = await _controller.UpdatePurchaseOrderDraft(
+            poId,
+            new UpdatePurchaseOrderDraftRequest(Guid.NewGuid(), null, null, null, null, []),
             CancellationToken.None);
 
         var obj = Assert.IsType<ObjectResult>(result);

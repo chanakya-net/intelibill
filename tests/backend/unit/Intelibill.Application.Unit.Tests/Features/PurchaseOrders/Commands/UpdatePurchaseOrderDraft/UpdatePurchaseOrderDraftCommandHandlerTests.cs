@@ -18,11 +18,12 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
+    private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IPurchaseOrderRepository _poRepository = Substitute.For<IPurchaseOrderRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private UpdatePurchaseOrderDraftCommandHandler CreateHandler() =>
-        new(_userRepository, _itemRepository, _poRepository, _unitOfWork);
+        new(_userRepository, _itemRepository, _supplierRepository, _poRepository, _unitOfWork);
 
     private static (User actor, Shop shop) MakeOwner()
     {
@@ -232,5 +233,42 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         Assert.True(result.IsError);
         Assert.Equal(Errors.PurchaseOrder.LineItemNotFound.Code, result.FirstError.Code);
         _poRepository.DidNotReceive().Update(po);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSupplierIsUnknown_ReturnsSupplierNotFound()
+    {
+        var (actor, shop) = MakeOwner();
+        var supplierId = Guid.NewGuid();
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _supplierRepository.GetByIdAsync(supplierId, Arg.Any<CancellationToken>()).Returns((Supplier)null!);
+
+        var result = await CreateHandler().HandleAsync(
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplierId, null, null, null, null, []),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        _poRepository.DidNotReceive().Update(Arg.Any<PurchaseOrder>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSupplierBelongsToAnotherShop_ReturnsSupplierNotFound()
+    {
+        var (actor, shop) = MakeOwner();
+        var otherShop = Shop.Create("Other", "Addr", "City", "State", "560001", null, null, null);
+        var supplier = Supplier.Create(otherShop.Id, "Other Supplier", null, null, null, null, null, null, true, false);
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+
+        var result = await CreateHandler().HandleAsync(
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplier.Id, null, null, null, null, []),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        _poRepository.DidNotReceive().Update(Arg.Any<PurchaseOrder>());
     }
 }
