@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { TranslocoService } from '@ngneat/transloco';
 
@@ -152,7 +152,6 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
 
@@ -174,7 +173,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   }
 
   protected openPrintView(purchaseOrderId: string): void {
-    void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId, 'print']);
+    window.open(`/inventory/purchase-orders/${purchaseOrderId}/print`, '_blank');
   }
 
   protected deleteDraft(purchaseOrderId: string): void {

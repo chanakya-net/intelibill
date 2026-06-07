@@ -78,6 +78,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
   const router = {
     navigate: vi.fn(),
   };
+  const originalOpen = window.open;
 
   beforeEach(() => {
     facade.loadDetail.mockReset();
@@ -86,6 +87,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     facade.deleteDraft.mockReset();
     facade.cancelOrder.mockReset();
     router.navigate.mockReset();
+    window.open = vi.fn();
     loadingDetailSignal.set(false);
     purchaseOrderSignal.set(null);
     errorMessageSignal.set('');
@@ -137,6 +139,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
   });
 
   afterEach(() => {
+    window.open = originalOpen;
     TestBed.resetTestingModule();
   });
 
@@ -265,7 +268,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(host.textContent).toContain('Print');
   });
 
-  it('opens print route when print action is clicked', () => {
+  it('opens print route in a new browser tab when print action is clicked', () => {
     canManagePurchaseOrdersSignal.set(false);
     purchaseOrderSignal.set({ ...selectedOrder, status: 'Placed' });
 
@@ -276,7 +279,8 @@ describe('PurchaseOrderDetailPageComponent', () => {
       .find((btn) => btn.textContent?.includes('Print'));
     printButton?.click();
 
-    expect(router.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders', 'po-1', 'print']);
+    expect(window.open).toHaveBeenCalledWith('/inventory/purchase-orders/po-1/print', '_blank');
+    expect(router.navigate).not.toHaveBeenCalled();
     expect(facade.placeOrder).not.toHaveBeenCalled();
     expect(facade.deleteDraft).not.toHaveBeenCalled();
     expect(facade.cancelOrder).not.toHaveBeenCalled();
