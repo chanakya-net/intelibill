@@ -1404,6 +1404,7 @@
       "forbidden": "Only owner or manager can create purchase orders.",
       "invalidLineQuantity": "Expected quantity must be positive.",
       "invalidLineUnitCost": "Unit cost cannot be negative.",
+      "duplicateItem": "Order contains duplicate line descriptions.",
       "lineDescriptionRequired": "Line description is required."
     }
   }

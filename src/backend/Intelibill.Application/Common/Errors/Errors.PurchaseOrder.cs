@@ -21,6 +21,9 @@ public static partial class Errors
         public static Error InvalidLineUnitCost =>
             Error.Validation("PurchaseOrder.InvalidLineUnitCost", "Unit cost cannot be negative.");
 
+        public static Error DuplicateItem =>
+            Error.Validation("PurchaseOrder.DuplicateItem", "Purchase order line items must be unique.");
+
         public static Error InvalidPageSize =>
             Error.Validation("PurchaseOrder.InvalidPageSize", "Page size must be between 1 and 100.");
 

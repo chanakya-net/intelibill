@@ -27,7 +27,10 @@ public sealed class GetPurchaseOrderDetailQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var po = await purchaseOrderRepository.GetDetailAsync(query.PurchaseOrderId, cancellationToken);
+        var po = await purchaseOrderRepository.GetByShopAndIdAsync(
+            query.ActiveShopId,
+            query.PurchaseOrderId,
+            cancellationToken);
         if (po is null)
             return Errors.PurchaseOrder.NotFound;
 

@@ -8,6 +8,14 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
     : RepositoryBase<PurchaseOrder>(context), IPurchaseOrderRepository
 {
+    public async Task<PurchaseOrder?> GetByShopAndIdAsync(
+        Guid shopId,
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(po => po.Lines)
+            .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
+
     public async Task<PurchaseOrder?> GetDetailAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(po => po.Lines)

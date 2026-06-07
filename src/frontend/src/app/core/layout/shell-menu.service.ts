@@ -112,6 +112,12 @@ export class ShellMenuService {
     }
 
     items.push({
+      label: this.localizationService.translate('shell.purchaseOrders'),
+      icon: 'pi pi-list',
+      command: () => this.router.navigate(['/inventory/purchase-orders']),
+    });
+
+    items.push({
       label: this.localizationService.translate('shell.inventoryAdjustments'),
       icon: 'pi pi-history',
       command: () => this.router.navigate(['/inventory/adjustments']),

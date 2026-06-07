@@ -41,28 +41,55 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
 
-        var now = DateTimeOffset.UtcNow;
-        var poNumber = await numberGenerator.GenerateAsync(command.ActiveShopId, now.Year, cancellationToken);
-
-        var po = PurchaseOrder.CreateDraft(command.ActiveShopId, poNumber, command.Notes);
-
-        foreach (var lineInput in command.Lines)
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            if (string.IsNullOrWhiteSpace(lineInput.Description))
-                return Errors.PurchaseOrder.LineDescriptionRequired;
+            var now = DateTimeOffset.UtcNow;
+            var poNumber = await numberGenerator.GenerateAsync(command.ActiveShopId, now.Year, cancellationToken);
 
-            if (lineInput.ExpectedQuantity <= 0)
-                return Errors.PurchaseOrder.InvalidLineQuantity;
+            var po = PurchaseOrder.CreateDraft(command.ActiveShopId, poNumber, command.Notes);
 
-            if (lineInput.UnitCost < 0)
-                return Errors.PurchaseOrder.InvalidLineUnitCost;
+            var descriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var lineInput in command.Lines)
+            {
+                var description = lineInput.Description?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.LineDescriptionRequired;
+                }
 
-            po.AddLine(lineInput.Description, lineInput.ExpectedQuantity, lineInput.UnitCost);
+                if (!descriptions.Add(description))
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.DuplicateItem;
+                }
+
+                if (lineInput.ExpectedQuantity <= 0)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.InvalidLineQuantity;
+                }
+
+                if (lineInput.UnitCost < 0)
+                {
+                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Errors.PurchaseOrder.InvalidLineUnitCost;
+                }
+
+                po.AddLine(description, lineInput.ExpectedQuantity, lineInput.UnitCost);
+            }
+
+            await purchaseOrderRepository.AddAsync(po, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return PurchaseOrderDtoMapper.ToDetail(po);
         }
-
-        await purchaseOrderRepository.AddAsync(po, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return PurchaseOrderDtoMapper.ToDetail(po);
+        catch
+        {
+            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 }

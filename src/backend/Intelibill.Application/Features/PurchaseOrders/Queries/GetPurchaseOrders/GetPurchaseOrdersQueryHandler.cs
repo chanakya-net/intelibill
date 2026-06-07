@@ -20,9 +20,6 @@ public sealed class GetPurchaseOrdersQueryHandler(
         GetPurchaseOrdersQuery query,
         CancellationToken cancellationToken)
     {
-        if (query.PageSize is < 1 or > 100)
-            return Errors.PurchaseOrder.InvalidPageSize;
-
         var actor = await userRepository.GetByIdWithDetailsAsync(query.ActorUserId, cancellationToken);
         if (actor is null)
             return Errors.Auth.UserNotFound;

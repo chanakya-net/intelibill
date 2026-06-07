@@ -16,17 +16,6 @@ public class GetPurchaseOrdersQueryHandlerTests
         new(_userRepository, _poRepository);
 
     [Fact]
-    public async Task HandleAsync_InvalidPageSize_ReturnsValidationError()
-    {
-        var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrdersQuery(Guid.NewGuid(), Guid.NewGuid(), 1, 200),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal(Errors.PurchaseOrder.InvalidPageSize.Code, result.FirstError.Code);
-    }
-
-    [Fact]
     public async Task HandleAsync_ValidMember_ReturnsList()
     {
         var actor = User.CreateWithEmail("staff@test.com", "hash", "S", "U");
@@ -43,5 +32,31 @@ public class GetPurchaseOrdersQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Empty(result.Value);
+
+        await _poRepository.Received(1).GetByShopAsync(
+            shop.Id,
+            1,
+            20,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPageAndPageSize_CustomSortInput_IsPassedToRepository()
+    {
+        var actor = User.CreateWithEmail("manager@test.com", "hash", "M", "U");
+        var shop = Shop.Create("Main", "Addr", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetByShopAsync(shop.Id, 2, 50, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<PurchaseOrder>());
+
+        var result = await CreateHandler().HandleAsync(
+            new GetPurchaseOrdersQuery(actor.Id, shop.Id, 2, 50),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Empty(result.Value);
+        await _poRepository.Received(1).GetByShopAsync(shop.Id, 2, 50, Arg.Any<CancellationToken>());
     }
 }

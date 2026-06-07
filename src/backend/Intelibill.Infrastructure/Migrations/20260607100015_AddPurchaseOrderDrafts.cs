@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -138,4 +138,5 @@ namespace Intelibill.Infrastructure.Migrations
         }
     }
 }
+
 #pragma warning restore CA1861

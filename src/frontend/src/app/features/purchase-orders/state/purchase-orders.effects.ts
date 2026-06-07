@@ -78,5 +78,6 @@ function getCreateDraftErrorMessage(error: ApiErrorPayload | undefined): string 
   if (title === 'PurchaseOrder.InvalidLineQuantity') return 'purchaseOrders.errors.invalidLineQuantity';
   if (title === 'PurchaseOrder.InvalidLineUnitCost') return 'purchaseOrders.errors.invalidLineUnitCost';
   if (title === 'PurchaseOrder.LineDescriptionRequired') return 'purchaseOrders.errors.lineDescriptionRequired';
+  if (title === 'PurchaseOrder.DuplicateItem') return 'purchaseOrders.errors.duplicateItem';
   return 'purchaseOrders.errors.unableToCreate';
 }

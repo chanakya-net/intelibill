@@ -11,13 +11,7 @@ internal sealed class PurchaseOrderNumberGenerator(
 {
     public async Task<string> GenerateAsync(Guid shopId, int year, CancellationToken cancellationToken = default)
     {
-        var sequence = await sequenceRepository.GetByShopAndYearAsync(shopId, year, cancellationToken);
-
-        if (sequence is null)
-        {
-            sequence = PurchaseOrderSequence.Create(shopId, year);
-            await sequenceRepository.AddAsync(sequence, cancellationToken);
-        }
+        var sequence = await sequenceRepository.GetOrCreateByShopAndYearAsync(shopId, year, cancellationToken);
 
         var number = sequence.GetAndIncrement();
         sequenceRepository.Update(sequence);
