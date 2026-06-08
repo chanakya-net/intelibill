@@ -29,6 +29,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     loadDetail: vi.fn(),
     updateDraft: vi.fn(),
     createDraft: vi.fn(),
+    placeOrder: vi.fn(),
     clearDetail: vi.fn(),
   };
   const suppliersFacade = {
@@ -53,6 +54,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     facade.loadDetail.mockReset();
     facade.updateDraft.mockReset();
     facade.createDraft.mockReset();
+    facade.placeOrder.mockReset();
     facade.clearDetail.mockReset();
     suppliersFacade.load.mockReset();
     storage.loadDraft.mockClear();
@@ -141,6 +143,49 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(facade.loadDetail).toHaveBeenCalledWith('po-1');
   });
 
+  it('hydrates an edit draft from the selected order only once', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    await fixture.componentInstance.ngOnInit();
+
+    const draftState = (fixture.componentInstance as unknown as {
+      draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
+    }).draftState;
+    const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
+
+    selectedOrder.set(makeDetail());
+    fixture.detectChanges();
+
+    expect(replaceFromServerSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not rehydrate repeatedly after resolving the supplier name', async () => {
+    suppliers.set([
+      { supplierId: 'supplier-1', name: 'Acme Traders', isActive: true, isSystem: false },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    const draftState = (fixture.componentInstance as unknown as {
+      draftState: {
+        header: () => { supplier: { readonly id: string; readonly name: string } | null };
+        replaceFromServer: (order: PurchaseOrderDetail) => void;
+      };
+    }).draftState;
+    const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
+
+    selectedOrder.set(makeDetail());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(replaceFromServerSpy).toHaveBeenCalledTimes(1);
+    expect(draftState.header().supplier).toEqual({ id: 'supplier-1', name: 'Acme Traders' });
+  });
+
   it('redirects to list when Staff tries to access builder', async () => {
     canManagePurchaseOrders.set(false);
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
@@ -161,6 +206,22 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(host.querySelector('p-inputnumber')).toBeTruthy();
     expect(host.querySelector('p-table')).toBeTruthy();
     expect(host.querySelector('textarea[ptextarea]')).toBeTruthy();
+  });
+
+  it('places an existing draft from the builder overlay', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const placeButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.actions.placeOrder')) as HTMLButtonElement;
+
+    expect(placeButton).toBeTruthy();
+    placeButton.click();
+
+    expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
   });
 
   it('updates supplier autocomplete suggestions from the query', async () => {

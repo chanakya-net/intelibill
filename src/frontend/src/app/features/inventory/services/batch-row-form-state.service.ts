@@ -4,12 +4,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { firstValueFrom } from 'rxjs';
 
-import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import {
   HsnLookupResult,
   ProductDetailsDto,
 } from '../services/inventory.models';
 import { InventoryService } from '../services/inventory.service';
+import { InventoryBatchDefaultsService } from './inventory-batch-defaults.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
@@ -24,6 +24,7 @@ export type PrepareScannedRowResult =
 export class BatchRowFormStateService {
   private readonly formBuilder = inject(FormBuilder);
   private readonly inventoryService = inject(InventoryService);
+  private readonly batchDefaults = inject(InventoryBatchDefaultsService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly destroyRef = inject(DestroyRef);
@@ -124,7 +125,7 @@ export class BatchRowFormStateService {
 
     this.isLoadingHsn.set(true);
     try {
-      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
+      const result = await this.batchDefaults.lookupHsn(itemName);
       if (this.selectedHsnCode()) {
         return;
       }
@@ -150,7 +151,7 @@ export class BatchRowFormStateService {
   }
 
   applyHsnSelection(hsnCode: string, taxPercentage: string): void {
-    const taxRatePercent = Number.parseFloat(taxPercentage.replace('%', '').trim());
+    const taxRatePercent = this.batchDefaults.parseTaxPercentage(taxPercentage);
     this.selectedHsnCode.set(hsnCode);
     this.pickerHsnCode = hsnCode;
     this.pickerTaxRate = taxPercentage;
@@ -185,7 +186,7 @@ export class BatchRowFormStateService {
 
     this.isLoadingHsn.set(true);
     try {
-      const result = await firstValueFrom(this.inventoryService.lookupHsn(itemName));
+      const result = await this.batchDefaults.lookupHsn(itemName);
       this.hsnResult.set(result);
       if (result.hsnCodes.length > 0 || result.taxScenarios.length > 0) {
         this.pickerHsnCode = result.hsnCodes[0] ?? null;
@@ -432,7 +433,7 @@ export class BatchRowFormStateService {
       notes: '',
     });
 
-    this.form.controls.batchNumber.setValue(this.generateBatchNumber());
+    this.form.controls.batchNumber.setValue(this.batchDefaults.generateBatchNumber());
     this.clearHsnSelection();
     this.pickerHsnCode = null;
     this.pickerTaxRate = null;
@@ -528,17 +529,6 @@ export class BatchRowFormStateService {
   private findSupplierByName(name: string): Supplier | undefined {
     const normalized = name.trim().toLowerCase();
     return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
-  }
-
-  private generateBatchNumber(): string {
-    const date = formatLocalIsoDate(new Date()).replace(/-/g, '');
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let suffix = '';
-    for (let index = 0; index < 5; index += 1) {
-      suffix += chars[Math.floor(Math.random() * chars.length)];
-    }
-
-    return `BN-${date}-${suffix}`;
   }
 
   private createRowId(): string {

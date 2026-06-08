@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewEncapsulation, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -122,6 +122,17 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             [disabled]="facade.isSubmitting()"
             (click)="saveDraft()"
           ></button>
+          @if (purchaseOrderId) {
+            <button
+              pButton
+              type="button"
+              severity="success"
+              icon="pi pi-send"
+              [label]="'purchaseOrders.actions.placeOrder' | transloco"
+              [disabled]="facade.isSubmitting()"
+              (click)="placeOrder()"
+            ></button>
+          }
         </footer>
       </div>
     </section>
@@ -235,11 +246,11 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
           return;
         }
         if (this.draftState.hasRestoredLocalDraft() && this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
-          this.patchHeaderForm();
+          untracked(() => this.patchHeaderForm());
           return;
         }
         this.draftState.replaceFromServer(order);
-        this.patchHeaderForm();
+        untracked(() => this.patchHeaderForm());
       }
     });
     effect(() => {
@@ -250,7 +261,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       if (!supplier) return;
 
       this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
-      this.patchHeaderForm();
+      untracked(() => this.patchHeaderForm());
     });
     effect(() => {
       this.supplierNameSuggestions.set(this.filterSupplierNames(this.form.controls.supplierName.value ?? ''));
@@ -313,6 +324,14 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       this.clearLocalDraftAfterCreate = true;
       this.facade.createDraft(payload);
     }
+  }
+
+  placeOrder(): void {
+    if (!this.purchaseOrderId) {
+      return;
+    }
+
+    this.facade.placeOrder(this.purchaseOrderId);
   }
 
   async discardDraft(): Promise<void> {

@@ -1,11 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { InputGroupModule } from 'primeng/inputgroup';
+import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
@@ -15,6 +18,8 @@ import {
   PurchaseOrderLine,
   ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
 
 @Component({
   selector: 'app-receive-purchase-order-dialog',
@@ -25,7 +30,10 @@ import {
     TranslocoPipe,
     ButtonModule,
     CheckboxModule,
+    DatePickerModule,
     DialogModule,
+    InputGroupAddonModule,
+    InputGroupModule,
     InputNumberModule,
     InputTextModule,
     SelectModule,
@@ -59,11 +67,25 @@ import {
                   optionLabel="description"
                   optionValue="lineId"
                   [placeholder]="'purchaseOrders.receiveDialog.selectLine' | transloco"
+                  (onChange)="onLineSelectionChange(index)"
                 />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.batchNumber' | transloco }}
-                <input pInputText formControlName="batchNumber" />
+                <p-inputgroup>
+                  <input pInputText formControlName="batchNumber" />
+                  <p-inputgroup-addon>
+                    <button
+                      pButton
+                      type="button"
+                      icon="pi pi-refresh"
+                      severity="secondary"
+                      text
+                      (click)="generateBatchNumber(index)"
+                      [attr.aria-label]="'purchaseOrders.receiveDialog.generateBatchNumber' | transloco"
+                    ></button>
+                  </p-inputgroup-addon>
+                </p-inputgroup>
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
@@ -83,15 +105,43 @@ import {
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.taxRate' | transloco }}
-                <p-inputNumber formControlName="taxRatePercent" mode="decimal" [min]="0" [max]="100" />
+                <p-inputgroup>
+                  <p-inputNumber formControlName="taxRatePercent" mode="decimal" [min]="0" [max]="100" />
+                  <p-inputgroup-addon>
+                    <button
+                      pButton
+                      type="button"
+                      icon="pi pi-search"
+                      severity="secondary"
+                      text
+                      [loading]="isTaxLookupLoading(index)"
+                      (click)="lookupTaxForLine(index)"
+                      [attr.aria-label]="'purchaseOrders.receiveDialog.lookupTaxRate' | transloco"
+                    ></button>
+                  </p-inputgroup-addon>
+                </p-inputgroup>
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.expiryDate' | transloco }}
-                <input pInputText type="date" formControlName="expiryDate" />
+                <p-datepicker
+                  ngSkipHydration
+                  formControlName="expiryDate"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  [showButtonBar]="true"
+                  appendTo="body"
+                />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.manufacturingDate' | transloco }}
-                <input pInputText type="date" formControlName="manufacturingDate" />
+                <p-datepicker
+                  ngSkipHydration
+                  formControlName="manufacturingDate"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  [showButtonBar]="true"
+                  appendTo="body"
+                />
               </label>
               <label class="checkbox-row">
                 <p-checkbox formControlName="taxIncluded" [binary]="true" />
@@ -133,6 +183,7 @@ import {
 })
 export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly batchDefaults = inject(InventoryBatchDefaultsService);
 
   @Input({ required: true }) order!: PurchaseOrderDetail;
   @Input() visible = false;
@@ -142,6 +193,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   @Output() receive = new EventEmitter<ReceivePurchaseOrderRequest>();
 
   protected receivableLines: PurchaseOrderLine[] = [];
+  protected readonly taxLookupLoading = signal<Record<number, boolean>>({});
 
   protected readonly form = this.fb.nonNullable.group({
     referenceNumber: [''],
@@ -160,7 +212,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       this.receivableLines = [...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0)];
       const firstLine = this.receivableLines[0];
       this.lines.clear();
-      if (firstLine) this.lines.push(this.createLineGroup(firstLine));
+      if (firstLine) {
+        this.lines.push(this.createLineGroup(firstLine));
+        void this.applyTaxDefault(0);
+      }
     }
   }
 
@@ -186,18 +241,55 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   protected addLine(): void {
     const selected = new Set(this.lines.controls.map((row) => row.controls.purchaseOrderLineId.value));
     const nextLine = this.receivableLines.find((line) => !selected.has(line.lineId)) ?? this.receivableLines[0];
-    if (nextLine) this.lines.push(this.createLineGroup(nextLine));
+    if (nextLine) {
+      this.lines.push(this.createLineGroup(nextLine));
+      void this.applyTaxDefault(this.lines.length - 1);
+    }
   }
 
   protected removeLine(index: number): void {
     if (this.lines.length > 1) this.lines.removeAt(index);
   }
 
+  protected onLineSelectionChange(index: number): void {
+    const row = this.lines.at(index);
+    const line = this.findLine(row.controls.purchaseOrderLineId.value);
+    if (!line) {
+      return;
+    }
+
+    const remaining = line.remainingQuantity ?? line.expectedQuantity;
+    if (!row.controls.quantity.dirty) {
+      row.controls.quantity.setValue(remaining);
+    }
+    if (!row.controls.totalPurchaseCost.dirty) {
+      row.controls.totalPurchaseCost.setValue((line.unitCost ?? 0) * remaining);
+    }
+    if (!row.controls.batchNumber.value.trim()) {
+      row.controls.batchNumber.setValue(this.batchDefaults.generateBatchNumber());
+    }
+    void this.applyTaxDefault(index);
+  }
+
+  protected generateBatchNumber(index: number): void {
+    const row = this.lines.at(index);
+    row.controls.batchNumber.setValue(this.batchDefaults.generateBatchNumber());
+    row.controls.batchNumber.markAsDirty();
+  }
+
+  protected lookupTaxForLine(index: number): void {
+    void this.applyTaxDefault(index, { respectDirty: false });
+  }
+
+  protected isTaxLookupLoading(index: number): boolean {
+    return this.taxLookupLoading()[index] ?? false;
+  }
+
   private createLineGroup(line?: PurchaseOrderLine) {
     const remaining = line ? line.remainingQuantity ?? line.expectedQuantity : 1;
     return this.fb.nonNullable.group({
       purchaseOrderLineId: [line?.lineId ?? '', Validators.required],
-      batchNumber: ['', Validators.required],
+      batchNumber: [this.batchDefaults.generateBatchNumber(), Validators.required],
       quantity: [remaining, [Validators.required, Validators.min(1)]],
       totalPurchaseCost: [(line?.unitCost ?? 0) * remaining, [Validators.required, Validators.min(0)]],
       mrp: [0, [Validators.required, Validators.min(0)]],
@@ -205,9 +297,53 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       taxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
       taxIncluded: [false],
       purchaseTaxIncluded: [false],
-      expiryDate: [''],
-      manufacturingDate: [''],
+      expiryDate: [null as Date | null],
+      manufacturingDate: [null as Date | null],
     });
+  }
+
+  private async applyTaxDefault(index: number, options: { readonly respectDirty?: boolean } = {}): Promise<void> {
+    const respectDirty = options.respectDirty ?? true;
+    const row = this.lines.at(index);
+    if (!row || (respectDirty && row.controls.taxRatePercent.dirty)) {
+      return;
+    }
+
+    const line = this.findLine(row.controls.purchaseOrderLineId.value);
+    const productName = line?.description.trim() ?? '';
+    if (productName.length < 3) {
+      return;
+    }
+
+    this.setTaxLookupLoading(index, true);
+    try {
+      const result = await this.batchDefaults.lookupHsn(productName);
+      const taxRatePercent = this.batchDefaults.getAutoTaxRatePercent(result);
+      if (taxRatePercent !== null) {
+        row.controls.taxRatePercent.setValue(taxRatePercent);
+        if (!respectDirty) {
+          row.controls.taxRatePercent.markAsDirty();
+        }
+      }
+    } catch {
+      // Keep manual tax entry available when lookup fails.
+    } finally {
+      this.setTaxLookupLoading(index, false);
+    }
+  }
+
+  private setTaxLookupLoading(index: number, loading: boolean): void {
+    const current = { ...this.taxLookupLoading() };
+    if (loading) {
+      current[index] = true;
+    } else {
+      delete current[index];
+    }
+    this.taxLookupLoading.set(current);
+  }
+
+  private findLine(lineId: string): PurchaseOrderLine | undefined {
+    return this.receivableLines.find((line) => line.lineId === lineId);
   }
 
   protected hide(): void {
@@ -234,8 +370,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
         taxRatePercent: line.taxRatePercent,
         taxIncluded: line.taxIncluded,
         purchaseTaxIncluded: line.purchaseTaxIncluded,
-        expiryDate: line.expiryDate || null,
-        manufacturingDate: line.manufacturingDate || null,
+        expiryDate: line.expiryDate ? formatLocalIsoDate(line.expiryDate) : null,
+        manufacturingDate: line.manufacturingDate ? formatLocalIsoDate(line.manufacturingDate) : null,
       })),
     });
   }

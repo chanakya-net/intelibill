@@ -21,7 +21,14 @@ import { ButtonModule } from 'primeng/button';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
-import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, PurchaseOrderStatus } from '../services/purchase-order.service';
+import {
+  DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
+  PurchaseOrderDetail,
+  PurchaseOrderListFilters,
+  PurchaseOrderStatus,
+  ReceivePurchaseOrderRequest,
+} from '../services/purchase-order.service';
+import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
 
 @Component({
@@ -42,6 +49,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
     TableModule,
     TagModule,
     ButtonModule,
+    ReceivePurchaseOrderDialogComponent,
     PurchaseOrderBuilderPageComponent,
   ],
   providers: [ConfirmationService],
@@ -85,7 +93,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             ngSkipHydration
             styleClass="po-filter-bar__date"
             inputStyleClass="w-full min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-slate-800 shadow-sm focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
-            [ngModel]="orderDateFromValue"
+            [ngModel]="orderDateFromValue()"
             (ngModelChange)="onOrderDateFromChange($event)"
             dateFormat="dd/mm/yy"
             [showIcon]="true"
@@ -97,7 +105,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             ngSkipHydration
             styleClass="po-filter-bar__date"
             inputStyleClass="w-full min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-slate-800 shadow-sm focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
-            [ngModel]="orderDateToValue"
+            [ngModel]="orderDateToValue()"
             (ngModelChange)="onOrderDateToChange($event)"
             dateFormat="dd/mm/yy"
             [showIcon]="true"
@@ -151,10 +159,29 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                       <button
                         pButton
                         type="button"
+                        severity="success"
+                        icon="pi pi-send"
+                        [label]="'purchaseOrders.actions.placeOrder' | transloco"
+                        (click)="placeOrder(order.purchaseOrderId, $event)"
+                      ></button>
+                      <button
+                        pButton
+                        type="button"
                         severity="danger"
                         icon="pi pi-trash"
                         [label]="'purchaseOrders.actions.deleteDraft' | transloco"
                         (click)="deleteDraft(order.purchaseOrderId, $event)"
+                      ></button>
+                    </div>
+                  } @else if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+                    <div class="po-row-actions">
+                      <button
+                        pButton
+                        type="button"
+                        severity="success"
+                        icon="pi pi-inbox"
+                        [label]="'purchaseOrders.actions.receive' | transloco"
+                        (click)="openReceiveOrder(order.purchaseOrderId, $event)"
                       ></button>
                     </div>
                   }
@@ -182,6 +209,17 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       <app-purchase-order-builder-page
         [purchaseOrderId]="editingPoId()"
         (closeRequested)="closeBuilder()"
+      />
+    }
+
+    @if (receivingOrder; as order) {
+      <app-receive-purchase-order-dialog
+        [order]="order"
+        [visible]="showReceiveDialog()"
+        (visibleChange)="onReceiveDialogVisibleChange($event)"
+        [submitting]="facade.isSubmitting()"
+        (receive)="receiveOrder(order.purchaseOrderId, $event)"
+        (closed)="closeReceiveDialog()"
       />
     }
   `,
@@ -215,6 +253,10 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected readonly showBuilderOverlay = signal(false);
   protected readonly editingPoId = signal<string | null>(null);
+  protected readonly showReceiveDialog = signal(false);
+  protected readonly receivingPoId = signal<string | null>(null);
+  protected readonly orderDateFromValue = signal<Date | null>(null);
+  protected readonly orderDateToValue = signal<Date | null>(null);
 
   protected readonly statusOptions: { label: string; value: PurchaseOrderStatus | '' }[] = [
     { label: 'All', value: '' },
@@ -235,12 +277,9 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     return Math.max(0, (this.pagination.pageNumber - 1) * this.pagination.pageSize);
   }
 
-  protected get orderDateFromValue(): Date | null {
-    return this.toDatePickerValue(this.filters.orderDateFrom);
-  }
-
-  protected get orderDateToValue(): Date | null {
-    return this.toDatePickerValue(this.filters.orderDateTo);
+  protected get receivingOrder(): PurchaseOrderDetail | null {
+    const order = this.facade.selectedOrder();
+    return order?.purchaseOrderId === this.receivingPoId() ? order : null;
   }
 
   ngOnInit(): void {
@@ -261,14 +300,18 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   }
 
   protected onOrderDateFromChange(orderDateFrom: Date | string | null): void {
+    this.orderDateFromValue.set(this.toDatePickerValue(orderDateFrom));
     this.facade.loadOrders({ orderDateFrom: this.toFilterDateValue(orderDateFrom), page: 1 });
   }
 
   protected onOrderDateToChange(orderDateTo: Date | string | null): void {
+    this.orderDateToValue.set(this.toDatePickerValue(orderDateTo));
     this.facade.loadOrders({ orderDateTo: this.toFilterDateValue(orderDateTo), page: 1 });
   }
 
   protected clearFilters(): void {
+    this.orderDateFromValue.set(null);
+    this.orderDateToValue.set(null);
     this.facade.resetListFilters();
     this.facade.loadOrders(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
   }
@@ -301,6 +344,36 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     });
   }
 
+  protected placeOrder(purchaseOrderId: string, event: Event): void {
+    event.stopPropagation();
+    this.facade.placeOrder(purchaseOrderId);
+  }
+
+  protected openReceiveOrder(purchaseOrderId: string, event: Event): void {
+    event.stopPropagation();
+    this.receivingPoId.set(purchaseOrderId);
+    this.showReceiveDialog.set(true);
+    this.facade.loadDetail(purchaseOrderId);
+  }
+
+  protected onReceiveDialogVisibleChange(visible: boolean): void {
+    this.showReceiveDialog.set(visible);
+    if (!visible) {
+      this.closeReceiveDialog();
+    }
+  }
+
+  protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+    this.facade.receiveOrder(purchaseOrderId, payload);
+    this.showReceiveDialog.set(false);
+  }
+
+  protected closeReceiveDialog(): void {
+    this.showReceiveDialog.set(false);
+    this.receivingPoId.set(null);
+    this.facade.loadOrders(this.facade.filters());
+  }
+
   protected confirmDeleteDraft(purchaseOrderId: string): void {
     this.facade.deleteDraft(purchaseOrderId);
   }
@@ -315,7 +388,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     return `${receivedQuantity} / ${expectedQuantity}`;
   }
 
-  private toDatePickerValue(value: string): Date | null {
+  private toDatePickerValue(value: Date | string | null): Date | null {
+    if (value instanceof Date) {
+      return value;
+    }
+
     return value ? parseDateOnlyAsLocalDate(value) : null;
   }
 

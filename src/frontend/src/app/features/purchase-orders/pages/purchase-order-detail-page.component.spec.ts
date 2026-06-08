@@ -3,9 +3,15 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { ConfirmationService } from 'primeng/api';
+import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { PurchaseOrderDraftIndexedDbService } from '../../../core/storage/purchase-order-draft-indexeddb.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
+import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { PurchaseOrderDetail, PurchaseOrderLine } from '../services/purchase-order.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { PurchaseOrderDetailPageComponent } from './purchase-order-detail-page.component';
@@ -14,6 +20,8 @@ const purchaseOrderSignal = signal<PurchaseOrderDetail | null>(null);
 const loadingDetailSignal = signal(false);
 const errorMessageSignal = signal('');
 const canManagePurchaseOrdersSignal = signal(true);
+const sessionSignal = signal({ activeShopId: 'shop-1' });
+const suppliersSignal = signal([]);
 
 const orderLines: readonly PurchaseOrderLine[] = [
   {
@@ -68,6 +76,8 @@ describe('PurchaseOrderDetailPageComponent', () => {
     loadDetail: vi.fn(),
     clearDetail: vi.fn(),
     placeOrder: vi.fn(),
+    updateDraft: vi.fn(),
+    createDraft: vi.fn(),
     deleteDraft: vi.fn(),
     cancelOrder: vi.fn(),
     closeOrder: vi.fn(),
@@ -179,9 +189,21 @@ describe('PurchaseOrderDetailPageComponent', () => {
       ],
       providers: [
         { provide: PurchaseOrdersFacade, useValue: facade },
+        { provide: AuthService, useValue: { session: sessionSignal } },
         { provide: ActivatedRoute, useValue: route },
         { provide: ShopPermissionsService, useValue: permissions },
         { provide: Router, useValue: router },
+        {
+          provide: PurchaseOrderDraftIndexedDbService,
+          useValue: {
+            loadDraft: vi.fn(async () => null),
+            saveDraft: vi.fn(async () => undefined),
+            clearDraft: vi.fn(async () => undefined),
+          },
+        },
+        { provide: SuppliersFacade, useValue: { suppliers: suppliersSignal, load: vi.fn() } },
+        { provide: ProductCatalogSyncService, useValue: { filterByName: () => [], findByName: () => null, upsertEntry: vi.fn() } },
+        { provide: InventoryService, useValue: { generateItemBarcode: () => of({ barcode: 'BAR-1' }), addItem: vi.fn() } },
       ],
     });
   });
@@ -244,6 +266,26 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(host.textContent).toContain('Edit Purchase Order Draft');
     expect(host.textContent).toContain('Place Order');
     expect(host.textContent).toContain('Delete Draft');
+  });
+
+  it('opens the edit overlay from the detail page', async () => {
+    canManagePurchaseOrdersSignal.set(true);
+    purchaseOrderSignal.set({ ...selectedOrder, status: 'Draft' });
+
+    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+    fixture.detectChanges();
+
+    const editButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((btn) => btn.textContent?.includes('Edit Purchase Order Draft'));
+    expect(editButton).toBeTruthy();
+
+    editButton?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(facade.loadDetail).toHaveBeenLastCalledWith('po-1');
+    expect(fixture.nativeElement.querySelector('app-purchase-order-builder-page')).toBeTruthy();
   });
 
   it('hides edit/place/delete actions for Draft when Staff', () => {

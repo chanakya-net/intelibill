@@ -67,15 +67,20 @@ describe('ShellMenuService', () => {
     expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageSales')).toBe(true);
     expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageExpenses')).toBe(true);
 
+    const supplierItems = service.mainMenuItems().find((item) => item.label === 'i18n:shell.manageSuppliers')?.items as MenuItem[];
+    expect(supplierItems).toBeDefined();
+    expect(hasLabel(supplierItems, 'i18n:suppliers.supplierDirectory')).toBe(true);
+    expect(hasLabel(supplierItems, 'i18n:shell.purchaseOrders')).toBe(true);
+
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(true);
-    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(true);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryAdjustments')).toBe(true);
 
-    const poItem = inventoryItems.find((item) => item.label === 'i18n:shell.purchaseOrders');
+    const poItem = supplierItems.find((item) => item.label === 'i18n:shell.purchaseOrders');
     expect(poItem).toBeDefined();
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate');
@@ -87,13 +92,16 @@ describe('ShellMenuService', () => {
     const service = createService();
     roleSignal.set('Staff');
 
-    expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageSuppliers')).toBe(false);
+    const supplierItems = service.mainMenuItems().find((item) => item.label === 'i18n:shell.manageSuppliers')?.items as MenuItem[];
+    expect(supplierItems).toBeDefined();
+    expect(hasLabel(supplierItems, 'i18n:suppliers.supplierDirectory')).toBe(false);
+    expect(hasLabel(supplierItems, 'i18n:shell.purchaseOrders')).toBe(true);
     expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageCustomers')).toBe(false);
     expect(hasLabel(service.mainMenuItems(), 'i18n:shell.manageExpenses')).toBe(false);
 
     const inventoryItems = service.inventoryMenuItems();
     expect(hasLabel(inventoryItems, 'i18n:shell.addNewProduct')).toBe(false);
-    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(true);
+    expect(hasLabel(inventoryItems, 'i18n:shell.purchaseOrders')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.manageServices')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.batchInventoryInbound')).toBe(false);
     expect(hasLabel(inventoryItems, 'i18n:shell.inventoryBatchesOverview')).toBe(false);
