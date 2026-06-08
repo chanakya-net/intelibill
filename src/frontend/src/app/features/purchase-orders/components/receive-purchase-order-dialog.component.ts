@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -12,7 +13,10 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
+import { firstValueFrom } from 'rxjs';
 
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { InventoryBarcodeFieldComponent } from '../../inventory/components/barcode-field.component';
 import {
   PurchaseOrderDetail,
   PurchaseOrderLine,
@@ -20,6 +24,7 @@ import {
 } from '../services/purchase-order.service';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
 
 @Component({
   selector: 'app-receive-purchase-order-dialog',
@@ -38,6 +43,7 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
     InputTextModule,
     SelectModule,
     TextareaModule,
+    InventoryBarcodeFieldComponent,
   ],
   template: `
     <p-dialog
@@ -56,9 +62,19 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
           {{ 'purchaseOrders.receiveDialog.notes' | transloco }}
           <textarea pTextarea formControlName="notes"></textarea>
         </label>
+        <label class="full-width">
+          {{ 'purchaseOrders.receiveDialog.searchLines' | transloco }}
+          <input
+            pInputText
+            data-testid="receive-line-search"
+            [value]="lineSearch()"
+            (input)="lineSearch.set($any($event.target).value)"
+          />
+        </label>
         <div class="receipt-lines" formArrayName="lines">
-          @for (row of lines.controls; track $index; let index = $index) {
-            <div class="receipt-row" [formGroupName]="index">
+          @for (index of filteredLineIndexes(); track index) {
+            @let row = lines.at(index);
+            <div class="receipt-row" data-testid="receipt-row" [formGroupName]="index">
               <label>
                 {{ 'purchaseOrders.receiveDialog.line' | transloco }}
                 <p-select
@@ -66,10 +82,25 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
                   [options]="receivableLines"
                   optionLabel="description"
                   optionValue="lineId"
+                  [filter]="true"
+                  filterBy="description"
                   [placeholder]="'purchaseOrders.receiveDialog.selectLine' | transloco"
                   (onChange)="onLineSelectionChange(index)"
                 />
               </label>
+              <app-inventory-barcode-field
+                [control]="row.controls.barcode"
+                [suggestions]="barcodeSuggestionsFor(index)"
+                [barcodeGenerating]="isBarcodeGenerating(index)"
+                [barcodeGenerateError]="barcodeGenerateErrorFor(index)"
+                [barcodeReplaceConfirmVisible]="isBarcodeReplaceConfirmVisible(index)"
+                [showScanner]="false"
+                (filterRequested)="onBarcodeFilter(index, $event)"
+                (selected)="onBarcodeSelected(index, $event)"
+                (generateRequested)="generateBarcode(index)"
+                (confirmReplace)="confirmBarcodeReplace(index)"
+                (cancelReplace)="cancelBarcodeReplace(index)"
+              />
               <label>
                 {{ 'purchaseOrders.receiveDialog.batchNumber' | transloco }}
                 <p-inputgroup>
@@ -184,6 +215,8 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
 export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly batchDefaults = inject(InventoryBatchDefaultsService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly catalogSync = inject(ProductCatalogSyncService);
 
   @Input({ required: true }) order!: PurchaseOrderDetail;
   @Input() visible = false;
@@ -194,6 +227,12 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
 
   protected receivableLines: PurchaseOrderLine[] = [];
   protected readonly taxLookupLoading = signal<Record<number, boolean>>({});
+  protected readonly lineSearch = signal('');
+  protected readonly barcodeSuggestions = signal<Record<number, readonly string[]>>({});
+  protected readonly barcodeGenerating = signal<Record<number, boolean>>({});
+  protected readonly barcodeGenerateErrors = signal<Record<number, string>>({});
+  protected readonly barcodeReplaceConfirmVisible = signal<Record<number, boolean>>({});
+  private readonly pendingGeneratedBarcode = new Map<number, string>();
 
   protected readonly form = this.fb.nonNullable.group({
     referenceNumber: [''],
@@ -210,13 +249,20 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['order'] && this.order) {
       this.receivableLines = [...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0)];
-      const firstLine = this.receivableLines[0];
       this.lines.clear();
-      if (firstLine) {
-        this.lines.push(this.createLineGroup(firstLine));
-        void this.applyTaxDefault(0);
-      }
+      this.receivableLines.forEach((line, index) => {
+        this.lines.push(this.createLineGroup(line));
+        void this.applyTaxDefault(index);
+      });
     }
+  }
+
+  protected filteredLineIndexes(): number[] {
+    const searchTerm = this.lineSearch().trim().toLocaleLowerCase();
+    return this.lines.controls
+      .map((row, index) => ({ index, line: this.findLine(row.controls.purchaseOrderLineId.value) }))
+      .filter(({ line }) => !searchTerm || line?.description.toLocaleLowerCase().includes(searchTerm))
+      .map(({ index }) => index);
   }
 
   protected remainingFor(lineId: string): number {
@@ -240,7 +286,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
 
   protected addLine(): void {
     const selected = new Set(this.lines.controls.map((row) => row.controls.purchaseOrderLineId.value));
-    const nextLine = this.receivableLines.find((line) => !selected.has(line.lineId)) ?? this.receivableLines[0];
+    const nextLine = this.receivableLines.find((line) => !selected.has(line.lineId));
     if (nextLine) {
       this.lines.push(this.createLineGroup(nextLine));
       void this.applyTaxDefault(this.lines.length - 1);
@@ -268,7 +314,83 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     if (!row.controls.batchNumber.value.trim()) {
       row.controls.batchNumber.setValue(this.batchDefaults.generateBatchNumber());
     }
+    if (!row.controls.barcode.dirty) {
+      row.controls.barcode.setValue(this.barcodeForLine(line));
+    }
     void this.applyTaxDefault(index);
+  }
+
+  protected onBarcodeFilter(index: number, event: AutoCompleteCompleteEvent): void {
+    this.setRecord(this.barcodeSuggestions, index, this.catalogSync.filterByBarcode(event.query).map((entry) => entry.barcode));
+  }
+
+  protected onBarcodeSelected(index: number, barcode: string): void {
+    const row = this.lines.at(index);
+    row.controls.barcode.setValue(barcode);
+    row.controls.barcode.markAsDirty();
+  }
+
+  protected barcodeSuggestionsFor(index: number): string[] {
+    return [...(this.barcodeSuggestions()[index] ?? [])];
+  }
+
+  protected isBarcodeGenerating(index: number): boolean {
+    return this.barcodeGenerating()[index] ?? false;
+  }
+
+  protected barcodeGenerateErrorFor(index: number): string {
+    return this.barcodeGenerateErrors()[index] ?? '';
+  }
+
+  protected isBarcodeReplaceConfirmVisible(index: number): boolean {
+    return this.barcodeReplaceConfirmVisible()[index] ?? false;
+  }
+
+  protected async generateBarcode(index: number): Promise<void> {
+    const row = this.lines.at(index);
+    if (!row || this.barcodeGenerating()[index]) {
+      return;
+    }
+
+    this.setRecord(this.barcodeGenerating, index, true);
+    this.setRecord(this.barcodeGenerateErrors, index, '');
+    try {
+      const barcode = (await firstValueFrom(this.inventoryService.generateItemBarcode())).barcode.trim();
+      if (!barcode) {
+        this.setRecord(this.barcodeGenerateErrors, index, 'inventory.generateBarcodeError');
+        return;
+      }
+
+      if (row.controls.barcode.value.trim()) {
+        this.pendingGeneratedBarcode.set(index, barcode);
+        this.setRecord(this.barcodeReplaceConfirmVisible, index, true);
+        return;
+      }
+
+      row.controls.barcode.setValue(barcode);
+      row.controls.barcode.markAsDirty();
+    } catch {
+      this.setRecord(this.barcodeGenerateErrors, index, 'inventory.generateBarcodeError');
+    } finally {
+      this.setRecord(this.barcodeGenerating, index, false);
+    }
+  }
+
+  protected confirmBarcodeReplace(index: number): void {
+    const barcode = this.pendingGeneratedBarcode.get(index);
+    const row = this.lines.at(index);
+    if (barcode && row) {
+      row.controls.barcode.setValue(barcode);
+      row.controls.barcode.markAsDirty();
+      this.setRecord(this.barcodeGenerateErrors, index, '');
+    }
+    this.pendingGeneratedBarcode.delete(index);
+    this.setRecord(this.barcodeReplaceConfirmVisible, index, false);
+  }
+
+  protected cancelBarcodeReplace(index: number): void {
+    this.pendingGeneratedBarcode.delete(index);
+    this.setRecord(this.barcodeReplaceConfirmVisible, index, false);
   }
 
   protected generateBatchNumber(index: number): void {
@@ -289,6 +411,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     const remaining = line ? line.remainingQuantity ?? line.expectedQuantity : 1;
     return this.fb.nonNullable.group({
       purchaseOrderLineId: [line?.lineId ?? '', Validators.required],
+      barcode: [line ? this.barcodeForLine(line) : '', [Validators.required, Validators.maxLength(120)]],
       batchNumber: [this.batchDefaults.generateBatchNumber(), Validators.required],
       quantity: [remaining, [Validators.required, Validators.min(1)]],
       totalPurchaseCost: [(line?.unitCost ?? 0) * remaining, [Validators.required, Validators.min(0)]],
@@ -333,17 +456,25 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   private setTaxLookupLoading(index: number, loading: boolean): void {
-    const current = { ...this.taxLookupLoading() };
-    if (loading) {
-      current[index] = true;
-    } else {
-      delete current[index];
-    }
-    this.taxLookupLoading.set(current);
+    this.setRecord(this.taxLookupLoading, index, loading || undefined);
   }
 
   private findLine(lineId: string): PurchaseOrderLine | undefined {
     return this.receivableLines.find((line) => line.lineId === lineId);
+  }
+
+  private barcodeForLine(line: PurchaseOrderLine): string {
+    return this.catalogSync.catalogEntries().find((entry) => entry.itemId === line.itemId)?.barcode ?? '';
+  }
+
+  private setRecord<T>(target: { (): Record<number, T>; set(value: Record<number, T>): void }, index: number, value: T | undefined): void {
+    const current = { ...target() };
+    if (value === undefined || value === '' || value === false) {
+      delete current[index];
+    } else {
+      current[index] = value;
+    }
+    target.set(current);
   }
 
   protected hide(): void {
@@ -362,6 +493,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       receivedAt: null,
       lines: value.lines.map((line) => ({
         purchaseOrderLineId: line.purchaseOrderLineId,
+        barcode: line.barcode.trim(),
         batchNumber: line.batchNumber.trim(),
         quantity: line.quantity,
         totalPurchaseCost: line.totalPurchaseCost,

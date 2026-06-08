@@ -125,6 +125,7 @@ export interface ClosePurchaseOrderRequest {
 
 export interface ReceivePurchaseOrderLineRequest {
   readonly purchaseOrderLineId: string;
+  readonly barcode: string;
   readonly batchNumber: string;
   readonly quantity: number;
   readonly totalPurchaseCost: number;

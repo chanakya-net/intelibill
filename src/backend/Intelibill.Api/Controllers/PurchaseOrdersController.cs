@@ -207,6 +207,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 request?.ReceivedAt,
                 lines.Select(l => new ReceivePurchaseOrderLineInput(
                     l.PurchaseOrderLineId,
+                    l.Barcode,
                     l.BatchNumber,
                     l.Quantity,
                     l.TotalPurchaseCost,
@@ -259,6 +260,7 @@ public sealed record ClosePurchaseOrderRequest(string? Reason);
 
 public sealed record ReceivePurchaseOrderLineRequest(
     Guid PurchaseOrderLineId,
+    string Barcode,
     string BatchNumber,
     int Quantity,
     decimal TotalPurchaseCost,

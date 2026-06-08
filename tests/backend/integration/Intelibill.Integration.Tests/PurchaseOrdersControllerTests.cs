@@ -614,6 +614,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
                 new
                 {
                     purchaseOrderLineId = lineId,
+                    barcode = $"IT-{lineId:N}",
                     batchNumber,
                     quantity,
                     totalPurchaseCost = 10m,
@@ -692,8 +693,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             notes = "Received via test",
             lines = new[]
             {
-                new { purchaseOrderLineId = firstLineId, batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 10m, mrp = 12m, salesPrice = 11m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
-                new { purchaseOrderLineId = secondLineId, batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 20m, mrp = 24m, salesPrice = 22m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
+                new { purchaseOrderLineId = firstLineId, barcode = $"IT-{firstLineId:N}", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 10m, mrp = 12m, salesPrice = 11m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
+                new { purchaseOrderLineId = secondLineId, barcode = $"IT-{secondLineId:N}", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 20m, mrp = 24m, salesPrice = 22m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
             },
         });
 
@@ -727,8 +728,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         {
             lines = new[]
             {
-                new { purchaseOrderLineId = firstLineId, batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 10m, mrp = 12m, salesPrice = 11m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
-                new { purchaseOrderLineId = secondLineId, batchNumber = $"B-{Guid.NewGuid():N}", quantity = 2, totalPurchaseCost = 20m, mrp = 24m, salesPrice = 22m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
+                new { purchaseOrderLineId = firstLineId, barcode = $"IT-{firstLineId:N}", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 1, totalPurchaseCost = 10m, mrp = 12m, salesPrice = 11m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
+                new { purchaseOrderLineId = secondLineId, barcode = $"IT-{secondLineId:N}", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 2, totalPurchaseCost = 20m, mrp = 24m, salesPrice = 22m, taxRatePercent = 5m, taxIncluded = false, purchaseTaxIncluded = false, expiryDate = (DateOnly?)null, manufacturingDate = (DateOnly?)null },
             },
         });
 

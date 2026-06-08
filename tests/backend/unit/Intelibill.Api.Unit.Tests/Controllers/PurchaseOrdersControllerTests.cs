@@ -381,7 +381,7 @@ public class PurchaseOrdersControllerTests
                 "REF-1",
                 "Notes",
                 DateTimeOffset.UtcNow,
-                [new ReceivePurchaseOrderLineRequest(lineId, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null)]),
+                [new ReceivePurchaseOrderLineRequest(lineId, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null)]),
             CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
@@ -394,7 +394,8 @@ public class PurchaseOrdersControllerTests
                 && c.ReferenceNumber == "REF-1"
                 && c.Notes == "Notes"
                 && c.Lines.Count == 1
-                && c.Lines[0].PurchaseOrderLineId == lineId),
+                && c.Lines[0].PurchaseOrderLineId == lineId
+                && c.Lines[0].Barcode == "IT-PO-001"),
             Arg.Any<CancellationToken>());
     }
 
@@ -420,8 +421,8 @@ public class PurchaseOrdersControllerTests
                 null,
                 null,
                 [
-                    new ReceivePurchaseOrderLineRequest(lineId, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
-                    new ReceivePurchaseOrderLineRequest(lineId, "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                    new ReceivePurchaseOrderLineRequest(lineId, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                    new ReceivePurchaseOrderLineRequest(lineId, "IT-PO-002", "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
                 ]),
         };
 

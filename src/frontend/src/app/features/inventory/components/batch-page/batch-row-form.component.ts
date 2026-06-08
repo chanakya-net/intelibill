@@ -12,6 +12,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-draft-indexeddb.service';
+import { InventoryBarcodeFieldComponent } from '../barcode-field.component';
 import { BatchHsnPickerDialogComponent } from './batch-hsn-picker-dialog.component';
 import { BatchRowFormStateService } from '../../services/batch-row-form-state.service';
 
@@ -31,6 +32,7 @@ import { BatchRowFormStateService } from '../../services/batch-row-form-state.se
     SelectModule,
     TextareaModule,
     ProgressSpinnerModule,
+    InventoryBarcodeFieldComponent,
     BatchHsnPickerDialogComponent,
   ],
   templateUrl: './batch-row-form.component.html',

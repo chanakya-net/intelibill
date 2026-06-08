@@ -59,6 +59,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
             [
                 new ReceivePurchaseOrderLineInput(
                     lineId,
+                    "IT-PO-001",
                     $"B-{Guid.NewGuid():N}",
                     quantity,
                     10m,
@@ -229,6 +230,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
             new DateTimeOffset(2026, 6, 7, 10, 0, 0, TimeSpan.Zero),
             lines.Select(line => new ReceivePurchaseOrderLineInput(
                 line.Id,
+                $"IT-{line.Id:N}",
                 $"B-{Guid.NewGuid():N}",
                 1,
                 line.UnitCost,
@@ -253,6 +255,46 @@ public class ReceivePurchaseOrderCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_PassesReceiptBarcodeToInboundInventoryProcessor()
+    {
+        var (actor, shop) = MakeActor(ShopRole.Manager);
+        var supplierId = Guid.NewGuid();
+        var po = MakePlacedPo(shop.Id, supplierId, expectedQuantity: 1);
+        var line = po.Lines.Single();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _receiptNumberGenerator.GenerateAsync(shop.Id, 2026, Arg.Any<CancellationToken>()).Returns("POR-2026-000001");
+        _inboundProcessor.ProcessAsync(
+                shop.Id,
+                Arg.Any<InboundInventoryLineInput>(),
+                actor.Id,
+                Arg.Any<ItemResolutionContext>(),
+                Arg.Any<InventoryUpdateContext>(),
+                Arg.Any<CancellationToken>())
+            .Returns(MakeInboundResult(shop.Id, line.ItemId, supplierId, actor.Id));
+
+        var command = MakeCommand(actor.Id, shop.Id, po, line.Id) with
+        {
+            Lines =
+            [
+                new ReceivePurchaseOrderLineInput(line.Id, "IT-PO-123", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+            ],
+        };
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _inboundProcessor.Received(1).ProcessAsync(
+            shop.Id,
+            Arg.Is<InboundInventoryLineInput>(input => input.Barcode == "IT-PO-123"),
+            actor.Id,
+            Arg.Any<ItemResolutionContext>(),
+            Arg.Any<InventoryUpdateContext>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenDuplicateReceiptLine_ReturnsValidationWithoutTransaction()
     {
         var (actor, shop) = MakeActor();
@@ -264,8 +306,8 @@ public class ReceivePurchaseOrderCommandHandlerTests
         {
             Lines =
             [
-                new ReceivePurchaseOrderLineInput(line.Id, "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
-                new ReceivePurchaseOrderLineInput(line.Id, "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                new ReceivePurchaseOrderLineInput(line.Id, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
+                new ReceivePurchaseOrderLineInput(line.Id, "IT-PO-002", "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
             ],
         };
 

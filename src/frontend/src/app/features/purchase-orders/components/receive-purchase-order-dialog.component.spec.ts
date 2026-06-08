@@ -1,8 +1,12 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { of } from 'rxjs';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
 import { PurchaseOrderDetail } from '../services/purchase-order.service';
 import { ReceivePurchaseOrderDialogComponent } from './receive-purchase-order-dialog.component';
 
@@ -61,12 +65,31 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     ),
     getAutoTaxRatePercent: vi.fn(() => 18),
   };
+  const inventoryService = {
+    generateItemBarcode: vi.fn(() => of({ barcode: 'GEN-PO-001' })),
+  };
+  const catalogSync = {
+    catalogEntries: signal([
+      { itemId: 'item-1', name: 'Widget', barcode: 'IT-PO-001' },
+      { itemId: 'item-2', name: 'Complete line', barcode: 'IT-PO-002' },
+    ]),
+    filterByBarcode: vi.fn((query: string) =>
+      catalogSync.catalogEntries().filter((entry) => entry.barcode.toLowerCase().startsWith(query.toLowerCase())),
+    ),
+  };
 
   beforeEach(() => {
     batchSequence = 0;
     batchDefaults.generateBatchNumber.mockClear();
     batchDefaults.lookupHsn.mockClear();
     batchDefaults.getAutoTaxRatePercent.mockClear();
+    inventoryService.generateItemBarcode.mockReset();
+    inventoryService.generateItemBarcode.mockReturnValue(of({ barcode: 'GEN-PO-001' }));
+    catalogSync.catalogEntries.set([
+      { itemId: 'item-1', name: 'Widget', barcode: 'IT-PO-001' },
+      { itemId: 'item-2', name: 'Complete line', barcode: 'IT-PO-002' },
+    ]);
+    catalogSync.filterByBarcode.mockClear();
 
     TestBed.configureTestingModule({
       imports: [
@@ -74,12 +97,22 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
         TranslocoTestingModule.forRoot({
           langs: {
             en: {
+              inventory: {
+                barcode: 'Barcode',
+                openScanner: 'Open scanner',
+                generateBarcode: 'Generate',
+                generateBarcodeReplaceConfirm: 'Replace current barcode?',
+                confirmReplace: 'Replace',
+                keepCurrentBarcode: 'Keep current',
+                generateBarcodeError: 'Generate barcode failed',
+              },
               purchaseOrders: {
                 actions: { cancel: 'Cancel', receive: 'Receive' },
                 receiveDialog: {
                   title: 'Receive purchase order',
                   line: 'Line',
                   selectLine: 'Select line',
+                  barcode: 'Barcode',
                   batchNumber: 'Batch number',
                   generateBatchNumber: 'Generate batch number',
                   quantity: 'Quantity',
@@ -92,6 +125,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
                   manufacturingDate: 'Manufacturing date',
                   reference: 'Reference',
                   notes: 'Notes',
+                  searchLines: 'Search by product name',
                   taxIncluded: 'Tax included',
                   purchaseTaxIncluded: 'Purchase tax included',
                   quantityOverRemaining: 'Quantity cannot exceed remaining quantity.',
@@ -111,6 +145,8 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       ],
       providers: [
         { provide: InventoryBatchDefaultsService, useValue: batchDefaults },
+        { provide: InventoryService, useValue: inventoryService },
+        { provide: ProductCatalogSyncService, useValue: catalogSync },
       ],
     });
 
@@ -122,19 +158,66 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('initializes with only receivable lines and remaining quantity', () => {
+  it('initializes one receipt row for each receivable PO line', () => {
+    const twoLineOrder: PurchaseOrderDetail = {
+      ...order,
+      lines: [
+        order.lines[0],
+        { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 },
+      ],
+    };
+    fixture.componentRef.setInput('order', twoLineOrder);
+    fixture.detectChanges();
     const component = fixture.componentInstance as unknown as {
       receivableLines: readonly { lineId: string }[];
       lines: { controls: Array<{ controls: { purchaseOrderLineId: { value: string }, batchNumber: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } }> };
       remainingFor: (lineId: string) => number;
     };
 
-    expect(component.receivableLines.map((line) => line.lineId)).toEqual(['line-1']);
+    expect(component.receivableLines.map((line) => line.lineId)).toEqual(['line-1', 'line-2']);
     expect(component.remainingFor('line-1')).toBe(3);
+    expect(component.remainingFor('line-2')).toBe(2);
     expect(component.lines.controls[0].controls.purchaseOrderLineId.value).toBe('line-1');
-    expect(component.lines.controls[0].controls.batchNumber.value).toBe('BN-2');
     expect(component.lines.controls[0].controls.quantity.value).toBe(3);
     expect(component.lines.controls[0].controls.totalPurchaseCost.value).toBe(30);
+    expect(component.lines.controls[1].controls.purchaseOrderLineId.value).toBe('line-2');
+    expect(component.lines.controls[1].controls.quantity.value).toBe(2);
+    expect(component.lines.controls[1].controls.totalPurchaseCost.value).toBe(8);
+  });
+
+  it('renders the shared inventory barcode field for each receipt row', () => {
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelectorAll('app-inventory-barcode-field').length).toBe(1);
+  });
+
+  it('filters visible receipt rows by product name search without removing form rows', () => {
+    const twoLineOrder: PurchaseOrderDetail = {
+      ...order,
+      lines: [
+        order.lines[0],
+        { ...order.lines[1], description: 'Rapha 11', receivedQuantity: 0, remainingQuantity: 2 },
+      ],
+    };
+    fixture.componentRef.setInput('order', twoLineOrder);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance as unknown as {
+      lines: { length: number };
+    };
+
+    const searchInput = host.querySelector<HTMLInputElement>('[data-testid="receive-line-search"]');
+    expect(searchInput).toBeTruthy();
+    expect(host.querySelectorAll('[data-testid="receipt-row"]').length).toBe(2);
+
+    searchInput!.value = 'rapha';
+    searchInput!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.lines.length).toBe(2);
+    expect(host.querySelectorAll('[data-testid="receipt-row"]').length).toBe(1);
+    expect(host.textContent).toContain('Rapha 11');
+    expect(host.textContent).not.toContain('Widget');
   });
 
   it('looks up the PO line tax using inventory batch defaults', async () => {
@@ -190,6 +273,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       notes: ' Dock 2 ',
     });
     component.lines.controls[0].patchValue({
+      barcode: ' IT-PO-001 ',
       batchNumber: ' BATCH-1 ',
       quantity: 2,
       totalPurchaseCost: 20,
@@ -209,6 +293,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       receivedAt: null,
       lines: [{
         purchaseOrderLineId: 'line-1',
+        barcode: 'IT-PO-001',
         batchNumber: 'BATCH-1',
         quantity: 2,
         totalPurchaseCost: 20,
@@ -223,7 +308,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     });
   });
 
-  it('adds a second receipt row and emits a multi-line payload', () => {
+  it('emits a multi-line payload from prepopulated receipt rows', () => {
     const twoLineOrder: PurchaseOrderDetail = {
       ...order,
       lines: [
@@ -236,19 +321,18 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     const component = fixture.componentInstance as unknown as {
       receive: { emit: ReturnType<typeof vi.fn> };
       lines: { controls: Array<{ patchValue: (value: unknown) => void }> };
-      addLine: () => void;
       submit: () => void;
     };
     const emitSpy = vi.spyOn(component.receive, 'emit');
 
     component.lines.controls[0].patchValue({ batchNumber: 'BATCH-1', quantity: 1, totalPurchaseCost: 10, mrp: 12, salesPrice: 11 });
-    component.addLine();
-    component.lines.controls[1].patchValue({ batchNumber: 'BATCH-2', quantity: 2, totalPurchaseCost: 8, mrp: 6, salesPrice: 5 });
+    component.lines.controls[0].patchValue({ barcode: 'IT-PO-001' });
+    component.lines.controls[1].patchValue({ barcode: 'IT-PO-002', batchNumber: 'BATCH-2', quantity: 2, totalPurchaseCost: 8, mrp: 6, salesPrice: 5 });
     component.submit();
 
     expect(emitSpy.mock.calls[0][0].lines).toEqual([
-      expect.objectContaining({ purchaseOrderLineId: 'line-1', batchNumber: 'BATCH-1' }),
-      expect.objectContaining({ purchaseOrderLineId: 'line-2', batchNumber: 'BATCH-2' }),
+      expect.objectContaining({ purchaseOrderLineId: 'line-1', barcode: 'IT-PO-001', batchNumber: 'BATCH-1' }),
+      expect.objectContaining({ purchaseOrderLineId: 'line-2', barcode: 'IT-PO-002', batchNumber: 'BATCH-2' }),
     ]);
   });
 
