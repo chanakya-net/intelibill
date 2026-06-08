@@ -30,28 +30,34 @@
 
     <div class="flex items-center gap-2 min-w-40">
       <label for="batch-from-date" class="text-sm font-semibold text-slate-600">{{ 'inventory.fromDate' | transloco }}</label>
-      <input
-        id="batch-from-date"
-        pInputText
-        type="date"
+      <p-datepicker
+        inputId="batch-from-date"
         name="batchFilterFromDate"
-        [ngModel]="filters.fromDate"
+        [ngModel]="fromDateValue"
         [ngModelOptions]="{ standalone: true }"
         (ngModelChange)="onDateFromChange($event)"
-      />
+        dateFormat="dd/mm/yy"
+        [showIcon]="true"
+        [showButtonBar]="true"
+        [maxDate]="toDateValue ?? undefined"
+        appendTo="body"
+      ></p-datepicker>
     </div>
 
     <div class="flex items-center gap-2 min-w-40">
       <label for="batch-to-date" class="text-sm font-semibold text-slate-600">{{ 'inventory.toDate' | transloco }}</label>
-      <input
-        id="batch-to-date"
-        pInputText
-        type="date"
+      <p-datepicker
+        inputId="batch-to-date"
         name="batchFilterToDate"
-        [ngModel]="filters.toDate"
+        [ngModel]="toDateValue"
         [ngModelOptions]="{ standalone: true }"
         (ngModelChange)="onDateToChange($event)"
-      />
+        dateFormat="dd/mm/yy"
+        [showIcon]="true"
+        [showButtonBar]="true"
+        [minDate]="fromDateValue ?? undefined"
+        appendTo="body"
+      ></p-datepicker>
     </div>
 
     <button

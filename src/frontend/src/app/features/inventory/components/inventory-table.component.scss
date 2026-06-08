@@ -40,7 +40,7 @@
 .action-buttons {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
 
@@ -119,6 +119,12 @@
         border-bottom: 1px solid #f1f0ee !important;
         font-size: 0.875rem;
       }
+    }
+
+    /* Keep the Actions column off the table's right edge */
+    .p-datatable-thead > tr > th:last-child,
+    .p-datatable-tbody > tr > td:last-child {
+      padding-right: 1.75rem !important;
     }
 
     .p-paginator {

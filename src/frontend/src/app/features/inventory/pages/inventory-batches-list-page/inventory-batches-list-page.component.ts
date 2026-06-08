@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
@@ -30,7 +31,7 @@ import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } fro
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { Supplier } from '../../../suppliers/services/supplier.service';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT, CURRENCY_SELECT_PT } from '../../../../shared/primeng-pt.config';
-import { formatLocalIsoDate, formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
+import { formatLocalIsoDate, formatUtcIsoInstant, parseDateOnlyAsLocalDate } from '../../../../shared/utils/date-time.util';
 import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob-download.util';
 interface SelectOption<T extends string | boolean> {
   label: string;
@@ -39,7 +40,7 @@ interface SelectOption<T extends string | boolean> {
 @Component({
   selector: 'app-inventory-batches-list-page',
   standalone: true,
-  imports: [ReactiveFormsModule, TranslocoPipe, DecimalPipe, ButtonModule, DialogModule, InputGroupAddonModule, InputGroupModule, InputNumberModule, InputTextModule, TextareaModule, ToastModule, AutoCompleteModule, SelectModule, BatchesFilterBarComponent, BatchesTableComponent, BarcodeLabelPrintDialogComponent],
+  imports: [ReactiveFormsModule, TranslocoPipe, DecimalPipe, ButtonModule, DatePickerModule, DialogModule, InputGroupAddonModule, InputGroupModule, InputNumberModule, InputTextModule, TextareaModule, ToastModule, AutoCompleteModule, SelectModule, BatchesFilterBarComponent, BatchesTableComponent, BarcodeLabelPrintDialogComponent],
   providers: [MessageService],
   templateUrl: './inventory-batches-list-page.component.html',
   styleUrl: './inventory-batches-list-page.component.scss',
@@ -105,7 +106,7 @@ export class InventoryBatchesListPageComponent {
     direction: 'Decrease' as InventoryAdjustmentDirection,
     reason: 'Damaged' as InventoryAdjustmentReason,
     quantity: 1,
-    performedAt: '',
+    performedAt: null as Date | null,
     notes: '',
   });
   readonly adjustmentReasonOptions = computed(() => this.adjustmentFormValue().direction === 'Increase' ? this.increaseReasonOptions : this.decreaseReasonOptions);
@@ -121,8 +122,8 @@ export class InventoryBatchesListPageComponent {
       costImpact: Number((signed * batch.costPrice).toFixed(2)),
     };
   });
-  readonly editForm = this.formBuilder.nonNullable.group({ newBatchNumber: ['', [Validators.maxLength(80)]], quantity: [0, [Validators.required, Validators.min(0)]], costPrice: [0, [Validators.required, Validators.min(0)]], mrp: [0, [Validators.required, Validators.min(0)]], salesPrice: [0, [Validators.required, Validators.min(0)]], taxRatePercent: [0, [Validators.required, Validators.min(0)]], taxIncluded: [false, [Validators.required]], expiryDate: [''], manufacturingDate: [''], supplierName: [''], notes: [''], entryDate: [''], });
-  readonly adjustmentForm = this.formBuilder.nonNullable.group({ direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]], reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]], quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]], performedAt: [''], notes: [''], });
+  readonly editForm = this.formBuilder.nonNullable.group({ newBatchNumber: ['', [Validators.maxLength(80)]], quantity: [0, [Validators.required, Validators.min(0)]], costPrice: [0, [Validators.required, Validators.min(0)]], mrp: [0, [Validators.required, Validators.min(0)]], salesPrice: [0, [Validators.required, Validators.min(0)]], taxRatePercent: [0, [Validators.required, Validators.min(0)]], taxIncluded: [false, [Validators.required]], expiryDate: [null as Date | null], manufacturingDate: [null as Date | null], supplierName: [''], notes: [''], entryDate: [''], });
+  readonly adjustmentForm = this.formBuilder.nonNullable.group({ direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]], reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]], quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]], performedAt: [null as Date | null], notes: [''], });
   constructor() {
     this.adjustmentForm.valueChanges.subscribe(() => this.adjustmentFormValue.set(this.adjustmentForm.getRawValue()));
     this.adjustmentForm.controls.direction.valueChanges.subscribe((direction) => {
@@ -202,8 +203,8 @@ export class InventoryBatchesListPageComponent {
       salesPrice: batch.salesPrice,
       taxRatePercent: batch.taxRatePercent,
       taxIncluded: batch.taxIncluded,
-      expiryDate: batch.expiryDate ?? '',
-      manufacturingDate: batch.manufacturingDate ?? '',
+      expiryDate: this.parseDateOnly(batch.expiryDate),
+      manufacturingDate: this.parseDateOnly(batch.manufacturingDate),
       supplierName: batch.supplierId ? this.getSupplierDisplayName(batch.supplierId) : '',
       notes: '',
       entryDate: formatLocalIsoDate(new Date()),
@@ -223,8 +224,8 @@ export class InventoryBatchesListPageComponent {
       salesPrice: value.salesPrice,
       taxRatePercent: value.taxRatePercent,
       taxIncluded: value.taxIncluded,
-      expiryDate: this.nullable(value.expiryDate),
-      manufacturingDate: this.nullable(value.manufacturingDate),
+      expiryDate: this.dateOnlyOrNull(value.expiryDate),
+      manufacturingDate: this.dateOnlyOrNull(value.manufacturingDate),
       supplierId: this.resolveSupplierId(value.supplierName),
       notes: this.nullable(value.notes) ?? 'Batch Correction',
       entryDate: this.nullable(value.entryDate),
@@ -240,7 +241,7 @@ export class InventoryBatchesListPageComponent {
   onAdjustBatch(batch: InventoryBatchDto): void {
     if (batch.isVoided) return;
     this.selectedBatch.set(batch);
-    this.adjustmentForm.reset({ direction: 'Decrease', reason: 'Damaged', quantity: 1, performedAt: '', notes: '' });
+    this.adjustmentForm.reset({ direction: 'Decrease', reason: 'Damaged', quantity: 1, performedAt: null, notes: '' });
     this.updateAdjustmentQuantityValidators();
     this.updateAdjustmentNotesValidators();
     this.adjustmentFormValue.set(this.adjustmentForm.getRawValue());
@@ -285,10 +286,16 @@ export class InventoryBatchesListPageComponent {
   }
   private resolveSupplierId(value: string): string | null { return this.findSupplierByName(value.trim())?.supplierId ?? null; }
   private nullable(value: string): string | null { return value.trim().length > 0 ? value.trim() : null; }
-  private toIsoTimestamp(value: string): string | null {
-    const normalized = value.trim(); if (!normalized) return null;
-    const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? normalized : formatUtcIsoInstant(date);
+  private parseDateOnly(value: string | null): Date | null {
+    if (!value) return null;
+    const date = parseDateOnlyAsLocalDate(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  private dateOnlyOrNull(value: Date | null): string | null {
+    return value ? formatLocalIsoDate(value) : null;
+  }
+  private toIsoTimestamp(value: Date | null): string | null {
+    return value ? formatUtcIsoInstant(value) : null;
   }
   private updateAdjustmentQuantityValidators(): void {
     const validators: ValidatorFn[] = [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)];

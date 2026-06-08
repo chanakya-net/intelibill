@@ -9,20 +9,59 @@
 
 .card {
   background: #ffffff;
-  border-radius: 8px;
+  border: 1px solid #f1f0ee;
+  border-radius: 8px; /* 8px or below under app control */
+  overflow: hidden;
 }
 
 :host ::ng-deep {
-  .p-datatable-sm {
-    .p-datatable-thead > tr > th {
-      background: var(--surface-section);
-      font-weight: 600;
-    }
-  }
-
   .p-tag {
     font-size: 0.75rem;
     padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fafaf9 !important;
+      color: #57534e !important;
+      font-weight: 600 !important;
+      font-size: 0.85rem !important;
+      border-bottom: 2px solid #f1f0ee !important;
+      padding: 0.75rem 1rem !important;
+    }
+
+    .p-datatable-tbody > tr {
+      background-color: #ffffff;
+      color: #292524;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #fffbeb !important; /* warm highlight */
+      }
+
+      > td {
+        padding: 0.85rem 1rem !important;
+        border-bottom: 1px solid #f1f0ee !important;
+        font-size: 0.875rem;
+      }
+    }
+
+    /* Keep the Actions column off the table's right edge */
+    .p-datatable-thead > tr > th:last-child,
+    .p-datatable-tbody > tr > td:last-child {
+      padding-right: 1.5rem !important;
+    }
+
+    .p-paginator {
+      background: #ffffff !important;
+      border-top: 1px solid #f1f0ee !important;
+      padding: 0.5rem !important;
+    }
   }
 }
 

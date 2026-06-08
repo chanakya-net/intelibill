@@ -104,7 +104,7 @@ describe('InventoryBatchesListPageComponent', () => {
       direction: 'Decrease',
       reason: 'Damaged',
       quantity: 1,
-      performedAt: '',
+      performedAt: null,
       notes: '',
     });
   });
@@ -229,7 +229,7 @@ describe('InventoryBatchesListPageComponent', () => {
       direction: 'Decrease',
       reason: 'Damaged',
       quantity: 2,
-      performedAt: '2026-05-05T08:30',
+      performedAt: new Date('2026-05-05T08:30'),
       notes: 'Damaged while unloading',
     });
 

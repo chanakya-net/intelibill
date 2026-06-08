@@ -1,37 +1,38 @@
 <p-toast></p-toast>
 
-<section class="p-6">
-  <header class="mb-6">
-    <h1 class="text-2xl font-bold">{{ 'inventory.batchListTitle' | transloco }}</h1>
-    <p class="text-secondary">{{ 'inventory.batchListSubtitle' | transloco }}</p>
-  </header>
+<section class="batches-page">
+  <header class="batches-header">
+    <div>
+      <p class="eyebrow">{{ 'inventory.directory' | transloco }}</p>
+      <h1>{{ 'inventory.batchListTitle' | transloco }}</h1>
+      <p class="subtitle">{{ 'inventory.batchListSubtitle' | transloco }}</p>
+    </div>
 
-  <div class="flex justify-end mb-4">
     <button
       pButton
       type="button"
-      severity="secondary"
       icon="pi pi-print"
       [label]="'inventory.printSelectedLabels' | transloco"
       (click)="onPrintSelectedBatches()"
       [disabled]="printableCandidates().length === 0"
     ></button>
+  </header>
+
+  <div class="batches-panel">
+    <app-batches-filter-bar
+      [filters]="batchFilters()"
+      (filtersChange)="onFiltersChange($event)"
+    />
+
+    <app-batches-table
+      [batches]="filteredBatches()"
+      [loading]="loading()"
+      [selectedBatchIds]="selectedBatchIds()"
+      (batchClicked)="onBatchTableSelect($event)"
+      (batchAction)="onBatchTableAction($event)"
+      (selectionChange)="onBatchSelectionChange($event)"
+    />
   </div>
-
-  <app-batches-filter-bar
-    class="mb-6"
-    [filters]="batchFilters()"
-    (filtersChange)="onFiltersChange($event)"
-  />
-
-  <app-batches-table
-    [batches]="filteredBatches()"
-    [loading]="loading()"
-    [selectedBatchIds]="selectedBatchIds()"
-    (batchClicked)="onBatchTableSelect($event)"
-    (batchAction)="onBatchTableAction($event)"
-    (selectionChange)="onBatchSelectionChange($event)"
-  />
 </section>
 
 <app-barcode-label-print-dialog
@@ -158,11 +159,25 @@
     <div class="grid grid-cols-2 gap-4">
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.expiryDate' | transloco }}</label>
-        <input pInputText type="date" formControlName="expiryDate" class="w-full" />
+        <p-datepicker
+          formControlName="expiryDate"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showButtonBar]="true"
+          appendTo="body"
+          [fluid]="true"
+        ></p-datepicker>
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.manufacturingDate' | transloco }}</label>
-        <input pInputText type="date" formControlName="manufacturingDate" class="w-full" />
+        <p-datepicker
+          formControlName="manufacturingDate"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showButtonBar]="true"
+          appendTo="body"
+          [fluid]="true"
+        ></p-datepicker>
       </div>
     </div>
 
@@ -250,7 +265,16 @@
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.performedAt' | transloco }}</label>
-        <input pInputText type="datetime-local" formControlName="performedAt" class="w-full" />
+        <p-datepicker
+          formControlName="performedAt"
+          dateFormat="dd/mm/yy"
+          [showTime]="true"
+          hourFormat="24"
+          [showIcon]="true"
+          [showButtonBar]="true"
+          appendTo="body"
+          [fluid]="true"
+        ></p-datepicker>
       </div>
     </div>
 
