@@ -14,6 +14,7 @@ import { UsersActions } from '../../features/users/state/users.actions';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
 import { ShellComponent } from './shell.component';
+import { selectSidebarCollapsed } from '../state/app-shell.selectors';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -80,6 +81,7 @@ describe('ShellComponent', () => {
   });
 
   const shopsSubmittingSignal = signal(false);
+  const sidebarCollapsedSignal = signal(false);
   const currentLanguage = signal(DEFAULT_LANGUAGE);
 
   const localizationService = {
@@ -104,6 +106,10 @@ describe('ShellComponent', () => {
 
       if (selector === selectShopsSubmitting) {
         return shopsSubmittingSignal;
+      }
+
+      if (selector === selectSidebarCollapsed) {
+        return sidebarCollapsedSignal;
       }
 
       return signal(false);
@@ -223,5 +229,17 @@ describe('ShellComponent', () => {
 
     expect(store.dispatch).not.toHaveBeenCalled();
     expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+  });
+
+  it('collapses the sidebar after a menu item requests auto-hide', () => {
+    const component = setup();
+    store.dispatch.mockClear();
+    sidebarCollapsedSignal.set(false);
+
+    component.onAutoHideSidebar();
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ collapsed: true, type: '[App Shell] Set Sidebar Collapsed' }),
+    );
   });
 });

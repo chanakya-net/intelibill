@@ -17,14 +17,15 @@ import { UpdateProfileOverlayComponent } from '../../features/users/components/u
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
-import { MenuItem } from 'primeng/api';
 import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
-import { MenubarModule } from 'primeng/menubar';
 import { UsersActions } from '../../features/users/state/users.actions';
 
 import { ShopPermissionsService } from './shop-permissions.service';
 import { MobileNavComponent } from './mobile-nav.component';
+import { SidebarNavComponent } from './sidebar-nav.component';
 import { ShellMenuService } from './shell-menu.service';
+import { AppShellActions } from '../state/app-shell.actions';
+import { selectSidebarCollapsed } from '../state/app-shell.selectors';
 
 @Component({
   selector: 'app-shell',
@@ -36,8 +37,8 @@ import { ShellMenuService } from './shell-menu.service';
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
     TieredMenuModule,
-    MenubarModule,
     MobileNavComponent,
+    SidebarNavComponent,
     TranslocoPipe,
   ],
   templateUrl: './shell.component.html',
@@ -97,7 +98,7 @@ export class ShellComponent {
       onOpenChangePassword: () => this.onOpenChangePassword(),
     }),
   );
-  readonly menubarPt = this.menuService.menubarPt;
+  readonly sidebarCollapsed = this.store.selectSignal(selectSidebarCollapsed);
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
     if (!user) {
@@ -229,7 +230,21 @@ export class ShellComponent {
     this.profileMenu?.hide();
   }
 
-  onMenuItemSelected(item: MenuItem): void { item.command?.({ originalEvent: new Event('click'), item }); }
+  onToggleSidebar(): void {
+    this.store.dispatch(AppShellActions.toggleSidebar());
+  }
+
+  onExpandSidebar(): void {
+    if (this.sidebarCollapsed()) {
+      this.store.dispatch(AppShellActions.setSidebarCollapsed({ collapsed: false }));
+    }
+  }
+
+  onAutoHideSidebar(): void {
+    if (!this.sidebarCollapsed()) {
+      this.store.dispatch(AppShellActions.setSidebarCollapsed({ collapsed: true }));
+    }
+  }
 
   onOpenUpdateProfile(): void { this.isProfileMenuOpen.set(false); this.showUpdateProfileOverlay.set(true); }
   onOpenChangePassword(): void { this.isProfileMenuOpen.set(false); this.showChangePasswordOverlay.set(true); }

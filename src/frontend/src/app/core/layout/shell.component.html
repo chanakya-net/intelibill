@@ -1,12 +1,47 @@
 <div class="app-shell min-h-screen">
-  <header class="shell-header">
-    <div class="shell-header-inner">
-      <div class="shell-brand">
-        <div class="shell-logo">OZ</div>
-        <div class="shell-shop" #shopMenuRoot>
-          <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
-          <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
+  @if (menuService.mainMenuItems().length > 0) {
+    <aside class="shell-sidebar" [class.is-collapsed]="sidebarCollapsed()">
+      <div class="shell-sidebar-brand">
+        <div class="shell-brand-main">
+          <div class="shell-logo">OZ</div>
+          @if (!sidebarCollapsed()) {
+            <div class="shell-sidebar-titles">
+              <p class="shell-suite-label">{{ 'shell.enterpriseSuite' | transloco }}</p>
+              <h1 class="shell-title">{{ 'shell.appName' | transloco }}</h1>
+            </div>
+          }
+        </div>
 
+        <button
+          type="button"
+          class="sidebar-collapse-toggle"
+          [class.is-collapsed]="sidebarCollapsed()"
+          [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          [attr.title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          (click)="onToggleSidebar()"
+        >
+          <i
+            class="pi"
+            [class.pi-angle-double-right]="sidebarCollapsed()"
+            [class.pi-angle-double-left]="!sidebarCollapsed()"
+            aria-hidden="true"
+          ></i>
+        </button>
+      </div>
+
+      <app-sidebar-nav
+        [menuItems]="menuService.mainMenuItems()"
+        [collapsed]="sidebarCollapsed()"
+        (expandSidebarRequested)="onExpandSidebar()"
+        (autoHideSidebarRequested)="onAutoHideSidebar()"
+      ></app-sidebar-nav>
+    </aside>
+  }
+
+  <div class="shell-body">
+    <header class="shell-header">
+      <div class="shell-header-inner">
+        <div class="shell-shop" #shopMenuRoot>
           @if (activeShopLabel(); as activeShopCaption) {
             <button
               type="button"
@@ -16,6 +51,7 @@
               [attr.aria-label]="'shell.switchActiveShop' | transloco"
               (click)="onToggleShopMenu()"
             >
+              <i class="pi pi-shop" aria-hidden="true"></i>
               <span class="active-shop-caption">{{ activeShopCaption }}</span>
               <i class="pi pi-chevron-down" aria-hidden="true"></i>
             </button>
@@ -59,53 +95,42 @@
           }
         </div>
 
-      </div>
+        <div class="shell-actions" #profileMenuRoot>
+          <app-mobile-nav [menuItems]="menuService.mainMenuItems()"></app-mobile-nav>
 
-      @if (menuService.mainMenuItems().length > 0) {
-        <div class="shell-middle-zone">
-          <p-menubar [model]="menuService.mainMenuItems()" [pt]="menubarPt"></p-menubar>
+          <button
+            type="button"
+            class="profile-trigger"
+            [attr.aria-label]="'shell.openProfileMenu' | transloco"
+            [attr.aria-expanded]="isProfileMenuOpen()"
+            aria-haspopup="menu"
+            (click)="onToggleProfileMenu($event)"
+          >
+            <span class="profile-avatar">{{ profileInitials() }}</span>
+            <span class="profile-text">
+              <span class="profile-name">{{ profileDisplayName() }}</span>
+              <span class="profile-label">{{ 'shell.profile' | transloco }}</span>
+            </span>
+            <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
+          </button>
+
+          <p-tieredMenu
+            #profileMenu
+            [model]="profileMenuItems()"
+            [popup]="true"
+            styleClass="profile-prime-menu"
+            [attr.aria-label]="'shell.profileActions' | transloco"
+            (onShow)="isProfileMenuOpen.set(true)"
+            (onHide)="isProfileMenuOpen.set(false)"
+          ></p-tieredMenu>
         </div>
-      }
-
-      <div class="shell-actions" #profileMenuRoot>
-        <app-mobile-nav
-          [menuItems]="menuService.mainMenuItems()"
-          (itemSelected)="onMenuItemSelected($event)"
-        ></app-mobile-nav>
-
-        <button
-          type="button"
-          class="profile-trigger"
-          [attr.aria-label]="'shell.openProfileMenu' | transloco"
-          [attr.aria-expanded]="isProfileMenuOpen()"
-          aria-haspopup="menu"
-          (click)="onToggleProfileMenu($event)"
-        >
-          <span class="profile-avatar">{{ profileInitials() }}</span>
-          <span class="profile-text">
-            <span class="profile-name">{{ profileDisplayName() }}</span>
-            <span class="profile-label">{{ 'shell.profile' | transloco }}</span>
-          </span>
-          <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
-        </button>
-
-        <p-tieredMenu
-          #profileMenu
-          [model]="profileMenuItems()"
-          [popup]="true"
-          styleClass="profile-prime-menu"
-          [attr.aria-label]="'shell.profileActions' | transloco"
-          (onShow)="isProfileMenuOpen.set(true)"
-          (onHide)="isProfileMenuOpen.set(false)"
-        ></p-tieredMenu>
       </div>
-    </div>
+    </header>
 
-  </header>
-
-  <main class="mx-auto w-full max-w-[95rem] px-4 py-6 sm:px-6 lg:px-8">
-    <router-outlet></router-outlet>
-  </main>
+    <main class="shell-main">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
 
   @if (showCreateShopOverlayAuto() || showCreateShopOverlayManual()) {
     <app-create-shop-overlay

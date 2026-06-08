@@ -42,125 +42,135 @@ p {
   margin: 0;
 }
 
-/* ── Shell: PrimeNG menubar overrides ─────────────────────────────────────── */
-.app-shell .p-menubar .p-menubar-root-list {
-  display: flex;
-  justify-content: center;
+/* ── Shell: PrimeNG panelmenu (sidebar + mobile drawer) overrides ─────────── */
+.shell-panelmenu.p-panelmenu {
+  border: 0;
+  background: transparent;
   gap: 0.2rem;
 }
 
-.app-shell .p-menubar .p-menubar-submenu {
-  gap: 0.2rem;
+.shell-panelmenu .p-panelmenu-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.app-shell .p-menubar .p-menubar-item-content,
-.app-shell .p-menubar .p-menuitem-content {
-  border-radius: 0.78rem;
+.shell-panelmenu .p-panelmenu-header-content {
+  border-radius: 0.7rem;
   transition:
     background-color 150ms ease,
     color 150ms ease,
     box-shadow 150ms ease;
 }
 
-.app-shell .p-menubar .p-menubar-item-link,
-.app-shell .p-menubar .p-menuitem-link {
-  padding: 0.45rem 1.05rem;
-  border-radius: 0.78rem;
-  font-weight: 700;
-  color: #7c2d12;
-  gap: 0.56rem;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+.shell-panelmenu .p-panelmenu-header-link,
+.shell-panelmenu .p-panelmenu-item-link {
+  display: flex;
+  align-items: center;
 }
 
-.app-shell .p-menubar .p-menubar-item-icon,
-.app-shell .p-menubar .p-menuitem-icon,
-.app-shell .p-menubar .p-submenu-icon {
-  color: #9a3412;
-  transition:
-    color 150ms ease,
-    transform 150ms ease;
-}
-
-.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover,
-.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover,
-.app-shell .p-menubar .p-menubar-item-link:hover,
-.app-shell .p-menubar .p-menuitem-link:hover {
-  background: rgba(251, 146, 60, 0.09);
-}
-
-.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover > .p-menubar-item-link,
-.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover > .p-menuitem-link,
-.app-shell .p-menubar .p-menubar-item-link:hover,
-.app-shell .p-menubar .p-menuitem-link:hover {
-  color: #7c2d12;
-}
-
-.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-menubar-item-icon,
-.app-shell .p-menubar .p-menubar-item:not(.p-disabled) > .p-menubar-item-content:hover .p-submenu-icon,
-.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-menuitem-icon,
-.app-shell .p-menubar .p-menuitem:not(.p-disabled) > .p-menuitem-content:hover .p-submenu-icon {
-  color: #9a3412;
-  animation: profile-menu-icon-sway 0.55s ease-in-out 1;
-}
-
-.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content,
-.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content,
-.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content,
-.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content,
-.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content,
-.app-shell .p-menubar .p-menubar-item-link:active,
-.app-shell .p-menubar .p-menuitem-link:active,
-.app-shell .p-menubar .p-menubar-item-link:focus-visible,
-.app-shell .p-menubar .p-menuitem-link:focus-visible {
-  background: rgba(251, 146, 60, 0.17) !important;
-  box-shadow: inset 0 0 0 1px rgba(234, 88, 12, 0.28);
-}
-
-.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content > .p-menubar-item-link,
-.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content > .p-menubar-item-link,
-.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content > .p-menuitem-link,
-.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content > .p-menuitem-link,
-.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content > .p-menuitem-link,
-.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-menubar-item-icon,
-.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-menubar-item-icon,
-.app-shell .p-menubar .p-menubar-item.p-menubar-item-active > .p-menubar-item-content .p-submenu-icon,
-.app-shell .p-menubar .p-menubar-item.p-focus > .p-menubar-item-content .p-submenu-icon,
-.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content .p-menuitem-icon,
-.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-menuitem-icon,
-.app-shell .p-menubar .p-menubar-item-active > .p-menuitem-content .p-submenu-icon,
-.app-shell .p-menubar .p-menuitem.p-focus > .p-menuitem-content .p-submenu-icon,
-.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-menuitem-icon,
-.app-shell .p-menubar .p-menuitem-active > .p-menuitem-content .p-submenu-icon {
-  color: #7c2d12 !important;
-  transform: none;
-}
-
-.app-shell .p-menubar .p-menubar-submenu,
-.app-shell .p-menubar .p-submenu-list {
-  margin-top: 0.4rem;
-  padding: 0.35rem;
-  min-width: 13rem;
-  border-radius: 0.86rem;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
-}
-
-.app-shell .p-menubar .p-menubar-submenu .p-menubar-item-content,
-.app-shell .p-menubar .p-menubar-submenu .p-menuitem-content,
-.app-shell .p-menubar .p-submenu-list .p-menuitem-content {
-  border-radius: 0.62rem;
-}
-
-.app-shell .p-menubar .p-menubar-submenu .p-menubar-item-link,
-.app-shell .p-menubar .p-menubar-submenu .p-menuitem-link,
-.app-shell .p-menubar .p-submenu-list .p-menuitem-link {
-  padding: 0.55rem 0.7rem;
-  font-size: 0.86rem;
+.shell-panelmenu .p-panelmenu-header-link {
+  padding: 0.62rem 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  color: #57534e;
+  gap: 0.7rem;
+}
+
+.shell-panelmenu .p-panelmenu-header-icon,
+.shell-panelmenu .p-panelmenu-item-icon {
+  order: 1;
+  color: #9a3412;
+}
+
+.shell-panelmenu .p-panelmenu-header-label,
+.shell-panelmenu .p-panelmenu-item-label {
+  order: 2;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.shell-panelmenu .p-panelmenu-submenu-icon {
+  order: 3;
+  margin-left: auto;
+  color: #b45309;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.shell-panelmenu .p-panelmenu-header:not(.p-disabled) .p-panelmenu-header-content:hover,
+.shell-panelmenu .p-panelmenu-item:not(.p-disabled) > .p-panelmenu-item-content:hover {
+  background: rgba(251, 146, 60, 0.12);
+}
+
+.shell-panelmenu .p-panelmenu-header:not(.p-disabled) .p-panelmenu-header-content:hover .p-panelmenu-header-link,
+.shell-panelmenu .p-panelmenu-item:not(.p-disabled) > .p-panelmenu-item-content:hover .p-panelmenu-item-link {
   color: #7c2d12;
+}
+
+.shell-panelmenu .p-panelmenu-header-active > .p-panelmenu-header-content,
+.shell-panelmenu .p-panelmenu-item-active > .p-panelmenu-item-content,
+.shell-panelmenu .p-panelmenu-item.p-focus > .p-panelmenu-item-content {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.22), rgba(254, 215, 170, 0.45));
+  box-shadow: inset 3px 0 0 #ea580c;
+}
+
+.shell-panelmenu .p-panelmenu-header-active .p-panelmenu-header-link,
+.shell-panelmenu .p-panelmenu-item-active .p-panelmenu-item-link,
+.shell-panelmenu .p-panelmenu-item.p-focus .p-panelmenu-item-link {
+  color: #7c2d12;
+}
+
+.shell-panelmenu .p-panelmenu-content {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0 0.15rem 0.35rem;
+}
+
+.shell-panelmenu .p-panelmenu-item-content {
+  border-radius: 0.6rem;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.shell-panelmenu .p-panelmenu-item-link {
+  padding: 0.5rem 0.65rem 0.5rem 1.15rem;
+  border-radius: 0.6rem;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #57534e;
+  gap: 0.65rem;
+}
+
+.shell-panelmenu .p-panelmenu-submenu .p-panelmenu-item-link {
+  padding-left: 2.4rem;
+  font-size: 0.8rem;
+}
+
+.mobile-nav-drawer.p-drawer {
+  width: min(18rem, 88vw);
+  border-right: 1px solid #fed7aa;
+  background: #fffaf5;
+}
+
+.mobile-nav-drawer .p-drawer-header {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(254, 215, 170, 0.65);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.mobile-nav-drawer .p-drawer-title {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1c1917;
+}
+
+.mobile-nav-drawer .p-drawer-content {
+  padding: 0.45rem 0.35rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
 }
 
 /* ── Shell: PrimeNG profile menu overrides ───────────────────────────────── */

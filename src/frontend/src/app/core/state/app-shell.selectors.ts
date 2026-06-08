@@ -9,3 +9,8 @@ export const selectCurrentLanguage = createSelector(
   selectAppShellState,
   (state) => state.currentLanguage
 );
+
+export const selectSidebarCollapsed = createSelector(
+  selectAppShellState,
+  (state) => state.sidebarCollapsed
+);

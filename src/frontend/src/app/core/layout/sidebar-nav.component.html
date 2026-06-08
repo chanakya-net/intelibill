@@ -1,0 +1,13 @@
+<nav
+  class="sidebar-nav"
+  [class.is-collapsed]="collapsed"
+  aria-label="Main navigation"
+  (click)="onSidebarClick($event)"
+>
+  <p-panelmenu
+    [model]="displayMenuItems"
+    [multiple]="true"
+    styleClass="shell-panelmenu"
+    [pt]="panelMenuPt"
+  ></p-panelmenu>
+</nav>

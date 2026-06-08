@@ -12,15 +12,23 @@ export class ShellMenuService {
   private readonly router = inject(Router);
   private readonly localizationService = inject(LocalizationService);
   private readonly currentLanguage = this.localizationService.currentLanguage;
-  readonly menubarPt = {
-    root: { class: 'menubar-root' },
-    menu: { class: 'menubar-menu' },
-    menuitem: { class: 'menubar-item' },
-    itemlink: { class: 'menubar-item-link' },
-    itemlabel: { class: 'menubar-item-label' },
-    itemicon: { class: 'menubar-item-icon' },
-    submenuicon: { class: 'menubar-submenu-icon' },
-    submenu: { class: 'menubar-submenu' },
+  readonly panelMenuPt = {
+    root: { class: 'shell-panelmenu-root' },
+    panel: { class: 'shell-panelmenu-panel' },
+    header: { class: 'shell-panelmenu-header' },
+    headerContent: { class: 'shell-panelmenu-header-content' },
+    headerLink: { class: 'shell-panelmenu-header-link' },
+    headerIcon: { class: 'shell-panelmenu-header-icon' },
+    headerLabel: { class: 'shell-panelmenu-header-label' },
+    contentContainer: { class: 'shell-panelmenu-content-container' },
+    content: { class: 'shell-panelmenu-content' },
+    item: { class: 'shell-panelmenu-item' },
+    itemContent: { class: 'shell-panelmenu-item-content' },
+    itemLink: { class: 'shell-panelmenu-item-link' },
+    itemIcon: { class: 'shell-panelmenu-item-icon' },
+    itemLabel: { class: 'shell-panelmenu-item-label' },
+    submenuIcon: { class: 'shell-panelmenu-submenu-icon' },
+    submenu: { class: 'shell-panelmenu-submenu' },
   };
 
   readonly mainMenuItems = computed<MenuItem[]>(() => {
@@ -30,6 +38,7 @@ export class ShellMenuService {
       {
         label: this.localizationService.translate('shell.dashboard'),
         icon: 'pi pi-home',
+        routerLink: ['/dashboard'],
         command: () => this.router.navigate(['/dashboard']),
       },
     ];
@@ -56,6 +65,7 @@ export class ShellMenuService {
       items.push({
         label: this.localizationService.translate('shell.manageCustomers'),
         icon: 'pi pi-address-book',
+        routerLink: ['/customers'],
         command: () => this.router.navigate(['/customers']),
       });
     }
@@ -72,6 +82,7 @@ export class ShellMenuService {
       items.push({
         label: this.localizationService.translate('shell.manageExpenses'),
         icon: 'pi pi-wallet',
+        routerLink: ['/expenses'],
         command: () => this.router.navigate(['/expenses']),
       });
     }
@@ -92,21 +103,25 @@ export class ShellMenuService {
         {
           label: this.localizationService.translate('shell.addNewProduct'),
           icon: 'pi pi-plus-circle',
+          routerLink: ['/inventory'],
           command: () => this.router.navigate(['/inventory']),
         },
         {
           label: this.localizationService.translate('shell.manageServices'),
           icon: 'pi pi-briefcase',
+          routerLink: ['/services'],
           command: () => this.router.navigate(['/services']),
         },
         {
           label: this.localizationService.translate('shell.batchInventoryInbound'),
           icon: 'pi pi-plus',
+          routerLink: ['/inventory/batch'],
           command: () => this.router.navigate(['/inventory/batch']),
         },
         {
           label: this.localizationService.translate('shell.inventoryBatchesOverview'),
           icon: 'pi pi-list',
+          routerLink: ['/inventory/batches'],
           command: () => this.router.navigate(['/inventory/batches']),
         },
       );
@@ -115,6 +130,7 @@ export class ShellMenuService {
     items.push({
       label: this.localizationService.translate('shell.inventoryAdjustments'),
       icon: 'pi pi-history',
+      routerLink: ['/inventory/adjustments'],
       command: () => this.router.navigate(['/inventory/adjustments']),
     });
 
@@ -128,6 +144,7 @@ export class ShellMenuService {
       items.push({
         label: this.localizationService.translate('suppliers.supplierDirectory'),
         icon: 'pi pi-truck',
+        routerLink: ['/suppliers'],
         command: () => this.router.navigate(['/suppliers']),
       });
     }
@@ -136,6 +153,7 @@ export class ShellMenuService {
       items.push({
         label: this.localizationService.translate('shell.purchaseOrders'),
         icon: 'pi pi-list',
+        routerLink: ['/inventory/purchase-orders'],
         command: () => this.router.navigate(['/inventory/purchase-orders']),
       });
     }
@@ -152,11 +170,13 @@ export class ShellMenuService {
       {
         label: this.localizationService.translate('shell.newSale'),
         icon: 'pi pi-plus-circle',
+        routerLink: ['/sales/new'],
         command: () => this.router.navigate(['/sales/new']),
       },
       {
         label: this.localizationService.translate('shell.salesHistory'),
         icon: 'pi pi-list',
+        routerLink: ['/sales'],
         command: () => this.router.navigate(['/sales']),
       },
     ];
@@ -165,6 +185,7 @@ export class ShellMenuService {
       items.push({
         label: this.localizationService.translate('shell.profitLossReport'),
         icon: 'pi pi-chart-line',
+        routerLink: ['/sales/profit-loss'],
         command: () => this.router.navigate(['/sales/profit-loss']),
       });
     }
