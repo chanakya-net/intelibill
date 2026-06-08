@@ -58,6 +58,7 @@ const facade = {
   loadDetail: vi.fn(),
   createDraft: vi.fn(),
   updateDraft: vi.fn(),
+  placeOrder: vi.fn(),
   deleteDraft: vi.fn(),
   clearDetail: vi.fn(),
   clearError: vi.fn(),
@@ -77,6 +78,7 @@ describe('PurchaseOrdersListPageComponent', () => {
     loadingSignal.set(false);
     canManagePurchaseOrdersSignal.set(true);
     facade.loadOrders.mockReset();
+    facade.placeOrder.mockReset();
     facade.deleteDraft.mockReset();
     facade.resetListFilters.mockReset();
     router.navigate.mockReset();
@@ -172,12 +174,16 @@ describe('PurchaseOrdersListPageComponent', () => {
   it('reloads filters when order date range changes', () => {
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
     fixture.detectChanges();
+    const fromDate = new Date(2026, 5, 1);
+    const toDate = new Date(2026, 5, 30);
 
-    fixture.componentInstance['onOrderDateFromChange'](new Date(2026, 5, 1));
-    fixture.componentInstance['onOrderDateToChange'](new Date(2026, 5, 30));
+    fixture.componentInstance['onOrderDateFromChange'](fromDate);
+    fixture.componentInstance['onOrderDateToChange'](toDate);
 
     expect(facade.loadOrders).toHaveBeenNthCalledWith(2, { orderDateFrom: '2026-06-01', page: 1 });
     expect(facade.loadOrders).toHaveBeenNthCalledWith(3, { orderDateTo: '2026-06-30', page: 1 });
+    expect(fixture.componentInstance['orderDateFromValue']()).toBe(fromDate);
+    expect(fixture.componentInstance['orderDateToValue']()).toBe(toDate);
   });
 
   it('uses PrimeNG date pickers for date filters', () => {
@@ -200,11 +206,15 @@ describe('PurchaseOrdersListPageComponent', () => {
     });
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
     fixture.detectChanges();
+    fixture.componentInstance['onOrderDateFromChange'](new Date(2026, 5, 1));
+    fixture.componentInstance['onOrderDateToChange'](new Date(2026, 5, 30));
 
     fixture.componentInstance['clearFilters']();
 
     expect(facade.resetListFilters).toHaveBeenCalledTimes(1);
     expect(facade.loadOrders).toHaveBeenLastCalledWith(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
+    expect(fixture.componentInstance['orderDateFromValue']()).toBeNull();
+    expect(fixture.componentInstance['orderDateToValue']()).toBeNull();
   });
 
   it('reloads requested page and page size from paginator events', () => {
@@ -272,6 +282,23 @@ describe('PurchaseOrdersListPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('purchaseOrders.editPo');
+    expect(host.textContent).toContain('purchaseOrders.actions.placeOrder');
+  });
+
+  it('places a Draft order from the list without opening detail', () => {
+    canManagePurchaseOrdersSignal.set(true);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const placeButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.actions.placeOrder')) as HTMLButtonElement;
+
+    expect(placeButton).toBeTruthy();
+    placeButton.click();
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
   });
 
   it('opens the edit overlay without navigating to the detail page', async () => {
@@ -346,6 +373,7 @@ describe('PurchaseOrdersListPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).not.toContain('purchaseOrders.editPo');
+    expect(host.textContent).not.toContain('purchaseOrders.actions.placeOrder');
     expect(host.textContent).not.toContain('purchaseOrders.actions.deleteDraft');
   });
 

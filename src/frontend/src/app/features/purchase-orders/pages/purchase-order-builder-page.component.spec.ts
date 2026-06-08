@@ -29,6 +29,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     loadDetail: vi.fn(),
     updateDraft: vi.fn(),
     createDraft: vi.fn(),
+    placeOrder: vi.fn(),
     clearDetail: vi.fn(),
   };
   const suppliersFacade = {
@@ -53,6 +54,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     facade.loadDetail.mockReset();
     facade.updateDraft.mockReset();
     facade.createDraft.mockReset();
+    facade.placeOrder.mockReset();
     facade.clearDetail.mockReset();
     suppliersFacade.load.mockReset();
     storage.loadDraft.mockClear();
@@ -204,6 +206,22 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(host.querySelector('p-inputnumber')).toBeTruthy();
     expect(host.querySelector('p-table')).toBeTruthy();
     expect(host.querySelector('textarea[ptextarea]')).toBeTruthy();
+  });
+
+  it('places an existing draft from the builder overlay', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const placeButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.actions.placeOrder')) as HTMLButtonElement;
+
+    expect(placeButton).toBeTruthy();
+    placeButton.click();
+
+    expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
   });
 
   it('updates supplier autocomplete suggestions from the query', async () => {

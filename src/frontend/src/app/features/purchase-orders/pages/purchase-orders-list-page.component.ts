@@ -85,7 +85,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             ngSkipHydration
             styleClass="po-filter-bar__date"
             inputStyleClass="w-full min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-slate-800 shadow-sm focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
-            [ngModel]="orderDateFromValue"
+            [ngModel]="orderDateFromValue()"
             (ngModelChange)="onOrderDateFromChange($event)"
             dateFormat="dd/mm/yy"
             [showIcon]="true"
@@ -97,7 +97,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             ngSkipHydration
             styleClass="po-filter-bar__date"
             inputStyleClass="w-full min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-slate-800 shadow-sm focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
-            [ngModel]="orderDateToValue"
+            [ngModel]="orderDateToValue()"
             (ngModelChange)="onOrderDateToChange($event)"
             dateFormat="dd/mm/yy"
             [showIcon]="true"
@@ -147,6 +147,14 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                         icon="pi pi-pencil"
                         [label]="'purchaseOrders.editPo' | transloco"
                         (click)="openEditOrder(order.purchaseOrderId, $event)"
+                      ></button>
+                      <button
+                        pButton
+                        type="button"
+                        severity="success"
+                        icon="pi pi-send"
+                        [label]="'purchaseOrders.actions.placeOrder' | transloco"
+                        (click)="placeOrder(order.purchaseOrderId, $event)"
                       ></button>
                       <button
                         pButton
@@ -215,6 +223,8 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected readonly showBuilderOverlay = signal(false);
   protected readonly editingPoId = signal<string | null>(null);
+  protected readonly orderDateFromValue = signal<Date | null>(null);
+  protected readonly orderDateToValue = signal<Date | null>(null);
 
   protected readonly statusOptions: { label: string; value: PurchaseOrderStatus | '' }[] = [
     { label: 'All', value: '' },
@@ -235,14 +245,6 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     return Math.max(0, (this.pagination.pageNumber - 1) * this.pagination.pageSize);
   }
 
-  protected get orderDateFromValue(): Date | null {
-    return this.toDatePickerValue(this.filters.orderDateFrom);
-  }
-
-  protected get orderDateToValue(): Date | null {
-    return this.toDatePickerValue(this.filters.orderDateTo);
-  }
-
   ngOnInit(): void {
     this.facade.loadOrders(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
   }
@@ -261,14 +263,18 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   }
 
   protected onOrderDateFromChange(orderDateFrom: Date | string | null): void {
+    this.orderDateFromValue.set(this.toDatePickerValue(orderDateFrom));
     this.facade.loadOrders({ orderDateFrom: this.toFilterDateValue(orderDateFrom), page: 1 });
   }
 
   protected onOrderDateToChange(orderDateTo: Date | string | null): void {
+    this.orderDateToValue.set(this.toDatePickerValue(orderDateTo));
     this.facade.loadOrders({ orderDateTo: this.toFilterDateValue(orderDateTo), page: 1 });
   }
 
   protected clearFilters(): void {
+    this.orderDateFromValue.set(null);
+    this.orderDateToValue.set(null);
     this.facade.resetListFilters();
     this.facade.loadOrders(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
   }
@@ -301,6 +307,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     });
   }
 
+  protected placeOrder(purchaseOrderId: string, event: Event): void {
+    event.stopPropagation();
+    this.facade.placeOrder(purchaseOrderId);
+  }
+
   protected confirmDeleteDraft(purchaseOrderId: string): void {
     this.facade.deleteDraft(purchaseOrderId);
   }
@@ -315,7 +326,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     return `${receivedQuantity} / ${expectedQuantity}`;
   }
 
-  private toDatePickerValue(value: string): Date | null {
+  private toDatePickerValue(value: Date | string | null): Date | null {
+    if (value instanceof Date) {
+      return value;
+    }
+
     return value ? parseDateOnlyAsLocalDate(value) : null;
   }
 

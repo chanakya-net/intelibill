@@ -122,6 +122,17 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             [disabled]="facade.isSubmitting()"
             (click)="saveDraft()"
           ></button>
+          @if (purchaseOrderId) {
+            <button
+              pButton
+              type="button"
+              severity="success"
+              icon="pi pi-send"
+              [label]="'purchaseOrders.actions.placeOrder' | transloco"
+              [disabled]="facade.isSubmitting()"
+              (click)="placeOrder()"
+            ></button>
+          }
         </footer>
       </div>
     </section>
@@ -313,6 +324,14 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       this.clearLocalDraftAfterCreate = true;
       this.facade.createDraft(payload);
     }
+  }
+
+  placeOrder(): void {
+    if (!this.purchaseOrderId) {
+      return;
+    }
+
+    this.facade.placeOrder(this.purchaseOrderId);
   }
 
   async discardDraft(): Promise<void> {
