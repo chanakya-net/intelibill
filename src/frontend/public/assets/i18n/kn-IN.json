@@ -116,7 +116,10 @@
     "profitLossReport": "ಲಾಭ ಮತ್ತು ನಷ್ಟ",
     "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
     "manageDiscounts": "ರಿಯಾಯಿತಿಗಳು",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "ನಿಮ್ಮ ಸಲ್ಲಿಸಿದ ಇನ್‌ವೆಂಟರಿ ಬ್ಯಾಚ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
     "adjustmentsTitle": "ಹೊಂದಾಣಿಕೆ ಇತಿಹಾಸ",
     "adjustmentsSubtitle": "ಬ್ಯಾಚ್‌ಗಳಾದ್ಯಂತ ಸ್ಟಾಕ್ ಹೆಚ್ಚಾಗುತ್ತದೆ ಮತ್ತು ಕಡಿಮೆಯಾಗುತ್ತದೆ.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "ಹೊಸ ಹೊಂದಾಣಿಕೆ",
     "item": "ಉತ್ಪನ್ನ",
     "voided": "ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },

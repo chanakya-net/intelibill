@@ -18,6 +18,7 @@
   flex-direction: column;
   width: var(--shell-sidebar-width);
   min-height: 100vh;
+  height: 100vh;
   flex: 0 0 var(--shell-sidebar-width);
   border-right: 1px solid rgba(254, 215, 170, 0.75);
   background: rgba(255, 255, 255, 0.94);
@@ -37,6 +38,13 @@
   gap: 0.35rem;
   padding: 0.85rem 0.65rem 0.75rem 0.9rem;
   border-bottom: 1px solid rgba(254, 215, 170, 0.55);
+}
+
+.shell-sidebar-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .shell-brand-main {
@@ -116,9 +124,22 @@
 .shell-header-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
   padding: 0.72rem 1.5rem;
+}
+
+.shell-header-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.shell-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .shell-main {
@@ -164,75 +185,6 @@
   font-weight: 800;
   color: #1c1917;
   white-space: nowrap;
-}
-
-.profile-trigger {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--shell-header-pill-height);
-  gap: 0.6rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(234, 88, 12, 0.35);
-  background: linear-gradient(135deg, rgba(255, 237, 213, 0.95), rgba(254, 215, 170, 0.8));
-  color: #7c2d12;
-  padding: 0.28rem 0.58rem 0.28rem 0.3rem;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    border-color: #fb923c;
-    box-shadow: 0 10px 20px rgba(194, 65, 12, 0.16);
-  }
-}
-
-.profile-avatar {
-  width: 2.15rem;
-  height: 2.15rem;
-  border-radius: 999px;
-  border: 1px solid #fb923c;
-  background: linear-gradient(135deg, #ffedd5 0%, #fdba74 100%);
-  color: #7c2d12;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  display: grid;
-  place-items: center;
-}
-
-.profile-text {
-  display: grid;
-  text-align: left;
-  line-height: 1.05;
-}
-
-.profile-name {
-  font-size: 0.78rem;
-  font-weight: 700;
-  max-width: 8.5rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.profile-label {
-  font-size: 0.67rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #b45309;
-}
-
-.profile-gear {
-  font-size: 1.15rem;
-  color: #9a3412;
-  flex: 0 0 auto;
-}
-
-.profile-trigger:hover .profile-gear {
-  animation: fa-spin 1.1s linear infinite;
 }
 
 .active-shop-trigger {
@@ -283,10 +235,57 @@
   display: none;
 }
 
+.offline-sales-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--shell-header-pill-height);
+  height: var(--shell-header-pill-height);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease,
+    transform 150ms ease;
+
+  .pi {
+    font-size: 0.95rem;
+    color: #fff;
+  }
+
+  &.is-enabled {
+    background: #16a34a;
+
+    &:hover:not(:disabled) {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+  }
+
+  &.is-disabled {
+    background: #dc2626;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+      transform: translateY(-1px);
+    }
+  }
+
+  &.is-pending,
+  &:disabled {
+    opacity: 0.72;
+    cursor: wait;
+    transform: none;
+  }
+}
+
 .shop-menu {
   position: absolute;
   top: calc(100% + 0.45rem);
-  left: 0;
+  right: 0;
+  left: auto;
   z-index: 55;
   min-width: 15rem;
   max-width: 20rem;
@@ -351,13 +350,6 @@
     max-width: 10rem;
   }
 
-  .profile-text {
-    display: none;
-  }
-
-  .profile-trigger {
-    padding: 0.24rem 0.46rem 0.24rem 0.28rem;
-  }
 }
 
 @media (max-width: 768px) {
@@ -373,14 +365,17 @@
 @media (max-width: 640px) {
   .shell-header-inner {
     padding: 0.5rem 0.75rem;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .shell-header-controls {
+    gap: 0.35rem;
+    max-width: 100%;
   }
 
   .shell-shop {
     min-width: 0;
+    flex: 1 1 auto;
   }
 
   .active-shop-trigger-desktop {
@@ -402,9 +397,5 @@
 
   .shell-actions {
     align-self: center;
-  }
-
-  .profile-trigger {
-    display: none;
   }
 }

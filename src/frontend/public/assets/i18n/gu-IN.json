@@ -116,7 +116,10 @@
     "profitLossReport": "નફો અને નુકસાન",
     "dashboard": "ડૅશબોર્ડ",
     "manageDiscounts": "છૂટ",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "સબમિટ કરેલ ઇન્વેન્ટરી બૅચ સંચાલિત કરો",
     "adjustmentsTitle": "સમાયોજન ઇતિહાસ",
     "adjustmentsSubtitle": "બેચોમાં સ્ટોક વધારો અને ઘટાડો સમીક્ષો.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "નવું સમાયોજન",
     "item": "વસ્તુ",
     "voided": "રદ કર્યું",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },

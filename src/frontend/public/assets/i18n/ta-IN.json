@@ -116,7 +116,10 @@
     "profitLossReport": "லாபம் மற்றும் இழப்பு",
     "dashboard": "டாஷ்போர்டு",
     "manageDiscounts": "தள்ளுபடிகள்",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "சமர்ப்பிக்கப்பட்ட சரக்கு தொகுதிகளை நிர்வகிக்கவும்",
     "adjustmentsTitle": "சரிசெய்தல் வரலாறு",
     "adjustmentsSubtitle": "மதிப்பாய்வு ஸ்டாக் முழுவதும் அதிகரிக்கிறது மற்றும் குறைகிறது.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "புதிய சரிசெய்தல்",
     "item": "பொருள்",
     "voided": "ரத்து செய்யப்பட்டது",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },

@@ -29,19 +29,63 @@
         </button>
       </div>
 
-      <app-sidebar-nav
-        [menuItems]="menuService.mainMenuItems()"
+      <div class="shell-sidebar-body">
+        <app-sidebar-nav
+          [menuItems]="menuService.mainMenuItems()"
+          [collapsed]="sidebarCollapsed()"
+          (expandSidebarRequested)="onExpandSidebar()"
+          (autoHideSidebarRequested)="onAutoHideSidebar()"
+        ></app-sidebar-nav>
+      </div>
+
+      <app-sidebar-profile-menu
+        [menuItems]="profileMenuItems()"
         [collapsed]="sidebarCollapsed()"
+        [profileInitials]="profileInitials()"
+        [profileDisplayName]="profileDisplayName()"
         (expandSidebarRequested)="onExpandSidebar()"
-        (autoHideSidebarRequested)="onAutoHideSidebar()"
-      ></app-sidebar-nav>
+      ></app-sidebar-profile-menu>
     </aside>
   }
 
   <div class="shell-body">
     <header class="shell-header">
       <div class="shell-header-inner">
-        <div class="shell-shop" #shopMenuRoot>
+        <div class="shell-header-spacer" aria-hidden="true"></div>
+
+        <div class="shell-header-controls">
+          @if (canManageOfflineSales() && activeShopId()) {
+            <button
+              type="button"
+              class="offline-sales-toggle"
+              [class.is-enabled]="isOfflineSalesEnabled()"
+              [class.is-disabled]="!isOfflineSalesEnabled()"
+              [class.is-pending]="isOfflineSalesEnablePending()"
+              [disabled]="isOfflineSalesEnablePending()"
+              [attr.aria-pressed]="isOfflineSalesEnabled()"
+              [attr.aria-label]="
+                isOfflineSalesEnablePending()
+                  ? ('shell.offlineSalesEnabling' | transloco)
+                  : isOfflineSalesEnabled()
+                    ? ('shell.offlineSalesEnabled' | transloco)
+                    : ('shell.offlineSalesDisabled' | transloco)
+              "
+              [attr.title]="
+                offlineSalesToggleErrorKey()
+                  ? (offlineSalesToggleErrorKey() | transloco)
+                  : isOfflineSalesEnablePending()
+                    ? ('shell.offlineSalesEnabling' | transloco)
+                    : isOfflineSalesEnabled()
+                      ? ('shell.offlineSalesEnabled' | transloco)
+                      : ('shell.offlineSalesDisabled' | transloco)
+              "
+              (click)="onToggleOfflineSales()"
+            >
+              <i class="pi pi-wifi" aria-hidden="true"></i>
+            </button>
+          }
+
+          <div class="shell-shop" #shopMenuRoot>
           @if (activeShopLabel(); as activeShopCaption) {
             <button
               type="button"
@@ -93,36 +137,16 @@
               }
             </div>
           }
-        </div>
+          </div>
 
-        <div class="shell-actions" #profileMenuRoot>
-          <app-mobile-nav [menuItems]="menuService.mainMenuItems()"></app-mobile-nav>
-
-          <button
-            type="button"
-            class="profile-trigger"
-            [attr.aria-label]="'shell.openProfileMenu' | transloco"
-            [attr.aria-expanded]="isProfileMenuOpen()"
-            aria-haspopup="menu"
-            (click)="onToggleProfileMenu($event)"
-          >
-            <span class="profile-avatar">{{ profileInitials() }}</span>
-            <span class="profile-text">
-              <span class="profile-name">{{ profileDisplayName() }}</span>
-              <span class="profile-label">{{ 'shell.profile' | transloco }}</span>
-            </span>
-            <i class="pi pi-cog profile-gear" aria-hidden="true"></i>
-          </button>
-
-          <p-tieredMenu
-            #profileMenu
-            [model]="profileMenuItems()"
-            [popup]="true"
-            styleClass="profile-prime-menu"
-            [attr.aria-label]="'shell.profileActions' | transloco"
-            (onShow)="isProfileMenuOpen.set(true)"
-            (onHide)="isProfileMenuOpen.set(false)"
-          ></p-tieredMenu>
+          <div class="shell-actions">
+            <app-mobile-nav
+              [menuItems]="menuService.mainMenuItems()"
+              [profileMenuItems]="profileMenuItems()"
+              [profileInitials]="profileInitials()"
+              [profileDisplayName]="profileDisplayName()"
+            ></app-mobile-nav>
+          </div>
         </div>
       </div>
     </header>

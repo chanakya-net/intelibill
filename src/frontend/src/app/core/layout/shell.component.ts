@@ -17,15 +17,22 @@ import { UpdateProfileOverlayComponent } from '../../features/users/components/u
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
-import { TieredMenu, TieredMenuModule } from 'primeng/tieredmenu';
 import { UsersActions } from '../../features/users/state/users.actions';
 
 import { ShopPermissionsService } from './shop-permissions.service';
 import { MobileNavComponent } from './mobile-nav.component';
 import { SidebarNavComponent } from './sidebar-nav.component';
+import { SidebarProfileMenuComponent } from './sidebar-profile-menu.component';
 import { ShellMenuService } from './shell-menu.service';
 import { AppShellActions } from '../state/app-shell.actions';
 import { selectSidebarCollapsed } from '../state/app-shell.selectors';
+import { NetworkStatusService } from '../services/network-status.service';
+import {
+  OfflineSalesDeviceSettings,
+  OfflineSalesDeviceSettingsStorage,
+} from '../storage/offline-sales-device-settings.storage';
+import { OfflineSalesDeviceEnablementService } from '../../features/sales/services/offline-sales-device-enablement.service';
+import { offlineEnablementErrorKeyForReason } from '../../features/shops/components/manage-shop/manage-shop-offline.helper';
 
 @Component({
   selector: 'app-shell',
@@ -36,9 +43,9 @@ import { selectSidebarCollapsed } from '../state/app-shell.selectors';
     ManageShopOverlayComponent,
     UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
-    TieredMenuModule,
     MobileNavComponent,
     SidebarNavComponent,
+    SidebarProfileMenuComponent,
     TranslocoPipe,
   ],
   templateUrl: './shell.component.html',
@@ -50,15 +57,18 @@ export class ShellComponent {
   private readonly router = inject(Router);
   private readonly localizationService = inject(LocalizationService);
   private readonly shopPermissionsService = inject(ShopPermissionsService);
+  private readonly networkStatus = inject(NetworkStatusService);
+  private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
+  private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
   readonly menuService = inject(ShellMenuService);
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
-  @ViewChild('profileMenuRoot') profileMenuRoot?: ElementRef<HTMLElement>;
-  @ViewChild('profileMenu') profileMenu?: TieredMenu;
 
   readonly isSigningOut = signal(false);
-  readonly isProfileMenuOpen = signal(false);
   readonly isShopMenuOpen = signal(false);
+  readonly offlineDeviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
+  readonly isOfflineSalesEnablePending = signal(false);
+  readonly offlineSalesToggleErrorKey = signal('');
   readonly showCreateShopOverlayManual = signal(false);
   readonly showCreateShopOverlayAuto = signal(false);
   readonly showManageShopOverlay = signal(false);
@@ -72,6 +82,8 @@ export class ShellComponent {
   readonly isShopsSubmitting = this.store.selectSignal(selectShopsSubmitting);
   readonly activeShop = this.shopPermissionsService.activeShop;
   readonly activeShopId = this.shopPermissionsService.activeShopId;
+  readonly canManageOfflineSales = computed(() => this.shopPermissionsService.isOwnerOrManagerOfActiveShop());
+  readonly isOfflineSalesEnabled = computed(() => !!this.offlineDeviceSettings()?.enabled);
   readonly activeShopLabel = computed(() => {
     const activeShop = this.activeShop();
     if (!activeShop) {
@@ -128,6 +140,12 @@ export class ShellComponent {
       }
     });
 
+    effect(() => {
+      const shopId = this.activeShopId();
+      this.offlineDeviceSettings.set(shopId ? this.offlineDeviceSettingsStorage.loadSettings(shopId) : null);
+      this.offlineSalesToggleErrorKey.set('');
+    });
+
     this.store.dispatch(ShopsActions.loadShopsRequested());
   }
 
@@ -178,14 +196,6 @@ export class ShellComponent {
       this.isShopMenuOpen.set(false);
     }
 
-    if (
-      this.isProfileMenuOpen() &&
-      this.profileMenuRoot &&
-      !this.isTargetInside(this.profileMenuRoot.nativeElement, target, composedPath)
-    ) {
-      this.isProfileMenuOpen.set(false);
-      this.profileMenu?.hide();
-    }
   }
 
   private isTargetInside(
@@ -196,15 +206,50 @@ export class ShellComponent {
     return root.contains(target) || composedPath.includes(root);
   }
 
-  onToggleProfileMenu(event: MouseEvent): void {
-    this.isShopMenuOpen.set(false);
-    this.profileMenu?.toggle(event);
-    this.isProfileMenuOpen.set(!this.isProfileMenuOpen());
+  async onToggleOfflineSales(): Promise<void> {
+    if (this.isOfflineSalesEnablePending()) {
+      return;
+    }
+
+    const shopId = this.activeShopId();
+    if (!shopId || !this.canManageOfflineSales()) {
+      return;
+    }
+
+    if (this.isOfflineSalesEnabled()) {
+      const next = this.offlineDeviceSettingsStorage.updateSettings(shopId, (current) => ({
+        ...current,
+        enabled: false,
+      }));
+      this.offlineDeviceSettings.set(next);
+      this.offlineSalesToggleErrorKey.set('');
+      return;
+    }
+
+    await this.networkStatus.checkConnectivity();
+    if (!this.networkStatus.canReachApi()) {
+      this.offlineSalesToggleErrorKey.set('offlineSalesDevice.errors.apiUnreachable');
+      return;
+    }
+
+    this.isOfflineSalesEnablePending.set(true);
+    this.offlineSalesToggleErrorKey.set('');
+    try {
+      const label = this.offlineDeviceSettings()?.label?.trim() ?? '';
+      const result = await this.offlineDeviceEnablement.enableForShop(shopId, label);
+      if (!result.ok) {
+        this.offlineSalesToggleErrorKey.set(offlineEnablementErrorKeyForReason(result.reason));
+        return;
+      }
+
+      this.offlineDeviceSettings.set(result.settings);
+    } finally {
+      this.isOfflineSalesEnablePending.set(false);
+    }
   }
 
   onToggleShopMenu(): void {
     if (this.shops().length === 0 || !this.shopPermissionsService.isOwnerOfActiveShop()) return;
-    this.isProfileMenuOpen.set(false);
     this.isShopMenuOpen.set(!this.isShopMenuOpen());
   }
 
@@ -226,8 +271,6 @@ export class ShellComponent {
 
   onCloseMenus(): void {
     this.isShopMenuOpen.set(false);
-    this.isProfileMenuOpen.set(false);
-    this.profileMenu?.hide();
   }
 
   onToggleSidebar(): void {
@@ -246,10 +289,10 @@ export class ShellComponent {
     }
   }
 
-  onOpenUpdateProfile(): void { this.isProfileMenuOpen.set(false); this.showUpdateProfileOverlay.set(true); }
-  onOpenChangePassword(): void { this.isProfileMenuOpen.set(false); this.showChangePasswordOverlay.set(true); }
-  onOpenAddShop(): void { this.isProfileMenuOpen.set(false); this.showCreateShopOverlayManual.set(true); }
-  onOpenManageShop(): void { this.isProfileMenuOpen.set(false); this.showManageShopOverlay.set(true); }
+  onOpenUpdateProfile(): void { this.showUpdateProfileOverlay.set(true); }
+  onOpenChangePassword(): void { this.showChangePasswordOverlay.set(true); }
+  onOpenAddShop(): void { this.showCreateShopOverlayManual.set(true); }
+  onOpenManageShop(): void { this.showManageShopOverlay.set(true); }
   onProfileOverlayClose(): void { this.showUpdateProfileOverlay.set(false); this.showChangePasswordOverlay.set(false); }
   onManageShopOverlayClose(): void { this.showManageShopOverlay.set(false); }
 

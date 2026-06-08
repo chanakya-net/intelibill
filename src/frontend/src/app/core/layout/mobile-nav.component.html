@@ -32,4 +32,18 @@
     styleClass="shell-panelmenu shell-panelmenu-mobile"
     [pt]="panelMenuPt"
   ></p-panelmenu>
+
+  @if (profileDrawerMenuItems.length > 0) {
+    <div
+      class="mobile-profile-section"
+      [style.--profile-initials]="'&quot;' + profileInitials + '&quot;'"
+    >
+      <p-panelmenu
+        [model]="profileDrawerMenuItems"
+        [multiple]="false"
+        styleClass="shell-panelmenu shell-panelmenu-profile shell-panelmenu-mobile"
+        [pt]="panelMenuPt"
+      ></p-panelmenu>
+    </div>
+  }
 </p-drawer>

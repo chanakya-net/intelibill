@@ -1,21 +1,24 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { CardModule } from 'primeng/card';
+import { DatePickerModule } from 'primeng/datepicker';
 import { InputTextModule } from 'primeng/inputtext';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 
 import { finalize } from 'rxjs';
 
+import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../../shared/utils/date-time.util';
 import {
   AdjustmentRowDto,
   InventoryAdjustmentDirection,
@@ -39,18 +42,22 @@ interface SelectOption<T extends string | boolean> {
   selector: 'app-inventory-adjustments-page',
   standalone: true,
   imports: [
+    CommonModule,
     DatePipe,
     DecimalPipe,
+    FormsModule,
     ReactiveFormsModule,
     TranslocoPipe,
     ButtonModule,
     CheckboxModule,
     DialogModule,
     CardModule,
+    DatePickerModule,
     InputTextModule,
+    PaginatorModule,
+    ProgressSpinnerModule,
     SelectModule,
     TableModule,
-    TagModule,
     TextareaModule,
     ToastModule,
     AdjustmentRowFormComponent,
@@ -78,6 +85,8 @@ export class InventoryAdjustmentsPageComponent {
   readonly pageNumber = signal(1);
   readonly pageSize = signal(20);
   readonly selectedAdjustment = signal<InventoryAdjustmentHistoryItem | null>(null);
+  readonly fromDateValue = signal<Date | null>(null);
+  readonly toDateValue = signal<Date | null>(null);
   readonly adjustmentSummaryRows = computed(() => this.adjustments().map((adjustment) => ({
     batchId: adjustment.batchId,
     direction: adjustment.direction,
@@ -207,12 +216,35 @@ export class InventoryAdjustmentsPageComponent {
 
   onClearFilters(): void {
     this.filterForm.reset({ itemId: '', batchId: '', direction: null, reason: null, from: '', to: '', includeVoided: false });
+    this.fromDateValue.set(null);
+    this.toDateValue.set(null);
     this.loadHistory(1);
+  }
+
+  onFromDateChange(value: Date | null): void {
+    this.fromDateValue.set(value);
+    this.filterForm.patchValue({ from: value ? formatLocalIsoDate(value) : '' });
+  }
+
+  onToDateChange(value: Date | null): void {
+    this.toDateValue.set(value);
+    this.filterForm.patchValue({ to: value ? formatLocalIsoDate(value) : '' });
   }
 
   onPageChange(page: number): void {
     if (page < 1) return;
     this.loadHistory(page);
+  }
+
+  onPaginatorChange(event: PaginatorState): void {
+    const nextPage = Math.floor((event.first ?? 0) / (event.rows ?? this.pageSize())) + 1;
+    this.onPageChange(nextPage);
+  }
+
+  reasonLabel(reason: InventoryAdjustmentReason): string {
+    const option = [...this.reasonOptionsByDirection.Decrease, ...this.reasonOptionsByDirection.Increase]
+      .find((entry) => entry.value === reason);
+    return option?.label ?? reason;
   }
 
   openNewAdjustment(): void {

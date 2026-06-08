@@ -173,61 +173,17 @@ p {
   background: rgba(255, 255, 255, 0.96);
 }
 
-/* ── Shell: PrimeNG profile menu overrides ───────────────────────────────── */
-/* These must be global because PrimeNG renders the overlay outside the
-   component's shadow DOM, so ::ng-deep in component styles has no effect
-   once the menu detaches from the component's DOM subtree.              */
-
-.profile-prime-menu.p-menu,
-.profile-prime-menu.p-tieredmenu {
-  width: 13.5rem;
-  border-radius: 0.9rem;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
-  position: fixed !important;
-  top: 4rem !important;
-  right: max(1rem, calc((100vw - 80rem) / 2 + 1rem)) !important;
-  left: auto !important;
+.shell-panelmenu-profile .p-panelmenu-header-link,
+.shell-panelmenu-profile .p-panelmenu-item-link {
+  font-size: 0.8rem;
 }
 
-.profile-prime-menu .p-menu-list,
-.profile-prime-menu .p-tieredmenu-root-list {
-  padding: 0.35rem;
+.shell-panelmenu-profile .p-panelmenu-header-link {
+  padding: 0.45rem 0.55rem;
 }
 
-.profile-prime-menu .p-menu-item-link,
-.profile-prime-menu .p-tieredmenu-item-link {
-  border-radius: 0.65rem;
-  font-size: 0.86rem;
-  font-weight: 600;
-  gap: 0.5rem;
-}
-
-.profile-prime-menu .p-menu-item-icon,
-.profile-prime-menu .p-tieredmenu-item-icon {
-  color: #9a3412;
-  transition: transform 120ms ease;
-}
-
-.profile-prime-menu .p-menu-item-link:hover .p-menu-item-icon,
-.profile-prime-menu .p-tieredmenu-item-link:hover .p-tieredmenu-item-icon {
-  animation: profile-menu-icon-sway 0.55s ease-in-out 1;
-}
-
-.profile-prime-menu .p-tieredmenu-overlay {
-  border-radius: 0.9rem;
-  border: 1px solid #fed7aa;
-  background: #fff7ed;
-  box-shadow: 0 16px 28px rgba(124, 45, 18, 0.18);
-  min-width: 11rem;
-}
-
-.profile-prime-menu .p-tieredmenu-overlay .p-tieredmenu-item-link {
-  border-radius: 0.65rem;
-  font-size: 0.86rem;
-  font-weight: 600;
-  gap: 0.5rem;
+.shell-panelmenu-profile .p-panelmenu-item-link {
+  padding: 0.42rem 0.55rem 0.42rem 1rem;
 }
 
 .inventory-prime-menu.p-menu,
@@ -290,11 +246,3 @@ p {
   100% { transform: translateX(0) scaleX(1); }
 }
 
-@media (max-width: 640px) {
-  .profile-prime-menu.p-menu,
-  .profile-prime-menu.p-tieredmenu {
-    width: 12.4rem;
-    top: 5.5rem !important;
-    right: 0.75rem !important;
-  }
-}

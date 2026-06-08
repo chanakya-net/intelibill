@@ -1,23 +1,24 @@
-<p-card>
-  <h2>{{ 'inventory.adjustmentSummary' | transloco }}</h2>
-  @if (loading) {
-    <p>{{ 'common.loading' | transloco }}...</p>
-  } @else if (totalRows === 0) {
-    <p class="summary-empty">{{ 'inventory.noAdjustments' | transloco }}</p>
-  } @else {
-    <div class="summary-grid">
-      <p>{{ reasonLabel }}</p>
-      <p>
-        {{ 'inventory.adjustmentDirection.increase' | transloco }}
-        {{ increaseQuantity | number: '1.0-2' }}
-      </p>
-      <p>
-        {{ 'inventory.adjustmentDirection.decrease' | transloco }}
-        {{ decreaseQuantity | number: '1.0-2' }}
-      </p>
-      <p>
-        {{ 'inventory.adjustmentDirectionLabel' | transloco }} {{ directionLabel }}
-      </p>
-    </div>
-  }
-</p-card>
+@if (loading) {
+  <div class="summary-loading">
+    <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
+  </div>
+} @else {
+  <div class="summary-grid" aria-label="Adjustment summary">
+    <article class="summary-card summary-card--amber">
+      <div class="summary-card__label">{{ 'inventory.summary.totalAdjustments' | transloco }}</div>
+      <div class="summary-card__value">{{ totalRows | number:'1.0-0' }}</div>
+    </article>
+    <article class="summary-card summary-card--sage">
+      <div class="summary-card__label">{{ 'inventory.summary.increaseQuantity' | transloco }}</div>
+      <div class="summary-card__value">{{ increaseQuantity | number:'1.0-2' }}</div>
+    </article>
+    <article class="summary-card summary-card--terracotta">
+      <div class="summary-card__label">{{ 'inventory.summary.decreaseQuantity' | transloco }}</div>
+      <div class="summary-card__value">{{ decreaseQuantity | number:'1.0-2' }}</div>
+    </article>
+    <article class="summary-card summary-card--ink">
+      <div class="summary-card__label">{{ 'inventory.summary.netMovement' | transloco }}</div>
+      <div class="summary-card__value">{{ netMovementLabel }}</div>
+    </article>
+  </div>
+}

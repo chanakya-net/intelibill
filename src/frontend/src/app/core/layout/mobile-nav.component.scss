@@ -21,6 +21,12 @@
   }
 }
 
+.mobile-profile-section {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(254, 215, 170, 0.65);
+}
+
 @media (max-width: 640px) {
   .mobile-menu-trigger {
     display: inline-flex;

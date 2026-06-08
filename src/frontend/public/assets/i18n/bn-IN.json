@@ -116,7 +116,10 @@
     "profitLossReport": "লাভ ও ক্ষতি",
     "dashboard": "ড্যাশবোর্ড",
     "manageDiscounts": "ছাড়",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "আপনার জমা দেওয়া ইনভেন্টরি ব্যাচ পরিচালনা করুন",
     "adjustmentsTitle": "সমন্বয় ইতিহাস",
     "adjustmentsSubtitle": "ব্যাচ জুড়ে স্টক বৃদ্ধি ও হ্রাস পর্যালোচনা করুন.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "নতুন সমন্বয়",
     "item": "আইটেম",
     "voided": "বাতিল করা হয়েছে",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },

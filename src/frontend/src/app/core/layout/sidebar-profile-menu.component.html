@@ -1,0 +1,13 @@
+<div
+  class="sidebar-profile"
+  [class.is-collapsed]="collapsed"
+  [style.--profile-initials]="'&quot;' + profileInitials + '&quot;'"
+  (click)="onProfileSectionClick($event)"
+>
+  <p-panelmenu
+    [model]="displayMenuItems"
+    [multiple]="false"
+    styleClass="shell-panelmenu shell-panelmenu-profile"
+    [pt]="panelMenuPt"
+  ></p-panelmenu>
+</div>

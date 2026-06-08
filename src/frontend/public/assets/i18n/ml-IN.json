@@ -116,7 +116,10 @@
     "profitLossReport": "ലാഭവും നഷ്ടവും",
     "dashboard": "ഡാഷ്ബോർഡ്",
     "manageDiscounts": "ഡിസ്കൗണ്ടുകൾ",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "സബ്മിറ്റ് ചെയ്ത ഇൻവെന്ററി ബാച്ചുകൾ കൈകാര്യം ചെയ്യുക",
     "adjustmentsTitle": "ക്രമീകരണ ചരിത്രം",
     "adjustmentsSubtitle": "ബാച്ചുകളിലുടനീളം സ്റ്റോക്ക് കൂടുകയും കുറയുകയും ചെയ്യുന്നുവെന്ന് അവലോകനം ചെയ്യുക.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "പുതിയ ക്രമീകരണം",
     "item": "ഇനം",
     "voided": "റദ്ദാക്കപ്പെട്ടു",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },
