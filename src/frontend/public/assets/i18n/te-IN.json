@@ -1385,6 +1385,17 @@
   },
   "purchaseOrders": {
     "title": "Purchase Orders",
+    "directory": "Purchase order directory",
+    "subtitle": "Track supplier orders, receiving progress, and inventory arrivals from one place.",
+    "showingCount": "Showing {{visible}} of {{total}} purchase orders",
+    "actionsLabel": "Actions",
+    "summary": {
+      "totalOrders": "Total Orders",
+      "pendingReceipt": "Pending Receipt",
+      "receivedProgress": "Received Progress",
+      "expectedTotal": "Expected Total",
+      "filteredRows": "Filtered Rows"
+    },
     "poNumber": "PO Number",
     "searchPlaceholder": "Search PO number, supplier, reference, or item",
     "receivedProgress": "Received",

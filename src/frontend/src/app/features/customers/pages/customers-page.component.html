@@ -23,7 +23,7 @@
 
   <div class="summary-grid" aria-label="Customer summary">
     @for (card of summaryCards(); track card.labelKey) {
-      <article class="summary-card" [class]="'summary-card--' + card.tone">
+      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
         <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
         <div class="summary-card__value">
           @if (card.variant === 'money') {

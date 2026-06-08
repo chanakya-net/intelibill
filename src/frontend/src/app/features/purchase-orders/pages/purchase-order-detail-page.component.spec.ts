@@ -22,6 +22,7 @@ const errorMessageSignal = signal('');
 const canManagePurchaseOrdersSignal = signal(true);
 const sessionSignal = signal({ activeShopId: 'shop-1' });
 const suppliersSignal = signal([]);
+const catalogEntriesSignal = signal([]);
 
 const orderLines: readonly PurchaseOrderLine[] = [
   {
@@ -202,7 +203,16 @@ describe('PurchaseOrderDetailPageComponent', () => {
           },
         },
         { provide: SuppliersFacade, useValue: { suppliers: suppliersSignal, load: vi.fn() } },
-        { provide: ProductCatalogSyncService, useValue: { filterByName: () => [], findByName: () => null, upsertEntry: vi.fn() } },
+        {
+          provide: ProductCatalogSyncService,
+          useValue: {
+            catalogEntries: catalogEntriesSignal,
+            filterByName: () => [],
+            filterByBarcode: () => [],
+            findByName: () => null,
+            upsertEntry: vi.fn(),
+          },
+        },
         { provide: InventoryService, useValue: { generateItemBarcode: () => of({ barcode: 'BAR-1' }), addItem: vi.fn() } },
       ],
     });
