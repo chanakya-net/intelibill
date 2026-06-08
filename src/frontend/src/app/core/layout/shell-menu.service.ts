@@ -43,11 +43,12 @@ export class ShellMenuService {
       });
     }
 
-    if (this.permissions.canManageSuppliers()) {
+    const supplierItems = this.supplierMenuItems();
+    if (supplierItems.length > 0) {
       items.push({
         label: this.localizationService.translate('shell.manageSuppliers'),
         icon: 'pi pi-truck',
-        command: () => this.router.navigate(['/suppliers']),
+        items: supplierItems,
       });
     }
 
@@ -112,12 +113,6 @@ export class ShellMenuService {
     }
 
     items.push({
-      label: this.localizationService.translate('shell.purchaseOrders'),
-      icon: 'pi pi-list',
-      command: () => this.router.navigate(['/inventory/purchase-orders']),
-    });
-
-    items.push({
       label: this.localizationService.translate('shell.inventoryAdjustments'),
       icon: 'pi pi-history',
       command: () => this.router.navigate(['/inventory/adjustments']),
@@ -125,6 +120,28 @@ export class ShellMenuService {
 
     return items;
   });
+
+  private supplierMenuItems(): MenuItem[] {
+    const items: MenuItem[] = [];
+
+    if (this.permissions.canManageSuppliers()) {
+      items.push({
+        label: this.localizationService.translate('suppliers.supplierDirectory'),
+        icon: 'pi pi-truck',
+        command: () => this.router.navigate(['/suppliers']),
+      });
+    }
+
+    if (this.permissions.canViewInventory()) {
+      items.push({
+        label: this.localizationService.translate('shell.purchaseOrders'),
+        icon: 'pi pi-list',
+        command: () => this.router.navigate(['/inventory/purchase-orders']),
+      });
+    }
+
+    return items;
+  }
 
   private salesMenuItems(): MenuItem[] {
     if (!this.permissions.canManageSales()) {

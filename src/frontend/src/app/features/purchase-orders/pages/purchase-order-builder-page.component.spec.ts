@@ -141,6 +141,49 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(facade.loadDetail).toHaveBeenCalledWith('po-1');
   });
 
+  it('hydrates an edit draft from the selected order only once', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    await fixture.componentInstance.ngOnInit();
+
+    const draftState = (fixture.componentInstance as unknown as {
+      draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
+    }).draftState;
+    const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
+
+    selectedOrder.set(makeDetail());
+    fixture.detectChanges();
+
+    expect(replaceFromServerSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not rehydrate repeatedly after resolving the supplier name', async () => {
+    suppliers.set([
+      { supplierId: 'supplier-1', name: 'Acme Traders', isActive: true, isSystem: false },
+    ]);
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    fixture.componentInstance.purchaseOrderId = 'po-1';
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    const draftState = (fixture.componentInstance as unknown as {
+      draftState: {
+        header: () => { supplier: { readonly id: string; readonly name: string } | null };
+        replaceFromServer: (order: PurchaseOrderDetail) => void;
+      };
+    }).draftState;
+    const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
+
+    selectedOrder.set(makeDetail());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(replaceFromServerSpy).toHaveBeenCalledTimes(1);
+    expect(draftState.header().supplier).toEqual({ id: 'supplier-1', name: 'Acme Traders' });
+  });
+
   it('redirects to list when Staff tries to access builder', async () => {
     canManagePurchaseOrders.set(false);
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);

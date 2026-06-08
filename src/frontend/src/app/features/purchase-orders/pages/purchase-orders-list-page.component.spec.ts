@@ -5,6 +5,11 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
+import { AuthService } from '../../../core/auth/auth.service';
+import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { PurchaseOrderDraftIndexedDbService } from '../../../core/storage/purchase-order-draft-indexeddb.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
+import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import {
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   PurchaseOrderListItem,
@@ -36,6 +41,8 @@ const errorMessageSignal = signal('');
 const filtersSignal = signal(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
 const paginationSignal = signal({ totalCount: 1, pageNumber: 1, pageSize: 20 });
 const canManagePurchaseOrdersSignal = signal(true);
+const sessionSignal = signal({ activeShopId: 'shop-1' });
+const suppliersSignal = signal([]);
 
 const facade = {
   orders: purchaseOrderSignal,
@@ -50,6 +57,7 @@ const facade = {
   loadOrders: vi.fn(),
   loadDetail: vi.fn(),
   createDraft: vi.fn(),
+  updateDraft: vi.fn(),
   deleteDraft: vi.fn(),
   clearDetail: vi.fn(),
   clearError: vi.fn(),
@@ -93,8 +101,20 @@ describe('PurchaseOrdersListPageComponent', () => {
       imports: [PurchaseOrdersListPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         { provide: Router, useValue: router },
+        { provide: AuthService, useValue: { session: sessionSignal } },
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: PurchaseOrderService, useValue: {} },
+        {
+          provide: PurchaseOrderDraftIndexedDbService,
+          useValue: {
+            loadDraft: vi.fn(async () => null),
+            saveDraft: vi.fn(async () => undefined),
+            clearDraft: vi.fn(async () => undefined),
+          },
+        },
+        { provide: SuppliersFacade, useValue: { suppliers: suppliersSignal, load: vi.fn() } },
+        { provide: ProductCatalogSyncService, useValue: { filterByName: () => [], findByName: () => null, upsertEntry: vi.fn() } },
+        { provide: InventoryService, useValue: { generateItemBarcode: vi.fn(), addItem: vi.fn() } },
         { provide: ShopPermissionsService, useValue: permissions },
       ],
     });
@@ -252,6 +272,26 @@ describe('PurchaseOrdersListPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('purchaseOrders.editPo');
+  });
+
+  it('opens the edit overlay without navigating to the detail page', async () => {
+    canManagePurchaseOrdersSignal.set(true);
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const editButton = Array.from(host.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('purchaseOrders.editPo')) as HTMLButtonElement;
+
+    expect(editButton).toBeTruthy();
+    editButton.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(facade.loadDetail).toHaveBeenCalledWith('po-1');
+    expect(host.querySelector('app-purchase-order-builder-page')).toBeTruthy();
   });
 
   it('shows delete action for Draft order and confirms before deleting', () => {

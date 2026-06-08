@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewEncapsulation, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -235,11 +235,11 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
           return;
         }
         if (this.draftState.hasRestoredLocalDraft() && this.draftState.restoredPurchaseOrderId() === order.purchaseOrderId) {
-          this.patchHeaderForm();
+          untracked(() => this.patchHeaderForm());
           return;
         }
         this.draftState.replaceFromServer(order);
-        this.patchHeaderForm();
+        untracked(() => this.patchHeaderForm());
       }
     });
     effect(() => {
@@ -250,7 +250,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       if (!supplier) return;
 
       this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
-      this.patchHeaderForm();
+      untracked(() => this.patchHeaderForm());
     });
     effect(() => {
       this.supplierNameSuggestions.set(this.filterSupplierNames(this.form.controls.supplierName.value ?? ''));
