@@ -6,7 +6,7 @@
       <p class="subtitle">{{ 'suppliers.subtitle' | transloco }}</p>
       <div class="suppliers-hero__meta">
         <span class="meta-chip meta-chip--primary">
-          {{ filteredSupplierCount() | number:'1.0-0' }} / {{ totalSuppliers() | number:'1.0-0' }} shown
+          {{ totalSuppliers() | number:'1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
         </span>
         <span class="meta-chip">
           {{ activeSuppliers() | number:'1.0-0' }} {{ 'suppliers.active' | transloco | lowercase }}
@@ -75,18 +75,11 @@
           <p class="directory-panel__eyebrow">{{ 'suppliers.supplierDirectory' | transloco }}</p>
           <h2>{{ 'suppliers.supplierDirectory' | transloco }}</h2>
         </div>
-
-        <app-suppliers-filter-bar
-          [searchValue]="searchValue()"
-          [statusFilter]="statusFilter()"
-          (searchValueChange)="searchValue.set($event)"
-          (statusFilterChange)="onStatusFilterChange($event)"
-        />
       </header>
 
       <div class="directory-panel__surface">
         <app-suppliers-table
-          [suppliers]="filteredSuppliers()"
+          [suppliers]="userSuppliers()"
           [canManageSuppliers]="canManageSuppliers()"
           [canMakePayment]="canMakePayment()"
           (openSupplierDetail)="onOpenSupplierDetail($event)"
@@ -96,7 +89,7 @@
       </div>
 
       <footer class="directory-panel__footer">
-        Showing {{ filteredSupplierCount() | number:'1.0-0' }} of {{ totalSuppliers() | number:'1.0-0' }} suppliers
+        {{ totalSuppliers() | number:'1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
       </footer>
     </section>
   }

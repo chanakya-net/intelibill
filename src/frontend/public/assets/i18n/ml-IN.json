@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "ചെലവ് ലെഡ്ജർ",
     "title": "ചെലവുകൾ",
     "subtitle": "നിങ്ങളുടെ ബിസിനസ് ചെലവുകൾ നിയന്ത്രിക്കുകയും ട്രാക്കുചെയ്യുകയും ചെയ്യുക",
+    "showingCount": "{{total}} ൽ {{visible}} ചെലവുകൾ കാണിക്കുന്നു",
     "recordExpense": "ചെലവ് രേഖപ്പെടുത്തുക",
     "recordExpenseDescription": "താഴെ ചെലവിന്റെ വിശദാംശങ്ങൾ നൽകുക.",
     "correctExpense": "ചെലവ് തിരുത്തുക",
@@ -1135,7 +1137,14 @@
     "noExpenses": "ചെലവുകൾ കണ്ടെത്തിയില്ല",
     "noExpensesDescription": "തിരച്ചിൽ മാറ്റുക അല്ലെങ്കിൽ പുതിയ ചെലവ് രേഖപ്പെടുത്തുക.",
     "searchPlaceholder": "ചെലവുകൾ തിരയുക...",
-    "pageInfo": "പേജ് {{currentPage}} / {{totalPages}}"
+    "pageInfo": "പേജ് {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "മൊത്തം ചെലവുകൾ",
+      "pageAmount": "പേജ് തുക",
+      "activeCount": "സജീവ ചെലവുകൾ",
+      "voidedCount": "റദ്ദാക്കിയ ചെലവുകൾ",
+      "filteredRows": "ഫിൽട്ടർ ചെയ്ത വരികൾ"
+    }
   },
   "dashboard": {
     "title": "ഡാഷ്ബോർഡ്",

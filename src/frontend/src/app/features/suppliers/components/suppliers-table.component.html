@@ -98,9 +98,6 @@
 <div class="suppliers-table-card desktop-table">
   <p-table
     [value]="tableSuppliers"
-    [globalFilterFields]="['name','contactPersonName','contactPersonPhone','city','state']"
-    [sortField]="'name'"
-    [sortOrder]="1"
     class="p-datatable-sm suppliers-directory-table"
     [scrollable]="true"
     scrollHeight="calc(100vh - 280px)"
@@ -108,87 +105,15 @@
   >
     <ng-template pTemplate="header">
       <tr>
-        <th pSortableColumn="name">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.name' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="name" />
-              <p-columnFilter type="text" field="name" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="contactPersonName">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.contactPerson' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="contactPersonName" />
-              <p-columnFilter type="text" field="contactPersonName" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="contactPersonPhone">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.contactPhone' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="contactPersonPhone" />
-              <p-columnFilter type="text" field="contactPersonPhone" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="city">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.city' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="city" />
-              <p-columnFilter type="text" field="city" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="state">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.state' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="state" />
-              <p-columnFilter type="text" field="state" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="pin">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.pin' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="pin" />
-              <p-columnFilter type="text" field="pin" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="balanceDue">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.balance' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="balanceDue" />
-              <p-columnFilter type="numeric" field="balanceDue" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="isActive">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.status' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="isActive" />
-              <p-columnFilter type="boolean" field="isActive" display="menu" />
-            </div>
-          </div>
-        </th>
-        <th pSortableColumn="isPreferred">
-          <div class="flex items-center justify-between">
-            {{ 'suppliers.preferred' | transloco }}
-            <div class="flex items-center gap-1">
-              <p-sortIcon field="isPreferred" />
-              <p-columnFilter type="boolean" field="isPreferred" display="menu" />
-            </div>
-          </div>
-        </th>
+        <th>{{ 'suppliers.name' | transloco }}</th>
+        <th>{{ 'suppliers.contactPerson' | transloco }}</th>
+        <th>{{ 'suppliers.contactPhone' | transloco }}</th>
+        <th>{{ 'suppliers.city' | transloco }}</th>
+        <th>{{ 'suppliers.state' | transloco }}</th>
+        <th>{{ 'suppliers.pin' | transloco }}</th>
+        <th>{{ 'suppliers.balance' | transloco }}</th>
+        <th>{{ 'suppliers.status' | transloco }}</th>
+        <th>{{ 'suppliers.preferred' | transloco }}</th>
         @if (canManageSuppliers || canMakePayment) {
           <th>{{ 'suppliers.actions' | transloco }}</th>
         }

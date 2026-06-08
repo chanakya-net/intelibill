@@ -1,17 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
-import { AvatarModule } from 'primeng/avatar';
-import { TagModule } from 'primeng/tag';
-import { IconFieldModule } from 'primeng/iconfield';
-import { InputIconModule } from 'primeng/inputicon';
-import { InputTextModule } from 'primeng/inputtext';
 import { SkeletonModule } from 'primeng/skeleton';
-import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { AddSupplierOverlayComponent } from '../components/add-supplier-overlay.component';
@@ -20,31 +12,19 @@ import { MakePaymentOverlayComponent } from '../components/make-payment-overlay.
 import { SupplierDetailComponent } from '../components/supplier-detail.component';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
-import { SuppliersFilterBarComponent } from '../components/suppliers-filter-bar.component';
 import { SuppliersTableComponent } from '../components/suppliers-table.component';
-
-type SupplierStatusFilter = 'all' | 'active' | 'inactive';
 
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     ButtonModule,
-    CardModule,
-    AvatarModule,
-    TagModule,
-    IconFieldModule,
-    InputIconModule,
-    InputTextModule,
     SkeletonModule,
-    TableModule,
     AddSupplierOverlayComponent,
     EditSupplierOverlayComponent,
     MakePaymentOverlayComponent,
     SupplierDetailComponent,
-    SuppliersFilterBarComponent,
     SuppliersTableComponent,
     TranslocoPipe,
   ],
@@ -63,29 +43,6 @@ export class SuppliersPageComponent {
   readonly pendingPayables = computed(() =>
     this.userSuppliers().reduce((total, supplier) => total + Math.max(supplier.balanceDue, 0), 0),
   );
-  readonly searchValue = signal('');
-  readonly statusFilter = signal<SupplierStatusFilter>('all');
-  readonly filteredSuppliers = computed(() => {
-    const q = this.searchValue().toLowerCase();
-    const statusFiltered =
-      this.statusFilter() === 'all' ? [...this.userSuppliers()] : this.userSuppliers().filter((s) => s.isActive === (this.statusFilter() === 'active'));
-
-    if (!q) {
-      return statusFiltered;
-    }
-
-    return statusFiltered.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        (s.city ?? '').toLowerCase().includes(q) ||
-        (s.state ?? '').toLowerCase().includes(q) ||
-        (s.pin ?? '').toLowerCase().includes(q) ||
-        (s.contactPersonPhone ?? '').toLowerCase().includes(q) ||
-        (s.contactPersonName ?? '').toLowerCase().includes(q),
-    );
-  });
-  readonly filteredSupplierCount = computed(() => this.filteredSuppliers().length);
-
   readonly isLoading = this.suppliersFacade.isLoading;
   readonly serverError = this.suppliersFacade.errorMessage;
   readonly lastMutationType = this.suppliersFacade.lastMutationType;
@@ -194,7 +151,4 @@ export class SuppliersPageComponent {
     this.detailSupplier.set(null);
   }
 
-  onStatusFilterChange(statusFilter: SupplierStatusFilter): void {
-    this.statusFilter.set(statusFilter);
-  }
 }

@@ -1,0 +1,160 @@
+<section class="expenses-table-shell" aria-label="Expense ledger results">
+  <div class="mobile-grid-container">
+    @for (expense of tableExpenses; track expense.id) {
+      <article class="expense-card" [class.expense-card--voided]="expense.isVoided">
+        <header class="expense-card__header">
+          <div class="expense-card__identity">
+            <span
+              class="expense-card__avatar"
+              [style.background-color]="categoryAvatarColor(expense.categoryName)"
+              aria-hidden="true"
+            >
+              {{ categoryInitials(expense.categoryName) }}
+            </span>
+            <span>
+              <strong>{{ expense.categoryName }}</strong>
+              <em>{{ expense.paidTo }}</em>
+            </span>
+          </div>
+
+          <span class="status-badge" [class.status-badge--voided]="expense.isVoided" [class.status-badge--active]="!expense.isVoided">
+            <span class="status-dot"></span>
+            {{ (expense.isVoided ? 'expenses.voided' : 'expenses.active') | transloco }}
+          </span>
+        </header>
+
+        <div class="expense-card__metrics">
+          <div>
+            <span>{{ 'expenses.amount' | transloco }}</span>
+            <strong>{{ 'common.currencySymbol' | transloco }}{{ expense.amount | number:'1.2-2' }}</strong>
+          </div>
+          <div>
+            <span>{{ 'expenses.expenseDate' | transloco }}</span>
+            <strong>{{ expense.expenseDate | dateOnly:'mediumDate' }}</strong>
+          </div>
+        </div>
+
+        @if (canManageExpenses && !expense.isVoided) {
+          <footer class="expense-card__actions">
+            <p-button
+              type="button"
+              [label]="'expenses.correctShort' | transloco"
+              icon="pi pi-pencil"
+              severity="secondary"
+              [outlined]="true"
+              (click)="onCorrectExpense(expense.id)"
+            />
+          </footer>
+        }
+      </article>
+    }
+
+    @if (tableExpenses.length === 0) {
+      <div class="mobile-empty-state">
+        <h2>{{ 'expenses.noExpenses' | transloco }}</h2>
+        <p>{{ 'expenses.noExpensesDescription' | transloco }}</p>
+      </div>
+    }
+  </div>
+
+  <div class="expenses-table-card desktop-table">
+    <p-table
+      [value]="tableExpenses"
+      [scrollable]="true"
+      scrollHeight="calc(100vh - 320px)"
+      class="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'expenses.category' | transloco }}</th>
+          <th>{{ 'expenses.paidTo' | transloco }}</th>
+          <th>{{ 'expenses.amount' | transloco }}</th>
+          <th>{{ 'expenses.expenseDate' | transloco }}</th>
+          <th>{{ 'expenses.status' | transloco }}</th>
+          @if (canManageExpenses) {
+            <th>{{ 'common.actions' | transloco }}</th>
+          }
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-expense>
+        <tr [class.expense-row--voided]="expense.isVoided">
+          <td>
+            <div class="expense-name-cell">
+              <span
+                class="expense-name-cell__avatar"
+                [style.background-color]="categoryAvatarColor(expense.categoryName)"
+                aria-hidden="true"
+              >
+                {{ categoryInitials(expense.categoryName) }}
+              </span>
+              <strong>{{ expense.categoryName }}</strong>
+            </div>
+          </td>
+          <td>{{ expense.paidTo }}</td>
+          <td class="money">{{ 'common.currencySymbol' | transloco }}{{ expense.amount | number:'1.2-2' }}</td>
+          <td>{{ expense.expenseDate | dateOnly:'mediumDate' }}</td>
+          <td>
+            <span class="status-badge" [class.status-badge--voided]="expense.isVoided" [class.status-badge--active]="!expense.isVoided">
+              <span class="status-dot"></span>
+              {{ (expense.isVoided ? 'expenses.voided' : 'expenses.active') | transloco }}
+            </span>
+          </td>
+          @if (canManageExpenses) {
+            <td>
+              @if (!expense.isVoided) {
+                <p-button
+                  type="button"
+                  [label]="'expenses.correctShort' | transloco"
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  (click)="onCorrectExpense(expense.id)"
+                />
+              }
+            </td>
+          }
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td [attr.colspan]="canManageExpenses ? 6 : 5">
+            <div class="empty-state">
+              <h2>{{ 'expenses.noExpenses' | transloco }}</h2>
+              <p>{{ 'expenses.noExpensesDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="footer">
+        <tr>
+          <td [attr.colspan]="canManageExpenses ? 6 : 5">
+            <div class="table-footer">
+              <span>{{ 'expenses.showingCount' | transloco:{ visible: visibleRows, total: totalRows } }}</span>
+              @if (showPagination) {
+                <div class="pagination-controls">
+                  <p-button
+                    icon="pi pi-chevron-left"
+                    [disabled]="currentPage <= 1"
+                    (click)="onPageChange(currentPage - 1)"
+                    severity="secondary"
+                    [text]="true"
+                  />
+                  <span class="page-info">
+                    {{ 'expenses.pageInfo' | transloco:{ currentPage, totalPages } }}
+                  </span>
+                  <p-button
+                    icon="pi pi-chevron-right"
+                    [disabled]="currentPage >= totalPages"
+                    (click)="onPageChange(currentPage + 1)"
+                    severity="secondary"
+                    [text]="true"
+                  />
+                </div>
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</section>
