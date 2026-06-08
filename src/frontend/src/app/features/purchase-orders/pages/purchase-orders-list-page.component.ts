@@ -21,7 +21,14 @@ import { ButtonModule } from 'primeng/button';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
-import { DEFAULT_PURCHASE_ORDER_LIST_FILTERS, PurchaseOrderListFilters, PurchaseOrderStatus } from '../services/purchase-order.service';
+import {
+  DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
+  PurchaseOrderDetail,
+  PurchaseOrderListFilters,
+  PurchaseOrderStatus,
+  ReceivePurchaseOrderRequest,
+} from '../services/purchase-order.service';
+import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
 
 @Component({
@@ -42,6 +49,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
     TableModule,
     TagModule,
     ButtonModule,
+    ReceivePurchaseOrderDialogComponent,
     PurchaseOrderBuilderPageComponent,
   ],
   providers: [ConfirmationService],
@@ -165,6 +173,17 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                         (click)="deleteDraft(order.purchaseOrderId, $event)"
                       ></button>
                     </div>
+                  } @else if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+                    <div class="po-row-actions">
+                      <button
+                        pButton
+                        type="button"
+                        severity="success"
+                        icon="pi pi-inbox"
+                        [label]="'purchaseOrders.actions.receive' | transloco"
+                        (click)="openReceiveOrder(order.purchaseOrderId, $event)"
+                      ></button>
+                    </div>
                   }
                 </td>
               </tr>
@@ -190,6 +209,17 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       <app-purchase-order-builder-page
         [purchaseOrderId]="editingPoId()"
         (closeRequested)="closeBuilder()"
+      />
+    }
+
+    @if (receivingOrder; as order) {
+      <app-receive-purchase-order-dialog
+        [order]="order"
+        [visible]="showReceiveDialog()"
+        (visibleChange)="onReceiveDialogVisibleChange($event)"
+        [submitting]="facade.isSubmitting()"
+        (receive)="receiveOrder(order.purchaseOrderId, $event)"
+        (closed)="closeReceiveDialog()"
       />
     }
   `,
@@ -223,6 +253,8 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected readonly showBuilderOverlay = signal(false);
   protected readonly editingPoId = signal<string | null>(null);
+  protected readonly showReceiveDialog = signal(false);
+  protected readonly receivingPoId = signal<string | null>(null);
   protected readonly orderDateFromValue = signal<Date | null>(null);
   protected readonly orderDateToValue = signal<Date | null>(null);
 
@@ -243,6 +275,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected get first(): number {
     return Math.max(0, (this.pagination.pageNumber - 1) * this.pagination.pageSize);
+  }
+
+  protected get receivingOrder(): PurchaseOrderDetail | null {
+    const order = this.facade.selectedOrder();
+    return order?.purchaseOrderId === this.receivingPoId() ? order : null;
   }
 
   ngOnInit(): void {
@@ -310,6 +347,31 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   protected placeOrder(purchaseOrderId: string, event: Event): void {
     event.stopPropagation();
     this.facade.placeOrder(purchaseOrderId);
+  }
+
+  protected openReceiveOrder(purchaseOrderId: string, event: Event): void {
+    event.stopPropagation();
+    this.receivingPoId.set(purchaseOrderId);
+    this.showReceiveDialog.set(true);
+    this.facade.loadDetail(purchaseOrderId);
+  }
+
+  protected onReceiveDialogVisibleChange(visible: boolean): void {
+    this.showReceiveDialog.set(visible);
+    if (!visible) {
+      this.closeReceiveDialog();
+    }
+  }
+
+  protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+    this.facade.receiveOrder(purchaseOrderId, payload);
+    this.showReceiveDialog.set(false);
+  }
+
+  protected closeReceiveDialog(): void {
+    this.showReceiveDialog.set(false);
+    this.receivingPoId.set(null);
+    this.facade.loadOrders(this.facade.filters());
   }
 
   protected confirmDeleteDraft(purchaseOrderId: string): void {
