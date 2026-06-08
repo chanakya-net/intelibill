@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "ಖರ್ಚು ಲೆಡ್ಜರ್",
     "title": "ಖರ್ಚುಗಳು",
     "subtitle": "ನಿಮ್ಮ ವ್ಯವಹಾರ ಖರ್ಚುಗಳನ್ನು ನಿರ್ವಹಿಸಿ ಮತ್ತು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+    "showingCount": "{{total}} ರಲ್ಲಿ {{visible}} ಖರ್ಚುಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
     "recordExpense": "ಖರ್ಚು ದಾಖಲಿಸಿ",
     "recordExpenseDescription": "ಕೆಳಗೆ ಖರ್ಚಿನ ವಿವರಗಳನ್ನು ನಮೂದಿಸಿ.",
     "correctExpense": "ಖರ್ಚು ತಿದ್ದು",
@@ -1135,7 +1137,14 @@
     "noExpenses": "ಯಾವುದೇ ಖರ್ಚುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
     "noExpensesDescription": "ಹುಡುಕಾಟವನ್ನು ಬದಲಿಸಿ ಅಥವಾ ಹೊಸ ಖರ್ಚು ದಾಖಲಿಸಿ.",
     "searchPlaceholder": "ಖರ್ಚುಗಳನ್ನು ಹುಡುಕಿ...",
-    "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}"
+    "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "ಒಟ್ಟು ಖರ್ಚುಗಳು",
+      "pageAmount": "ಪುಟದ ಮೊತ್ತ",
+      "activeCount": "ಸಕ್ರಿಯ ಖರ್ಚುಗಳು",
+      "voidedCount": "ರದ್ದುಗೊಂಡ ಖರ್ಚುಗಳು",
+      "filteredRows": "ಫಿಲ್ಟರ್ ಮಾಡಿದ ಸಾಲುಗಳು"
+    }
   },
   "dashboard": {
     "title": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",

@@ -1,252 +1,113 @@
 <section class="expenses-page">
-  <header class="expenses-header">
-    <div>
-      <p class="eyebrow">{{ 'expenses.subtitle' | transloco }}</p>
+  <header class="expenses-hero">
+    <div class="expenses-hero__copy">
+      <p class="eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
       <h1>{{ 'expenses.title' | transloco }}</h1>
       <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
+      <div class="expenses-hero__meta">
+        <span class="meta-chip meta-chip--primary">{{ 'expenses.showingCount' | transloco:{ visible: filteredRowCount(), total: totalExpenses() } }}</span>
+        <span class="meta-chip">{{ 'expenses.summary.pageAmount' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ pageAmount() | number:'1.2-2' }}</span>
+        <span class="meta-chip">{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span>
+      </div>
     </div>
 
     @if (canManageExpenses()) {
-      <button
-        pButton
-        type="button"
-        [label]="'expenses.recordExpense' | transloco"
-        icon="pi pi-plus"
-        (click)="openRecordOverlay()"
-      ></button>
+      <div class="expenses-hero__actions">
+        <p-button
+          type="button"
+          [label]="'expenses.recordExpense' | transloco"
+          icon="pi pi-plus"
+          (click)="openRecordOverlay()"
+        />
+      </div>
     }
   </header>
+
+  <div class="summary-grid" aria-label="Expense summary">
+    @for (card of summaryCards(); track card.labelKey) {
+      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
+        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value">
+          @if (card.variant === 'money') {
+            {{ 'common.currencySymbol' | transloco }}{{ card.value | number:'1.2-2' }}
+          } @else {
+            {{ card.value | number:'1.0-0' }}
+          }
+        </div>
+      </article>
+    }
+  </div>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
   @if (loading()) {
-    <div class="loading">
-      <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-    </div>
+    <section class="directory-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
+          <h2>{{ 'expenses.title' | transloco }}</h2>
+        </div>
+      </div>
+      <div class="loading-shell">
+        <p-skeleton width="100%" height="3.25rem" styleClass="rounded-lg"></p-skeleton>
+        <div class="loading-grid">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <p-skeleton width="100%" height="7rem" styleClass="rounded-2xl"></p-skeleton>
+          }
+        </div>
+        <p-skeleton width="100%" height="25rem" styleClass="rounded-2xl"></p-skeleton>
+      </div>
+    </section>
   }
 
   @if (!loading()) {
-    <!-- Mobile Stacked List (≤1023px) -->
-    <div class="mobile-grid-container">
-      <div class="mobile-search-bar">
-        <p-iconfield iconPosition="left" class="mobile-search-field">
-          <p-inputicon>
-            <i class="pi pi-search"></i>
-          </p-inputicon>
-          <input
-            pInputText
-            type="text"
-            [ngModel]="searchValue()"
-            (ngModelChange)="onSearchValueChange($event)"
-            [placeholder]="'expenses.searchPlaceholder' | transloco"
-            class="w-full pr-10"
-          />
-          @if (searchValue()) {
-            <p-inputicon iconPosition="right" class="cursor-pointer" (click)="onSearchValueChange('')">
-              <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
-            </p-inputicon>
-          }
-        </p-iconfield>
-      </div>
-
-      <div class="expense-list flex flex-col gap-3 px-1">
-        @for (expense of expenses(); track expense.id) {
-          <p-card class="expense-card-item" [pt]="{
-            root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
-            body: { class: 'p-3' },
-            content: { class: 'p-0' }
-          }">
-            <div class="flex items-center gap-4">
-              <div class="flex-1 flex flex-col gap-1 min-w-0">
-                <div class="font-bold text-slate-800 text-base truncate leading-tight">
-                  {{ expense.categoryName }}
-                </div>
-                <div class="text-slate-500 text-xs font-medium uppercase tracking-wider truncate">
-                  {{ expense.paidTo }}
-                </div>
-                <div class="text-slate-400 text-xs">
-                  {{ expense.expenseDate | dateOnly: 'mediumDate' }}
-                </div>
-              </div>
-
-              <div class="flex flex-col items-end gap-2">
-                <span class="font-bold text-slate-800 text-sm">
-                  {{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}
-                </span>
-
-                @if (expense.isVoided) {
-                  <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
-                } @else {
-                  <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
-                }
-
-                @if (canManageExpenses() && !expense.isVoided) {
-                  <p-button
-                    [label]="'expenses.correctShort' | transloco"
-                    icon="pi pi-pencil"
-                    size="small"
-                    severity="secondary"
-                    (click)="openCorrectOverlay(expense.id)"
-                  ></p-button>
-                }
-              </div>
-            </div>
-          </p-card>
-        }
-
-        @if (expenses().length === 0) {
-          <div class="mobile-empty-state">
-            <h2 class="text-xl font-bold text-slate-700">{{ 'expenses.noExpenses' | transloco }}</h2>
-            <p class="text-slate-500">{{ 'expenses.noExpensesDescription' | transloco }}</p>
-          </div>
-        }
-      </div>
-    </div>
-
-    <!-- Desktop table -->
-    <div class="expenses-table-card desktop-table">
-      <p-table
-        #expensesTable
-        [value]="expenses()"
-        [globalFilterFields]="['categoryName','paidTo','amount','expenseDate']"
-        [sortField]="'expenseDate'"
-        [sortOrder]="-1"
-        [scrollable]="true"
-        class="p-datatable-sm"
-      >
-        <ng-template pTemplate="caption">
-          <app-table-filter-bar
-            [table]="expensesTable"
-            [searchValue]="searchValue()"
-            (searchValueChange)="onSearchValueChange($event)"
-            [placeholder]="'expenses.searchPlaceholder' | transloco"
-          />
-        </ng-template>
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="categoryName">
-              <div class="flex items-center justify-between">
-                {{ 'expenses.category' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="categoryName" />
-                  <p-columnFilter type="text" field="categoryName" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="paidTo">
-              <div class="flex items-center justify-between">
-                {{ 'expenses.paidTo' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="paidTo" />
-                  <p-columnFilter type="text" field="paidTo" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="amount">
-              <div class="flex items-center justify-between">
-                {{ 'expenses.amount' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="amount" />
-                  <p-columnFilter type="numeric" field="amount" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="expenseDate">
-              <div class="flex items-center justify-between">
-                {{ 'expenses.expenseDate' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="expenseDate" />
-                  <p-columnFilter type="date" field="expenseDate" display="menu" />
-                </div>
-              </div>
-            </th>
-            <th pSortableColumn="isVoided">
-              <div class="flex items-center justify-between">
-                {{ 'expenses.status' | transloco }}
-                <div class="flex items-center gap-1">
-                  <p-sortIcon field="isVoided" />
-                  <p-columnFilter type="boolean" field="isVoided" display="menu" />
-                </div>
-              </div>
-            </th>
-            @if (canManageExpenses()) {
-              <th>{{ 'common.actions' | transloco }}</th>
-            }
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-expense>
-          <tr>
-            <td>{{ expense.categoryName }}</td>
-            <td>{{ expense.paidTo }}</td>
-            <td>{{ expense.amount | currency: 'INR' : 'symbol' : '1.0-2' }}</td>
-            <td>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</td>
-            <td>
-              @if (expense.isVoided) {
-                <p-tag severity="danger" [value]="'expenses.voided' | transloco"></p-tag>
-              } @else {
-                <p-tag severity="success" [value]="'expenses.active' | transloco"></p-tag>
-              }
-            </td>
-            @if (canManageExpenses()) {
-              <td>
-                @if (!expense.isVoided) {
-                  <button
-                    pButton
-                    type="button"
-                    [label]="'expenses.correctShort' | transloco"
-                    icon="pi pi-pencil"
-                    size="small"
-                    severity="secondary"
-                    (click)="openCorrectOverlay(expense.id)"
-                  ></button>
-                }
-              </td>
-            }
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td [attr.colspan]="5 + (canManageExpenses() ? 1 : 0)">
-              <div class="empty-state">
-                <h2>{{ 'expenses.noExpenses' | transloco }}</h2>
-                <p>{{ 'expenses.noExpensesDescription' | transloco }}</p>
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-
-      @if (pagination().totalCount > pagination().pageSize) {
-        <div class="pagination-controls">
-          <p-button
-            icon="pi pi-chevron-left"
-            [disabled]="pagination().currentPage <= 1"
-            (click)="onPageChange(pagination().currentPage - 1)"
-            severity="secondary"
-            [text]="true"
-          ></p-button>
-          <span class="page-info">
-            {{
-              'expenses.pageInfo'
-                | transloco
-                  : {
-                      currentPage: pagination().currentPage,
-                      totalPages: totalPages()
-                    }
-            }}
-          </span>
-          <p-button
-            icon="pi pi-chevron-right"
-            [disabled]="pagination().currentPage * pagination().pageSize >= pagination().totalCount"
-            (click)="onPageChange(pagination().currentPage + 1)"
-            severity="secondary"
-            [text]="true"
-          ></p-button>
+    <section class="directory-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
+          <h2>{{ 'expenses.title' | transloco }}</h2>
+          <p class="directory-panel__subtitle">{{ 'expenses.subtitle' | transloco }}</p>
         </div>
-      }
-    </div>
+
+        <div class="directory-panel__metrics" aria-label="Expense ledger metrics">
+          @for (metric of directoryMetrics(); track metric.labelKey) {
+            <span class="metric-chip">
+              <strong>
+                @if (metric.variant === 'money') {
+                  {{ 'common.currencySymbol' | transloco }}{{ metric.value | number:'1.2-2' }}
+                } @else {
+                  {{ metric.value | number:'1.0-0' }}
+                }
+              </strong>
+              <span>{{ metric.labelKey | transloco }}</span>
+            </span>
+          }
+        </div>
+      </header>
+
+      <app-expenses-filter-bar
+        [searchValue]="searchValue()"
+        [statusFilter]="statusFilter()"
+        (searchValueChange)="onSearchValueChange($event)"
+        (statusFilterChange)="onStatusFilterChange($event)"
+      />
+
+      <div class="directory-panel__surface">
+        <app-expenses-table
+          [expenses]="filteredExpenses()"
+          [visibleRows]="filteredRowCount()"
+          [totalRows]="totalExpenses()"
+          [canManageExpenses]="canManageExpenses()"
+          [currentPage]="pagination().currentPage"
+          [totalPages]="totalPages()"
+          [showPagination]="showPagination()"
+          (correctExpense)="openCorrectOverlay($event)"
+          (pageChange)="onPageChange($event)"
+        />
+      </div>
+    </section>
   }
 
   @if (showRecordOverlay()) {

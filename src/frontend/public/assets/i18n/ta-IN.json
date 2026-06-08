@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "செலவு பதிவேடு",
     "title": "செலவுகள்",
     "subtitle": "உங்கள் வணிக செலவுகளை நிர்வகித்து கண்காணிக்கவும்",
+    "showingCount": "{{total}} இல் {{visible}} செலவுகள் காட்டப்படுகின்றன",
     "recordExpense": "செலவை பதிவு செய்",
     "recordExpenseDescription": "கீழே செலவு விவரங்களை உள்ளிடவும்.",
     "correctExpense": "செலவை திருத்து",
@@ -1135,7 +1137,14 @@
     "noExpenses": "செலவுகள் எதுவும் கிடைக்கவில்லை",
     "noExpensesDescription": "தேடலை மாற்றவும் அல்லது புதிய செலவை பதிவு செய்யவும்.",
     "searchPlaceholder": "செலவுகளை தேடவும்...",
-    "pageInfo": "பக்கம் {{currentPage}} / {{totalPages}}"
+    "pageInfo": "பக்கம் {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "மொத்த செலவுகள்",
+      "pageAmount": "பக்கத் தொகை",
+      "activeCount": "செயலில் உள்ள செலவுகள்",
+      "voidedCount": "ரத்து செய்யப்பட்ட செலவுகள்",
+      "filteredRows": "வடிகட்டப்பட்ட வரிசைகள்"
+    }
   },
   "dashboard": {
     "title": "டாஷ்போர்டு",

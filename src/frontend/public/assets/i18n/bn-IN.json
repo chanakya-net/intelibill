@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "ব্যয় খাতা",
     "title": "ব্যয়",
     "subtitle": "ব্যবসায়িক ব্যয় পরিচালনা ও ট্র্যাক করুন",
+    "showingCount": "{{total}} এর মধ্যে {{visible}}টি ব্যয় দেখানো হচ্ছে",
     "recordExpense": "ব্যয় নথিভুক্ত করুন",
     "recordExpenseDescription": "নিচে ব্যয়ের বিবরণ লিখুন।",
     "correctExpense": "ব্যয় সংশোধন করুন",
@@ -1135,7 +1137,14 @@
     "noExpenses": "কোনো ব্যয় পাওয়া যায়নি",
     "noExpensesDescription": "অনুসন্ধান বদলান বা নতুন ব্যয় নথিভুক্ত করুন।",
     "searchPlaceholder": "ব্যয় খুঁজুন...",
-    "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}"
+    "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "মোট ব্যয়",
+      "pageAmount": "পৃষ্ঠার পরিমাণ",
+      "activeCount": "সক্রিয় ব্যয়",
+      "voidedCount": "বাতিল ব্যয়",
+      "filteredRows": "ফিল্টার করা সারি"
+    }
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",

@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "ఖర్చు లెజర్",
     "title": "ఖర్చులు",
     "subtitle": "మీ వ్యాపార ఖర్చులను నిర్వహించి ట్రాక్ చేయండి",
+    "showingCount": "{{total}} లో {{visible}} ఖర్చులు చూపిస్తున్నాం",
     "recordExpense": "ఖర్చు నమోదు చేయండి",
     "recordExpenseDescription": "దిగువ ఖర్చు వివరాలను నమోదు చేయండి.",
     "correctExpense": "ఖర్చును సరిచేయండి",
@@ -1135,7 +1137,14 @@
     "noExpenses": "ఖర్చులు కనబడలేదు",
     "noExpensesDescription": "శోధనను మార్చండి లేదా కొత్త ఖర్చును నమోదు చేయండి.",
     "searchPlaceholder": "ఖర్చులను వెతకండి...",
-    "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}"
+    "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "మొత్తం ఖర్చులు",
+      "pageAmount": "పేజీ మొత్తం",
+      "activeCount": "సక్రియ ఖర్చులు",
+      "voidedCount": "రద్దు చేసిన ఖర్చులు",
+      "filteredRows": "ఫిల్టర్ చేసిన వరుసలు"
+    }
   },
   "dashboard": {
     "title": "డాష్‌బోర్డ్",

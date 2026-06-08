@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "Expense Ledger",
     "title": "Expenses",
     "subtitle": "Manage and track your business expenses",
+    "showingCount": "Showing {{visible}} of {{total}} expenses",
     "recordExpense": "Record Expense",
     "recordExpenseDescription": "Enter the details of the expense below.",
     "correctExpense": "Correct Expense",
@@ -1135,7 +1137,14 @@
     "noExpenses": "No expenses found",
     "noExpensesDescription": "Try adjusting your search or record a new expense.",
     "searchPlaceholder": "Search expenses...",
-    "pageInfo": "Page {{currentPage}} of {{totalPages}}"
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalExpenses": "Total Expenses",
+      "pageAmount": "Page Amount",
+      "activeCount": "Active Expenses",
+      "voidedCount": "Voided Expenses",
+      "filteredRows": "Filtered Rows"
+    }
   },
   "dashboard": {
     "title": "Dashboard",

@@ -1117,8 +1117,10 @@
     }
   },
   "expenses": {
+    "expenseLedger": "खर्च खाते",
     "title": "खर्च",
     "subtitle": "तुमचे व्यावसायिक खर्च व्यवस्थापित करा आणि ट्रॅक करा",
+    "showingCount": "{{total}} पैकी {{visible}} खर्च दाखवत आहोत",
     "recordExpense": "खर्च नोंदवा",
     "recordExpenseDescription": "खाली खर्चाचे तपशील भरा.",
     "correctExpense": "खर्च दुरुस्त करा",
@@ -1135,7 +1137,14 @@
     "noExpenses": "कोणतेही खर्च आढळले नाहीत",
     "noExpensesDescription": "शोध बदला किंवा नवीन खर्च नोंदवा.",
     "searchPlaceholder": "खर्च शोधा...",
-    "pageInfo": "पृष्ठ {{currentPage}} / {{totalPages}}"
+    "pageInfo": "पृष्ठ {{currentPage}} / {{totalPages}}",
+    "summary": {
+      "totalExpenses": "एकूण खर्च",
+      "pageAmount": "पृष्ठ रक्कम",
+      "activeCount": "सक्रिय खर्च",
+      "voidedCount": "रद्द खर्च",
+      "filteredRows": "फिल्टर केलेल्या ओळी"
+    }
   },
   "dashboard": {
     "title": "डॅशबोर्ड",

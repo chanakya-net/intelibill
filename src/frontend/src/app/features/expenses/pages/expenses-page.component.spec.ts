@@ -137,8 +137,17 @@ describe('ExpensesPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('expenses.title');
+    expect(host.textContent).toContain('expenses.expenseLedger');
 
     const searchInput = host.querySelector('input[pinputtext]') as HTMLInputElement | null;
     expect(searchInput?.getAttribute('placeholder')).toContain('expenses.searchPlaceholder');
+  });
+
+  it('filters expenses by status on the current page', () => {
+    const fixture = TestBed.createComponent(ExpensesPageComponent);
+    const component = fixture.componentInstance;
+
+    component.onStatusFilterChange('voided');
+    expect(component.statusFilter()).toBe('voided');
   });
 });
