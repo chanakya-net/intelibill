@@ -3,11 +3,15 @@
 }
 
 .profit-loss-page {
-  display: grid;
-  gap: 0.9rem;
-  padding: 1rem;
-  background: linear-gradient(180deg, #fff9f2, #fff1e4);
-  min-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+  background:
+    radial-gradient(circle at top left, rgba(255, 224, 188, 0.55), transparent 32%),
+    radial-gradient(circle at right 12rem top 10rem, rgba(209, 184, 159, 0.28), transparent 26%),
+    linear-gradient(180deg, #fbf5ec 0%, #f7efe4 100%);
+  min-height: 100%;
 }
 
 .profit-loss-hero {
@@ -16,24 +20,31 @@
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
-  padding-bottom: 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #ead7c1;
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 243, 0.96), rgba(255, 238, 221, 0.92)),
+    linear-gradient(135deg, rgba(255, 219, 183, 0.7), rgba(255, 251, 246, 0.08));
+  box-shadow: 0 12px 32px rgba(87, 54, 20, 0.07);
 }
 
 .eyebrow {
   margin: 0;
-  color: #a14b27;
+  color: #9b5d20;
   font-size: 0.7rem;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 800;
 }
 
 h1 {
-  margin: 0.25rem 0 0;
-  color: #1f120d;
-  font-size: clamp(1.65rem, 3vw, 2.8rem);
-  line-height: 1.05;
-  font-weight: 800;
+  margin: 0.18rem 0 0;
+  color: #2a1b12;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.85rem, 3vw, 3.1rem);
+  line-height: 0.98;
+  font-weight: 700;
 }
 
 .subtitle {
@@ -61,28 +72,49 @@ h1 {
 }
 
 .kpi-card {
-  background: #fffaf4;
-  border: 1px solid #e9d6c5;
-  border-radius: 0.85rem;
-  padding: 0.9rem;
-  min-height: 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 5.9rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #eadccf;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
+  box-shadow: 0 8px 22px rgba(85, 49, 18, 0.07);
 }
 
 .kpi-label {
   margin: 0;
-  color: #766b63;
+  color: #7a6250;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  font-size: 0.66rem;
   font-weight: 800;
 }
 
 .kpi-value {
-  margin: 0.55rem 0 0;
-  color: #1f120d;
-  font-size: 1.25rem;
-  font-weight: 800;
-  line-height: 1.2;
+  margin: 0;
+  color: #271911;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.55rem, 1.8vw, 2.05rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kpi-card--amber {
+  background: linear-gradient(180deg, #fff7ed, #fff1dc);
+}
+
+.kpi-card--sage {
+  background: linear-gradient(180deg, #f5fbf4, #edf9ea);
+}
+
+.kpi-card--terracotta {
+  background: linear-gradient(180deg, #fff5ef, #ffe8dc);
+}
+
+.kpi-card--ink {
+  background: linear-gradient(180deg, #f9f8ff, #f1effd);
 }
 
 .ledger-panel {
@@ -110,6 +142,24 @@ h1 {
 
 .export-btn {
   min-height: 2.6rem;
+}
+
+:host ::ng-deep .export-btn.p-button {
+  border-radius: 0.65rem;
+  border-color: #dec0aa;
+  background: #fff9f5;
+  color: #8b4510;
+}
+
+:host ::ng-deep .export-btn.p-button:not(:disabled):hover {
+  border-color: #d58a4d;
+  background: #fff0df;
+  color: #7a3a0d;
+}
+
+:host ::ng-deep .export-btn.p-button .p-button-label,
+:host ::ng-deep .export-btn.p-button .p-button-icon {
+  color: inherit;
 }
 
 .controls-wrap {
@@ -154,9 +204,14 @@ h1 {
 :host ::ng-deep .profit-loss-type,
 :host ::ng-deep .controls-wrap .p-datepicker,
 :host ::ng-deep .controls-wrap .p-select,
-:host ::ng-deep .search-field input,
-:host ::ng-deep .page-controls .p-select {
+:host ::ng-deep .search-field input {
   width: 100%;
+  border-color: #dec0aa;
+}
+
+:host ::ng-deep .page-controls .p-select {
+  width: auto;
+  min-width: 6rem;
   border-color: #dec0aa;
 }
 

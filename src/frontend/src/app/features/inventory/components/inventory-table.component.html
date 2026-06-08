@@ -149,7 +149,7 @@
         <th style="min-width: 14rem">
           {{ 'inventory.status' | transloco }}
         </th>
-        <th style="min-width: 6rem; text-align: center">
+        <th style="min-width: 6rem; text-align: right">
           {{ 'common.actions' | transloco }}
         </th>
       </tr>
@@ -203,7 +203,7 @@
           </div>
         </td>
         <td>
-          <div class="action-buttons flex justify-center">
+          <div class="action-buttons flex justify-end">
             @if (canManageInventory) {
               <p-button
                 type="button"

@@ -13,7 +13,7 @@
 
   <section class="kpi-row">
     @for (kpi of kpiCards; track kpi.label) {
-      <article class="kpi-card">
+      <article class="kpi-card" [ngClass]="'kpi-card--' + kpi.tone">
         <p class="kpi-label">{{ kpi.label | transloco }}</p>
         <p class="kpi-value">{{ getKpiValue(kpi) }}</p>
       </article>

@@ -85,22 +85,26 @@ export class ProfitLossPageComponent {
       label: 'sales.profitLoss.kpi.netProfit',
       value: () => this.summary()?.netProfitAfterTax ?? null,
       currency: true,
+      tone: 'sage',
     },
     {
       label: 'sales.profitLoss.kpi.revenue',
       value: () => this.summary()?.revenueIncludingTax ?? null,
       currency: true,
+      tone: 'amber',
     },
     {
       label: 'sales.profitLoss.kpi.totalCost',
       value: () => this.summary()?.totalCost ?? null,
       currency: true,
+      tone: 'terracotta',
     },
     {
       label: 'sales.profitLoss.kpi.avgMargin',
       value: () => this.summary()?.averageMarginPercent ?? null,
       currency: false,
       percent: true,
+      tone: 'ink',
     },
   ];
 

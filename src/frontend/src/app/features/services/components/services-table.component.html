@@ -1,13 +1,15 @@
 <div class="services-table-card">
   <div class="table-header">
-    <div>
-      <p class="table-eyebrow">{{ 'services.title' | transloco }}</p>
-      @if (paginationLabel()) {
-        <p class="table-caption">{{ paginationLabel() }}</p>
-      }
-    </div>
+    <p class="table-eyebrow">
+      <i class="pi pi-list"></i>
+      {{ 'services.title' | transloco }}
+    </p>
+    @if (paginationLabel()) {
+      <span class="table-caption">{{ paginationLabel() }}</span>
+    }
   </div>
 
+  <div class="table-shell">
   <p-table
     [value]="tableServices"
     dataKey="serviceId"
@@ -88,6 +90,7 @@
       </tr>
     </ng-template>
   </p-table>
+  </div>
 
   <p-paginator
     [rows]="pageSize"
