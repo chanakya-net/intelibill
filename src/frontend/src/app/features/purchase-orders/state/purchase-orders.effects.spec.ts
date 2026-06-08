@@ -372,6 +372,7 @@ describe('PurchaseOrdersEffects', () => {
       receivedAt: null,
       lines: [{
         purchaseOrderLineId: 'line-1',
+        barcode: 'IT-PO-001',
         batchNumber: 'BATCH-1',
         quantity: 2,
         totalPurchaseCost: 100,
@@ -408,6 +409,7 @@ describe('PurchaseOrdersEffects', () => {
           receivedAt: null,
           lines: [{
             purchaseOrderLineId: 'line-1',
+            barcode: 'IT-PO-001',
             batchNumber: 'BATCH-1',
             quantity: 1,
             totalPurchaseCost: 10,

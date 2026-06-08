@@ -108,7 +108,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 var inboundInput = new InboundInventoryLineInput(
                     poLine.ItemId,
                     poLine.Description,
-                    string.Empty,
+                    lineInput.Barcode,
                     null,
                     string.Empty,
                     lineInput.BatchNumber,

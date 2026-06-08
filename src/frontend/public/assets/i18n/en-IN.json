@@ -1533,6 +1533,7 @@
       "manufacturingDate": "Manufacturing date",
       "reference": "Reference",
       "notes": "Notes",
+      "searchLines": "Search by product name",
       "taxIncluded": "Tax included",
       "purchaseTaxIncluded": "Purchase tax included",
       "quantityOverRemaining": "Quantity cannot exceed remaining quantity.",

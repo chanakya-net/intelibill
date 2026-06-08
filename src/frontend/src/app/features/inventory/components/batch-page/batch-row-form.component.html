@@ -22,63 +22,21 @@
       ></p-autocomplete>
     </label>
 
-    <label>
-      <span>{{ 'inventory.barcode' | transloco }}</span>
-      <div class="barcode-field-wrapper" [style.position]="'relative'">
-        <p-inputgroup class="barcode-input-group">
-          <p-autocomplete
-            class="barcode-autocomplete"
-            formControlName="barcode"
-            [suggestions]="state.barcodeSuggestions()"
-            (completeMethod)="onBarcodeFilter($event)"
-            (onSelect)="state.onBarcodeSelected($event.value)"
-            (focusout)="state.onBarcodeFocusOut()"
-            appendTo="body"
-            [fluid]="true"
-          ></p-autocomplete>
-          <p-inputgroup-addon class="camera-addon">
-            <button
-              pButton
-              type="button"
-              icon="pi pi-camera"
-              severity="secondary"
-              text
-              class="camera-button"
-              (click)="requestScanner()"
-              [attr.aria-label]="'inventory.openScanner' | transloco"
-            ></button>
-          </p-inputgroup-addon>
-          <p-inputgroup-addon class="generate-barcode-addon">
-            <button
-              pButton
-              type="button"
-              [label]="'inventory.generateBarcode' | transloco"
-              severity="secondary"
-              text
-              class="generate-barcode-button"
-              [loading]="state.barcodeGenerating()"
-              (click)="onGenerateBarcode()"
-              [attr.aria-label]="'inventory.generateBarcode' | transloco"
-            ></button>
-          </p-inputgroup-addon>
-        </p-inputgroup>
-        @if (state.loadingProduct()) {
-          <div class="barcode-loading-overlay">
-            <p-progressSpinner [style]="{ width: '1.5rem', height: '1.5rem' }" strokeWidth="6"></p-progressSpinner>
-          </div>
-        }
-      </div>
-      @if (state.barcodeGenerateError()) {
-        <p class="error-message">{{ state.barcodeGenerateError() | transloco }}</p>
-      }
-      @if (barcodeReplaceConfirmVisible()) {
-        <div class="barcode-replace-confirm">
-          <span>{{ 'inventory.generateBarcodeReplaceConfirm' | transloco }}</span>
-          <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmBarcodeReplace()"></button>
-          <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelBarcodeReplace()"></button>
-        </div>
-      }
-    </label>
+    <app-inventory-barcode-field
+      [control]="state.form.controls.barcode"
+      [suggestions]="state.barcodeSuggestions()"
+      [loadingProduct]="state.loadingProduct()"
+      [barcodeGenerating]="state.barcodeGenerating()"
+      [barcodeGenerateError]="state.barcodeGenerateError()"
+      [barcodeReplaceConfirmVisible]="barcodeReplaceConfirmVisible()"
+      (filterRequested)="onBarcodeFilter($event)"
+      (selected)="state.onBarcodeSelected($event)"
+      (focusLost)="state.onBarcodeFocusOut()"
+      (scannerRequested)="requestScanner()"
+      (generateRequested)="onGenerateBarcode()"
+      (confirmReplace)="confirmBarcodeReplace()"
+      (cancelReplace)="cancelBarcodeReplace()"
+    />
 
     <label>
       <span>{{ 'inventory.quantity' | transloco }}</span>

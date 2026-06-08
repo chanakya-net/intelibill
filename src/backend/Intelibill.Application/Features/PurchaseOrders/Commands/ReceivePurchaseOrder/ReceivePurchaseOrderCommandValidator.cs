@@ -20,6 +20,7 @@ internal sealed class ReceivePurchaseOrderCommandValidator : AbstractValidator<R
         RuleForEach(c => c.Lines).ChildRules(line =>
         {
             line.RuleFor(l => l.PurchaseOrderLineId).NotEmpty();
+            line.RuleFor(l => l.Barcode).NotEmpty().MaximumLength(120);
             line.RuleFor(l => l.BatchNumber).NotEmpty().MaximumLength(80);
             line.RuleFor(l => l.Quantity).GreaterThan(0);
             line.RuleFor(l => l.TotalPurchaseCost).GreaterThanOrEqualTo(0);

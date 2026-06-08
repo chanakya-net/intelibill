@@ -2,6 +2,7 @@ namespace Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchas
 
 public sealed record ReceivePurchaseOrderLineInput(
     Guid PurchaseOrderLineId,
+    string Barcode,
     string BatchNumber,
     int Quantity,
     decimal TotalPurchaseCost,
