@@ -149,8 +149,8 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       taxRatePercent: 5,
       taxIncluded: true,
       purchaseTaxIncluded: false,
-      expiryDate: '2026-12-31',
-      manufacturingDate: '',
+      expiryDate: new Date(2026, 11, 31),
+      manufacturingDate: null,
     });
     component.submit();
 
@@ -201,5 +201,12 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       expect.objectContaining({ purchaseOrderLineId: 'line-1', batchNumber: 'BATCH-1' }),
       expect.objectContaining({ purchaseOrderLineId: 'line-2', batchNumber: 'BATCH-2' }),
     ]);
+  });
+
+  it('uses PrimeNG date pickers for receipt dates', () => {
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelectorAll('p-datepicker').length).toBe(2);
+    expect(host.querySelector('input[type="date"]')).toBeNull();
   });
 });

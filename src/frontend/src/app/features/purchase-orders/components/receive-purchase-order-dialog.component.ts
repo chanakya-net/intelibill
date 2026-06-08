@@ -4,6 +4,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
@@ -15,6 +16,7 @@ import {
   PurchaseOrderLine,
   ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
+import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-receive-purchase-order-dialog',
@@ -25,6 +27,7 @@ import {
     TranslocoPipe,
     ButtonModule,
     CheckboxModule,
+    DatePickerModule,
     DialogModule,
     InputNumberModule,
     InputTextModule,
@@ -87,11 +90,25 @@ import {
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.expiryDate' | transloco }}
-                <input pInputText type="date" formControlName="expiryDate" />
+                <p-datepicker
+                  ngSkipHydration
+                  formControlName="expiryDate"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  [showButtonBar]="true"
+                  appendTo="body"
+                />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.manufacturingDate' | transloco }}
-                <input pInputText type="date" formControlName="manufacturingDate" />
+                <p-datepicker
+                  ngSkipHydration
+                  formControlName="manufacturingDate"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  [showButtonBar]="true"
+                  appendTo="body"
+                />
               </label>
               <label class="checkbox-row">
                 <p-checkbox formControlName="taxIncluded" [binary]="true" />
@@ -205,8 +222,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       taxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
       taxIncluded: [false],
       purchaseTaxIncluded: [false],
-      expiryDate: [''],
-      manufacturingDate: [''],
+      expiryDate: [null as Date | null],
+      manufacturingDate: [null as Date | null],
     });
   }
 
@@ -234,8 +251,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
         taxRatePercent: line.taxRatePercent,
         taxIncluded: line.taxIncluded,
         purchaseTaxIncluded: line.purchaseTaxIncluded,
-        expiryDate: line.expiryDate || null,
-        manufacturingDate: line.manufacturingDate || null,
+        expiryDate: line.expiryDate ? formatLocalIsoDate(line.expiryDate) : null,
+        manufacturingDate: line.manufacturingDate ? formatLocalIsoDate(line.manufacturingDate) : null,
       })),
     });
   }
