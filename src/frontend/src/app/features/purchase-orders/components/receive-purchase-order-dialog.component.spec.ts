@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
 import { PurchaseOrderDetail } from '../services/purchase-order.service';
 import { ReceivePurchaseOrderDialogComponent } from './receive-purchase-order-dialog.component';
 
@@ -46,8 +47,27 @@ const order: PurchaseOrderDetail = {
 
 describe('ReceivePurchaseOrderDialogComponent', () => {
   let fixture: ComponentFixture<ReceivePurchaseOrderDialogComponent>;
+  let batchSequence: number;
+  const batchDefaults = {
+    generateBatchNumber: vi.fn(() => {
+      batchSequence += 1;
+      return `BN-${batchSequence}`;
+    }),
+    lookupHsn: vi.fn(() =>
+      Promise.resolve({
+        hsnCodes: ['0401'],
+        taxScenarios: [{ condition: 'default', taxPercentage: '18%' }],
+      }),
+    ),
+    getAutoTaxRatePercent: vi.fn(() => 18),
+  };
 
   beforeEach(() => {
+    batchSequence = 0;
+    batchDefaults.generateBatchNumber.mockClear();
+    batchDefaults.lookupHsn.mockClear();
+    batchDefaults.getAutoTaxRatePercent.mockClear();
+
     TestBed.configureTestingModule({
       imports: [
         ReceivePurchaseOrderDialogComponent,
@@ -61,11 +81,13 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
                   line: 'Line',
                   selectLine: 'Select line',
                   batchNumber: 'Batch number',
+                  generateBatchNumber: 'Generate batch number',
                   quantity: 'Quantity',
                   totalPurchaseCost: 'Total purchase cost',
                   mrp: 'MRP',
                   salesPrice: 'Sales price',
                   taxRate: 'Tax rate',
+                  lookupTaxRate: 'Lookup tax rate',
                   expiryDate: 'Expiry date',
                   manufacturingDate: 'Manufacturing date',
                   reference: 'Reference',
@@ -87,6 +109,9 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
           preloadLangs: true,
         }),
       ],
+      providers: [
+        { provide: InventoryBatchDefaultsService, useValue: batchDefaults },
+      ],
     });
 
     fixture = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
@@ -100,15 +125,39 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
   it('initializes with only receivable lines and remaining quantity', () => {
     const component = fixture.componentInstance as unknown as {
       receivableLines: readonly { lineId: string }[];
-      lines: { controls: Array<{ controls: { purchaseOrderLineId: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } }> };
+      lines: { controls: Array<{ controls: { purchaseOrderLineId: { value: string }, batchNumber: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } }> };
       remainingFor: (lineId: string) => number;
     };
 
     expect(component.receivableLines.map((line) => line.lineId)).toEqual(['line-1']);
     expect(component.remainingFor('line-1')).toBe(3);
     expect(component.lines.controls[0].controls.purchaseOrderLineId.value).toBe('line-1');
+    expect(component.lines.controls[0].controls.batchNumber.value).toBe('BN-2');
     expect(component.lines.controls[0].controls.quantity.value).toBe(3);
     expect(component.lines.controls[0].controls.totalPurchaseCost.value).toBe(30);
+  });
+
+  it('looks up the PO line tax using inventory batch defaults', async () => {
+    const component = fixture.componentInstance as unknown as {
+      lines: { controls: Array<{ controls: { taxRatePercent: { value: number } } }> };
+    };
+
+    await fixture.whenStable();
+
+    expect(batchDefaults.lookupHsn).toHaveBeenCalledWith('Widget');
+    expect(batchDefaults.getAutoTaxRatePercent).toHaveBeenCalled();
+    expect(component.lines.controls[0].controls.taxRatePercent.value).toBe(18);
+  });
+
+  it('can regenerate the batch number for a receipt row', () => {
+    const component = fixture.componentInstance as unknown as {
+      generateBatchNumber: (index: number) => void;
+      lines: { controls: Array<{ controls: { batchNumber: { value: string } } }> };
+    };
+
+    component.generateBatchNumber(0);
+
+    expect(component.lines.controls[0].controls.batchNumber.value).toBe('BN-3');
   });
 
   it('prevents submission when quantity exceeds remaining quantity', () => {
