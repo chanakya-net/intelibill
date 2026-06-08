@@ -5,15 +5,15 @@
 .customers-filter-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem);
-  gap: 0.8rem;
+  gap: 0.55rem;
 }
 
 .search-shell {
   display: flex;
   align-items: center;
-  padding: 0.65rem 0.8rem;
+  padding: 0.4rem 0.65rem;
   border: 1px solid #ead7c1;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background: linear-gradient(180deg, #fffaf4, #fff2e4);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
@@ -31,7 +31,13 @@
     border: 0;
     background: transparent;
     box-shadow: none;
+    min-height: 2.35rem;
     padding-left: 2rem;
+  }
+
+  .p-select {
+    min-height: 3.15rem;
+    border-radius: 0.75rem;
   }
 }
 

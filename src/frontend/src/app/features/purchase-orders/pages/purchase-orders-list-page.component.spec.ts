@@ -44,6 +44,7 @@ const paginationSignal = signal({ totalCount: 1, pageNumber: 1, pageSize: 20 });
 const canManagePurchaseOrdersSignal = signal(true);
 const sessionSignal = signal({ activeShopId: 'shop-1' });
 const suppliersSignal = signal([]);
+const catalogEntriesSignal = signal([]);
 
 const facade = {
   orders: purchaseOrderSignal,
@@ -120,7 +121,7 @@ describe('PurchaseOrdersListPageComponent', () => {
           },
         },
         { provide: SuppliersFacade, useValue: { suppliers: suppliersSignal, load: vi.fn() } },
-        { provide: ProductCatalogSyncService, useValue: { filterByName: () => [], findByName: () => null, upsertEntry: vi.fn() } },
+        { provide: ProductCatalogSyncService, useValue: { catalogEntries: catalogEntriesSignal, filterByName: () => [], filterByBarcode: () => [], findByName: () => null, upsertEntry: vi.fn() } },
         { provide: InventoryService, useValue: { generateItemBarcode: vi.fn(), addItem: vi.fn() } },
         { provide: ShopPermissionsService, useValue: permissions },
       ],
@@ -147,6 +148,48 @@ describe('PurchaseOrdersListPageComponent', () => {
     expect(host.textContent).toContain('3 / 5');
     expect(host.textContent).toContain('2');
     expect(host.textContent).toContain('purchaseOrders.title');
+  });
+
+  it('renders the customer-style purchase order dashboard shell', () => {
+    purchaseOrderSignal.set([
+      {
+        purchaseOrderId: 'po-1',
+        purchaseOrderNumber: 'PO-2026-000001',
+        status: 'Placed',
+        supplierName: 'Acme Traders',
+        supplierReference: 'SUP-REF-001',
+        lineCount: 2,
+        expectedQuantity: 5,
+        receivedQuantity: 3,
+        expectedTotal: 1500,
+        createdAt: '2026-06-01T00:00:00Z',
+      },
+      {
+        purchaseOrderId: 'po-2',
+        purchaseOrderNumber: 'PO-2026-000002',
+        status: 'Received',
+        supplierName: 'Beta Supplies',
+        supplierReference: null,
+        lineCount: 1,
+        expectedQuantity: 2,
+        receivedQuantity: 2,
+        expectedTotal: 400,
+        createdAt: '2026-06-02T00:00:00Z',
+      },
+    ]);
+    paginationSignal.set({ totalCount: 2, pageNumber: 1, pageSize: 20 });
+    const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.po-page')).toBeTruthy();
+    expect(host.querySelector('.po-hero')).toBeTruthy();
+    expect(host.querySelectorAll('.summary-card').length).toBe(4);
+    expect(host.querySelector('.directory-panel')).toBeTruthy();
+    expect(host.querySelector('.directory-panel__surface')).toBeTruthy();
+    expect(host.textContent).toContain('purchaseOrders.summary.pendingReceipt');
+    expect(host.textContent).toContain('purchaseOrders.directory');
+    expect(host.textContent).toContain('1,900.00');
   });
 
   it('shows empty-state text when no purchase orders exist', () => {
