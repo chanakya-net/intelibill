@@ -1,0 +1,24 @@
+.sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.35rem 0.5rem 0.75rem;
+
+  &.is-collapsed {
+    ::ng-deep .shell-panelmenu .p-panelmenu-header-label,
+    ::ng-deep .shell-panelmenu .p-panelmenu-item-label,
+    ::ng-deep .shell-panelmenu .p-panelmenu-submenu-icon {
+      display: none;
+    }
+
+    ::ng-deep .shell-panelmenu .p-panelmenu-content-container {
+      display: none;
+    }
+
+    ::ng-deep .shell-panelmenu .p-panelmenu-header-link,
+    ::ng-deep .shell-panelmenu .p-panelmenu-item-link {
+      justify-content: center;
+      padding-inline: 0.55rem;
+    }
+  }
+}

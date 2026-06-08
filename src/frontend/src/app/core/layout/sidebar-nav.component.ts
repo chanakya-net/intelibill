@@ -1,39 +1,42 @@
-import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { MenuItem, MenuItemCommandEvent } from 'primeng/api';
-import { DrawerModule } from 'primeng/drawer';
 import { PanelMenuModule } from 'primeng/panelmenu';
 
 import { ShellMenuService } from './shell-menu.service';
 
 @Component({
-  selector: 'app-mobile-nav',
+  selector: 'app-sidebar-nav',
   standalone: true,
-  imports: [DrawerModule, PanelMenuModule, TranslocoPipe],
-  templateUrl: './mobile-nav.component.html',
-  styleUrl: './mobile-nav.component.scss',
+  imports: [PanelMenuModule],
+  templateUrl: './sidebar-nav.component.html',
+  styleUrl: './sidebar-nav.component.scss',
 })
-export class MobileNavComponent implements OnChanges {
+export class SidebarNavComponent implements OnChanges {
   private readonly menuService = inject(ShellMenuService);
 
   @Input() menuItems: MenuItem[] = [];
+  @Input() collapsed = false;
+  @Output() readonly expandSidebarRequested = new EventEmitter<void>();
+  @Output() readonly autoHideSidebarRequested = new EventEmitter<void>();
 
-  readonly isDrawerVisible = signal(false);
   readonly panelMenuPt = this.menuService.panelMenuPt;
-  drawerMenuItems: MenuItem[] = [];
+  displayMenuItems: MenuItem[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['menuItems']) {
-      this.drawerMenuItems = this.wrapMenuItems(this.menuItems);
+      this.displayMenuItems = this.wrapMenuItems(this.menuItems);
     }
   }
 
-  onToggleMobileMenu(): void {
-    this.isDrawerVisible.update((open) => !open);
-  }
+  onSidebarClick(event: MouseEvent): void {
+    if (!this.collapsed) {
+      return;
+    }
 
-  onDrawerVisibleChange(visible: boolean): void {
-    this.isDrawerVisible.set(visible);
+    const target = event.target as HTMLElement;
+    if (target.closest('.p-panelmenu-header, .p-panelmenu-item-link')) {
+      this.expandSidebarRequested.emit();
+    }
   }
 
   private wrapMenuItems(items: MenuItem[]): MenuItem[] {
@@ -50,13 +53,9 @@ export class MobileNavComponent implements OnChanges {
   }
 
   private wrapLeafCommand(original?: MenuItem['command']): MenuItem['command'] {
-    if (!original) {
-      return () => this.isDrawerVisible.set(false);
-    }
-
     return (event: MenuItemCommandEvent) => {
-      original(event);
-      this.isDrawerVisible.set(false);
+      original?.(event);
+      this.autoHideSidebarRequested.emit();
     };
   }
 }
