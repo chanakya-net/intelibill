@@ -1,9 +1,10 @@
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
-using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
@@ -120,6 +121,26 @@ public sealed class ShopsController : AuthenticatedControllerBase
 
         return result.ToActionResult(Ok);
     }
+
+    [HttpPut("{shopId:guid}/bank-details")]
+    public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
+            new UpdateShopBankDetailsCommand(
+                UserId!.Value,
+                shopId,
+                request.BankName,
+                request.AccountNumber,
+                request.AccountType,
+                request.IfscCode,
+                request.AccountHolderName),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
 }
 
 public sealed record CreateShopRequest(
@@ -142,3 +163,9 @@ public sealed record UpdateShopRequest(
     string? ContactPerson,
     string? MobileNumber,
     string? GstNumber);
+public sealed record UpdateShopBankDetailsRequest(
+    string? BankName,
+    string? AccountNumber,
+    string? AccountType,
+    string? IfscCode,
+    string? AccountHolderName);

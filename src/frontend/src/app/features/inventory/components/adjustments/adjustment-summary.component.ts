@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
-import { CardModule } from 'primeng/card';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import {
   AdjustmentRowDto,
@@ -11,12 +11,15 @@ import {
 @Component({
   selector: 'app-adjustment-summary',
   standalone: true,
-  imports: [CardModule, DecimalPipe, TranslocoPipe],
+  imports: [DecimalPipe, TranslocoPipe, ProgressSpinnerModule],
   templateUrl: './adjustment-summary.component.html',
+  styleUrl: './adjustment-summary.component.scss',
 })
 export class AdjustmentSummaryComponent {
   @Input() rows: AdjustmentRowDto[] = [];
   @Input() loading = false;
+
+  constructor(private readonly translocoService: TranslocoService) {}
 
   get totalRows(): number {
     return this.rows.length;
@@ -38,13 +41,23 @@ export class AdjustmentSummaryComponent {
     return this.increaseQuantity - this.decreaseQuantity;
   }
 
-  get reasonLabel(): string {
-    return this.totalRows === 1 ? '1 adjustment' : `${this.totalRows} adjustments`;
+  get netMovementLabel(): string {
+    if (this.increaseQuantity === 0 && this.decreaseQuantity === 0) {
+      return this.translocoService.translate('inventory.summary.noNetMovement');
+    }
+
+    const prefix = this.netQuantity > 0 ? '+' : '';
+    return `${prefix}${this.netQuantity.toFixed(2)}`;
   }
 
-  get directionLabel(): string {
-    if (this.increaseQuantity === 0 && this.decreaseQuantity === 0) return 'No net movement';
-    return `${this.increaseQuantity > 0 ? '+' : ''}${this.netQuantity.toFixed(2)}`;
+  get reasonLabel(): string {
+    if (this.totalRows === 1) {
+      return this.translocoService.translate('inventory.summary.oneAdjustment');
+    }
+
+    return this.translocoService.translate('inventory.summary.multipleAdjustments', {
+      count: this.totalRows,
+    });
   }
 
   directionSeverity(direction: InventoryAdjustmentDirection): 'success' | 'danger' {

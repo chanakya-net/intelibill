@@ -1,0 +1,264 @@
+<section class="po-page po-detail-page">
+  <p-confirmDialog />
+
+  @if (facade.isLoadingDetail()) {
+    <section class="directory-panel directory-panel--loading" aria-busy="true">
+      <div class="loading">
+        <p-progressSpinner />
+      </div>
+    </section>
+  } @else if (facade.selectedOrder(); as order) {
+    <header class="po-hero">
+      <div class="po-hero__copy">
+        <button
+          pButton
+          type="button"
+          class="po-detail-back"
+          icon="pi pi-arrow-left"
+          severity="secondary"
+          [text]="true"
+          [label]="'purchaseOrders.title' | transloco"
+          (click)="goBack()"
+        ></button>
+        <p class="eyebrow">{{ 'purchaseOrders.detail.title' | transloco }}</p>
+        <div class="po-detail-title-row">
+          <h1>{{ order.purchaseOrderNumber }}</h1>
+          <span class="po-status-pill" [ngClass]="'po-status-pill--' + statusTone(order.status)">
+            {{ ('purchaseOrders.status.' + order.status) | transloco }}
+          </span>
+        </div>
+        <div class="po-hero__meta">
+          @if (order.supplierName || order.supplierId) {
+            <span class="meta-chip meta-chip--primary">
+              {{ 'purchaseOrders.detail.supplier' | transloco }}: {{ order.supplierName || order.supplierId }}
+            </span>
+          }
+          @if (order.orderDate) {
+            <span class="meta-chip">
+              {{ 'purchaseOrders.detail.orderDate' | transloco }}: {{ order.orderDate | date:'mediumDate' }}
+            </span>
+          }
+          @if (order.expectedDeliveryDate) {
+            <span class="meta-chip">
+              {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}: {{ order.expectedDeliveryDate | date:'mediumDate' }}
+            </span>
+          }
+          <span class="meta-chip">
+            {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | date:'short' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="po-hero__actions po-detail-actions">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-print"
+          [label]="'purchaseOrders.actions.print' | transloco"
+          (click)="openPrintView(order.purchaseOrderId)"
+        ></button>
+        @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            icon="pi pi-pencil"
+            [label]="'purchaseOrders.editPo' | transloco"
+            (click)="openEditOverlay(order.purchaseOrderId)"
+          ></button>
+          <button
+            pButton
+            type="button"
+            severity="success"
+            icon="pi pi-send"
+            [label]="'purchaseOrders.actions.placeOrder' | transloco"
+            (click)="placeOrder(order.purchaseOrderId)"
+          ></button>
+          <button
+            pButton
+            type="button"
+            severity="danger"
+            [outlined]="true"
+            icon="pi pi-trash"
+            [label]="'purchaseOrders.actions.deleteDraft' | transloco"
+            (click)="deleteDraft(order.purchaseOrderId)"
+          ></button>
+        }
+        @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+          <button
+            pButton
+            type="button"
+            icon="pi pi-inbox"
+            [label]="'purchaseOrders.actions.receive' | transloco"
+            (click)="showReceiveDialog.set(true)"
+          ></button>
+        }
+      </div>
+    </header>
+
+    <div class="summary-grid" aria-label="Purchase order summary">
+      @for (card of summaryCards(order); track card.labelKey) {
+        <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
+          <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
+          <div class="summary-card__value">
+            @if (card.variant === 'money') {
+              {{ card.value | number:'1.2-2' }}
+            } @else if (card.variant === 'progress') {
+              {{ totalReceivedQuantity(order) }} / {{ totalExpectedQuantity(order) }}
+            } @else {
+              {{ card.value | number:'1.0-0' }}
+            }
+          </div>
+        </article>
+      }
+    </div>
+
+    @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
+      <section class="directory-panel po-detail-form-panel">
+        <div class="po-cancel-form">
+          <input
+            pInputText
+            class="po-cancel-form__input"
+            [(ngModel)]="cancelReason"
+            [placeholder]="'purchaseOrders.dialog.cancelReasonLabel' | transloco"
+          />
+          <button
+            pButton
+            type="button"
+            severity="danger"
+            [outlined]="true"
+            icon="pi pi-times"
+            [label]="'purchaseOrders.actions.cancelOrder' | transloco"
+            [disabled]="!cancelReason.trim()"
+            (click)="cancelOrder(order.purchaseOrderId)"
+          ></button>
+        </div>
+      </section>
+    }
+
+    @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
+      <section class="directory-panel po-detail-form-panel">
+        <div class="po-cancel-form">
+          <input
+            pInputText
+            class="po-cancel-form__input"
+            [(ngModel)]="closeReason"
+            [placeholder]="'purchaseOrders.dialog.closeReasonLabel' | transloco"
+          />
+          <button
+            pButton
+            type="button"
+            severity="warn"
+            [outlined]="true"
+            icon="pi pi-lock"
+            [label]="'purchaseOrders.actions.close' | transloco"
+            [disabled]="!closeReason.trim()"
+            (click)="closeOrder(order.purchaseOrderId)"
+          ></button>
+        </div>
+      </section>
+    }
+
+    <section class="directory-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
+          <h2>{{ 'purchaseOrders.detail.title' | transloco }}</h2>
+        </div>
+        <div class="directory-panel__metrics" aria-label="Purchase order detail metrics">
+          <span class="metric-chip">
+            <strong>{{ order.expectedTotal | number:'1.2-2' }}</strong>
+            <span>{{ 'purchaseOrders.expectedTotal' | transloco }}</span>
+          </span>
+        </div>
+      </header>
+
+      @if (order.supplierReferenceNumber || order.notes || order.cancellationReason || order.closeReason) {
+        <div class="po-detail-meta-grid">
+          @if (order.supplierReferenceNumber) {
+            <article class="po-detail-meta-card">
+              <span>{{ 'purchaseOrders.detail.supplierReferenceNumber' | transloco }}</span>
+              <strong>{{ order.supplierReferenceNumber }}</strong>
+            </article>
+          }
+          @if (order.notes) {
+            <article class="po-detail-meta-card po-detail-meta-card--wide">
+              <span>{{ 'purchaseOrders.detail.notes' | transloco }}</span>
+              <strong>{{ order.notes }}</strong>
+            </article>
+          }
+          @if (order.cancellationReason) {
+            <article class="po-detail-meta-card po-detail-meta-card--wide">
+              <span>{{ 'purchaseOrders.detail.cancellationReason' | transloco }}</span>
+              <strong>{{ order.cancellationReason }}</strong>
+            </article>
+          }
+          @if (order.closeReason) {
+            <article class="po-detail-meta-card po-detail-meta-card--wide">
+              <span>{{ 'purchaseOrders.closeReason' | transloco }}</span>
+              <strong>{{ order.closeReason }}</strong>
+            </article>
+          }
+        </div>
+      }
+
+      <div class="directory-panel__surface">
+        <p-table [value]="[...order.lines]" dataKey="lineId">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'purchaseOrders.lineDescription' | transloco }}</th>
+              <th>{{ 'purchaseOrders.expectedQuantity' | transloco }}</th>
+              <th>{{ 'purchaseOrders.receivedQuantity' | transloco }}</th>
+              <th>{{ 'purchaseOrders.remainingQuantity' | transloco }}</th>
+              <th>{{ 'purchaseOrders.unitCost' | transloco }}</th>
+              <th>{{ 'purchaseOrders.lineTotal' | transloco }}</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-line>
+            <tr>
+              <td>{{ line.description }}</td>
+              <td>{{ line.expectedQuantity }}</td>
+              <td>{{ line.receivedQuantity ?? 0 }}</td>
+              <td>{{ line.remainingQuantity ?? line.expectedQuantity }}</td>
+              <td class="money">{{ line.unitCost | number:'1.2-2' }}</td>
+              <td class="money">{{ line.lineTotal | number:'1.2-2' }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </section>
+
+    <app-purchase-order-receipt-history [receipts]="order.receipts ?? []" />
+
+    @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+      <app-receive-purchase-order-dialog
+        [order]="order"
+        [visible]="showReceiveDialog()"
+        (visibleChange)="showReceiveDialog.set($event)"
+        [submitting]="facade.isSubmitting()"
+        (receive)="receiveOrder(order.purchaseOrderId, $event)"
+      />
+    }
+  } @else if (facade.errorMessage()) {
+    <section class="directory-panel">
+      <p class="po-detail-error">{{ facade.errorMessage() | transloco }}</p>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        icon="pi pi-arrow-left"
+        [label]="'purchaseOrders.title' | transloco"
+        (click)="goBack()"
+      ></button>
+    </section>
+  }
+</section>
+
+@if (showEditOverlay()) {
+  <app-purchase-order-builder-page
+    [purchaseOrderId]="editingPoId()"
+    (closeRequested)="closeEditOverlay()"
+  />
+}

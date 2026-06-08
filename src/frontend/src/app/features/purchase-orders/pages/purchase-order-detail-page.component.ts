@@ -1,25 +1,26 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { TranslocoService } from '@ngneat/transloco';
-
-import { CardModule } from 'primeng/card';
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService } from 'primeng/api';
-import { FormsModule } from '@angular/forms';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
-import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderReceiptHistoryComponent } from '../components/purchase-order-receipt-history.component';
+import {
+  PurchaseOrderDetail,
+  PurchaseOrderStatus,
+  ReceivePurchaseOrderRequest,
+} from '../services/purchase-order.service';
+import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
-import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service';
 
 @Component({
   selector: 'app-purchase-order-detail-page',
@@ -28,10 +29,8 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
     CommonModule,
     FormsModule,
     TranslocoPipe,
-    CardModule,
     ProgressSpinnerModule,
     TableModule,
-    TagModule,
     ButtonModule,
     InputTextModule,
     ConfirmDialogModule,
@@ -40,169 +39,14 @@ import { ReceivePurchaseOrderRequest } from '../services/purchase-order.service'
     PurchaseOrderBuilderPageComponent,
   ],
   providers: [ConfirmationService],
-  template: `
-    <div class="page-container">
-      <p-confirmDialog />
-      <p-card>
-        @if (facade.isLoadingDetail()) {
-          <p-progressSpinner />
-        } @else if (facade.selectedOrder(); as order) {
-          <ng-template pTemplate="title">
-            <div class="po-detail-header">
-              <h2>{{ order.purchaseOrderNumber }}</h2>
-              <div class="po-detail-actions">
-                <button type="button" (click)="openPrintView(order.purchaseOrderId)">
-                  {{ 'purchaseOrders.actions.print' | transloco }}
-                </button>
-                @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
-                  <button type="button" (click)="openEditOverlay(order.purchaseOrderId)">
-                    {{ 'purchaseOrders.editPo' | transloco }}
-                  </button>
-                  <button type="button" (click)="placeOrder(order.purchaseOrderId)">
-                    {{ 'purchaseOrders.actions.placeOrder' | transloco }}
-                  </button>
-                  <button type="button" (click)="deleteDraft(order.purchaseOrderId)">
-                    {{ 'purchaseOrders.actions.deleteDraft' | transloco }}
-                  </button>
-                }
-                @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
-                  <button type="button" (click)="showReceiveDialog.set(true)">
-                    {{ 'purchaseOrders.actions.receive' | transloco }}
-                  </button>
-                  <div class="po-cancel-form">
-                    <input
-                      pInputText
-                      [(ngModel)]="cancelReason"
-                      [placeholder]="'purchaseOrders.dialog.cancelReasonLabel' | transloco"
-                    />
-                    <button type="button" [disabled]="!cancelReason.trim()" (click)="cancelOrder(order.purchaseOrderId)">
-                      {{ 'purchaseOrders.actions.cancelOrder' | transloco }}
-                    </button>
-                  </div>
-                }
-                @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
-                  <button type="button" (click)="showReceiveDialog.set(true)">
-                    {{ 'purchaseOrders.actions.receive' | transloco }}
-                  </button>
-                  <div class="po-cancel-form">
-                    <input
-                      pInputText
-                      [(ngModel)]="closeReason"
-                      [placeholder]="'purchaseOrders.dialog.closeReasonLabel' | transloco"
-                    />
-                    <button type="button" [disabled]="!closeReason.trim()" (click)="closeOrder(order.purchaseOrderId)">
-                      {{ 'purchaseOrders.actions.close' | transloco }}
-                    </button>
-                  </div>
-                }
-              </div>
-            </div>
-          </ng-template>
-          @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
-            <app-receive-purchase-order-dialog
-              [order]="order"
-              [visible]="showReceiveDialog()"
-              (visibleChange)="showReceiveDialog.set($event)"
-              [submitting]="facade.isSubmitting()"
-              (receive)="receiveOrder(order.purchaseOrderId, $event)"
-            />
-          }
-          <p>
-            <strong>{{ 'purchaseOrders.statusLabel' | transloco }}:</strong>
-            <p-tag [value]="'purchaseOrders.status.' + order.status | transloco" severity="info" />
-          </p>
-          @if (order.cancellationReason) {
-            <p>
-              <strong>{{ 'purchaseOrders.cancellationReason' | transloco }}:</strong>
-              {{ order.cancellationReason }}
-            </p>
-          }
-          @if (order.closeReason) {
-            <p>
-              <strong>{{ 'purchaseOrders.closeReason' | transloco }}:</strong>
-              {{ order.closeReason }}
-            </p>
-          }
-          @if (order.supplierId) {
-            <p>
-              <strong>{{ 'purchaseOrders.builder.supplier' | transloco }}:</strong>
-              {{ order.supplierId }}
-            </p>
-          }
-          @if (order.orderDate) {
-            <p>
-              <strong>{{ 'purchaseOrders.builder.orderDate' | transloco }}:</strong>
-              {{ order.orderDate }}
-            </p>
-          }
-          @if (order.expectedDeliveryDate) {
-            <p>
-              <strong>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}:</strong>
-              {{ order.expectedDeliveryDate }}
-            </p>
-          }
-          @if (order.supplierReferenceNumber) {
-            <p>
-              <strong>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}:</strong>
-              {{ order.supplierReferenceNumber }}
-            </p>
-          }
-          @if (order.notes) {
-            <p>
-              <strong>{{ 'purchaseOrders.notes' | transloco }}:</strong>
-              {{ order.notes }}
-            </p>
-          }
-          <p-table [value]="[...order.lines]" dataKey="lineId">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>{{ 'purchaseOrders.lineDescription' | transloco }}</th>
-                <th>{{ 'purchaseOrders.expectedQuantity' | transloco }}</th>
-                <th>{{ 'purchaseOrders.receivedQuantity' | transloco }}</th>
-                <th>{{ 'purchaseOrders.remainingQuantity' | transloco }}</th>
-                <th>{{ 'purchaseOrders.unitCost' | transloco }}</th>
-                <th>{{ 'purchaseOrders.lineTotal' | transloco }}</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-line>
-              <tr>
-                <td>{{ line.description }}</td>
-                <td>{{ line.expectedQuantity }}</td>
-                <td>{{ line.receivedQuantity ?? 0 }}</td>
-                <td>{{ line.remainingQuantity ?? line.expectedQuantity }}</td>
-                <td>{{ line.unitCost | number:'1.2-2' }}</td>
-                <td>{{ line.lineTotal | number:'1.2-2' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
-          <p>
-            <strong>{{ 'purchaseOrders.expectedTotal' | transloco }}:</strong>
-            {{ order.expectedTotal | number:'1.2-2' }}
-          </p>
-          <app-purchase-order-receipt-history [receipts]="order.receipts ?? []" />
-        } @else if (facade.errorMessage()) {
-          <p>{{ facade.errorMessage() }}</p>
-        }
-      </p-card>
-    </div>
-
-    @if (showEditOverlay()) {
-      <app-purchase-order-builder-page
-        [purchaseOrderId]="editingPoId()"
-        (closeRequested)="closeEditOverlay()"
-      />
-    }
-  `,
-  styles: [`
-    .po-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-    .po-detail-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-    .po-cancel-form { display: flex; align-items: center; gap: .5rem; }
-  `],
+  templateUrl: './purchase-order-detail-page.component.html',
+  styleUrl: './purchase-order-detail-page.component.scss',
 })
 export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
 
@@ -221,6 +65,37 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.facade.clearDetail();
+  }
+
+  protected goBack(): void {
+    void this.router.navigate(['/inventory/purchase-orders']);
+  }
+
+  protected summaryCards(order: PurchaseOrderDetail): Array<{
+    labelKey: string;
+    value: number;
+    variant: 'count' | 'money' | 'progress';
+    tone: string;
+  }> {
+    return [
+      { labelKey: 'purchaseOrders.lineCount', value: order.lines.length, variant: 'count', tone: 'amber' },
+      { labelKey: 'purchaseOrders.summary.receivedProgress', value: 0, variant: 'progress', tone: 'terracotta' },
+      { labelKey: 'purchaseOrders.expectedTotal', value: order.expectedTotal, variant: 'money', tone: 'sage' },
+      { labelKey: 'purchaseOrders.receipts.title', value: order.receipts?.length ?? 0, variant: 'count', tone: 'ink' },
+    ];
+  }
+
+  protected totalExpectedQuantity(order: PurchaseOrderDetail): number {
+    return order.lines.reduce((total, line) => total + line.expectedQuantity, 0);
+  }
+
+  protected totalReceivedQuantity(order: PurchaseOrderDetail): number {
+    return order.lines.reduce((total, line) => total + (line.receivedQuantity ?? 0), 0);
+  }
+
+  protected statusTone(status: PurchaseOrderStatus): string {
+    if (status === 'PartiallyReceived') return 'partial';
+    return status.toLowerCase();
   }
 
   protected openEditOverlay(purchaseOrderId: string): void {

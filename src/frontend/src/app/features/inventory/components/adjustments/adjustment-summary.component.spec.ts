@@ -31,7 +31,28 @@ describe('AdjustmentSummaryComponent', () => {
       imports: [
         AdjustmentSummaryComponent,
         NoopAnimationsModule,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: {
+            en: {
+              inventory: {
+                summary: {
+                  totalAdjustments: 'Total Adjustments',
+                  increaseQuantity: 'Increase quantity',
+                  decreaseQuantity: 'Decrease quantity',
+                  netMovement: 'Net movement',
+                  oneAdjustment: '1 adjustment',
+                  multipleAdjustments: '{{count}} adjustments',
+                  noNetMovement: 'No net movement',
+                },
+              },
+            },
+          },
+          translocoConfig: {
+            defaultLang: 'en',
+            availableLangs: ['en'],
+          },
+          preloadLangs: true,
+        }),
       ],
     });
 
@@ -50,24 +71,27 @@ describe('AdjustmentSummaryComponent', () => {
     const fixture = setup(baseRows);
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.textContent).toContain('2 adjustments');
+    expect(host.textContent).toContain('Total Adjustments');
     expect(host.textContent).toContain('5');
     expect(host.textContent).toContain('3');
+    expect(host.textContent).toContain('+2.00');
     expect(fixture.componentInstance.netQuantity).toBe(2);
   });
 
-  it('shows empty state message when rows is empty', () => {
+  it('shows zero summary values when rows is empty', () => {
     const fixture = setup([]);
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.querySelector('.summary-empty')).not.toBeNull();
+    expect(host.textContent).toContain('No net movement');
+    expect(host.querySelectorAll('.summary-card__value')[0]?.textContent?.trim()).toBe('0');
   });
 
   it('shows loading state when loading', () => {
     const fixture = setup([], true);
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.textContent).toContain('common.loading');
+    expect(host.querySelector('.summary-loading')).not.toBeNull();
+    expect(host.querySelector('.summary-grid')).toBeNull();
   });
 
   it('keeps totals in sync with row updates', () => {

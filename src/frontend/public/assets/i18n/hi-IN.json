@@ -116,7 +116,10 @@
     "profitLossReport": "लाभ और हानि",
     "dashboard": "डैशबोर्ड",
     "manageDiscounts": "छूट",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "अपने सबमिट किए गए इन्वेंटरी बैचेस प्रबंधित करें",
     "adjustmentsTitle": "समायोजन इतिहास",
     "adjustmentsSubtitle": "बैचों में स्टॉक बढ़ने और घटने की समीक्षा करें.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "नया समायोजन",
     "item": "आइटम",
     "voided": "रद्द किया गया",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },

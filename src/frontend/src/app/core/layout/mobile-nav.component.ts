@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MenuItem, MenuItemCommandEvent } from 'primeng/api';
 import { DrawerModule } from 'primeng/drawer';
 import { PanelMenuModule } from 'primeng/panelmenu';
@@ -15,16 +15,35 @@ import { ShellMenuService } from './shell-menu.service';
 })
 export class MobileNavComponent implements OnChanges {
   private readonly menuService = inject(ShellMenuService);
+  private readonly translocoService = inject(TranslocoService);
 
   @Input() menuItems: MenuItem[] = [];
+  @Input() profileMenuItems: MenuItem[] = [];
+  @Input() profileInitials = 'U';
+  @Input() profileDisplayName = '';
 
   readonly isDrawerVisible = signal(false);
   readonly panelMenuPt = this.menuService.panelMenuPt;
   drawerMenuItems: MenuItem[] = [];
+  profileDrawerMenuItems: MenuItem[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['menuItems']) {
       this.drawerMenuItems = this.wrapMenuItems(this.menuItems);
+    }
+
+    if (changes['profileMenuItems'] || changes['profileDisplayName']) {
+      const wrappedItems = this.wrapMenuItems(this.profileMenuItems);
+      const profileName = this.profileDisplayName.trim() || this.translocoService.translate('shell.userFallback');
+      const profileCaption = this.translocoService.translate('shell.profile');
+      this.profileDrawerMenuItems = wrappedItems.length > 0
+        ? [{
+            label: `${profileName}\n${profileCaption}`,
+            icon: 'pi pi-user',
+            items: wrappedItems,
+            expanded: false,
+          }]
+        : [];
     }
   }
 

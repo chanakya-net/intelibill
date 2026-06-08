@@ -116,7 +116,10 @@
     "profitLossReport": "లాభం & నష్టం",
     "dashboard": "డాష్‌బోర్డ్",
     "manageDiscounts": "డిస్కౌంట్లు",
-    "purchaseOrders": "Manage Purchase Orders"
+    "purchaseOrders": "Manage Purchase Orders",
+    "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
+    "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
+    "offlineSalesEnabling": "Enabling offline sales…"
   },
   "services": {
     "directory": "Service Directory",
@@ -381,6 +384,19 @@
     "batchListSubtitle": "మీ సబ్మిట్ చేసిన ఇన్వెంటరీ బ్యాచ్‌లను నిర్వహించండి",
     "adjustmentsTitle": "సర్దుబాటు చరిత్ర",
     "adjustmentsSubtitle": "బ్యాచ్‌లలో స్టాక్ పెరుగుదల మరియు తగ్గుదలని సమీక్షించండి.",
+    "adjustmentSummary": "Adjustment Summary",
+    "adjustmentLedger": "Adjustment ledger",
+    "showingCount": "Showing {{visible}} of {{total}} adjustments",
+    "pageInfo": "Page {{currentPage}} of {{totalPages}}",
+    "summary": {
+      "totalAdjustments": "Total Adjustments",
+      "increaseQuantity": "Increase quantity",
+      "decreaseQuantity": "Decrease quantity",
+      "netMovement": "Net movement",
+      "oneAdjustment": "1 adjustment",
+      "multipleAdjustments": "{{count}} adjustments",
+      "noNetMovement": "No net movement"
+    },
     "newAdjustment": "కొత్త సర్దుబాటు",
     "item": "ఐటెమ్",
     "voided": "రద్దు చేయబడింది",
@@ -1607,6 +1623,8 @@
     "status": {
       "Draft": "Draft",
       "Placed": "Placed",
+      "PartiallyReceived": "Partially Received",
+      "Received": "Received",
       "Cancelled": "Cancelled",
       "Closed": "Closed"
     },
