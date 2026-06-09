@@ -145,6 +145,7 @@ public sealed class DashboardControllerTests
             CashCollected: 0m,
             ProfitBeforeTax: 0m,
             ProfitAfterTax: 0m,
+            NetProfit: 0m,
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
             NetExpense: 0m,

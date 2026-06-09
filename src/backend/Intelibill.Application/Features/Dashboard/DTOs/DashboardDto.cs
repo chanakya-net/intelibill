@@ -14,6 +14,7 @@ public sealed record DashboardDto(
     decimal? CashCollected,
     decimal? ProfitBeforeTax,
     decimal? ProfitAfterTax,
+    decimal? NetProfit,
     decimal? ExpenseRecorded,
     decimal? ExpenseCorrection,
     decimal? NetExpense,

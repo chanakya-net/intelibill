@@ -80,6 +80,7 @@ export interface DashboardDto {
   cashCollected: number | null;
   profitBeforeTax: number | null;
   profitAfterTax: number | null;
+  netProfit: number | null;
   expenseRecorded: number | null;
   expenseCorrection: number | null;
   netExpense: number | null;

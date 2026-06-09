@@ -20,6 +20,7 @@ const stubDashboard: DashboardDto = {
   cashCollected: null,
   profitBeforeTax: null,
   profitAfterTax: null,
+  netProfit: 0,
   expenseRecorded: null,
   expenseCorrection: null,
   netExpense: null,
@@ -101,6 +102,28 @@ describe('DashboardKpiCardsComponent', () => {
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="invoice-count-value"]');
     expect(valueEl?.textContent?.trim()).toContain('42');
+  });
+
+  it.each([
+    { netProfit: 2500, label: 'positive' },
+    { netProfit: -1250.5, label: 'negative' },
+    { netProfit: 0, label: 'zero' },
+  ])('displays net profit value', ({ netProfit }) => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfit });
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-value"]');
+    expect(valueEl?.textContent?.trim()).toBe(new CurrencyPipe('en-US').transform(netProfit, 'INR', 'symbol', '1.2-2'));
+  });
+
+  it('renders net profit card', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', stubDashboard);
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('[data-testid="net-profit-card"]');
+    expect(card).toBeTruthy();
   });
 
   it('displays low stock items value', () => {

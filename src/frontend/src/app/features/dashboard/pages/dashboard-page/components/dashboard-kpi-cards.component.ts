@@ -21,6 +21,12 @@ import { DashboardDto } from '../../../services/dashboard.models';
           {{ dashboard()?.salesCount | number }}
         </span>
       </div>
+      <div class="kpi-card" data-testid="net-profit-card">
+        <span class="kpi-label">Net Profit</span>
+        <span class="kpi-value" data-testid="net-profit-value">
+          {{ dashboard()?.netProfit | currency: 'INR' : 'symbol' : '1.2-2' }}
+        </span>
+      </div>
       <div class="kpi-card" data-testid="low-stock-items-card">
         <span class="kpi-label">Low Stock Items</span>
         <span class="kpi-value" data-testid="low-stock-items-value">

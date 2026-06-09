@@ -33,6 +33,7 @@ describe('DashboardPageComponent', () => {
     cashCollected: 0,
     profitBeforeTax: 0,
     profitAfterTax: 0,
+    netProfit: 0,
     expenseRecorded: 0,
     expenseCorrection: 0,
     netExpense: 0,
@@ -154,6 +155,19 @@ describe('DashboardPageComponent', () => {
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="invoice-count-value"]');
     expect(valueEl?.textContent?.trim()).toContain('15');
+  });
+
+  it('renders net profit KPI from dashboard data', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(createDashboard({ netProfit: 2500, hasNoSalesActivity: false })),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-value"]');
+    expect(valueEl?.textContent?.trim()).toContain('₹');
+    expect(valueEl?.textContent?.trim()).toContain('2,500');
   });
 
   it('renders expenses KPI card with formatted value when dashboard loaded', () => {
