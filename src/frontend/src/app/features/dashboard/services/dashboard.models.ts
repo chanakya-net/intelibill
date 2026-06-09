@@ -59,6 +59,7 @@ export interface DashboardDto {
   startDate: string;
   endDate: string;
   salesCount: number;
+  salesRevenue: number | null;
   hasNoSalesActivity: boolean;
   salesBooked: number | null;
   netSalesBooked: number | null;

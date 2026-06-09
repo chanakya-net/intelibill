@@ -1,12 +1,24 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Domain.Interfaces.Repositories;
+using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
 public sealed class GetDashboardQueryHandlerTests
 {
-    private readonly GetDashboardQueryHandler _handler = new();
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly GetDashboardQueryHandler _handler;
+
+    public GetDashboardQueryHandlerTests()
+    {
+        _saleRepository
+            .GetHistorySummaryAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(PeriodSales: 0m, InvoiceCount: 0, RefundAmount: 0m));
+
+        _handler = new GetDashboardQueryHandler(_saleRepository);
+    }
 
     [Fact]
     public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndEmptyShape()
@@ -102,9 +114,63 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(to, result.Value.EndDate);
     }
 
+    [Fact]
+    public async Task HandleAsync_WithSalesData_PopulatesSalesRevenueAndInvoiceCount()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to);
+
+        _saleRepository
+            .GetHistorySummaryAsync(shopId, from, to, Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(PeriodSales: 9500m, InvoiceCount: 42, RefundAmount: 500m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(9500m, result.Value.SalesRevenue);
+        Assert.Equal(42, result.Value.SalesCount);
+        Assert.False(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoSales_SalesRevenueIsZeroAndHasNoSalesActivity()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.SalesRevenue);
+        Assert.Equal(0, result.Value.SalesCount);
+        Assert.True(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_SalesRevenue_EqualsGrossSalesMinusReturns()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 6, 1);
+        var to = new DateOnly(2026, 6, 30);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to);
+
+        _saleRepository
+            .GetHistorySummaryAsync(shopId, from, to, Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(PeriodSales: 4800m, InvoiceCount: 10, RefundAmount: 200m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        // PeriodSales = gross - returns = 5000 - 200 = 4800
+        Assert.Equal(4800m, result.Value.SalesRevenue);
+        Assert.Equal(10, result.Value.SalesCount);
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
+        Assert.Equal(0m, dto.SalesRevenue);
         Assert.True(dto.HasNoSalesActivity);
         Assert.Equal(0m, dto.SalesBooked);
         Assert.Equal(0m, dto.NetSalesBooked);

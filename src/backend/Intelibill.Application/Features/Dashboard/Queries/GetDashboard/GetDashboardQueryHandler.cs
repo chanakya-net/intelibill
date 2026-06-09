@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
@@ -9,23 +10,33 @@ public sealed class GetDashboardQueryHandler
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
 
-#pragma warning disable CA1822 // Skeleton: repository dependencies will be injected in the aggregation phase
-    public Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
+    private readonly ISaleRepository _saleRepository;
+
+    public GetDashboardQueryHandler(ISaleRepository saleRepository)
+    {
+        _saleRepository = saleRepository;
+    }
+
+    public async Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
     {
         var validationResult = ValidateDateRange(query.From, query.To);
         if (validationResult.IsError)
-            return Task.FromResult<ErrorOr<DashboardDto>>(validationResult.Errors);
+            return validationResult.Errors;
 
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var appliedTo = query.To ?? today;
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
 
+        var salesSummary = await _saleRepository.GetHistorySummaryAsync(
+            query.ShopId, appliedFrom, appliedTo, cancellationToken);
+
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
             StartDate: appliedFrom,
             EndDate: appliedTo,
-            SalesCount: 0,
-            HasNoSalesActivity: true,
+            SalesCount: salesSummary.InvoiceCount,
+            SalesRevenue: salesSummary.PeriodSales,
+            HasNoSalesActivity: salesSummary.InvoiceCount == 0,
             SalesBooked: 0m,
             NetSalesBooked: 0m,
             WastageCost: 0m,
@@ -58,9 +69,8 @@ public sealed class GetDashboardQueryHandler
                 NetExpense: 0m,
                 CreditSalesPercentage: 0m));
 
-        return Task.FromResult<ErrorOr<DashboardDto>>(result);
+        return result;
     }
-#pragma warning restore CA1822
 
     private static ErrorOr<Success> ValidateDateRange(DateOnly? from, DateOnly? to)
     {
