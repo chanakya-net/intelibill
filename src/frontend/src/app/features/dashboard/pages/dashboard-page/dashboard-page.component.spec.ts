@@ -34,6 +34,7 @@ describe('DashboardPageComponent', () => {
     profitBeforeTax: 0,
     profitAfterTax: 0,
     netProfit: 0,
+    netProfitChangePercent: null,
     expenseRecorded: 0,
     expenseCorrection: 0,
     netExpense: 0,

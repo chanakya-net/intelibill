@@ -32,6 +32,7 @@ public sealed class GetDashboardQueryHandler(
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var appliedTo = query.To ?? today;
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
+        var previousPeriod = GetPreviousPeriodRange(appliedFrom, appliedTo);
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var salesTrendBuckets = await saleRepository.GetDailySalesTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
@@ -52,6 +53,16 @@ public sealed class GetDashboardQueryHandler(
             search: null,
             cancellationToken);
         var lowStockAlerts = await inventoryRepository.GetTopLowStockAlertsAsync(query.ShopId, cancellationToken);
+        var previousProfitLossReport = await profitLossReportBuilder.BuildAsync(
+            query.ShopId,
+            previousPeriod.From,
+            previousPeriod.To,
+            type: null,
+            search: null,
+            cancellationToken);
+        var netProfitChangePercent = CalculatePercentChange(
+            profitLossReport.Summary.NetProfitAfterTax,
+            previousProfitLossReport.Summary.NetProfitAfterTax);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -68,6 +79,7 @@ public sealed class GetDashboardQueryHandler(
             ProfitBeforeTax: 0m,
             ProfitAfterTax: 0m,
             NetProfit: profitLossReport.Summary.NetProfitAfterTax,
+            NetProfitChangePercent: netProfitChangePercent,
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
             NetExpense: expenseTotal,
@@ -89,8 +101,8 @@ public sealed class GetDashboardQueryHandler(
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
             PreviousPeriodSummary: new PreviousPeriodSummaryDto(
-                StartDate: appliedFrom,
-                EndDate: appliedTo,
+                StartDate: previousPeriod.From,
+                EndDate: previousPeriod.To,
                 SalesCount: 0,
                 SalesBooked: 0m,
                 NetSalesBooked: 0m,
@@ -128,6 +140,22 @@ public sealed class GetDashboardQueryHandler(
         }
 
         return series;
+    }
+
+    private static (DateOnly From, DateOnly To) GetPreviousPeriodRange(DateOnly appliedFrom, DateOnly appliedTo)
+    {
+        var rangeLength = appliedTo.DayNumber - appliedFrom.DayNumber + 1;
+        var previousTo = appliedFrom.AddDays(-1);
+        var previousFrom = previousTo.AddDays(-(rangeLength - 1));
+        return (previousFrom, previousTo);
+    }
+
+    private static decimal? CalculatePercentChange(decimal currentValue, decimal previousValue)
+    {
+        if (previousValue == 0m)
+            return null;
+
+        return decimal.Round((currentValue - previousValue) * 100m / Math.Abs(previousValue), 2, MidpointRounding.AwayFromZero);
     }
 
     private static bool IsAllowedRole(string role) =>
