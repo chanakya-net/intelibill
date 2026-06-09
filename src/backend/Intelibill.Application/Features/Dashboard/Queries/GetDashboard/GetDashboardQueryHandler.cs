@@ -5,7 +5,9 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
-public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
+public sealed class GetDashboardQueryHandler(
+    ISaleRepository saleRepository,
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -25,6 +27,7 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
+        var customerCreditDue = await customerLedgerEntryRepository.GetCustomerCreditDueAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -32,6 +35,7 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
             EndDate: appliedTo,
             SalesCount: summary.InvoiceCount,
             HasNoSalesActivity: summary.InvoiceCount == 0,
+            CustomerCreditDue: customerCreditDue,
             SalesBooked: 0m,
             NetSalesBooked: summary.PeriodSales,
             WastageCost: 0m,

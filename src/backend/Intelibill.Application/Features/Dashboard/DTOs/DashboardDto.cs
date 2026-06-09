@@ -6,6 +6,7 @@ public sealed record DashboardDto(
     DateOnly EndDate,
     int SalesCount,
     bool HasNoSalesActivity,
+    decimal CustomerCreditDue,
     decimal? SalesBooked,
     decimal? NetSalesBooked,
     decimal? WastageCost,
