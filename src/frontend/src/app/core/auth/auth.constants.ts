@@ -85,10 +85,6 @@ export const EXPENSE_ENDPOINTS = {
   categories: `${API_BASE_URL}/expenses/categories`,
 } as const;
 
-export const DASHBOARD_ENDPOINTS = {
-  summary: `${API_BASE_URL}/dashboard`,
-} as const;
-
 export const DISCOUNT_ENDPOINTS = {
   list: `${API_BASE_URL}/discounts`,
   create: `${API_BASE_URL}/discounts`,

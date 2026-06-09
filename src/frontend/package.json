@@ -37,7 +37,6 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
-    "chart.js": "^4.5.1",
     "express": "^5.1.0",
     "hono": "^4.12.12",
     "picomatch": "^4.0.4",
