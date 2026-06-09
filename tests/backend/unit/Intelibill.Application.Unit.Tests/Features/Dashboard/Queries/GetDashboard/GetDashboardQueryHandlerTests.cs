@@ -55,6 +55,7 @@ public sealed class GetDashboardQueryHandlerTests
         ConfigureLowStockCount(0);
         ConfigureEmptyProfitLossData();
         ConfigureSalesTrend([]);
+        ConfigureExpenseTrend([]);
         ConfigureLowStockAlerts([]);
     }
 
@@ -752,6 +753,39 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithSparseRevenueVsExpenses_FillsMissingDaysAndAlignsWithSalesLabels()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 3);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+        ConfigureSalesTrend(
+            [
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 1), 100m, 10m),
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 3), 250m, 30m),
+            ]);
+        ConfigureExpenseTrend(
+            [
+                new ExpenseDailyBucketReadModel(new DateOnly(2026, 5, 1), 25m),
+                new ExpenseDailyBucketReadModel(new DateOnly(2026, 5, 3), 80m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            new[]
+            {
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 1), 90m, 25m),
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 2), 0m, 0m),
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 3), 220m, 80m),
+            },
+            result.Value.RevenueVsExpenses);
+        Assert.Equal(
+            result.Value.SalesTrendSeries!.Select(point => point.Date),
+            result.Value.RevenueVsExpenses!.Select(point => point.Date));
+    }
+
+    [Fact]
     public async Task HandleAsync_SalesRevenue_EqualsGrossSalesMinusReturns()
     {
         var shopId = Guid.NewGuid();
@@ -792,6 +826,16 @@ public sealed class GetDashboardQueryHandlerTests
                 Arg.Any<DateOnly>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(sum));
+    }
+
+    private void ConfigureExpenseTrend(IReadOnlyList<ExpenseDailyBucketReadModel> trend)
+    {
+        _expenseRepository.GetDailyExpenseTrendAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(trend));
     }
 
     private void ConfigureStockValue(decimal value)
@@ -961,6 +1005,8 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Empty(dto.Alerts);
         Assert.NotNull(dto.SalesTrendSeries);
         AssertSalesTrendSeries(dto);
+        Assert.NotNull(dto.RevenueVsExpenses);
+        AssertRevenueVsExpensesSeries(dto);
         Assert.NotNull(dto.ProfitTrendSeries);
         Assert.Empty(dto.ProfitTrendSeries);
         Assert.NotNull(dto.PaymentMixTrendSeries);
@@ -986,6 +1032,22 @@ public sealed class GetDashboardQueryHandlerTests
             Assert.Equal(dto.StartDate.AddDays(index), point.Date);
             Assert.Equal(0m, point.Amount);
             Assert.Equal(0m, point.NetAmount);
+        }
+    }
+
+    private static void AssertRevenueVsExpensesSeries(DashboardDto dto)
+    {
+        var expectedDays = dto.EndDate.DayNumber - dto.StartDate.DayNumber + 1;
+        Assert.Equal(expectedDays, dto.RevenueVsExpenses!.Count);
+
+        for (var index = 0; index < expectedDays; index++)
+        {
+            var point = dto.RevenueVsExpenses[index];
+            var salesTrendPoint = dto.SalesTrendSeries![index];
+            Assert.Equal(dto.StartDate.AddDays(index), point.Date);
+            Assert.Equal(salesTrendPoint.Date, point.Date);
+            Assert.Equal(0m, point.Revenue);
+            Assert.Equal(0m, point.Expenses);
         }
     }
 }
