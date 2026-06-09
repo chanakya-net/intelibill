@@ -99,6 +99,39 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
             </p-card>
           }
 
+          @if (lowStockAlerts().length > 0) {
+            <p-card class="alerts-panel">
+              <ng-template pTemplate="header">
+                <div class="alerts-panel__header">
+                  <div>
+                    <p class="alerts-panel__eyebrow">Needs Attention</p>
+                    <h2>Low Stock</h2>
+                  </div>
+                  <span class="alerts-panel__count">{{ lowStockAlerts().length }}</span>
+                </div>
+              </ng-template>
+
+              <ul class="alerts-list">
+                @for (alert of lowStockAlerts(); track alert.actionRoute + alert.message) {
+                  <li class="alerts-list__item" data-testid="low-stock-alert-row">
+                    <div class="alerts-list__content">
+                      <span class="alerts-list__title">{{ alert.title }}</span>
+                      <p class="alerts-list__message">{{ alert.message }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="alerts-list__action"
+                      data-testid="low-stock-alert-action"
+                      (click)="openAlert(alert)"
+                    >
+                      {{ alert.actionLabel }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </p-card>
+          }
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
@@ -149,6 +182,9 @@ export class DashboardPageComponent {
   readonly errorMessage = signal('');
   readonly pendingPurchaseOrderAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
+  );
+  readonly lowStockAlerts = computed(() =>
+    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
   readonly activeShopLabel = computed(() => {
     const activeShop = this.permissions.activeShop();

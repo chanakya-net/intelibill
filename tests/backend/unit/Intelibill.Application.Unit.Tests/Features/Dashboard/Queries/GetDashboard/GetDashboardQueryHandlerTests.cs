@@ -53,6 +53,7 @@ public sealed class GetDashboardQueryHandlerTests
         ConfigureLowStockCount(0);
         ConfigureEmptyProfitLossData();
         ConfigureSalesTrend([]);
+        ConfigureLowStockAlerts([]);
     }
 
     [Fact]
@@ -283,6 +284,78 @@ public sealed class GetDashboardQueryHandlerTests
         await _purchaseOrderRepository.Received(1).GetPendingPurchaseOrderAlertsAsync(
             shopId,
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithLowStockAlerts_PopulatesAlertsWithLowStockEntries()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+        var lowStockAlerts = new[]
+        {
+            new LowStockAlertReadModel(Guid.NewGuid(), "Almonds", 1m, 10m),
+            new LowStockAlertReadModel(Guid.NewGuid(), "Biscuits", 3m, 10m),
+        };
+        ConfigureLowStockAlerts(lowStockAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "LowStock",
+                2,
+                "Low stock",
+                "Almonds is running low (1 remaining, reorder at 10).",
+                "Manage inventory",
+                "/inventory"),
+            result.Value.Alerts[0]);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "LowStock",
+                2,
+                "Low stock",
+                "Biscuits is running low (3 remaining, reorder at 10).",
+                "Manage inventory",
+                "/inventory"),
+            result.Value.Alerts[1]);
+        await _inventoryRepository.Received(1).GetTopLowStockAlertsAsync(shopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithBothPendingPOAndLowStockAlerts_AlertsContainsBothTypes()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+        ConfigurePendingPurchaseOrderAlerts([
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1001",
+                "Acme",
+                PurchaseOrderStatus.Placed,
+                DateTimeOffset.UtcNow),
+        ]);
+        ConfigureLowStockAlerts([
+            new LowStockAlertReadModel(Guid.NewGuid(), "Rice", 2m, 10m),
+        ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal("PendingPurchaseOrder", result.Value.Alerts[0].AlertType);
+        Assert.Equal("LowStock", result.Value.Alerts[1].AlertType);
+    }
+
+    [Fact]
+    public async Task HandleAsync_LowStockAlertsCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryRepository.Received(1).GetTopLowStockAlertsAsync(shopId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -651,6 +724,13 @@ public sealed class GetDashboardQueryHandlerTests
                 Arg.Any<DateOnly>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(trend));
+    }
+
+    private void ConfigureLowStockAlerts(IReadOnlyList<LowStockAlertReadModel> alerts)
+    {
+        _inventoryRepository
+            .GetTopLowStockAlertsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)

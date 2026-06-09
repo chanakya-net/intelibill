@@ -328,6 +328,83 @@ describe('DashboardPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/purchase-orders');
   });
 
+  it('renders low stock alerts with action button', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'LowStock',
+              priority: 2,
+              title: 'Low stock',
+              message: 'Almonds is running low (1 remaining, reorder at 10).',
+              actionLabel: 'Manage inventory',
+              actionRoute: '/inventory',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Low Stock');
+    expect(host.textContent).toContain('Almonds is running low (1 remaining, reorder at 10).');
+    expect(host.textContent).toContain('Manage inventory');
+
+    const actionButton = host.querySelector('[data-testid="low-stock-alert-action"]') as HTMLButtonElement | null;
+    expect(actionButton).toBeTruthy();
+    actionButton?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory');
+  });
+
+  it('does not render low stock panel when no low stock alerts', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ alerts: [] })));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const rows = host.querySelectorAll('[data-testid="low-stock-alert-row"]');
+    expect(rows.length).toBe(0);
+  });
+
+  it('filters low stock alerts independently from purchase order alerts', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'PendingPurchaseOrder',
+              priority: 1,
+              title: 'Pending purchase order',
+              message: 'PO-1001 is waiting.',
+              actionLabel: 'Review purchase orders',
+              actionRoute: '/inventory/purchase-orders',
+            },
+            {
+              alertType: 'LowStock',
+              priority: 2,
+              title: 'Low stock',
+              message: 'Rice is running low (2 remaining, reorder at 10).',
+              actionLabel: 'Manage inventory',
+              actionRoute: '/inventory',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pendingPurchaseOrderAlerts().length).toBe(1);
+    expect(fixture.componentInstance.lowStockAlerts().length).toBe(1);
+    expect(fixture.componentInstance.lowStockAlerts()[0].alertType).toBe('LowStock');
+  });
+
   it('renders stock value KPI card with formatted currency', () => {
     dashboardService.getDashboard.mockReturnValue(of(createDashboard({ stockValue: 24750.5 })));
 
