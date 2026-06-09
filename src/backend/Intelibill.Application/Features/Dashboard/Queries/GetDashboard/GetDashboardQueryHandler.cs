@@ -41,6 +41,7 @@ public sealed class GetDashboardQueryHandler(
             cancellationToken);
         var supplierPayables = await supplierLedgerEntryRepository.GetSupplierPayablesAsync(query.ShopId, cancellationToken);
         var lowStockItemCount = await inventoryRepository.CountLowStockItemsByShopAsync(query.ShopId, cancellationToken);
+        var lowStockAlerts = await inventoryRepository.GetTopLowStockAlertsAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -70,7 +71,9 @@ public sealed class GetDashboardQueryHandler(
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
-            Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert).ToList(),
+            Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert)
+                .Concat(lowStockAlerts.Select(MapLowStockAlert))
+                .ToList(),
             SalesTrendSeries: Array.Empty<SalesTrendPointDto>(),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
@@ -114,6 +117,15 @@ public sealed class GetDashboardQueryHandler(
 
         return Result.Success;
     }
+
+    private static DashboardAlertDto MapLowStockAlert(LowStockAlertReadModel alert) =>
+        new(
+            AlertType: "LowStock",
+            Priority: 2,
+            Title: "Low stock",
+            Message: $"{alert.ItemName} is running low ({alert.Quantity} remaining, reorder at {alert.ReorderLevel}).",
+            ActionLabel: "Manage inventory",
+            ActionRoute: "/inventory");
 
     private static DashboardAlertDto MapPendingPurchaseOrderAlert(PendingPurchaseOrderAlertReadModel alert)
     {

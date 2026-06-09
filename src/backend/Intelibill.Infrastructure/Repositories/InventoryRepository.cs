@@ -33,4 +33,16 @@ internal sealed class InventoryRepository(ApplicationDbContext context)
                  && i.ReorderLevel > 0m
                  && i.Quantity <= i.ReorderLevel,
             cancellationToken);
+
+    public async Task<IReadOnlyList<LowStockAlertReadModel>> GetTopLowStockAlertsAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(i => i.Item)
+            .Where(i => i.ShopId == shopId && i.ReorderLevel > 0m && i.Quantity <= i.ReorderLevel)
+            .OrderBy(i => i.Quantity / i.ReorderLevel)
+            .ThenBy(i => i.Item.Name)
+            .Take(5)
+            .Select(i => new LowStockAlertReadModel(i.ItemId, i.Item.Name, i.Quantity, i.ReorderLevel))
+            .ToListAsync(cancellationToken);
 }
