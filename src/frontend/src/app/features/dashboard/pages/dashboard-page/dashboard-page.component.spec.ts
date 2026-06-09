@@ -1,5 +1,6 @@
 import '@angular/compiler';
 
+import { CurrencyPipe } from '@angular/common';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
@@ -23,6 +24,7 @@ describe('DashboardPageComponent', () => {
     startDate: '2026-06-01',
     endDate: '2026-06-09',
     salesCount: 0,
+    salesRevenue: 0,
     hasNoSalesActivity: true,
     salesBooked: 0,
     netSalesBooked: 0,
@@ -93,6 +95,7 @@ describe('DashboardPageComponent', () => {
       of(
         createDashboard({
           salesCount: 42,
+          salesRevenue: 15000,
           hasNoSalesActivity: false,
           salesBooked: 15000,
           netSalesBooked: 14000,
@@ -119,40 +122,37 @@ describe('DashboardPageComponent', () => {
     expect(fixture.componentInstance.isLoading()).toBe(false);
   });
 
-  it('renders expenses KPI card with formatted value when dashboard loaded', () => {
-    dashboardService.getDashboard.mockReturnValue(
-      of({
-        generatedAt: '2026-06-09T10:30:00Z',
-        startDate: '2026-06-01',
-        endDate: '2026-06-09',
-        salesCount: 5,
-        hasNoSalesActivity: false,
-        salesBooked: null,
-        netSalesBooked: null,
-        wastageCost: null,
-        cashCollected: null,
-        profitBeforeTax: null,
-        profitAfterTax: null,
-        expenseRecorded: null,
-        expenseCorrection: null,
-        netExpense: 1250.75,
-        creditSalesAmount: null,
-        creditSalesPercentage: null,
-        paymentMix: null,
-        creditShareWarning: null,
-        runningLowStockCount: 0,
-        criticalStockCount: 0,
-        rankedShortageList: [],
-        highestDueCustomer: null,
-        topFiveDueCustomers: [],
-        alerts: [],
-        salesTrendSeries: [],
-        profitTrendSeries: [],
-        paymentMixTrendSeries: [],
-        previousPeriodSummary: null,
-        latestSales: [],
-      })
+  it('renders sales revenue KPI from dashboard data', () => {
+    const dashboard = createDashboard({ salesCount: 15, salesRevenue: 7500, hasNoSalesActivity: false });
+    const expectedSalesRevenue = new CurrencyPipe('en-US').transform(
+      dashboard.salesRevenue,
+      'INR',
+      'symbol',
+      '1.2-2',
     );
+    dashboardService.getDashboard.mockReturnValue(of(dashboard));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="sales-revenue-value"]');
+    expect(valueEl?.textContent?.trim()).toBe(expectedSalesRevenue);
+  });
+
+  it('renders invoice count KPI from dashboard data', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(createDashboard({ salesCount: 15, salesRevenue: 7500, hasNoSalesActivity: false })),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="invoice-count-value"]');
+    expect(valueEl?.textContent?.trim()).toContain('15');
+  });
+
+  it('renders expenses KPI card with formatted value when dashboard loaded', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ salesCount: 5, netExpense: 1250.75 })));
 
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
@@ -164,39 +164,7 @@ describe('DashboardPageComponent', () => {
   });
 
   it('renders expenses KPI as ₹0 when netExpense is zero', () => {
-    dashboardService.getDashboard.mockReturnValue(
-      of({
-        generatedAt: '2026-06-09T10:30:00Z',
-        startDate: '2026-06-01',
-        endDate: '2026-06-09',
-        salesCount: 0,
-        hasNoSalesActivity: true,
-        salesBooked: null,
-        netSalesBooked: null,
-        wastageCost: null,
-        cashCollected: null,
-        profitBeforeTax: null,
-        profitAfterTax: null,
-        expenseRecorded: null,
-        expenseCorrection: null,
-        netExpense: 0,
-        creditSalesAmount: null,
-        creditSalesPercentage: null,
-        paymentMix: null,
-        creditShareWarning: null,
-        runningLowStockCount: 0,
-        criticalStockCount: 0,
-        rankedShortageList: [],
-        highestDueCustomer: null,
-        topFiveDueCustomers: [],
-        alerts: [],
-        salesTrendSeries: [],
-        profitTrendSeries: [],
-        paymentMixTrendSeries: [],
-        previousPeriodSummary: null,
-        latestSales: [],
-      })
-    );
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ netExpense: 0 })));
 
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();

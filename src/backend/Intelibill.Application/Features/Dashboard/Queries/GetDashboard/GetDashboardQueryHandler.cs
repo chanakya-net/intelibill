@@ -32,6 +32,7 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository, IEx
             StartDate: appliedFrom,
             EndDate: appliedTo,
             SalesCount: summary.InvoiceCount,
+            SalesRevenue: summary.PeriodSales,
             HasNoSalesActivity: summary.InvoiceCount == 0,
             SalesBooked: 0m,
             NetSalesBooked: summary.PeriodSales,

@@ -76,6 +76,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.False(result.IsError);
         Assert.Equal(18, result.Value.SalesCount);
         Assert.False(result.Value.HasNoSalesActivity);
+        Assert.Equal(412.75m, result.Value.SalesRevenue);
         Assert.Equal(412.75m, result.Value.NetSalesBooked);
         Assert.Equal(0m, result.Value.SalesBooked);
     }
@@ -219,6 +220,54 @@ public sealed class GetDashboardQueryHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WithSalesData_PopulatesSalesRevenueAndInvoiceCount()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureSummary(new SalesHistorySummaryReadModel(PeriodSales: 9500m, InvoiceCount: 42, RefundAmount: 500m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(9500m, result.Value.SalesRevenue);
+        Assert.Equal(42, result.Value.SalesCount);
+        Assert.False(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoSales_SalesRevenueIsZeroAndHasNoSalesActivity()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.SalesRevenue);
+        Assert.Equal(0, result.Value.SalesCount);
+        Assert.True(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_SalesRevenue_EqualsGrossSalesMinusReturns()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 6, 1);
+        var to = new DateOnly(2026, 6, 30);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureSummary(new SalesHistorySummaryReadModel(PeriodSales: 4800m, InvoiceCount: 10, RefundAmount: 200m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(4800m, result.Value.SalesRevenue);
+        Assert.Equal(10, result.Value.SalesCount);
+    }
+
     private void ConfigureSummary(SalesHistorySummaryReadModel summary)
     {
         _saleRepository.GetHistorySummaryAsync(
@@ -248,6 +297,7 @@ public sealed class GetDashboardQueryHandlerTests
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
+        Assert.Equal(0m, dto.SalesRevenue);
         Assert.True(dto.HasNoSalesActivity);
         Assert.Equal(0m, dto.SalesBooked);
         Assert.Equal(0m, dto.NetSalesBooked);

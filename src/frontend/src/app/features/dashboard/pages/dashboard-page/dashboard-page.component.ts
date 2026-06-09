@@ -8,11 +8,12 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
 import { DashboardDto } from '../../services/dashboard.models';
 import { DashboardService } from '../../services/dashboard.service';
+import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, CardModule, ProgressSpinnerModule],
+  imports: [CommonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule],
   styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
@@ -32,6 +33,8 @@ import { DashboardService } from '../../services/dashboard.service';
 
         @if (dashboard(); as dashboard) {
           <p>{{ dashboardStatus() }}</p>
+
+          <app-dashboard-kpi-cards [dashboard]="dashboard" />
 
           <div class="kpi-card expenses-kpi">
             <span class="kpi-label">Expenses</span>

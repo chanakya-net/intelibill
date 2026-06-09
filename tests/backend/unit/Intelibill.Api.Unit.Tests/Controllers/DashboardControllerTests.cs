@@ -136,6 +136,7 @@ public sealed class DashboardControllerTests
             StartDate: appliedFrom,
             EndDate: appliedTo,
             SalesCount: 0,
+            SalesRevenue: 0m,
             HasNoSalesActivity: true,
             SalesBooked: 0m,
             NetSalesBooked: 0m,
