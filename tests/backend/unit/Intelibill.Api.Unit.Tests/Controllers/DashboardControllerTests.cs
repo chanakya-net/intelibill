@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Controllers;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 using Microsoft.AspNetCore.Http;
@@ -71,6 +72,23 @@ public sealed class DashboardControllerTests
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
 
         var result = await _controller.GetDashboard(null, null, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDashboard_WhenHandlerReturnsValidationError_ReturnsBadRequest()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+        _bus.InvokeAsync<ErrorOr<DashboardDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<DashboardDto>>(Errors.Dashboard.PartialDateRange));
+
+        var result = await _controller.GetDashboard(new DateOnly(2026, 5, 1), null, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
