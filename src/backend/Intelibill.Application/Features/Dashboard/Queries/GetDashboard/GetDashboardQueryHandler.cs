@@ -8,7 +8,8 @@ namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 public sealed class GetDashboardQueryHandler(
     ISaleRepository saleRepository,
     IExpenseRepository expenseRepository,
-    IInventoryBatchRepository inventoryBatchRepository)
+    IInventoryBatchRepository inventoryBatchRepository,
+    IInventoryRepository inventoryRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -30,6 +31,7 @@ public sealed class GetDashboardQueryHandler(
         var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
+        var lowStockItemCount = await inventoryRepository.CountLowStockItemsByShopAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -52,6 +54,7 @@ public sealed class GetDashboardQueryHandler(
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),
             CreditShareWarning: false,
             RunningLowStockCount: 0,
+            LowStockItemCount: lowStockItemCount,
             CriticalStockCount: 0,
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),

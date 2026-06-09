@@ -37,6 +37,7 @@ const stubDashboard: DashboardDto = {
   paymentMixTrendSeries: null,
   previousPeriodSummary: null,
   latestSales: [],
+  lowStockItemCount: 3,
   stockValue: null,
 };
 
@@ -73,6 +74,15 @@ describe('DashboardKpiCardsComponent', () => {
     expect(card).toBeTruthy();
   });
 
+  it('renders low stock items card', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', stubDashboard);
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('[data-testid="low-stock-items-card"]');
+    expect(card).toBeTruthy();
+  });
+
   it('displays sales revenue value', () => {
     const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
     fixture.componentRef.setInput('dashboard', stubDashboard);
@@ -89,6 +99,24 @@ describe('DashboardKpiCardsComponent', () => {
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="invoice-count-value"]');
     expect(valueEl?.textContent?.trim()).toContain('42');
+  });
+
+  it('displays low stock items value', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', stubDashboard);
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="low-stock-items-value"]');
+    expect(valueEl?.textContent?.trim()).toContain('3');
+  });
+
+  it('displays zero low stock items value', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, lowStockItemCount: 0 });
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="low-stock-items-value"]');
+    expect(valueEl?.textContent?.trim()).toContain('0');
   });
 
   it('handles null dashboard gracefully', () => {

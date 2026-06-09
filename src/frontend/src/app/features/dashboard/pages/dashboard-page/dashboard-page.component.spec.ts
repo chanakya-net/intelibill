@@ -50,6 +50,7 @@ describe('DashboardPageComponent', () => {
     paymentMixTrendSeries: [],
     previousPeriodSummary: null,
     latestSales: [],
+    lowStockItemCount: 0,
     stockValue: null,
     ...overrides,
   });
