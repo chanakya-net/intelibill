@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -37,6 +38,13 @@ const stubDashboard: DashboardDto = {
   previousPeriodSummary: null,
 };
 
+const expectedSalesRevenue = new CurrencyPipe('en-US').transform(
+  stubDashboard.salesRevenue,
+  'INR',
+  'symbol',
+  '1.2-2',
+);
+
 describe('DashboardKpiCardsComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -69,7 +77,7 @@ describe('DashboardKpiCardsComponent', () => {
     fixture.detectChanges();
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="sales-revenue-value"]');
-    expect(valueEl?.textContent?.trim()).toBeTruthy();
+    expect(valueEl?.textContent?.trim()).toBe(expectedSalesRevenue);
   });
 
   it('displays invoice count value', () => {

@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -40,6 +41,13 @@ const stubDashboard: DashboardDto = {
   previousPeriodSummary: null,
 };
 
+const expectedSalesRevenue = new CurrencyPipe('en-US').transform(
+  stubDashboard.salesRevenue,
+  'INR',
+  'symbol',
+  '1.2-2',
+);
+
 describe('DashboardPageComponent', () => {
   let httpMock: HttpTestingController;
 
@@ -70,7 +78,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="sales-revenue-value"]');
-    expect(valueEl?.textContent?.trim()).toBeTruthy();
+    expect(valueEl?.textContent?.trim()).toBe(expectedSalesRevenue);
   });
 
   it('renders invoice count KPI from API response', () => {
@@ -93,7 +101,7 @@ describe('DashboardPageComponent', () => {
 
     const revenueEl = fixture.nativeElement.querySelector('[data-testid="sales-revenue-value"]');
     const countEl = fixture.nativeElement.querySelector('[data-testid="invoice-count-value"]');
-    expect(revenueEl).toBeTruthy();
+    expect(revenueEl?.textContent?.trim()).toBe(expectedSalesRevenue);
     expect(countEl?.textContent?.trim()).toContain('15');
   });
 });
