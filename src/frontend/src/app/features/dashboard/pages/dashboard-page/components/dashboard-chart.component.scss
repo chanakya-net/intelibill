@@ -1,0 +1,42 @@
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.dashboard-chart-card {
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__canvas {
+    height: 320px;
+    min-height: 320px;
+  }
+
+  &__chart {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-charts {
+    grid-template-columns: 1fr;
+  }
+}
