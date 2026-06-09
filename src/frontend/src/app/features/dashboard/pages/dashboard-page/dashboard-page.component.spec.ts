@@ -11,6 +11,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { DashboardDto } from '../../services/dashboard.models';
 import { DashboardService } from '../../services/dashboard.service';
 import { DashboardPageComponent } from './dashboard-page.component';
+import { OfflineSalesQueueSyncService } from '../../../sales/services/offline-sales-queue-sync.service';
 
 describe('DashboardPageComponent', () => {
   const createSession = (role: 'Owner' | 'Manager' | 'Staff') =>
@@ -69,6 +70,22 @@ describe('DashboardPageComponent', () => {
     getDashboard: vi.fn(),
   };
 
+  const offlineQueueCountsSignal = signal({
+    pending: 0,
+    syncing: 0,
+    failed: 0,
+    warning: 0,
+    needsReview: 0,
+    totalVisible: 0,
+  });
+
+  const offlineSalesQueueSync = {
+    visibleCounts: offlineQueueCountsSignal,
+    refreshActiveStatusCounts: vi.fn<OfflineSalesQueueSyncService['refreshActiveStatusCounts']>(async () =>
+      offlineQueueCountsSignal(),
+    ),
+  };
+
   const router = {
     navigateByUrl: vi.fn<Router['navigateByUrl']>().mockResolvedValue(true),
   };
@@ -80,6 +97,15 @@ describe('DashboardPageComponent', () => {
     dashboardService.getDashboard.mockReset();
     router.navigateByUrl.mockClear();
     sessionSignal.set(createSession('Owner'));
+    offlineQueueCountsSignal.set({
+      pending: 0,
+      syncing: 0,
+      failed: 0,
+      warning: 0,
+      needsReview: 0,
+      totalVisible: 0,
+    });
+    offlineSalesQueueSync.refreshActiveStatusCounts.mockClear();
 
     TestBed.configureTestingModule({
       imports: [DashboardPageComponent],
@@ -87,6 +113,7 @@ describe('DashboardPageComponent', () => {
         { provide: AuthService, useValue: authService },
         { provide: DashboardService, useValue: dashboardService },
         { provide: Router, useValue: router },
+        { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
       ],
     });
   });
@@ -392,6 +419,42 @@ describe('DashboardPageComponent', () => {
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/batches');
+  });
+
+  it.each([
+    ['pending', { pending: 2, syncing: 0, failed: 0, warning: 0, needsReview: 0, totalVisible: 2 }],
+    ['failed', { pending: 0, syncing: 0, failed: 1, warning: 0, needsReview: 0, totalVisible: 1 }],
+    ['warning', { pending: 0, syncing: 0, failed: 0, warning: 3, needsReview: 0, totalVisible: 3 }],
+    ['needs-review', { pending: 0, syncing: 0, failed: 0, warning: 0, needsReview: 4, totalVisible: 4 }],
+  ] as const)('renders offline queue alert for %s counts', (_, counts) => {
+    offlineQueueCountsSignal.set(counts);
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Offline sales queue');
+    expect(host.textContent).toContain(`Pending ${counts.pending}`);
+    expect(host.textContent).toContain(`Failed ${counts.failed}`);
+    expect(host.textContent).toContain(`Warnings ${counts.warning}`);
+    expect(host.textContent).toContain(`Needs review ${counts.needsReview}`);
+    expect(host.textContent).toContain(`review ${counts.totalVisible} queued sale`);
+
+    const actionButton = host.querySelector('[data-testid="offline-queue-alert-action"]') as HTMLButtonElement | null;
+    expect(actionButton).toBeTruthy();
+    actionButton?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/sales');
+  });
+
+  it('does not render the offline queue alert when counts are zero', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('[data-testid="offline-queue-alert-row"]').length).toBe(0);
   });
 
   it('does not render low stock panel when no low stock alerts', () => {

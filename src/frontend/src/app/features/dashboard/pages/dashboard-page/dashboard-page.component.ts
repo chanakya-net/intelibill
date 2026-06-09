@@ -10,12 +10,21 @@ import { ShopPermissionsService } from '../../../../core/layout/shop-permissions
 import { DashboardAlertDto, DashboardDto } from '../../services/dashboard.models';
 import { DashboardService } from '../../services/dashboard.service';
 import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
+import { OfflineSalesQueueSyncService } from '../../../sales/services/offline-sales-queue-sync.service';
+import type { OfflineSalesVisibleQueueCounts } from '../../../sales/utils/offline-sale-sync.mapper';
 
 type DashboardQuickAction = Readonly<{
   label: string;
   icon: string;
   route: string;
   testId: string;
+}>;
+
+type DashboardActionAlert = Readonly<{
+  title: string;
+  message: string;
+  actionLabel: string;
+  actionRoute: string;
 }>;
 
 @Component({
@@ -173,6 +182,37 @@ type DashboardQuickAction = Readonly<{
             </p-card>
           }
 
+          @if (offlineQueueAlert(); as offlineQueueAlert) {
+            <p-card class="alerts-panel">
+              <ng-template pTemplate="header">
+                <div class="alerts-panel__header">
+                  <div>
+                    <p class="alerts-panel__eyebrow">Offline Queue</p>
+                    <h2>Pending Sales</h2>
+                  </div>
+                  <span class="alerts-panel__count">{{ offlineQueueCounts().totalVisible }}</span>
+                </div>
+              </ng-template>
+
+              <ul class="alerts-list">
+                <li class="alerts-list__item" data-testid="offline-queue-alert-row">
+                  <div class="alerts-list__content">
+                    <span class="alerts-list__title">{{ offlineQueueAlert.title }}</span>
+                    <p class="alerts-list__message">{{ offlineQueueAlert.message }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="alerts-list__action"
+                    data-testid="offline-queue-alert-action"
+                    (click)="openAlert(offlineQueueAlert)"
+                  >
+                    {{ offlineQueueAlert.actionLabel }}
+                  </button>
+                </li>
+              </ul>
+            </p-card>
+          }
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
@@ -232,6 +272,7 @@ export class DashboardPageComponent {
   private readonly dashboardService = inject(DashboardService);
   private readonly permissions = inject(ShopPermissionsService);
   private readonly router = inject(Router);
+  private readonly offlineSalesQueueSync = inject(OfflineSalesQueueSyncService);
 
   readonly dashboard = signal<DashboardDto | null>(null);
   readonly isLoading = signal(false);
@@ -245,6 +286,20 @@ export class DashboardPageComponent {
   readonly lowStockAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
+  readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
+  readonly offlineQueueAlert = computed(() => {
+    const counts = this.offlineQueueCounts();
+    if (counts.totalVisible === 0) {
+      return null;
+    }
+
+    return {
+      title: 'Offline sales queue',
+      message: this.buildOfflineQueueMessage(counts),
+      actionLabel: 'Open Sales',
+      actionRoute: '/sales',
+    } satisfies DashboardActionAlert;
+  });
   readonly quickActions: readonly DashboardQuickAction[] = [
     { label: 'New Sale', icon: 'pi pi-shopping-cart', route: '/sales/new', testId: 'dashboard-quick-action-sales-new' },
     {
@@ -311,6 +366,7 @@ export class DashboardPageComponent {
     }
 
     this.loadDashboard();
+    void this.offlineSalesQueueSync.refreshActiveStatusCounts();
   }
 
   private loadDashboard(): void {
@@ -329,7 +385,7 @@ export class DashboardPageComponent {
     });
   }
 
-  openAlert(alert: DashboardAlertDto): void {
+  openAlert(alert: Pick<DashboardAlertDto, 'actionRoute'> | DashboardActionAlert): void {
     void this.router.navigateByUrl(alert.actionRoute);
   }
 
@@ -339,5 +395,16 @@ export class DashboardPageComponent {
 
   private formatCurrency(amount: number): string {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+  }
+
+  private buildOfflineQueueMessage(counts: OfflineSalesVisibleQueueCounts): string {
+    const parts = [
+      `Pending ${counts.pending}`,
+      `Failed ${counts.failed}`,
+      `Warnings ${counts.warning}`,
+      `Needs review ${counts.needsReview}`,
+    ];
+
+    return `${parts.join(', ')}. Open Sales to review ${counts.totalVisible} queued sale${counts.totalVisible === 1 ? '' : 's'}.`;
   }
 }
