@@ -121,6 +121,70 @@
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
     "offlineSalesEnabling": "Enabling offline sales…"
   },
+  "dashboard": {
+    "header": {
+      "title": "Dashboard",
+      "noActiveShop": "No active shop",
+      "activeShop": "{{ shopName }} · {{ role }}"
+    },
+    "ranges": {
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "last30Days": "Last 30 days",
+      "custom": "Custom range"
+    },
+    "kpis": {
+      "customerAccounts": "Customer Accounts",
+      "customerCreditDue": "Customer Credit Due",
+      "expenses": "Expenses",
+      "supplierPayables": "Supplier Payables",
+      "stockValue": "Stock Value",
+      "salesRevenue": "Sales Revenue",
+      "invoiceCount": "Invoice Count",
+      "netProfit": "Net Profit",
+      "lowStockItems": "Low Stock Items",
+      "vsPreviousPeriod": "vs previous period"
+    },
+    "charts": {
+      "salesTrend": "Sales Trend",
+      "profitTrend": "Profit Trend",
+      "paymentMix": "Payment Mix",
+      "lowStockTrend": "Low Stock Trend"
+    },
+    "latestSales": {
+      "eyebrow": "Recent Activity",
+      "title": "Latest Sales",
+      "emptyTitle": "No recent sales",
+      "emptyDescription": "The latest active-shop sales will appear here."
+    },
+    "alerts": {
+      "eyebrow": "Alerts",
+      "pendingPurchaseOrders": "Pending Purchase Orders",
+      "dashboardAlerts": "Dashboard Alerts",
+      "needsAttention": "Needs Attention",
+      "lowStock": "Low Stock"
+    },
+    "quickActions": {
+      "ariaLabel": "Dashboard quick actions",
+      "newSale": "New Sale",
+      "batchStockEntry": "Batch Stock Entry",
+      "expenses": "Expenses",
+      "purchaseOrders": "Purchase Orders",
+      "profitLoss": "Profit & Loss"
+    },
+    "status": {
+      "ready": "Dashboard ready.",
+      "salesCount": "Sales count: {{ count }}"
+    },
+    "errors": {
+      "loadFailed": "Unable to load dashboard."
+    },
+    "emptyStates": {
+      "noRecentSales": "No recent sales",
+      "noDashboardData": "No dashboard data available."
+    }
+  },
   "services": {
     "directory": "Service Directory",
     "title": "Services",

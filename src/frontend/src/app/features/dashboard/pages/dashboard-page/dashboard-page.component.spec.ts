@@ -4,7 +4,8 @@ import { CurrencyPipe } from '@angular/common';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { TranslocoTestingModule } from '@ngneat/transloco';
+import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -82,7 +83,10 @@ describe('DashboardPageComponent', () => {
     sessionSignal.set(createSession('Owner'));
 
     TestBed.configureTestingModule({
-      imports: [DashboardPageComponent],
+      imports: [
+        DashboardPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: DashboardService, useValue: dashboardService },
@@ -236,8 +240,19 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Latest Sales');
-    expect(host.textContent).toContain('No recent sales');
+    expect(host.textContent).toContain('dashboard.latestSales.title');
+    expect(host.textContent).toContain('dashboard.latestSales.emptyTitle');
+    expect(host.textContent).toContain('dashboard.latestSales.emptyDescription');
+  });
+
+  it('renders localized dashboard load errors', () => {
+    dashboardService.getDashboard.mockReturnValue(throwError(() => new Error('boom')));
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('dashboard.errors.loadFailed');
   });
 
   it('renders the customer credit due KPI for zero balance', () => {
@@ -247,7 +262,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Customer Credit Due');
+    expect(host.textContent).toContain('dashboard.kpis.customerCreditDue');
     expect(host.textContent).toContain('0.00');
   });
 
@@ -258,6 +273,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('dashboard.kpis.customerCreditDue');
     expect(host.textContent).toContain('1,250.00');
   });
 
@@ -319,7 +335,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Pending Purchase Orders');
+    expect(host.textContent).toContain('dashboard.alerts.pendingPurchaseOrders');
     expect(host.textContent).toContain('PO-1001 from Acme Traders has been partially received.');
     expect(host.textContent).toContain('Review purchase orders');
 
@@ -351,7 +367,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Low Stock');
+    expect(host.textContent).toContain('dashboard.alerts.lowStock');
     expect(host.textContent).toContain('Almonds is running low (1 remaining, reorder at 10).');
     expect(host.textContent).toContain('Manage inventory');
 
@@ -383,7 +399,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Dashboard Alerts');
+    expect(host.textContent).toContain('dashboard.alerts.dashboardAlerts');
     expect(host.textContent).toContain('Expiring batch');
     expect(host.textContent).toContain('Rice batch B-002 expires on 12 Jun 2026.');
     expect(host.textContent).toContain('Review batches');
@@ -489,11 +505,19 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const actions = [
-      { testId: 'dashboard-quick-action-sales-new', label: 'New Sale', icon: 'pi-shopping-cart' },
-      { testId: 'dashboard-quick-action-inventory-batch', label: 'Batch Stock Entry', icon: 'pi-plus' },
-      { testId: 'dashboard-quick-action-expenses', label: 'Expenses', icon: 'pi-wallet' },
-      { testId: 'dashboard-quick-action-purchase-orders', label: 'Purchase Orders', icon: 'pi-list' },
-      { testId: 'dashboard-quick-action-profit-loss', label: 'Profit & Loss', icon: 'pi-chart-line' },
+      { testId: 'dashboard-quick-action-sales-new', label: 'dashboard.quickActions.newSale', icon: 'pi-shopping-cart' },
+      {
+        testId: 'dashboard-quick-action-inventory-batch',
+        label: 'dashboard.quickActions.batchStockEntry',
+        icon: 'pi-plus',
+      },
+      { testId: 'dashboard-quick-action-expenses', label: 'dashboard.quickActions.expenses', icon: 'pi-wallet' },
+      {
+        testId: 'dashboard-quick-action-purchase-orders',
+        label: 'dashboard.quickActions.purchaseOrders',
+        icon: 'pi-list',
+      },
+      { testId: 'dashboard-quick-action-profit-loss', label: 'dashboard.quickActions.profitLoss', icon: 'pi-chart-line' },
     ] as const;
 
     for (const action of actions) {

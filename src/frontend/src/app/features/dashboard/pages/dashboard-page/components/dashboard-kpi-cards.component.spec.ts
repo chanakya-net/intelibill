@@ -2,6 +2,7 @@ import '@angular/compiler';
 
 import { CurrencyPipe } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { provideZonelessChangeDetection } from '@angular/core';
 
@@ -57,7 +58,10 @@ const expectedSalesRevenue = new CurrencyPipe('en-US').transform(
 describe('DashboardKpiCardsComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [DashboardKpiCardsComponent],
+      imports: [
+        DashboardKpiCardsComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [provideZonelessChangeDetection()],
     });
   });
@@ -69,6 +73,7 @@ describe('DashboardKpiCardsComponent', () => {
 
     const card = fixture.nativeElement.querySelector('[data-testid="sales-revenue-card"]');
     expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('dashboard.kpis.salesRevenue');
   });
 
   it('renders invoice count card', () => {
@@ -130,16 +135,17 @@ describe('DashboardKpiCardsComponent', () => {
   });
 
   it.each([
-    { netProfitChangePercent: 12.5, expected: '+12.50% vs previous period' },
-    { netProfitChangePercent: -8.75, expected: '-8.75% vs previous period' },
-    { netProfitChangePercent: 0, expected: '0.00% vs previous period' },
+    { netProfitChangePercent: 12.5, expected: '+12.50%' },
+    { netProfitChangePercent: -8.75, expected: '-8.75%' },
+    { netProfitChangePercent: 0, expected: '0.00%' },
   ])('displays net profit change when present', ({ netProfitChangePercent, expected }) => {
     const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
     fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfitChangePercent });
     fixture.detectChanges();
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-change-value"]');
-    expect(valueEl?.textContent?.trim()).toBe(expected);
+    expect(valueEl?.textContent?.trim()).toContain(expected);
+    expect(valueEl?.textContent?.trim()).toContain('dashboard.kpis.vsPreviousPeriod');
   });
 
   it('hides net profit change when null', () => {

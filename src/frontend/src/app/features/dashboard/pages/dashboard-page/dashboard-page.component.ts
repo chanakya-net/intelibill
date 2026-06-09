@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -12,22 +13,27 @@ import { DashboardService } from '../../services/dashboard.service';
 import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
 
 type DashboardQuickAction = Readonly<{
-  label: string;
+  labelKey: string;
   icon: string;
   route: string;
   testId: string;
 }>;
 
+type TranslatableText = Readonly<{
+  key: string;
+  params?: Record<string, unknown>;
+}>;
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule],
+  imports: [CommonModule, ButtonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule, TranslocoPipe],
   styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
       <header>
-        <h1>Dashboard</h1>
-        <p>{{ activeShopLabel() }}</p>
+        <h1>{{ 'dashboard.header.title' | transloco }}</h1>
+        <p>{{ activeShopLabel().key | transloco: activeShopLabel().params }}</p>
       </header>
 
       @if (isLoading()) {
@@ -36,36 +42,36 @@ type DashboardQuickAction = Readonly<{
         </div>
       } @else {
         @if (errorMessage()) {
-          <p class="dashboard-page__error">{{ errorMessage() }}</p>
+          <p class="dashboard-page__error">{{ errorMessage() | transloco }}</p>
         }
 
         @if (dashboard(); as dashboard) {
-          <p>{{ dashboardStatus() }}</p>
+          <p>{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
 
           <app-dashboard-kpi-cards [dashboard]="dashboard" />
 
           <div class="dashboard-kpis">
             <div class="kpi-card expenses-kpi">
-              <span class="kpi-label">Expenses</span>
+              <span class="kpi-label">{{ 'dashboard.kpis.expenses' | transloco }}</span>
               <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
             </div>
 
             <div class="kpi-card supplier-payables-kpi">
-              <span class="kpi-label">Supplier Payables</span>
+              <span class="kpi-label">{{ 'dashboard.kpis.supplierPayables' | transloco }}</span>
               <span class="kpi-value" data-testid="supplier-payables-kpi-value">{{ formattedSupplierPayables() }}</span>
             </div>
           </div>
 
           <div class="kpi-card stock-value-kpi" data-testid="stock-value-kpi">
-            <span class="kpi-label">Stock Value</span>
+            <span class="kpi-label">{{ 'dashboard.kpis.stockValue' | transloco }}</span>
             <span class="kpi-value">{{ formattedStockValue() }}</span>
           </div>
 
           <p-card class="dashboard-kpi-card">
             <ng-template pTemplate="header">
               <div class="dashboard-kpi-card__header">
-                <p class="dashboard-kpi-card__eyebrow">Customer Accounts</p>
-                <h2>Customer Credit Due</h2>
+                <p class="dashboard-kpi-card__eyebrow">{{ 'dashboard.kpis.customerAccounts' | transloco }}</p>
+                <h2>{{ 'dashboard.kpis.customerCreditDue' | transloco }}</h2>
               </div>
             </ng-template>
 
@@ -79,8 +85,8 @@ type DashboardQuickAction = Readonly<{
               <ng-template pTemplate="header">
                 <div class="alerts-panel__header">
                   <div>
-                    <p class="alerts-panel__eyebrow">Alerts</p>
-                    <h2>Pending Purchase Orders</h2>
+                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
+                    <h2>{{ 'dashboard.alerts.pendingPurchaseOrders' | transloco }}</h2>
                   </div>
                   <span class="alerts-panel__count">{{ pendingPurchaseOrderAlerts().length }}</span>
                 </div>
@@ -112,8 +118,8 @@ type DashboardQuickAction = Readonly<{
               <ng-template pTemplate="header">
                 <div class="alerts-panel__header">
                   <div>
-                    <p class="alerts-panel__eyebrow">Alerts</p>
-                    <h2>Dashboard Alerts</h2>
+                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
+                    <h2>{{ 'dashboard.alerts.dashboardAlerts' | transloco }}</h2>
                   </div>
                   <span class="alerts-panel__count">{{ expiringBatchAlerts().length }}</span>
                 </div>
@@ -145,8 +151,8 @@ type DashboardQuickAction = Readonly<{
               <ng-template pTemplate="header">
                 <div class="alerts-panel__header">
                   <div>
-                    <p class="alerts-panel__eyebrow">Needs Attention</p>
-                    <h2>Low Stock</h2>
+                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.needsAttention' | transloco }}</p>
+                    <h2>{{ 'dashboard.alerts.lowStock' | transloco }}</h2>
                   </div>
                   <span class="alerts-panel__count">{{ lowStockAlerts().length }}</span>
                 </div>
@@ -177,8 +183,8 @@ type DashboardQuickAction = Readonly<{
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
                 <div>
-                  <p class="latest-sales-panel__eyebrow">Recent Activity</p>
-                  <h2>Latest Sales</h2>
+                  <p class="latest-sales-panel__eyebrow">{{ 'dashboard.latestSales.eyebrow' | transloco }}</p>
+                  <h2>{{ 'dashboard.latestSales.title' | transloco }}</h2>
                 </div>
                 <span class="latest-sales-panel__count">{{ dashboard.latestSales.length }}</span>
               </div>
@@ -186,8 +192,8 @@ type DashboardQuickAction = Readonly<{
 
             @if (dashboard.latestSales.length === 0) {
               <div class="latest-sales-panel__empty">
-                <p>No recent sales</p>
-                <span>The latest active-shop sales will appear here.</span>
+                <p>{{ 'dashboard.latestSales.emptyTitle' | transloco }}</p>
+                <span>{{ 'dashboard.latestSales.emptyDescription' | transloco }}</span>
               </div>
             } @else {
               <ul class="latest-sales-list">
@@ -206,18 +212,18 @@ type DashboardQuickAction = Readonly<{
               </ul>
             }
           </p-card>
-        } @else {
-          <p>{{ dashboardStatus() }}</p>
+        } @else if (!errorMessage()) {
+          <p>{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
         }
 
-        <section class="dashboard-quick-actions" aria-label="Dashboard quick actions">
+        <section class="dashboard-quick-actions" [attr.aria-label]="'dashboard.quickActions.ariaLabel' | transloco">
           @for (action of quickActions; track action.route) {
             <button
               pButton
               type="button"
               class="dashboard-quick-actions__button"
               severity="secondary"
-              [label]="action.label"
+              [label]="action.labelKey | transloco"
               [icon]="action.icon"
               [attr.data-testid]="action.testId"
               (click)="openQuickAction(action.route)"
@@ -246,35 +252,51 @@ export class DashboardPageComponent {
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
   readonly quickActions: readonly DashboardQuickAction[] = [
-    { label: 'New Sale', icon: 'pi pi-shopping-cart', route: '/sales/new', testId: 'dashboard-quick-action-sales-new' },
     {
-      label: 'Batch Stock Entry',
+      labelKey: 'dashboard.quickActions.newSale',
+      icon: 'pi pi-shopping-cart',
+      route: '/sales/new',
+      testId: 'dashboard-quick-action-sales-new',
+    },
+    {
+      labelKey: 'dashboard.quickActions.batchStockEntry',
       icon: 'pi pi-plus',
       route: '/inventory/batch',
       testId: 'dashboard-quick-action-inventory-batch',
     },
-    { label: 'Expenses', icon: 'pi pi-wallet', route: '/expenses', testId: 'dashboard-quick-action-expenses' },
     {
-      label: 'Purchase Orders',
+      labelKey: 'dashboard.quickActions.expenses',
+      icon: 'pi pi-wallet',
+      route: '/expenses',
+      testId: 'dashboard-quick-action-expenses',
+    },
+    {
+      labelKey: 'dashboard.quickActions.purchaseOrders',
       icon: 'pi pi-list',
       route: '/inventory/purchase-orders',
       testId: 'dashboard-quick-action-purchase-orders',
     },
     {
-      label: 'Profit & Loss',
+      labelKey: 'dashboard.quickActions.profitLoss',
       icon: 'pi pi-chart-line',
       route: '/sales/profit-loss',
       testId: 'dashboard-quick-action-profit-loss',
     },
   ];
-  readonly activeShopLabel = computed(() => {
+  readonly activeShopLabel = computed<TranslatableText>(() => {
     const activeShop = this.permissions.activeShop();
 
     if (!activeShop) {
-      return 'No active shop';
+      return { key: 'dashboard.header.noActiveShop' };
     }
 
-    return `${activeShop.shopName} · ${activeShop.role}`;
+    return {
+      key: 'dashboard.header.activeShop',
+      params: {
+        shopName: activeShop.shopName,
+        role: activeShop.role,
+      },
+    };
   });
   readonly formattedExpenses = computed(() => {
     const amount = this.dashboard()?.netExpense ?? 0;
@@ -286,17 +308,13 @@ export class DashboardPageComponent {
     return this.formatCurrency(amount);
   });
 
-  readonly dashboardStatus = computed(() => {
-    if (this.errorMessage()) {
-      return this.errorMessage();
-    }
-
+  readonly dashboardStatus = computed<TranslatableText>(() => {
     const dashboard = this.dashboard();
     if (!dashboard) {
-      return 'Dashboard ready.';
+      return { key: 'dashboard.status.ready' };
     }
 
-    return `Sales count: ${dashboard.salesCount}`;
+    return { key: 'dashboard.status.salesCount', params: { count: dashboard.salesCount } };
   });
   readonly formattedStockValue = computed(() => {
     const d = this.dashboard();
@@ -323,7 +341,7 @@ export class DashboardPageComponent {
         this.isLoading.set(false);
       },
       error: () => {
-        this.errorMessage.set('dashboard.loadFailed');
+        this.errorMessage.set('dashboard.errors.loadFailed');
         this.isLoading.set(false);
       },
     });
