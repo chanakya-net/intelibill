@@ -1,8 +1,77 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+
+import { AuthService } from '../../../../core/auth/auth.service';
+import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
+import { DashboardDto } from '../../services/dashboard.models';
+import { DashboardService } from '../../services/dashboard.service';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  template: '',
+  template: `
+    <section class="dashboard-page">
+      <header>
+        <h1>Dashboard</h1>
+        <p>{{ activeShopLabel() }}</p>
+      </header>
+      <p>{{ isLoading() ? 'Loading dashboard data...' : dashboardStatus() }}</p>
+    </section>
+  `,
 })
-export class DashboardPageComponent {}
+export class DashboardPageComponent {
+  private readonly authService = inject(AuthService);
+  private readonly dashboardService = inject(DashboardService);
+  private readonly permissions = inject(ShopPermissionsService);
+  private readonly router = inject(Router);
+
+  readonly dashboard = signal<DashboardDto | null>(null);
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
+  readonly activeShopLabel = computed(() => {
+    const activeShop = this.permissions.activeShop();
+
+    if (!activeShop) {
+      return 'No active shop';
+    }
+
+    return `${activeShop.shopName} · ${activeShop.role}`;
+  });
+  readonly dashboardStatus = computed(() => {
+    if (this.errorMessage()) {
+      return this.errorMessage();
+    }
+
+    const dashboard = this.dashboard();
+    if (!dashboard) {
+      return 'Dashboard ready.';
+    }
+
+    return `Sales count: ${dashboard.salesCount}`;
+  });
+
+  constructor() {
+    if (!this.permissions.isOwnerOrManagerOfActiveShop()) {
+      void this.router.navigateByUrl('/sales');
+      return;
+    }
+
+    this.loadDashboard();
+  }
+
+  private loadDashboard(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.dashboardService.getDashboard({}).subscribe({
+      next: (dashboard) => {
+        this.dashboard.set(dashboard);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('dashboard.loadFailed');
+        this.isLoading.set(false);
+      },
+    });
+  }
+}
