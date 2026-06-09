@@ -12,7 +12,8 @@ public sealed class GetDashboardQueryHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository)
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IInventoryRepository inventoryRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -39,6 +40,7 @@ public sealed class GetDashboardQueryHandler(
             query.ShopId,
             cancellationToken);
         var supplierPayables = await supplierLedgerEntryRepository.GetSupplierPayablesAsync(query.ShopId, cancellationToken);
+        var lowStockItemCount = await inventoryRepository.CountLowStockItemsByShopAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -63,6 +65,7 @@ public sealed class GetDashboardQueryHandler(
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),
             CreditShareWarning: false,
             RunningLowStockCount: 0,
+            LowStockItemCount: lowStockItemCount,
             CriticalStockCount: 0,
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),

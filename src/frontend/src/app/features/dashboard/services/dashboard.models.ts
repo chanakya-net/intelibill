@@ -89,6 +89,7 @@ export interface DashboardDto {
   paymentMix: PaymentMixDto | null;
   creditShareWarning: boolean | null;
   runningLowStockCount: number;
+  lowStockItemCount: number;
   criticalStockCount: number;
   rankedShortageList: StockShortageItemDto[];
   highestDueCustomer: CustomerDueDto | null;

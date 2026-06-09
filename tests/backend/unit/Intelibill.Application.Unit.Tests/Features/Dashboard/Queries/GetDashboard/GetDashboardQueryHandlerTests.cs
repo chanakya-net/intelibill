@@ -17,6 +17,7 @@ public sealed class GetDashboardQueryHandlerTests
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IPurchaseOrderRepository _purchaseOrderRepository = Substitute.For<IPurchaseOrderRepository>();
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
+    private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
@@ -27,7 +28,8 @@ public sealed class GetDashboardQueryHandlerTests
             _inventoryBatchRepository,
             _customerLedgerEntryRepository,
             _purchaseOrderRepository,
-            _supplierLedgerEntryRepository);
+            _supplierLedgerEntryRepository,
+            _inventoryRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
@@ -35,6 +37,7 @@ public sealed class GetDashboardQueryHandlerTests
         ConfigureCustomerCreditDue(0m);
         ConfigurePendingPurchaseOrderAlerts([]);
         ConfigureSupplierPayables(0m);
+        ConfigureLowStockCount(0);
     }
 
     [Fact]
@@ -196,6 +199,18 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithLowStockItems_PopulatesLowStockItemCount()
+    {
+        ConfigureLowStockCount(4);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(4, result.Value.LowStockItemCount);
+    }
+
+    [Fact]
     public async Task HandleAsync_WithNoActiveBatches_StockValueIsZero()
     {
         ConfigureStockValue(0m);
@@ -216,6 +231,19 @@ public sealed class GetDashboardQueryHandlerTests
         await _handler.HandleAsync(query, CancellationToken.None);
 
         await _inventoryBatchRepository.Received(1).GetCurrentStockValueByShopAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_LowStockCountCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryRepository.Received(1).CountLowStockItemsByShopAsync(
             shopId,
             Arg.Any<CancellationToken>());
     }
@@ -463,6 +491,13 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(sum));
     }
 
+    private void ConfigureLowStockCount(int count)
+    {
+        _inventoryRepository
+            .CountLowStockItemsByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(count));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -488,6 +523,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.PaymentMix.Credit);
         Assert.False(dto.CreditShareWarning);
         Assert.Equal(0, dto.RunningLowStockCount);
+        Assert.Equal(0, dto.LowStockItemCount);
         Assert.Equal(0, dto.CriticalStockCount);
         Assert.Empty(dto.RankedShortageList);
         Assert.NotNull(dto.HighestDueCustomer);

@@ -8,4 +8,5 @@ public interface IInventoryRepository : IRepository<Inventory>
     Task<IReadOnlyDictionary<Guid, decimal>> GetQuantitiesByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Inventory>> GetByItemIdsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Inventory>> GetAllByShopWithItemAsync(Guid shopId, CancellationToken cancellationToken = default);
+    Task<int> CountLowStockItemsByShopAsync(Guid shopId, CancellationToken cancellationToken = default);
 }

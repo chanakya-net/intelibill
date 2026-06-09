@@ -154,6 +154,7 @@ public sealed class DashboardControllerTests
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),
             CreditShareWarning: false,
             RunningLowStockCount: 0,
+            LowStockItemCount: 0,
             CriticalStockCount: 0,
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),

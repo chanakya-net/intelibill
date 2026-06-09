@@ -23,6 +23,7 @@ public sealed record DashboardDto(
     PaymentMixDto? PaymentMix,
     bool? CreditShareWarning,
     int RunningLowStockCount,
+    int LowStockItemCount,
     int CriticalStockCount,
     IReadOnlyList<StockShortageItemDto> RankedShortageList,
     CustomerDueDto? HighestDueCustomer,

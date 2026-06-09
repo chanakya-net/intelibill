@@ -26,4 +26,11 @@ internal sealed class InventoryRepository(ApplicationDbContext context)
             .Include(i => i.Item)
             .Where(i => i.ShopId == shopId)
             .ToListAsync(cancellationToken);
+
+    public async Task<int> CountLowStockItemsByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await DbSet.CountAsync(
+            i => i.ShopId == shopId
+                 && i.ReorderLevel > 0m
+                 && i.Quantity <= i.ReorderLevel,
+            cancellationToken);
 }
