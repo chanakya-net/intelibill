@@ -167,7 +167,8 @@ public sealed class DashboardControllerTests
                 NetSalesBooked: 0m,
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
-                CreditSalesPercentage: 0m));
+                CreditSalesPercentage: 0m),
+            LatestSales: Array.Empty<DashboardLatestSaleDto>());
     }
 
     private void ArrangeBusResponse(ErrorOr<DashboardDto> response)

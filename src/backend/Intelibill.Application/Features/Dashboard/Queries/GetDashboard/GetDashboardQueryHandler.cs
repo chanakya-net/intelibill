@@ -24,6 +24,7 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
+        var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -61,7 +62,13 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
                 NetSalesBooked: 0m,
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
-                CreditSalesPercentage: 0m));
+                CreditSalesPercentage: 0m),
+            LatestSales: latestSales.Select(s => new DashboardLatestSaleDto(
+                s.SaleId,
+                s.InvoiceNumber,
+                s.CustomerDisplayName,
+                s.SoldAt,
+                s.TotalAmount)).ToList());
 
         return result;
     }
