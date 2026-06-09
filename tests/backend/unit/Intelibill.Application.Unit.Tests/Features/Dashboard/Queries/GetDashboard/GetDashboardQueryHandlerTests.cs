@@ -11,13 +11,15 @@ public sealed class GetDashboardQueryHandlerTests
     private static readonly SalesHistorySummaryReadModel DefaultSummary = new(0m, 0, 0m);
 
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
     {
-        _handler = new GetDashboardQueryHandler(_saleRepository);
+        _handler = new GetDashboardQueryHandler(_saleRepository, _expenseRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
+        ConfigureExpenseSum(0m);
     }
 
     [Fact]
@@ -176,6 +178,47 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(to, result.Value.EndDate);
     }
 
+    [Fact]
+    public async Task HandleAsync_WithExpenses_PopulatesNetExpense()
+    {
+        ConfigureExpenseSum(350.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(350.50m, result.Value.NetExpense);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoExpenses_NetExpenseIsZero()
+    {
+        ConfigureExpenseSum(0m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.NetExpense);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CallsExpenseRepositoryWithAppliedDateRange()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _expenseRepository.Received(1).GetSumByShopAndDateRangeAsync(
+            shopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+    }
+
     private void ConfigureSummary(SalesHistorySummaryReadModel summary)
     {
         _saleRepository.GetHistorySummaryAsync(
@@ -190,6 +233,16 @@ public sealed class GetDashboardQueryHandlerTests
     {
         _saleRepository.GetLatestDashboardSalesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(latestSales));
+    }
+
+    private void ConfigureExpenseSum(decimal sum)
+    {
+        _expenseRepository.GetSumByShopAndDateRangeAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(sum));
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)

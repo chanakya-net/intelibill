@@ -67,4 +67,9 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
         await context.Expenses
             .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
             .ToListAsync(cancellationToken);
+
+    public async Task<decimal> GetSumByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default) =>
+        await context.Expenses
+            .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
+            .SumAsync(e => e.Amount, cancellationToken);
 }

@@ -33,6 +33,11 @@ import { DashboardService } from '../../services/dashboard.service';
         @if (dashboard(); as dashboard) {
           <p>{{ dashboardStatus() }}</p>
 
+          <div class="kpi-card expenses-kpi">
+            <span class="kpi-label">Expenses</span>
+            <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
+          </div>
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
@@ -90,6 +95,11 @@ export class DashboardPageComponent {
 
     return `${activeShop.shopName} · ${activeShop.role}`;
   });
+  readonly formattedExpenses = computed(() => {
+    const amount = this.dashboard()?.netExpense ?? 0;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+  });
+
   readonly dashboardStatus = computed(() => {
     if (this.errorMessage()) {
       return this.errorMessage();
