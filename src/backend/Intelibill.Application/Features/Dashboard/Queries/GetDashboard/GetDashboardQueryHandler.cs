@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
@@ -9,7 +10,8 @@ public sealed class GetDashboardQueryHandler(
     ISaleRepository saleRepository,
     IExpenseRepository expenseRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository)
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    ProfitLossReportBuilder profitLossReportBuilder)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -32,6 +34,13 @@ public sealed class GetDashboardQueryHandler(
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
         var customerCreditDue = await customerLedgerEntryRepository.GetCustomerCreditDueAsync(query.ShopId, cancellationToken);
+        var profitLossReport = await profitLossReportBuilder.BuildAsync(
+            query.ShopId,
+            appliedFrom,
+            appliedTo,
+            type: null,
+            search: null,
+            cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -47,6 +56,7 @@ public sealed class GetDashboardQueryHandler(
             CashCollected: 0m,
             ProfitBeforeTax: 0m,
             ProfitAfterTax: 0m,
+            NetProfit: profitLossReport.Summary.NetProfitAfterTax,
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
             NetExpense: expenseTotal,

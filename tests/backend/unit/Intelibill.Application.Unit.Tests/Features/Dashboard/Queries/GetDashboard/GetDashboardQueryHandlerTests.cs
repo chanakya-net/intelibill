@@ -1,7 +1,11 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
@@ -11,23 +15,34 @@ public sealed class GetDashboardQueryHandlerTests
     private static readonly SalesHistorySummaryReadModel DefaultSummary = new(0m, 0, 0m);
 
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
+    private readonly ProfitLossReportBuilder _profitLossReportBuilder;
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
     {
+        _profitLossReportBuilder = new ProfitLossReportBuilder(
+            _saleRepository,
+            _saleReturnRepository,
+            _inventoryAdjustmentRepository);
         _handler = new GetDashboardQueryHandler(
             _saleRepository,
             _expenseRepository,
             _inventoryBatchRepository,
-            _customerLedgerEntryRepository);
+            _customerLedgerEntryRepository,
+            _profitLossReportBuilder);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
         ConfigureStockValue(0m);
         ConfigureCustomerCreditDue(0m);
+        ConfigureEmptyProfitLossData();
     }
 
     [Fact]
@@ -102,6 +117,80 @@ public sealed class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(1250m, result.Value.CustomerCreditDue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNetProfitData_UsesProfitLossSummaryForAppliedRange()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 7);
+        var query = new GetDashboardQuery(user.Id, shop.Id, from, to, "Owner");
+
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            null,
+            "Customer",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero),
+            100m,
+            0m,
+            100m,
+            0m,
+            [saleItem]);
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-001",
+            new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            null,
+            30m,
+            0m,
+            30m,
+            PaymentMethod.Cash,
+            30m,
+            0m,
+            null,
+            null,
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 30m, 30m, 30m, 0m, null)]).Value;
+        var adjustment = InventoryAdjustment.Create(
+            shop.Id,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "ADJ-001",
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            5m,
+            5m,
+            5m,
+            4m,
+            5m,
+            4m,
+            new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            user.Id,
+            null,
+            user.Id).Value;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([adjustment]);
+
+        var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, from, to, null, null, CancellationToken.None);
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(expectedSummary.Summary.NetProfitAfterTax, result.Value.NetProfit);
+        Assert.NotEqual(20m, result.Value.NetProfit);
     }
 
     [Fact]
@@ -367,6 +456,27 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(customerCreditDue));
     }
 
+    private static User MakeUser() =>
+        User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
+
+    private static Shop MakeShop() =>
+        Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);
+
+    private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
+        ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
+
+    private void ConfigureEmptyProfitLossData()
+    {
+        _saleRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
+        _saleRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
+        _saleReturnRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SaleReturn>>(Array.Empty<SaleReturn>()));
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<InventoryAdjustment>>(Array.Empty<InventoryAdjustment>()));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -378,6 +488,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.CashCollected);
         Assert.Equal(0m, dto.ProfitBeforeTax);
         Assert.Equal(0m, dto.ProfitAfterTax);
+        Assert.Equal(0m, dto.NetProfit);
         Assert.Equal(0m, dto.ExpenseRecorded);
         Assert.Equal(0m, dto.ExpenseCorrection);
         Assert.Equal(0m, dto.NetExpense);
