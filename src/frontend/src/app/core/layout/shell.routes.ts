@@ -24,6 +24,7 @@ import { purchaseOrdersFeature } from '../../features/purchase-orders/state/purc
 import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
 import { servicesGuard } from '../guards/services.guard';
+import { dashboardGuard } from '../guards/dashboard.guard';
 import { profitLossGuard } from '../guards/profit-loss.guard';
 
 export const shellRoutes: Routes = [
@@ -55,6 +56,7 @@ export const shellRoutes: Routes = [
 		children: [
 			{
 				path: 'dashboard',
+				canActivate: [dashboardGuard],
 				loadComponent: () =>
 					import('../../features/dashboard/pages/dashboard-page/dashboard-page.component').then(
 						(m) => m.DashboardPageComponent

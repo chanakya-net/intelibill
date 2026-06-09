@@ -125,14 +125,22 @@
     "header": {
       "title": "Dashboard",
       "noActiveShop": "No active shop",
-      "activeShop": "{{ shopName }} · {{ role }}"
+      "activeShop": "{{ shopName }} · {{ role }}",
+      "greetingMorning": "Good morning, {{ shopName }}",
+      "greetingAfternoon": "Good afternoon, {{ shopName }}",
+      "greetingEvening": "Good evening, {{ shopName }}",
+      "subtitle": "Operational snapshot for your active shop."
     },
     "ranges": {
+      "ariaLabel": "Dashboard date range",
       "today": "Today",
       "thisWeek": "This week",
       "thisMonth": "This month",
+      "last7Days": "Last 7 days",
       "last30Days": "Last 30 days",
-      "custom": "Custom range"
+      "custom": "Custom",
+      "from": "From",
+      "to": "To"
     },
     "kpis": {
       "customerAccounts": "Customer Accounts",
@@ -141,7 +149,7 @@
       "supplierPayables": "Supplier Payables",
       "stockValue": "Stock Value",
       "salesRevenue": "Sales Revenue",
-      "invoiceCount": "Invoice Count",
+      "invoiceCount": "Invoices",
       "netProfit": "Net Profit",
       "lowStockItems": "Low Stock Items",
       "vsPreviousPeriod": "vs previous period"
@@ -158,11 +166,17 @@
       "grossSales": "Gross Sales",
       "netSales": "Net Sales",
       "revenue": "Revenue",
-      "expenses": "Expenses"
+      "expenses": "Expenses",
+      "salesTrendSubtitle": "Total sales amount per day for the selected period.",
+      "revenueVsExpensesSubtitle": "Daily cash movement."
     },
     "latestSales": {
       "eyebrow": "Recent Activity",
       "title": "Latest Sales",
+      "newSale": "New sale",
+      "newSaleAria": "Open the new sale screen",
+      "viewSales": "View all sales",
+      "viewSalesAria": "Open the full sales list",
       "emptyTitle": "No recent sales",
       "emptyDescription": "The latest active-shop sales will appear here."
     },
@@ -171,11 +185,14 @@
       "pendingPurchaseOrders": "Pending Purchase Orders",
       "dashboardAlerts": "Dashboard Alerts",
       "needsAttention": "Needs Attention",
-      "lowStock": "Low Stock"
+      "lowStock": "Low Stock",
+      "view": "View",
+      "empty": "Nothing needs attention right now."
     },
     "quickActions": {
       "ariaLabel": "Dashboard quick actions",
-      "newSale": "New Sale",
+      "newSale": "New sale",
+      "addInventory": "Add inventory",
       "batchStockEntry": "Batch Stock Entry",
       "expenses": "Expenses",
       "purchaseOrders": "Purchase Orders",

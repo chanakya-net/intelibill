@@ -1,11 +1,12 @@
-import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, computed, inject, PLATFORM_ID, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { ChartModule } from 'primeng/chart';
+import { DatePickerModule } from 'primeng/datepicker';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
@@ -34,6 +35,18 @@ type DashboardActionAlert = Readonly<{
   actionLabelKey?: string;
 }>;
 
+type DashboardPeriod = 'last7' | 'last30' | 'custom';
+
+type DashboardDisplayAlert = Readonly<{
+  id: string;
+  badgeLabel?: string;
+  badgeLabelKey?: string;
+  badgeTone: 'orange' | 'pink' | 'blue' | 'sky';
+  message: string;
+  actionRoute: string;
+  testId: string;
+}>;
+
 type TranslatableText = Readonly<{
   key: string;
   params?: Record<string, unknown>;
@@ -44,9 +57,10 @@ type TranslatableText = Readonly<{
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ButtonModule,
     CardModule,
-    ChartModule,
+    DatePickerModule,
     DashboardChartComponent,
     DashboardKpiCardsComponent,
     ProgressSpinnerModule,
@@ -55,13 +69,94 @@ type TranslatableText = Readonly<{
   styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
-      <header>
-        <h1>{{ 'dashboard.header.title' | transloco }}</h1>
-        <p>{{ activeShopLabel().key | transloco: activeShopLabel().params }}</p>
+      <header class="dashboard-hero">
+        <div class="dashboard-hero__intro">
+          <h1>{{ greeting().key | transloco: greeting().params }}</h1>
+          <p class="dashboard-hero__subtitle">{{ 'dashboard.header.subtitle' | transloco }}</p>
+          @if (dashboard(); as dashboard) {
+            <p class="dashboard-hero__period-pill">
+              {{ formattedDateRange(dashboard.startDate, dashboard.endDate) }}
+            </p>
+          }
+        </div>
+
+        <div class="dashboard-hero__controls">
+          <div class="period-toggle" role="group" [attr.aria-label]="'dashboard.ranges.ariaLabel' | transloco">
+            <button
+              type="button"
+              class="period-toggle__button"
+              [class.is-active]="selectedPeriod() === 'last7'"
+              (click)="setPeriod('last7')"
+            >
+              {{ 'dashboard.ranges.last7Days' | transloco }}
+            </button>
+            <button
+              type="button"
+              class="period-toggle__button"
+              [class.is-active]="selectedPeriod() === 'last30'"
+              (click)="setPeriod('last30')"
+            >
+              {{ 'dashboard.ranges.last30Days' | transloco }}
+            </button>
+            <button
+              type="button"
+              class="period-toggle__button"
+              [class.is-active]="selectedPeriod() === 'custom'"
+              (click)="setPeriod('custom')"
+            >
+              {{ 'dashboard.ranges.custom' | transloco }}
+            </button>
+          </div>
+
+          @if (selectedPeriod() === 'custom') {
+            <div class="dashboard-hero__custom-range">
+              <div class="dashboard-hero__custom-field">
+                <label class="dashboard-hero__custom-label" for="dashboard-from-date">
+                  {{ 'dashboard.ranges.from' | transloco }}
+                </label>
+                <p-datepicker
+                  ngSkipHydration
+                  inputId="dashboard-from-date"
+                  styleClass="dashboard-hero__date"
+                  inputStyleClass="dashboard-hero__date-input"
+                  [(ngModel)]="customFrom"
+                  (ngModelChange)="onCustomRangeChanged()"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  iconDisplay="input"
+                  appendTo="body"
+                  [placeholder]="'dd/mm/yyyy'"
+                  [maxDate]="customTo ?? undefined"
+                  [disabled]="isLoading()"
+                />
+              </div>
+              <div class="dashboard-hero__custom-field">
+                <label class="dashboard-hero__custom-label" for="dashboard-to-date">
+                  {{ 'dashboard.ranges.to' | transloco }}
+                </label>
+                <p-datepicker
+                  ngSkipHydration
+                  inputId="dashboard-to-date"
+                  styleClass="dashboard-hero__date"
+                  inputStyleClass="dashboard-hero__date-input"
+                  [(ngModel)]="customTo"
+                  (ngModelChange)="onCustomRangeChanged()"
+                  dateFormat="dd/mm/yy"
+                  [showIcon]="true"
+                  iconDisplay="input"
+                  appendTo="body"
+                  [placeholder]="'dd/mm/yyyy'"
+                  [minDate]="customFrom ?? undefined"
+                  [disabled]="isLoading()"
+                />
+              </div>
+            </div>
+          }
+        </div>
       </header>
 
       @if (isLoading()) {
-        <div class="latest-sales-panel__loading" aria-busy="true">
+        <div class="dashboard-page__loading" aria-busy="true">
           <p-progressSpinner />
         </div>
       } @else {
@@ -70,222 +165,91 @@ type TranslatableText = Readonly<{
         }
 
         @if (dashboard(); as dashboard) {
-          <p>{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
-
           <app-dashboard-kpi-cards [dashboard]="dashboard" />
           <app-dashboard-chart [dashboard]="dashboard" />
 
-          <div class="dashboard-kpis">
-            <div class="kpi-card expenses-kpi">
-              <span class="kpi-label">{{ 'dashboard.kpis.expenses' | transloco }}</span>
-              <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
-            </div>
-
-            <div class="kpi-card supplier-payables-kpi">
-              <span class="kpi-label">{{ 'dashboard.kpis.supplierPayables' | transloco }}</span>
-              <span class="kpi-value" data-testid="supplier-payables-kpi-value">{{ formattedSupplierPayables() }}</span>
-            </div>
-          </div>
-
-          <div class="kpi-card stock-value-kpi" data-testid="stock-value-kpi">
-            <span class="kpi-label">{{ 'dashboard.kpis.stockValue' | transloco }}</span>
-            <span class="kpi-value">{{ formattedStockValue() }}</span>
-          </div>
-
-          <p-card class="dashboard-kpi-card">
-            <ng-template pTemplate="header">
-              <div class="dashboard-kpi-card__header">
-                <p class="dashboard-kpi-card__eyebrow">{{ 'dashboard.kpis.customerAccounts' | transloco }}</p>
-                <h2>{{ 'dashboard.kpis.customerCreditDue' | transloco }}</h2>
-              </div>
-            </ng-template>
-
-            <div class="dashboard-kpi-card__value">
-              <span>{{ dashboard.customerCreditDue | number: '1.2-2' }}</span>
-            </div>
-          </p-card>
-
-          @if (pendingPurchaseOrderAlerts().length > 0) {
-            <p-card class="alerts-panel">
+          <div class="dashboard-panels">
+            <p-card class="latest-sales-panel">
               <ng-template pTemplate="header">
-                <div class="alerts-panel__header">
-                  <div>
-                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
-                    <h2>{{ 'dashboard.alerts.pendingPurchaseOrders' | transloco }}</h2>
-                  </div>
-                  <span class="alerts-panel__count">{{ pendingPurchaseOrderAlerts().length }}</span>
-                </div>
-              </ng-template>
-
-              <ul class="alerts-list">
-                @for (alert of pendingPurchaseOrderAlerts(); track alert.actionRoute + alert.message) {
-                  <li class="alerts-list__item" data-testid="dashboard-alert-row">
-                    <div class="alerts-list__content">
-                      <span class="alerts-list__title">{{ alert.title }}</span>
-                      <p class="alerts-list__message">{{ alert.message }}</p>
-                    </div>
-                    <button
-                      type="button"
-                      class="alerts-list__action"
-                      data-testid="dashboard-alert-action"
-                      (click)="openAlert(alert)"
-                    >
-                      {{ alert.actionLabel }}
-                    </button>
-                  </li>
-                }
-              </ul>
-            </p-card>
-          }
-
-          @if (expiringBatchAlerts().length > 0) {
-            <p-card class="alerts-panel">
-              <ng-template pTemplate="header">
-                <div class="alerts-panel__header">
-                  <div>
-                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
-                    <h2>{{ 'dashboard.alerts.dashboardAlerts' | transloco }}</h2>
-                  </div>
-                  <span class="alerts-panel__count">{{ expiringBatchAlerts().length }}</span>
-                </div>
-              </ng-template>
-
-              <ul class="alerts-list">
-                @for (alert of expiringBatchAlerts(); track alert.actionRoute + alert.message) {
-                  <li class="alerts-list__item" data-testid="dashboard-alert-row">
-                    <div class="alerts-list__content">
-                      <span class="alerts-list__title">{{ alert.title }}</span>
-                      <p class="alerts-list__message">{{ alert.message }}</p>
-                    </div>
-                    <button
-                      type="button"
-                      class="alerts-list__action"
-                      data-testid="dashboard-alert-action"
-                      (click)="openAlert(alert)"
-                    >
-                      {{ alert.actionLabel }}
-                    </button>
-                  </li>
-                }
-              </ul>
-            </p-card>
-          }
-
-          @if (lowStockAlerts().length > 0) {
-            <p-card class="alerts-panel">
-              <ng-template pTemplate="header">
-                <div class="alerts-panel__header">
-                  <div>
-                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.needsAttention' | transloco }}</p>
-                    <h2>{{ 'dashboard.alerts.lowStock' | transloco }}</h2>
-                  </div>
-                  <span class="alerts-panel__count">{{ lowStockAlerts().length }}</span>
-                </div>
-              </ng-template>
-
-              <ul class="alerts-list">
-                @for (alert of lowStockAlerts(); track alert.actionRoute + alert.message) {
-                  <li class="alerts-list__item" data-testid="low-stock-alert-row">
-                    <div class="alerts-list__content">
-                      <span class="alerts-list__title">{{ alert.title }}</span>
-                      <p class="alerts-list__message">{{ alert.message }}</p>
-                    </div>
-                    <button
-                      type="button"
-                      class="alerts-list__action"
-                      data-testid="low-stock-alert-action"
-                      (click)="openAlert(alert)"
-                    >
-                      {{ alert.actionLabel }}
-                    </button>
-                  </li>
-                }
-              </ul>
-            </p-card>
-          }
-
-          @if (offlineQueueAlert(); as offlineQueueAlert) {
-            <p-card class="alerts-panel">
-              <ng-template pTemplate="header">
-                <div class="alerts-panel__header">
-                  <div>
-                    <p class="alerts-panel__eyebrow">{{ 'dashboard.offlineQueue.eyebrow' | transloco }}</p>
-                    <h2>{{ 'dashboard.offlineQueue.pendingSales' | transloco }}</h2>
-                  </div>
-                  <span class="alerts-panel__count">{{ offlineQueueActionableCount() }}</span>
-                </div>
-              </ng-template>
-
-              <ul class="alerts-list">
-                <li class="alerts-list__item" data-testid="offline-queue-alert-row">
-                  <div class="alerts-list__content">
-                    <span class="alerts-list__title">
-                      {{
-                        offlineQueueAlert.titleKey
-                          ? (offlineQueueAlert.titleKey | transloco)
-                          : offlineQueueAlert.title
-                      }}
-                    </span>
-                    <p class="alerts-list__message">
-                      {{
-                        offlineQueueAlert.messageKey
-                          ? (offlineQueueAlert.messageKey | transloco: offlineQueueAlert.messageParams)
-                          : offlineQueueAlert.message
-                      }}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="alerts-list__action"
-                    data-testid="offline-queue-alert-action"
-                    (click)="openAlert(offlineQueueAlert)"
-                  >
-                    {{
-                      offlineQueueAlert.actionLabelKey
-                        ? (offlineQueueAlert.actionLabelKey | transloco)
-                        : offlineQueueAlert.actionLabel
-                    }}
-                  </button>
-                </li>
-              </ul>
-            </p-card>
-          }
-
-          <p-card class="latest-sales-panel">
-            <ng-template pTemplate="header">
-              <div class="latest-sales-panel__header">
-                <div>
+                <div class="latest-sales-panel__header">
                   <p class="latest-sales-panel__eyebrow">{{ 'dashboard.latestSales.eyebrow' | transloco }}</p>
                   <h2>{{ 'dashboard.latestSales.title' | transloco }}</h2>
                 </div>
-                <span class="latest-sales-panel__count">{{ dashboard.latestSales.length }}</span>
-              </div>
-            </ng-template>
+              </ng-template>
 
-            @if (dashboard.latestSales.length === 0) {
-              <div class="latest-sales-panel__empty">
-                <p>{{ 'dashboard.latestSales.emptyTitle' | transloco }}</p>
-                <span>{{ 'dashboard.latestSales.emptyDescription' | transloco }}</span>
+              @if (dashboard.latestSales.length === 0) {
+                <div class="latest-sales-panel__empty">
+                  <p>{{ 'dashboard.latestSales.emptyTitle' | transloco }}</p>
+                  <span>{{ 'dashboard.latestSales.emptyDescription' | transloco }}</span>
+                </div>
+              } @else {
+                <ul class="latest-sales-list">
+                  @for (sale of dashboard.latestSales; track sale.saleId) {
+                    <li class="latest-sales-list__item">
+                      <div class="latest-sales-list__primary">
+                        <span class="latest-sales-list__invoice">{{ sale.invoiceNumber }}</span>
+                        <span class="latest-sales-list__customer">{{ sale.customerDisplayName }}</span>
+                      </div>
+                      <div class="latest-sales-list__meta">
+                        <strong>{{ sale.totalAmount | currency: 'INR' : 'symbol' : '1.0-0' }}</strong>
+                        <span>{{ sale.soldAt | date: 'dd MMM, h:mm a' }}</span>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+
+              <div class="latest-sales-panel__footer">
+                <button
+                  pButton
+                  type="button"
+                  class="latest-sales-panel__view-sales-action"
+                  [outlined]="true"
+                  severity="secondary"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  [label]="'dashboard.latestSales.viewSales' | transloco"
+                  [attr.aria-label]="'dashboard.latestSales.viewSalesAria' | transloco"
+                  (click)="openQuickAction('/sales')"
+                ></button>
               </div>
-            } @else {
-              <ul class="latest-sales-list">
-                @for (sale of dashboard.latestSales; track sale.saleId) {
-                  <li class="latest-sales-list__item">
-                    <div class="latest-sales-list__primary">
-                      <span class="latest-sales-list__invoice">{{ sale.invoiceNumber }}</span>
-                      <span class="latest-sales-list__customer">{{ sale.customerDisplayName }}</span>
-                    </div>
-                    <div class="latest-sales-list__meta">
-                      <span>{{ sale.soldAt | date: 'short' }}</span>
-                      <strong>{{ sale.totalAmount | number: '1.2-2' }}</strong>
-                    </div>
-                  </li>
-                }
-              </ul>
-            }
-          </p-card>
+            </p-card>
+
+            <p-card class="alerts-panel">
+              <ng-template pTemplate="header">
+                <div class="alerts-panel__header">
+                  <div>
+                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
+                    <h2>{{ 'dashboard.alerts.needsAttention' | transloco }}</h2>
+                  </div>
+                </div>
+              </ng-template>
+
+              @if (displayAlerts().length === 0) {
+                <p class="alerts-panel__empty">{{ 'dashboard.alerts.empty' | transloco }}</p>
+              } @else {
+                <ul class="alerts-list">
+                  @for (alert of displayAlerts(); track alert.id) {
+                    <li class="alerts-list__item" [attr.data-testid]="alert.testId">
+                      <span class="alerts-list__badge" [ngClass]="'alerts-list__badge--' + alert.badgeTone">
+                        {{
+                          alert.badgeLabelKey
+                            ? (alert.badgeLabelKey | transloco)
+                            : alert.badgeLabel
+                        }}
+                      </span>
+                      <p class="alerts-list__message">{{ alert.message }}</p>
+                      <button type="button" class="alerts-list__action" (click)="openAlertRoute(alert.actionRoute)">
+                        {{ 'dashboard.alerts.view' | transloco }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </p-card>
+          </div>
         } @else if (!errorMessage()) {
-          <p>{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
+          <p class="dashboard-page__status">{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
         }
 
         <section class="dashboard-quick-actions" [attr.aria-label]="'dashboard.quickActions.ariaLabel' | transloco">
@@ -294,7 +258,6 @@ type TranslatableText = Readonly<{
               pButton
               type="button"
               class="dashboard-quick-actions__button"
-              severity="secondary"
               [label]="action.labelKey | transloco"
               [icon]="action.icon"
               [attr.data-testid]="action.testId"
@@ -309,12 +272,17 @@ type TranslatableText = Readonly<{
 export class DashboardPageComponent {
   private readonly dashboardService = inject(DashboardService);
   private readonly permissions = inject(ShopPermissionsService);
+  private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
   private readonly offlineSalesQueueSync = inject(OfflineSalesQueueSyncService);
 
   readonly dashboard = signal<DashboardDto | null>(null);
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
+  readonly selectedPeriod = signal<DashboardPeriod>('last30');
+  customFrom: Date | null = null;
+  customTo: Date | null = null;
+
   readonly pendingPurchaseOrderAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
   );
@@ -346,6 +314,35 @@ export class DashboardPageComponent {
       actionRoute: '/sales',
     } satisfies DashboardActionAlert;
   });
+  readonly displayAlerts = computed((): DashboardDisplayAlert[] => {
+    const alerts: DashboardDisplayAlert[] = [];
+
+    for (const alert of this.lowStockAlerts()) {
+      alerts.push(this.toDisplayAlert(alert, 'orange', 'low-stock-alert-row'));
+    }
+
+    for (const alert of this.expiringBatchAlerts()) {
+      alerts.push(this.toDisplayAlert(alert, 'pink', 'dashboard-alert-row'));
+    }
+
+    for (const alert of this.pendingPurchaseOrderAlerts()) {
+      alerts.push(this.toDisplayAlert(alert, 'blue', 'dashboard-alert-row'));
+    }
+
+    const offlineQueueAlert = this.offlineQueueAlert();
+    if (offlineQueueAlert) {
+      alerts.push({
+        id: 'offline-queue',
+        badgeLabelKey: offlineQueueAlert.titleKey,
+        badgeTone: 'sky',
+        message: this.formatOfflineQueueSummary(this.offlineQueueCounts()),
+        actionRoute: offlineQueueAlert.actionRoute,
+        testId: 'offline-queue-alert-row',
+      });
+    }
+
+    return alerts;
+  });
   readonly quickActions: readonly DashboardQuickAction[] = [
     {
       labelKey: 'dashboard.quickActions.newSale',
@@ -354,7 +351,7 @@ export class DashboardPageComponent {
       testId: 'dashboard-quick-action-sales-new',
     },
     {
-      labelKey: 'dashboard.quickActions.batchStockEntry',
+      labelKey: 'dashboard.quickActions.addInventory',
       icon: 'pi pi-plus',
       route: '/inventory/batch',
       testId: 'dashboard-quick-action-inventory-batch',
@@ -378,31 +375,21 @@ export class DashboardPageComponent {
       testId: 'dashboard-quick-action-profit-loss',
     },
   ];
-  readonly activeShopLabel = computed<TranslatableText>(() => {
+  readonly greeting = computed<TranslatableText>(() => {
     const activeShop = this.permissions.activeShop();
+    const shopName = activeShop?.shopName ?? '';
+    const hour = new Date().getHours();
 
-    if (!activeShop) {
-      return { key: 'dashboard.header.noActiveShop' };
+    if (hour < 12) {
+      return { key: 'dashboard.header.greetingMorning', params: { shopName } };
     }
 
-    return {
-      key: 'dashboard.header.activeShop',
-      params: {
-        shopName: activeShop.shopName,
-        role: activeShop.role,
-      },
-    };
-  });
-  readonly formattedExpenses = computed(() => {
-    const amount = this.dashboard()?.netExpense ?? 0;
-    return this.formatCurrency(amount);
-  });
+    if (hour < 17) {
+      return { key: 'dashboard.header.greetingAfternoon', params: { shopName } };
+    }
 
-  readonly formattedSupplierPayables = computed(() => {
-    const amount = this.dashboard()?.supplierPayables ?? 0;
-    return this.formatCurrency(amount);
+    return { key: 'dashboard.header.greetingEvening', params: { shopName } };
   });
-
   readonly dashboardStatus = computed<TranslatableText>(() => {
     const dashboard = this.dashboard();
     if (!dashboard) {
@@ -411,15 +398,9 @@ export class DashboardPageComponent {
 
     return { key: 'dashboard.status.salesCount', params: { count: dashboard.salesCount } };
   });
-  readonly formattedStockValue = computed(() => {
-    const d = this.dashboard();
-    const value = d?.stockValue ?? 0;
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
-  });
 
   constructor() {
-    if (!this.permissions.isOwnerOrManagerOfActiveShop()) {
-      void this.router.navigateByUrl('/sales');
+    if (!isPlatformBrowser(this.platformId)) {
       return;
     }
 
@@ -427,11 +408,60 @@ export class DashboardPageComponent {
     void this.offlineSalesQueueSync.refreshActiveStatusCounts();
   }
 
+  setPeriod(period: DashboardPeriod): void {
+    this.selectedPeriod.set(period);
+
+    if (period !== 'custom') {
+      this.loadDashboard();
+      return;
+    }
+
+    if (this.customFrom && this.customTo) {
+      this.loadDashboard();
+    }
+  }
+
+  onCustomRangeChanged(): void {
+    if (this.selectedPeriod() !== 'custom' || !this.customFrom || !this.customTo) {
+      return;
+    }
+
+    if (this.customFrom > this.customTo) {
+      return;
+    }
+
+    this.loadDashboard();
+  }
+
+  formattedDateRange(startDate: string, endDate: string): string {
+    const start = this.parseDateOnly(startDate);
+    const end = this.parseDateOnly(endDate);
+
+    if (!start || !end) {
+      return `${startDate} – ${endDate}`;
+    }
+
+    const formatter = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${formatter.format(start)} – ${formatter.format(end)}`;
+  }
+
+  openAlert(alert: Pick<DashboardAlertDto, 'actionRoute'> | DashboardActionAlert): void {
+    void this.router.navigateByUrl(alert.actionRoute);
+  }
+
+  openAlertRoute(route: string): void {
+    void this.router.navigateByUrl(route);
+  }
+
+  openQuickAction(route: string): void {
+    void this.router.navigateByUrl(route);
+  }
+
   private loadDashboard(): void {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.dashboardService.getDashboard({}).subscribe({
+    this.dashboardService.getDashboard(this.buildQueryParams()).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
         this.isLoading.set(false);
@@ -443,16 +473,69 @@ export class DashboardPageComponent {
     });
   }
 
-  openAlert(alert: Pick<DashboardAlertDto, 'actionRoute'> | DashboardActionAlert): void {
-    void this.router.navigateByUrl(alert.actionRoute);
+  private buildQueryParams(): { from?: string; to?: string } {
+    const period = this.selectedPeriod();
+    const today = this.startOfDay(new Date());
+
+    if (period === 'last7') {
+      return {
+        from: this.formatDateOnly(this.addDays(today, -6)),
+        to: this.formatDateOnly(today),
+      };
+    }
+
+    if (period === 'last30') {
+      return {
+        from: this.formatDateOnly(this.addDays(today, -29)),
+        to: this.formatDateOnly(today),
+      };
+    }
+
+    if (!this.customFrom || !this.customTo || this.customFrom > this.customTo) {
+      return {};
+    }
+
+    return {
+      from: this.formatDateOnly(this.startOfDay(this.customFrom)),
+      to: this.formatDateOnly(this.startOfDay(this.customTo)),
+    };
   }
 
-  openQuickAction(route: string): void {
-    void this.router.navigateByUrl(route);
+  private toDisplayAlert(
+    alert: DashboardAlertDto,
+    badgeTone: DashboardDisplayAlert['badgeTone'],
+    testId: string,
+  ): DashboardDisplayAlert {
+    return {
+      id: `${alert.alertType}-${alert.actionRoute}-${alert.message}`,
+      badgeLabel: alert.title,
+      badgeTone,
+      message: alert.message,
+      actionRoute: alert.actionRoute,
+      testId,
+    };
   }
 
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+  private formatOfflineQueueSummary(counts: OfflineSalesVisibleQueueCounts): string {
+    const parts: string[] = [];
+
+    if (counts.pending > 0) {
+      parts.push(`${counts.pending} pending`);
+    }
+
+    if (counts.failed > 0) {
+      parts.push(`${counts.failed} failed sync`);
+    }
+
+    if (counts.warning > 0) {
+      parts.push(`${counts.warning} warning`);
+    }
+
+    if (counts.needsReview > 0) {
+      parts.push(`${counts.needsReview} needs review`);
+    }
+
+    return parts.join(', ');
   }
 
   private getDisplayedOfflineQueueCount(counts: OfflineSalesVisibleQueueCounts): number {
@@ -470,5 +553,27 @@ export class DashboardPageComponent {
       needsReview: counts.needsReview,
       visibleCount,
     };
+  }
+
+  private parseDateOnly(value: string): Date | null {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private formatDateOnly(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private startOfDay(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
   }
 }

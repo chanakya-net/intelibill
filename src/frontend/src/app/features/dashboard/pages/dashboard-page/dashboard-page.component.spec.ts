@@ -154,7 +154,9 @@ describe('DashboardPageComponent', () => {
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    expect(dashboardService.getDashboard).toHaveBeenCalledWith({});
+    expect(dashboardService.getDashboard).toHaveBeenCalledWith(
+      expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
+    );
     expect(router.navigateByUrl).not.toHaveBeenCalled();
     expect(fixture.componentInstance.dashboard()?.salesCount).toBe(42);
     expect(fixture.componentInstance.isLoading()).toBe(false);
@@ -166,7 +168,7 @@ describe('DashboardPageComponent', () => {
       dashboard.salesRevenue,
       'INR',
       'symbol',
-      '1.2-2',
+      '1.0-0',
     );
     dashboardService.getDashboard.mockReturnValue(of(dashboard));
 
@@ -211,7 +213,6 @@ describe('DashboardPageComponent', () => {
     const kpiValue = fixture.nativeElement.querySelector('[data-testid="expenses-kpi-value"]');
     expect(kpiValue).not.toBeNull();
     expect(kpiValue.textContent).toContain('₹');
-    expect(fixture.componentInstance.formattedExpenses()).toContain('₹');
   });
 
   it('renders expenses KPI as ₹0 when netExpense is zero', () => {
@@ -220,8 +221,8 @@ describe('DashboardPageComponent', () => {
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.formattedExpenses()).toContain('₹');
-    expect(fixture.componentInstance.formattedExpenses()).toContain('0');
+    const kpiValue = fixture.nativeElement.querySelector('[data-testid="expenses-kpi-value"]');
+    expect(kpiValue?.textContent).toContain('₹0');
   });
 
   it('renders supplier payables KPI card with formatted value when dashboard loaded', () => {
@@ -235,7 +236,6 @@ describe('DashboardPageComponent', () => {
     const kpiValue = fixture.nativeElement.querySelector('[data-testid="supplier-payables-kpi-value"]');
     expect(kpiValue).not.toBeNull();
     expect(kpiValue.textContent).toContain('₹');
-    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('₹');
   });
 
   it('renders supplier payables KPI as ₹0 when supplierPayables is zero', () => {
@@ -244,20 +244,8 @@ describe('DashboardPageComponent', () => {
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('₹');
-    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('0');
-  });
-
-  it('redirects staff users to /sales before loading dashboard data', () => {
-    sessionSignal.set(createSession('Staff'));
-
-    fixture = TestBed.createComponent(DashboardPageComponent);
-    fixture.detectChanges();
-
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/sales');
-    expect(dashboardService.getDashboard).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.isLoading()).toBe(false);
-    expect(fixture.componentInstance.dashboard()).toBeNull();
+    const kpiValue = fixture.nativeElement.querySelector('[data-testid="supplier-payables-kpi-value"]');
+    expect(kpiValue?.textContent).toContain('₹0');
   });
 
   it('renders the empty recent activity state', () => {
@@ -280,7 +268,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const loadingEl = host.querySelector('.latest-sales-panel__loading');
+    const loadingEl = host.querySelector('.dashboard-page__loading');
 
     expect(fixture.componentInstance.isLoading()).toBe(true);
     expect(loadingEl).not.toBeNull();
@@ -305,8 +293,8 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.kpis.customerCreditDue');
-    expect(host.textContent).toContain('0.00');
+    const valueEl = host.querySelector('[data-testid="customer-credit-due-value"]');
+    expect(valueEl?.textContent).toContain('₹0');
   });
 
   it('renders the customer credit due KPI for nonzero balance', () => {
@@ -316,8 +304,8 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.kpis.customerCreditDue');
-    expect(host.textContent).toContain('1,250.00');
+    const valueEl = host.querySelector('[data-testid="customer-credit-due-value"]');
+    expect(valueEl?.textContent).toContain('1,250');
   });
 
   it('renders populated recent activity entries', () => {
@@ -352,7 +340,7 @@ describe('DashboardPageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('INV-000123');
     expect(host.textContent).toContain('Walk-in Customer');
-    expect(host.textContent).toContain('1,250.00');
+    expect(host.textContent).toContain('₹1,250');
     expect(host.textContent).toContain('Asha');
   });
 
@@ -378,11 +366,11 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.alerts.pendingPurchaseOrders');
+    expect(host.textContent).toContain('dashboard.alerts.needsAttention');
     expect(host.textContent).toContain('PO-1001 from Acme Traders has been partially received.');
-    expect(host.textContent).toContain('Review purchase orders');
+    expect(host.textContent).toContain('dashboard.alerts.view');
 
-    const actionButton = host.querySelector('[data-testid="dashboard-alert-action"]') as HTMLButtonElement | null;
+    const actionButton = host.querySelector('[data-testid="dashboard-alert-row"] .alerts-list__action') as HTMLButtonElement | null;
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/purchase-orders');
@@ -410,11 +398,9 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.alerts.lowStock');
+    expect(host.textContent).toContain('dashboard.alerts.needsAttention');
     expect(host.textContent).toContain('Almonds is running low (1 remaining, reorder at 10).');
-    expect(host.textContent).toContain('Manage inventory');
-
-    const actionButton = host.querySelector('[data-testid="low-stock-alert-action"]') as HTMLButtonElement | null;
+    const actionButton = host.querySelector('[data-testid="low-stock-alert-row"] .alerts-list__action') as HTMLButtonElement | null;
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory');
@@ -442,12 +428,10 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.alerts.dashboardAlerts');
+    expect(host.textContent).toContain('dashboard.alerts.needsAttention');
     expect(host.textContent).toContain('Expiring batch');
     expect(host.textContent).toContain('Rice batch B-002 expires on 12 Jun 2026.');
-    expect(host.textContent).toContain('Review batches');
-
-    const actionButton = host.querySelector('[data-testid="dashboard-alert-action"]') as HTMLButtonElement | null;
+    const actionButton = host.querySelector('[data-testid="dashboard-alert-row"] .alerts-list__action') as HTMLButtonElement | null;
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/batches');
@@ -466,15 +450,9 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('dashboard.offlineQueue.eyebrow');
-    expect(host.textContent).toContain('dashboard.offlineQueue.pendingSales');
     expect(host.textContent).toContain('dashboard.offlineQueue.title');
-    expect(host.textContent).toContain(
-      counts.totalVisible === 1 ? 'dashboard.offlineQueue.messageSingular' : 'dashboard.offlineQueue.messagePlural',
-    );
-    expect(host.textContent).toContain('dashboard.offlineQueue.openSales');
 
-    const actionButton = host.querySelector('[data-testid="offline-queue-alert-action"]') as HTMLButtonElement | null;
+    const actionButton = host.querySelector('[data-testid="offline-queue-alert-row"] .alerts-list__action') as HTMLButtonElement | null;
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/sales');
@@ -496,9 +474,7 @@ describe('DashboardPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('dashboard.offlineQueue.title');
-    const badgeEl = host.querySelector('.alerts-panel__count') as HTMLElement | null;
-    expect(badgeEl?.textContent?.trim()).toBe('1');
-    expect(host.textContent).toContain('dashboard.offlineQueue.messageSingular');
+    expect(host.textContent).toContain('1 pending');
   });
 
   it('does not render the offline queue alert for syncing-only counts', () => {
@@ -628,7 +604,7 @@ describe('DashboardPageComponent', () => {
       { testId: 'dashboard-quick-action-sales-new', label: 'dashboard.quickActions.newSale', icon: 'pi-shopping-cart' },
       {
         testId: 'dashboard-quick-action-inventory-batch',
-        label: 'dashboard.quickActions.batchStockEntry',
+        label: 'dashboard.quickActions.addInventory',
         icon: 'pi-plus',
       },
       { testId: 'dashboard-quick-action-expenses', label: 'dashboard.quickActions.expenses', icon: 'pi-wallet' },
@@ -679,7 +655,7 @@ describe('DashboardPageComponent', () => {
     const kpiCard: HTMLElement = fixture.nativeElement.querySelector('[data-testid="stock-value-kpi"]');
     expect(kpiCard).not.toBeNull();
     const kpiValue = kpiCard.querySelector('.kpi-value')?.textContent ?? '';
-    expect(kpiValue).toContain('24,750');
+    expect(kpiValue).toContain('24,751');
   });
 
   it('formats stock value null as zero currency', () => {
@@ -688,6 +664,7 @@ describe('DashboardPageComponent', () => {
     fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.formattedStockValue()).toContain('0');
+    const kpiValue = fixture.nativeElement.querySelector('[data-testid="stock-value-kpi"] .kpi-value');
+    expect(kpiValue?.textContent).toContain('₹0');
   });
 });

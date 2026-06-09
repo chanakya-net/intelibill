@@ -52,7 +52,7 @@ const expectedSalesRevenue = new CurrencyPipe('en-US').transform(
   stubDashboard.salesRevenue,
   'INR',
   'symbol',
-  '1.2-2',
+  '1.0-0',
 );
 
 describe('DashboardKpiCardsComponent', () => {
@@ -122,7 +122,7 @@ describe('DashboardKpiCardsComponent', () => {
     fixture.detectChanges();
 
     const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-value"]');
-    expect(valueEl?.textContent?.trim()).toBe(new CurrencyPipe('en-US').transform(netProfit, 'INR', 'symbol', '1.2-2'));
+    expect(valueEl?.textContent?.trim()).toBe(new CurrencyPipe('en-US').transform(netProfit, 'INR', 'symbol', '1.0-0'));
   });
 
   it('renders net profit card', () => {
@@ -135,9 +135,9 @@ describe('DashboardKpiCardsComponent', () => {
   });
 
   it.each([
-    { netProfitChangePercent: 12.5, expected: '+12.50%' },
-    { netProfitChangePercent: -8.75, expected: '-8.75%' },
-    { netProfitChangePercent: 0, expected: '0.00%' },
+    { netProfitChangePercent: 12.5, expected: '+12.5%' },
+    { netProfitChangePercent: -8.75, expected: '-8.8%' },
+    { netProfitChangePercent: 0, expected: '0.0%' },
   ])('displays net profit change when present', ({ netProfitChangePercent, expected }) => {
     const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
     fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfitChangePercent });

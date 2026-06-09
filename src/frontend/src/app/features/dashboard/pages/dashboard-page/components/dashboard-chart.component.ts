@@ -13,22 +13,10 @@ import {
 } from '../../../services/dashboard.models';
 
 const chartColors = {
-  sales: {
-    border: '#2563eb',
-    background: 'rgba(37, 99, 235, 0.16)',
-  },
-  netSales: {
-    border: '#0f766e',
-    background: 'rgba(15, 118, 110, 0.16)',
-  },
-  revenue: {
-    border: '#16a34a',
-    background: 'rgba(22, 163, 74, 0.16)',
-  },
-  expenses: {
-    border: '#f97316',
-    background: 'rgba(249, 115, 22, 0.16)',
-  },
+  revenue: '#f27a20',
+  revenueMuted: 'rgba(242, 122, 32, 0.82)',
+  expenses: '#8b7355',
+  expensesMuted: 'rgba(139, 115, 85, 0.78)',
 } as const;
 
 const rupeeFormatter = new Intl.NumberFormat('en-IN', {
@@ -42,7 +30,16 @@ function formatRupeeTick(value: string | number): string {
   return rupeeFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);
 }
 
-function createLineChartOptions(): ChartOptions<'line'> {
+function formatChartDateLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function createCurrencyBarChartOptions(): ChartOptions<'bar'> {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -60,11 +57,15 @@ function createLineChartOptions(): ChartOptions<'line'> {
     },
     scales: {
       x: {
+        offset: true,
         grid: {
-          color: 'rgba(148, 163, 184, 0.12)',
+          display: false,
         },
         ticks: {
           color: '#64748b',
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 7,
         },
       },
       y: {
@@ -78,42 +79,28 @@ function createLineChartOptions(): ChartOptions<'line'> {
         },
       },
     },
-    elements: {
-      line: {
-        tension: 0.35,
-      },
-      point: {
-        radius: 2,
-        hoverRadius: 4,
-      },
-    },
   };
 }
 
 function mapTrendLabels<T extends { date: string }>(points: readonly T[]): string[] {
-  return points.map((point) => point.date);
+  return points.map((point) => formatChartDateLabel(point.date));
 }
 
 function buildSalesTrendData(
   points: readonly SalesTrendPointDto[],
-  labels: { grossSales: string; netSales: string },
-): ChartData<'line', number[], string> {
+  label: string,
+): ChartData<'bar', number[], string> {
   return {
     labels: mapTrendLabels(points),
     datasets: [
       {
-        label: labels.grossSales,
+        label,
         data: points.map((point) => point.amount),
-        borderColor: chartColors.sales.border,
-        backgroundColor: chartColors.sales.background,
-        fill: false,
-      },
-      {
-        label: labels.netSales,
-        data: points.map((point) => point.netAmount),
-        borderColor: chartColors.netSales.border,
-        backgroundColor: chartColors.netSales.background,
-        fill: false,
+        backgroundColor: chartColors.revenueMuted,
+        borderColor: chartColors.revenue,
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 28,
       },
     ],
   };
@@ -122,23 +109,27 @@ function buildSalesTrendData(
 function buildRevenueVsExpensesData(
   points: readonly RevenueVsExpensesPointDto[],
   labels: { revenue: string; expenses: string },
-): ChartData<'line', number[], string> {
+): ChartData<'bar', number[], string> {
   return {
     labels: mapTrendLabels(points),
     datasets: [
       {
         label: labels.revenue,
         data: points.map((point) => point.revenue),
-        borderColor: chartColors.revenue.border,
-        backgroundColor: chartColors.revenue.background,
-        fill: false,
+        backgroundColor: chartColors.revenueMuted,
+        borderColor: chartColors.revenue,
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 22,
       },
       {
         label: labels.expenses,
         data: points.map((point) => point.expenses),
-        borderColor: chartColors.expenses.border,
-        backgroundColor: chartColors.expenses.background,
-        fill: false,
+        backgroundColor: chartColors.expensesMuted,
+        borderColor: chartColors.expenses,
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 22,
       },
     ],
   };
@@ -156,13 +147,14 @@ function buildRevenueVsExpensesData(
           <div class="dashboard-chart-card__header">
             <p class="dashboard-chart-card__eyebrow">{{ 'dashboard.charts.trend' | transloco }}</p>
             <h2>{{ 'dashboard.charts.salesTrend' | transloco }}</h2>
+            <p class="dashboard-chart-card__subtitle">{{ 'dashboard.charts.salesTrendSubtitle' | transloco }}</p>
           </div>
         </ng-template>
 
         <div class="dashboard-chart-card__canvas">
           <p-chart
             class="dashboard-chart-card__chart"
-            type="line"
+            type="bar"
             [data]="salesTrendChartData()"
             [options]="salesTrendChartOptions"
           />
@@ -174,13 +166,14 @@ function buildRevenueVsExpensesData(
           <div class="dashboard-chart-card__header">
             <p class="dashboard-chart-card__eyebrow">{{ 'dashboard.charts.comparison' | transloco }}</p>
             <h2>{{ 'dashboard.charts.revenueVsExpenses' | transloco }}</h2>
+            <p class="dashboard-chart-card__subtitle">{{ 'dashboard.charts.revenueVsExpensesSubtitle' | transloco }}</p>
           </div>
         </ng-template>
 
         <div class="dashboard-chart-card__canvas">
           <p-chart
             class="dashboard-chart-card__chart"
-            type="line"
+            type="bar"
             [data]="revenueVsExpensesChartData()"
             [options]="revenueVsExpensesChartOptions"
           />
@@ -194,14 +187,14 @@ export class DashboardChartComponent {
 
   readonly dashboard = input<DashboardDto | null>(null);
 
-  readonly salesTrendChartOptions = createLineChartOptions();
-  readonly revenueVsExpensesChartOptions = createLineChartOptions();
+  readonly salesTrendChartOptions = createCurrencyBarChartOptions();
+  readonly revenueVsExpensesChartOptions = createCurrencyBarChartOptions();
 
   readonly salesTrendChartData = computed(() =>
-    buildSalesTrendData(this.dashboard()?.salesTrendSeries ?? [], {
-      grossSales: this.transloco.translate('dashboard.charts.grossSales'),
-      netSales: this.transloco.translate('dashboard.charts.netSales'),
-    }),
+    buildSalesTrendData(
+      this.dashboard()?.salesTrendSeries ?? [],
+      this.transloco.translate('dashboard.charts.grossSales'),
+    ),
   );
 
   readonly revenueVsExpensesChartData = computed(() =>

@@ -4,6 +4,7 @@ import { firstValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
+import { dashboardGuard } from './core/guards/dashboard.guard';
 import { servicesGuard } from './core/guards/services.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
@@ -86,6 +87,7 @@ describe('app routes', () => {
 
     expect(shellRoute).toBeDefined();
     expect(dashboardRoute).toBeDefined();
+    expect(dashboardRoute?.canActivate).toContain(dashboardGuard);
     expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
     await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
   });

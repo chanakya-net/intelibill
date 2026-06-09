@@ -65,11 +65,8 @@ describe('DashboardChartComponent', () => {
     });
 
     expect(fixture.componentInstance.salesTrendChartData()).toEqual({
-      labels: ['2026-06-01', '2026-06-02'],
-      datasets: [
-        expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [1200, 1800] }),
-        expect.objectContaining({ label: 'en.dashboard.charts.netSales', data: [1100, 1650] }),
-      ],
+      labels: ['1 Jun', '2 Jun'],
+      datasets: [expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [1200, 1800] })],
     });
   });
 
@@ -84,7 +81,7 @@ describe('DashboardChartComponent', () => {
     });
 
     expect(fixture.componentInstance.revenueVsExpensesChartData()).toEqual({
-      labels: ['2026-06-01', '2026-06-02'],
+      labels: ['1 Jun', '2 Jun'],
       datasets: [
         expect.objectContaining({ label: 'en.dashboard.charts.revenue', data: [2400, 3200] }),
         expect.objectContaining({ label: 'en.dashboard.charts.expenses', data: [900, 1250] }),
@@ -102,10 +99,7 @@ describe('DashboardChartComponent', () => {
 
     expect(fixture.componentInstance.salesTrendChartData()).toEqual({
       labels: [],
-      datasets: [
-        expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [] }),
-        expect.objectContaining({ label: 'en.dashboard.charts.netSales', data: [] }),
-      ],
+      datasets: [expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [] })],
     });
     expect(fixture.componentInstance.revenueVsExpensesChartData()).toEqual({
       labels: [],
@@ -116,10 +110,18 @@ describe('DashboardChartComponent', () => {
     });
   });
 
-  it('formats chart ticks in rupees', () => {
+  it('formats sales trend ticks in rupees', () => {
     const fixture = TestBed.createComponent(DashboardChartComponent);
 
     const tickFormatter = fixture.componentInstance.salesTrendChartOptions.scales?.['y']?.ticks
+      ?.callback as ((this: unknown, value: string | number, index: number, ticks: unknown[]) => string) | undefined;
+    expect(tickFormatter?.call(undefined, 1250, 0, [])).toBe('₹1,250');
+  });
+
+  it('formats revenue vs expenses ticks in rupees', () => {
+    const fixture = TestBed.createComponent(DashboardChartComponent);
+
+    const tickFormatter = fixture.componentInstance.revenueVsExpensesChartOptions.scales?.['y']?.ticks
       ?.callback as ((this: unknown, value: string | number, index: number, ticks: unknown[]) => string) | undefined;
     expect(tickFormatter?.call(undefined, 1250, 0, [])).toBe('₹1,250');
   });
