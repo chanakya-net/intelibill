@@ -447,6 +447,25 @@ describe('DashboardPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/sales');
   });
 
+  it('does not render the offline queue alert for syncing-only counts', () => {
+    offlineQueueCountsSignal.set({
+      pending: 0,
+      syncing: 3,
+      failed: 0,
+      warning: 0,
+      needsReview: 0,
+      totalVisible: 3,
+    });
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('[data-testid="offline-queue-alert-row"]').length).toBe(0);
+    expect(host.textContent).not.toContain('Offline sales queue');
+  });
+
   it('does not render the offline queue alert when counts are zero', () => {
     dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
 

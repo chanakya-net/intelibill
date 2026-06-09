@@ -289,13 +289,15 @@ export class DashboardPageComponent {
   readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
   readonly offlineQueueAlert = computed(() => {
     const counts = this.offlineQueueCounts();
-    if (counts.totalVisible === 0) {
+    const visibleCount = this.getDisplayedOfflineQueueCount(counts);
+
+    if (visibleCount === 0) {
       return null;
     }
 
     return {
       title: 'Offline sales queue',
-      message: this.buildOfflineQueueMessage(counts),
+      message: this.buildOfflineQueueMessage(counts, visibleCount),
       actionLabel: 'Open Sales',
       actionRoute: '/sales',
     } satisfies DashboardActionAlert;
@@ -397,7 +399,11 @@ export class DashboardPageComponent {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 
-  private buildOfflineQueueMessage(counts: OfflineSalesVisibleQueueCounts): string {
+  private getDisplayedOfflineQueueCount(counts: OfflineSalesVisibleQueueCounts): number {
+    return counts.pending + counts.failed + counts.warning + counts.needsReview;
+  }
+
+  private buildOfflineQueueMessage(counts: OfflineSalesVisibleQueueCounts, visibleCount: number): string {
     const parts = [
       `Pending ${counts.pending}`,
       `Failed ${counts.failed}`,
@@ -405,6 +411,6 @@ export class DashboardPageComponent {
       `Needs review ${counts.needsReview}`,
     ];
 
-    return `${parts.join(', ')}. Open Sales to review ${counts.totalVisible} queued sale${counts.totalVisible === 1 ? '' : 's'}.`;
+    return `${parts.join(', ')}. Open Sales to review ${visibleCount} queued sale${visibleCount === 1 ? '' : 's'}.`;
   }
 }
