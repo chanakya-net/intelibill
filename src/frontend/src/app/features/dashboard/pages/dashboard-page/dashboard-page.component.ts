@@ -190,7 +190,7 @@ type DashboardActionAlert = Readonly<{
                     <p class="alerts-panel__eyebrow">Offline Queue</p>
                     <h2>Pending Sales</h2>
                   </div>
-                  <span class="alerts-panel__count">{{ offlineQueueCounts().totalVisible }}</span>
+                  <span class="alerts-panel__count">{{ offlineQueueActionableCount() }}</span>
                 </div>
               </ng-template>
 
@@ -287,6 +287,7 @@ export class DashboardPageComponent {
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
   readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
+  readonly offlineQueueActionableCount = computed(() => this.getDisplayedOfflineQueueCount(this.offlineQueueCounts()));
   readonly offlineQueueAlert = computed(() => {
     const counts = this.offlineQueueCounts();
     const visibleCount = this.getDisplayedOfflineQueueCount(counts);

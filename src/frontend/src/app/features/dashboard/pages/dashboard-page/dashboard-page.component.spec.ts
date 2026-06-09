@@ -447,6 +447,27 @@ describe('DashboardPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/sales');
   });
 
+  it('renders badge count with actionable count only, excluding syncing, in mixed state', () => {
+    offlineQueueCountsSignal.set({
+      pending: 1,
+      syncing: 2,
+      failed: 0,
+      warning: 0,
+      needsReview: 0,
+      totalVisible: 3,
+    });
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Offline sales queue');
+    const badgeEl = host.querySelector('.alerts-panel__count') as HTMLElement | null;
+    expect(badgeEl?.textContent?.trim()).toBe('1');
+    expect(host.textContent).toContain('review 1 queued sale');
+  });
+
   it('does not render the offline queue alert for syncing-only counts', () => {
     offlineQueueCountsSignal.set({
       pending: 0,
