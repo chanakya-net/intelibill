@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
@@ -35,6 +36,70 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(from, result.Value.StartDate);
         Assert.Equal(to, result.Value.EndDate);
         AssertSkeletonShape(result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOnlyFromDate_ReturnsPartialDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 1), null);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.PartialDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOnlyToDate_ReturnsPartialDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, new DateOnly(2026, 5, 31));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.PartialDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithFromGreaterThanTo_ReturnsInvalidDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 1));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.InvalidDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithRangeOver90Days_ReturnsDateRangeTooLargeError()
+    {
+        var from = new DateOnly(2026, 1, 1);
+        var to = from.AddDays(91);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.DateRangeTooLarge.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithRangeExactly90Days_Succeeds()
+    {
+        var from = new DateOnly(2026, 1, 1);
+        var to = from.AddDays(89);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(from, result.Value.StartDate);
+        Assert.Equal(to, result.Value.EndDate);
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)

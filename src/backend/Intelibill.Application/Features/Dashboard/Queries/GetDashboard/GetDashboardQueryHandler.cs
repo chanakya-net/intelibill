@@ -1,16 +1,24 @@
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
 public sealed class GetDashboardQueryHandler
 {
+    private const int MaxRangeDays = 90;
+    private const int DefaultRangeDays = 29;
+
 #pragma warning disable CA1822 // Skeleton: repository dependencies will be injected in the aggregation phase
     public Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
     {
+        var validationResult = ValidateDateRange(query.From, query.To);
+        if (validationResult.IsError)
+            return Task.FromResult<ErrorOr<DashboardDto>>(validationResult.Errors);
+
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var appliedTo = query.To ?? today;
-        var appliedFrom = query.From ?? appliedTo.AddDays(-29);
+        var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -53,4 +61,21 @@ public sealed class GetDashboardQueryHandler
         return Task.FromResult<ErrorOr<DashboardDto>>(result);
     }
 #pragma warning restore CA1822
+
+    private static ErrorOr<Success> ValidateDateRange(DateOnly? from, DateOnly? to)
+    {
+        if (from.HasValue != to.HasValue)
+            return Errors.Dashboard.PartialDateRange;
+
+        if (from.HasValue && to.HasValue)
+        {
+            if (from.Value > to.Value)
+                return Errors.Dashboard.InvalidDateRange;
+
+            if (to.Value.DayNumber - from.Value.DayNumber >= MaxRangeDays)
+                return Errors.Dashboard.DateRangeTooLarge;
+        }
+
+        return Result.Success;
+    }
 }
