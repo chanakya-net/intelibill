@@ -1,4 +1,4 @@
-import { AsyncPipe, CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { AsyncPipe, CommonModule, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 
 import { CardModule } from 'primeng/card';
@@ -9,7 +9,8 @@ import { DashboardService } from '../../services/dashboard.service';
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, CurrencyPipe, DatePipe, CardModule, ProgressSpinnerModule],
+  imports: [CommonModule, AsyncPipe, DatePipe, CardModule, ProgressSpinnerModule],
+  styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
       @if (dashboard$ | async; as dashboard) {
