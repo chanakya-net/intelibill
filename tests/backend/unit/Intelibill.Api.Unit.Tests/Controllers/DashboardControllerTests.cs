@@ -146,6 +146,7 @@ public sealed class DashboardControllerTests
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
             NetExpense: 0m,
+            SupplierPayables: 0m,
             CreditSalesAmount: 0m,
             CreditSalesPercentage: 0m,
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),

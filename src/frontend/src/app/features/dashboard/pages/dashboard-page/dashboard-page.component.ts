@@ -33,9 +33,16 @@ import { DashboardService } from '../../services/dashboard.service';
         @if (dashboard(); as dashboard) {
           <p>{{ dashboardStatus() }}</p>
 
-          <div class="kpi-card expenses-kpi">
-            <span class="kpi-label">Expenses</span>
-            <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
+          <div class="dashboard-kpis">
+            <div class="kpi-card expenses-kpi">
+              <span class="kpi-label">Expenses</span>
+              <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
+            </div>
+
+            <div class="kpi-card supplier-payables-kpi">
+              <span class="kpi-label">Supplier Payables</span>
+              <span class="kpi-value" data-testid="supplier-payables-kpi-value">{{ formattedSupplierPayables() }}</span>
+            </div>
           </div>
 
           <p-card class="latest-sales-panel">
@@ -97,7 +104,12 @@ export class DashboardPageComponent {
   });
   readonly formattedExpenses = computed(() => {
     const amount = this.dashboard()?.netExpense ?? 0;
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+    return this.formatCurrency(amount);
+  });
+
+  readonly formattedSupplierPayables = computed(() => {
+    const amount = this.dashboard()?.supplierPayables ?? 0;
+    return this.formatCurrency(amount);
   });
 
   readonly dashboardStatus = computed(() => {
@@ -136,5 +148,9 @@ export class DashboardPageComponent {
         this.isLoading.set(false);
       },
     });
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 }
