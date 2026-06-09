@@ -32,10 +32,11 @@ public sealed class GetDashboardQueryHandlerTests
         ConfigureStockValue(0m);
         ConfigureCustomerCreditDue(0m);
         ConfigurePendingPurchaseOrderAlerts([]);
+        ConfigureSalesTrend([]);
     }
 
     [Fact]
-    public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndEmptyShape()
+    public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndZeroFilledTrend()
     {
         var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
         var before = DateTimeOffset.UtcNow;
@@ -48,6 +49,11 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(result.Value.EndDate.AddDays(-29), result.Value.StartDate);
         AssertSkeletonShape(result.Value);
         await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            result.Value.StartDate,
+            result.Value.EndDate,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetDailySalesTrendAsync(
             query.ShopId,
             result.Value.StartDate,
             result.Value.EndDate,
@@ -70,6 +76,11 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(to, result.Value.EndDate);
         AssertSkeletonShape(result.Value);
         await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetDailySalesTrendAsync(
             query.ShopId,
             from,
             to,
@@ -366,6 +377,31 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithSparseSalesTrend_FillsMissingDaysAndOrdersAscending()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 3);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+        ConfigureSalesTrend(
+            [
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 1), 100m, 0m),
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 3), 250m, 30m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            new[]
+            {
+                new SalesTrendPointDto(new DateOnly(2026, 5, 1), 100m, 100m),
+                new SalesTrendPointDto(new DateOnly(2026, 5, 2), 0m, 0m),
+                new SalesTrendPointDto(new DateOnly(2026, 5, 3), 250m, 220m),
+            },
+            result.Value.SalesTrendSeries);
+    }
+
+    [Fact]
     public async Task HandleAsync_SalesRevenue_EqualsGrossSalesMinusReturns()
     {
         var shopId = Guid.NewGuid();
@@ -428,6 +464,16 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(alerts));
     }
 
+    private void ConfigureSalesTrend(IReadOnlyList<SalesTrendBucketReadModel> trend)
+    {
+        _saleRepository.GetDailySalesTrendAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(trend));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -462,7 +508,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Empty(dto.TopFiveDueCustomers);
         Assert.Empty(dto.Alerts);
         Assert.NotNull(dto.SalesTrendSeries);
-        Assert.Empty(dto.SalesTrendSeries);
+        AssertSalesTrendSeries(dto);
         Assert.NotNull(dto.ProfitTrendSeries);
         Assert.Empty(dto.ProfitTrendSeries);
         Assert.NotNull(dto.PaymentMixTrendSeries);
@@ -474,5 +520,19 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.NotNull(dto.LatestSales);
         Assert.Empty(dto.LatestSales);
         Assert.Equal(0m, dto.StockValue);
+    }
+
+    private static void AssertSalesTrendSeries(DashboardDto dto)
+    {
+        var expectedDays = dto.EndDate.DayNumber - dto.StartDate.DayNumber + 1;
+        Assert.Equal(expectedDays, dto.SalesTrendSeries!.Count);
+
+        for (var index = 0; index < expectedDays; index++)
+        {
+            var point = dto.SalesTrendSeries[index];
+            Assert.Equal(dto.StartDate.AddDays(index), point.Date);
+            Assert.Equal(0m, point.Amount);
+            Assert.Equal(0m, point.NetAmount);
+        }
     }
 }

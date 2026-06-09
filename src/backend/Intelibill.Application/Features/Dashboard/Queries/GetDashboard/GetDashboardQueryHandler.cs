@@ -30,6 +30,7 @@ public sealed class GetDashboardQueryHandler(
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
+        var salesTrendBuckets = await saleRepository.GetDailySalesTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
@@ -65,7 +66,7 @@ public sealed class GetDashboardQueryHandler(
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
             Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert).ToList(),
-            SalesTrendSeries: Array.Empty<SalesTrendPointDto>(),
+            SalesTrendSeries: BuildSalesTrendSeries(appliedFrom, appliedTo, salesTrendBuckets),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
             PreviousPeriodSummary: new PreviousPeriodSummaryDto(
@@ -86,6 +87,28 @@ public sealed class GetDashboardQueryHandler(
             StockValue: stockValue);
 
         return result;
+    }
+
+    private static List<SalesTrendPointDto> BuildSalesTrendSeries(
+        DateOnly startDate,
+        DateOnly endDate,
+        IReadOnlyList<SalesTrendBucketReadModel> buckets)
+    {
+        var bucketByDate = buckets.ToDictionary(bucket => bucket.Date);
+        var days = endDate.DayNumber - startDate.DayNumber + 1;
+        var series = new List<SalesTrendPointDto>(days);
+
+        for (var index = 0; index < days; index++)
+        {
+            var date = startDate.AddDays(index);
+            bucketByDate.TryGetValue(date, out var bucket);
+
+            var grossSales = bucket?.GrossSales ?? 0m;
+            var netSales = grossSales - (bucket?.ReturnAmount ?? 0m);
+            series.Add(new SalesTrendPointDto(date, grossSales, netSales));
+        }
+
+        return series;
     }
 
     private static bool IsAllowedRole(string role) =>
