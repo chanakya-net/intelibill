@@ -210,7 +210,62 @@ public sealed class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(expectedSummary.Summary.NetProfitAfterTax, result.Value.NetProfit);
+        Assert.Null(result.Value.NetProfitChangePercent);
         Assert.NotEqual(20m, result.Value.NetProfit);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPositiveNetProfitChange_PopulatesPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 150m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 100m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(50m, result.Value.NetProfitChangePercent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNegativeNetProfitChange_PopulatesPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 75m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 150m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(-50m, result.Value.NetProfitChangePercent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPreviousNetProfitZero_ReturnsNullPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 150m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 0m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.NetProfitChangePercent);
     }
 
     [Fact]
@@ -653,6 +708,56 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(trend));
     }
 
+    private void ConfigureProfitLossSales(Guid shopId, DateOnly from, DateOnly to, decimal netProfit)
+    {
+        _saleRepository.GetByShopAndDateRangeAsync(
+                shopId,
+                from,
+                to,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>([CreateProfitSale(shopId, from, netProfit)]));
+    }
+
+    private static Sale CreateProfitSale(Guid shopId, DateOnly soldOn, decimal netProfit)
+    {
+        var saleItem = SaleItem.CreateGoods(
+            shopId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Item",
+            "BC-001",
+            1m,
+            0m,
+            netProfit,
+            netProfit,
+            0m,
+            false,
+            false,
+            totalAmount: netProfit);
+
+        return Sale.Create(
+            shopId,
+            $"INV-{soldOn:yyyyMMdd}",
+            null,
+            "Customer",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(soldOn.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            netProfit,
+            0m,
+            netProfit,
+            0m,
+            [saleItem]);
+    }
+
+    private static (DateOnly From, DateOnly To) GetPreviousPeriodRange(DateOnly appliedFrom, DateOnly appliedTo)
+    {
+        var rangeLength = appliedTo.DayNumber - appliedFrom.DayNumber + 1;
+        var previousTo = appliedFrom.AddDays(-1);
+        var previousFrom = previousTo.AddDays(-(rangeLength - 1));
+        return (previousFrom, previousTo);
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -665,6 +770,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.ProfitBeforeTax);
         Assert.Equal(0m, dto.ProfitAfterTax);
         Assert.Equal(0m, dto.NetProfit);
+        Assert.Null(dto.NetProfitChangePercent);
         Assert.Equal(0m, dto.ExpenseRecorded);
         Assert.Equal(0m, dto.ExpenseCorrection);
         Assert.Equal(0m, dto.NetExpense);
@@ -696,8 +802,9 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.NotNull(dto.PaymentMixTrendSeries);
         Assert.Empty(dto.PaymentMixTrendSeries);
         Assert.NotNull(dto.PreviousPeriodSummary);
-        Assert.Equal(dto.StartDate, dto.PreviousPeriodSummary!.StartDate);
-        Assert.Equal(dto.EndDate, dto.PreviousPeriodSummary.EndDate);
+        var previousPeriod = GetPreviousPeriodRange(dto.StartDate, dto.EndDate);
+        Assert.Equal(previousPeriod.From, dto.PreviousPeriodSummary!.StartDate);
+        Assert.Equal(previousPeriod.To, dto.PreviousPeriodSummary.EndDate);
         Assert.Equal(0, dto.PreviousPeriodSummary.SalesCount);
         Assert.NotNull(dto.LatestSales);
         Assert.Empty(dto.LatestSales);

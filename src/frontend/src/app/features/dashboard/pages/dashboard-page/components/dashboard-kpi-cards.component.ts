@@ -1,5 +1,5 @@
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
 import { DashboardDto } from '../../../services/dashboard.models';
 
@@ -7,6 +7,7 @@ import { DashboardDto } from '../../../services/dashboard.models';
   selector: 'app-dashboard-kpi-cards',
   standalone: true,
   imports: [CurrencyPipe, DecimalPipe],
+  styleUrl: './dashboard-kpi-cards.component.scss',
   template: `
     <div class="kpi-cards">
       <div class="kpi-card" data-testid="sales-revenue-card">
@@ -26,6 +27,17 @@ import { DashboardDto } from '../../../services/dashboard.models';
         <span class="kpi-value" data-testid="net-profit-value">
           {{ dashboard()?.netProfit | currency: 'INR' : 'symbol' : '1.2-2' }}
         </span>
+        @if (netProfitChangePercent() !== null) {
+          <span
+            class="kpi-change"
+            data-testid="net-profit-change-value"
+            [class.kpi-change--positive]="netProfitChangePercent()! > 0"
+            [class.kpi-change--negative]="netProfitChangePercent()! < 0"
+          >
+            {{ netProfitChangePercent()! > 0 ? '+' : '' }}{{ netProfitChangePercent() | number: '1.2-2' }}%
+            vs previous period
+          </span>
+        }
       </div>
       <div class="kpi-card" data-testid="low-stock-items-card">
         <span class="kpi-label">Low Stock Items</span>
@@ -38,4 +50,5 @@ import { DashboardDto } from '../../../services/dashboard.models';
 })
 export class DashboardKpiCardsComponent {
   readonly dashboard = input<DashboardDto | null>(null);
+  readonly netProfitChangePercent = computed(() => this.dashboard()?.netProfitChangePercent ?? null);
 }

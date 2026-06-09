@@ -81,6 +81,7 @@ export interface DashboardDto {
   profitBeforeTax: number | null;
   profitAfterTax: number | null;
   netProfit: number | null;
+  netProfitChangePercent: number | null;
   expenseRecorded: number | null;
   expenseCorrection: number | null;
   netExpense: number | null;

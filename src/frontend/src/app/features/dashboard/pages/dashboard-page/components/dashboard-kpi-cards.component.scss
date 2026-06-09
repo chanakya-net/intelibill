@@ -1,0 +1,15 @@
+.kpi-change {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  color: var(--text-color-secondary);
+}
+
+.kpi-change--positive {
+  color: var(--green-600, #16a34a);
+}
+
+.kpi-change--negative {
+  color: var(--red-600, #dc2626);
+}

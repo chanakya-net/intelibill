@@ -1,3 +1,5 @@
+import '@angular/compiler';
+
 import { CurrencyPipe } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -21,6 +23,7 @@ const stubDashboard: DashboardDto = {
   profitBeforeTax: null,
   profitAfterTax: null,
   netProfit: 0,
+  netProfitChangePercent: null,
   expenseRecorded: null,
   expenseCorrection: null,
   netExpense: null,
@@ -124,6 +127,28 @@ describe('DashboardKpiCardsComponent', () => {
 
     const card = fixture.nativeElement.querySelector('[data-testid="net-profit-card"]');
     expect(card).toBeTruthy();
+  });
+
+  it.each([
+    { netProfitChangePercent: 12.5, expected: '+12.50% vs previous period' },
+    { netProfitChangePercent: -8.75, expected: '-8.75% vs previous period' },
+    { netProfitChangePercent: 0, expected: '0.00% vs previous period' },
+  ])('displays net profit change when present', ({ netProfitChangePercent, expected }) => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfitChangePercent });
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-change-value"]');
+    expect(valueEl?.textContent?.trim()).toBe(expected);
+  });
+
+  it('hides net profit change when null', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfitChangePercent: null });
+    fixture.detectChanges();
+
+    const valueEl = fixture.nativeElement.querySelector('[data-testid="net-profit-change-value"]');
+    expect(valueEl).toBeNull();
   });
 
   it('displays low stock items value', () => {
