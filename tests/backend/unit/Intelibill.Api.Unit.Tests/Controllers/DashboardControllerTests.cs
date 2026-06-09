@@ -23,14 +23,15 @@ public sealed class DashboardControllerTests
     }
 
     [Fact]
-    public async Task GetDashboard_WhenAuthenticated_InvokesQueryAndReturnsOk()
+    public async Task GetDashboard_WhenOwner_InvokesQueryAndReturnsOk()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var dto = CreateDashboardDto();
         SetUserClaims(
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+            new Claim("active_shop_id", shopId.ToString()),
+            new Claim("active_shop_role", "Owner"));
         ArrangeBusResponse(dto);
 
         var result = await _controller.GetDashboard(null, null, CancellationToken.None);
@@ -43,7 +44,35 @@ public sealed class DashboardControllerTests
                 query.UserId == userId
                 && query.ShopId == shopId
                 && query.From == null
-                && query.To == null),
+                && query.To == null
+                && query.Role == "Owner"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetDashboard_WhenManager_InvokesQueryAndReturnsOk()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var dto = CreateDashboardDto();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()),
+            new Claim("active_shop_role", "Manager"));
+        ArrangeBusResponse(dto);
+
+        var result = await _controller.GetDashboard(null, null, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<DashboardDto>>(
+            Arg.Is<GetDashboardQuery>(query =>
+                query.UserId == userId
+                && query.ShopId == shopId
+                && query.From == null
+                && query.To == null
+                && query.Role == "Manager"),
             Arg.Any<CancellationToken>());
     }
 
@@ -56,7 +85,8 @@ public sealed class DashboardControllerTests
         var to = new DateOnly(2026, 5, 31);
         SetUserClaims(
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+            new Claim("active_shop_id", shopId.ToString()),
+            new Claim("active_shop_role", "Owner"));
         ArrangeBusResponse(CreateDashboardDto(from, to));
 
         await _controller.GetDashboard(from, to, CancellationToken.None);
@@ -69,7 +99,9 @@ public sealed class DashboardControllerTests
     [Fact]
     public async Task GetDashboard_WhenNoActiveShop_ReturnsBadRequest()
     {
-        SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new Claim("active_shop_role", "Owner"));
 
         var result = await _controller.GetDashboard(null, null, CancellationToken.None);
 

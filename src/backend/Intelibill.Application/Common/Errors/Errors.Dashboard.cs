@@ -14,5 +14,8 @@ public static partial class Errors
 
         public static Error DateRangeTooLarge =>
             Error.Validation("Dashboard.DateRangeTooLarge", "The date range cannot exceed 90 days.");
+
+        public static Error UserIsNotOwnerOrManager =>
+            Error.Forbidden("Dashboard.UserIsNotOwnerOrManager", "Only owner or manager can access dashboard data.");
     }
 }

@@ -1,17 +1,29 @@
+using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Domain.Interfaces.Repositories;
+using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
 public sealed class GetDashboardQueryHandlerTests
 {
-    private readonly GetDashboardQueryHandler _handler = new();
+    private static readonly SalesHistorySummaryReadModel DefaultSummary = new(0m, 0, 0m);
+
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly GetDashboardQueryHandler _handler;
+
+    public GetDashboardQueryHandlerTests()
+    {
+        _handler = new GetDashboardQueryHandler(_saleRepository);
+        ConfigureSummary(DefaultSummary);
+    }
 
     [Fact]
     public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndEmptyShape()
     {
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
         var before = DateTimeOffset.UtcNow;
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
@@ -21,6 +33,11 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.InRange(result.Value.GeneratedAt, before, after);
         Assert.Equal(result.Value.EndDate.AddDays(-29), result.Value.StartDate);
         AssertSkeletonShape(result.Value);
+        await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            result.Value.StartDate,
+            result.Value.EndDate,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -28,7 +45,7 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var from = new DateOnly(2026, 5, 1);
         var to = new DateOnly(2026, 5, 31);
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Manager");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
@@ -36,12 +53,45 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(from, result.Value.StartDate);
         Assert.Equal(to, result.Value.EndDate);
         AssertSkeletonShape(result.Value);
+        await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSummaryData_PopulatesInvoiceCountAndRevenue()
+    {
+        var summary = new SalesHistorySummaryReadModel(412.75m, 18, 12.25m);
+        ConfigureSummary(summary);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(18, result.Value.SalesCount);
+        Assert.False(result.Value.HasNoSalesActivity);
+        Assert.Equal(412.75m, result.Value.NetSalesBooked);
+        Assert.Equal(0m, result.Value.SalesBooked);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithStaffRole_ReturnsForbidden()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Staff");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.UserIsNotOwnerOrManager.Code, result.FirstError.Code);
     }
 
     [Fact]
     public async Task HandleAsync_WithOnlyFromDate_ReturnsPartialDateRangeError()
     {
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 1), null);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 1), null, "Owner");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
@@ -53,7 +103,7 @@ public sealed class GetDashboardQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WithOnlyToDate_ReturnsPartialDateRangeError()
     {
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, new DateOnly(2026, 5, 31));
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, new DateOnly(2026, 5, 31), "Owner");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
@@ -65,7 +115,7 @@ public sealed class GetDashboardQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WithFromGreaterThanTo_ReturnsInvalidDateRangeError()
     {
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 1));
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 1), "Owner");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
@@ -79,7 +129,7 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var from = new DateOnly(2026, 1, 1);
         var to = from.AddDays(91);
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
@@ -93,13 +143,23 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var from = new DateOnly(2026, 1, 1);
         var to = from.AddDays(89);
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Manager");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(from, result.Value.StartDate);
         Assert.Equal(to, result.Value.EndDate);
+    }
+
+    private void ConfigureSummary(SalesHistorySummaryReadModel summary)
+    {
+        _saleRepository.GetHistorySummaryAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(summary));
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)
