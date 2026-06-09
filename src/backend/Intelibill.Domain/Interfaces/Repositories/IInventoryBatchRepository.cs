@@ -18,10 +18,3 @@ public interface IInventoryBatchRepository : IRepository<InventoryBatch>
     Task<IReadOnlyList<InventoryBatch>> SearchAvailableByProductNameOrBatchNumberAsync(Guid shopId, string searchTerm, CancellationToken cancellationToken = default);
     Task<decimal> GetCurrentStockValueByShopAsync(Guid shopId, CancellationToken cancellationToken = default);
 }
-
-public sealed record ExpiringBatchAlertReadModel(
-    Guid InventoryBatchId,
-    string ItemName,
-    string BatchNumber,
-    DateOnly ExpiryDate,
-    decimal Quantity);

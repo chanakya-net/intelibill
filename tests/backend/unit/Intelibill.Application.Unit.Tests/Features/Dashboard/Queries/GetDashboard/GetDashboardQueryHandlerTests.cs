@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
+using System.Globalization;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
@@ -196,19 +197,20 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var shopId = Guid.NewGuid();
         var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var expiringAlerts = new[]
         {
             new ExpiringBatchAlertReadModel(
                 Guid.NewGuid(),
                 "Rice",
                 "B-002",
-                new DateOnly(2026, 6, 12),
+                today.AddDays(2),
                 10m),
             new ExpiringBatchAlertReadModel(
                 Guid.NewGuid(),
                 "Milk",
                 "B-001",
-                new DateOnly(2026, 6, 10),
+                today.AddDays(1),
                 4m),
         };
         ConfigureExpiringBatchAlerts(expiringAlerts);
@@ -217,14 +219,16 @@ public sealed class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(2, result.Value.Alerts.Count);
+        var riceExpiryDate = today.AddDays(2).ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+        var milkExpiryDate = today.AddDays(1).ToString("d MMM yyyy", CultureInfo.InvariantCulture);
         Assert.Equal("ExpiringBatch", result.Value.Alerts[0].AlertType);
         Assert.Equal("Expiring batch", result.Value.Alerts[0].Title);
-        Assert.Equal("Rice batch B-002 expires on 12 Jun 2026.", result.Value.Alerts[0].Message);
+        Assert.Equal($"Rice batch B-002 expires on {riceExpiryDate}.", result.Value.Alerts[0].Message);
         Assert.Equal("Review batches", result.Value.Alerts[0].ActionLabel);
         Assert.Equal("/inventory/batches", result.Value.Alerts[0].ActionRoute);
         Assert.Equal("ExpiringBatch", result.Value.Alerts[1].AlertType);
         Assert.Equal("Expiring batch", result.Value.Alerts[1].Title);
-        Assert.Equal("Milk batch B-001 expires on 10 Jun 2026.", result.Value.Alerts[1].Message);
+        Assert.Equal($"Milk batch B-001 expires on {milkExpiryDate}.", result.Value.Alerts[1].Message);
         Assert.Equal("Review batches", result.Value.Alerts[1].ActionLabel);
         Assert.Equal("/inventory/batches", result.Value.Alerts[1].ActionRoute);
 
@@ -232,6 +236,31 @@ public sealed class GetDashboardQueryHandlerTests
             shopId,
             Arg.Any<DateOnly>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithBatchExpiringToday_ProducesTodayMessage()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        ConfigureExpiringBatchAlerts(
+            [
+                new ExpiringBatchAlertReadModel(
+                    Guid.NewGuid(),
+                    "Milk",
+                    "B-001",
+                    today,
+                    4m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var alert = Assert.Single(result.Value.Alerts);
+        Assert.Equal("ExpiringBatch", alert.AlertType);
+        Assert.Equal(0, alert.Priority);
+        Assert.Equal("Milk batch B-001 expires today.", alert.Message);
     }
 
     [Fact]
