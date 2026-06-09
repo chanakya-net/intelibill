@@ -1,11 +1,15 @@
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Domain.Interfaces.Repositories;
+using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
 public sealed class GetDashboardQueryHandlerTests
 {
-    private readonly GetDashboardQueryHandler _handler = new();
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+
+    private GetDashboardQueryHandler CreateHandler() => new(_saleRepository);
 
     [Fact]
     public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndEmptyShape()
@@ -13,13 +17,17 @@ public sealed class GetDashboardQueryHandlerTests
         var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null);
         var before = DateTimeOffset.UtcNow;
 
-        var result = await _handler.HandleAsync(query, CancellationToken.None);
+        _saleRepository.GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<DashboardLatestSaleReadModel>());
+
+        var result = await CreateHandler().HandleAsync(query, CancellationToken.None);
 
         var after = DateTimeOffset.UtcNow;
         Assert.False(result.IsError);
         Assert.InRange(result.Value.GeneratedAt, before, after);
         Assert.Equal(result.Value.EndDate.AddDays(-29), result.Value.StartDate);
         AssertSkeletonShape(result.Value);
+        await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -29,12 +37,39 @@ public sealed class GetDashboardQueryHandlerTests
         var to = new DateOnly(2026, 5, 31);
         var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
 
-        var result = await _handler.HandleAsync(query, CancellationToken.None);
+        _saleRepository.GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<DashboardLatestSaleReadModel>());
+
+        var result = await CreateHandler().HandleAsync(query, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(from, result.Value.StartDate);
         Assert.Equal(to, result.Value.EndDate);
         AssertSkeletonShape(result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_IncludesLatestSales_RegardlessOfDashboardRange()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+        var latestSales = new[]
+        {
+            new DashboardLatestSaleReadModel(Guid.NewGuid(), "INV-003", "Walk-in Customer", new DateTimeOffset(2026, 5, 31, 15, 45, 0, TimeSpan.Zero), 980m),
+            new DashboardLatestSaleReadModel(Guid.NewGuid(), "INV-002", "Arun Kumar", new DateTimeOffset(2026, 5, 30, 11, 15, 0, TimeSpan.Zero), 1200m),
+        };
+
+        _saleRepository.GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>())
+            .Returns(latestSales);
+
+        var result = await CreateHandler().HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            latestSales.Select(s => new DashboardLatestSaleDto(s.SaleId, s.InvoiceNumber, s.CustomerDisplayName, s.SoldAt, s.TotalAmount)),
+            result.Value.LatestSales);
+        await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)
@@ -78,5 +113,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(dto.StartDate, dto.PreviousPeriodSummary!.StartDate);
         Assert.Equal(dto.EndDate, dto.PreviousPeriodSummary.EndDate);
         Assert.Equal(0, dto.PreviousPeriodSummary.SalesCount);
+        Assert.NotNull(dto.LatestSales);
+        Assert.Empty(dto.LatestSales);
     }
 }

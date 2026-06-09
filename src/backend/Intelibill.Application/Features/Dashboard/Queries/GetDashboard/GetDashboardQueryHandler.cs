@@ -1,16 +1,17 @@
 using ErrorOr;
 using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
-public sealed class GetDashboardQueryHandler
+public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
 {
-#pragma warning disable CA1822 // Skeleton: repository dependencies will be injected in the aggregation phase
-    public Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
+    public async Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var appliedTo = query.To ?? today;
         var appliedFrom = query.From ?? appliedTo.AddDays(-29);
+        var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -48,9 +49,14 @@ public sealed class GetDashboardQueryHandler
                 NetSalesBooked: 0m,
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
-                CreditSalesPercentage: 0m));
+                CreditSalesPercentage: 0m),
+            LatestSales: latestSales.Select(s => new DashboardLatestSaleDto(
+                s.SaleId,
+                s.InvoiceNumber,
+                s.CustomerDisplayName,
+                s.SoldAt,
+                s.TotalAmount)).ToList());
 
-        return Task.FromResult<ErrorOr<DashboardDto>>(result);
+        return result;
     }
-#pragma warning restore CA1822
 }

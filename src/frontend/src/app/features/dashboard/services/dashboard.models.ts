@@ -54,6 +54,14 @@ export interface StockShortageItemDto {
   shortage: number;
 }
 
+export interface LatestSaleDto {
+  saleId: string;
+  invoiceNumber: string;
+  customerDisplayName: string;
+  soldAt: string;
+  totalAmount: number;
+}
+
 export interface DashboardDto {
   generatedAt: string;
   startDate: string;
@@ -83,6 +91,7 @@ export interface DashboardDto {
   profitTrendSeries: ProfitTrendPointDto[] | null;
   paymentMixTrendSeries: PaymentMixTrendPointDto[] | null;
   previousPeriodSummary: PreviousPeriodSummaryDto | null;
+  latestSales: LatestSaleDto[];
 }
 
 export interface DashboardQueryParams {
