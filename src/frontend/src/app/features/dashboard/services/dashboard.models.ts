@@ -93,6 +93,7 @@ export interface DashboardDto {
   paymentMixTrendSeries: PaymentMixTrendPointDto[] | null;
   previousPeriodSummary: PreviousPeriodSummaryDto | null;
   latestSales: LatestSaleDto[];
+  stockValue: number | null;
 }
 
 export interface DashboardQueryParams {

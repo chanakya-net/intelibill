@@ -41,6 +41,11 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
             <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
           </div>
 
+          <div class="kpi-card stock-value-kpi" data-testid="stock-value-kpi">
+            <span class="kpi-label">Stock Value</span>
+            <span class="kpi-value">{{ formattedStockValue() }}</span>
+          </div>
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
@@ -114,6 +119,11 @@ export class DashboardPageComponent {
     }
 
     return `Sales count: ${dashboard.salesCount}`;
+  });
+  readonly formattedStockValue = computed(() => {
+    const d = this.dashboard();
+    const value = d?.stockValue ?? 0;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
   });
 
   constructor() {

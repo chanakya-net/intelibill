@@ -99,4 +99,16 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
             .ThenBy(b => b.BatchNumber)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<decimal> GetCurrentStockValueByShopAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeBatches = await DbSet
+            .AsNoTracking()
+            .Where(b => b.ShopId == shopId && !b.IsVoided && b.Quantity > 0)
+            .ToListAsync(cancellationToken);
+
+        return activeBatches.Sum(b => b.Quantity * b.GetProfitCostPrice());
+    }
 }

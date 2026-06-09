@@ -169,7 +169,8 @@ public sealed class DashboardControllerTests
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
                 CreditSalesPercentage: 0m),
-            LatestSales: Array.Empty<DashboardLatestSaleDto>());
+            LatestSales: Array.Empty<DashboardLatestSaleDto>(),
+            StockValue: 0m);
     }
 
     private void ArrangeBusResponse(ErrorOr<DashboardDto> response)

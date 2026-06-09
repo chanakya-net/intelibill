@@ -37,6 +37,7 @@ const stubDashboard: DashboardDto = {
   paymentMixTrendSeries: null,
   previousPeriodSummary: null,
   latestSales: [],
+  stockValue: null,
 };
 
 const expectedSalesRevenue = new CurrencyPipe('en-US').transform(

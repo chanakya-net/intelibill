@@ -12,14 +12,16 @@ public sealed class GetDashboardQueryHandlerTests
 
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
+    private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
     {
-        _handler = new GetDashboardQueryHandler(_saleRepository, _expenseRepository);
+        _handler = new GetDashboardQueryHandler(_saleRepository, _expenseRepository, _inventoryBatchRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
+        ConfigureStockValue(0m);
     }
 
     [Fact]
@@ -101,6 +103,43 @@ public sealed class GetDashboardQueryHandlerTests
             latestSales.Select(s => new DashboardLatestSaleDto(s.SaleId, s.InvoiceNumber, s.CustomerDisplayName, s.SoldAt, s.TotalAmount)),
             result.Value.LatestSales);
         await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithActiveBatches_PopulatesStockValue()
+    {
+        ConfigureStockValue(12500.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(12500.50m, result.Value.StockValue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoActiveBatches_StockValueIsZero()
+    {
+        ConfigureStockValue(0m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.StockValue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StockValueCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryBatchRepository.Received(1).GetCurrentStockValueByShopAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -294,6 +333,13 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(sum));
     }
 
+    private void ConfigureStockValue(decimal value)
+    {
+        _inventoryBatchRepository
+            .GetCurrentStockValueByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(value));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -338,5 +384,6 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0, dto.PreviousPeriodSummary.SalesCount);
         Assert.NotNull(dto.LatestSales);
         Assert.Empty(dto.LatestSales);
+        Assert.Equal(0m, dto.StockValue);
     }
 }

@@ -50,6 +50,7 @@ describe('DashboardPageComponent', () => {
     paymentMixTrendSeries: [],
     previousPeriodSummary: null,
     latestSales: [],
+    stockValue: null,
     ...overrides,
   });
 
@@ -230,5 +231,26 @@ describe('DashboardPageComponent', () => {
     expect(host.textContent).toContain('Walk-in Customer');
     expect(host.textContent).toContain('1,250.00');
     expect(host.textContent).toContain('Asha');
+  });
+
+  it('renders stock value KPI card with formatted currency', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ stockValue: 24750.5 })));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const kpiCard: HTMLElement = fixture.nativeElement.querySelector('[data-testid="stock-value-kpi"]');
+    expect(kpiCard).not.toBeNull();
+    const kpiValue = kpiCard.querySelector('.kpi-value')?.textContent ?? '';
+    expect(kpiValue).toContain('24,750');
+  });
+
+  it('formats stock value null as zero currency', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ stockValue: null })));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.formattedStockValue()).toContain('0');
   });
 });

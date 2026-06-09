@@ -30,4 +30,5 @@ public sealed record DashboardDto(
     IReadOnlyList<ProfitTrendPointDto>? ProfitTrendSeries,
     IReadOnlyList<PaymentMixTrendPointDto>? PaymentMixTrendSeries,
     PreviousPeriodSummaryDto? PreviousPeriodSummary,
-    IReadOnlyList<DashboardLatestSaleDto> LatestSales);
+    IReadOnlyList<DashboardLatestSaleDto> LatestSales,
+    decimal? StockValue);
