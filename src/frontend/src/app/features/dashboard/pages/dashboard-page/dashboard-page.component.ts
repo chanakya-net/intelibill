@@ -29,8 +29,7 @@ export class DashboardPageComponent {
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
   readonly activeShopLabel = computed(() => {
-    const session = this.authService.session();
-    const activeShop = session?.shops.find((shop) => shop.shopId === session.activeShopId) ?? session?.shops.find((shop) => shop.isDefault) ?? null;
+    const activeShop = this.permissions.activeShop();
 
     if (!activeShop) {
       return 'No active shop';

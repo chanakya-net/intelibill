@@ -11,10 +11,13 @@ import { DashboardService } from '../../services/dashboard.service';
 import { DashboardPageComponent } from './dashboard-page.component';
 
 describe('DashboardPageComponent', () => {
-  const sessionSignal = signal({
-    activeShopId: 'shop-1',
-    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
-  } as never);
+  const createSession = (role: 'Owner' | 'Manager' | 'Staff') =>
+    ({
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
+    }) as never;
+
+  const sessionSignal = signal(createSession('Owner'));
 
   const authService = {
     session: sessionSignal,
@@ -35,10 +38,7 @@ describe('DashboardPageComponent', () => {
     dashboardService.getDashboard.mockReset();
     router.navigateByUrl.mockClear();
 
-    sessionSignal.set({
-      activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
-    } as never);
+    sessionSignal.set(createSession('Owner'));
 
     TestBed.configureTestingModule({
       imports: [DashboardPageComponent],
@@ -54,7 +54,8 @@ describe('DashboardPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('loads dashboard data for owner and manager roles', () => {
+  it.each(['Owner', 'Manager'] as const)('loads dashboard data for %s roles', (role) => {
+    sessionSignal.set(createSession(role));
     dashboardService.getDashboard.mockReturnValue(
       of({
         generatedAt: '2026-06-09T10:30:00Z',
