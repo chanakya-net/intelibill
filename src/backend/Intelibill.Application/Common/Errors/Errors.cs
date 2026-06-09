@@ -19,15 +19,4 @@ public static partial class Errors
             Error.Unexpected("General.Unexpected", description);
     }
 
-    public static class Dashboard
-    {
-        public static readonly Error InvalidDateRange =
-            Error.Validation("Dashboard.InvalidDateRange", "Start date must be on or before end date.");
-
-        public static readonly Error RangeExceeds90Days =
-            Error.Validation("Dashboard.RangeExceeds90Days", "Date range must not exceed 90 days.");
-
-        public static readonly Error FutureDateNotAllowed =
-            Error.Validation("Dashboard.FutureDateNotAllowed", "End date must not be in the future.");
-    }
 }

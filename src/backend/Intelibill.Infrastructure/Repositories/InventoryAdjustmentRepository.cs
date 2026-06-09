@@ -68,26 +68,6 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
             .OrderByDescending(a => a.PerformedAt)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<InventoryAdjustment>> GetDashboardLossesByShopAndDateRangeAsync(
-        Guid shopId,
-        DateOnly startDate,
-        DateOnly endDate,
-        CancellationToken cancellationToken = default)
-    {
-        var start = ToUtcStart(startDate);
-        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
-
-        return await DbSet
-            .AsNoTracking()
-            .Where(a => a.ShopId == shopId
-                && a.Direction == InventoryAdjustmentDirection.Decrease
-                && !a.IsVoided
-                && a.PerformedAt >= start
-                && a.PerformedAt < exclusiveEnd)
-            .OrderByDescending(a => a.PerformedAt)
-            .ToListAsync(cancellationToken);
-    }
-
     private static DateTime ToUtcStart(DateOnly utcDate) =>
         DateTime.SpecifyKind(utcDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
