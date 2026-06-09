@@ -5,7 +5,9 @@ using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
-public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
+public sealed class GetDashboardQueryHandler(
+    ISaleRepository saleRepository,
+    IInventoryBatchRepository inventoryBatchRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -24,6 +26,7 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
+        var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -61,7 +64,8 @@ public sealed class GetDashboardQueryHandler(ISaleRepository saleRepository)
                 NetSalesBooked: 0m,
                 ProfitAfterTax: 0m,
                 NetExpense: 0m,
-                CreditSalesPercentage: 0m));
+                CreditSalesPercentage: 0m),
+            StockValue: stockValue);
 
         return result;
     }

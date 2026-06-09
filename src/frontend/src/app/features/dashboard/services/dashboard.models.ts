@@ -83,6 +83,7 @@ export interface DashboardDto {
   profitTrendSeries: ProfitTrendPointDto[] | null;
   paymentMixTrendSeries: PaymentMixTrendPointDto[] | null;
   previousPeriodSummary: PreviousPeriodSummaryDto | null;
+  stockValue: number | null;
 }
 
 export interface DashboardQueryParams {

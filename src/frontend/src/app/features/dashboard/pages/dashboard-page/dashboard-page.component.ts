@@ -16,6 +16,14 @@ import { DashboardService } from '../../services/dashboard.service';
         <p>{{ activeShopLabel() }}</p>
       </header>
       <p>{{ isLoading() ? 'Loading dashboard data...' : dashboardStatus() }}</p>
+      @if (dashboard(); as d) {
+        <div class="kpi-cards">
+          <div class="kpi-card" data-testid="stock-value-kpi">
+            <span class="kpi-label">Stock Value</span>
+            <span class="kpi-value">{{ formattedStockValue() }}</span>
+          </div>
+        </div>
+      }
     </section>
   `,
 })
@@ -48,6 +56,11 @@ export class DashboardPageComponent {
     }
 
     return `Sales count: ${dashboard.salesCount}`;
+  });
+  readonly formattedStockValue = computed(() => {
+    const d = this.dashboard();
+    const value = d?.stockValue ?? 0;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
   });
 
   constructor() {

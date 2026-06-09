@@ -86,6 +86,7 @@ describe('DashboardPageComponent', () => {
         profitTrendSeries: [],
         paymentMixTrendSeries: [],
         previousPeriodSummary: null,
+        stockValue: null,
       })
     );
 
@@ -111,5 +112,90 @@ describe('DashboardPageComponent', () => {
     expect(dashboardService.getDashboard).not.toHaveBeenCalled();
     expect(fixture.componentInstance.isLoading()).toBe(false);
     expect(fixture.componentInstance.dashboard()).toBeNull();
+  });
+
+  it('renders stock value KPI card with formatted currency', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of({
+        generatedAt: '2026-06-09T10:30:00Z',
+        startDate: '2026-06-01',
+        endDate: '2026-06-09',
+        salesCount: 0,
+        hasNoSalesActivity: true,
+        salesBooked: 0,
+        netSalesBooked: 0,
+        wastageCost: 0,
+        cashCollected: 0,
+        profitBeforeTax: 0,
+        profitAfterTax: 0,
+        expenseRecorded: 0,
+        expenseCorrection: 0,
+        netExpense: 0,
+        creditSalesAmount: 0,
+        creditSalesPercentage: 0,
+        paymentMix: null,
+        creditShareWarning: false,
+        runningLowStockCount: 0,
+        criticalStockCount: 0,
+        rankedShortageList: [],
+        highestDueCustomer: null,
+        topFiveDueCustomers: [],
+        alerts: [],
+        salesTrendSeries: [],
+        profitTrendSeries: [],
+        paymentMixTrendSeries: [],
+        previousPeriodSummary: null,
+        stockValue: 24750.5,
+      })
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const kpiCard: HTMLElement = fixture.nativeElement.querySelector('[data-testid="stock-value-kpi"]');
+    expect(kpiCard).not.toBeNull();
+    const kpiValue = kpiCard.querySelector('.kpi-value')?.textContent ?? '';
+    expect(kpiValue).toContain('24,750');
+  });
+
+  it('formats stock value null as zero currency', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of({
+        generatedAt: '2026-06-09T10:30:00Z',
+        startDate: '2026-06-01',
+        endDate: '2026-06-09',
+        salesCount: 0,
+        hasNoSalesActivity: true,
+        salesBooked: 0,
+        netSalesBooked: 0,
+        wastageCost: 0,
+        cashCollected: 0,
+        profitBeforeTax: 0,
+        profitAfterTax: 0,
+        expenseRecorded: 0,
+        expenseCorrection: 0,
+        netExpense: 0,
+        creditSalesAmount: 0,
+        creditSalesPercentage: 0,
+        paymentMix: null,
+        creditShareWarning: false,
+        runningLowStockCount: 0,
+        criticalStockCount: 0,
+        rankedShortageList: [],
+        highestDueCustomer: null,
+        topFiveDueCustomers: [],
+        alerts: [],
+        salesTrendSeries: [],
+        profitTrendSeries: [],
+        paymentMixTrendSeries: [],
+        previousPeriodSummary: null,
+        stockValue: null,
+      })
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.formattedStockValue()).toContain('0');
   });
 });
