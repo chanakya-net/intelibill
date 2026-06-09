@@ -1,6 +1,10 @@
 export interface DashboardAlertDto {
   alertType: string;
   priority: number;
+  title: string;
+  message: string;
+  actionLabel: string;
+  actionRoute: string;
 }
 
 export interface CustomerDueDto {

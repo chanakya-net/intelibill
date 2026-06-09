@@ -6,7 +6,7 @@ import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
-import { DashboardDto } from '../../services/dashboard.models';
+import { DashboardAlertDto, DashboardDto } from '../../services/dashboard.models';
 import { DashboardService } from '../../services/dashboard.service';
 import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
 
@@ -59,6 +59,39 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
             </div>
           </p-card>
 
+          @if (pendingPurchaseOrderAlerts().length > 0) {
+            <p-card class="alerts-panel">
+              <ng-template pTemplate="header">
+                <div class="alerts-panel__header">
+                  <div>
+                    <p class="alerts-panel__eyebrow">Alerts</p>
+                    <h2>Pending Purchase Orders</h2>
+                  </div>
+                  <span class="alerts-panel__count">{{ pendingPurchaseOrderAlerts().length }}</span>
+                </div>
+              </ng-template>
+
+              <ul class="alerts-list">
+                @for (alert of pendingPurchaseOrderAlerts(); track alert.actionRoute + alert.message) {
+                  <li class="alerts-list__item" data-testid="dashboard-alert-row">
+                    <div class="alerts-list__content">
+                      <span class="alerts-list__title">{{ alert.title }}</span>
+                      <p class="alerts-list__message">{{ alert.message }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="alerts-list__action"
+                      data-testid="dashboard-alert-action"
+                      (click)="openAlert(alert)"
+                    >
+                      {{ alert.actionLabel }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </p-card>
+          }
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">
@@ -107,6 +140,9 @@ export class DashboardPageComponent {
   readonly dashboard = signal<DashboardDto | null>(null);
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
+  readonly pendingPurchaseOrderAlerts = computed(() =>
+    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
+  );
   readonly activeShopLabel = computed(() => {
     const activeShop = this.permissions.activeShop();
 
@@ -162,5 +198,9 @@ export class DashboardPageComponent {
         this.isLoading.set(false);
       },
     });
+  }
+
+  openAlert(alert: DashboardAlertDto): void {
+    void this.router.navigateByUrl(alert.actionRoute);
   }
 }

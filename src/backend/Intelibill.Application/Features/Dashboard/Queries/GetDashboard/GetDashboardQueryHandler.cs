@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
@@ -9,7 +10,8 @@ public sealed class GetDashboardQueryHandler(
     ISaleRepository saleRepository,
     IExpenseRepository expenseRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository)
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    IPurchaseOrderRepository purchaseOrderRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -32,6 +34,9 @@ public sealed class GetDashboardQueryHandler(
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
         var customerCreditDue = await customerLedgerEntryRepository.GetCustomerCreditDueAsync(query.ShopId, cancellationToken);
+        var pendingPurchaseOrderAlerts = await purchaseOrderRepository.GetPendingPurchaseOrderAlertsAsync(
+            query.ShopId,
+            cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -59,7 +64,7 @@ public sealed class GetDashboardQueryHandler(
             RankedShortageList: Array.Empty<StockShortageItemDto>(),
             HighestDueCustomer: new CustomerDueDto(Guid.Empty, string.Empty, 0m),
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
-            Alerts: Array.Empty<DashboardAlertDto>(),
+            Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert).ToList(),
             SalesTrendSeries: Array.Empty<SalesTrendPointDto>(),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
@@ -102,5 +107,24 @@ public sealed class GetDashboardQueryHandler(
         }
 
         return Result.Success;
+    }
+
+    private static DashboardAlertDto MapPendingPurchaseOrderAlert(PendingPurchaseOrderAlertReadModel alert)
+    {
+        var reference = string.IsNullOrWhiteSpace(alert.SupplierName)
+            ? alert.PurchaseOrderNumber
+            : $"{alert.PurchaseOrderNumber} from {alert.SupplierName}";
+
+        var message = alert.Status == PurchaseOrderStatus.PartiallyReceived
+            ? $"{reference} has been partially received."
+            : $"{reference} is waiting for goods receipt.";
+
+        return new DashboardAlertDto(
+            AlertType: "PendingPurchaseOrder",
+            Priority: alert.Status == PurchaseOrderStatus.PartiallyReceived ? 0 : 1,
+            Title: "Pending purchase order",
+            Message: message,
+            ActionLabel: "Review purchase orders",
+            ActionRoute: "/inventory/purchase-orders");
     }
 }

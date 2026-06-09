@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -14,6 +15,7 @@ public sealed class GetDashboardQueryHandlerTests
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly IPurchaseOrderRepository _purchaseOrderRepository = Substitute.For<IPurchaseOrderRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
@@ -22,12 +24,14 @@ public sealed class GetDashboardQueryHandlerTests
             _saleRepository,
             _expenseRepository,
             _inventoryBatchRepository,
-            _customerLedgerEntryRepository);
+            _customerLedgerEntryRepository,
+            _purchaseOrderRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
         ConfigureStockValue(0m);
         ConfigureCustomerCreditDue(0m);
+        ConfigurePendingPurchaseOrderAlerts([]);
     }
 
     [Fact]
@@ -124,6 +128,56 @@ public sealed class GetDashboardQueryHandlerTests
             latestSales.Select(s => new DashboardLatestSaleDto(s.SaleId, s.InvoiceNumber, s.CustomerDisplayName, s.SoldAt, s.TotalAmount)),
             result.Value.LatestSales);
         await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPendingPurchaseOrders_PopulatesAlertRows()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+        var pendingAlerts = new[]
+        {
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1001",
+                "Acme Traders",
+                PurchaseOrderStatus.PartiallyReceived,
+                new DateTimeOffset(2026, 6, 9, 9, 30, 0, TimeSpan.Zero)),
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1000",
+                null,
+                PurchaseOrderStatus.Placed,
+                new DateTimeOffset(2026, 6, 8, 9, 30, 0, TimeSpan.Zero)),
+        };
+        ConfigurePendingPurchaseOrderAlerts(pendingAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "PendingPurchaseOrder",
+                0,
+                "Pending purchase order",
+                "PO-1001 from Acme Traders has been partially received.",
+                "Review purchase orders",
+                "/inventory/purchase-orders"),
+            result.Value.Alerts[0]);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "PendingPurchaseOrder",
+                1,
+                "Pending purchase order",
+                "PO-1000 is waiting for goods receipt.",
+                "Review purchase orders",
+                "/inventory/purchase-orders"),
+            result.Value.Alerts[1]);
+
+        await _purchaseOrderRepository.Received(1).GetPendingPurchaseOrderAlertsAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -365,6 +419,13 @@ public sealed class GetDashboardQueryHandlerTests
     {
         _customerLedgerEntryRepository.GetCustomerCreditDueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(customerCreditDue));
+    }
+
+    private void ConfigurePendingPurchaseOrderAlerts(IReadOnlyList<PendingPurchaseOrderAlertReadModel> alerts)
+    {
+        _purchaseOrderRepository
+            .GetPendingPurchaseOrderAlertsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
     }
 
     private static void AssertSkeletonShape(DashboardDto dto)
