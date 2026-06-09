@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import { ChartData, ChartOptions } from 'chart.js';
 import { CardModule } from 'primeng/card';
@@ -93,19 +94,22 @@ function mapTrendLabels<T extends { date: string }>(points: readonly T[]): strin
   return points.map((point) => point.date);
 }
 
-function buildSalesTrendData(points: readonly SalesTrendPointDto[]): ChartData<'line', number[], string> {
+function buildSalesTrendData(
+  points: readonly SalesTrendPointDto[],
+  labels: { grossSales: string; netSales: string },
+): ChartData<'line', number[], string> {
   return {
     labels: mapTrendLabels(points),
     datasets: [
       {
-        label: 'Gross Sales',
+        label: labels.grossSales,
         data: points.map((point) => point.amount),
         borderColor: chartColors.sales.border,
         backgroundColor: chartColors.sales.background,
         fill: false,
       },
       {
-        label: 'Net Sales',
+        label: labels.netSales,
         data: points.map((point) => point.netAmount),
         borderColor: chartColors.netSales.border,
         backgroundColor: chartColors.netSales.background,
@@ -117,19 +121,20 @@ function buildSalesTrendData(points: readonly SalesTrendPointDto[]): ChartData<'
 
 function buildRevenueVsExpensesData(
   points: readonly RevenueVsExpensesPointDto[],
+  labels: { revenue: string; expenses: string },
 ): ChartData<'line', number[], string> {
   return {
     labels: mapTrendLabels(points),
     datasets: [
       {
-        label: 'Revenue',
+        label: labels.revenue,
         data: points.map((point) => point.revenue),
         borderColor: chartColors.revenue.border,
         backgroundColor: chartColors.revenue.background,
         fill: false,
       },
       {
-        label: 'Expenses',
+        label: labels.expenses,
         data: points.map((point) => point.expenses),
         borderColor: chartColors.expenses.border,
         backgroundColor: chartColors.expenses.background,
@@ -142,15 +147,15 @@ function buildRevenueVsExpensesData(
 @Component({
   selector: 'app-dashboard-chart',
   standalone: true,
-  imports: [CommonModule, CardModule, ChartModule],
+  imports: [CommonModule, CardModule, ChartModule, TranslocoPipe],
   styleUrl: './dashboard-chart.component.scss',
   template: `
-    <section class="dashboard-charts" aria-label="Dashboard charts">
+    <section class="dashboard-charts" [attr.aria-label]="'dashboard.charts.ariaLabel' | transloco">
       <p-card class="dashboard-chart-card">
         <ng-template pTemplate="header">
           <div class="dashboard-chart-card__header">
-            <p class="dashboard-chart-card__eyebrow">Trend</p>
-            <h2>Sales Trend</h2>
+            <p class="dashboard-chart-card__eyebrow">{{ 'dashboard.charts.trend' | transloco }}</p>
+            <h2>{{ 'dashboard.charts.salesTrend' | transloco }}</h2>
           </div>
         </ng-template>
 
@@ -167,8 +172,8 @@ function buildRevenueVsExpensesData(
       <p-card class="dashboard-chart-card">
         <ng-template pTemplate="header">
           <div class="dashboard-chart-card__header">
-            <p class="dashboard-chart-card__eyebrow">Comparison</p>
-            <h2>Revenue vs Expenses</h2>
+            <p class="dashboard-chart-card__eyebrow">{{ 'dashboard.charts.comparison' | transloco }}</p>
+            <h2>{{ 'dashboard.charts.revenueVsExpenses' | transloco }}</h2>
           </div>
         </ng-template>
 
@@ -185,16 +190,24 @@ function buildRevenueVsExpensesData(
   `,
 })
 export class DashboardChartComponent {
+  private readonly transloco = inject(TranslocoService);
+
   readonly dashboard = input<DashboardDto | null>(null);
 
   readonly salesTrendChartOptions = createLineChartOptions();
   readonly revenueVsExpensesChartOptions = createLineChartOptions();
 
   readonly salesTrendChartData = computed(() =>
-    buildSalesTrendData(this.dashboard()?.salesTrendSeries ?? []),
+    buildSalesTrendData(this.dashboard()?.salesTrendSeries ?? [], {
+      grossSales: this.transloco.translate('dashboard.charts.grossSales'),
+      netSales: this.transloco.translate('dashboard.charts.netSales'),
+    }),
   );
 
   readonly revenueVsExpensesChartData = computed(() =>
-    buildRevenueVsExpensesData(this.dashboard()?.revenueVsExpenses ?? []),
+    buildRevenueVsExpensesData(this.dashboard()?.revenueVsExpenses ?? [], {
+      revenue: this.transloco.translate('dashboard.charts.revenue'),
+      expenses: this.transloco.translate('dashboard.charts.expenses'),
+    }),
   );
 }

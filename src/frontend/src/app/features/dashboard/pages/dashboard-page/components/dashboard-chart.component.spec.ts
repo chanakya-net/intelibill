@@ -1,6 +1,7 @@
 import '@angular/compiler';
 
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DashboardChartComponent } from './dashboard-chart.component';
@@ -49,7 +50,7 @@ const stubDashboard: DashboardDto = {
 describe('DashboardChartComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [DashboardChartComponent],
+      imports: [DashboardChartComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
     });
   });
 
@@ -66,8 +67,8 @@ describe('DashboardChartComponent', () => {
     expect(fixture.componentInstance.salesTrendChartData()).toEqual({
       labels: ['2026-06-01', '2026-06-02'],
       datasets: [
-        expect.objectContaining({ label: 'Gross Sales', data: [1200, 1800] }),
-        expect.objectContaining({ label: 'Net Sales', data: [1100, 1650] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [1200, 1800] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.netSales', data: [1100, 1650] }),
       ],
     });
   });
@@ -85,8 +86,8 @@ describe('DashboardChartComponent', () => {
     expect(fixture.componentInstance.revenueVsExpensesChartData()).toEqual({
       labels: ['2026-06-01', '2026-06-02'],
       datasets: [
-        expect.objectContaining({ label: 'Revenue', data: [2400, 3200] }),
-        expect.objectContaining({ label: 'Expenses', data: [900, 1250] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.revenue', data: [2400, 3200] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.expenses', data: [900, 1250] }),
       ],
     });
   });
@@ -102,15 +103,15 @@ describe('DashboardChartComponent', () => {
     expect(fixture.componentInstance.salesTrendChartData()).toEqual({
       labels: [],
       datasets: [
-        expect.objectContaining({ label: 'Gross Sales', data: [] }),
-        expect.objectContaining({ label: 'Net Sales', data: [] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.grossSales', data: [] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.netSales', data: [] }),
       ],
     });
     expect(fixture.componentInstance.revenueVsExpensesChartData()).toEqual({
       labels: [],
       datasets: [
-        expect.objectContaining({ label: 'Revenue', data: [] }),
-        expect.objectContaining({ label: 'Expenses', data: [] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.revenue', data: [] }),
+        expect.objectContaining({ label: 'en.dashboard.charts.expenses', data: [] }),
       ],
     });
   });
