@@ -120,3 +120,7 @@ export const PURCHASE_ORDER_ENDPOINTS = {
   close: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/close`,
   receipts: (id: string) => `${API_BASE_URL}/purchase-orders/${id}/receipts`,
 } as const;
+
+export const DASHBOARD_ENDPOINTS = {
+  overview: `${API_BASE_URL}/dashboard`,
+} as const;
