@@ -36,6 +36,7 @@ public sealed class GetDashboardQueryHandlerTests
         ConfigureStockValue(0m);
         ConfigureCustomerCreditDue(0m);
         ConfigurePendingPurchaseOrderAlerts([]);
+        ConfigureExpiringBatchAlerts([]);
         ConfigureSupplierPayables(0m);
         ConfigureLowStockCount(0);
     }
@@ -183,6 +184,53 @@ public sealed class GetDashboardQueryHandlerTests
 
         await _purchaseOrderRepository.Received(1).GetPendingPurchaseOrderAlertsAsync(
             shopId,
+            Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.Received(1).GetExpiringBatchAlertsAsync(
+            shopId,
+            Arg.Any<DateOnly>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithExpiringBatches_PopulatesAlertRows()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+        var expiringAlerts = new[]
+        {
+            new ExpiringBatchAlertReadModel(
+                Guid.NewGuid(),
+                "Rice",
+                "B-002",
+                new DateOnly(2026, 6, 12),
+                10m),
+            new ExpiringBatchAlertReadModel(
+                Guid.NewGuid(),
+                "Milk",
+                "B-001",
+                new DateOnly(2026, 6, 10),
+                4m),
+        };
+        ConfigureExpiringBatchAlerts(expiringAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal("ExpiringBatch", result.Value.Alerts[0].AlertType);
+        Assert.Equal("Expiring batch", result.Value.Alerts[0].Title);
+        Assert.Equal("Rice batch B-002 expires on 12 Jun 2026.", result.Value.Alerts[0].Message);
+        Assert.Equal("Review batches", result.Value.Alerts[0].ActionLabel);
+        Assert.Equal("/inventory/batches", result.Value.Alerts[0].ActionRoute);
+        Assert.Equal("ExpiringBatch", result.Value.Alerts[1].AlertType);
+        Assert.Equal("Expiring batch", result.Value.Alerts[1].Title);
+        Assert.Equal("Milk batch B-001 expires on 10 Jun 2026.", result.Value.Alerts[1].Message);
+        Assert.Equal("Review batches", result.Value.Alerts[1].ActionLabel);
+        Assert.Equal("/inventory/batches", result.Value.Alerts[1].ActionRoute);
+
+        await _inventoryBatchRepository.Received(1).GetExpiringBatchAlertsAsync(
+            shopId,
+            Arg.Any<DateOnly>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -482,6 +530,13 @@ public sealed class GetDashboardQueryHandlerTests
     {
         _purchaseOrderRepository
             .GetPendingPurchaseOrderAlertsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
+    }
+
+    private void ConfigureExpiringBatchAlerts(IReadOnlyList<ExpiringBatchAlertReadModel> alerts)
+    {
+        _inventoryBatchRepository
+            .GetExpiringBatchAlertsAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(alerts));
     }
 

@@ -66,20 +66,20 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
             </div>
           </p-card>
 
-          @if (pendingPurchaseOrderAlerts().length > 0) {
+          @if (dashboardAlerts().length > 0) {
             <p-card class="alerts-panel">
               <ng-template pTemplate="header">
                 <div class="alerts-panel__header">
                   <div>
                     <p class="alerts-panel__eyebrow">Alerts</p>
-                    <h2>Pending Purchase Orders</h2>
+                    <h2>Dashboard Alerts</h2>
                   </div>
-                  <span class="alerts-panel__count">{{ pendingPurchaseOrderAlerts().length }}</span>
+                  <span class="alerts-panel__count">{{ dashboardAlerts().length }}</span>
                 </div>
               </ng-template>
 
               <ul class="alerts-list">
-                @for (alert of pendingPurchaseOrderAlerts(); track alert.actionRoute + alert.message) {
+                @for (alert of dashboardAlerts(); track alert.actionRoute + alert.message) {
                   <li class="alerts-list__item" data-testid="dashboard-alert-row">
                     <div class="alerts-list__content">
                       <span class="alerts-list__title">{{ alert.title }}</span>
@@ -147,9 +147,7 @@ export class DashboardPageComponent {
   readonly dashboard = signal<DashboardDto | null>(null);
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
-  readonly pendingPurchaseOrderAlerts = computed(() =>
-    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
-  );
+  readonly dashboardAlerts = computed(() => this.dashboard()?.alerts ?? []);
   readonly activeShopLabel = computed(() => {
     const activeShop = this.permissions.activeShop();
 

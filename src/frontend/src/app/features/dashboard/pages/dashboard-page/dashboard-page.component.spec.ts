@@ -304,7 +304,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Pending Purchase Orders');
+    expect(host.textContent).toContain('Dashboard Alerts');
     expect(host.textContent).toContain('PO-1001 from Acme Traders has been partially received.');
     expect(host.textContent).toContain('Review purchase orders');
 
@@ -312,6 +312,39 @@ describe('DashboardPageComponent', () => {
     expect(actionButton).toBeTruthy();
     actionButton?.click();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/purchase-orders');
+  });
+
+  it('renders expiring batch alerts with action button', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'ExpiringBatch',
+              priority: 1,
+              title: 'Expiring batch',
+              message: 'Rice batch B-002 expires on 12 Jun 2026.',
+              actionLabel: 'Review batches',
+              actionRoute: '/inventory/batches',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Dashboard Alerts');
+    expect(host.textContent).toContain('Expiring batch');
+    expect(host.textContent).toContain('Rice batch B-002 expires on 12 Jun 2026.');
+    expect(host.textContent).toContain('Review batches');
+
+    const actionButton = host.querySelector('[data-testid="dashboard-alert-action"]') as HTMLButtonElement | null;
+    expect(actionButton).toBeTruthy();
+    actionButton?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/batches');
   });
 
   it('renders stock value KPI card with formatted currency', () => {
