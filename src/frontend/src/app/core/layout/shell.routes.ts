@@ -19,8 +19,6 @@ import { ExpensesEffects } from '../../features/expenses/state/expenses.effects'
 import { expensesFeature } from '../../features/expenses/state/expenses.reducer';
 import { BankAccountsEffects } from '../../features/bank-accounts/state/bank-accounts.effects';
 import { bankAccountsFeature } from '../../features/bank-accounts/state/bank-accounts.reducer';
-import { DashboardEffects } from '../../features/dashboard/state/dashboard.effects';
-import { dashboardFeature } from '../../features/dashboard/state/dashboard.reducer';
 import { PurchaseOrdersEffects } from '../../features/purchase-orders/state/purchase-orders.effects';
 import { purchaseOrdersFeature } from '../../features/purchase-orders/state/purchase-orders.reducer';
 import { discountsGuard } from '../guards/discounts.guard';
@@ -41,7 +39,6 @@ export const shellRoutes: Routes = [
 			provideState(salesFeature),
 			provideState(expensesFeature),
 			provideState(bankAccountsFeature),
-			provideState(dashboardFeature),
 			provideState(purchaseOrdersFeature),
 			provideEffects(
 				ShopsEffects,
@@ -52,7 +49,6 @@ export const shellRoutes: Routes = [
 				SalesEffects,
 				ExpensesEffects,
 				BankAccountsEffects,
-				DashboardEffects,
 				PurchaseOrdersEffects
 			),
 		],

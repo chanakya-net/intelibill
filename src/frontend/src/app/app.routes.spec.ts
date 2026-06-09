@@ -8,6 +8,7 @@ import { servicesGuard } from './core/guards/services.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
 import { shellRoutes } from './core/layout/shell.routes';
+import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
 
 describe('app routes', () => {
   const authService = {
@@ -78,17 +79,25 @@ describe('app routes', () => {
     expect(result).toBe(true);
   });
 
-  it('blocks other protected shell URLs when API is unreachable', async () => {
+  it('keeps dashboard as a blank shell child route outside offline grace', async () => {
     const shellRoute = routes.find((route) => route.path === '');
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const dashboardRoute = shellRoot?.children?.find((route) => route.path === 'dashboard');
-    const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
 
     expect(shellRoute).toBeDefined();
     expect(dashboardRoute).toBeDefined();
+    expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
+    await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
+  });
+
+  it('blocks other protected shell URLs when API is unreachable', async () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const shellRoot = shellRoutes.find((route) => route.path === '');
+    const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
+
+    expect(shellRoute).toBeDefined();
     expect(servicesRoute).toBeDefined();
     expect(servicesRoute?.canActivate).toContain(servicesGuard);
-    expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
 
     authService.isAuthenticated.mockReturnValue(false);
     authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));
