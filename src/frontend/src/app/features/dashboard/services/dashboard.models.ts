@@ -51,6 +51,12 @@ export interface SalesTrendPointDto {
   netAmount: number;
 }
 
+export interface RevenueVsExpensesPointDto {
+  date: string;
+  revenue: number;
+  expenses: number;
+}
+
 export interface StockShortageItemDto {
   itemName: string;
   quantity: number;
@@ -98,6 +104,7 @@ export interface DashboardDto {
   topFiveDueCustomers: CustomerDueDto[] | null;
   alerts: DashboardAlertDto[];
   salesTrendSeries: SalesTrendPointDto[] | null;
+  revenueVsExpenses?: RevenueVsExpensesPointDto[] | null;
   profitTrendSeries: ProfitTrendPointDto[] | null;
   paymentMixTrendSeries: PaymentMixTrendPointDto[] | null;
   previousPeriodSummary: PreviousPeriodSummaryDto | null;

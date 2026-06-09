@@ -4,11 +4,13 @@ import { Router } from '@angular/router';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { ChartModule } from 'primeng/chart';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
 import { DashboardAlertDto, DashboardDto } from '../../services/dashboard.models';
 import { DashboardService } from '../../services/dashboard.service';
+import { DashboardChartComponent } from './components/dashboard-chart.component';
 import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
 
 type DashboardQuickAction = Readonly<{
@@ -21,7 +23,15 @@ type DashboardQuickAction = Readonly<{
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, ButtonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule],
+  imports: [
+    CommonModule,
+    ButtonModule,
+    CardModule,
+    ChartModule,
+    DashboardChartComponent,
+    DashboardKpiCardsComponent,
+    ProgressSpinnerModule,
+  ],
   styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
@@ -43,6 +53,7 @@ type DashboardQuickAction = Readonly<{
           <p>{{ dashboardStatus() }}</p>
 
           <app-dashboard-kpi-cards [dashboard]="dashboard" />
+          <app-dashboard-chart [dashboard]="dashboard" />
 
           <div class="dashboard-kpis">
             <div class="kpi-card expenses-kpi">
