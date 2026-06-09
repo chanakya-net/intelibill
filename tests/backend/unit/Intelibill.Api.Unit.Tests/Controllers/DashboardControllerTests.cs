@@ -162,6 +162,7 @@ public sealed class DashboardControllerTests
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
             Alerts: Array.Empty<DashboardAlertDto>(),
             SalesTrendSeries: Array.Empty<SalesTrendPointDto>(),
+            RevenueVsExpenses: Array.Empty<RevenueVsExpensesPointDto>(),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
             PreviousPeriodSummary: new PreviousPeriodSummaryDto(

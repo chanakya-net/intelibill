@@ -35,6 +35,7 @@ public sealed class GetDashboardQueryHandler(
 
         var summary = await saleRepository.GetHistorySummaryAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var salesTrendBuckets = await saleRepository.GetDailySalesTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
+        var expenseTrendBuckets = await expenseRepository.GetDailyExpenseTrendAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
@@ -86,6 +87,7 @@ public sealed class GetDashboardQueryHandler(
                 .Concat(lowStockAlerts.Select(MapLowStockAlert))
                 .ToList(),
             SalesTrendSeries: BuildSalesTrendSeries(appliedFrom, appliedTo, salesTrendBuckets),
+            RevenueVsExpenses: BuildRevenueVsExpensesSeries(appliedFrom, appliedTo, salesTrendBuckets, expenseTrendBuckets),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
             PaymentMixTrendSeries: Array.Empty<PaymentMixTrendPointDto>(),
             PreviousPeriodSummary: new PreviousPeriodSummaryDto(
@@ -125,6 +127,30 @@ public sealed class GetDashboardQueryHandler(
             var grossSales = bucket?.GrossSales ?? 0m;
             var netSales = grossSales - (bucket?.ReturnAmount ?? 0m);
             series.Add(new SalesTrendPointDto(date, grossSales, netSales));
+        }
+
+        return series;
+    }
+
+    private static List<RevenueVsExpensesPointDto> BuildRevenueVsExpensesSeries(
+        DateOnly startDate,
+        DateOnly endDate,
+        IReadOnlyList<SalesTrendBucketReadModel> salesBuckets,
+        IReadOnlyList<ExpenseDailyBucketReadModel> expenseBuckets)
+    {
+        var salesBucketByDate = salesBuckets.ToDictionary(bucket => bucket.Date);
+        var expenseBucketByDate = expenseBuckets.ToDictionary(bucket => bucket.Date);
+        var days = endDate.DayNumber - startDate.DayNumber + 1;
+        var series = new List<RevenueVsExpensesPointDto>(days);
+
+        for (var index = 0; index < days; index++)
+        {
+            var date = startDate.AddDays(index);
+            salesBucketByDate.TryGetValue(date, out var salesBucket);
+            expenseBucketByDate.TryGetValue(date, out var expenseBucket);
+
+            var revenue = (salesBucket?.GrossSales ?? 0m) - (salesBucket?.ReturnAmount ?? 0m);
+            series.Add(new RevenueVsExpensesPointDto(date, revenue, expenseBucket?.TotalAmount ?? 0m));
         }
 
         return series;

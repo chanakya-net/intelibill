@@ -31,6 +31,7 @@ public sealed record DashboardDto(
     IReadOnlyList<CustomerDueDto>? TopFiveDueCustomers,
     IReadOnlyList<DashboardAlertDto> Alerts,
     IReadOnlyList<SalesTrendPointDto>? SalesTrendSeries,
+    IReadOnlyList<RevenueVsExpensesPointDto>? RevenueVsExpenses,
     IReadOnlyList<ProfitTrendPointDto>? ProfitTrendSeries,
     IReadOnlyList<PaymentMixTrendPointDto>? PaymentMixTrendSeries,
     PreviousPeriodSummaryDto? PreviousPeriodSummary,
