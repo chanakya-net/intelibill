@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using System.Globalization;
 
 namespace Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 
@@ -63,6 +64,10 @@ public sealed class GetDashboardQueryHandler(
         var netProfitChangePercent = CalculatePercentChange(
             profitLossReport.Summary.NetProfitAfterTax,
             previousProfitLossReport.Summary.NetProfitAfterTax);
+        var expiringBatchAlerts = await inventoryBatchRepository.GetExpiringBatchAlertsAsync(
+            query.ShopId,
+            today,
+            cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -96,6 +101,7 @@ public sealed class GetDashboardQueryHandler(
             TopFiveDueCustomers: Array.Empty<CustomerDueDto>(),
             Alerts: pendingPurchaseOrderAlerts.Select(MapPendingPurchaseOrderAlert)
                 .Concat(lowStockAlerts.Select(MapLowStockAlert))
+                .Concat(expiringBatchAlerts.Select(alert => MapExpiringBatchAlert(alert, today)))
                 .ToList(),
             SalesTrendSeries: BuildSalesTrendSeries(appliedFrom, appliedTo, salesTrendBuckets),
             ProfitTrendSeries: Array.Empty<ProfitTrendPointDto>(),
@@ -205,5 +211,20 @@ public sealed class GetDashboardQueryHandler(
             Message: message,
             ActionLabel: "Review purchase orders",
             ActionRoute: "/inventory/purchase-orders");
+    }
+
+    private static DashboardAlertDto MapExpiringBatchAlert(ExpiringBatchAlertReadModel alert, DateOnly today)
+    {
+        var expiryText = alert.ExpiryDate == today
+            ? "today"
+            : $"on {alert.ExpiryDate.ToString("d MMM yyyy", CultureInfo.InvariantCulture)}";
+
+        return new DashboardAlertDto(
+            AlertType: "ExpiringBatch",
+            Priority: alert.ExpiryDate == today ? 0 : 1,
+            Title: "Expiring batch",
+            Message: $"{alert.ItemName} batch {alert.BatchNumber} expires {expiryText}.",
+            ActionLabel: "Review batches",
+            ActionRoute: "/inventory/batches");
     }
 }

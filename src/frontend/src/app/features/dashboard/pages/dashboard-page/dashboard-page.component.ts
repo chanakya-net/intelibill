@@ -107,6 +107,39 @@ type DashboardQuickAction = Readonly<{
             </p-card>
           }
 
+          @if (expiringBatchAlerts().length > 0) {
+            <p-card class="alerts-panel">
+              <ng-template pTemplate="header">
+                <div class="alerts-panel__header">
+                  <div>
+                    <p class="alerts-panel__eyebrow">Alerts</p>
+                    <h2>Dashboard Alerts</h2>
+                  </div>
+                  <span class="alerts-panel__count">{{ expiringBatchAlerts().length }}</span>
+                </div>
+              </ng-template>
+
+              <ul class="alerts-list">
+                @for (alert of expiringBatchAlerts(); track alert.actionRoute + alert.message) {
+                  <li class="alerts-list__item" data-testid="dashboard-alert-row">
+                    <div class="alerts-list__content">
+                      <span class="alerts-list__title">{{ alert.title }}</span>
+                      <p class="alerts-list__message">{{ alert.message }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="alerts-list__action"
+                      data-testid="dashboard-alert-action"
+                      (click)="openAlert(alert)"
+                    >
+                      {{ alert.actionLabel }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </p-card>
+          }
+
           @if (lowStockAlerts().length > 0) {
             <p-card class="alerts-panel">
               <ng-template pTemplate="header">
@@ -205,6 +238,9 @@ export class DashboardPageComponent {
   readonly errorMessage = signal('');
   readonly pendingPurchaseOrderAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
+  );
+  readonly expiringBatchAlerts = computed(() =>
+    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'ExpiringBatch') ?? [],
   );
   readonly lowStockAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],

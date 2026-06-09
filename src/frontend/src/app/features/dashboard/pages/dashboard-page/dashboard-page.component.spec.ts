@@ -361,6 +361,39 @@ describe('DashboardPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory');
   });
 
+  it('renders expiring batch alerts with action button', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'ExpiringBatch',
+              priority: 1,
+              title: 'Expiring batch',
+              message: 'Rice batch B-002 expires on 12 Jun 2026.',
+              actionLabel: 'Review batches',
+              actionRoute: '/inventory/batches',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Dashboard Alerts');
+    expect(host.textContent).toContain('Expiring batch');
+    expect(host.textContent).toContain('Rice batch B-002 expires on 12 Jun 2026.');
+    expect(host.textContent).toContain('Review batches');
+
+    const actionButton = host.querySelector('[data-testid="dashboard-alert-action"]') as HTMLButtonElement | null;
+    expect(actionButton).toBeTruthy();
+    actionButton?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/batches');
+  });
+
   it('does not render low stock panel when no low stock alerts', () => {
     dashboardService.getDashboard.mockReturnValue(of(createDashboard({ alerts: [] })));
 
@@ -404,6 +437,49 @@ describe('DashboardPageComponent', () => {
     expect(fixture.componentInstance.pendingPurchaseOrderAlerts().length).toBe(1);
     expect(fixture.componentInstance.lowStockAlerts().length).toBe(1);
     expect(fixture.componentInstance.lowStockAlerts()[0].alertType).toBe('LowStock');
+  });
+
+  it('filters expiring batch alerts independently from other alerts', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'PendingPurchaseOrder',
+              priority: 1,
+              title: 'Pending purchase order',
+              message: 'PO-1001 is waiting.',
+              actionLabel: 'Review purchase orders',
+              actionRoute: '/inventory/purchase-orders',
+            },
+            {
+              alertType: 'ExpiringBatch',
+              priority: 1,
+              title: 'Expiring batch',
+              message: 'Rice batch B-002 expires on 12 Jun 2026.',
+              actionLabel: 'Review batches',
+              actionRoute: '/inventory/batches',
+            },
+            {
+              alertType: 'LowStock',
+              priority: 2,
+              title: 'Low stock',
+              message: 'Rice is running low (2 remaining, reorder at 10).',
+              actionLabel: 'Manage inventory',
+              actionRoute: '/inventory',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pendingPurchaseOrderAlerts().length).toBe(1);
+    expect(fixture.componentInstance.expiringBatchAlerts().length).toBe(1);
+    expect(fixture.componentInstance.lowStockAlerts().length).toBe(1);
+    expect(fixture.componentInstance.expiringBatchAlerts()[0].alertType).toBe('ExpiringBatch');
   });
 
   it('renders dashboard quick actions with labels and icons', () => {
