@@ -115,6 +115,53 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.TotalAmount))
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<SalesTrendBucketReadModel>> GetDailySalesTrendAsync(
+        Guid shopId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var start = ToUtcStart(startDate);
+        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
+
+        var salesByDay = await DbSet
+            .AsNoTracking()
+            .Where(s =>
+                s.ShopId == shopId
+                && s.SoldAt >= start
+                && s.SoldAt < exclusiveEnd)
+            .Select(s => new { s.SoldAt, s.TotalAmount })
+            .ToListAsync(cancellationToken);
+
+        var returnAmountsByDay = await _context.SaleReturns
+            .AsNoTracking()
+            .Where(r =>
+                r.ShopId == shopId
+                && !r.IsVoided
+                && r.ProcessedAt >= start
+                && r.ProcessedAt < exclusiveEnd)
+            .Select(r => new { r.ProcessedAt, r.TotalRefundAmount })
+            .ToListAsync(cancellationToken);
+
+        var grossSalesByDay = salesByDay
+            .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalAmount));
+
+        var returnOffsetsByDay = returnAmountsByDay
+            .GroupBy(r => DateOnly.FromDateTime(r.ProcessedAt.UtcDateTime))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalRefundAmount));
+
+        return grossSalesByDay.Keys
+            .Concat(returnOffsetsByDay.Keys)
+            .Distinct()
+            .OrderBy(date => date)
+            .Select(date => new SalesTrendBucketReadModel(
+                date,
+                grossSalesByDay.GetValueOrDefault(date),
+                returnOffsetsByDay.GetValueOrDefault(date)))
+            .ToList();
+    }
+
     public async Task<(IReadOnlyList<SaleHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         SaleHistoryFilter filter,
         CancellationToken cancellationToken = default)

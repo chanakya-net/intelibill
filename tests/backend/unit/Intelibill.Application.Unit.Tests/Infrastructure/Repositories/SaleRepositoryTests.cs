@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,108 @@ public sealed class SaleRepositoryTests
         Assert.Equal("Walk-in Customer", result[0].CustomerDisplayName);
         Assert.DoesNotContain(result, sale => sale.InvoiceNumber == "INV-001");
         Assert.DoesNotContain(result, sale => sale.InvoiceNumber == "INV-OTHER");
+    }
+
+    [Fact]
+    public async Task GetDailySalesTrendAsync_ReturnsGroupedRowsInAscendingOrder()
+    {
+        await using var context = await CreateContextAsync();
+
+        var actorId = Guid.NewGuid();
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+
+        var firstSaleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item A", "BC-A", 1m, 80m, 100m, 100m, 0m, false, false);
+        var secondSaleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item B", "BC-B", 1m, 160m, 200m, 200m, 0m, false, false);
+
+        var firstSale = Sale.Create(shop.Id, actorId, "idem-1", "hash-1", "INV-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [firstSaleItem]);
+        var secondSale = Sale.Create(shop.Id, actorId, "idem-2", "hash-2", "INV-002", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero), 200m, 0m, 200m, 0m, [secondSaleItem]);
+
+        var activeReturn = SaleReturn.Record(
+            shop.Id,
+            firstSale.Id,
+            "RET-001",
+            new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero),
+            actorId,
+            null,
+            30m,
+            0m,
+            30m,
+            PaymentMethod.Cash,
+            30m,
+            0m,
+            null,
+            null,
+            [
+                new SaleReturnLineInput(
+                    shop.Id,
+                    firstSaleItem.Id,
+                    1m,
+                    SaleReturnCondition.Restockable,
+                    80m,
+                    100m,
+                    0m,
+                    false,
+                    30m,
+                    30m,
+                    30m,
+                    0m,
+                    null),
+            ]).Value;
+
+        var voidedReturn = SaleReturn.Record(
+            shop.Id,
+            secondSale.Id,
+            "RET-002",
+            new DateTimeOffset(2026, 5, 3, 12, 0, 0, TimeSpan.Zero),
+            actorId,
+            null,
+            999m,
+            0m,
+            999m,
+            PaymentMethod.Cash,
+            999m,
+            0m,
+            null,
+            null,
+            [
+                new SaleReturnLineInput(
+                    shop.Id,
+                    secondSaleItem.Id,
+                    1m,
+                    SaleReturnCondition.Restockable,
+                    160m,
+                    200m,
+                    0m,
+                    false,
+                    999m,
+                    999m,
+                    999m,
+                    0m,
+                    null),
+            ]).Value;
+        _ = voidedReturn.Void(new DateTimeOffset(2026, 5, 3, 13, 0, 0, TimeSpan.Zero), actorId, "Cancelled").Value;
+
+        await context.AddRangeAsync(shop, firstSale, secondSale, activeReturn, voidedReturn);
+        await context.SaveChangesAsync();
+
+        var repository = new SaleRepository(context);
+
+        var result = await repository.GetDailySalesTrendAsync(
+            shop.Id,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 3),
+            CancellationToken.None);
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal(new DateOnly(2026, 5, 1), result[0].Date);
+        Assert.Equal(100m, result[0].GrossSales);
+        Assert.Equal(0m, result[0].ReturnAmount);
+        Assert.Equal(new DateOnly(2026, 5, 2), result[1].Date);
+        Assert.Equal(0m, result[1].GrossSales);
+        Assert.Equal(30m, result[1].ReturnAmount);
+        Assert.Equal(new DateOnly(2026, 5, 3), result[2].Date);
+        Assert.Equal(200m, result[2].GrossSales);
+        Assert.Equal(0m, result[2].ReturnAmount);
     }
 
     private static async Task<ApplicationDbContext> CreateContextAsync()
