@@ -233,6 +233,38 @@ describe('DashboardPageComponent', () => {
     expect(host.textContent).toContain('Asha');
   });
 
+  it('renders pending purchase order alerts with action button', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(
+        createDashboard({
+          alerts: [
+            {
+              alertType: 'PendingPurchaseOrder',
+              priority: 0,
+              title: 'Pending purchase order',
+              message: 'PO-1001 from Acme Traders has been partially received.',
+              actionLabel: 'Review purchase orders',
+              actionRoute: '/inventory/purchase-orders',
+            },
+          ],
+        }),
+      ),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Pending Purchase Orders');
+    expect(host.textContent).toContain('PO-1001 from Acme Traders has been partially received.');
+    expect(host.textContent).toContain('Review purchase orders');
+
+    const actionButton = host.querySelector('[data-testid="dashboard-alert-action"]') as HTMLButtonElement | null;
+    expect(actionButton).toBeTruthy();
+    actionButton?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/inventory/purchase-orders');
+  });
+
   it('renders stock value KPI card with formatted currency', () => {
     dashboardService.getDashboard.mockReturnValue(of(createDashboard({ stockValue: 24750.5 })));
 

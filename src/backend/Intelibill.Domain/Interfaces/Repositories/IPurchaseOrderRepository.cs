@@ -18,7 +18,17 @@ public interface IPurchaseOrderRepository : IRepository<PurchaseOrder>
     Task<PurchaseOrder?> GetReceiptDetailAsync(Guid shopId, Guid purchaseOrderId, CancellationToken cancellationToken = default);
     Task<PurchaseOrder?> GetReceiptDetailForUpdateAsync(Guid shopId, Guid purchaseOrderId, CancellationToken cancellationToken = default);
     Task<PurchaseOrder?> GetByShopAndIdAsync(Guid shopId, Guid purchaseOrderId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PendingPurchaseOrderAlertReadModel>> GetPendingPurchaseOrderAlertsAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<PurchaseOrder> Items, int TotalCount)> GetByShopAsync(
         PurchaseOrderListFilter filter,
         CancellationToken cancellationToken = default);
 }
+
+public sealed record PendingPurchaseOrderAlertReadModel(
+    Guid PurchaseOrderId,
+    string PurchaseOrderNumber,
+    string? SupplierName,
+    PurchaseOrderStatus Status,
+    DateTimeOffset CreatedAt);
