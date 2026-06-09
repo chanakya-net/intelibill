@@ -1,5 +1,6 @@
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using ErrorOr;
 
 namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
 
@@ -8,9 +9,9 @@ public sealed class GetDashboardQueryHandlerTests
     private readonly GetDashboardQueryHandler _handler = new();
 
     [Fact]
-    public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndEmptyShape()
+    public async Task HandleAsync_WithOwnerRole_ReturnsDefaultAppliedRangeAndEmptyShape()
     {
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
         var before = DateTimeOffset.UtcNow;
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
@@ -23,11 +24,38 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithManagerRole_ReturnsDefaultAppliedRangeAndEmptyShape()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Manager");
+        var before = DateTimeOffset.UtcNow;
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        var after = DateTimeOffset.UtcNow;
+        Assert.False(result.IsError);
+        Assert.InRange(result.Value.GeneratedAt, before, after);
+        Assert.Equal(result.Value.EndDate.AddDays(-29), result.Value.StartDate);
+        AssertSkeletonShape(result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithStaffRole_ReturnsForbidden()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Staff");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        var error = result.Errors[0];
+        Assert.Equal(ErrorType.Forbidden, error.Type);
+    }
+
+    [Fact]
     public async Task HandleAsync_WithExplicitDateRange_UsesProvidedRange()
     {
         var from = new DateOnly(2026, 5, 1);
         var to = new DateOnly(2026, 5, 31);
-        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
 
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 

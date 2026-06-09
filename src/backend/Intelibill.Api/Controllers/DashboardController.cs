@@ -18,6 +18,7 @@ public sealed class DashboardController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> GetDashboard(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -27,7 +28,7 @@ public sealed class DashboardController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<DashboardDto>>(
-            new GetDashboardQuery(UserId!.Value, ActiveShopId!.Value, from, to),
+            new GetDashboardQuery(UserId!.Value, ActiveShopId!.Value, from, to, ActiveShopRole!),
             cancellationToken);
 
         return result.ToActionResult(Ok);

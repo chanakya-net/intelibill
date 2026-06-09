@@ -8,6 +8,9 @@ public sealed class GetDashboardQueryHandler
 #pragma warning disable CA1822 // Skeleton: repository dependencies will be injected in the aggregation phase
     public Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
     {
+        if (query.Role == "Staff")
+            return Task.FromResult<ErrorOr<DashboardDto>>(Error.Forbidden("Dashboard.AccessDenied", "Staff cannot access dashboard data."));
+
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var appliedTo = query.To ?? today;
         var appliedFrom = query.From ?? appliedTo.AddDays(-29);

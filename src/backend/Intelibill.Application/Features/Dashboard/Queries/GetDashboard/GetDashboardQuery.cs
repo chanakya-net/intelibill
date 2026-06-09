@@ -4,4 +4,5 @@ public sealed record GetDashboardQuery(
     Guid UserId,
     Guid ShopId,
     DateOnly? From,
-    DateOnly? To);
+    DateOnly? To,
+    string Role);
