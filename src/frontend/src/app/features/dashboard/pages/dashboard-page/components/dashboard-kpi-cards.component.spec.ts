@@ -13,6 +13,7 @@ const stubDashboard: DashboardDto = {
   salesCount: 42,
   salesRevenue: 9500,
   hasNoSalesActivity: false,
+  customerCreditDue: 0,
   salesBooked: null,
   netSalesBooked: null,
   wastageCost: null,

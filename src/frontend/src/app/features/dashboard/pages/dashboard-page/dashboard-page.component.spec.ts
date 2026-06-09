@@ -26,6 +26,7 @@ describe('DashboardPageComponent', () => {
     salesCount: 0,
     salesRevenue: 0,
     hasNoSalesActivity: true,
+    customerCreditDue: 0,
     salesBooked: 0,
     netSalesBooked: 0,
     wastageCost: 0,
@@ -195,6 +196,27 @@ describe('DashboardPageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('Latest Sales');
     expect(host.textContent).toContain('No recent sales');
+  });
+
+  it('renders the customer credit due KPI for zero balance', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ customerCreditDue: 0 })));
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Customer Credit Due');
+    expect(host.textContent).toContain('0.00');
+  });
+
+  it('renders the customer credit due KPI for nonzero balance', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ customerCreditDue: 1250 })));
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('1,250.00');
   });
 
   it('renders populated recent activity entries', () => {

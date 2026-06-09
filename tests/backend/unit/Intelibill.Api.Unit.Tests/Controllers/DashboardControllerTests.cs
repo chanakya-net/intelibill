@@ -138,6 +138,7 @@ public sealed class DashboardControllerTests
             SalesCount: 0,
             SalesRevenue: 0m,
             HasNoSalesActivity: true,
+            CustomerCreditDue: 0m,
             SalesBooked: 0m,
             NetSalesBooked: 0m,
             WastageCost: 0m,

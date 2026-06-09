@@ -26,6 +26,21 @@ internal sealed class CustomerLedgerEntryRepository(ApplicationDbContext context
         return entries.Sum(e => e.EntryType.ToBalanceDelta(e.Amount));
     }
 
+    public async Task<decimal> GetCustomerCreditDueAsync(Guid shopId, CancellationToken cancellationToken = default)
+    {
+        var balances = await DbSet
+            .AsNoTracking()
+            .Where(e => e.ShopId == shopId)
+            .Select(e => new { e.CustomerId, e.EntryType, e.Amount })
+            .ToListAsync(cancellationToken);
+
+        return balances
+            .GroupBy(e => e.CustomerId)
+            .Select(g => g.Sum(e => e.EntryType.ToBalanceDelta(e.Amount)))
+            .Where(balance => balance > 0m)
+            .Sum();
+    }
+
     public async Task<IReadOnlyDictionary<Guid, decimal>> GetCustomerBalancesAsync(
         Guid shopId,
         IReadOnlyCollection<Guid> customerIds,

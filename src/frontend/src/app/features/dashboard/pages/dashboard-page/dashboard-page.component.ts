@@ -46,6 +46,19 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
             <span class="kpi-value">{{ formattedStockValue() }}</span>
           </div>
 
+          <p-card class="dashboard-kpi-card">
+            <ng-template pTemplate="header">
+              <div class="dashboard-kpi-card__header">
+                <p class="dashboard-kpi-card__eyebrow">Customer Accounts</p>
+                <h2>Customer Credit Due</h2>
+              </div>
+            </ng-template>
+
+            <div class="dashboard-kpi-card__value">
+              <span>{{ dashboard.customerCreditDue | number: '1.2-2' }}</span>
+            </div>
+          </p-card>
+
           <p-card class="latest-sales-panel">
             <ng-template pTemplate="header">
               <div class="latest-sales-panel__header">

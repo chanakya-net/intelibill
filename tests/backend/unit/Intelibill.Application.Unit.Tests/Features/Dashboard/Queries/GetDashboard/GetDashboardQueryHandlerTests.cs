@@ -13,15 +13,21 @@ public sealed class GetDashboardQueryHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
     {
-        _handler = new GetDashboardQueryHandler(_saleRepository, _expenseRepository, _inventoryBatchRepository);
+        _handler = new GetDashboardQueryHandler(
+            _saleRepository,
+            _expenseRepository,
+            _inventoryBatchRepository,
+            _customerLedgerEntryRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
         ConfigureStockValue(0m);
+        ConfigureCustomerCreditDue(0m);
     }
 
     [Fact]
@@ -43,6 +49,7 @@ public sealed class GetDashboardQueryHandlerTests
             result.Value.EndDate,
             Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).GetCustomerCreditDueAsync(query.ShopId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -64,6 +71,7 @@ public sealed class GetDashboardQueryHandlerTests
             to,
             Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).GetCustomerCreditDueAsync(query.ShopId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -79,8 +87,21 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(18, result.Value.SalesCount);
         Assert.False(result.Value.HasNoSalesActivity);
         Assert.Equal(412.75m, result.Value.SalesRevenue);
+        Assert.Equal(0m, result.Value.CustomerCreditDue);
         Assert.Equal(412.75m, result.Value.NetSalesBooked);
         Assert.Equal(0m, result.Value.SalesBooked);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCustomerCreditDue_PopulatesKpi()
+    {
+        ConfigureCustomerCreditDue(1250m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1250m, result.Value.CustomerCreditDue);
     }
 
     [Fact]
@@ -340,6 +361,12 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(value));
     }
 
+    private void ConfigureCustomerCreditDue(decimal customerCreditDue)
+    {
+        _customerLedgerEntryRepository.GetCustomerCreditDueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(customerCreditDue));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -356,6 +383,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.NetExpense);
         Assert.Equal(0m, dto.CreditSalesAmount);
         Assert.Equal(0m, dto.CreditSalesPercentage);
+        Assert.Equal(0m, dto.CustomerCreditDue);
         Assert.NotNull(dto.PaymentMix);
         Assert.Equal(0m, dto.PaymentMix!.Cash);
         Assert.Equal(0m, dto.PaymentMix.Upi);
