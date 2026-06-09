@@ -121,6 +121,103 @@
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
     "offlineSalesEnabling": "Enabling offline sales…"
   },
+  "dashboard": {
+    "header": {
+      "title": "Dashboard",
+      "noActiveShop": "No active shop",
+      "activeShop": "{{ shopName }} · {{ role }}",
+      "greetingMorning": "Good morning, {{ shopName }}",
+      "greetingAfternoon": "Good afternoon, {{ shopName }}",
+      "greetingEvening": "Good evening, {{ shopName }}",
+      "subtitle": "Operational snapshot for your active shop."
+    },
+    "ranges": {
+      "ariaLabel": "Dashboard date range",
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To"
+    },
+    "kpis": {
+      "customerAccounts": "Customer Accounts",
+      "customerCreditDue": "Customer Credit Due",
+      "expenses": "Expenses",
+      "supplierPayables": "Supplier Payables",
+      "stockValue": "Stock Value",
+      "salesRevenue": "Sales Revenue",
+      "invoiceCount": "Invoices",
+      "netProfit": "Net Profit",
+      "lowStockItems": "Low Stock Items",
+      "vsPreviousPeriod": "vs previous period"
+    },
+    "charts": {
+      "salesTrend": "Sales Trend",
+      "profitTrend": "Profit Trend",
+      "paymentMix": "Payment Mix",
+      "lowStockTrend": "Low Stock Trend",
+      "ariaLabel": "Dashboard charts",
+      "trend": "Trend",
+      "comparison": "Comparison",
+      "revenueVsExpenses": "Revenue vs Expenses",
+      "grossSales": "Gross Sales",
+      "netSales": "Net Sales",
+      "revenue": "Revenue",
+      "expenses": "Expenses",
+      "salesTrendSubtitle": "Total sales amount per day for the selected period.",
+      "revenueVsExpensesSubtitle": "Daily cash movement."
+    },
+    "latestSales": {
+      "eyebrow": "Recent Activity",
+      "title": "Latest Sales",
+      "newSale": "New sale",
+      "newSaleAria": "Open the new sale screen",
+      "viewSales": "View all sales",
+      "viewSalesAria": "Open the full sales list",
+      "emptyTitle": "No recent sales",
+      "emptyDescription": "The latest active-shop sales will appear here."
+    },
+    "alerts": {
+      "eyebrow": "Alerts",
+      "pendingPurchaseOrders": "Pending Purchase Orders",
+      "dashboardAlerts": "Dashboard Alerts",
+      "needsAttention": "Needs Attention",
+      "lowStock": "Low Stock",
+      "view": "View",
+      "empty": "Nothing needs attention right now."
+    },
+    "quickActions": {
+      "ariaLabel": "Dashboard quick actions",
+      "newSale": "New sale",
+      "addInventory": "Add inventory",
+      "batchStockEntry": "Batch Stock Entry",
+      "expenses": "Expenses",
+      "purchaseOrders": "Purchase Orders",
+      "profitLoss": "Profit & Loss"
+    },
+    "status": {
+      "ready": "Dashboard ready.",
+      "salesCount": "Sales count: {{ count }}"
+    },
+    "errors": {
+      "loadFailed": "Unable to load dashboard."
+    },
+    "emptyStates": {
+      "noRecentSales": "No recent sales",
+      "noDashboardData": "No dashboard data available."
+    },
+    "offlineQueue": {
+      "eyebrow": "Offline Queue",
+      "pendingSales": "Pending Sales",
+      "title": "Offline sales queue",
+      "openSales": "Open Sales",
+      "messageSingular": "Pending {{ pending }}, Failed {{ failed }}, Warnings {{ warning }}, Needs review {{ needsReview }}. Open Sales to review {{ visibleCount }} queued sale.",
+      "messagePlural": "Pending {{ pending }}, Failed {{ failed }}, Warnings {{ warning }}, Needs review {{ needsReview }}. Open Sales to review {{ visibleCount }} queued sales."
+    }
+  },
   "services": {
     "directory": "Service Directory",
     "title": "Services",

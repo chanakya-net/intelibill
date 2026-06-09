@@ -8,6 +8,37 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class InventoryBatchRepository(ApplicationDbContext context)
     : RepositoryBase<InventoryBatch>(context), IInventoryBatchRepository
 {
+    public async Task<IReadOnlyList<ExpiringBatchAlertReadModel>> GetExpiringBatchAlertsAsync(
+        Guid shopId,
+        DateOnly today,
+        CancellationToken cancellationToken = default)
+    {
+        var expiryCutoff = today.AddDays(7);
+
+        return await DbSet
+            .AsNoTracking()
+            .Include(b => b.Item)
+            .Where(b =>
+                b.ShopId == shopId
+                && !b.IsVoided
+                && b.Quantity > 0
+                && b.ExpiryDate.HasValue
+                && b.ExpiryDate.Value >= today
+                && b.ExpiryDate.Value <= expiryCutoff)
+            .OrderBy(b => b.ExpiryDate)
+            .ThenBy(b => b.Item.Name)
+            .ThenBy(b => b.BatchNumber)
+            .ThenBy(b => b.Id)
+            .Take(5)
+            .Select(b => new ExpiringBatchAlertReadModel(
+                b.Id,
+                b.Item.Name,
+                b.BatchNumber,
+                b.ExpiryDate!.Value,
+                b.Quantity))
+            .ToListAsync(cancellationToken);
+    }
+
     public IAsyncEnumerable<InventoryBatch> StreamActiveSellableWithItemByShopAsync(
         Guid shopId,
         CancellationToken cancellationToken = default) =>
@@ -98,5 +129,17 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
             .ThenBy(b => b.ExpiryDate)
             .ThenBy(b => b.BatchNumber)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<decimal> GetCurrentStockValueByShopAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeBatches = await DbSet
+            .AsNoTracking()
+            .Where(b => b.ShopId == shopId && !b.IsVoided && b.Quantity > 0)
+            .ToListAsync(cancellationToken);
+
+        return activeBatches.Sum(b => b.Quantity * b.GetProfitCostPrice());
     }
 }

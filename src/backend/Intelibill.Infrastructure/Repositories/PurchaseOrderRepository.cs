@@ -22,6 +22,24 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
                     .ThenInclude(l => l.InventoryBatch)
             .FirstOrDefaultAsync(po => po.ShopId == shopId && po.Id == purchaseOrderId, cancellationToken);
 
+    public async Task<IReadOnlyList<PendingPurchaseOrderAlertReadModel>> GetPendingPurchaseOrderAlertsAsync(
+        Guid shopId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(po =>
+                po.ShopId == shopId
+                && (po.Status == PurchaseOrderStatus.Placed || po.Status == PurchaseOrderStatus.PartiallyReceived))
+            .OrderByDescending(po => po.CreatedAt)
+            .ThenByDescending(po => po.Id)
+            .Take(5)
+            .Select(po => new PendingPurchaseOrderAlertReadModel(
+                po.Id,
+                po.PurchaseOrderNumber,
+                po.SupplierName,
+                po.Status,
+                po.CreatedAt))
+            .ToListAsync(cancellationToken);
+
     public async Task<PurchaseOrder?> GetDetailAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(po => po.Lines)

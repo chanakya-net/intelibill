@@ -172,4 +172,35 @@ public class InventoryBatchTests
         Assert.True(result.IsError);
         Assert.Equal("InventoryBatch.InsufficientStock", result.FirstError.Code);
     }
+
+    [Fact]
+    public void StockValueContribution_IsQuantityTimesGetProfitCostPrice()
+    {
+        var batch = InventoryBatch.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "B-01",
+            quantity: 10m, costPrice: 118m, mrp: 160m, salesPrice: 140m,
+            taxRatePercent: 18m, taxIncluded: false, expiryDate: null,
+            manufacturingDate: null, supplierId: null, createdBy: Guid.NewGuid(),
+            purchaseTaxIncluded: true).Value;
+
+        var stockValue = batch.Quantity * batch.GetProfitCostPrice();
+
+        Assert.Equal(1000m, stockValue);
+    }
+
+    [Fact]
+    public void StockValueContribution_VoidedBatch_ShouldBeZeroQuantity()
+    {
+        var batch = InventoryBatch.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "B-02",
+            quantity: 10m, costPrice: 50m, mrp: 80m, salesPrice: 70m,
+            taxRatePercent: 0m, taxIncluded: false, expiryDate: null,
+            manufacturingDate: null, supplierId: null, createdBy: Guid.NewGuid()).Value;
+
+        batch.Void(Guid.NewGuid());
+
+        Assert.Equal(0m, batch.Quantity);
+        Assert.True(batch.IsVoided);
+        Assert.Equal(0m, batch.Quantity * batch.GetProfitCostPrice());
+    }
 }

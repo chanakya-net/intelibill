@@ -1,0 +1,1053 @@
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Dashboard.DTOs;
+using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
+using NSubstitute;
+using System.Globalization;
+
+namespace Intelibill.Application.Unit.Tests.Features.Dashboard.Queries.GetDashboard;
+
+public sealed class GetDashboardQueryHandlerTests
+{
+    private static readonly SalesHistorySummaryReadModel DefaultSummary = new(0m, 0, 0m);
+
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
+    private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
+    private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly IPurchaseOrderRepository _purchaseOrderRepository = Substitute.For<IPurchaseOrderRepository>();
+    private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
+    private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
+    private readonly ProfitLossReportBuilder _profitLossReportBuilder;
+    private readonly GetDashboardQueryHandler _handler;
+
+    public GetDashboardQueryHandlerTests()
+    {
+        _profitLossReportBuilder = new ProfitLossReportBuilder(
+            _saleRepository,
+            _saleReturnRepository,
+            _inventoryAdjustmentRepository);
+        _handler = new GetDashboardQueryHandler(
+            _saleRepository,
+            _expenseRepository,
+            _inventoryBatchRepository,
+            _customerLedgerEntryRepository,
+            _purchaseOrderRepository,
+            _supplierLedgerEntryRepository,
+            _inventoryRepository,
+            _profitLossReportBuilder);
+        ConfigureSummary(DefaultSummary);
+        ConfigureLatestSales([]);
+        ConfigureExpenseSum(0m);
+        ConfigureStockValue(0m);
+        ConfigureCustomerCreditDue(0m);
+        ConfigurePendingPurchaseOrderAlerts([]);
+        ConfigureExpiringBatchAlerts([]);
+        ConfigureSupplierPayables(0m);
+        ConfigureLowStockCount(0);
+        ConfigureEmptyProfitLossData();
+        ConfigureSalesTrend([]);
+        ConfigureExpenseTrend([]);
+        ConfigureLowStockAlerts([]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoDateParams_ReturnsDefaultAppliedRangeAndZeroFilledTrend()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+        var before = DateTimeOffset.UtcNow;
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        var after = DateTimeOffset.UtcNow;
+        Assert.False(result.IsError);
+        Assert.InRange(result.Value.GeneratedAt, before, after);
+        Assert.Equal(result.Value.EndDate.AddDays(-29), result.Value.StartDate);
+        AssertSkeletonShape(result.Value);
+        await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            result.Value.StartDate,
+            result.Value.EndDate,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetDailySalesTrendAsync(
+            query.ShopId,
+            result.Value.StartDate,
+            result.Value.EndDate,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).GetCustomerCreditDueAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithExplicitDateRange_UsesProvidedRange()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Manager");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(from, result.Value.StartDate);
+        Assert.Equal(to, result.Value.EndDate);
+        AssertSkeletonShape(result.Value);
+        await _saleRepository.Received(1).GetHistorySummaryAsync(
+            query.ShopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetDailySalesTrendAsync(
+            query.ShopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).GetCustomerCreditDueAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSummaryData_PopulatesInvoiceCountAndRevenue()
+    {
+        var summary = new SalesHistorySummaryReadModel(412.75m, 18, 12.25m);
+        ConfigureSummary(summary);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(18, result.Value.SalesCount);
+        Assert.False(result.Value.HasNoSalesActivity);
+        Assert.Equal(412.75m, result.Value.SalesRevenue);
+        Assert.Equal(0m, result.Value.CustomerCreditDue);
+        Assert.Equal(412.75m, result.Value.NetSalesBooked);
+        Assert.Equal(0m, result.Value.SalesBooked);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCustomerCreditDue_PopulatesKpi()
+    {
+        ConfigureCustomerCreditDue(1250m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1250m, result.Value.CustomerCreditDue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNetProfitData_UsesProfitLossSummaryForAppliedRange()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 7);
+        var query = new GetDashboardQuery(user.Id, shop.Id, from, to, "Owner");
+
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC-001", 1m, 80m, 100m, 100m, 0m, false, false);
+        var sale = Sale.Create(
+            shop.Id,
+            "INV-001",
+            null,
+            "Customer",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero),
+            100m,
+            0m,
+            100m,
+            0m,
+            [saleItem]);
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-001",
+            new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            null,
+            30m,
+            0m,
+            30m,
+            PaymentMethod.Cash,
+            30m,
+            0m,
+            null,
+            null,
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 30m, 30m, 30m, 0m, null)]).Value;
+        var adjustment = InventoryAdjustment.Create(
+            shop.Id,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "ADJ-001",
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            1m,
+            5m,
+            5m,
+            5m,
+            4m,
+            5m,
+            4m,
+            new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            user.Id,
+            null,
+            user.Id).Value;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
+        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([adjustment]);
+
+        var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, from, to, null, null, CancellationToken.None);
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(expectedSummary.Summary.NetProfitAfterTax, result.Value.NetProfit);
+        Assert.Null(result.Value.NetProfitChangePercent);
+        Assert.NotEqual(20m, result.Value.NetProfit);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPositiveNetProfitChange_PopulatesPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 150m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 100m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(50m, result.Value.NetProfitChangePercent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNegativeNetProfitChange_PopulatesPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 75m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 150m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(-50m, result.Value.NetProfitChangePercent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPreviousNetProfitZero_ReturnsNullPercentChange()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 8);
+        var to = new DateOnly(2026, 5, 14);
+        var previousPeriod = GetPreviousPeriodRange(from, to);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureProfitLossSales(shopId, from, to, 150m);
+        ConfigureProfitLossSales(shopId, previousPeriod.From, previousPeriod.To, 0m);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.NetProfitChangePercent);
+    }
+
+    [Fact]
+    public async Task HandleAsync_IncludesLatestSales_RegardlessOfDashboardRange()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+        var latestSales = new[]
+        {
+            new DashboardLatestSaleReadModel(Guid.NewGuid(), "INV-003", "Walk-in Customer", new DateTimeOffset(2026, 5, 31, 15, 45, 0, TimeSpan.Zero), 980m),
+            new DashboardLatestSaleReadModel(Guid.NewGuid(), "INV-002", "Arun Kumar", new DateTimeOffset(2026, 5, 30, 11, 15, 0, TimeSpan.Zero), 1200m),
+        };
+        ConfigureLatestSales(latestSales);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            latestSales.Select(s => new DashboardLatestSaleDto(s.SaleId, s.InvoiceNumber, s.CustomerDisplayName, s.SoldAt, s.TotalAmount)),
+            result.Value.LatestSales);
+        await _saleRepository.Received(1).GetLatestDashboardSalesAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithPendingPurchaseOrders_PopulatesAlertRows()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+        var pendingAlerts = new[]
+        {
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1001",
+                "Acme Traders",
+                PurchaseOrderStatus.PartiallyReceived,
+                new DateTimeOffset(2026, 6, 9, 9, 30, 0, TimeSpan.Zero)),
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1000",
+                null,
+                PurchaseOrderStatus.Placed,
+                new DateTimeOffset(2026, 6, 8, 9, 30, 0, TimeSpan.Zero)),
+        };
+        ConfigurePendingPurchaseOrderAlerts(pendingAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "PendingPurchaseOrder",
+                0,
+                "Pending purchase order",
+                "PO-1001 from Acme Traders has been partially received.",
+                "Review purchase orders",
+                "/inventory/purchase-orders"),
+            result.Value.Alerts[0]);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "PendingPurchaseOrder",
+                1,
+                "Pending purchase order",
+                "PO-1000 is waiting for goods receipt.",
+                "Review purchase orders",
+                "/inventory/purchase-orders"),
+            result.Value.Alerts[1]);
+
+        await _purchaseOrderRepository.Received(1).GetPendingPurchaseOrderAlertsAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+        await _inventoryBatchRepository.Received(1).GetExpiringBatchAlertsAsync(
+            shopId,
+            Arg.Any<DateOnly>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithExpiringBatches_PopulatesAlertRows()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var expiringAlerts = new[]
+        {
+            new ExpiringBatchAlertReadModel(
+                Guid.NewGuid(),
+                "Rice",
+                "B-002",
+                today.AddDays(2),
+                10m),
+            new ExpiringBatchAlertReadModel(
+                Guid.NewGuid(),
+                "Milk",
+                "B-001",
+                today.AddDays(1),
+                4m),
+        };
+        ConfigureExpiringBatchAlerts(expiringAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        var riceExpiryDate = today.AddDays(2).ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+        var milkExpiryDate = today.AddDays(1).ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+        Assert.Equal("ExpiringBatch", result.Value.Alerts[0].AlertType);
+        Assert.Equal("Expiring batch", result.Value.Alerts[0].Title);
+        Assert.Equal($"Rice batch B-002 expires on {riceExpiryDate}.", result.Value.Alerts[0].Message);
+        Assert.Equal("Review batches", result.Value.Alerts[0].ActionLabel);
+        Assert.Equal("/inventory/batches", result.Value.Alerts[0].ActionRoute);
+        Assert.Equal("ExpiringBatch", result.Value.Alerts[1].AlertType);
+        Assert.Equal("Expiring batch", result.Value.Alerts[1].Title);
+        Assert.Equal($"Milk batch B-001 expires on {milkExpiryDate}.", result.Value.Alerts[1].Message);
+        Assert.Equal("Review batches", result.Value.Alerts[1].ActionLabel);
+        Assert.Equal("/inventory/batches", result.Value.Alerts[1].ActionRoute);
+
+        await _inventoryBatchRepository.Received(1).GetExpiringBatchAlertsAsync(
+            shopId,
+            Arg.Any<DateOnly>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithBatchExpiringToday_ProducesTodayMessage()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        ConfigureExpiringBatchAlerts(
+            [
+                new ExpiringBatchAlertReadModel(
+                    Guid.NewGuid(),
+                    "Milk",
+                    "B-001",
+                    today,
+                    4m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var alert = Assert.Single(result.Value.Alerts);
+        Assert.Equal("ExpiringBatch", alert.AlertType);
+        Assert.Equal(0, alert.Priority);
+        Assert.Equal("Milk batch B-001 expires today.", alert.Message);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithLowStockAlerts_PopulatesAlertsWithLowStockEntries()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+        var lowStockAlerts = new[]
+        {
+            new LowStockAlertReadModel(Guid.NewGuid(), "Almonds", 1m, 10m),
+            new LowStockAlertReadModel(Guid.NewGuid(), "Biscuits", 3m, 10m),
+        };
+        ConfigureLowStockAlerts(lowStockAlerts);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "LowStock",
+                2,
+                "Low stock",
+                "Almonds is running low (1 remaining, reorder at 10).",
+                "Manage inventory",
+                "/inventory"),
+            result.Value.Alerts[0]);
+        Assert.Equal(
+            new DashboardAlertDto(
+                "LowStock",
+                2,
+                "Low stock",
+                "Biscuits is running low (3 remaining, reorder at 10).",
+                "Manage inventory",
+                "/inventory"),
+            result.Value.Alerts[1]);
+        await _inventoryRepository.Received(1).GetTopLowStockAlertsAsync(shopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithBothPendingPOAndLowStockAlerts_AlertsContainsBothTypes()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+        ConfigurePendingPurchaseOrderAlerts([
+            new PendingPurchaseOrderAlertReadModel(
+                Guid.NewGuid(),
+                "PO-1001",
+                "Acme",
+                PurchaseOrderStatus.Placed,
+                DateTimeOffset.UtcNow),
+        ]);
+        ConfigureLowStockAlerts([
+            new LowStockAlertReadModel(Guid.NewGuid(), "Rice", 2m, 10m),
+        ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.Alerts.Count);
+        Assert.Equal("PendingPurchaseOrder", result.Value.Alerts[0].AlertType);
+        Assert.Equal("LowStock", result.Value.Alerts[1].AlertType);
+    }
+
+    [Fact]
+    public async Task HandleAsync_LowStockAlertsCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryRepository.Received(1).GetTopLowStockAlertsAsync(shopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithActiveBatches_PopulatesStockValue()
+    {
+        ConfigureStockValue(12500.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(12500.50m, result.Value.StockValue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithLowStockItems_PopulatesLowStockItemCount()
+    {
+        ConfigureLowStockCount(4);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(4, result.Value.LowStockItemCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoActiveBatches_StockValueIsZero()
+    {
+        ConfigureStockValue(0m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.StockValue);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StockValueCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryBatchRepository.Received(1).GetCurrentStockValueByShopAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_LowStockCountCallsRepoWithShopId()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _inventoryRepository.Received(1).CountLowStockItemsByShopAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithStaffRole_ReturnsForbidden()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Staff");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.UserIsNotOwnerOrManager.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOnlyFromDate_ReturnsPartialDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 1), null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.PartialDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOnlyToDate_ReturnsPartialDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, new DateOnly(2026, 5, 31), "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.PartialDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithFromGreaterThanTo_ReturnsInvalidDateRangeError()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 1), "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.InvalidDateRange.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithRangeOver90Days_ReturnsDateRangeTooLargeError()
+    {
+        var from = new DateOnly(2026, 1, 1);
+        var to = from.AddDays(91);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Single(result.Errors);
+        Assert.Equal(Errors.Dashboard.DateRangeTooLarge.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithRangeExactly90Days_Succeeds()
+    {
+        var from = new DateOnly(2026, 1, 1);
+        var to = from.AddDays(89);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Manager");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(from, result.Value.StartDate);
+        Assert.Equal(to, result.Value.EndDate);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithExpenses_PopulatesNetExpense()
+    {
+        ConfigureExpenseSum(350.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(350.50m, result.Value.NetExpense);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoExpenses_NetExpenseIsZero()
+    {
+        ConfigureExpenseSum(0m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.NetExpense);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSupplierPayables_PopulatesSupplierPayables()
+    {
+        ConfigureSupplierPayables(2750.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2750.50m, result.Value.SupplierPayables);
+        await _supplierLedgerEntryRepository.Received(1).GetSupplierPayablesAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CallsSupplierLedgerRepositoryWithActiveShop()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _supplierLedgerEntryRepository.Received(1).GetSupplierPayablesAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CallsExpenseRepositoryWithAppliedDateRange()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _expenseRepository.Received(1).GetSumByShopAndDateRangeAsync(
+            shopId,
+            from,
+            to,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSalesData_PopulatesSalesRevenueAndInvoiceCount()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 31);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureSummary(new SalesHistorySummaryReadModel(PeriodSales: 9500m, InvoiceCount: 42, RefundAmount: 500m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(9500m, result.Value.SalesRevenue);
+        Assert.Equal(42, result.Value.SalesCount);
+        Assert.False(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNoSales_SalesRevenueIsZeroAndHasNoSalesActivity()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.SalesRevenue);
+        Assert.Equal(0, result.Value.SalesCount);
+        Assert.True(result.Value.HasNoSalesActivity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSparseSalesTrend_FillsMissingDaysAndOrdersAscending()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 3);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+        ConfigureSalesTrend(
+            [
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 1), 100m, 0m),
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 3), 250m, 30m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            new[]
+            {
+                new SalesTrendPointDto(new DateOnly(2026, 5, 1), 100m, 100m),
+                new SalesTrendPointDto(new DateOnly(2026, 5, 2), 0m, 0m),
+                new SalesTrendPointDto(new DateOnly(2026, 5, 3), 250m, 220m),
+            },
+            result.Value.SalesTrendSeries);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSparseRevenueVsExpenses_FillsMissingDaysAndAlignsWithSalesLabels()
+    {
+        var from = new DateOnly(2026, 5, 1);
+        var to = new DateOnly(2026, 5, 3);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), from, to, "Owner");
+        ConfigureSalesTrend(
+            [
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 1), 100m, 10m),
+                new SalesTrendBucketReadModel(new DateOnly(2026, 5, 3), 250m, 30m),
+            ]);
+        ConfigureExpenseTrend(
+            [
+                new ExpenseDailyBucketReadModel(new DateOnly(2026, 5, 1), 25m),
+                new ExpenseDailyBucketReadModel(new DateOnly(2026, 5, 3), 80m),
+            ]);
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(
+            new[]
+            {
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 1), 90m, 25m),
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 2), 0m, 0m),
+                new RevenueVsExpensesPointDto(new DateOnly(2026, 5, 3), 220m, 80m),
+            },
+            result.Value.RevenueVsExpenses);
+        Assert.Equal(
+            result.Value.SalesTrendSeries!.Select(point => point.Date),
+            result.Value.RevenueVsExpenses!.Select(point => point.Date));
+    }
+
+    [Fact]
+    public async Task HandleAsync_SalesRevenue_EqualsGrossSalesMinusReturns()
+    {
+        var shopId = Guid.NewGuid();
+        var from = new DateOnly(2026, 6, 1);
+        var to = new DateOnly(2026, 6, 30);
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, from, to, "Owner");
+
+        ConfigureSummary(new SalesHistorySummaryReadModel(PeriodSales: 4800m, InvoiceCount: 10, RefundAmount: 200m));
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(4800m, result.Value.SalesRevenue);
+        Assert.Equal(10, result.Value.SalesCount);
+    }
+
+    private void ConfigureSummary(SalesHistorySummaryReadModel summary)
+    {
+        _saleRepository.GetHistorySummaryAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(summary));
+    }
+
+    private void ConfigureLatestSales(IReadOnlyList<DashboardLatestSaleReadModel> latestSales)
+    {
+        _saleRepository.GetLatestDashboardSalesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(latestSales));
+    }
+
+    private void ConfigureExpenseSum(decimal sum)
+    {
+        _expenseRepository.GetSumByShopAndDateRangeAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(sum));
+    }
+
+    private void ConfigureExpenseTrend(IReadOnlyList<ExpenseDailyBucketReadModel> trend)
+    {
+        _expenseRepository.GetDailyExpenseTrendAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(trend));
+    }
+
+    private void ConfigureStockValue(decimal value)
+    {
+        _inventoryBatchRepository
+            .GetCurrentStockValueByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(value));
+    }
+
+    private void ConfigureCustomerCreditDue(decimal customerCreditDue)
+    {
+        _customerLedgerEntryRepository.GetCustomerCreditDueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(customerCreditDue));
+    }
+
+    private void ConfigurePendingPurchaseOrderAlerts(IReadOnlyList<PendingPurchaseOrderAlertReadModel> alerts)
+    {
+        _purchaseOrderRepository
+            .GetPendingPurchaseOrderAlertsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
+    }
+
+    private void ConfigureExpiringBatchAlerts(IReadOnlyList<ExpiringBatchAlertReadModel> alerts)
+    {
+        _inventoryBatchRepository
+            .GetExpiringBatchAlertsAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
+    }
+
+    private void ConfigureSupplierPayables(decimal sum)
+    {
+        _supplierLedgerEntryRepository.GetSupplierPayablesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(sum));
+    }
+
+    private void ConfigureLowStockCount(int count)
+    {
+        _inventoryRepository
+            .CountLowStockItemsByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(count));
+    }
+
+    private static User MakeUser() =>
+        User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");
+
+    private static Shop MakeShop() =>
+        Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);
+
+    private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
+        ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
+
+    private void ConfigureEmptyProfitLossData()
+    {
+        _saleRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
+        _saleRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
+        _saleReturnRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SaleReturn>>(Array.Empty<SaleReturn>()));
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<InventoryAdjustment>>(Array.Empty<InventoryAdjustment>()));
+    }
+
+    private void ConfigureSalesTrend(IReadOnlyList<SalesTrendBucketReadModel> trend)
+    {
+        _saleRepository.GetDailySalesTrendAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(trend));
+    }
+
+    private void ConfigureLowStockAlerts(IReadOnlyList<LowStockAlertReadModel> alerts)
+    {
+        _inventoryRepository
+            .GetTopLowStockAlertsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(alerts));
+    }
+
+    private void ConfigureProfitLossSales(Guid shopId, DateOnly from, DateOnly to, decimal netProfit)
+    {
+        _saleRepository.GetByShopAndDateRangeAsync(
+                shopId,
+                from,
+                to,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Sale>>([CreateProfitSale(shopId, from, netProfit)]));
+    }
+
+    private static Sale CreateProfitSale(Guid shopId, DateOnly soldOn, decimal netProfit)
+    {
+        var saleItem = SaleItem.CreateGoods(
+            shopId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Item",
+            "BC-001",
+            1m,
+            0m,
+            netProfit,
+            netProfit,
+            0m,
+            false,
+            false,
+            totalAmount: netProfit);
+
+        return Sale.Create(
+            shopId,
+            $"INV-{soldOn:yyyyMMdd}",
+            null,
+            "Customer",
+            null,
+            PaymentMethod.Cash,
+            new DateTimeOffset(soldOn.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            netProfit,
+            0m,
+            netProfit,
+            0m,
+            [saleItem]);
+    }
+
+    private static (DateOnly From, DateOnly To) GetPreviousPeriodRange(DateOnly appliedFrom, DateOnly appliedTo)
+    {
+        var rangeLength = appliedTo.DayNumber - appliedFrom.DayNumber + 1;
+        var previousTo = appliedFrom.AddDays(-1);
+        var previousFrom = previousTo.AddDays(-(rangeLength - 1));
+        return (previousFrom, previousTo);
+    }
+
+    private static void AssertSkeletonShape(DashboardDto dto)
+    {
+        Assert.Equal(0, dto.SalesCount);
+        Assert.Equal(0m, dto.SalesRevenue);
+        Assert.True(dto.HasNoSalesActivity);
+        Assert.Equal(0m, dto.SalesBooked);
+        Assert.Equal(0m, dto.NetSalesBooked);
+        Assert.Equal(0m, dto.WastageCost);
+        Assert.Equal(0m, dto.CashCollected);
+        Assert.Equal(0m, dto.ProfitBeforeTax);
+        Assert.Equal(0m, dto.ProfitAfterTax);
+        Assert.Equal(0m, dto.NetProfit);
+        Assert.Null(dto.NetProfitChangePercent);
+        Assert.Equal(0m, dto.ExpenseRecorded);
+        Assert.Equal(0m, dto.ExpenseCorrection);
+        Assert.Equal(0m, dto.NetExpense);
+        Assert.Equal(0m, dto.SupplierPayables);
+        Assert.Equal(0m, dto.CreditSalesAmount);
+        Assert.Equal(0m, dto.CreditSalesPercentage);
+        Assert.Equal(0m, dto.CustomerCreditDue);
+        Assert.NotNull(dto.PaymentMix);
+        Assert.Equal(0m, dto.PaymentMix!.Cash);
+        Assert.Equal(0m, dto.PaymentMix.Upi);
+        Assert.Equal(0m, dto.PaymentMix.Card);
+        Assert.Equal(0m, dto.PaymentMix.Credit);
+        Assert.False(dto.CreditShareWarning);
+        Assert.Equal(0, dto.RunningLowStockCount);
+        Assert.Equal(0, dto.LowStockItemCount);
+        Assert.Equal(0, dto.CriticalStockCount);
+        Assert.Empty(dto.RankedShortageList);
+        Assert.NotNull(dto.HighestDueCustomer);
+        Assert.Equal(Guid.Empty, dto.HighestDueCustomer!.CustomerId);
+        Assert.Equal(string.Empty, dto.HighestDueCustomer.DisplayName);
+        Assert.Equal(0m, dto.HighestDueCustomer.OutstandingDue);
+        Assert.NotNull(dto.TopFiveDueCustomers);
+        Assert.Empty(dto.TopFiveDueCustomers);
+        Assert.Empty(dto.Alerts);
+        Assert.NotNull(dto.SalesTrendSeries);
+        AssertSalesTrendSeries(dto);
+        Assert.NotNull(dto.RevenueVsExpenses);
+        AssertRevenueVsExpensesSeries(dto);
+        Assert.NotNull(dto.ProfitTrendSeries);
+        Assert.Empty(dto.ProfitTrendSeries);
+        Assert.NotNull(dto.PaymentMixTrendSeries);
+        Assert.Empty(dto.PaymentMixTrendSeries);
+        Assert.NotNull(dto.PreviousPeriodSummary);
+        var previousPeriod = GetPreviousPeriodRange(dto.StartDate, dto.EndDate);
+        Assert.Equal(previousPeriod.From, dto.PreviousPeriodSummary!.StartDate);
+        Assert.Equal(previousPeriod.To, dto.PreviousPeriodSummary.EndDate);
+        Assert.Equal(0, dto.PreviousPeriodSummary.SalesCount);
+        Assert.NotNull(dto.LatestSales);
+        Assert.Empty(dto.LatestSales);
+        Assert.Equal(0m, dto.StockValue);
+    }
+
+    private static void AssertSalesTrendSeries(DashboardDto dto)
+    {
+        var expectedDays = dto.EndDate.DayNumber - dto.StartDate.DayNumber + 1;
+        Assert.Equal(expectedDays, dto.SalesTrendSeries!.Count);
+
+        for (var index = 0; index < expectedDays; index++)
+        {
+            var point = dto.SalesTrendSeries[index];
+            Assert.Equal(dto.StartDate.AddDays(index), point.Date);
+            Assert.Equal(0m, point.Amount);
+            Assert.Equal(0m, point.NetAmount);
+        }
+    }
+
+    private static void AssertRevenueVsExpensesSeries(DashboardDto dto)
+    {
+        var expectedDays = dto.EndDate.DayNumber - dto.StartDate.DayNumber + 1;
+        Assert.Equal(expectedDays, dto.RevenueVsExpenses!.Count);
+
+        for (var index = 0; index < expectedDays; index++)
+        {
+            var point = dto.RevenueVsExpenses[index];
+            var salesTrendPoint = dto.SalesTrendSeries![index];
+            Assert.Equal(dto.StartDate.AddDays(index), point.Date);
+            Assert.Equal(salesTrendPoint.Date, point.Date);
+            Assert.Equal(0m, point.Revenue);
+            Assert.Equal(0m, point.Expenses);
+        }
+    }
+}

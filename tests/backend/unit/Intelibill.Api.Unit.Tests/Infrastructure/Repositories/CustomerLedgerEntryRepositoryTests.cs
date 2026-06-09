@@ -9,6 +9,75 @@ namespace Intelibill.Api.Unit.Tests.Infrastructure.Repositories;
 public sealed class CustomerLedgerEntryRepositoryTests
 {
     [Fact]
+    public async Task GetCustomerCreditDueAsync_SumsOnlyPositiveCustomerBalancesForShop()
+    {
+        await using var context = await CreateContextAsync();
+        var (shop, customerA, saleA, actorId) = await SeedCustomerAsync(context, invoiceNumber: "INV-001", phoneNumber: "+919000000001");
+        var customerB = Customer.Create(shop.Id, "Customer B", "+919000000002", null, true);
+        var saleB = Sale.Create(
+            shop.Id,
+            "INV-002",
+            customerB.Id,
+            customerB.Name,
+            customerB.PhoneNumber,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            0m,
+            0m,
+            0m,
+            0m,
+            []);
+        var otherShop = Shop.Create("Other", "Address", "City", "State", "560001", null, null, null);
+        var otherCustomer = Customer.Create(otherShop.Id, "Customer C", "+919000000003", null, true);
+        var otherSale = Sale.Create(
+            otherShop.Id,
+            "INV-003",
+            otherCustomer.Id,
+            otherCustomer.Name,
+            otherCustomer.PhoneNumber,
+            PaymentMethod.Credit,
+            DateTimeOffset.UtcNow,
+            0m,
+            0m,
+            0m,
+            0m,
+            []);
+
+        await context.Shops.AddAsync(otherShop);
+        await context.Customers.AddRangeAsync(customerB, otherCustomer);
+        await context.Sales.AddRangeAsync(saleB, otherSale);
+        await context.CustomerLedgerEntries.AddRangeAsync(
+            CreateEntry(shop.Id, customerA.Id, saleA.Id, CustomerLedgerEntryType.SaleDue, 100m),
+            CreateEntry(shop.Id, customerA.Id, null, CustomerLedgerEntryType.PaymentReceived, 30m),
+            CreateEntry(shop.Id, customerB.Id, saleB.Id, CustomerLedgerEntryType.SaleDue, 50m),
+            CreateEntry(shop.Id, customerB.Id, null, CustomerLedgerEntryType.PaymentReceived, 70m),
+            CreateEntry(otherShop.Id, otherCustomer.Id, otherSale.Id, CustomerLedgerEntryType.SaleDue, 999m));
+        await context.SaveChangesAsync();
+
+        var repository = new CustomerLedgerEntryRepository(context);
+
+        var creditDue = await repository.GetCustomerCreditDueAsync(shop.Id);
+
+        Assert.Equal(70m, creditDue);
+
+        CustomerLedgerEntry CreateEntry(
+            Guid shopId,
+            Guid customerId,
+            Guid? saleId,
+            CustomerLedgerEntryType entryType,
+            decimal amount) =>
+            CustomerLedgerEntry.Create(
+                shopId,
+                customerId,
+                saleId,
+                entryType,
+                amount,
+                new DateOnly(2026, 5, 5),
+                null,
+                actorId).Value;
+    }
+
+    [Fact]
     public async Task GetCustomerBalanceAsync_IncludesReturnCreditsAndReversals()
     {
         await using var context = await CreateContextAsync();

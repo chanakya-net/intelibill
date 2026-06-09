@@ -67,4 +67,23 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
         await context.Expenses
             .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
             .ToListAsync(cancellationToken);
+
+    public async Task<decimal> GetSumByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default) =>
+        await context.Expenses
+            .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
+            .SumAsync(e => e.Amount, cancellationToken);
+
+    public async Task<IReadOnlyList<ExpenseDailyBucketReadModel>> GetDailyExpenseTrendAsync(
+        Guid shopId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default) =>
+        (await context.Expenses
+            .AsNoTracking()
+            .Where(e => e.ShopId == shopId && e.ExpenseDate >= startDate && e.ExpenseDate <= endDate && !e.IsVoided)
+            .GroupBy(e => e.ExpenseDate)
+            .Select(group => new ExpenseDailyBucketReadModel(group.Key, group.Sum(expense => expense.Amount)))
+            .ToListAsync(cancellationToken))
+        .OrderBy(bucket => bucket.Date)
+        .ToList();
 }

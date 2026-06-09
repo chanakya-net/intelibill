@@ -10,6 +10,11 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    // Session and shop role live in browser storage; SSR must not evaluate access here.
+    path: 'dashboard',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: '**',
     renderMode: RenderMode.Server,
   },

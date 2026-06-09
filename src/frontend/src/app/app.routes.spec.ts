@@ -4,6 +4,7 @@ import { firstValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
+import { dashboardGuard } from './core/guards/dashboard.guard';
 import { servicesGuard } from './core/guards/services.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
@@ -79,13 +80,14 @@ describe('app routes', () => {
     expect(result).toBe(true);
   });
 
-  it('keeps dashboard as a blank shell child route outside offline grace', async () => {
+  it('keeps dashboard as the real shell child route outside offline grace', async () => {
     const shellRoute = routes.find((route) => route.path === '');
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const dashboardRoute = shellRoot?.children?.find((route) => route.path === 'dashboard');
 
     expect(shellRoute).toBeDefined();
     expect(dashboardRoute).toBeDefined();
+    expect(dashboardRoute?.canActivate).toContain(dashboardGuard);
     expect(dashboardRoute?.data?.['allowOfflineSalesGrace']).toBeUndefined();
     await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
   });

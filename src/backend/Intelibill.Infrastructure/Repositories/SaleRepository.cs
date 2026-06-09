@@ -2,6 +2,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using DashboardLatestSaleReadModel = Intelibill.Domain.Interfaces.Repositories.DashboardLatestSaleReadModel;
 using SaleHistoryFilter = Intelibill.Domain.Interfaces.Repositories.SaleHistoryFilter;
 using SaleHistoryReadModel = Intelibill.Domain.Interfaces.Repositories.SaleHistoryReadModel;
 using SalesHistorySummaryReadModel = Intelibill.Domain.Interfaces.Repositories.SalesHistorySummaryReadModel;
@@ -98,6 +99,68 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 && s.SoldAt < ToUtcStart(endDate.AddDays(1)))
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<DashboardLatestSaleReadModel>> GetLatestDashboardSalesAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Where(s => s.ShopId == shopId)
+            .OrderByDescending(s => s.SoldAt)
+            .ThenByDescending(s => s.Id)
+            .Take(5)
+            .Select(s => new DashboardLatestSaleReadModel(
+                s.Id,
+                s.InvoiceNumber,
+                string.IsNullOrWhiteSpace(s.CustomerName) ? "Walk-in Customer" : s.CustomerName,
+                s.SoldAt,
+                s.TotalAmount))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<SalesTrendBucketReadModel>> GetDailySalesTrendAsync(
+        Guid shopId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var start = ToUtcStart(startDate);
+        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
+
+        var salesByDay = await DbSet
+            .AsNoTracking()
+            .Where(s =>
+                s.ShopId == shopId
+                && s.SoldAt >= start
+                && s.SoldAt < exclusiveEnd)
+            .Select(s => new { s.SoldAt, s.TotalAmount })
+            .ToListAsync(cancellationToken);
+
+        var returnAmountsByDay = await _context.SaleReturns
+            .AsNoTracking()
+            .Where(r =>
+                r.ShopId == shopId
+                && !r.IsVoided
+                && r.ProcessedAt >= start
+                && r.ProcessedAt < exclusiveEnd)
+            .Select(r => new { r.ProcessedAt, r.TotalRefundAmount })
+            .ToListAsync(cancellationToken);
+
+        var grossSalesByDay = salesByDay
+            .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalAmount));
+
+        var returnOffsetsByDay = returnAmountsByDay
+            .GroupBy(r => DateOnly.FromDateTime(r.ProcessedAt.UtcDateTime))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalRefundAmount));
+
+        return grossSalesByDay.Keys
+            .Concat(returnOffsetsByDay.Keys)
+            .Distinct()
+            .OrderBy(date => date)
+            .Select(date => new SalesTrendBucketReadModel(
+                date,
+                grossSalesByDay.GetValueOrDefault(date),
+                returnOffsetsByDay.GetValueOrDefault(date)))
+            .ToList();
+    }
 
     public async Task<(IReadOnlyList<SaleHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         SaleHistoryFilter filter,

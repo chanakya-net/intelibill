@@ -27,6 +27,8 @@ public abstract class AuthenticatedControllerBase : ControllerBase
 
     protected Guid? ActiveShopId => TryGetGuidClaim("active_shop_id");
 
+    protected string? ActiveShopRole => User.FindFirst("active_shop_role")?.Value;
+
     [NonAction]
     protected IActionResult? CheckAuth()
     {

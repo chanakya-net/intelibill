@@ -14,6 +14,8 @@ public interface ISaleRepository : IRepository<Sale>
     Task<IReadOnlyList<Sale>> GetByCustomerAsync(Guid shopId, Guid customerId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Sale>> GetByShopAndDateAsync(Guid shopId, DateOnly reportingDay, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Sale>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DashboardLatestSaleReadModel>> GetLatestDashboardSalesAsync(Guid shopId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SalesTrendBucketReadModel>> GetDailySalesTrendAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
 
     Task<(IReadOnlyList<SaleHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         SaleHistoryFilter filter,
@@ -66,6 +68,18 @@ public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,
     int InvoiceCount,
     decimal RefundAmount);
+
+public sealed record DashboardLatestSaleReadModel(
+    Guid SaleId,
+    string InvoiceNumber,
+    string CustomerDisplayName,
+    DateTimeOffset SoldAt,
+    decimal TotalAmount);
+
+public sealed record SalesTrendBucketReadModel(
+    DateOnly Date,
+    decimal GrossSales,
+    decimal ReturnAmount);
 
 public sealed record CustomerSalesMetricsReadModel(
     Guid CustomerId,
