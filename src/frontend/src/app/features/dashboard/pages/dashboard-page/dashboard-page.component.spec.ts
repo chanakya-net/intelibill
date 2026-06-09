@@ -5,7 +5,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -270,6 +270,22 @@ describe('DashboardPageComponent', () => {
     expect(host.textContent).toContain('dashboard.latestSales.title');
     expect(host.textContent).toContain('dashboard.latestSales.emptyTitle');
     expect(host.textContent).toContain('dashboard.latestSales.emptyDescription');
+  });
+
+  it('renders the loading state while dashboard data is pending', () => {
+    const dashboard$ = new Subject<DashboardDto>();
+    dashboardService.getDashboard.mockReturnValue(dashboard$.asObservable());
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const loadingEl = host.querySelector('.latest-sales-panel__loading');
+
+    expect(fixture.componentInstance.isLoading()).toBe(true);
+    expect(loadingEl).not.toBeNull();
+    expect(loadingEl?.getAttribute('aria-busy')).toBe('true');
+    expect(loadingEl?.querySelector('p-progressspinner')).toBeTruthy();
   });
 
   it('renders localized dashboard load errors', () => {
