@@ -11,7 +11,8 @@ public sealed class GetDashboardQueryHandler(
     IExpenseRepository expenseRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    IPurchaseOrderRepository purchaseOrderRepository)
+    IPurchaseOrderRepository purchaseOrderRepository,
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -37,6 +38,7 @@ public sealed class GetDashboardQueryHandler(
         var pendingPurchaseOrderAlerts = await purchaseOrderRepository.GetPendingPurchaseOrderAlertsAsync(
             query.ShopId,
             cancellationToken);
+        var supplierPayables = await supplierLedgerEntryRepository.GetSupplierPayablesAsync(query.ShopId, cancellationToken);
 
         var result = new DashboardDto(
             GeneratedAt: DateTimeOffset.UtcNow,
@@ -55,6 +57,7 @@ public sealed class GetDashboardQueryHandler(
             ExpenseRecorded: 0m,
             ExpenseCorrection: 0m,
             NetExpense: expenseTotal,
+            SupplierPayables: supplierPayables,
             CreditSalesAmount: 0m,
             CreditSalesPercentage: 0m,
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),

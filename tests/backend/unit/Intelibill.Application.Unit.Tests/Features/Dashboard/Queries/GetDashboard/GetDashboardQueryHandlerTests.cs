@@ -16,6 +16,7 @@ public sealed class GetDashboardQueryHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IPurchaseOrderRepository _purchaseOrderRepository = Substitute.For<IPurchaseOrderRepository>();
+    private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly GetDashboardQueryHandler _handler;
 
     public GetDashboardQueryHandlerTests()
@@ -25,13 +26,15 @@ public sealed class GetDashboardQueryHandlerTests
             _expenseRepository,
             _inventoryBatchRepository,
             _customerLedgerEntryRepository,
-            _purchaseOrderRepository);
+            _purchaseOrderRepository,
+            _supplierLedgerEntryRepository);
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
         ConfigureStockValue(0m);
         ConfigureCustomerCreditDue(0m);
         ConfigurePendingPurchaseOrderAlerts([]);
+        ConfigureSupplierPayables(0m);
     }
 
     [Fact]
@@ -318,6 +321,32 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithSupplierPayables_PopulatesSupplierPayables()
+    {
+        ConfigureSupplierPayables(2750.50m);
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2750.50m, result.Value.SupplierPayables);
+        await _supplierLedgerEntryRepository.Received(1).GetSupplierPayablesAsync(query.ShopId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CallsSupplierLedgerRepositoryWithActiveShop()
+    {
+        var shopId = Guid.NewGuid();
+        var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
+
+        await _handler.HandleAsync(query, CancellationToken.None);
+
+        await _supplierLedgerEntryRepository.Received(1).GetSupplierPayablesAsync(
+            shopId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_CallsExpenseRepositoryWithAppliedDateRange()
     {
         var from = new DateOnly(2026, 5, 1);
@@ -428,6 +457,12 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult(alerts));
     }
 
+    private void ConfigureSupplierPayables(decimal sum)
+    {
+        _supplierLedgerEntryRepository.GetSupplierPayablesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(sum));
+    }
+
     private static void AssertSkeletonShape(DashboardDto dto)
     {
         Assert.Equal(0, dto.SalesCount);
@@ -442,6 +477,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.ExpenseRecorded);
         Assert.Equal(0m, dto.ExpenseCorrection);
         Assert.Equal(0m, dto.NetExpense);
+        Assert.Equal(0m, dto.SupplierPayables);
         Assert.Equal(0m, dto.CreditSalesAmount);
         Assert.Equal(0m, dto.CreditSalesPercentage);
         Assert.Equal(0m, dto.CustomerCreditDue);

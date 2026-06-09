@@ -23,6 +23,7 @@ const stubDashboard: DashboardDto = {
   expenseRecorded: null,
   expenseCorrection: null,
   netExpense: null,
+  supplierPayables: 0,
   creditSalesAmount: null,
   creditSalesPercentage: null,
   paymentMix: null,

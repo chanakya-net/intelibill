@@ -36,6 +36,7 @@ describe('DashboardPageComponent', () => {
     expenseRecorded: 0,
     expenseCorrection: 0,
     netExpense: 0,
+    supplierPayables: 0,
     creditSalesAmount: 0,
     creditSalesPercentage: 0,
     paymentMix: null,
@@ -107,6 +108,7 @@ describe('DashboardPageComponent', () => {
           profitAfterTax: 2000,
           expenseRecorded: 1000,
           netExpense: 1000,
+          supplierPayables: 2750,
           creditSalesAmount: 6000,
           creditSalesPercentage: 40,
           runningLowStockCount: 3,
@@ -173,6 +175,30 @@ describe('DashboardPageComponent', () => {
 
     expect(fixture.componentInstance.formattedExpenses()).toContain('₹');
     expect(fixture.componentInstance.formattedExpenses()).toContain('0');
+  });
+
+  it('renders supplier payables KPI card with formatted value when dashboard loaded', () => {
+    dashboardService.getDashboard.mockReturnValue(
+      of(createDashboard({ salesCount: 5, hasNoSalesActivity: false, supplierPayables: 2750.5 })),
+    );
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const kpiValue = fixture.nativeElement.querySelector('[data-testid="supplier-payables-kpi-value"]');
+    expect(kpiValue).not.toBeNull();
+    expect(kpiValue.textContent).toContain('₹');
+    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('₹');
+  });
+
+  it('renders supplier payables KPI as ₹0 when supplierPayables is zero', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard({ supplierPayables: 0 })));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('₹');
+    expect(fixture.componentInstance.formattedSupplierPayables()).toContain('0');
   });
 
   it('redirects staff users to /sales before loading dashboard data', () => {

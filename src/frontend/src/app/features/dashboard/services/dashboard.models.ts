@@ -83,6 +83,7 @@ export interface DashboardDto {
   expenseRecorded: number | null;
   expenseCorrection: number | null;
   netExpense: number | null;
+  supplierPayables: number;
   creditSalesAmount: number | null;
   creditSalesPercentage: number | null;
   paymentMix: PaymentMixDto | null;

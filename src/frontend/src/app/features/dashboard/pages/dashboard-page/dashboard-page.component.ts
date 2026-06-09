@@ -36,9 +36,16 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
 
           <app-dashboard-kpi-cards [dashboard]="dashboard" />
 
-          <div class="kpi-card expenses-kpi">
-            <span class="kpi-label">Expenses</span>
-            <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
+          <div class="dashboard-kpis">
+            <div class="kpi-card expenses-kpi">
+              <span class="kpi-label">Expenses</span>
+              <span class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</span>
+            </div>
+
+            <div class="kpi-card supplier-payables-kpi">
+              <span class="kpi-label">Supplier Payables</span>
+              <span class="kpi-value" data-testid="supplier-payables-kpi-value">{{ formattedSupplierPayables() }}</span>
+            </div>
           </div>
 
           <div class="kpi-card stock-value-kpi" data-testid="stock-value-kpi">
@@ -154,7 +161,12 @@ export class DashboardPageComponent {
   });
   readonly formattedExpenses = computed(() => {
     const amount = this.dashboard()?.netExpense ?? 0;
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+    return this.formatCurrency(amount);
+  });
+
+  readonly formattedSupplierPayables = computed(() => {
+    const amount = this.dashboard()?.supplierPayables ?? 0;
+    return this.formatCurrency(amount);
   });
 
   readonly dashboardStatus = computed(() => {
@@ -202,5 +214,9 @@ export class DashboardPageComponent {
 
   openAlert(alert: DashboardAlertDto): void {
     void this.router.navigateByUrl(alert.actionRoute);
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 }

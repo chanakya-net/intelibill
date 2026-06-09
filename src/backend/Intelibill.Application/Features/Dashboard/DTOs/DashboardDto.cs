@@ -17,6 +17,7 @@ public sealed record DashboardDto(
     decimal? ExpenseRecorded,
     decimal? ExpenseCorrection,
     decimal? NetExpense,
+    decimal SupplierPayables,
     decimal? CreditSalesAmount,
     decimal? CreditSalesPercentage,
     PaymentMixDto? PaymentMix,
