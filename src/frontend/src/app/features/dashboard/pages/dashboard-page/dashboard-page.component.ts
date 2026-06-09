@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
+import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
@@ -10,10 +11,17 @@ import { DashboardAlertDto, DashboardDto } from '../../services/dashboard.models
 import { DashboardService } from '../../services/dashboard.service';
 import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.component';
 
+type DashboardQuickAction = Readonly<{
+  label: string;
+  icon: string;
+  route: string;
+  testId: string;
+}>;
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule],
+  imports: [CommonModule, ButtonModule, CardModule, DashboardKpiCardsComponent, ProgressSpinnerModule],
   styleUrl: './dashboard-page.component.scss',
   template: `
     <section class="dashboard-page">
@@ -168,6 +176,21 @@ import { DashboardKpiCardsComponent } from './components/dashboard-kpi-cards.com
         } @else {
           <p>{{ dashboardStatus() }}</p>
         }
+
+        <section class="dashboard-quick-actions" aria-label="Dashboard quick actions">
+          @for (action of quickActions; track action.route) {
+            <button
+              pButton
+              type="button"
+              class="dashboard-quick-actions__button"
+              severity="secondary"
+              [label]="action.label"
+              [icon]="action.icon"
+              [attr.data-testid]="action.testId"
+              (click)="openQuickAction(action.route)"
+            ></button>
+          }
+        </section>
       }
     </section>
   `,
@@ -186,6 +209,28 @@ export class DashboardPageComponent {
   readonly lowStockAlerts = computed(() =>
     this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
+  readonly quickActions: readonly DashboardQuickAction[] = [
+    { label: 'New Sale', icon: 'pi pi-shopping-cart', route: '/sales/new', testId: 'dashboard-quick-action-sales-new' },
+    {
+      label: 'Batch Stock Entry',
+      icon: 'pi pi-plus',
+      route: '/inventory/batch',
+      testId: 'dashboard-quick-action-inventory-batch',
+    },
+    { label: 'Expenses', icon: 'pi pi-wallet', route: '/expenses', testId: 'dashboard-quick-action-expenses' },
+    {
+      label: 'Purchase Orders',
+      icon: 'pi pi-list',
+      route: '/inventory/purchase-orders',
+      testId: 'dashboard-quick-action-purchase-orders',
+    },
+    {
+      label: 'Profit & Loss',
+      icon: 'pi pi-chart-line',
+      route: '/sales/profit-loss',
+      testId: 'dashboard-quick-action-profit-loss',
+    },
+  ];
   readonly activeShopLabel = computed(() => {
     const activeShop = this.permissions.activeShop();
 
@@ -250,6 +295,10 @@ export class DashboardPageComponent {
 
   openAlert(alert: DashboardAlertDto): void {
     void this.router.navigateByUrl(alert.actionRoute);
+  }
+
+  openQuickAction(route: string): void {
+    void this.router.navigateByUrl(route);
   }
 
   private formatCurrency(amount: number): string {

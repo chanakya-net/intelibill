@@ -405,6 +405,50 @@ describe('DashboardPageComponent', () => {
     expect(fixture.componentInstance.lowStockAlerts()[0].alertType).toBe('LowStock');
   });
 
+  it('renders dashboard quick actions with labels and icons', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const actions = [
+      { testId: 'dashboard-quick-action-sales-new', label: 'New Sale', icon: 'pi-shopping-cart' },
+      { testId: 'dashboard-quick-action-inventory-batch', label: 'Batch Stock Entry', icon: 'pi-plus' },
+      { testId: 'dashboard-quick-action-expenses', label: 'Expenses', icon: 'pi-wallet' },
+      { testId: 'dashboard-quick-action-purchase-orders', label: 'Purchase Orders', icon: 'pi-list' },
+      { testId: 'dashboard-quick-action-profit-loss', label: 'Profit & Loss', icon: 'pi-chart-line' },
+    ] as const;
+
+    for (const action of actions) {
+      const button = fixture.nativeElement.querySelector(`[data-testid="${action.testId}"]`) as HTMLButtonElement | null;
+      expect(button).toBeTruthy();
+      expect(button?.textContent).toContain(action.label);
+      expect(button?.querySelector(`.${action.icon}`)).toBeTruthy();
+    }
+  });
+
+  it('navigates to the configured route when a quick action is clicked', () => {
+    dashboardService.getDashboard.mockReturnValue(of(createDashboard()));
+
+    fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const actions = [
+      { testId: 'dashboard-quick-action-sales-new', route: '/sales/new' },
+      { testId: 'dashboard-quick-action-inventory-batch', route: '/inventory/batch' },
+      { testId: 'dashboard-quick-action-expenses', route: '/expenses' },
+      { testId: 'dashboard-quick-action-purchase-orders', route: '/inventory/purchase-orders' },
+      { testId: 'dashboard-quick-action-profit-loss', route: '/sales/profit-loss' },
+    ] as const;
+
+    for (const action of actions) {
+      const button = fixture.nativeElement.querySelector(`[data-testid="${action.testId}"]`) as HTMLButtonElement | null;
+      expect(button).toBeTruthy();
+      button?.click();
+      expect(router.navigateByUrl).toHaveBeenCalledWith(action.route);
+    }
+  });
+
   it('renders stock value KPI card with formatted currency', () => {
     dashboardService.getDashboard.mockReturnValue(of(createDashboard({ stockValue: 24750.5 })));
 

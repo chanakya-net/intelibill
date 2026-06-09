@@ -35,6 +35,22 @@
   margin-bottom: 1rem;
 }
 
+.dashboard-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--surface-card), var(--surface-ground));
+}
+
+.dashboard-quick-actions__button {
+  width: 100%;
+  justify-content: center;
+}
+
 .kpi-card {
   display: inline-flex;
   flex-direction: column;
@@ -105,6 +121,22 @@
     justify-content: center;
     align-items: center;
     min-height: 300px;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-page {
+    padding: 0.75rem;
+  }
+
+  .dashboard-quick-actions {
+    grid-template-columns: 1fr;
   }
 }
 
