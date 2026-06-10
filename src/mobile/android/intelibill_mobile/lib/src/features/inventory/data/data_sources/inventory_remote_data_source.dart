@@ -5,6 +5,7 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/adjust_invento
 import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_adjustment_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_batch_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/dto/item_catalog_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/item_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/product_details_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
@@ -62,13 +63,29 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
   static const String _inventoryBatchesEndpoint = '/inventory/batches';
   static const String _inventoryAdjustmentsEndpoint = '/inventory/adjustments';
 
+  static const int _itemsPageSize = 100;
+
   @override
   Future<List<ItemDto>> getItems() async {
-    final response = await _apiClient.get<List<dynamic>>(_itemsEndpoint);
-    return response.data!
-        .cast<Map<String, dynamic>>()
-        .map(ItemDto.fromJson)
-        .toList();
+    final allItems = <ItemDto>[];
+    var pageNumber = 1;
+    var totalCount = 0;
+
+    do {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        _itemsEndpoint,
+        queryParameters: {
+          'pageNumber': pageNumber,
+          'pageSize': _itemsPageSize,
+        },
+      );
+      final catalog = ItemCatalogResponseDto.fromJson(response.data!);
+      allItems.addAll(catalog.items);
+      totalCount = catalog.totalCount;
+      pageNumber += 1;
+    } while (allItems.length < totalCount);
+
+    return allItems;
   }
 
   @override

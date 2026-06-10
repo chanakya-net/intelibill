@@ -35,6 +35,10 @@
   "shellAddShop": "দোকান যোগ করুন",
   "shellManageShop": "দোকান ব্যবস্থাপনা",
   "shellMore": "More",
+  "shellSectionManagement": "Management",
+  "shellSectionProfile": "Account",
+  "shellSectionShop": "Shop",
+  "shellSectionSettings": "Settings",
   "shellManageDiscounts": "Discounts",
   "shellChangePassword": "Change Password",
   "shellSalesHistory": "Sales History",
@@ -102,6 +106,7 @@
   "inventoryProductErrorTimeout": "Request timed out. Please try again.",
   "inventoryProductErrorUnauthorized": "Session expired. Please log in again.",
   "inventoryProductErrorForbidden": "You do not have permission to view products.",
+  "inventoryMenuTitle": "Inventory actions",
   "inventoryMenuAddInventory": "Add Inventory",
   "inventoryMenuBatchOverview": "Batch Overview",
   "inventoryMenuAdjustmentHistory": "Adjustment History",
@@ -259,5 +264,75 @@
   "dashboardErrorTimeout": "Request timed out. Please try again.",
   "dashboardErrorUnauthorized": "Session expired. Please log in again.",
   "dashboardErrorForbidden": "You do not have permission to view the dashboard.",
-  "dashboardErrorGeneric": "Unable to load dashboard. Please try again."
+  "dashboardErrorGeneric": "Unable to load dashboard. Please try again.",
+  "salesHistoryEyebrow": "Sales ledger",
+  "salesHistoryTitle": "Sales history",
+  "salesHistorySubtitle": "Review invoices, payment status, and refunds for the selected period.",
+  "salesHistoryKpiPeriodSales": "Period sales",
+  "salesHistoryKpiInvoices": "Invoices",
+  "salesHistoryKpiRefunds": "Refunds",
+  "salesHistoryControlsStatus": "Status",
+  "salesHistoryControlsSearchPlaceholder": "Search invoice, customer, or phone...",
+  "salesHistoryControlsClearFilters": "Clear",
+  "salesHistoryStatusAll": "All",
+  "salesHistoryStatusPaid": "Paid",
+  "salesHistoryStatusPartiallyPaid": "Partially paid",
+  "salesHistoryStatusRefunded": "Refunded",
+  "salesHistoryStatusReturned": "Returned",
+  "salesHistoryStatusUnknown": "Unknown",
+  "salesHistoryPaymentCash": "Cash",
+  "salesHistoryPaymentUpi": "UPI",
+  "salesHistoryPaymentCard": "Card",
+  "salesHistoryPaymentCredit": "Credit",
+  "salesHistoryPaymentUnknown": "Unknown",
+  "salesHistoryWalkInCustomer": "Walk-in customer",
+  "salesHistoryNoSales": "No sales found",
+  "salesHistoryNoSalesDescription": "Try adjusting the date range, status filter, or search terms.",
+  "salesHistoryUnableToLoad": "Unable to load sales history",
+  "salesHistoryRetry": "Retry",
+  "salesHistoryInvoiceNumber": "Invoice",
+  "salesHistoryCustomer": "Customer",
+  "salesHistoryPhone": "Phone",
+  "salesHistoryDate": "Date",
+  "salesHistoryPaymentMethod": "Payment",
+  "salesHistoryItemCountLabel": "Items",
+  "salesHistoryTotal": "Total",
+  "salesHistoryDueAmount": "Due",
+  "salesHistoryRefundAmount": "Refund",
+  "salesHistoryDetailTitle": "Sale details",
+  "salesHistoryErrorGeneric": "Unable to load sales history. Please try again.",
+  "salesHistoryErrorNetwork": "Unable to connect. Please check your network.",
+  "salesHistoryErrorTimeout": "Request timed out. Please try again.",
+  "salesHistoryErrorUnauthorized": "Session expired. Please log in again.",
+  "salesHistoryErrorForbidden": "You do not have permission to view sales history.",
+  "salesHistoryItemCount": "{count} items",
+  "@salesHistoryItemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "salesHistoryDateRangeLabel": "{from} – {to}",
+  "@salesHistoryDateRangeLabel": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "salesHistoryShowingCount": "Showing {shown} of {total}",
+  "@salesHistoryShowingCount": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

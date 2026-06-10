@@ -7,6 +7,23 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 
 enum MobileMenuSection { primary, management, profile, shop, settings }
 
+extension MobileMenuSectionX on MobileMenuSection {
+  String? sectionLabel(AppLocalizations l10n) {
+    switch (this) {
+      case MobileMenuSection.primary:
+        return null;
+      case MobileMenuSection.management:
+        return l10n.shellSectionManagement;
+      case MobileMenuSection.profile:
+        return l10n.shellSectionProfile;
+      case MobileMenuSection.shop:
+        return l10n.shellSectionShop;
+      case MobileMenuSection.settings:
+        return l10n.shellSectionSettings;
+    }
+  }
+}
+
 enum MobileMenuLabelKey {
   dashboard('shellDashboard'),
   inventory('shellManageInventory'),
@@ -119,14 +136,18 @@ class MobileMenuItem {
     required this.icon,
     required this.destination,
     required this.section,
+    this.selectedIcon,
     this.isVisible,
+    this.isDestructive = false,
   });
 
   final MobileMenuLabelKey labelKey;
   final IconData icon;
+  final IconData? selectedIcon;
   final MobileMenuDestination destination;
   final MobileMenuSection section;
   final bool Function(AuthSession? session)? isVisible;
+  final bool isDestructive;
 
   bool isVisibleFor(AuthSession? session) {
     return isVisible?.call(session) ?? true;
@@ -147,6 +168,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.dashboard,
     icon: Icons.home_outlined,
+    selectedIcon: Icons.home,
     destination: MobileMenuRoute(
       AppRoutes.dashboard,
       matchPrefix: AppRoutes.dashboard,
@@ -157,6 +179,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.inventory,
     icon: Icons.inventory_2_outlined,
+    selectedIcon: Icons.inventory_2,
     destination: MobileMenuRoute(
       AppRoutes.inventory,
       matchPrefix: AppRoutes.inventory,
@@ -167,6 +190,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.sales,
     icon: Icons.point_of_sale_outlined,
+    selectedIcon: Icons.point_of_sale,
     destination: MobileMenuRoute(AppRoutes.salesHistory, matchPrefix: '/sales'),
     section: MobileMenuSection.primary,
     isVisible: canManageSales,
@@ -174,6 +198,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.customers,
     icon: Icons.people_outline,
+    selectedIcon: Icons.people,
     destination: MobileMenuRoute(
       AppRoutes.customers,
       matchPrefix: AppRoutes.customers,
@@ -276,6 +301,7 @@ final List<MobileMenuItem> _moreMenuItems = [
     icon: Icons.logout,
     destination: MobileMenuAction(MobileMenuActionType.logout),
     section: MobileMenuSection.settings,
+    isDestructive: true,
   ),
 ];
 

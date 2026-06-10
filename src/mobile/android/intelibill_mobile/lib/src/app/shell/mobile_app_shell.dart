@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/shell/mobile_menu_item.dart';
+import 'package:intelibill_mobile/src/app/shell/more_menu_sheet.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 
 class MobileAppShell extends ConsumerWidget {
@@ -30,10 +32,12 @@ class MobileAppShell extends ConsumerWidget {
           ? NavigationBar(
               selectedIndex: selectedIndex,
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              animationDuration: const Duration(milliseconds: 250),
               destinations: [
                 for (final item in primaryItems)
                   NavigationDestination(
                     icon: Icon(item.icon),
+                    selectedIcon: Icon(item.selectedIcon ?? item.icon),
                     label: item.labelKey.label(l10n),
                   ),
               ],
@@ -44,6 +48,7 @@ class MobileAppShell extends ConsumerWidget {
                   l10n,
                   primaryItems[index],
                   moreItems,
+                  session,
                 );
               },
             )
@@ -111,6 +116,7 @@ void _handlePrimarySelection(
   AppLocalizations l10n,
   MobileMenuItem item,
   List<MobileMenuItem> moreItems,
+  AuthSession? session,
 ) {
   final destination = item.destination;
   if (destination is MobileMenuRoute) {
@@ -121,7 +127,9 @@ void _handlePrimarySelection(
 
   if (destination is MobileMenuAction) {
     if (destination.type == MobileMenuActionType.openMoreMenu) {
-      unawaited(_showMoreMenu(context, ref, l10n, moreItems));
+      unawaited(
+        _showMoreMenu(context, ref, l10n, moreItems, session),
+      );
       return;
     }
     if (destination.type == MobileMenuActionType.logout) {
@@ -135,59 +143,24 @@ Future<void> _showMoreMenu(
   WidgetRef ref,
   AppLocalizations l10n,
   List<MobileMenuItem> items,
+  AuthSession? session,
 ) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    useSafeArea: true,
     builder: (sheetContext) {
-      final theme = Theme.of(sheetContext);
-      final menuItems = items;
-      return SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(l10n.shellMore, style: theme.textTheme.titleMedium),
-            ),
-            const Divider(height: 1),
-            ..._buildMoreMenuTiles(context, sheetContext, ref, l10n, menuItems),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-List<Widget> _buildMoreMenuTiles(
-  BuildContext context,
-  BuildContext sheetContext,
-  WidgetRef ref,
-  AppLocalizations l10n,
-  List<MobileMenuItem> items,
-) {
-  final tiles = <Widget>[];
-  MobileMenuSection? lastSection;
-
-  for (final item in items) {
-    if (lastSection != null && item.section != lastSection) {
-      tiles.add(const Divider(height: 1));
-    }
-    lastSection = item.section;
-
-    tiles.add(
-      ListTile(
-        leading: Icon(item.icon),
-        title: Text(item.labelKey.label(l10n)),
-        onTap: () {
+      return MoreMenuSheet(
+        items: items,
+        session: session,
+        onItemTap: (item) {
           Navigator.of(sheetContext).pop();
           _handleMoreMenuSelection(context, ref, l10n, item);
         },
-      ),
-    );
-  }
-
-  return tiles;
+      );
+    },
+  );
 }
 
 void _handleMoreMenuSelection(

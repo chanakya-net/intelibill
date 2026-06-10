@@ -331,6 +331,30 @@ abstract class AppLocalizations {
   /// **'More'**
   String get shellMore;
 
+  /// No description provided for @shellSectionManagement.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Management'**
+  String get shellSectionManagement;
+
+  /// No description provided for @shellSectionProfile.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account'**
+  String get shellSectionProfile;
+
+  /// No description provided for @shellSectionShop.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop'**
+  String get shellSectionShop;
+
+  /// No description provided for @shellSectionSettings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Settings'**
+  String get shellSectionSettings;
+
   /// No description provided for @shellManageDiscounts.
   ///
   /// In en_IN, this message translates to:
@@ -990,6 +1014,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'You do not have permission to view products.'**
   String get inventoryProductErrorForbidden;
+
+  /// No description provided for @inventoryMenuTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory actions'**
+  String get inventoryMenuTitle;
 
   /// No description provided for @inventoryMenuAddInventory.
   ///
@@ -2472,6 +2502,264 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Unable to load dashboard. Please try again.'**
   String get dashboardErrorGeneric;
+
+  /// No description provided for @salesHistoryEyebrow.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales ledger'**
+  String get salesHistoryEyebrow;
+
+  /// No description provided for @salesHistoryTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales history'**
+  String get salesHistoryTitle;
+
+  /// No description provided for @salesHistorySubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Review invoices, payment status, and refunds for the selected period.'**
+  String get salesHistorySubtitle;
+
+  /// No description provided for @salesHistoryKpiPeriodSales.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Period sales'**
+  String get salesHistoryKpiPeriodSales;
+
+  /// No description provided for @salesHistoryKpiInvoices.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Invoices'**
+  String get salesHistoryKpiInvoices;
+
+  /// No description provided for @salesHistoryKpiRefunds.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refunds'**
+  String get salesHistoryKpiRefunds;
+
+  /// No description provided for @salesHistoryControlsStatus.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status'**
+  String get salesHistoryControlsStatus;
+
+  /// No description provided for @salesHistoryControlsSearchPlaceholder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search invoice, customer, or phone...'**
+  String get salesHistoryControlsSearchPlaceholder;
+
+  /// No description provided for @salesHistoryControlsClearFilters.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear'**
+  String get salesHistoryControlsClearFilters;
+
+  /// No description provided for @salesHistoryStatusAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get salesHistoryStatusAll;
+
+  /// No description provided for @salesHistoryStatusPaid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid'**
+  String get salesHistoryStatusPaid;
+
+  /// No description provided for @salesHistoryStatusPartiallyPaid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Partially paid'**
+  String get salesHistoryStatusPartiallyPaid;
+
+  /// No description provided for @salesHistoryStatusRefunded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refunded'**
+  String get salesHistoryStatusRefunded;
+
+  /// No description provided for @salesHistoryStatusReturned.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Returned'**
+  String get salesHistoryStatusReturned;
+
+  /// No description provided for @salesHistoryStatusUnknown.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unknown'**
+  String get salesHistoryStatusUnknown;
+
+  /// No description provided for @salesHistoryPaymentCash.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cash'**
+  String get salesHistoryPaymentCash;
+
+  /// No description provided for @salesHistoryPaymentUpi.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'UPI'**
+  String get salesHistoryPaymentUpi;
+
+  /// No description provided for @salesHistoryPaymentCard.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Card'**
+  String get salesHistoryPaymentCard;
+
+  /// No description provided for @salesHistoryPaymentCredit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit'**
+  String get salesHistoryPaymentCredit;
+
+  /// No description provided for @salesHistoryPaymentUnknown.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unknown'**
+  String get salesHistoryPaymentUnknown;
+
+  /// No description provided for @salesHistoryWalkInCustomer.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Walk-in customer'**
+  String get salesHistoryWalkInCustomer;
+
+  /// No description provided for @salesHistoryNoSales.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No sales found'**
+  String get salesHistoryNoSales;
+
+  /// No description provided for @salesHistoryNoSalesDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Try adjusting the date range, status filter, or search terms.'**
+  String get salesHistoryNoSalesDescription;
+
+  /// No description provided for @salesHistoryUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load sales history'**
+  String get salesHistoryUnableToLoad;
+
+  /// No description provided for @salesHistoryRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get salesHistoryRetry;
+
+  /// No description provided for @salesHistoryInvoiceNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Invoice'**
+  String get salesHistoryInvoiceNumber;
+
+  /// No description provided for @salesHistoryCustomer.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Customer'**
+  String get salesHistoryCustomer;
+
+  /// No description provided for @salesHistoryPhone.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Phone'**
+  String get salesHistoryPhone;
+
+  /// No description provided for @salesHistoryDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Date'**
+  String get salesHistoryDate;
+
+  /// No description provided for @salesHistoryPaymentMethod.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payment'**
+  String get salesHistoryPaymentMethod;
+
+  /// No description provided for @salesHistoryItemCountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Items'**
+  String get salesHistoryItemCountLabel;
+
+  /// No description provided for @salesHistoryTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total'**
+  String get salesHistoryTotal;
+
+  /// No description provided for @salesHistoryDueAmount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due'**
+  String get salesHistoryDueAmount;
+
+  /// No description provided for @salesHistoryRefundAmount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refund'**
+  String get salesHistoryRefundAmount;
+
+  /// No description provided for @salesHistoryDetailTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sale details'**
+  String get salesHistoryDetailTitle;
+
+  /// No description provided for @salesHistoryErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load sales history. Please try again.'**
+  String get salesHistoryErrorGeneric;
+
+  /// No description provided for @salesHistoryErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get salesHistoryErrorNetwork;
+
+  /// No description provided for @salesHistoryErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get salesHistoryErrorTimeout;
+
+  /// No description provided for @salesHistoryErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get salesHistoryErrorUnauthorized;
+
+  /// No description provided for @salesHistoryErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view sales history.'**
+  String get salesHistoryErrorForbidden;
+
+  /// No description provided for @salesHistoryItemCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} items'**
+  String salesHistoryItemCount(int count);
+
+  /// No description provided for @salesHistoryDateRangeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{from} – {to}'**
+  String salesHistoryDateRangeLabel(String from, String to);
+
+  /// No description provided for @salesHistoryShowingCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Showing {shown} of {total}'**
+  String salesHistoryShowingCount(int shown, int total);
 }
 
 class _AppLocalizationsDelegate

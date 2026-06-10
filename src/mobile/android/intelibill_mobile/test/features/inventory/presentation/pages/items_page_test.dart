@@ -112,6 +112,17 @@ Widget _buildManageFlowApp({
   );
 }
 
+Future<void> _expandInventorySpeedDial(WidgetTester tester) async {
+  await tester.tap(find.byKey(ItemsPage.speedDialMainKey));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapAddProductAction(WidgetTester tester) async {
+  await _expandInventorySpeedDial(tester);
+  await tester.tap(find.byKey(ItemsPage.addProductActionKey));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(
@@ -164,13 +175,15 @@ void main() {
       expect(find.text('100'), findsOneWidget);
     });
 
-    testWidgets('shows menu options in overflow menu', (tester) async {
+    testWidgets('shows inventory actions when speed dial expands', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildApp(state: _loadedState));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
+      await _expandInventorySpeedDial(tester);
 
+      expect(find.text('Add Product'), findsOneWidget);
       expect(find.text('Add Inventory'), findsOneWidget);
       expect(find.text('Batch Overview'), findsOneWidget);
       expect(find.text('Adjustment History'), findsOneWidget);
@@ -250,8 +263,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(ItemsPage.addProductFabKey));
-      await tester.pumpAndSettle();
+      await _tapAddProductAction(tester);
 
       await tester.enterText(
         find.byKey(CreateItemSheet.nameFieldKey),
@@ -367,8 +379,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(ItemsPage.addProductFabKey));
-      await tester.pumpAndSettle();
+      await _tapAddProductAction(tester);
 
       // Tap scan button and verify scanner was opened
       await tester.tap(find.byKey(CreateItemSheet.scanBarcodeButtonKey));
@@ -483,8 +494,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(ItemsPage.addProductFabKey));
-        await tester.pumpAndSettle();
+        await _tapAddProductAction(tester);
 
         await tester.enterText(
           find.byKey(CreateItemSheet.nameFieldKey),

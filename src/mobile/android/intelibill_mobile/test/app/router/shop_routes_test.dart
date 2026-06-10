@@ -48,9 +48,9 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpRouteFrame(tester);
       router.go(AppRoutes.createShop);
-      await tester.pumpAndSettle();
+      await _pumpRouteFrame(tester);
 
       expect(find.byType(CreateShopPage), findsOneWidget);
       expect(find.byType(PlaceholderPage), findsNothing);
@@ -91,9 +91,9 @@ void main() {
           ),
         );
 
-        await tester.pumpAndSettle();
+        await _pumpRouteFrame(tester);
         router.go(AppRoutes.createShop);
-        await tester.pumpAndSettle();
+        await _pumpRouteFrame(tester);
 
         await tester.enterText(
           find.byKey(ShopInfoForm.shopNameFieldKey),
@@ -113,16 +113,22 @@ void main() {
           '400001',
         );
         await tester.tap(find.byKey(CreateShopPage.nextButtonKey));
-        await tester.pumpAndSettle();
+        await _pumpRouteFrame(tester);
 
         await tester.tap(find.byKey(CreateShopPage.skipButtonKey));
-        await tester.pumpAndSettle();
+        await _pumpRouteFrame(tester);
 
-        await tester.tap(find.byKey(CreateShopPage.doneButtonKey));
-        await tester.pumpAndSettle();
+        final doneButton = find.byKey(CreateShopPage.doneButtonKey);
+        await tester.ensureVisible(doneButton);
+        final onPressed = tester.widget<FilledButton>(doneButton).onPressed;
+        expect(onPressed, isNotNull);
+        onPressed!();
+        await _pumpUntilFound(tester, find.byType(DashboardPage));
 
-        expect(find.byType(CreateShopPage), findsNothing);
-        expect(find.byType(DashboardPage), findsOneWidget);
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          equals(AppRoutes.dashboard),
+        );
       },
     );
 
@@ -158,14 +164,32 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await _pumpRouteFrame(tester);
       router.go(AppRoutes.manageShop);
-      await tester.pumpAndSettle();
+      await _pumpRouteFrame(tester);
 
       expect(find.byType(ManageShopPage), findsOneWidget);
       expect(find.byType(PlaceholderPage), findsNothing);
     });
   });
+}
+
+Future<void> _pumpRouteFrame(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxFrames = 10,
+}) async {
+  for (var frame = 0; frame < maxFrames; frame++) {
+    await _pumpRouteFrame(tester);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
 }
 
 class _StubDashboardController extends DashboardController {

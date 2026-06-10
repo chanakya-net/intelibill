@@ -110,6 +110,37 @@ class AppTheme {
         color: Color(0xFFFED7AA),
         thickness: 1,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: cardBackground,
+        indicatorColor: const Color(0xFFFFEDD5),
+        elevation: 8,
+        shadowColor: const Color(0x1A7C2D12),
+        height: 72,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? primaryOrange : const Color(0xFF9A6B45),
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: isSelected ? primaryOrange : const Color(0xFF9A6B45),
+            size: 24,
+          );
+        }),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: cardBackground,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: Color(0xFFFDBA74),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
       splashFactory: InkSparkle.splashFactory,
       pageTransitionsTheme: PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{

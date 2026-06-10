@@ -19,5 +19,14 @@ void main() {
       expect(theme.colorScheme, isNotNull);
       expect(theme.colorScheme.brightness, equals(Brightness.light));
     });
+
+    test('lightTheme configures navigation and bottom sheet styling', () {
+      final theme = AppTheme.lightTheme;
+
+      expect(theme.navigationBarTheme.backgroundColor, isNotNull);
+      expect(theme.navigationBarTheme.indicatorColor, isNotNull);
+      expect(theme.bottomSheetTheme.showDragHandle, isTrue);
+      expect(theme.bottomSheetTheme.shape, isNotNull);
+    });
   });
 }
