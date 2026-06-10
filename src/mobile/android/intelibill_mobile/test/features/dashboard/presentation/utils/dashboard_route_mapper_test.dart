@@ -7,8 +7,14 @@ void main() {
     test('maps known web routes to mobile routes', () {
       expect(mapDashboardActionRoute('/sales'), AppRoutes.salesHistory);
       expect(mapDashboardActionRoute('/sales/new'), AppRoutes.salesNew);
-      expect(mapDashboardActionRoute('/inventory/batch'), AppRoutes.inventoryBatch);
-      expect(mapDashboardActionRoute('/inventory/batches'), AppRoutes.inventoryBatches);
+      expect(
+        mapDashboardActionRoute('/inventory/batch'),
+        AppRoutes.inventoryBatch,
+      );
+      expect(
+        mapDashboardActionRoute('/inventory/batches'),
+        AppRoutes.inventoryBatches,
+      );
       expect(
         mapDashboardActionRoute('/inventory/purchase-orders'),
         AppRoutes.inventory,

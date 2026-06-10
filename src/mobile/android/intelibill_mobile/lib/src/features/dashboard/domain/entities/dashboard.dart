@@ -77,8 +77,13 @@ class DashboardAlert extends Equatable {
   final String actionRoute;
 
   @override
-  List<Object?> get props =>
-      [alertType, title, message, actionLabel, actionRoute];
+  List<Object?> get props => [
+    alertType,
+    title,
+    message,
+    actionLabel,
+    actionRoute,
+  ];
 }
 
 class DashboardLatestSale extends Equatable {

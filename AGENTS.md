@@ -27,8 +27,9 @@ dotnet ef database update \
 - Test: `bun run test`
 
 **Mobile** (`src/mobile/android/intelibill_mobile`, Flutter Android only):
+- Flutter: pin to `.flutter-version` (3.41.9); FVM optional (`fvm use` in mobile dir)
 - Setup: `flutter pub get`
-- Generate: `dart run build_runner build --delete-conflicting-outputs`
+- Generate: `./tool/codegen.sh` (l10n + build_runner + format; commit `lib/**/*.g.dart`, `lib/**/*.freezed.dart`, `lib/src/core/localization/`)
 - Analyze: `flutter analyze`
 - Format: `dart format --set-exit-if-changed .`
 - Test: `flutter test --coverage`

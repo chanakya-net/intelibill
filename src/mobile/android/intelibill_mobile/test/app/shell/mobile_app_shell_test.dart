@@ -128,7 +128,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(NavigationDestination, 'Dashboard'), findsNothing);
+      expect(
+        find.widgetWithText(NavigationDestination, 'Dashboard'),
+        findsNothing,
+      );
       expect(find.text('Inventory'), findsWidgets);
       expect(find.text('Sales'), findsWidgets);
       expect(find.text('More'), findsWidgets);

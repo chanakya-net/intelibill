@@ -37,7 +37,10 @@ void main() {
   group('DashboardController', () {
     test('starts in loading state', () {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => testDashboard);
 
       final container = makeContainer();
@@ -49,7 +52,10 @@ void main() {
 
     test('loads dashboard for default last30 period', () async {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => testDashboard);
 
       final container = makeContainer();
@@ -62,13 +68,19 @@ void main() {
       expect(state.dashboard?.salesCount, 5);
       expect(state.selectedPeriod, DashboardPeriod.last30);
       verify(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).called(greaterThanOrEqualTo(2));
     });
 
     test('stores failure when load fails', () async {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenThrow(
         AppException(failure: const Failure.network(message: 'offline')),
       );
@@ -86,7 +98,10 @@ void main() {
 
     test('setPeriod last7 reloads dashboard', () async {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => testDashboard);
 
       final container = makeContainer();
@@ -100,23 +115,31 @@ void main() {
       final state = container.read(dashboardControllerProvider);
       expect(state.selectedPeriod, DashboardPeriod.last7);
       verify(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).called(greaterThanOrEqualTo(2));
     });
 
     test('setCustomRange stores range and reloads dashboard', () async {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => testDashboard);
 
       final container = makeContainer();
       addTearDown(container.dispose);
       await container.read(dashboardControllerProvider.notifier).refresh();
 
-      await container.read(dashboardControllerProvider.notifier).setCustomRange(
-        from: DateTime(2026, 5, 1),
-        to: DateTime(2026, 5, 15),
-      );
+      await container
+          .read(dashboardControllerProvider.notifier)
+          .setCustomRange(
+            from: DateTime(2026, 5, 1),
+            to: DateTime(2026, 5, 15),
+          );
 
       final state = container.read(dashboardControllerProvider);
       expect(state.selectedPeriod, DashboardPeriod.custom);
@@ -133,7 +156,10 @@ void main() {
     test('ignores stale responses when loads overlap', () async {
       final slowDashboard = Completer<Dashboard>();
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) => slowDashboard.future);
 
       final container = makeContainer();
@@ -144,7 +170,10 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer(
         (_) async => Dashboard(
           generatedAt: testDashboard.generatedAt,
@@ -169,17 +198,26 @@ void main() {
 
       await notifier.setPeriod(DashboardPeriod.last7);
 
-      expect(container.read(dashboardControllerProvider).dashboard?.salesCount, 99);
+      expect(
+        container.read(dashboardControllerProvider).dashboard?.salesCount,
+        99,
+      );
 
       slowDashboard.complete(testDashboard);
       await initialLoad;
 
-      expect(container.read(dashboardControllerProvider).dashboard?.salesCount, 99);
+      expect(
+        container.read(dashboardControllerProvider).dashboard?.salesCount,
+        99,
+      );
     });
 
     test('refresh clears previous error before reloading', () async {
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenThrow(
         AppException(failure: const Failure.network(message: 'offline')),
       );
@@ -189,7 +227,10 @@ void main() {
       await container.read(dashboardControllerProvider.notifier).refresh();
 
       when(
-        () => getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => testDashboard);
 
       await container.read(dashboardControllerProvider.notifier).refresh();

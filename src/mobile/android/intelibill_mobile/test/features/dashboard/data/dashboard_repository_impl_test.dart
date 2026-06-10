@@ -22,7 +22,10 @@ void main() {
   group('DashboardRepositoryImpl', () {
     test('maps remote dto into domain entity', () async {
       when(
-        () => remoteDataSource.getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => remoteDataSource.getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenAnswer((_) async => dashboardDto);
 
       final result = await repository.getDashboard(
@@ -45,7 +48,10 @@ void main() {
         failure: const Failure.network(message: 'offline'),
       );
       when(
-        () => remoteDataSource.getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => remoteDataSource.getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenThrow(exception);
 
       expect(
@@ -59,7 +65,10 @@ void main() {
 
     test('wraps unexpected errors in AppException', () async {
       when(
-        () => remoteDataSource.getDashboard(from: any(named: 'from'), to: any(named: 'to')),
+        () => remoteDataSource.getDashboard(
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+        ),
       ).thenThrow(Exception('boom'));
 
       expect(
