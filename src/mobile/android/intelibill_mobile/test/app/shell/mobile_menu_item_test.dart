@@ -59,7 +59,7 @@ void main() {
       );
     });
 
-    test('staff does not see customers in primary navigation', () {
+    test('staff sees permitted primary navigation only', () {
       final session = _sessionForRole('Staff');
 
       final keys = primaryNavigationItems(
@@ -69,7 +69,6 @@ void main() {
       expect(
         keys,
         equals([
-          MobileMenuLabelKey.dashboard,
           MobileMenuLabelKey.inventory,
           MobileMenuLabelKey.sales,
           MobileMenuLabelKey.more,

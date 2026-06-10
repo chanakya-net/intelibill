@@ -180,6 +180,11 @@ class _StubAuthController extends AuthController {
 
   @override
   Future<AuthControllerState> build() async => _initialState;
+
+  @override
+  Future<void> applySession(AuthSession session) async {
+    state = AsyncData(_initialState.copyWith(session: session));
+  }
 }
 
 class _StubShopController extends ShopController {
@@ -193,6 +198,11 @@ class _StubSucceedingShopController extends ShopController {
 
   @override
   Future<void> createShop(CreateShopRequest request) async {
+    final authController = ref.read(authControllerProvider.notifier);
+    await authController.applySession(_createdShopSession());
+    if (!ref.mounted) {
+      return;
+    }
     state = const AsyncData(null);
   }
 }
@@ -214,6 +224,34 @@ AuthSession _session() {
     ),
     activeShopId: null,
     shops: sessionShops,
+    rememberMe: false,
+  );
+}
+
+AuthSession _createdShopSession() {
+  return AuthSession(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'owner@example.com',
+      phoneNumber: null,
+      firstName: 'Alex',
+      lastName: 'Smith',
+      language: 'en-IN',
+    ),
+    activeShopId: 'shop-1',
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Acme Store',
+        role: 'Owner',
+        isDefault: true,
+        lastUsedAt: DateTime.utc(2026, 5, 12, 10),
+      ),
+    ],
     rememberMe: false,
   );
 }
