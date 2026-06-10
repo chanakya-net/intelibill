@@ -12,11 +12,15 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.da
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/edit_item_sheet.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/inventory_speed_dial.dart';
 
 class ItemsPage extends ConsumerStatefulWidget {
   const ItemsPage({super.key});
 
-  static const addProductFabKey = Key('items-add-fab');
+  static const speedDialMainKey = Key('items-speed-dial-main');
+  static const addProductActionKey = Key('items-speed-dial-add-product');
+
+  static const Key addProductFabKey = speedDialMainKey;
 
   @override
   ConsumerState<ItemsPage> createState() => _ItemsPageState();
@@ -54,40 +58,38 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
             icon: const Icon(Icons.account_circle),
             onPressed: () => context.push(AppRoutes.profile),
           ),
-          PopupMenuButton<_InventoryMenuAction>(
-            onSelected: (action) {
-              switch (action) {
-                case _InventoryMenuAction.addInventory:
-                  unawaited(context.push(AppRoutes.inventoryBatch));
-                case _InventoryMenuAction.batchOverview:
-                  unawaited(context.push(AppRoutes.inventoryBatches));
-                case _InventoryMenuAction.adjustmentHistory:
-                  unawaited(context.push(AppRoutes.inventoryAdjustments));
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: _InventoryMenuAction.addInventory,
-                child: Text(l10n.inventoryMenuAddInventory),
-              ),
-              PopupMenuItem(
-                value: _InventoryMenuAction.batchOverview,
-                child: Text(l10n.inventoryMenuBatchOverview),
-              ),
-              PopupMenuItem(
-                value: _InventoryMenuAction.adjustmentHistory,
-                child: Text(l10n.inventoryMenuAdjustmentHistory),
-              ),
-            ],
-          ),
         ],
       ),
       floatingActionButton: canManage
-          ? FloatingActionButton(
-              key: ItemsPage.addProductFabKey,
-              onPressed: _openCreateSheet,
-              tooltip: l10n.inventoryProductsAddProduct,
-              child: const Icon(Icons.add),
+          ? InventorySpeedDial(
+              mainFabKey: ItemsPage.speedDialMainKey,
+              actions: [
+                InventorySpeedDialAction(
+                  key: ItemsPage.addProductActionKey,
+                  label: l10n.inventoryProductsAddProduct,
+                  icon: Icons.add_box_outlined,
+                  onTap: () => unawaited(_openCreateSheet()),
+                ),
+                InventorySpeedDialAction(
+                  label: l10n.inventoryMenuAddInventory,
+                  icon: Icons.inventory_outlined,
+                  onTap: () =>
+                      unawaited(context.push(AppRoutes.inventoryBatch)),
+                ),
+                InventorySpeedDialAction(
+                  label: l10n.inventoryMenuBatchOverview,
+                  icon: Icons.layers_outlined,
+                  onTap: () =>
+                      unawaited(context.push(AppRoutes.inventoryBatches)),
+                ),
+                InventorySpeedDialAction(
+                  label: l10n.inventoryMenuAdjustmentHistory,
+                  icon: Icons.history,
+                  onTap: () => unawaited(
+                    context.push(AppRoutes.inventoryAdjustments),
+                  ),
+                ),
+              ],
             )
           : null,
       body: Column(
@@ -220,8 +222,6 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
     );
   }
 }
-
-enum _InventoryMenuAction { addInventory, batchOverview, adjustmentHistory }
 
 class _ItemCard extends StatelessWidget {
   const _ItemCard({required this.item, required this.canManage, this.onTap});

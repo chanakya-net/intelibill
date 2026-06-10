@@ -21,28 +21,40 @@ void main() {
 
   group('InventoryRemoteDataSourceImpl', () {
     group('getItems', () {
-      test('calls /items endpoint and returns parsed DTOs', () async {
-        final responseData = [
-          {
-            'id': 'item-1',
-            'name': 'Rice Basmati',
-            'barcode': '8901234567890',
-            'description': 'Premium rice',
-            'uom': 'KG',
-            'isActive': true,
-            'currentStock': 100.0,
-          },
-          {
-            'id': 'item-2',
-            'name': 'Sugar',
-            'barcode': '8901234567891',
-            'uom': 'KG',
-            'isActive': false,
-            'currentStock': 50.0,
-          },
-        ];
+      test('calls /items endpoint and returns parsed catalog items', () async {
+        final responseData = {
+          'items': [
+            {
+              'id': 'item-1',
+              'name': 'Rice Basmati',
+              'barcode': '8901234567890',
+              'description': 'Premium rice',
+              'uom': 'KG',
+              'isActive': true,
+              'currentStock': 100.0,
+            },
+            {
+              'id': 'item-2',
+              'name': 'Sugar',
+              'barcode': '8901234567891',
+              'uom': 'KG',
+              'isActive': false,
+              'currentStock': 50.0,
+            },
+          ],
+          'totalCount': 2,
+          'pageNumber': 1,
+          'pageSize': 100,
+        };
 
-        when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            any<String>(),
+            queryParameters: any<Map<String, dynamic>>(
+              named: 'queryParameters',
+            ),
+          ),
+        ).thenAnswer(
           (_) async => Response(
             data: responseData,
             statusCode: 200,
@@ -58,13 +70,99 @@ void main() {
         expect(dtos[1].id, 'item-2');
         expect(dtos[1].description, isNull);
 
-        verify(() => mockApiClient.get<List<dynamic>>('/items')).called(1);
+        verify(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            '/items',
+            queryParameters: {'pageNumber': 1, 'pageSize': 100},
+          ),
+        ).called(1);
       });
 
-      test('returns empty list when API returns empty array', () async {
-        when(() => mockApiClient.get<List<dynamic>>(any<String>())).thenAnswer(
+      test('fetches additional pages when catalog is paginated', () async {
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            any<String>(),
+            queryParameters: any<Map<String, dynamic>>(
+              named: 'queryParameters',
+            ),
+          ),
+        ).thenAnswer((invocation) async {
+          final query =
+              invocation.namedArguments[#queryParameters]
+                  as Map<String, dynamic>;
+          final pageNumber = query['pageNumber'] as int;
+
+          if (pageNumber == 1) {
+            return Response(
+              data: {
+                'items': [
+                  {
+                    'id': 'item-1',
+                    'name': 'Rice Basmati',
+                    'barcode': '8901234567890',
+                    'uom': 'KG',
+                    'isActive': true,
+                    'currentStock': 100.0,
+                  },
+                ],
+                'totalCount': 2,
+                'pageNumber': 1,
+                'pageSize': 1,
+              },
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/items'),
+            );
+          }
+
+          return Response(
+            data: {
+              'items': [
+                {
+                  'id': 'item-2',
+                  'name': 'Sugar',
+                  'barcode': '8901234567891',
+                  'uom': 'KG',
+                  'isActive': false,
+                  'currentStock': 50.0,
+                },
+              ],
+              'totalCount': 2,
+              'pageNumber': 2,
+              'pageSize': 1,
+            },
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/items'),
+          );
+        });
+
+        final dtos = await remoteDataSource.getItems();
+
+        expect(dtos.length, 2);
+        expect(dtos.map((dto) => dto.id), ['item-1', 'item-2']);
+        verify(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            '/items',
+            queryParameters: any(named: 'queryParameters'),
+          ),
+        ).called(2);
+      });
+
+      test('returns empty list when API returns empty catalog', () async {
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>(
+            any<String>(),
+            queryParameters: any<Map<String, dynamic>>(
+              named: 'queryParameters',
+            ),
+          ),
+        ).thenAnswer(
           (_) async => Response(
-            data: <dynamic>[],
+            data: {
+              'items': <dynamic>[],
+              'totalCount': 0,
+              'pageNumber': 1,
+              'pageSize': 100,
+            },
             statusCode: 200,
             requestOptions: RequestOptions(path: '/items'),
           ),

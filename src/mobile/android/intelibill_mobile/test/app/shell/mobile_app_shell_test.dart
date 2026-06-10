@@ -167,6 +167,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('Management'), findsOneWidget);
+      expect(find.text('Alex Smith'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Logout'), 200);
       await tester.tap(find.text('Logout'));
       await tester.pumpAndSettle();
@@ -208,6 +210,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Language Page'), findsOneWidget);
+    });
+
+    testWidgets('primary tabs use filled icons when selected', (tester) async {
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Owner')),
+      );
+      final router = _routerForShell();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authControllerProvider.overrideWith(() => controller)],
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dashboardDestination = tester.widget<NavigationDestination>(
+        find.widgetWithText(NavigationDestination, 'Dashboard'),
+      );
+      expect(dashboardDestination.selectedIcon, isA<Icon>());
+      final selectedIcon = dashboardDestination.selectedIcon! as Icon;
+      expect(selectedIcon.icon, Icons.home);
     });
   });
 }

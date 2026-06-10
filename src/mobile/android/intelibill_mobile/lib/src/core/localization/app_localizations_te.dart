@@ -114,6 +114,18 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellMore => 'More';
 
   @override
+  String get shellSectionManagement => 'Management';
+
+  @override
+  String get shellSectionProfile => 'Account';
+
+  @override
+  String get shellSectionShop => 'Shop';
+
+  @override
+  String get shellSectionSettings => 'Settings';
+
+  @override
   String get shellManageDiscounts => 'Discounts';
 
   @override
@@ -483,6 +495,9 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get inventoryProductErrorForbidden =>
       'You do not have permission to view products.';
+
+  @override
+  String get inventoryMenuTitle => 'Inventory actions';
 
   @override
   String get inventoryMenuAddInventory => 'Add Inventory';
@@ -1268,6 +1283,148 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get dashboardErrorGeneric =>
       'Unable to load dashboard. Please try again.';
+
+  @override
+  String get salesHistoryEyebrow => 'Sales ledger';
+
+  @override
+  String get salesHistoryTitle => 'Sales history';
+
+  @override
+  String get salesHistorySubtitle =>
+      'Review invoices, payment status, and refunds for the selected period.';
+
+  @override
+  String get salesHistoryKpiPeriodSales => 'Period sales';
+
+  @override
+  String get salesHistoryKpiInvoices => 'Invoices';
+
+  @override
+  String get salesHistoryKpiRefunds => 'Refunds';
+
+  @override
+  String get salesHistoryControlsStatus => 'Status';
+
+  @override
+  String get salesHistoryControlsSearchPlaceholder =>
+      'Search invoice, customer, or phone...';
+
+  @override
+  String get salesHistoryControlsClearFilters => 'Clear';
+
+  @override
+  String get salesHistoryStatusAll => 'All';
+
+  @override
+  String get salesHistoryStatusPaid => 'Paid';
+
+  @override
+  String get salesHistoryStatusPartiallyPaid => 'Partially paid';
+
+  @override
+  String get salesHistoryStatusRefunded => 'Refunded';
+
+  @override
+  String get salesHistoryStatusReturned => 'Returned';
+
+  @override
+  String get salesHistoryStatusUnknown => 'Unknown';
+
+  @override
+  String get salesHistoryPaymentCash => 'Cash';
+
+  @override
+  String get salesHistoryPaymentUpi => 'UPI';
+
+  @override
+  String get salesHistoryPaymentCard => 'Card';
+
+  @override
+  String get salesHistoryPaymentCredit => 'Credit';
+
+  @override
+  String get salesHistoryPaymentUnknown => 'Unknown';
+
+  @override
+  String get salesHistoryWalkInCustomer => 'Walk-in customer';
+
+  @override
+  String get salesHistoryNoSales => 'No sales found';
+
+  @override
+  String get salesHistoryNoSalesDescription =>
+      'Try adjusting the date range, status filter, or search terms.';
+
+  @override
+  String get salesHistoryUnableToLoad => 'Unable to load sales history';
+
+  @override
+  String get salesHistoryRetry => 'Retry';
+
+  @override
+  String get salesHistoryInvoiceNumber => 'Invoice';
+
+  @override
+  String get salesHistoryCustomer => 'Customer';
+
+  @override
+  String get salesHistoryPhone => 'Phone';
+
+  @override
+  String get salesHistoryDate => 'Date';
+
+  @override
+  String get salesHistoryPaymentMethod => 'Payment';
+
+  @override
+  String get salesHistoryItemCountLabel => 'Items';
+
+  @override
+  String get salesHistoryTotal => 'Total';
+
+  @override
+  String get salesHistoryDueAmount => 'Due';
+
+  @override
+  String get salesHistoryRefundAmount => 'Refund';
+
+  @override
+  String get salesHistoryDetailTitle => 'Sale details';
+
+  @override
+  String get salesHistoryErrorGeneric =>
+      'Unable to load sales history. Please try again.';
+
+  @override
+  String get salesHistoryErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get salesHistoryErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get salesHistoryErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get salesHistoryErrorForbidden =>
+      'You do not have permission to view sales history.';
+
+  @override
+  String salesHistoryItemCount(int count) {
+    return '$count items';
+  }
+
+  @override
+  String salesHistoryDateRangeLabel(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String salesHistoryShowingCount(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -1378,6 +1535,18 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get shellMore => 'More';
+
+  @override
+  String get shellSectionManagement => 'Management';
+
+  @override
+  String get shellSectionProfile => 'Account';
+
+  @override
+  String get shellSectionShop => 'Shop';
+
+  @override
+  String get shellSectionSettings => 'Settings';
 
   @override
   String get shellManageDiscounts => 'Discounts';
@@ -1655,6 +1824,9 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get inventoryProductErrorForbidden =>
       'You do not have permission to view products.';
+
+  @override
+  String get inventoryMenuTitle => 'Inventory actions';
 
   @override
   String get inventoryMenuAddInventory => 'Add Inventory';
@@ -2118,4 +2290,146 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get dashboardErrorGeneric =>
       'Unable to load dashboard. Please try again.';
+
+  @override
+  String get salesHistoryEyebrow => 'Sales ledger';
+
+  @override
+  String get salesHistoryTitle => 'Sales history';
+
+  @override
+  String get salesHistorySubtitle =>
+      'Review invoices, payment status, and refunds for the selected period.';
+
+  @override
+  String get salesHistoryKpiPeriodSales => 'Period sales';
+
+  @override
+  String get salesHistoryKpiInvoices => 'Invoices';
+
+  @override
+  String get salesHistoryKpiRefunds => 'Refunds';
+
+  @override
+  String get salesHistoryControlsStatus => 'Status';
+
+  @override
+  String get salesHistoryControlsSearchPlaceholder =>
+      'Search invoice, customer, or phone...';
+
+  @override
+  String get salesHistoryControlsClearFilters => 'Clear';
+
+  @override
+  String get salesHistoryStatusAll => 'All';
+
+  @override
+  String get salesHistoryStatusPaid => 'Paid';
+
+  @override
+  String get salesHistoryStatusPartiallyPaid => 'Partially paid';
+
+  @override
+  String get salesHistoryStatusRefunded => 'Refunded';
+
+  @override
+  String get salesHistoryStatusReturned => 'Returned';
+
+  @override
+  String get salesHistoryStatusUnknown => 'Unknown';
+
+  @override
+  String get salesHistoryPaymentCash => 'Cash';
+
+  @override
+  String get salesHistoryPaymentUpi => 'UPI';
+
+  @override
+  String get salesHistoryPaymentCard => 'Card';
+
+  @override
+  String get salesHistoryPaymentCredit => 'Credit';
+
+  @override
+  String get salesHistoryPaymentUnknown => 'Unknown';
+
+  @override
+  String get salesHistoryWalkInCustomer => 'Walk-in customer';
+
+  @override
+  String get salesHistoryNoSales => 'No sales found';
+
+  @override
+  String get salesHistoryNoSalesDescription =>
+      'Try adjusting the date range, status filter, or search terms.';
+
+  @override
+  String get salesHistoryUnableToLoad => 'Unable to load sales history';
+
+  @override
+  String get salesHistoryRetry => 'Retry';
+
+  @override
+  String get salesHistoryInvoiceNumber => 'Invoice';
+
+  @override
+  String get salesHistoryCustomer => 'Customer';
+
+  @override
+  String get salesHistoryPhone => 'Phone';
+
+  @override
+  String get salesHistoryDate => 'Date';
+
+  @override
+  String get salesHistoryPaymentMethod => 'Payment';
+
+  @override
+  String get salesHistoryItemCountLabel => 'Items';
+
+  @override
+  String get salesHistoryTotal => 'Total';
+
+  @override
+  String get salesHistoryDueAmount => 'Due';
+
+  @override
+  String get salesHistoryRefundAmount => 'Refund';
+
+  @override
+  String get salesHistoryDetailTitle => 'Sale details';
+
+  @override
+  String get salesHistoryErrorGeneric =>
+      'Unable to load sales history. Please try again.';
+
+  @override
+  String get salesHistoryErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get salesHistoryErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get salesHistoryErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get salesHistoryErrorForbidden =>
+      'You do not have permission to view sales history.';
+
+  @override
+  String salesHistoryItemCount(int count) {
+    return '$count items';
+  }
+
+  @override
+  String salesHistoryDateRangeLabel(String from, String to) {
+    return '$from – $to';
+  }
+
+  @override
+  String salesHistoryShowingCount(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
@@ -110,6 +111,30 @@ void main() {
       expect(keys, isNot(contains(MobileMenuLabelKey.discounts)));
       expect(keys, isNot(contains(MobileMenuLabelKey.addShop)));
       expect(keys, isNot(contains(MobileMenuLabelKey.manageShop)));
+    });
+
+    test('primary items expose selected icon variants', () {
+      final session = _sessionForRole('Owner');
+      final items = primaryNavigationItems(session);
+
+      final dashboard = items.firstWhere(
+        (item) => item.labelKey == MobileMenuLabelKey.dashboard,
+      );
+      final inventory = items.firstWhere(
+        (item) => item.labelKey == MobileMenuLabelKey.inventory,
+      );
+
+      expect(dashboard.selectedIcon, Icons.home);
+      expect(inventory.selectedIcon, Icons.inventory_2);
+    });
+
+    test('logout item is marked destructive', () {
+      final session = _sessionForRole('Owner');
+      final logoutItem = moreMenuItems(session).firstWhere(
+        (item) => item.labelKey == MobileMenuLabelKey.logout,
+      );
+
+      expect(logoutItem.isDestructive, isTrue);
     });
 
     test('language and logout destinations are wired', () {
