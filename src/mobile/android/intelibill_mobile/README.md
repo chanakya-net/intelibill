@@ -66,13 +66,36 @@ To find your machine's LAN IP:
 - **macOS/Linux**: `ifconfig | grep "inet " | grep -v 127.0.0.1`
 - **Windows**: `ipconfig`
 
+### Flutter version
+
+Mobile CI pins Flutter via `.flutter-version` (currently **3.41.9**). Use the same version locally to avoid codegen drift:
+
+```bash
+# Optional but recommended: install FVM, then from this directory:
+fvm install
+fvm use
+fvm flutter --version
+```
+
+Without FVM, install Flutter **3.41.9** stable and verify with `flutter --version`.
+
+### Code generation
+
+After changing Riverpod/Freezed/JSON models, ARB locale files, or anything under `lib/` that uses codegen, regenerate and commit:
+
+```bash
+./tool/codegen.sh
+```
+
+This runs `flutter pub get`, `flutter gen-l10n`, `build_runner`, and `dart format`. CI runs the same script and fails if generated files under `lib/` are out of date.
+
 ### Dependency Management
 
 Update dependencies with:
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+./tool/codegen.sh
 ```
 
 Check for outdated packages:

@@ -62,6 +62,8 @@ bool canManageBankAccounts(AuthSession? session) {
   return isOwner(session);
 }
 
+bool canViewDashboard(AuthSession? session) => isOwnerOrManager(session);
+
 bool _hasRole(AuthSession? session, Set<String> allowedRoles) {
   final role = activeShopForSession(session)?.role.toLowerCase();
   if (role == null || role.isEmpty) {

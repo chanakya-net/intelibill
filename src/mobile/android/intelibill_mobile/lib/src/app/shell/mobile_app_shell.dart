@@ -26,26 +26,28 @@ class MobileAppShell extends ConsumerWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          for (final item in primaryItems)
-            NavigationDestination(
-              icon: Icon(item.icon),
-              label: item.labelKey.label(l10n),
-            ),
-        ],
-        onDestinationSelected: (index) {
-          _handlePrimarySelection(
-            context,
-            ref,
-            l10n,
-            primaryItems[index],
-            moreItems,
-          );
-        },
-      ),
+      bottomNavigationBar: primaryItems.length >= 2
+          ? NavigationBar(
+              selectedIndex: selectedIndex,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: [
+                for (final item in primaryItems)
+                  NavigationDestination(
+                    icon: Icon(item.icon),
+                    label: item.labelKey.label(l10n),
+                  ),
+              ],
+              onDestinationSelected: (index) {
+                _handlePrimarySelection(
+                  context,
+                  ref,
+                  l10n,
+                  primaryItems[index],
+                  moreItems,
+                );
+              },
+            )
+          : null,
     );
   }
 }

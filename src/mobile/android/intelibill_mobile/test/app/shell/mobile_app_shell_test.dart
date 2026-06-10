@@ -65,9 +65,9 @@ AuthSession _sessionForRole(
   );
 }
 
-GoRouter _routerForShell() {
+GoRouter _routerForShell({String initialLocation = AppRoutes.dashboard}) {
   return GoRouter(
-    initialLocation: AppRoutes.dashboard,
+    initialLocation: initialLocation,
     routes: [
       ShellRoute(
         builder: (context, state, child) => MobileAppShell(child: child),
@@ -108,7 +108,7 @@ void main() {
       final controller = _TestAuthController(
         AuthControllerState(session: _sessionForRole('Staff')),
       );
-      final router = _routerForShell();
+      final router = _routerForShell(initialLocation: AppRoutes.salesHistory);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -128,7 +128,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Dashboard'), findsWidgets);
+      expect(
+        find.widgetWithText(NavigationDestination, 'Dashboard'),
+        findsNothing,
+      );
       expect(find.text('Inventory'), findsWidgets);
       expect(find.text('Sales'), findsWidgets);
       expect(find.text('More'), findsWidgets);
@@ -136,7 +139,9 @@ void main() {
     });
 
     testWidgets('more menu triggers logout action', (tester) async {
-      final controller = _TestAuthController(const AuthControllerState());
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Owner')),
+      );
       final router = _routerForShell();
 
       await tester.pumpWidget(
@@ -162,17 +167,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsOneWidget);
-      final tilesFinder = find.byType(ListTile);
-      final tileCount = tester.widgetList<ListTile>(tilesFinder).length;
-      expect(tileCount, equals(2));
-      await tester.tap(tilesFinder.at(1));
+      await tester.scrollUntilVisible(find.text('Logout'), 200);
+      await tester.tap(find.text('Logout'));
       await tester.pumpAndSettle();
 
       expect(controller.signOutCalls, equals(1));
     });
 
     testWidgets('more menu navigates to language route', (tester) async {
-      final controller = _TestAuthController(const AuthControllerState());
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Owner')),
+      );
       final router = _routerForShell();
 
       await tester.pumpWidget(
@@ -198,10 +203,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsOneWidget);
-      final tilesFinder = find.byType(ListTile);
-      final tileCount = tester.widgetList<ListTile>(tilesFinder).length;
-      expect(tileCount, equals(2));
-      await tester.tap(tilesFinder.at(0));
+      await tester.scrollUntilVisible(find.text('Language'), 200);
+      await tester.tap(find.text('Language'));
       await tester.pumpAndSettle();
 
       expect(find.text('Language Page'), findsOneWidget);

@@ -34,6 +34,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version-file: src/mobile/android/intelibill_mobile/.flutter-version
+          cache: true
 
       - name: Print Flutter version
         run: flutter --version
@@ -42,13 +44,22 @@ jobs:
         run: flutter pub get
 
       - name: Build generated code
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: ./tool/codegen.sh
 
       - name: Check for uncommitted generated changes
         run: |
           set -euo pipefail
-          if ! git diff --exit-code; then
-            echo "Generated code is not up to date. Run 'dart run build_runner build --delete-conflicting-outputs' and commit the changes."
+          if ! git diff --exit-code -- \
+            'lib/**/*.g.dart' \
+            'lib/**/*.freezed.dart' \
+            'lib/src/core/localization/'; then
+            echo "Generated code is not up to date."
+            echo "From src/mobile/android/intelibill_mobile run: ./tool/codegen.sh"
+            echo "Then commit the updated files under lib/."
+            git diff --stat -- \
+              'lib/**/*.g.dart' \
+              'lib/**/*.freezed.dart' \
+              'lib/src/core/localization/' || true
             exit 1
           fi
 

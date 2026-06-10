@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:intelibill_mobile/src/app/navigation/authenticated_home_route.dart';
 import 'package:intelibill_mobile/src/app/pages/language_page.dart';
 import 'package:intelibill_mobile/src/app/pages/placeholder_page.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/app/shell/mobile_app_shell.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
@@ -12,6 +14,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_pag
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
+import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
@@ -74,8 +77,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && isAuthRoute) {
-        // Redirect authenticated users away from login to home
-        return AppRoutes.dashboard;
+        return resolveAuthenticatedHomeRoute(authState.session);
+      }
+
+      if (isAuthenticated &&
+          state.matchedLocation == AppRoutes.dashboard &&
+          !canViewDashboard(authState.session)) {
+        return AppRoutes.salesHistory;
       }
 
       return null;
@@ -104,14 +112,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: AppRoutes.root,
-            redirect: (context, state) => AppRoutes.dashboard,
+            redirect: (context, state) {
+              final authAsync = ref.read(authControllerProvider);
+              final session = authAsync.asData?.value.session;
+              return resolveAuthenticatedHomeRoute(session);
+            },
           ),
           GoRoute(
             path: AppRoutes.dashboard,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellDashboard,
-            ),
+            builder: (context, state) => const DashboardPage(),
           ),
           GoRoute(
             path: AppRoutes.inventory,

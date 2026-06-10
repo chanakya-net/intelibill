@@ -535,6 +535,36 @@ abstract class AppLocalizations {
   /// **'No suppliers found'**
   String get suppliersNoSuppliersFound;
 
+  /// No description provided for @suppliersEmptyDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Suppliers you add will appear here with contact details and payables.'**
+  String get suppliersEmptyDescription;
+
+  /// No description provided for @suppliersSummaryCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} suppliers'**
+  String suppliersSummaryCount(int count);
+
+  /// No description provided for @suppliersSummaryActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} active'**
+  String suppliersSummaryActive(int count);
+
+  /// No description provided for @suppliersSummaryPreferred.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} preferred'**
+  String suppliersSummaryPreferred(int count);
+
+  /// No description provided for @suppliersSummaryPayable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{amount} payable'**
+  String suppliersSummaryPayable(String amount);
+
   /// No description provided for @suppliersUnableToLoad.
   ///
   /// In en_IN, this message translates to:
@@ -2142,6 +2172,306 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Request timed out. Please try again.'**
   String get shopsManageErrorTimeout;
+
+  /// No description provided for @dashboardSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Operational snapshot for your active shop.'**
+  String get dashboardSubtitle;
+
+  /// No description provided for @dashboardGreetingMorning.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Good morning, {shopName}'**
+  String dashboardGreetingMorning(String shopName);
+
+  /// No description provided for @dashboardGreetingAfternoon.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Good afternoon, {shopName}'**
+  String dashboardGreetingAfternoon(String shopName);
+
+  /// No description provided for @dashboardGreetingEvening.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Good evening, {shopName}'**
+  String dashboardGreetingEvening(String shopName);
+
+  /// No description provided for @dashboardRangeLast7Days.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last 7 days'**
+  String get dashboardRangeLast7Days;
+
+  /// No description provided for @dashboardRangeLast30Days.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last 30 days'**
+  String get dashboardRangeLast30Days;
+
+  /// No description provided for @dashboardRangeCustom.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Custom'**
+  String get dashboardRangeCustom;
+
+  /// No description provided for @dashboardRangeFrom.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'From'**
+  String get dashboardRangeFrom;
+
+  /// No description provided for @dashboardRangeTo.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'To'**
+  String get dashboardRangeTo;
+
+  /// No description provided for @dashboardKpiSalesRevenue.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales Revenue'**
+  String get dashboardKpiSalesRevenue;
+
+  /// No description provided for @dashboardKpiNetProfit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Net Profit'**
+  String get dashboardKpiNetProfit;
+
+  /// No description provided for @dashboardKpiInvoiceCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Invoices'**
+  String get dashboardKpiInvoiceCount;
+
+  /// No description provided for @dashboardKpiLowStockItems.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Low Stock Items'**
+  String get dashboardKpiLowStockItems;
+
+  /// No description provided for @dashboardKpiStockValue.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock Value'**
+  String get dashboardKpiStockValue;
+
+  /// No description provided for @dashboardKpiCustomerCreditDue.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Customer Credit Due'**
+  String get dashboardKpiCustomerCreditDue;
+
+  /// No description provided for @dashboardKpiSupplierPayables.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier Payables'**
+  String get dashboardKpiSupplierPayables;
+
+  /// No description provided for @dashboardKpiExpenses.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expenses'**
+  String get dashboardKpiExpenses;
+
+  /// No description provided for @dashboardKpiVsPreviousPeriod.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'vs previous period'**
+  String get dashboardKpiVsPreviousPeriod;
+
+  /// No description provided for @dashboardChartSalesTrend.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales Trend'**
+  String get dashboardChartSalesTrend;
+
+  /// No description provided for @dashboardChartSalesTrendSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total sales amount per day for the selected period.'**
+  String get dashboardChartSalesTrendSubtitle;
+
+  /// No description provided for @dashboardChartRevenueVsExpenses.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Revenue vs Expenses'**
+  String get dashboardChartRevenueVsExpenses;
+
+  /// No description provided for @dashboardChartRevenueVsExpensesSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Daily cash movement.'**
+  String get dashboardChartRevenueVsExpensesSubtitle;
+
+  /// No description provided for @dashboardChartRevenue.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Revenue'**
+  String get dashboardChartRevenue;
+
+  /// No description provided for @dashboardChartExpenses.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expenses'**
+  String get dashboardChartExpenses;
+
+  /// No description provided for @dashboardNoChartData.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No chart data for the selected period.'**
+  String get dashboardNoChartData;
+
+  /// No description provided for @dashboardLatestSalesEyebrow.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Recent Activity'**
+  String get dashboardLatestSalesEyebrow;
+
+  /// No description provided for @dashboardLatestSalesTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Latest Sales'**
+  String get dashboardLatestSalesTitle;
+
+  /// No description provided for @dashboardLatestSalesEmptyTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No recent sales'**
+  String get dashboardLatestSalesEmptyTitle;
+
+  /// No description provided for @dashboardLatestSalesEmptyDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The latest active-shop sales will appear here.'**
+  String get dashboardLatestSalesEmptyDescription;
+
+  /// No description provided for @dashboardLatestSalesViewSales.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'View all sales'**
+  String get dashboardLatestSalesViewSales;
+
+  /// No description provided for @dashboardAlertsEyebrow.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Alerts'**
+  String get dashboardAlertsEyebrow;
+
+  /// No description provided for @dashboardAlertsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Needs Attention'**
+  String get dashboardAlertsTitle;
+
+  /// No description provided for @dashboardAlertsEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Nothing needs attention right now.'**
+  String get dashboardAlertsEmpty;
+
+  /// No description provided for @dashboardAlertsView.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'View'**
+  String get dashboardAlertsView;
+
+  /// No description provided for @dashboardQuickActionsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quick actions'**
+  String get dashboardQuickActionsTitle;
+
+  /// No description provided for @dashboardQuickActionNewSale.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New sale'**
+  String get dashboardQuickActionNewSale;
+
+  /// No description provided for @dashboardQuickActionAddInventory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add inventory'**
+  String get dashboardQuickActionAddInventory;
+
+  /// No description provided for @dashboardQuickActionExpenses.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expenses'**
+  String get dashboardQuickActionExpenses;
+
+  /// No description provided for @dashboardQuickActionProfitLoss.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Profit & Loss'**
+  String get dashboardQuickActionProfitLoss;
+
+  /// No description provided for @dashboardUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load dashboard'**
+  String get dashboardUnableToLoad;
+
+  /// No description provided for @dashboardRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get dashboardRetry;
+
+  /// No description provided for @dashboardNoData.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No dashboard data available.'**
+  String get dashboardNoData;
+
+  /// No description provided for @dashboardAccessRestrictedTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Dashboard is for owners and managers'**
+  String get dashboardAccessRestrictedTitle;
+
+  /// No description provided for @dashboardAccessRestrictedBody.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Your current shop role does not include dashboard access. Open Sales to continue working.'**
+  String get dashboardAccessRestrictedBody;
+
+  /// No description provided for @dashboardAccessRestrictedAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Open Sales'**
+  String get dashboardAccessRestrictedAction;
+
+  /// No description provided for @dashboardErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get dashboardErrorNetwork;
+
+  /// No description provided for @dashboardErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get dashboardErrorTimeout;
+
+  /// No description provided for @dashboardErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get dashboardErrorUnauthorized;
+
+  /// No description provided for @dashboardErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view the dashboard.'**
+  String get dashboardErrorForbidden;
+
+  /// No description provided for @dashboardErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load dashboard. Please try again.'**
+  String get dashboardErrorGeneric;
 }
 
 class _AppLocalizationsDelegate

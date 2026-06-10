@@ -69,6 +69,39 @@
   "suppliersTitle": "Suppliers",
   "suppliersAddSupplier": "Add Supplier",
   "suppliersNoSuppliersFound": "No suppliers found",
+  "suppliersEmptyDescription": "Suppliers you add will appear here with contact details and payables.",
+  "suppliersSummaryCount": "{count} suppliers",
+  "@suppliersSummaryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suppliersSummaryActive": "{count} active",
+  "@suppliersSummaryActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suppliersSummaryPreferred": "{count} preferred",
+  "@suppliersSummaryPreferred": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suppliersSummaryPayable": "{amount} payable",
+  "@suppliersSummaryPayable": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "suppliersUnableToLoad": "Unable to load suppliers",
   "suppliersRetry": "Retry",
   "suppliersInactive": "Inactive",
@@ -350,5 +383,76 @@
         "type": "String"
       }
     }
-  }
+  },
+  "dashboardSubtitle": "Operational snapshot for your active shop.",
+  "dashboardGreetingMorning": "Good morning, {shopName}",
+  "@dashboardGreetingMorning": {
+    "placeholders": {
+      "shopName": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardGreetingAfternoon": "Good afternoon, {shopName}",
+  "@dashboardGreetingAfternoon": {
+    "placeholders": {
+      "shopName": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardGreetingEvening": "Good evening, {shopName}",
+  "@dashboardGreetingEvening": {
+    "placeholders": {
+      "shopName": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardRangeLast7Days": "Last 7 days",
+  "dashboardRangeLast30Days": "Last 30 days",
+  "dashboardRangeCustom": "Custom",
+  "dashboardRangeFrom": "From",
+  "dashboardRangeTo": "To",
+  "dashboardKpiSalesRevenue": "Sales Revenue",
+  "dashboardKpiNetProfit": "Net Profit",
+  "dashboardKpiInvoiceCount": "Invoices",
+  "dashboardKpiLowStockItems": "Low Stock Items",
+  "dashboardKpiStockValue": "Stock Value",
+  "dashboardKpiCustomerCreditDue": "Customer Credit Due",
+  "dashboardKpiSupplierPayables": "Supplier Payables",
+  "dashboardKpiExpenses": "Expenses",
+  "dashboardKpiVsPreviousPeriod": "vs previous period",
+  "dashboardChartSalesTrend": "Sales Trend",
+  "dashboardChartSalesTrendSubtitle": "Total sales amount per day for the selected period.",
+  "dashboardChartRevenueVsExpenses": "Revenue vs Expenses",
+  "dashboardChartRevenueVsExpensesSubtitle": "Daily cash movement.",
+  "dashboardChartRevenue": "Revenue",
+  "dashboardChartExpenses": "Expenses",
+  "dashboardNoChartData": "No chart data for the selected period.",
+  "dashboardLatestSalesEyebrow": "Recent Activity",
+  "dashboardLatestSalesTitle": "Latest Sales",
+  "dashboardLatestSalesEmptyTitle": "No recent sales",
+  "dashboardLatestSalesEmptyDescription": "The latest active-shop sales will appear here.",
+  "dashboardLatestSalesViewSales": "View all sales",
+  "dashboardAlertsEyebrow": "Alerts",
+  "dashboardAlertsTitle": "Needs Attention",
+  "dashboardAlertsEmpty": "Nothing needs attention right now.",
+  "dashboardAlertsView": "View",
+  "dashboardQuickActionsTitle": "Quick actions",
+  "dashboardQuickActionNewSale": "New sale",
+  "dashboardQuickActionAddInventory": "Add inventory",
+  "dashboardQuickActionExpenses": "Expenses",
+  "dashboardQuickActionProfitLoss": "Profit & Loss",
+  "dashboardUnableToLoad": "Unable to load dashboard",
+  "dashboardRetry": "Retry",
+  "dashboardNoData": "No dashboard data available.",
+  "dashboardAccessRestrictedTitle": "Dashboard is for owners and managers",
+  "dashboardAccessRestrictedBody": "Your current shop role does not include dashboard access. Open Sales to continue working.",
+  "dashboardAccessRestrictedAction": "Open Sales",
+  "dashboardErrorNetwork": "Unable to connect. Please check your network.",
+  "dashboardErrorTimeout": "Request timed out. Please try again.",
+  "dashboardErrorUnauthorized": "Session expired. Please log in again.",
+  "dashboardErrorForbidden": "You do not have permission to view the dashboard.",
+  "dashboardErrorGeneric": "Unable to load dashboard. Please try again."
 }
