@@ -9,6 +9,7 @@ class AppTheme {
     const onPrimaryText = Color(0xFF431407);
     const inputFill = Color(0xFFFFFBF5);
 
+    final baseTheme = ThemeData.light();
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryOrange,
       primary: primaryOrange,
@@ -90,7 +91,7 @@ class AppTheme {
         side: const BorderSide(color: Color(0xFFE07A2F), width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      textTheme: ThemeData.light().textTheme
+      textTheme: baseTheme.textTheme
           .apply(fontFamily: 'Georgia')
           .copyWith(
             headlineMedium: const TextStyle(
@@ -110,10 +111,10 @@ class AppTheme {
         thickness: 1,
       ),
       splashFactory: InkSparkle.splashFactory,
-      pageTransitionsTheme: const PageTransitionsTheme(
+      pageTransitionsTheme: PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          ...baseTheme.pageTransitionsTheme.builders,
+          TargetPlatform.android: const FadeUpwardsPageTransitionsBuilder(),
         },
       ),
       tooltipTheme: const TooltipThemeData(
