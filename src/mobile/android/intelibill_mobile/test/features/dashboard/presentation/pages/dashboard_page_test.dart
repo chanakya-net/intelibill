@@ -57,9 +57,7 @@ Widget _buildApp({
 
 void main() {
   group('DashboardPage', () {
-    setUp(() {
-      TestWidgetsFlutterBinding.ensureInitialized();
-    });
+    setUp(TestWidgetsFlutterBinding.ensureInitialized);
 
     testWidgets('shows loading indicator when dashboard is loading', (
       tester,

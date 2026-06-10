@@ -25,13 +25,11 @@ void main() {
   });
 
   ProviderContainer makeContainer() {
-    final container = ProviderContainer(
+    return ProviderContainer(
       overrides: [
         getDashboardUseCaseProvider.overrideWithValue(getDashboard),
       ],
-    );
-    container.listen(dashboardControllerProvider, (_, _) {});
-    return container;
+    )..listen(dashboardControllerProvider, (_, _) {});
   }
 
   group('DashboardController', () {
@@ -137,17 +135,17 @@ void main() {
       await container
           .read(dashboardControllerProvider.notifier)
           .setCustomRange(
-            from: DateTime(2026, 5, 1),
+            from: DateTime(2026, 5),
             to: DateTime(2026, 5, 15),
           );
 
       final state = container.read(dashboardControllerProvider);
       expect(state.selectedPeriod, DashboardPeriod.custom);
-      expect(state.customFrom, DateTime(2026, 5, 1));
+      expect(state.customFrom, DateTime(2026, 5));
       expect(state.customTo, DateTime(2026, 5, 15));
       verify(
         () => getDashboard(
-          from: DateTime(2026, 5, 1),
+          from: DateTime(2026, 5),
           to: DateTime(2026, 5, 15),
         ),
       ).called(1);

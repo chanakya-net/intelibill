@@ -29,7 +29,7 @@ void main() {
       ).thenAnswer((_) async => dashboardDto);
 
       final result = await repository.getDashboard(
-        from: DateTime(2026, 5, 1),
+        from: DateTime(2026, 5),
         to: DateTime(2026, 5, 31),
       );
 
@@ -56,7 +56,7 @@ void main() {
 
       expect(
         repository.getDashboard(
-          from: DateTime(2026, 5, 1),
+          from: DateTime(2026, 5),
           to: DateTime(2026, 5, 31),
         ),
         throwsA(same(exception)),

@@ -40,7 +40,7 @@ void main() {
       expect(encoded['salesCount'], 5);
       expect(encoded['stockValue'], 45000);
       expect(encoded['latestSales'], isA<List<dynamic>>());
-      expect((encoded['latestSales'] as List), isNotEmpty);
+      expect(encoded['latestSales'] as List, isNotEmpty);
     });
   });
 }

@@ -34,10 +34,7 @@ void main() {
 
       expect(dto.salesCount, 5);
       verify(
-        () => mockApiClient.get<Map<String, dynamic>>(
-          '/dashboard',
-          queryParameters: null,
-        ),
+        () => mockApiClient.get<Map<String, dynamic>>('/dashboard'),
       ).called(1);
     });
 

@@ -49,7 +49,7 @@ const dashboardJson = <String, dynamic>{
   'stockValue': 45000,
 };
 
-final dashboardDto = DashboardDto(
+const dashboardDto = DashboardDto(
   generatedAt: '2026-06-10T10:00:00.000Z',
   startDate: '2026-05-12',
   endDate: '2026-06-10',

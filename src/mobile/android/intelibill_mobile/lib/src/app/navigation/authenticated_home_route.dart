@@ -5,7 +5,7 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 /// Resolves the default authenticated landing route based on shop role.
 ///
 /// Owners and managers land on the dashboard; staff land on sales, matching
-/// the web [dashboardGuard] behavior.
+/// the web dashboard guard behavior.
 String resolveAuthenticatedHomeRoute(AuthSession? session) {
   if (isOwnerOrManager(session)) {
     return AppRoutes.dashboard;
