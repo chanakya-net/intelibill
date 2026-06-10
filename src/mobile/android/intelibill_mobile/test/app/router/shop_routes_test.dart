@@ -6,6 +6,8 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
+import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/create_shop_request.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/controllers/shop_controller.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
@@ -23,6 +25,9 @@ void main() {
             () => _StubAuthController(AuthControllerState(session: _session())),
           ),
           shopControllerProvider.overrideWith(_StubShopController.new),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -62,6 +67,9 @@ void main() {
             ),
             shopControllerProvider.overrideWith(
               _StubSucceedingShopController.new,
+            ),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
             ),
           ],
         );
@@ -114,7 +122,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(CreateShopPage), findsNothing);
-        expect(find.byType(PlaceholderPage), findsOneWidget);
+        expect(find.byType(DashboardPage), findsOneWidget);
       },
     );
 
@@ -127,6 +135,9 @@ void main() {
             () => _StubAuthController(AuthControllerState(session: _session())),
           ),
           shopControllerProvider.overrideWith(_StubShopController.new),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -155,6 +166,11 @@ void main() {
       expect(find.byType(PlaceholderPage), findsNothing);
     });
   });
+}
+
+class _StubDashboardController extends DashboardController {
+  @override
+  DashboardState build() => const DashboardState();
 }
 
 class _StubAuthController extends AuthController {

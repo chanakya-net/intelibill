@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -57,7 +58,12 @@ void main() {
         AuthControllerState(session: _sessionForRole('Owner')),
       );
       final container = ProviderContainer(
-        overrides: [authControllerProvider.overrideWith(() => controller)],
+        overrides: [
+          authControllerProvider.overrideWith(() => controller),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -106,7 +112,12 @@ void main() {
         AuthControllerState(session: _sessionForRole('Owner')),
       );
       final container = ProviderContainer(
-        overrides: [authControllerProvider.overrideWith(() => controller)],
+        overrides: [
+          authControllerProvider.overrideWith(() => controller),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -152,6 +163,11 @@ void main() {
       );
     });
   });
+}
+
+class _StubDashboardController extends DashboardController {
+  @override
+  DashboardState build() => const DashboardState();
 }
 
 class _TestAuthController extends AuthController {

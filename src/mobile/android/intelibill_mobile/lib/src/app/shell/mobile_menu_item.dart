@@ -152,6 +152,7 @@ final List<MobileMenuItem> _primaryNavigationItems = [
       matchPrefix: AppRoutes.dashboard,
     ),
     section: MobileMenuSection.primary,
+    isVisible: canViewDashboard,
   ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.inventory,

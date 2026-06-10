@@ -221,6 +221,30 @@ class AppLocalizationsTe extends AppLocalizations {
   String get suppliersNoSuppliersFound => 'సరఫరాదారులు లేరు';
 
   @override
+  String get suppliersEmptyDescription =>
+      'Suppliers you add will appear here with contact details and payables.';
+
+  @override
+  String suppliersSummaryCount(int count) {
+    return '$count suppliers';
+  }
+
+  @override
+  String suppliersSummaryActive(int count) {
+    return '$count active';
+  }
+
+  @override
+  String suppliersSummaryPreferred(int count) {
+    return '$count preferred';
+  }
+
+  @override
+  String suppliersSummaryPayable(String amount) {
+    return '$amount payable';
+  }
+
+  @override
   String get suppliersUnableToLoad => 'Unable to load suppliers';
 
   @override
@@ -1080,6 +1104,170 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get shopsManageErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get dashboardSubtitle => 'Operational snapshot for your active shop.';
+
+  @override
+  String dashboardGreetingMorning(String shopName) {
+    return 'Good morning, $shopName';
+  }
+
+  @override
+  String dashboardGreetingAfternoon(String shopName) {
+    return 'Good afternoon, $shopName';
+  }
+
+  @override
+  String dashboardGreetingEvening(String shopName) {
+    return 'Good evening, $shopName';
+  }
+
+  @override
+  String get dashboardRangeLast7Days => 'Last 7 days';
+
+  @override
+  String get dashboardRangeLast30Days => 'Last 30 days';
+
+  @override
+  String get dashboardRangeCustom => 'Custom';
+
+  @override
+  String get dashboardRangeFrom => 'From';
+
+  @override
+  String get dashboardRangeTo => 'To';
+
+  @override
+  String get dashboardKpiSalesRevenue => 'Sales Revenue';
+
+  @override
+  String get dashboardKpiNetProfit => 'Net Profit';
+
+  @override
+  String get dashboardKpiInvoiceCount => 'Invoices';
+
+  @override
+  String get dashboardKpiLowStockItems => 'Low Stock Items';
+
+  @override
+  String get dashboardKpiStockValue => 'Stock Value';
+
+  @override
+  String get dashboardKpiCustomerCreditDue => 'Customer Credit Due';
+
+  @override
+  String get dashboardKpiSupplierPayables => 'Supplier Payables';
+
+  @override
+  String get dashboardKpiExpenses => 'Expenses';
+
+  @override
+  String get dashboardKpiVsPreviousPeriod => 'vs previous period';
+
+  @override
+  String get dashboardChartSalesTrend => 'Sales Trend';
+
+  @override
+  String get dashboardChartSalesTrendSubtitle =>
+      'Total sales amount per day for the selected period.';
+
+  @override
+  String get dashboardChartRevenueVsExpenses => 'Revenue vs Expenses';
+
+  @override
+  String get dashboardChartRevenueVsExpensesSubtitle => 'Daily cash movement.';
+
+  @override
+  String get dashboardChartRevenue => 'Revenue';
+
+  @override
+  String get dashboardChartExpenses => 'Expenses';
+
+  @override
+  String get dashboardNoChartData => 'No chart data for the selected period.';
+
+  @override
+  String get dashboardLatestSalesEyebrow => 'Recent Activity';
+
+  @override
+  String get dashboardLatestSalesTitle => 'Latest Sales';
+
+  @override
+  String get dashboardLatestSalesEmptyTitle => 'No recent sales';
+
+  @override
+  String get dashboardLatestSalesEmptyDescription =>
+      'The latest active-shop sales will appear here.';
+
+  @override
+  String get dashboardLatestSalesViewSales => 'View all sales';
+
+  @override
+  String get dashboardAlertsEyebrow => 'Alerts';
+
+  @override
+  String get dashboardAlertsTitle => 'Needs Attention';
+
+  @override
+  String get dashboardAlertsEmpty => 'Nothing needs attention right now.';
+
+  @override
+  String get dashboardAlertsView => 'View';
+
+  @override
+  String get dashboardQuickActionsTitle => 'Quick actions';
+
+  @override
+  String get dashboardQuickActionNewSale => 'New sale';
+
+  @override
+  String get dashboardQuickActionAddInventory => 'Add inventory';
+
+  @override
+  String get dashboardQuickActionExpenses => 'Expenses';
+
+  @override
+  String get dashboardQuickActionProfitLoss => 'Profit & Loss';
+
+  @override
+  String get dashboardUnableToLoad => 'Unable to load dashboard';
+
+  @override
+  String get dashboardRetry => 'Retry';
+
+  @override
+  String get dashboardNoData => 'No dashboard data available.';
+
+  @override
+  String get dashboardAccessRestrictedTitle =>
+      'Dashboard is for owners and managers';
+
+  @override
+  String get dashboardAccessRestrictedBody =>
+      'Your current shop role does not include dashboard access. Open Sales to continue working.';
+
+  @override
+  String get dashboardAccessRestrictedAction => 'Open Sales';
+
+  @override
+  String get dashboardErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get dashboardErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get dashboardErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get dashboardErrorForbidden =>
+      'You do not have permission to view the dashboard.';
+
+  @override
+  String get dashboardErrorGeneric =>
+      'Unable to load dashboard. Please try again.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -1297,6 +1485,64 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get suppliersNoSuppliersFound => 'సరఫరాదారులు లేరు';
+
+  @override
+  String get suppliersEmptyDescription =>
+      'Suppliers you add will appear here with contact details and payables.';
+
+  @override
+  String suppliersSummaryCount(int count) {
+    return '$count suppliers';
+  }
+
+  @override
+  String suppliersSummaryActive(int count) {
+    return '$count active';
+  }
+
+  @override
+  String suppliersSummaryPreferred(int count) {
+    return '$count preferred';
+  }
+
+  @override
+  String suppliersSummaryPayable(String amount) {
+    return '$amount payable';
+  }
+
+  @override
+  String get suppliersUnableToLoad => 'Unable to load suppliers';
+
+  @override
+  String get suppliersRetry => 'Retry';
+
+  @override
+  String get suppliersInactive => 'Inactive';
+
+  @override
+  String get suppliersPreferred => 'Preferred';
+
+  @override
+  String get suppliersBalanceDueLabel => 'Balance Due:';
+
+  @override
+  String get suppliersErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get suppliersErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get suppliersErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get suppliersErrorForbidden =>
+      'You do not have permission to view suppliers.';
+
+  @override
+  String get suppliersErrorGeneric =>
+      'Unable to load suppliers. Please try again.';
 
   @override
   String get inventoryTitle => 'ఇన్వెంటరీ';
@@ -1708,4 +1954,168 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get barcodeScannerUnavailable => 'Scanner unavailable';
+
+  @override
+  String get dashboardSubtitle => 'Operational snapshot for your active shop.';
+
+  @override
+  String dashboardGreetingMorning(String shopName) {
+    return 'Good morning, $shopName';
+  }
+
+  @override
+  String dashboardGreetingAfternoon(String shopName) {
+    return 'Good afternoon, $shopName';
+  }
+
+  @override
+  String dashboardGreetingEvening(String shopName) {
+    return 'Good evening, $shopName';
+  }
+
+  @override
+  String get dashboardRangeLast7Days => 'Last 7 days';
+
+  @override
+  String get dashboardRangeLast30Days => 'Last 30 days';
+
+  @override
+  String get dashboardRangeCustom => 'Custom';
+
+  @override
+  String get dashboardRangeFrom => 'From';
+
+  @override
+  String get dashboardRangeTo => 'To';
+
+  @override
+  String get dashboardKpiSalesRevenue => 'Sales Revenue';
+
+  @override
+  String get dashboardKpiNetProfit => 'Net Profit';
+
+  @override
+  String get dashboardKpiInvoiceCount => 'Invoices';
+
+  @override
+  String get dashboardKpiLowStockItems => 'Low Stock Items';
+
+  @override
+  String get dashboardKpiStockValue => 'Stock Value';
+
+  @override
+  String get dashboardKpiCustomerCreditDue => 'Customer Credit Due';
+
+  @override
+  String get dashboardKpiSupplierPayables => 'Supplier Payables';
+
+  @override
+  String get dashboardKpiExpenses => 'Expenses';
+
+  @override
+  String get dashboardKpiVsPreviousPeriod => 'vs previous period';
+
+  @override
+  String get dashboardChartSalesTrend => 'Sales Trend';
+
+  @override
+  String get dashboardChartSalesTrendSubtitle =>
+      'Total sales amount per day for the selected period.';
+
+  @override
+  String get dashboardChartRevenueVsExpenses => 'Revenue vs Expenses';
+
+  @override
+  String get dashboardChartRevenueVsExpensesSubtitle => 'Daily cash movement.';
+
+  @override
+  String get dashboardChartRevenue => 'Revenue';
+
+  @override
+  String get dashboardChartExpenses => 'Expenses';
+
+  @override
+  String get dashboardNoChartData => 'No chart data for the selected period.';
+
+  @override
+  String get dashboardLatestSalesEyebrow => 'Recent Activity';
+
+  @override
+  String get dashboardLatestSalesTitle => 'Latest Sales';
+
+  @override
+  String get dashboardLatestSalesEmptyTitle => 'No recent sales';
+
+  @override
+  String get dashboardLatestSalesEmptyDescription =>
+      'The latest active-shop sales will appear here.';
+
+  @override
+  String get dashboardLatestSalesViewSales => 'View all sales';
+
+  @override
+  String get dashboardAlertsEyebrow => 'Alerts';
+
+  @override
+  String get dashboardAlertsTitle => 'Needs Attention';
+
+  @override
+  String get dashboardAlertsEmpty => 'Nothing needs attention right now.';
+
+  @override
+  String get dashboardAlertsView => 'View';
+
+  @override
+  String get dashboardQuickActionsTitle => 'Quick actions';
+
+  @override
+  String get dashboardQuickActionNewSale => 'New sale';
+
+  @override
+  String get dashboardQuickActionAddInventory => 'Add inventory';
+
+  @override
+  String get dashboardQuickActionExpenses => 'Expenses';
+
+  @override
+  String get dashboardQuickActionProfitLoss => 'Profit & Loss';
+
+  @override
+  String get dashboardUnableToLoad => 'Unable to load dashboard';
+
+  @override
+  String get dashboardRetry => 'Retry';
+
+  @override
+  String get dashboardNoData => 'No dashboard data available.';
+
+  @override
+  String get dashboardAccessRestrictedTitle =>
+      'Dashboard is for owners and managers';
+
+  @override
+  String get dashboardAccessRestrictedBody =>
+      'Your current shop role does not include dashboard access. Open Sales to continue working.';
+
+  @override
+  String get dashboardAccessRestrictedAction => 'Open Sales';
+
+  @override
+  String get dashboardErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get dashboardErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get dashboardErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get dashboardErrorForbidden =>
+      'You do not have permission to view the dashboard.';
+
+  @override
+  String get dashboardErrorGeneric =>
+      'Unable to load dashboard. Please try again.';
 }
